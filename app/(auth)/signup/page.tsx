@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -10,7 +9,6 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 
 export default function SignupPage() {
-  const router = useRouter()
   const supabase = createClient()
 
   const [fullName, setFullName] = useState('')
@@ -26,10 +24,8 @@ export default function SignupPage() {
     setError(null)
     setLoading(true)
 
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email,
-      password,
-    })
+    // Step 1: Create the auth user
+    const { data: authData, error: authError } = await supabase.auth.signUp({ email, password })
 
     if (authError) {
       setError(authError.message)
@@ -44,22 +40,31 @@ export default function SignupPage() {
       return
     }
 
-    // Get session token to authenticate the API call
-    const { data: { session } } = await supabase.auth.getSession()
+    // Step 2: Sign in immediately to get a valid session token
+    // (signUp alone may not issue a session if email confirmation is enabled)
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password })
 
-    // Create company + profile via server-side API (bypasses RLS)
+    if (signInError || !signInData.session) {
+      setError('Account created but could not sign in automatically. Please sign in manually.')
+      setLoading(false)
+      return
+    }
+
+    const token = signInData.session.access_token
+
+    // Step 3: Create company + profile server-side using service role key
     const res = await fetch('/api/complete-signup', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session?.access_token ?? ''}`,
+        'Authorization': `Bearer ${token}`,
       },
       body: JSON.stringify({ companyName, companyType, fullName, email, userId }),
     })
 
     if (!res.ok) {
-      const { error: apiError } = await res.json()
-      setError(apiError ?? 'Failed to create account. Please try again.')
+      const body = await res.json()
+      setError(body.error ?? 'Failed to set up account. Please contact support.')
       setLoading(false)
       return
     }
@@ -76,9 +81,7 @@ export default function SignupPage() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
-          <Label htmlFor="fullName" className="text-slate-300">
-            Full Name
-          </Label>
+          <Label htmlFor="fullName" className="text-slate-300">Full Name</Label>
           <Input
             id="fullName"
             type="text"
@@ -91,9 +94,7 @@ export default function SignupPage() {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="companyName" className="text-slate-300">
-            Company Name
-          </Label>
+          <Label htmlFor="companyName" className="text-slate-300">Company Name</Label>
           <Input
             id="companyName"
             type="text"
@@ -106,9 +107,7 @@ export default function SignupPage() {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="companyType" className="text-slate-300">
-            Company Type
-          </Label>
+          <Label htmlFor="companyType" className="text-slate-300">Company Type</Label>
           <Select
             id="companyType"
             value={companyType}
@@ -121,9 +120,7 @@ export default function SignupPage() {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="email" className="text-slate-300">
-            Email address
-          </Label>
+          <Label htmlFor="email" className="text-slate-300">Email address</Label>
           <Input
             id="email"
             type="email"
@@ -137,9 +134,7 @@ export default function SignupPage() {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="password" className="text-slate-300">
-            Password
-          </Label>
+          <Label htmlFor="password" className="text-slate-300">Password</Label>
           <Input
             id="password"
             type="password"

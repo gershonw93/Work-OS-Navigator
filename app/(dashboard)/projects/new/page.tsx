@@ -28,45 +28,39 @@ export default function NewProjectPage() {
     setError(null)
     setLoading(true)
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const { data: { session } } = await supabase.auth.getSession()
 
-    if (!user) {
+    if (!session) {
       setError('You must be signed in.')
       setLoading(false)
       return
     }
 
-    // Fetch gc_company_id from profile
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('company_id')
-      .eq('id', user.id)
-      .single()
-
-    const { data, error: insertError } = await supabase
-      .from('projects')
-      .insert({
+    const res = await fetch('/api/projects', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
         name,
         address,
         client,
         type,
         start_date: startDate,
         end_date: endDate || null,
-        status: 'planning',
-        gc_company_id: profile?.company_id ?? user.id,
-      })
-      .select()
-      .single()
+      }),
+    })
 
-    if (insertError) {
-      setError(insertError.message)
+    if (!res.ok) {
+      const body = await res.json()
+      setError(body.error ?? 'Failed to create project.')
       setLoading(false)
       return
     }
 
-    router.push(`/projects/${data.id}/plans`)
+    const { project } = await res.json()
+    router.push(`/projects/${project.id}/plans`)
   }
 
   return (

@@ -1,0 +1,57 @@
+import { createClient } from '@supabase/supabase-js'
+import { NextResponse } from 'next/server'
+
+export async function POST(request: Request) {
+  const authHeader = request.headers.get('Authorization')
+  const token = authHeader?.replace('Bearer ', '')
+
+  if (!token) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const admin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  )
+
+  // Verify token and get user
+  const { data: { user }, error: userError } = await admin.auth.getUser(token)
+  if (userError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  // Get company_id from profile
+  const { data: profile, error: profileError } = await admin
+    .from('profiles')
+    .select('company_id')
+    .eq('id', user.id)
+    .single()
+
+  if (profileError || !profile) {
+    return NextResponse.json({ error: 'Profile not found. Please contact support.' }, { status: 400 })
+  }
+
+  const body = await request.json()
+  const { name, address, client, type, start_date, end_date } = body
+
+  const { data: project, error: insertError } = await admin
+    .from('projects')
+    .insert({
+      name,
+      address,
+      client,
+      type,
+      start_date,
+      end_date: end_date || null,
+      status: 'planning',
+      gc_company_id: profile.company_id,
+    })
+    .select()
+    .single()
+
+  if (insertError) {
+    return NextResponse.json({ error: insertError.message }, { status: 500 })
+  }
+
+  return NextResponse.json({ project })
+}
