@@ -200,10 +200,12 @@ export default function BidsPage({ params }: { params: { id: string } }) {
   }
 
   const bidsForPackage = (pkgId: string) => bids.filter(b => b.bid_package_id === pkgId)
-  const filteredCompanies = allCompanies.filter(c =>
-    c.name.toLowerCase().includes(companySearch.toLowerCase()) ||
-    (c.trade ?? '').toLowerCase().includes(companySearch.toLowerCase())
-  )
+  const filteredCompanies = allCompanies.filter(c => {
+    const matchesSearch = c.name.toLowerCase().includes(companySearch.toLowerCase()) ||
+      (c.trade ?? '').toLowerCase().includes(companySearch.toLowerCase())
+    const matchesTrade = trade === 'All Trades' || !c.trade || c.trade === trade
+    return matchesSearch && matchesTrade
+  })
 
   const invitationIcon = (status: string) => {
     if (status === 'accepted') return <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
