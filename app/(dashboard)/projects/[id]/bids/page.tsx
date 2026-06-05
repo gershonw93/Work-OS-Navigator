@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Package, Plus, X, ChevronDown, ChevronUp, Award, Paperclip, Users, CheckCircle2, Clock, XCircle } from 'lucide-react'
+import { Package, Plus, X, ChevronDown, ChevronUp, Award, Paperclip, Users, CheckCircle2, Clock, XCircle, Bell } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -81,6 +81,15 @@ export default function BidsPage({ params }: { params: { id: string } }) {
 
   const [awardingBid, setAwardingBid] = useState<string | null>(null)
 
+  // Invite to existing package
+  const [invitePkgId, setInvitePkgId] = useState<string | null>(null)
+  const [inviteSelected, setInviteSelected] = useState<string[]>([])
+  const [inviteSearch, setInviteSearch] = useState('')
+  const [inviteLoading, setInviteLoading] = useState(false)
+  const [inviteError, setInviteError] = useState<string | null>(null)
+
+  const [remindingCompany, setRemindingCompany] = useState<string | null>(null)
+
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
     return session?.access_token ?? ''
@@ -145,6 +154,39 @@ export default function BidsPage({ params }: { params: { id: string } }) {
     fetchData()
   }
 
+  async function inviteToPackage(e: React.FormEvent) {
+    e.preventDefault()
+    if (!invitePkgId) return
+    setInviteError(null)
+    setInviteLoading(true)
+    const token = await getToken()
+    const res = await fetch(`/api/projects/${params.id}/bids/${invitePkgId}/invite`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ company_ids: inviteSelected }),
+    })
+    if (!res.ok) {
+      const body = await res.json()
+      setInviteError(body.error)
+      setInviteLoading(false)
+      return
+    }
+    setInvitePkgId(null); setInviteSelected([]); setInviteSearch('')
+    setInviteLoading(false)
+    fetchData()
+  }
+
+  async function remindSub(packageId: string, companyId: string) {
+    setRemindingCompany(companyId)
+    const token = await getToken()
+    await fetch(`/api/projects/${params.id}/bids/${packageId}/remind`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ company_id: companyId }),
+    })
+    setRemindingCompany(null)
+  }
+
   async function awardBid(packageId: string, bidId: string) {
     setAwardingBid(bidId)
     const token = await getToken()
@@ -171,6 +213,62 @@ export default function BidsPage({ params }: { params: { id: string } }) {
 
   return (
     <div className="p-6 space-y-6">
+
+      {/* Invite to Existing Package Modal */}
+      {invitePkgId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[80vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-slate-900">Invite Subcontractors</h2>
+              <button onClick={() => { setInvitePkgId(null); setInviteSelected([]); setInviteSearch('') }} className="text-slate-400 hover:text-slate-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <form onSubmit={inviteToPackage}>
+              <div className="px-6 py-4 space-y-3">
+                <Input placeholder="Search companies..." value={inviteSearch} onChange={e => setInviteSearch(e.target.value)} autoFocus />
+                {(() => {
+                  const invitedIds = new Set(packages.find(p => p.id === invitePkgId)?.bid_invitations.map(i => i.company_id) ?? [])
+                  const available = allCompanies.filter(c =>
+                    !invitedIds.has(c.id) &&
+                    (c.name.toLowerCase().includes(inviteSearch.toLowerCase()) || (c.trade ?? '').toLowerCase().includes(inviteSearch.toLowerCase()))
+                  )
+                  return available.length === 0 ? (
+                    <p className="text-sm text-slate-400 text-center py-4">
+                      {allCompanies.length === 0 ? 'No companies in directory.' : 'All companies already invited or no matches.'}
+                    </p>
+                  ) : (
+                    <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+                      {available.map(company => (
+                        <button key={company.id} type="button"
+                          onClick={() => setInviteSelected(prev => prev.includes(company.id) ? prev.filter(c => c !== company.id) : [...prev, company.id])}
+                          className={cn('w-full flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors',
+                            inviteSelected.includes(company.id) ? 'border-orange-400 bg-orange-50' : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                          )}>
+                          <div className={cn('h-4 w-4 rounded border-2 flex items-center justify-center shrink-0', inviteSelected.includes(company.id) ? 'border-orange-500 bg-orange-500' : 'border-slate-300')}>
+                            {inviteSelected.includes(company.id) && <svg className="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-slate-800 truncate">{company.name}</p>
+                            {company.trade && <p className="text-xs text-slate-400">{company.trade}</p>}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )
+                })()}
+                {inviteError && <p className="text-sm text-red-600">{inviteError}</p>}
+              </div>
+              <div className="sticky bottom-0 bg-white border-t border-slate-100 px-6 py-4 flex gap-2 justify-end">
+                <Button type="button" variant="secondary" onClick={() => { setInvitePkgId(null); setInviteSelected([]) }}>Cancel</Button>
+                <Button type="submit" disabled={inviteLoading || inviteSelected.length === 0}>
+                  {inviteLoading ? 'Sending...' : `Invite${inviteSelected.length > 0 ? ` ${inviteSelected.length}` : ''}`}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* New Package Modal */}
       {showNewPkg && (
@@ -405,6 +503,16 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                       </div>
                     )}
 
+                    {/* Invite more button */}
+                    {pkg.status !== 'awarded' && (
+                      <div className="px-5 py-2.5 bg-slate-50 border-b border-slate-100 flex justify-end">
+                        <Button size="sm" variant="outline" onClick={() => { setInvitePkgId(pkg.id); setInviteSelected([]) }}>
+                          <Users className="h-3.5 w-3.5" />
+                          Invite More Subs
+                        </Button>
+                      </div>
+                    )}
+
                     {/* Tabs */}
                     <div className="flex border-b border-slate-100">
                       {(['invitations', 'bids'] as const).map(t => (
@@ -435,6 +543,7 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                                 <th className="text-left px-5 py-3 font-medium text-slate-600">Subcontractor</th>
                                 <th className="text-left px-5 py-3 font-medium text-slate-600">Status</th>
                                 <th className="text-left px-5 py-3 font-medium text-slate-600">Bid Submitted</th>
+                              <th className="px-5 py-3" />
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
@@ -454,6 +563,19 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                                         <span className="text-green-600 font-medium">${Number(hasBid.amount).toLocaleString()}</span>
                                       ) : (
                                         <span className="text-slate-400">—</span>
+                                      )}
+                                    </td>
+                                    <td className="px-5 py-3 text-right">
+                                      {!hasBid && pkg.status !== 'awarded' && (
+                                        <Button
+                                          size="sm" variant="ghost"
+                                          disabled={remindingCompany === inv.company_id}
+                                          onClick={() => remindSub(pkg.id, inv.company_id)}
+                                          title="Send reminder notification"
+                                        >
+                                          <Bell className="h-3.5 w-3.5" />
+                                          {remindingCompany === inv.company_id ? 'Sent' : 'Remind'}
+                                        </Button>
                                       )}
                                     </td>
                                   </tr>
