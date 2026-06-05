@@ -10,6 +10,7 @@ import {
   Settings,
   LogOut,
   HardHat,
+  ClipboardList,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -17,6 +18,7 @@ import { createClient } from '@/lib/supabase/client'
 const navItems = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Projects', href: '/projects', icon: FolderKanban },
+  { label: 'My Bids', href: '/my-bids', icon: ClipboardList },
   { label: 'Directory', href: '/directory', icon: Building2 },
   { label: 'Approvals', href: '/approvals', icon: CheckSquare },
   { label: 'Settings', href: '/settings', icon: Settings },

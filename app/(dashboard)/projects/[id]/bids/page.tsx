@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Package, Plus, X, ChevronDown, ChevronUp, Award, Paperclip, Users, CheckCircle2, Clock, XCircle, Bell } from 'lucide-react'
+import { Package, Plus, X, ChevronDown, ChevronUp, Award, Paperclip, Users, CheckCircle2, Clock, XCircle, Bell, FileText } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -50,6 +50,11 @@ interface Bid {
   notes: string | null
   status: string
   submitted_at: string | null
+  duration_days: number | null
+  crew_size: number | null
+  earliest_start_date: string | null
+  payment_terms: string | null
+  proposal_url: string | null
   bid_packages: { scope: string; project_id: string }
   companies: { name: string }
 }
@@ -598,28 +603,41 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                           <table className="w-full text-sm">
                             <thead className="bg-slate-50 border-b border-slate-100">
                               <tr>
-                                <th className="text-left px-5 py-3 font-medium text-slate-600">Subcontractor</th>
-                                <th className="text-left px-5 py-3 font-medium text-slate-600">Amount</th>
-                                <th className="text-left px-5 py-3 font-medium text-slate-600">Notes</th>
-                                <th className="text-left px-5 py-3 font-medium text-slate-600">Status</th>
-                                <th className="px-5 py-3" />
+                                <th className="text-left px-4 py-3 font-medium text-slate-600">Sub</th>
+                                <th className="text-left px-4 py-3 font-medium text-slate-600">Amount</th>
+                                <th className="text-left px-4 py-3 font-medium text-slate-600">Duration</th>
+                                <th className="text-left px-4 py-3 font-medium text-slate-600">Start</th>
+                                <th className="text-left px-4 py-3 font-medium text-slate-600">Crew</th>
+                                <th className="text-left px-4 py-3 font-medium text-slate-600">Proposal</th>
+                                <th className="text-left px-4 py-3 font-medium text-slate-600">Status</th>
+                                <th className="px-4 py-3" />
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
                               {pkgBids.map((bid, i) => (
                                 <tr key={bid.id} className={cn('hover:bg-slate-50', bid.status === 'awarded' && 'bg-green-50')}>
-                                  <td className="px-5 py-3 font-medium text-slate-800">
+                                  <td className="px-4 py-3 font-medium text-slate-800">
                                     {bid.companies?.name}
                                     {i === 0 && pkg.status !== 'awarded' && pkgBids.length > 1 && (
-                                      <span className="ml-2 text-xs text-green-600 font-normal">lowest</span>
+                                      <span className="ml-1.5 text-xs text-green-600 font-normal">low</span>
+                                    )}
+                                    {bid.notes && (
+                                      <p className="text-xs text-slate-400 mt-0.5 max-w-[160px] truncate" title={bid.notes}>{bid.notes}</p>
                                     )}
                                   </td>
-                                  <td className="px-5 py-3 font-semibold text-slate-900">${Number(bid.amount).toLocaleString()}</td>
-                                  <td className="px-5 py-3 text-slate-500 max-w-xs truncate">{bid.notes ?? '—'}</td>
-                                  <td className="px-5 py-3">
+                                  <td className="px-4 py-3 font-semibold text-slate-900">${Number(bid.amount).toLocaleString()}</td>
+                                  <td className="px-4 py-3 text-slate-600">{bid.duration_days ? `${bid.duration_days}d` : '—'}</td>
+                                  <td className="px-4 py-3 text-slate-600">{bid.earliest_start_date ? new Date(bid.earliest_start_date).toLocaleDateString() : '—'}</td>
+                                  <td className="px-4 py-3 text-slate-600">{bid.crew_size ?? '—'}</td>
+                                  <td className="px-4 py-3">
+                                    {bid.proposal_url
+                                      ? <a href={bid.proposal_url} target="_blank" rel="noopener noreferrer" className="text-xs text-orange-600 hover:underline flex items-center gap-1"><FileText className="h-3 w-3" />View</a>
+                                      : <span className="text-slate-400 text-xs">—</span>}
+                                  </td>
+                                  <td className="px-4 py-3">
                                     <Badge variant={getStatusVariant(bid.status)}>{bid.status}</Badge>
                                   </td>
-                                  <td className="px-5 py-3 text-right">
+                                  <td className="px-4 py-3 text-right">
                                     {pkg.status !== 'awarded' && bid.status !== 'rejected' && (
                                       <Button size="sm" disabled={awardingBid === bid.id} onClick={() => awardBid(pkg.id, bid.id)}>
                                         <Award className="h-3.5 w-3.5" />
