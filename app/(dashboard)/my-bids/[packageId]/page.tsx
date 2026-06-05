@@ -118,6 +118,8 @@ export default function BidDetailPage({ params }: { params: { packageId: string 
   const attachments = pkg.bid_package_attachments ?? []
   const isOpen = pkg.status === 'open'
   const isAwarded = myBid?.status === 'awarded'
+  const isRevisionRequested = myBid?.status === 'revision_requested'
+  const canSubmit = isOpen || isRevisionRequested
   const allComplianceTypes = ['coi', 'license', 'w9', 'workers_comp']
   const complianceMap = Object.fromEntries((compliance as ComplianceDoc[]).map(c => [c.type, c]))
 
@@ -133,6 +135,21 @@ export default function BidDetailPage({ params }: { params: { packageId: string 
         <div className="mb-5 rounded-xl bg-green-50 border border-green-200 px-5 py-4 flex items-center gap-3">
           <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
           <p className="text-sm font-medium text-green-800">Your bid has been submitted successfully.</p>
+        </div>
+      )}
+
+      {isRevisionRequested && (
+        <div className="mb-5 rounded-xl bg-amber-50 border border-amber-200 px-5 py-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-amber-800">Revision Requested</p>
+              {myBid?.revision_note && (
+                <p className="text-sm text-amber-700 mt-1 whitespace-pre-wrap">{myBid.revision_note}</p>
+              )}
+              <p className="text-xs text-amber-600 mt-2">Please update your bid below and resubmit.</p>
+            </div>
+          </div>
         </div>
       )}
 
@@ -211,10 +228,10 @@ export default function BidDetailPage({ params }: { params: { packageId: string 
           )}
 
           {/* Bid Form */}
-          {isOpen && (
+          {canSubmit && (
             <div className="bg-white rounded-xl border border-slate-200 p-5">
               <h2 className="text-sm font-semibold text-slate-700 mb-4">
-                {myBid ? 'Update Your Bid' : 'Submit Your Bid'}
+                {isRevisionRequested ? 'Revise & Resubmit' : myBid ? 'Update Your Bid' : 'Submit Your Bid'}
               </h2>
               <form onSubmit={handleSubmit} className="space-y-5">
 
@@ -313,7 +330,7 @@ export default function BidDetailPage({ params }: { params: { packageId: string 
           )}
 
           {/* Already submitted, package closed */}
-          {!isOpen && myBid && (
+          {!canSubmit && myBid && (
             <div className="bg-white rounded-xl border border-slate-200 p-5">
               <h2 className="text-sm font-semibold text-slate-700 mb-3">Your Submitted Bid</h2>
               <div className="grid grid-cols-2 gap-4 text-sm">

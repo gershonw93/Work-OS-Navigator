@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Package, Plus, X, ChevronDown, ChevronUp, Award, Paperclip, Users, CheckCircle2, Clock, XCircle, Bell, FileText } from 'lucide-react'
+import { Package, Plus, X, ChevronDown, ChevronUp, Award, Paperclip, Users, CheckCircle2, Clock, XCircle, Bell, FileText, RotateCcw } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -55,6 +55,7 @@ interface Bid {
   earliest_start_date: string | null
   payment_terms: string | null
   proposal_url: string | null
+  revision_note: string | null
   bid_packages: { scope: string; project_id: string }
   companies: { name: string }
 }
@@ -94,6 +95,12 @@ export default function BidsPage({ params }: { params: { id: string } }) {
   const [inviteError, setInviteError] = useState<string | null>(null)
 
   const [remindingCompany, setRemindingCompany] = useState<string | null>(null)
+
+  // Request revision
+  const [revisionBid, setRevisionBid] = useState<Bid | null>(null)
+  const [revisionNote, setRevisionNote] = useState('')
+  const [revisionLoading, setRevisionLoading] = useState(false)
+  const [revisionError, setRevisionError] = useState<string | null>(null)
 
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -192,6 +199,29 @@ export default function BidsPage({ params }: { params: { id: string } }) {
     setRemindingCompany(null)
   }
 
+  async function requestRevision(e: React.FormEvent) {
+    e.preventDefault()
+    if (!revisionBid) return
+    setRevisionError(null)
+    setRevisionLoading(true)
+    const token = await getToken()
+    const res = await fetch(`/api/projects/${params.id}/bids/${revisionBid.bid_package_id}/revise`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ bid_id: revisionBid.id, revision_note: revisionNote }),
+    })
+    if (!res.ok) {
+      const body = await res.json()
+      setRevisionError(body.error)
+      setRevisionLoading(false)
+      return
+    }
+    setRevisionBid(null)
+    setRevisionNote('')
+    setRevisionLoading(false)
+    fetchData()
+  }
+
   async function awardBid(packageId: string, bidId: string) {
     setAwardingBid(bidId)
     const token = await getToken()
@@ -220,6 +250,48 @@ export default function BidsPage({ params }: { params: { id: string } }) {
 
   return (
     <div className="p-6 space-y-6">
+
+      {/* Request Revision Modal */}
+      {revisionBid && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">Request Revision</h2>
+                <p className="text-sm text-slate-500 mt-0.5">{revisionBid.companies?.name}</p>
+              </div>
+              <button onClick={() => { setRevisionBid(null); setRevisionNote(''); setRevisionError(null) }} className="text-slate-400 hover:text-slate-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <form onSubmit={requestRevision}>
+              <div className="px-6 py-5 space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">Note to Subcontractor</label>
+                  <textarea
+                    rows={4}
+                    autoFocus
+                    placeholder="e.g. Please break out material and labor separately. Also confirm whether fire stopping is included."
+                    value={revisionNote}
+                    onChange={e => setRevisionNote(e.target.value)}
+                    required
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 resize-none"
+                  />
+                  <p className="text-xs text-slate-400">The sub will be notified and can resubmit their bid.</p>
+                </div>
+                {revisionError && <p className="text-sm text-red-600">{revisionError}</p>}
+              </div>
+              <div className="px-6 py-4 border-t border-slate-100 flex gap-2 justify-end">
+                <Button type="button" variant="secondary" onClick={() => { setRevisionBid(null); setRevisionNote('') }}>Cancel</Button>
+                <Button type="submit" variant="outline" disabled={revisionLoading || !revisionNote.trim()}>
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  {revisionLoading ? 'Sending...' : 'Request Revision'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Invite to Existing Package Modal */}
       {invitePkgId && (
@@ -638,14 +710,27 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                                     <Badge variant={getStatusVariant(bid.status)}>{bid.status}</Badge>
                                   </td>
                                   <td className="px-4 py-3 text-right">
-                                    {pkg.status !== 'awarded' && bid.status !== 'rejected' && (
-                                      <Button size="sm" disabled={awardingBid === bid.id} onClick={() => awardBid(pkg.id, bid.id)}>
-                                        <Award className="h-3.5 w-3.5" />
-                                        {awardingBid === bid.id ? 'Awarding...' : 'Award'}
-                                      </Button>
+                                    {pkg.status !== 'awarded' && bid.status !== 'rejected' && bid.status !== 'awarded' && (
+                                      <div className="flex items-center gap-1.5 justify-end">
+                                        <Button
+                                          size="sm" variant="ghost"
+                                          onClick={() => { setRevisionBid(bid); setRevisionNote('') }}
+                                          title="Request revision from sub"
+                                        >
+                                          <RotateCcw className="h-3.5 w-3.5" />
+                                          Revise
+                                        </Button>
+                                        <Button size="sm" disabled={awardingBid === bid.id} onClick={() => awardBid(pkg.id, bid.id)}>
+                                          <Award className="h-3.5 w-3.5" />
+                                          {awardingBid === bid.id ? 'Awarding...' : 'Award'}
+                                        </Button>
+                                      </div>
                                     )}
                                     {bid.status === 'awarded' && (
                                       <span className="text-xs font-medium text-green-600">Awarded ✓</span>
+                                    )}
+                                    {bid.status === 'revision_requested' && pkg.status !== 'awarded' && (
+                                      <span className="text-xs text-amber-600 font-medium">Revision Requested</span>
                                     )}
                                   </td>
                                 </tr>

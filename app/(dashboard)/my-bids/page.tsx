@@ -43,8 +43,8 @@ export default function MyBidsPage() {
     load()
   }, [])
 
-  const open = invitations.filter(i => i.bid_packages?.status === 'open' && !i.my_bid)
-  const submitted = invitations.filter(i => i.my_bid)
+  const open = invitations.filter(i => (i.bid_packages?.status === 'open' && !i.my_bid) || i.my_bid?.status === 'revision_requested')
+  const submitted = invitations.filter(i => i.my_bid && i.my_bid.status !== 'revision_requested')
   const closed = invitations.filter(i => i.bid_packages?.status !== 'open' && !i.my_bid)
 
   const statusIcon = (inv: Invitation) => {
@@ -58,6 +58,7 @@ export default function MyBidsPage() {
   const statusLabel = (inv: Invitation) => {
     if (inv.my_bid?.status === 'awarded') return { label: 'Awarded', color: 'success' as const }
     if (inv.my_bid?.status === 'rejected') return { label: 'Not Selected', color: 'danger' as const }
+    if (inv.my_bid?.status === 'revision_requested') return { label: 'Revision Requested', color: 'warning' as const }
     if (inv.my_bid) return { label: 'Bid Submitted', color: 'default' as const }
     if (inv.bid_packages?.status === 'open') return { label: 'Action Required', color: 'warning' as const }
     return { label: 'Closed', color: 'muted' as const }
