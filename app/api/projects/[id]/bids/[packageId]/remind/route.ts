@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { logActivity } from '@/lib/log-activity'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -20,20 +21,16 @@ export async function POST(
   const { company_id } = await request.json()
   if (!company_id) return NextResponse.json({ error: 'company_id required' }, { status: 400 })
 
-  const { data: pkg } = await db
-    .from('bid_packages')
-    .select('scope, due_date, projects(name)')
-    .eq('id', params.packageId)
-    .single()
+  const [{ data: pkg }, { data: gcProfile }, { data: company }] = await Promise.all([
+    db.from('bid_packages').select('scope, due_date, projects(name)').eq('id', params.packageId).single(),
+    db.from('profiles').select('full_name').eq('id', user.id).single(),
+    db.from('companies').select('name').eq('id', company_id).single(),
+  ])
 
-  // Find the sub's profile
-  const { data: profile } = await db
-    .from('profiles')
-    .select('id')
-    .eq('company_id', company_id)
-    .single()
+  const actorName = (gcProfile as any)?.full_name ?? 'Someone'
 
-  if (!profile) {
+  const profile = await db.from('profiles').select('id').eq('company_id', company_id).single()
+  if (!profile.data) {
     return NextResponse.json({ message: 'Sub has no account — reminder not sent in-app' })
   }
 
@@ -41,11 +38,16 @@ export async function POST(
   const duePart = pkg?.due_date ? ` Bid due ${new Date(pkg.due_date).toLocaleDateString()}.` : ''
 
   await db.from('notifications').insert({
-    user_id: profile.id,
+    user_id: profile.data.id,
     type: 'bid_reminder',
     message: `Reminder: You are invited to bid on ${pkg?.scope} for ${projectName}.${duePart}`,
     read: false,
   })
+
+  await logActivity(db, params.id, actorName, 'reminder_sent',
+    `Sent bid reminder to ${(company as any)?.name ?? 'a sub'} for "${pkg?.scope}"`,
+    { package_id: params.packageId, company_id }
+  )
 
   return NextResponse.json({ sent: true })
 }

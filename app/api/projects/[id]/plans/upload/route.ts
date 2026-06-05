@@ -1,3 +1,4 @@
+import { logActivity } from '@/lib/log-activity'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
@@ -69,6 +70,14 @@ export async function POST(request: Request, { params }: { params: { id: string 
     await admin.storage.from('plans').remove([storagePath])
     return NextResponse.json({ error: dbError.message }, { status: 500 })
   }
+
+  // Log activity
+  const { data: uploader } = await admin.from('profiles').select('full_name').eq('id', user.id).single()
+  const actorName = (uploader as any)?.full_name ?? 'Someone'
+  await logActivity(admin, params.id, actorName, 'plan_uploaded',
+    `Uploaded plan "${name}" (${planType})`,
+    { plan_id: plan?.id, name, plan_type: planType }
+  )
 
   return NextResponse.json({ plan })
 }

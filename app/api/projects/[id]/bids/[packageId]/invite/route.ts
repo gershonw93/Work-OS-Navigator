@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { logActivity } from '@/lib/log-activity'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -20,14 +21,13 @@ export async function POST(
   const { company_ids } = await request.json()
   if (!company_ids?.length) return NextResponse.json({ error: 'No companies provided' }, { status: 400 })
 
-  // Fetch package info for notification message
-  const { data: pkg } = await db
-    .from('bid_packages')
-    .select('scope, projects(name)')
-    .eq('id', params.packageId)
-    .single()
+  const [{ data: pkg }, { data: profile }] = await Promise.all([
+    db.from('bid_packages').select('scope, projects(name)').eq('id', params.packageId).single(),
+    db.from('profiles').select('full_name').eq('id', user.id).single(),
+  ])
 
-  // Get existing invitations to avoid duplicates
+  const actorName = (profile as any)?.full_name ?? 'Someone'
+
   const { data: existing } = await db
     .from('bid_invitations')
     .select('company_id')
@@ -40,7 +40,6 @@ export async function POST(
     return NextResponse.json({ message: 'All selected companies already invited' })
   }
 
-  // Create invitations
   await db.from('bid_invitations').insert(
     newCompanyIds.map((company_id: string) => ({
       bid_package_id: params.packageId,
@@ -49,12 +48,7 @@ export async function POST(
     }))
   )
 
-  // Create notifications for subs that have accounts
-  const { data: profiles } = await db
-    .from('profiles')
-    .select('id, company_id')
-    .in('company_id', newCompanyIds)
-
+  const { data: profiles } = await db.from('profiles').select('id, company_id').in('company_id', newCompanyIds)
   if (profiles?.length) {
     const projectName = (pkg?.projects as any)?.name ?? 'a project'
     await db.from('notifications').insert(
@@ -66,6 +60,14 @@ export async function POST(
       }))
     )
   }
+
+  // Fetch company names for the log
+  const { data: companies } = await db.from('companies').select('name').in('id', newCompanyIds)
+  const names = (companies ?? []).map(c => c.name).join(', ')
+  await logActivity(db, params.id, actorName, 'subs_invited',
+    `Invited ${newCompanyIds.length} sub${newCompanyIds.length > 1 ? 's' : ''} to bid on "${pkg?.scope}": ${names}`,
+    { package_id: params.packageId, scope: pkg?.scope, company_ids: newCompanyIds }
+  )
 
   return NextResponse.json({ invited: newCompanyIds.length })
 }

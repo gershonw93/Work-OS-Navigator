@@ -1,3 +1,4 @@
+import { logActivity } from '@/lib/log-activity'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
@@ -101,6 +102,20 @@ export async function POST(
       read: false,
     })
   }
+
+  // Fetch GC actor name
+  const { data: gcProfile } = await db.from('profiles').select('full_name').eq('id', user.id).single()
+  const actorName = (gcProfile as any)?.full_name ?? 'Someone'
+  const subName = (bid as any)?.companies?.name ?? '' 
+
+  // Fetch company name for the awarded bid
+  const { data: awardedCompany } = await db.from('companies').select('name').eq('id', bid.company_id).single()
+  const companyName = (awardedCompany as any)?.name ?? 'a sub'
+
+  await logActivity(db, params.id, actorName, 'bid_awarded',
+    `Awarded "${bid.bid_packages?.scope}" to ${companyName} for $${Number(bid.amount).toLocaleString()}`,
+    { bid_id: bid_id, package_id: params.packageId, company_id: bid.company_id, amount: bid.amount }
+  )
 
   return NextResponse.json({ subcontract, duration_days: bid.duration_days, payment_terms: bid.payment_terms })
 }

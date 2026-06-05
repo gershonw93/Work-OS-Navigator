@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { logActivity } from '@/lib/log-activity'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,7 +18,6 @@ export async function GET(request: Request, { params }: { params: { packageId: s
   const { data: profile } = await db.from('profiles').select('company_id').eq('id', user.id).single()
   if (!profile) return NextResponse.json({ error: 'Profile not found' }, { status: 400 })
 
-  // Fetch full package with project info and attachments
   const { data: pkg } = await db
     .from('bid_packages')
     .select(`
@@ -33,7 +33,6 @@ export async function GET(request: Request, { params }: { params: { packageId: s
 
   if (!pkg) return NextResponse.json({ error: 'Package not found' }, { status: 404 })
 
-  // Verify this company was invited
   const { data: invitation } = await db
     .from('bid_invitations')
     .select('id, status')
@@ -43,7 +42,6 @@ export async function GET(request: Request, { params }: { params: { packageId: s
 
   if (!invitation) return NextResponse.json({ error: 'Not invited to this package' }, { status: 403 })
 
-  // Get existing bid if any
   const { data: myBid } = await db
     .from('bids')
     .select('*')
@@ -51,7 +49,6 @@ export async function GET(request: Request, { params }: { params: { packageId: s
     .eq('company_id', profile.company_id)
     .single()
 
-  // Get compliance documents for this company
   const { data: compliance } = await db
     .from('compliance_documents')
     .select('type, status, expiry_date')
@@ -68,7 +65,11 @@ export async function POST(request: Request, { params }: { params: { packageId: 
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: profile } = await db.from('profiles').select('company_id').eq('id', user.id).single()
+  const { data: profile } = await db
+    .from('profiles')
+    .select('company_id, full_name, companies(name)')
+    .eq('id', user.id)
+    .single()
   if (!profile) return NextResponse.json({ error: 'Profile not found' }, { status: 400 })
 
   const formData = await request.formData()
@@ -82,10 +83,16 @@ export async function POST(request: Request, { params }: { params: { packageId: 
 
   if (!amount || isNaN(amount)) return NextResponse.json({ error: 'Bid amount is required' }, { status: 400 })
 
+  // Look up project_id via the package
+  const { data: pkg } = await db
+    .from('bid_packages')
+    .select('project_id, scope')
+    .eq('id', params.packageId)
+    .single()
+
   let proposal_url = null
   let proposal_storage_path = null
 
-  // Upload proposal file if provided
   if (file && file.size > 0) {
     const timestamp = Date.now()
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
@@ -105,13 +112,14 @@ export async function POST(request: Request, { params }: { params: { packageId: 
     }
   }
 
-  // Upsert bid (update if already submitted)
   const { data: existing } = await db
     .from('bids')
-    .select('id')
+    .select('id, status')
     .eq('bid_package_id', params.packageId)
     .eq('company_id', profile.company_id)
     .single()
+
+  const isRevision = existing?.status === 'revision_requested'
 
   const bidData = {
     bid_package_id: params.packageId,
@@ -122,9 +130,9 @@ export async function POST(request: Request, { params }: { params: { packageId: 
     crew_size,
     earliest_start_date: earliest_start_date || null,
     payment_terms: payment_terms || null,
-    proposal_url,
-    proposal_storage_path,
+    ...(proposal_url ? { proposal_url, proposal_storage_path } : {}),
     status: 'submitted',
+    revision_note: null,
     submitted_at: new Date().toISOString(),
   }
 
@@ -137,11 +145,21 @@ export async function POST(request: Request, { params }: { params: { packageId: 
     bid = data
   }
 
-  // Update invitation status to accepted
   await db.from('bid_invitations')
     .update({ status: 'accepted' })
     .eq('bid_package_id', params.packageId)
     .eq('company_id', profile.company_id)
+
+  // Log to project activity
+  if (pkg?.project_id) {
+    const companyName = (profile.companies as any)?.name ?? (profile as any)?.full_name ?? 'A sub'
+    const action = isRevision ? 'bid_revised' : existing ? 'bid_updated' : 'bid_submitted'
+    const verb = isRevision ? 'resubmitted revised' : existing ? 'updated' : 'submitted'
+    await logActivity(db, pkg.project_id, companyName, action,
+      `${companyName} ${verb} bid for "${pkg.scope}" — $${Number(amount).toLocaleString()}`,
+      { bid_id: bid?.id, package_id: params.packageId, amount, duration_days, crew_size }
+    )
+  }
 
   return NextResponse.json({ bid })
 }

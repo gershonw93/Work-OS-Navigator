@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { logActivity } from '@/lib/log-activity'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -47,7 +48,11 @@ export async function GET(request: Request, { params }: { params: { id: string }
 }
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
-  const user = await getUser(request)
+  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const db = admin()
+  const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { scope, description, due_date, trade, invited_company_ids, plan_ids } = await request.json()
@@ -56,9 +61,9 @@ export async function POST(request: Request, { params }: { params: { id: string 
     return NextResponse.json({ error: 'Scope and description are required' }, { status: 400 })
   }
 
-  const db = admin()
+  const { data: profile } = await db.from('profiles').select('full_name, companies(name)').eq('id', user.id).single()
+  const actorName = (profile as any)?.full_name ?? 'Someone'
 
-  // Create the package
   const { data: pkg, error } = await db
     .from('bid_packages')
     .insert({ project_id: params.id, scope, description, due_date: due_date || null, trade: trade || null, status: 'open' })
@@ -67,7 +72,6 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Create invitations
   if (invited_company_ids?.length > 0) {
     await db.from('bid_invitations').insert(
       invited_company_ids.map((company_id: string) => ({
@@ -76,9 +80,22 @@ export async function POST(request: Request, { params }: { params: { id: string 
         status: 'invited',
       }))
     )
+
+    // Notify subs with accounts
+    const { data: profiles } = await db.from('profiles').select('id, company_id').in('company_id', invited_company_ids)
+    if (profiles?.length) {
+      const { data: project } = await db.from('projects').select('name').eq('id', params.id).single()
+      await db.from('notifications').insert(
+        profiles.map(p => ({
+          user_id: p.id,
+          type: 'new_bid',
+          message: `You have been invited to bid on ${scope} for ${(project as any)?.name ?? 'a project'}.`,
+          read: false,
+        }))
+      )
+    }
   }
 
-  // Attach plans
   if (plan_ids?.length > 0) {
     await db.from('bid_package_attachments').insert(
       plan_ids.map((plan_id: string) => ({
@@ -87,6 +104,12 @@ export async function POST(request: Request, { params }: { params: { id: string 
       }))
     )
   }
+
+  const inviteCount = invited_company_ids?.length ?? 0
+  await logActivity(db, params.id, actorName, 'package_created',
+    `Created bid package "${scope}"${inviteCount > 0 ? ` and invited ${inviteCount} subcontractor${inviteCount > 1 ? 's' : ''}` : ''}`,
+    { package_id: pkg.id, scope, trade: trade || null, invited_count: inviteCount }
+  )
 
   return NextResponse.json({ package: pkg })
 }
