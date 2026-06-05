@@ -26,20 +26,44 @@ export default function SignupPage() {
     setError(null)
     setLoading(true)
 
-    const { error: authError } = await supabase.auth.signUp({
+    const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        data: {
-          full_name: fullName,
-          company_name: companyName,
-          company_type: companyType,
-        },
-      },
     })
 
     if (authError) {
       setError(authError.message)
+      setLoading(false)
+      return
+    }
+
+    const userId = authData.user?.id
+    if (!userId) {
+      setError('Signup failed. Please try again.')
+      setLoading(false)
+      return
+    }
+
+    // Create company
+    const { data: company, error: companyError } = await supabase
+      .from('companies')
+      .insert({ name: companyName, type: companyType, contact_email: email })
+      .select()
+      .single()
+
+    if (companyError) {
+      setError(companyError.message)
+      setLoading(false)
+      return
+    }
+
+    // Create profile
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .insert({ id: userId, company_id: company.id, email, full_name: fullName, role: 'admin' })
+
+    if (profileError) {
+      setError(profileError.message)
       setLoading(false)
       return
     }
