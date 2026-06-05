@@ -1,15 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
-import { createClient as createServerClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
 export async function POST(request: Request) {
-  const { companyName, companyType, fullName, email } = await request.json()
+  const authHeader = request.headers.get('Authorization')
+  const token = authHeader?.replace('Bearer ', '')
 
-  // Verify the requesting user is authenticated
-  const supabase = createServerClient()
-  const { data: { user }, error: userError } = await supabase.auth.getUser()
-
-  if (userError || !user) {
+  if (!token) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -19,11 +15,22 @@ export async function POST(request: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
   )
 
+  // Verify the token and get the user
+  const { data: { user }, error: userError } = await admin.auth.getUser(token)
+
+  if (userError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const { companyName, companyType, fullName, email, userId } = await request.json()
+
+  const targetId = userId ?? user.id
+
   // Check if profile already exists
   const { data: existing } = await admin
     .from('profiles')
     .select('id')
-    .eq('id', user.id)
+    .eq('id', targetId)
     .single()
 
   if (existing) {
@@ -44,7 +51,7 @@ export async function POST(request: Request) {
   // Create profile
   const { error: profileError } = await admin
     .from('profiles')
-    .insert({ id: user.id, company_id: company.id, email, full_name: fullName, role: 'admin' })
+    .insert({ id: targetId, company_id: company.id, email, full_name: fullName, role: 'admin' })
 
   if (profileError) {
     return NextResponse.json({ error: profileError.message }, { status: 500 })

@@ -44,11 +44,17 @@ export default function SignupPage() {
       return
     }
 
+    // Get session token to authenticate the API call
+    const { data: { session } } = await supabase.auth.getSession()
+
     // Create company + profile via server-side API (bypasses RLS)
     const res = await fetch('/api/complete-signup', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ companyName, companyType, fullName, email }),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session?.access_token ?? ''}`,
+      },
+      body: JSON.stringify({ companyName, companyType, fullName, email, userId }),
     })
 
     if (!res.ok) {
