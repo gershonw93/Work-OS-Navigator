@@ -21,28 +21,47 @@ export async function POST(
   const { bid_id, revision_note } = await request.json()
   if (!bid_id) return NextResponse.json({ error: 'bid_id is required' }, { status: 400 })
 
-  const [{ data: bid }, { data: gcProfile }] = await Promise.all([
-    db.from('bids').select('*, bid_packages(scope), companies(name)').eq('id', bid_id).eq('bid_package_id', params.packageId).single(),
+  // Fetch bid separately from related data to avoid join issues
+  const { data: bid, error: bidError } = await db
+    .from('bids')
+    .select('id, company_id, bid_package_id, amount')
+    .eq('id', bid_id)
+    .eq('bid_package_id', params.packageId)
+    .single()
+
+  if (bidError || !bid) {
+    return NextResponse.json({ error: 'Bid not found', detail: bidError?.message }, { status: 404 })
+  }
+
+  const { error: updateError } = await db
+    .from('bids')
+    .update({ status: 'revision_requested', revision_note })
+    .eq('id', bid_id)
+
+  if (updateError) {
+    return NextResponse.json({ error: updateError.message }, { status: 500 })
+  }
+
+  // Fetch supporting data for notification + activity log
+  const [{ data: pkg }, { data: gcProfile }, { data: company }, { data: subProfile }] = await Promise.all([
+    db.from('bid_packages').select('scope').eq('id', params.packageId).single(),
     db.from('profiles').select('full_name').eq('id', user.id).single(),
+    db.from('companies').select('name').eq('id', bid.company_id).single(),
+    db.from('profiles').select('id').eq('company_id', bid.company_id).single(),
   ])
 
-  if (!bid) return NextResponse.json({ error: 'Bid not found' }, { status: 404 })
-
-  const actorName = (gcProfile as any)?.full_name ?? 'Someone'
-  const subName = (bid.companies as any)?.name ?? 'a sub'
-  const scope = (bid.bid_packages as any)?.scope ?? 'unknown'
-
-  await db.from('bids').update({ status: 'revision_requested', revision_note }).eq('id', bid_id)
-
-  const { data: subProfile } = await db.from('profiles').select('id').eq('company_id', bid.company_id).single()
   if (subProfile) {
     await db.from('notifications').insert({
       user_id: subProfile.id,
       type: 'bid_revision',
-      message: `A revision has been requested for your ${scope} bid. Please review and resubmit.`,
+      message: `A revision has been requested for your ${pkg?.scope ?? ''} bid. Please review and resubmit.`,
       read: false,
     })
   }
+
+  const actorName = (gcProfile as any)?.full_name ?? 'Someone'
+  const subName = (company as any)?.name ?? 'a sub'
+  const scope = pkg?.scope ?? 'unknown'
 
   await logActivity(db, params.id, actorName, 'revision_requested',
     `Requested revision from ${subName} on "${scope}" bid`,
