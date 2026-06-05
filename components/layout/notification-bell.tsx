@@ -65,12 +65,13 @@ export function NotificationBell() {
 
   // Close on outside click
   useEffect(() => {
+    if (!open) return
     function handler(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
     }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
+    document.addEventListener('click', handler)
+    return () => document.removeEventListener('click', handler)
+  }, [open])
 
   const typeLabel = (type: string) => {
     if (type === 'new_bid') return 'New Bid Invitation'

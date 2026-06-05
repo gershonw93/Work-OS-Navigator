@@ -37,15 +37,31 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true })
   }
 
-  // Create company
-  const { data: company, error: companyError } = await admin
+  // Check if a company already exists with this email (manually added to directory)
+  // If so, link to that company instead of creating a duplicate
+  const { data: existingCompany } = await admin
     .from('companies')
-    .insert({ name: companyName, type: companyType, contact_email: email })
-    .select()
+    .select('id')
+    .eq('contact_email', email)
     .single()
 
-  if (companyError) {
-    return NextResponse.json({ error: companyError.message }, { status: 500 })
+  let company = existingCompany
+
+  if (!company) {
+    const { data: newCompany, error: companyError } = await admin
+      .from('companies')
+      .insert({ name: companyName, type: companyType, contact_email: email })
+      .select()
+      .single()
+
+    if (companyError) {
+      return NextResponse.json({ error: companyError.message }, { status: 500 })
+    }
+    company = newCompany
+  }
+
+  if (!company) {
+    return NextResponse.json({ error: 'Failed to create or find company' }, { status: 500 })
   }
 
   // Create profile
