@@ -17,13 +17,27 @@ export async function GET(request: Request) {
   const user = await getUser(request)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data } = await admin()
+  const db = admin()
+
+  const { data: companies } = await db
     .from('companies')
     .select('*')
     .eq('type', 'subcontractor')
     .order('name')
 
-  return NextResponse.json({ companies: data ?? [] })
+  // Check which companies have at least one profile (i.e. a real account)
+  const { data: profiles } = await db
+    .from('profiles')
+    .select('company_id')
+
+  const companiesWithAccount = new Set((profiles ?? []).map(p => p.company_id))
+
+  const result = (companies ?? []).map(c => ({
+    ...c,
+    has_account: companiesWithAccount.has(c.id),
+  }))
+
+  return NextResponse.json({ companies: result })
 }
 
 export async function POST(request: Request) {

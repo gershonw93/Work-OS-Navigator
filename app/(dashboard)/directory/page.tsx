@@ -26,6 +26,7 @@ interface Company {
   address: string | null
   insurance_status: string
   license_number: string | null
+  has_account: boolean
 }
 
 export default function DirectoryPage() {
@@ -209,7 +210,15 @@ export default function DirectoryPage() {
             <tbody className="divide-y divide-slate-100">
               {filtered.map(company => (
                 <tr key={company.id} className="hover:bg-slate-50">
-                  <td className="px-5 py-3 font-medium text-slate-900">{company.name}</td>
+                  <td className="px-5 py-3">
+                    <div className="flex items-center gap-2.5">
+                      <span
+                        title={company.has_account ? 'Has WorkOS account' : 'No account yet'}
+                        className={`h-2 w-2 rounded-full shrink-0 ${company.has_account ? 'bg-green-500' : 'bg-slate-300'}`}
+                      />
+                      <span className="font-medium text-slate-900">{company.name}</span>
+                    </div>
+                  </td>
                   <td className="px-5 py-3 text-slate-500">{company.trade ?? '—'}</td>
                   <td className="px-5 py-3">
                     <a href={`mailto:${company.contact_email}`} className="text-orange-600 hover:underline">
