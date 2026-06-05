@@ -44,26 +44,16 @@ export default function SignupPage() {
       return
     }
 
-    // Create company
-    const { data: company, error: companyError } = await supabase
-      .from('companies')
-      .insert({ name: companyName, type: companyType, contact_email: email })
-      .select()
-      .single()
+    // Create company + profile via server-side API (bypasses RLS)
+    const res = await fetch('/api/complete-signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ companyName, companyType, fullName, email }),
+    })
 
-    if (companyError) {
-      setError(companyError.message)
-      setLoading(false)
-      return
-    }
-
-    // Create profile
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .insert({ id: userId, company_id: company.id, email, full_name: fullName, role: 'admin' })
-
-    if (profileError) {
-      setError(profileError.message)
+    if (!res.ok) {
+      const { error: apiError } = await res.json()
+      setError(apiError ?? 'Failed to create account. Please try again.')
       setLoading(false)
       return
     }
