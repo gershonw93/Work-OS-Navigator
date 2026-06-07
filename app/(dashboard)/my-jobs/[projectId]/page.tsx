@@ -101,8 +101,8 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
   if (loading) return <div className="p-6 text-sm text-slate-400 py-12 text-center">Loading...</div>
   if (!data || data.error) return <div className="p-6 text-sm text-red-500">Error: {data?.error ?? 'Job not found or access denied.'}</div>
 
-  const { project, subcontract, tasks, rfis, inspections, invoices, recentLogs } = data
-  const paymentItems = subcontract?.payment_schedule_items ?? []
+  const { project, subcontracts, tasks, rfis, inspections, invoices, recentLogs } = data
+  const totalContractValue = (subcontracts ?? []).reduce((sum: number, s: any) => sum + Number(s.contract_amount ?? 0), 0)
   const openTasks = tasks.filter((t: any) => t.status !== 'completed')
   const openRfis = rfis.filter((r: any) => r.status === 'open')
   const pendingInspections = inspections.filter((i: any) => i.status !== 'passed' && i.status !== 'failed')
@@ -134,11 +134,11 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
               <span className="capitalize">{project.type?.replace('_', ' ')}</span>
             </div>
           </div>
-          {subcontract && (
+          {subcontracts?.length > 0 && (
             <div className="text-right shrink-0">
-              <p className="text-xs text-slate-400 mb-0.5">Contract Value</p>
-              <p className="text-2xl font-bold text-slate-900">${Number(subcontract.contract_amount).toLocaleString()}</p>
-              <p className="text-xs text-slate-500">{subcontract.trade}</p>
+              <p className="text-xs text-slate-400 mb-0.5">Total Contract Value</p>
+              <p className="text-2xl font-bold text-slate-900">${totalContractValue.toLocaleString()}</p>
+              <p className="text-xs text-slate-500">{subcontracts.map((s: any) => s.trade).join(' · ')}</p>
             </div>
           )}
         </div>
@@ -179,42 +179,45 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
       {/* Overview tab */}
       {activeTab === 'overview' && (
         <div className="space-y-4">
-          {/* Payment schedule */}
-          {paymentItems.length > 0 && (
-            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-              <div className="px-5 py-3.5 border-b border-slate-100">
-                <h2 className="text-sm font-semibold text-slate-700">Payment Schedule</h2>
+          {/* Payment schedules — one card per subcontract */}
+          {(subcontracts ?? []).map((sub: any) => (
+            <div key={sub.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+              <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-slate-700">Payment Schedule — {sub.trade}</h2>
+                <span className="text-sm font-bold text-slate-900">${Number(sub.contract_amount).toLocaleString()}</span>
               </div>
-              <div className="divide-y divide-slate-50">
-                {paymentItems.map((item: any) => (
-                  <div key={item.id} className="flex items-center gap-3 px-5 py-3">
-                    <div className="shrink-0">
-                      {item.status === 'paid'
-                        ? <CheckCircle2 className="h-4 w-4 text-green-500" />
-                        : <Clock className="h-4 w-4 text-slate-300" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-800">{item.label}</p>
-                      {item.percentage && <p className="text-xs text-slate-400">{item.percentage}% of contract</p>}
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-sm font-semibold text-slate-900">
-                        {item.amount ? `$${Number(item.amount).toLocaleString()}` : item.percentage ? `${item.percentage}%` : '—'}
-                      </p>
-                      <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5',
-                        STATUS_COLORS[item.status] ?? STATUS_COLORS.pending)}>
-                        {item.status}
-                      </span>
-                    </div>
+              {sub.payment_schedule_items?.length > 0 ? (
+                <>
+                  <div className="divide-y divide-slate-50">
+                    {sub.payment_schedule_items.map((item: any) => (
+                      <div key={item.id} className="flex items-center gap-3 px-5 py-3">
+                        <div className="shrink-0">
+                          {item.status === 'paid'
+                            ? <CheckCircle2 className="h-4 w-4 text-green-500" />
+                            : <Clock className="h-4 w-4 text-slate-300" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-800">{item.label}</p>
+                          {item.percentage && <p className="text-xs text-slate-400">{item.percentage}% of contract</p>}
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-semibold text-slate-900">
+                            {item.amount ? `$${Number(item.amount).toLocaleString()}` : item.percentage ? `${item.percentage}%` : '—'}
+                          </p>
+                          <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5',
+                            STATUS_COLORS[item.status] ?? STATUS_COLORS.pending)}>
+                            {item.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-              <div className="px-5 py-3 border-t border-slate-100 bg-slate-50 flex justify-between text-sm">
-                <span className="font-semibold text-slate-700">Total Contract</span>
-                <span className="font-bold text-slate-900">${Number(subcontract.contract_amount).toLocaleString()}</span>
-              </div>
+                </>
+              ) : (
+                <p className="px-5 py-4 text-sm text-slate-400">No payment schedule set.</p>
+              )}
             </div>
-          )}
+          ))}
 
           {/* Recent logs */}
           {recentLogs.length > 0 && (

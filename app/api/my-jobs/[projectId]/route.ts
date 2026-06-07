@@ -19,16 +19,17 @@ export async function GET(request: Request, { params }: { params: { projectId: s
 
   const companyId = profile.company_id
 
-  // Fetch project and subcontract first to verify access
-  const [{ data: project, error: projectError }, { data: subcontract }] = await Promise.all([
+  const [{ data: project, error: projectError }, { data: subcontracts }] = await Promise.all([
     db.from('projects').select('id, name, address, type, status, start_date').eq('id', params.projectId).single(),
-    db.from('subcontracts').select('*').eq('project_id', params.projectId).eq('company_id', companyId).limit(1).then(r => ({ data: r.data?.[0] ?? null, error: r.error })),
+    db.from('subcontracts').select('*').eq('project_id', params.projectId).eq('company_id', companyId).order('created_at', { ascending: true }),
   ])
 
   if (!project) return NextResponse.json({ error: `Project not found (${projectError?.message ?? 'no row'})` }, { status: 404 })
 
+  const hasSubcontract = subcontracts && subcontracts.length > 0
+
   // Verify access: either has a subcontract, or owns the project
-  if (!subcontract) {
+  if (!hasSubcontract) {
     const { data: ownership } = await db.from('projects').select('created_by_company_id').eq('id', params.projectId).eq('created_by_company_id', companyId).maybeSingle()
     if (!ownership) return NextResponse.json({ error: 'Access denied' }, { status: 403 })
   }
@@ -41,16 +42,17 @@ export async function GET(request: Request, { params }: { params: { projectId: s
     db.from('daily_logs').select('id, log_date, created_by_name, has_issues, weather_condition, created_at').eq('project_id', params.projectId).order('log_date', { ascending: false }).limit(5),
   ])
 
-  // Fetch payment schedule separately to avoid join failures
-  let paymentScheduleItems: any[] = []
-  if (subcontract) {
-    const { data: psi } = await db.from('payment_schedule_items').select('*').eq('subcontract_id', subcontract.id).order('due_date', { ascending: true })
-    paymentScheduleItems = psi ?? []
-  }
+  // Fetch payment schedule items for all subcontracts
+  const subcontractsWithSchedule = await Promise.all(
+    (subcontracts ?? []).map(async (sub) => {
+      const { data: psi } = await db.from('payment_schedule_items').select('*').eq('subcontract_id', sub.id).order('order_index', { ascending: true })
+      return { ...sub, payment_schedule_items: psi ?? [] }
+    })
+  )
 
   return NextResponse.json({
     project,
-    subcontract: subcontract ? { ...subcontract, payment_schedule_items: paymentScheduleItems } : null,
+    subcontracts: subcontractsWithSchedule,
     tasks: tasks ?? [],
     rfis: rfis ?? [],
     inspections: inspections ?? [],
