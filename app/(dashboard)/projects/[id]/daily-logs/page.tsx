@@ -73,6 +73,10 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
   const [createTaskFromLog, setCreateTaskFromLog] = useState<DailyLog | null>(null)
   const [taskTitle, setTaskTitle] = useState('')
   const [taskPriority, setTaskPriority] = useState('high')
+  const [taskDueDate, setTaskDueDate] = useState('')
+  const [taskDescription, setTaskDescription] = useState('')
+  const [taskAssigneeType, setTaskAssigneeType] = useState<'member' | 'sub' | ''>('')
+  const [taskAssigneeId, setTaskAssigneeId] = useState('')
   const [creatingTask, setCreatingTask] = useState(false)
 
   async function getToken() {
@@ -188,18 +192,37 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
     if (!createTaskFromLog) return
     setCreatingTask(true)
     const token = await getToken()
+
+    let assigned_to_member_id = null
+    let assigned_to_company_id = null
+    let assigned_to_name = null
+    if (taskAssigneeType === 'member' && taskAssigneeId) {
+      const m = teamMembers.find(m => m.id === taskAssigneeId)
+      assigned_to_member_id = taskAssigneeId
+      assigned_to_name = m?.name ?? null
+    } else if (taskAssigneeType === 'sub' && taskAssigneeId) {
+      const s = subcontracts.find(s => s.id === taskAssigneeId)
+      assigned_to_company_id = s?.company_id ?? null
+      assigned_to_name = (s?.companies as any)?.name ?? s?.trade ?? null
+    }
+
     await fetch(`/api/projects/${params.id}/tasks`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({
         title: taskTitle,
-        description: `From daily log ${new Date(createTaskFromLog.log_date).toLocaleDateString()}: ${createTaskFromLog.issue_description ?? ''}`,
+        description: taskDescription || `From daily log ${new Date(createTaskFromLog.log_date).toLocaleDateString()}: ${createTaskFromLog.issue_description ?? ''}`,
         priority: taskPriority,
         status: 'open',
+        due_date: taskDueDate || null,
+        assigned_to_member_id,
+        assigned_to_company_id,
+        assigned_to_name,
       }),
     })
     setCreateTaskFromLog(null)
-    setTaskTitle('')
+    setTaskTitle(''); setTaskDescription(''); setTaskDueDate('')
+    setTaskAssigneeType(''); setTaskAssigneeId('')
     setCreatingTask(false)
   }
 
@@ -237,16 +260,54 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                   <Input autoFocus value={taskTitle} onChange={e => setTaskTitle(e.target.value)} placeholder="e.g. Fix water intrusion on north wall" required />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Priority</Label>
-                  <div className="flex gap-2">
-                    {['low', 'medium', 'high', 'urgent'].map(p => (
-                      <button key={p} type="button" onClick={() => setTaskPriority(p)}
-                        className={cn('flex-1 rounded-lg border px-2 py-1.5 text-xs font-medium capitalize transition-colors',
-                          taskPriority === p ? 'border-orange-400 bg-orange-50 text-orange-700' : 'border-slate-200 text-slate-600 hover:border-slate-300')}>
-                        {p}
+                  <Label>Description <span className="text-slate-400 font-normal">(optional)</span></Label>
+                  <textarea rows={2} value={taskDescription} onChange={e => setTaskDescription(e.target.value)}
+                    placeholder="Additional context..."
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none resize-none" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label>Priority</Label>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {['low', 'medium', 'high', 'urgent'].map(p => (
+                        <button key={p} type="button" onClick={() => setTaskPriority(p)}
+                          className={cn('rounded-lg border px-2 py-1.5 text-xs font-medium capitalize transition-colors',
+                            taskPriority === p ? 'border-orange-400 bg-orange-50 text-orange-700' : 'border-slate-200 text-slate-600 hover:border-slate-300')}>
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Due Date <span className="text-slate-400 font-normal">(optional)</span></Label>
+                    <Input type="date" value={taskDueDate} onChange={e => setTaskDueDate(e.target.value)} />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Assign To <span className="text-slate-400 font-normal">(optional)</span></Label>
+                  <div className="flex gap-2 mb-2">
+                    {(['', 'member', 'sub'] as const).map(t => (
+                      <button key={t} type="button" onClick={() => { setTaskAssigneeType(t); setTaskAssigneeId('') }}
+                        className={cn('flex-1 rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors',
+                          taskAssigneeType === t ? 'border-orange-400 bg-orange-50 text-orange-700' : 'border-slate-200 text-slate-600 hover:border-slate-300')}>
+                        {t === '' ? 'Unassigned' : t === 'member' ? 'GC Crew' : 'Subcontractor'}
                       </button>
                     ))}
                   </div>
+                  {taskAssigneeType === 'member' && teamMembers.length > 0 && (
+                    <select value={taskAssigneeId} onChange={e => setTaskAssigneeId(e.target.value)}
+                      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white focus:border-orange-500 focus:outline-none">
+                      <option value="">Select crew member...</option>
+                      {teamMembers.map(m => <option key={m.id} value={m.id}>{m.name} — {m.role}</option>)}
+                    </select>
+                  )}
+                  {taskAssigneeType === 'sub' && subcontracts.length > 0 && (
+                    <select value={taskAssigneeId} onChange={e => setTaskAssigneeId(e.target.value)}
+                      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white focus:border-orange-500 focus:outline-none">
+                      <option value="">Select subcontractor...</option>
+                      {subcontracts.map(s => <option key={s.id} value={s.id}>{(s.companies as any)?.name ?? s.trade} — {s.trade}</option>)}
+                    </select>
+                  )}
                 </div>
               </div>
               <div className="px-6 py-4 border-t border-slate-100 flex gap-2 justify-end">
