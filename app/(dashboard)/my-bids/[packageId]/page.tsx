@@ -348,7 +348,12 @@ export default function BidDetailPage({ params }: { params: { packageId: string 
 
             {error && <p className="text-sm text-red-600">{error}</p>}
 
-            <Button type="submit" className="w-full" disabled={submitting}>
+            {myBid && myBid.status === 'submitted' && !isRevisionRequested && (
+              <p className="text-xs text-center text-slate-400">Your bid has been submitted. The GC will notify you if changes are needed.</p>
+            )}
+
+            <Button type="submit" className="w-full"
+              disabled={submitting || (myBid?.status === 'submitted' && !isRevisionRequested)}>
               {submitting ? 'Submitting...' : myBid ? 'Update Bid' : 'Submit Bid'}
             </Button>
           </form>
