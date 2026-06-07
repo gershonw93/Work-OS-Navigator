@@ -27,11 +27,14 @@ export async function GET(request: Request, { params }: { params: { projectId: s
 
   if (!project) return NextResponse.json({ error: `Project not found (${projectError?.message ?? 'no row'})` }, { status: 404 })
 
+  // Debug: check what subcontracts exist for this project
+  const { data: allSubs } = await db.from('subcontracts').select('id, project_id, company_id').eq('project_id', params.projectId)
+
   // Verify access: either has a subcontract, or owns the project
   if (!subcontract) {
     // Check created_by_company_id via a separate query so missing column doesn't crash the main select
     const { data: ownership } = await db.from('projects').select('created_by_company_id').eq('id', params.projectId).eq('created_by_company_id', companyId).maybeSingle()
-    if (!ownership) return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+    if (!ownership) return NextResponse.json({ error: 'Access denied', debug: { companyId, projectId: params.projectId, subsForProject: allSubs } }, { status: 403 })
   }
 
   const [{ data: tasks }, { data: rfis }, { data: inspections }, { data: invoices }, { data: dailyLogs }] = await Promise.all([
