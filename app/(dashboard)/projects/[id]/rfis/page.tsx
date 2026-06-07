@@ -76,101 +76,42 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
   const answered = rfis.filter(r => r.status !== 'open')
 
   function RfiCard({ rfi }: { rfi: RFI }) {
-    const isExpanded = expandedRfi === rfi.id
     const coStatus = rfi.change_order_status ?? 'pending'
     const coConfig = CO_STATUS_CONFIG[coStatus] ?? CO_STATUS_CONFIG.pending
 
     return (
-      <div className={cn('rounded-xl border bg-white overflow-hidden', rfi.status === 'open' ? 'border-orange-200' : 'border-slate-200')}>
-        <button className="w-full flex items-center gap-4 px-5 py-4 hover:bg-slate-50 transition-colors text-left"
-          onClick={() => setExpandedRfi(isExpanded ? null : rfi.id)}>
-          <div className="shrink-0">
-            {rfi.status === 'open' ? <Clock className="h-5 w-5 text-orange-400" /> : <CheckCircle2 className="h-5 w-5 text-green-500" />}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-mono text-slate-400">RFI-{String(rfi.rfi_number).padStart(3, '0')}</span>
-              <span className="font-semibold text-slate-900">{rfi.subject}</span>
-              {rfi.is_change_order && (
-                <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5 flex items-center gap-1', coConfig.color)}>
-                  <DollarSign className="h-3 w-3" />
-                  CO{rfi.change_order_amount ? ` · $${Number(rfi.change_order_amount).toLocaleString()}` : ''} · {coConfig.label}
-                </span>
-              )}
-              <span className={cn('text-xs font-medium rounded-full px-2 py-0.5 border',
-                rfi.status === 'open' ? 'bg-orange-50 border-orange-200 text-orange-700' :
-                rfi.status === 'closed' ? 'bg-slate-50 border-slate-200 text-slate-500' :
-                'bg-green-50 border-green-200 text-green-700')}>
-                {rfi.status}
-              </span>
-            </div>
-            <p className="text-xs text-slate-400 mt-0.5">From {rfi.company_name ?? rfi.submitted_by_name} · {new Date(rfi.created_at).toLocaleDateString()}</p>
-          </div>
-          {isExpanded ? <ChevronUp className="h-4 w-4 text-slate-400 shrink-0" /> : <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" />}
-        </button>
-
-        {isExpanded && (
-          <div className="border-t border-slate-100 px-5 py-5 space-y-4">
-            <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Question</p>
-              <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{rfi.description}</p>
-            </div>
-
-            {rfi.is_change_order && (
-              <div className="rounded-lg bg-purple-50 border border-purple-200 px-4 py-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-semibold text-purple-600 uppercase tracking-wide">Change Order Request</p>
-                  <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5', coConfig.color)}>{coConfig.label}</span>
-                </div>
-                {rfi.change_order_description && <p className="text-sm text-purple-800">{rfi.change_order_description}</p>}
-                {rfi.change_order_items && rfi.change_order_items.length > 0 && (
-                  <div className="space-y-1">
-                    <div className="grid grid-cols-[1fr_auto] gap-2 text-xs font-semibold text-purple-600 border-b border-purple-200 pb-1">
-                      <span>Item</span><span>Amount</span>
-                    </div>
-                    {rfi.change_order_items.map((item: any, i: number) => (
-                      <div key={i} className="grid grid-cols-[1fr_auto] gap-2 text-xs text-purple-800">
-                        <span>{item.description} <span className="text-purple-400">×{item.qty}</span></span>
-                        <span className="font-medium">${(item.qty * item.unit_price).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-                      </div>
-                    ))}
-                    <div className="flex justify-between text-sm font-bold text-purple-900 pt-1 border-t border-purple-200">
-                      <span>Total</span><span>${Number(rfi.change_order_amount).toLocaleString()}</span>
-                    </div>
-                  </div>
-                )}
-                {!rfi.change_order_items && rfi.change_order_amount && (
-                  <p className="text-base font-bold text-purple-900">${Number(rfi.change_order_amount).toLocaleString()}</p>
-                )}
-              </div>
-            )}
-
-            {(rfi.attachments?.length ?? 0) > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {(rfi.attachments ?? []).map((att: any, i: number) => (
-                  <a key={i} href={att.url} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 text-xs text-orange-600 hover:underline bg-orange-50 border border-orange-200 rounded px-2 py-1">
-                    <Paperclip className="h-3 w-3" />{att.name}
-                  </a>
-                ))}
-              </div>
-            )}
-            {rfi.response && (
-              <div className="rounded-lg bg-green-50 border border-green-200 px-4 py-3">
-                <p className="text-xs font-semibold text-green-500 uppercase tracking-wide mb-1">Response</p>
-                <p className="text-sm text-green-800 whitespace-pre-wrap">{rfi.response}</p>
-                <p className="text-xs text-green-500 mt-1.5">— {rfi.responded_by_name}, {rfi.responded_at ? new Date(rfi.responded_at).toLocaleDateString() : ''}</p>
-              </div>
-            )}
-
-            {rfi.status === 'open' && (
-              <Button size="sm" onClick={() => openRespond(rfi)}>
-                <MessageSquare className="h-3.5 w-3.5" /> Respond
-              </Button>
-            )}
+      <button onClick={() => openRespond(rfi)}
+        className={cn('rounded-xl border bg-white p-4 text-left hover:shadow-md transition-all hover:-translate-y-0.5 w-full',
+          rfi.status === 'open' ? 'border-orange-200' : 'border-slate-200')}>
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <span className="text-xs font-mono text-slate-400">RFI-{String(rfi.rfi_number).padStart(3, '0')}</span>
+          <span className={cn('text-xs font-medium rounded-full border px-1.5 py-0.5 shrink-0',
+            rfi.status === 'open' ? 'bg-orange-50 border-orange-200 text-orange-700' :
+            rfi.status === 'closed' ? 'bg-slate-50 border-slate-200 text-slate-500' :
+            'bg-green-50 border-green-200 text-green-700')}>
+            {rfi.status}
+          </span>
+        </div>
+        <p className="text-sm font-semibold text-slate-900 line-clamp-2 leading-snug">{rfi.subject}</p>
+        <p className="text-xs text-slate-400 mt-1 truncate">{rfi.company_name ?? rfi.submitted_by_name}</p>
+        <div className="mt-2 flex flex-wrap gap-1">
+          {rfi.is_change_order && (
+            <span className={cn('text-xs rounded-full border px-1.5 py-0.5 flex items-center gap-0.5', coConfig.color)}>
+              <DollarSign className="h-2.5 w-2.5" />
+              {rfi.change_order_amount ? `$${Number(rfi.change_order_amount).toLocaleString()}` : 'CO'} · {coConfig.label}
+            </span>
+          )}
+          {(rfi.attachments?.length ?? 0) > 0 && (
+            <span className="text-xs text-slate-400 flex items-center gap-0.5"><Paperclip className="h-3 w-3" />{rfi.attachments?.length}</span>
+          )}
+        </div>
+        <p className="text-xs text-slate-400 mt-2">{new Date(rfi.created_at).toLocaleDateString()}</p>
+        {rfi.status === 'open' && (
+          <div className="mt-3 pt-2 border-t border-slate-100">
+            <span className="text-xs font-medium text-orange-600">Click to respond →</span>
           </div>
         )}
-      </div>
+      </button>
     )
   }
 
@@ -274,17 +215,21 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
           <p className="text-xs text-slate-400 mt-1">Subcontractors can submit questions from their job page.</p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-5">
           {open.length > 0 && (
             <div className="space-y-2">
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Awaiting Response ({open.length})</p>
-              {open.map(r => <RfiCard key={r.id} rfi={r} />)}
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {open.map(r => <RfiCard key={r.id} rfi={r} />)}
+              </div>
             </div>
           )}
           {answered.length > 0 && (
             <div className="space-y-2">
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Answered ({answered.length})</p>
-              {answered.map(r => <RfiCard key={r.id} rfi={r} />)}
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {answered.map(r => <RfiCard key={r.id} rfi={r} />)}
+              </div>
             </div>
           )}
         </div>

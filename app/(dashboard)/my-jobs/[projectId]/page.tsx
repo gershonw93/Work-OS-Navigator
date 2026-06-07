@@ -46,6 +46,9 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [rfiError, setRfiError] = useState('')
+  const [selectedRfi, setSelectedRfi] = useState<any>(null)
+  const [selectedInspection, setSelectedInspection] = useState<any>(null)
+  const [selectedInvoice, setSelectedInvoice] = useState<any>(null)
 
   // Task form
   const [showTaskForm, setShowTaskForm] = useState(false)
@@ -537,160 +540,233 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
             </form>
           )}
 
+          {/* RFI detail modal */}
+          {selectedRfi && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+              <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white">
+                  <div>
+                    <p className="text-xs font-mono text-slate-400">RFI-{String(selectedRfi.rfi_number).padStart(3, '0')}</p>
+                    <h3 className="font-semibold text-slate-900">{selectedRfi.subject}</h3>
+                  </div>
+                  <button onClick={() => setSelectedRfi(null)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
+                </div>
+                <div className="px-6 py-5 space-y-4">
+                  <p className="text-sm text-slate-700 whitespace-pre-wrap">{selectedRfi.description}</p>
+                  {selectedRfi.is_change_order && (
+                    <div className="rounded-lg bg-purple-50 border border-purple-200 px-4 py-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-semibold text-purple-600 uppercase tracking-wide">Change Order</p>
+                        <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5',
+                          selectedRfi.change_order_status === 'approved' ? 'bg-green-50 border-green-200 text-green-700' :
+                          selectedRfi.change_order_status === 'denied' ? 'bg-red-50 border-red-200 text-red-600' :
+                          selectedRfi.change_order_status === 'revision_requested' ? 'bg-amber-50 border-amber-200 text-amber-700' :
+                          'bg-purple-50 border-purple-200 text-purple-700')}>
+                          {CO_STATUS_LABELS[selectedRfi.change_order_status ?? 'pending']}
+                        </span>
+                      </div>
+                      {selectedRfi.change_order_description && <p className="text-sm text-purple-800">{selectedRfi.change_order_description}</p>}
+                      {(selectedRfi.change_order_items ?? []).map((item: any, i: number) => (
+                        <div key={i} className="flex justify-between text-xs text-purple-800">
+                          <span>{item.description} <span className="text-purple-400">×{item.qty}</span></span>
+                          <span className="font-medium">${(item.qty * item.unit_price).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                      ))}
+                      {selectedRfi.change_order_amount && (
+                        <div className="flex justify-between text-sm font-bold text-purple-900 pt-1 border-t border-purple-200">
+                          <span>Total</span><span>${Number(selectedRfi.change_order_amount).toLocaleString()}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {(selectedRfi.attachments ?? []).length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedRfi.attachments.map((att: any, i: number) => (
+                        <a key={i} href={att.url} target="_blank" rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 text-xs text-orange-600 hover:underline bg-orange-50 border border-orange-200 rounded px-2 py-1">
+                          <Paperclip className="h-3 w-3" />{att.name}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                  {selectedRfi.response ? (
+                    <div className="rounded-lg bg-green-50 border border-green-200 px-4 py-3">
+                      <p className="text-xs font-semibold text-green-600 mb-1">GC Response</p>
+                      <p className="text-sm text-green-800 whitespace-pre-wrap">{selectedRfi.response}</p>
+                      <p className="text-xs text-green-400 mt-1.5">— {selectedRfi.responded_by_name}</p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-400 italic">Awaiting GC response...</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {rfis.length === 0 ? (
             <div className="rounded-xl border-2 border-dashed border-slate-200 py-12 text-center">
               <p className="text-sm text-slate-400">No RFIs submitted yet.</p>
             </div>
-          ) : rfis.map((rfi: any) => (
-            <div key={rfi.id} className={cn('bg-white rounded-xl border overflow-hidden',
-              rfi.status === 'open' ? 'border-orange-200' : 'border-slate-200')}>
-              <div className="px-5 py-4">
-                <div className="flex items-start gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-mono text-slate-400">RFI-{String(rfi.rfi_number).padStart(3, '0')}</span>
-                      <span className="font-semibold text-slate-900">{rfi.subject}</span>
-                      {rfi.is_change_order && (
-                        <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5 flex items-center gap-1',
-                          rfi.change_order_status === 'approved' ? 'bg-green-50 border-green-200 text-green-700' :
-                          rfi.change_order_status === 'denied' ? 'bg-red-50 border-red-200 text-red-600' :
-                          rfi.change_order_status === 'revision_requested' ? 'bg-amber-50 border-amber-200 text-amber-700' :
-                          'bg-purple-50 border-purple-200 text-purple-700')}>
-                          <DollarSign className="h-3 w-3" />
-                          Change Order{rfi.change_order_amount ? ` · $${Number(rfi.change_order_amount).toLocaleString()}` : ''} · {CO_STATUS_LABELS[rfi.change_order_status ?? 'pending']}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-slate-600 mt-1">{rfi.description}</p>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {rfis.map((rfi: any) => (
+                <button key={rfi.id} onClick={() => setSelectedRfi(rfi)}
+                  className={cn('bg-white rounded-xl border p-4 text-left hover:shadow-md transition-all hover:-translate-y-0.5',
+                    rfi.status === 'open' ? 'border-orange-200' : 'border-slate-200',
+                    rfi.response ? 'ring-1 ring-green-200' : '')}>
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <span className="text-xs font-mono text-slate-400">RFI-{String(rfi.rfi_number).padStart(3, '0')}</span>
+                    <span className={cn('text-xs font-medium rounded-full border px-1.5 py-0.5 shrink-0',
+                      rfi.status === 'open' ? 'bg-orange-50 border-orange-200 text-orange-700' : 'bg-slate-50 border-slate-200 text-slate-500')}>
+                      {rfi.status}
+                    </span>
                   </div>
-                  <span className={cn('shrink-0 text-xs font-medium rounded-full border px-2 py-0.5',
-                    rfi.status === 'open' ? 'bg-orange-50 border-orange-200 text-orange-700' : 'bg-green-50 border-green-200 text-green-700')}>
-                    {rfi.status}
-                  </span>
-                </div>
-
-                {/* Change order line items */}
-                {rfi.is_change_order && rfi.change_order_items?.length > 0 && (
-                  <div className="mt-3 rounded-lg bg-purple-50 border border-purple-200 px-3 py-2.5">
-                    <p className="text-xs font-semibold text-purple-600 mb-2">Change Order Breakdown</p>
-                    {rfi.change_order_description && <p className="text-xs text-purple-700 mb-2">{rfi.change_order_description}</p>}
-                    <div className="space-y-1">
-                      {rfi.change_order_items.map((item: any, i: number) => (
-                        <div key={i} className="flex items-center justify-between text-xs text-purple-800">
-                          <span>{item.description}</span>
-                          <span className="font-medium">{item.qty} × ${Number(item.unit_price).toLocaleString()} = ${(item.qty * item.unit_price).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-2 pt-1.5 border-t border-purple-300 flex justify-end">
-                      <span className="text-sm font-bold text-purple-900">${Number(rfi.change_order_amount).toLocaleString()}</span>
-                    </div>
+                  <p className="text-sm font-semibold text-slate-900 line-clamp-2 leading-snug">{rfi.subject}</p>
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {rfi.is_change_order && (
+                      <span className={cn('text-xs rounded-full border px-1.5 py-0.5 flex items-center gap-0.5',
+                        rfi.change_order_status === 'approved' ? 'bg-green-50 border-green-200 text-green-700' :
+                        rfi.change_order_status === 'denied' ? 'bg-red-50 border-red-200 text-red-600' :
+                        'bg-purple-50 border-purple-200 text-purple-700')}>
+                        <DollarSign className="h-2.5 w-2.5" />{rfi.change_order_amount ? `$${Number(rfi.change_order_amount).toLocaleString()}` : 'CO'}
+                      </span>
+                    )}
+                    {rfi.response && <span className="text-xs text-green-600 font-medium">Responded ✓</span>}
+                    {rfi.attachments?.length > 0 && <span className="text-xs text-slate-400 flex items-center gap-0.5"><Paperclip className="h-3 w-3" />{rfi.attachments.length}</span>}
                   </div>
-                )}
-
-                {rfi.attachments?.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {rfi.attachments.map((att: any, i: number) => (
-                      <a key={i} href={att.url} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 text-xs text-orange-600 hover:underline bg-orange-50 border border-orange-200 rounded px-2 py-1">
-                        <Paperclip className="h-3 w-3" />{att.name}
-                      </a>
-                    ))}
-                  </div>
-                )}
-                {rfi.response && (
-                  <div className="mt-3 rounded-lg bg-green-50 border border-green-100 px-3 py-2.5">
-                    <p className="text-xs font-semibold text-green-500 mb-1">GC Response</p>
-                    <p className="text-sm text-green-800">{rfi.response}</p>
-                    <p className="text-xs text-green-400 mt-1">— {rfi.responded_by_name}</p>
-                  </div>
-                )}
-              </div>
+                  <p className="text-xs text-slate-400 mt-2">{new Date(rfi.created_at).toLocaleDateString()}</p>
+                </button>
+              ))}
             </div>
-          ))}
+          )}
         </div>
       )}
 
       {/* Inspections tab */}
       {activeTab === 'inspections' && (
-        <div className="space-y-2">
+        <>
+          {selectedInspection && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+              <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                  <h3 className="font-semibold text-slate-900">{selectedInspection.inspection_type}</h3>
+                  <button onClick={() => setSelectedInspection(null)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
+                </div>
+                <div className="px-6 py-5 space-y-3">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {selectedInspection.trade && <span className="text-xs bg-slate-100 text-slate-600 rounded-full px-2 py-0.5">{selectedInspection.trade}</span>}
+                    <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5', STATUS_COLORS[selectedInspection.status] ?? STATUS_COLORS.not_scheduled)}>
+                      {selectedInspection.status.replace(/_/g, ' ')}
+                    </span>
+                    {selectedInspection.ready_marked_by && <span className="text-xs text-green-600 font-medium">Ready ✓</span>}
+                  </div>
+                  {selectedInspection.scheduled_date && (
+                    <p className="text-sm text-slate-700">Scheduled: <strong>{new Date(selectedInspection.scheduled_date).toLocaleDateString()}</strong></p>
+                  )}
+                  {selectedInspection.scheduling_phone && (
+                    <a href={`tel:${selectedInspection.scheduling_phone}`} className="flex items-center gap-2 text-sm text-orange-600 hover:underline font-medium">
+                      <Phone className="h-4 w-4" />Call to schedule: {selectedInspection.scheduling_phone}
+                    </a>
+                  )}
+                  {selectedInspection.inspector_name && (
+                    <p className="text-sm text-slate-600">Inspector: {selectedInspection.inspector_name}
+                      {selectedInspection.inspector_phone && <> · <a href={`tel:${selectedInspection.inspector_phone}`} className="text-orange-500 hover:underline">{selectedInspection.inspector_phone}</a></>}
+                    </p>
+                  )}
+                  {selectedInspection.notes && <p className="text-sm text-slate-600">{selectedInspection.notes}</p>}
+                  {selectedInspection.status === 'scheduled' && !selectedInspection.ready_marked_by && (
+                    <Button className="w-full mt-2" onClick={() => { markInspectionReady(selectedInspection.id); setSelectedInspection(null) }}>
+                      <CheckCircle2 className="h-4 w-4" /> Mark Ready for Inspection
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
           {inspections.length === 0 ? (
             <div className="rounded-xl border-2 border-dashed border-slate-200 py-12 text-center">
               <p className="text-sm text-slate-400">No inspections listed yet.</p>
             </div>
-          ) : inspections.map((insp: any) => (
-            <div key={insp.id} className="bg-white rounded-xl border border-slate-200 px-5 py-4">
-              <div className="flex items-start gap-3">
-                <div className="shrink-0 mt-0.5">
-                  {insp.status === 'passed' ? <CheckCircle2 className="h-5 w-5 text-green-500" /> :
-                   insp.status === 'failed' ? <XCircle className="h-5 w-5 text-red-400" /> :
-                   insp.status === 'scheduled' ? <Calendar className="h-5 w-5 text-blue-400" /> :
-                   <Clock className="h-5 w-5 text-slate-300" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-slate-800">{insp.inspection_type}</span>
-                    {insp.trade && <span className="text-xs bg-slate-100 text-slate-600 rounded-full px-2 py-0.5">{insp.trade}</span>}
-                    <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5', STATUS_COLORS[insp.status] ?? STATUS_COLORS.not_scheduled)}>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {inspections.map((insp: any) => (
+                <button key={insp.id} onClick={() => setSelectedInspection(insp)}
+                  className="bg-white rounded-xl border border-slate-200 p-4 text-left hover:shadow-md transition-all hover:-translate-y-0.5">
+                  <div className="flex items-center justify-between mb-2">
+                    {insp.status === 'passed' ? <CheckCircle2 className="h-5 w-5 text-green-500" /> :
+                     insp.status === 'failed' ? <XCircle className="h-5 w-5 text-red-400" /> :
+                     insp.status === 'scheduled' ? <Calendar className="h-5 w-5 text-blue-400" /> :
+                     <Clock className="h-5 w-5 text-slate-300" />}
+                    <span className={cn('text-xs font-medium rounded-full border px-1.5 py-0.5', STATUS_COLORS[insp.status] ?? STATUS_COLORS.not_scheduled)}>
                       {insp.status.replace(/_/g, ' ')}
                     </span>
-                    {insp.ready_marked_by && <span className="text-xs text-green-600 font-medium">Ready ✓</span>}
                   </div>
-                  {insp.scheduled_date && <p className="text-xs text-slate-400 mt-0.5">Scheduled: {new Date(insp.scheduled_date).toLocaleDateString()}</p>}
-                  {insp.scheduling_phone && (
-                    <a href={`tel:${insp.scheduling_phone}`} className="flex items-center gap-1 text-xs text-orange-600 hover:underline mt-1 font-medium">
-                      <Phone className="h-3 w-3" />Call to schedule: {insp.scheduling_phone}
-                    </a>
-                  )}
-                  {insp.inspector_name && (
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      Inspector: {insp.inspector_name}
-                      {insp.inspector_phone && <> · <a href={`tel:${insp.inspector_phone}`} className="text-orange-500 hover:underline">{insp.inspector_phone}</a></>}
-                    </p>
-                  )}
-                </div>
-                {insp.status === 'scheduled' && !insp.ready_marked_by && (
-                  <Button size="sm" variant="outline" onClick={() => markInspectionReady(insp.id)} className="shrink-0">
-                    <CheckCircle2 className="h-3.5 w-3.5" /> Mark Ready
-                  </Button>
-                )}
-              </div>
+                  <p className="text-sm font-semibold text-slate-900 leading-snug">{insp.inspection_type}</p>
+                  {insp.trade && <p className="text-xs text-slate-400 mt-1">{insp.trade}</p>}
+                  {insp.scheduled_date && <p className="text-xs text-blue-500 mt-1">{new Date(insp.scheduled_date).toLocaleDateString()}</p>}
+                  {insp.scheduling_phone && <p className="text-xs text-orange-500 mt-1 flex items-center gap-1"><Phone className="h-3 w-3" />{insp.scheduling_phone}</p>}
+                  {insp.ready_marked_by && <p className="text-xs text-green-600 font-medium mt-1">Ready ✓</p>}
+                </button>
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
 
       {/* Invoices tab */}
       {activeTab === 'invoices' && (
-        <div className="space-y-2">
+        <>
+          {selectedInvoice && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+              <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-mono text-slate-400">{selectedInvoice.invoice_number}</p>
+                    <h3 className="font-semibold text-slate-900">${Number(selectedInvoice.amount).toLocaleString()}</h3>
+                  </div>
+                  <button onClick={() => setSelectedInvoice(null)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
+                </div>
+                <div className="px-6 py-5 space-y-3">
+                  <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5', STATUS_COLORS[selectedInvoice.status] ?? STATUS_COLORS.pending_approval)}>
+                    {selectedInvoice.status.replace(/_/g, ' ')}
+                  </span>
+                  {selectedInvoice.description && <p className="text-sm text-slate-700">{selectedInvoice.description}</p>}
+                  {selectedInvoice.due_date && <p className="text-sm text-slate-500">Due: {new Date(selectedInvoice.due_date).toLocaleDateString()}</p>}
+                  {(selectedInvoice.status === 'approved' || selectedInvoice.status === 'sent') && (
+                    <Link href={`/projects/${project.id}/invoices/${selectedInvoice.id}/print`}
+                      className="flex items-center justify-center gap-2 w-full mt-2 py-2 text-sm font-medium text-orange-600 border border-orange-200 rounded-lg hover:bg-orange-50 transition-colors">
+                      View / Print Invoice
+                    </Link>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
           {invoices.length === 0 ? (
             <div className="rounded-xl border-2 border-dashed border-slate-200 py-12 text-center">
               <p className="text-sm text-slate-400">No invoices yet.</p>
             </div>
-          ) : invoices.map((inv: any) => (
-            <div key={inv.id} className="bg-white rounded-xl border border-slate-200 px-5 py-4">
-              <div className="flex items-center gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {invoices.map((inv: any) => (
+                <button key={inv.id} onClick={() => setSelectedInvoice(inv)}
+                  className="bg-white rounded-xl border border-slate-200 p-4 text-left hover:shadow-md transition-all hover:-translate-y-0.5">
+                  <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-mono text-slate-400">{inv.invoice_number}</span>
-                    <span className="font-semibold text-slate-900">${Number(inv.amount).toLocaleString()}</span>
-                    <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5', STATUS_COLORS[inv.status] ?? STATUS_COLORS.pending_approval)}>
+                    <span className={cn('text-xs font-medium rounded-full border px-1.5 py-0.5', STATUS_COLORS[inv.status] ?? STATUS_COLORS.pending_approval)}>
                       {inv.status.replace(/_/g, ' ')}
                     </span>
                   </div>
-                  {inv.description && <p className="text-xs text-slate-400 mt-0.5">{inv.description}</p>}
-                </div>
-                {(inv.status === 'approved' || inv.status === 'sent') && (
-                  <Link href={`/projects/${project.id}/invoices/${inv.id}/print`}
-                    className="text-xs text-orange-500 hover:underline font-medium shrink-0">
-                    View Invoice
-                  </Link>
-                )}
-              </div>
+                  <p className="text-2xl font-bold text-slate-900">${Number(inv.amount).toLocaleString()}</p>
+                  {inv.description && <p className="text-xs text-slate-400 mt-1 line-clamp-2">{inv.description}</p>}
+                  {inv.due_date && <p className="text-xs text-slate-400 mt-2">{new Date(inv.due_date).toLocaleDateString()}</p>}
+                </button>
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
+      {/* placeholder to close old invoices tab */}
     </div>
   )
 }
