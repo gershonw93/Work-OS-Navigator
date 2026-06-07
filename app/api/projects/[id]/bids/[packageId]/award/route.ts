@@ -87,30 +87,6 @@ export async function POST(
     })
   }
 
-  // Auto-create tasks from scope breakdown if sub provided one
-  if (bid.scope_categories && Array.isArray(bid.scope_categories) && bid.scope_categories.length > 0) {
-    const taskRows: object[] = []
-    for (const cat of bid.scope_categories as any[]) {
-      for (const item of cat.items ?? []) {
-        if (item.included && item.item?.trim()) {
-          taskRows.push({
-            project_id: params.id,
-            title: item.item.trim(),
-            description: cat.category ? `Category: ${cat.category}` : null,
-            status: 'open',
-            priority: 'medium',
-            assigned_to_company_id: bid.company_id,
-            assigned_to_name: (await db.from('companies').select('name').eq('id', bid.company_id).single()).data?.name ?? null,
-            created_by: 'Auto-generated from bid',
-          })
-        }
-      }
-    }
-    if (taskRows.length > 0) {
-      await db.from('project_tasks').insert(taskRows)
-    }
-  }
-
   // Send notification to awarded sub
   const { data: subProfile } = await db
     .from('profiles')
