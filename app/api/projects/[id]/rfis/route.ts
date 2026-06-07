@@ -44,6 +44,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     submitted_by_name,
     company_name,
     company_id,
+    attachments,
   } = body
 
   // Auto-assign rfi_number by counting existing RFIs for this project
@@ -69,6 +70,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
       submitted_by_name: submitted_by_name ?? null,
       company_name: company_name ?? null,
       company_id: company_id ?? null,
+      attachments: attachments ?? null,
       status: 'open',
     })
     .select()

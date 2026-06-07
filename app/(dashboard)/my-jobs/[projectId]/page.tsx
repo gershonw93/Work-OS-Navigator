@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import Link from 'next/link'
 import {
   ArrowLeft, MapPin, Calendar, DollarSign, CheckCircle2, Clock,
-  XCircle, AlertCircle, Plus, X, Phone, Trash2,
+  XCircle, AlertCircle, Plus, X, Phone, Trash2, Paperclip,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -54,6 +54,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
   const [rfiIsChangeOrder, setRfiIsChangeOrder] = useState(false)
   const [rfiCoDescription, setRfiCoDescription] = useState('')
   const [rfiCoItems, setRfiCoItems] = useState<CoItem[]>([{ description: '', qty: '1', unit_price: '' }])
+  const [rfiFiles, setRfiFiles] = useState<File[]>([])
   const [rfiSubmitting, setRfiSubmitting] = useState(false)
 
   async function getToken() {
@@ -90,6 +91,17 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
     const items = rfiIsChangeOrder ? rfiCoItems.filter(i => i.description.trim()) : []
     const total = rfiIsChangeOrder ? coTotal(items) : null
 
+    // Upload attachments to Supabase storage
+    const attachments: { name: string; url: string; size: number }[] = []
+    for (const file of rfiFiles) {
+      const path = `${params.projectId}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+      const { data: uploaded, error: upErr } = await supabase.storage.from('rfi-attachments').upload(path, file)
+      if (!upErr && uploaded) {
+        const { data: { publicUrl } } = supabase.storage.from('rfi-attachments').getPublicUrl(uploaded.path)
+        attachments.push({ name: file.name, url: publicUrl, size: file.size })
+      }
+    }
+
     const res = await fetch(`/api/projects/${params.projectId}/rfis`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -100,6 +112,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
         change_order_description: rfiIsChangeOrder ? rfiCoDescription : null,
         change_order_items: rfiIsChangeOrder ? items : null,
         change_order_amount: total,
+        attachments: attachments.length > 0 ? attachments : null,
         company_id: companyId,
         company_name: companyName,
       }),
@@ -114,6 +127,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
 
     setRfiSubject(''); setRfiDescription(''); setRfiIsChangeOrder(false)
     setRfiCoDescription(''); setRfiCoItems([{ description: '', qty: '1', unit_price: '' }])
+    setRfiFiles([])
     setShowRfiForm(false); setRfiSubmitting(false)
     load()
   }
@@ -384,6 +398,29 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                 </div>
               )}
 
+              {/* Attachments */}
+              <div className="space-y-2">
+                <Label>Attachments <span className="text-slate-400 font-normal">(optional)</span></Label>
+                <label className="flex items-center gap-2 cursor-pointer rounded-lg border border-dashed border-slate-300 px-4 py-2.5 hover:border-orange-400 transition-colors">
+                  <Paperclip className="h-4 w-4 text-slate-400" />
+                  <span className="text-sm text-slate-500">Attach photos, drawings, or documents</span>
+                  <input type="file" multiple accept="image/*,.pdf,.doc,.docx,.dwg" className="hidden"
+                    onChange={e => setRfiFiles(prev => [...prev, ...Array.from(e.target.files ?? [])])} />
+                </label>
+                {rfiFiles.length > 0 && (
+                  <div className="space-y-1">
+                    {rfiFiles.map((f, i) => (
+                      <div key={i} className="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 rounded px-3 py-1.5">
+                        <Paperclip className="h-3 w-3 text-slate-400 shrink-0" />
+                        <span className="flex-1 truncate">{f.name}</span>
+                        <span className="text-slate-400">{(f.size / 1024).toFixed(0)}KB</span>
+                        <button type="button" onClick={() => setRfiFiles(rfiFiles.filter((_, j) => j !== i))} className="text-slate-300 hover:text-red-400"><X className="h-3 w-3" /></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {rfiError && <p className="text-sm text-red-500">{rfiError}</p>}
 
               <div className="flex gap-2 justify-end">
@@ -444,6 +481,16 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                   </div>
                 )}
 
+                {rfi.attachments?.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {rfi.attachments.map((att: any, i: number) => (
+                      <a key={i} href={att.url} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 text-xs text-orange-600 hover:underline bg-orange-50 border border-orange-200 rounded px-2 py-1">
+                        <Paperclip className="h-3 w-3" />{att.name}
+                      </a>
+                    ))}
+                  </div>
+                )}
                 {rfi.response && (
                   <div className="mt-3 rounded-lg bg-green-50 border border-green-100 px-3 py-2.5">
                     <p className="text-xs font-semibold text-green-500 mb-1">GC Response</p>

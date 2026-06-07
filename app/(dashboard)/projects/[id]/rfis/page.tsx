@@ -5,13 +5,13 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
-import { X, ChevronDown, ChevronUp, MessageSquare, DollarSign, CheckCircle2, Clock, AlertCircle, Check, XCircle, RefreshCw } from 'lucide-react'
+import { X, ChevronDown, ChevronUp, MessageSquare, DollarSign, CheckCircle2, Clock, AlertCircle, Check, XCircle, RefreshCw, Paperclip } from 'lucide-react'
 
 interface RFI {
   id: string; rfi_number: number; submitted_by_name: string; company_name: string | null
   subject: string; description: string; is_change_order: boolean
   change_order_description: string | null; change_order_items: any[] | null; change_order_amount: number | null
-  change_order_status: string | null
+  change_order_status: string | null; attachments: any[] | null
   status: string; response: string | null; responded_by_name: string | null
   responded_at: string | null; created_at: string
 }
@@ -145,6 +145,16 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
               </div>
             )}
 
+            {rfi.attachments?.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {rfi.attachments.map((att: any, i: number) => (
+                  <a key={i} href={att.url} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-xs text-orange-600 hover:underline bg-orange-50 border border-orange-200 rounded px-2 py-1">
+                    <Paperclip className="h-3 w-3" />{att.name}
+                  </a>
+                ))}
+              </div>
+            )}
             {rfi.response && (
               <div className="rounded-lg bg-green-50 border border-green-200 px-4 py-3">
                 <p className="text-xs font-semibold text-green-500 uppercase tracking-wide mb-1">Response</p>
