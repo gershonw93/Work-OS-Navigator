@@ -114,6 +114,13 @@ export default function BidDetailPage({ params }: { params: { packageId: string 
     if (res2.ok) setData(await res2.json())
   }
 
+  const scopeAutoTotal = scopeTotal(scopeCategories)
+
+  // Auto-fill bid amount from scope total
+  useEffect(() => {
+    if (scopeAutoTotal > 0) setAmount(scopeAutoTotal.toString())
+  }, [scopeAutoTotal])
+
   if (loading) return <div className="p-6 text-sm text-slate-400">Loading...</div>
   if (!data) return <div className="p-6 text-sm text-red-500">Bid not found or you are not invited.</div>
 
@@ -126,13 +133,6 @@ export default function BidDetailPage({ params }: { params: { packageId: string 
   const canSubmit = isOpen || isRevisionRequested
   const allComplianceTypes = ['coi', 'license', 'w9', 'workers_comp']
   const complianceMap = Object.fromEntries((compliance as ComplianceDoc[]).map(c => [c.type, c]))
-
-  const scopeAutoTotal = scopeTotal(scopeCategories)
-
-  // Auto-fill bid amount from scope total
-  useEffect(() => {
-    if (scopeAutoTotal > 0) setAmount(scopeAutoTotal.toString())
-  }, [scopeAutoTotal])
 
   return (
     <div className="p-6 max-w-5xl space-y-5">
