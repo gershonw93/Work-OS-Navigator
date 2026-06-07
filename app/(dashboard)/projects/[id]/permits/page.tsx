@@ -1,82 +1,271 @@
-import { FileCheck, Plus } from 'lucide-react'
-import { PageHeader } from '@/components/ui/page-header'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Badge, getStatusVariant } from '@/components/ui/badge'
-import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table'
-import { EmptyState } from '@/components/ui/empty-state'
-import { createClient } from '@/lib/supabase/server'
+'use client'
 
-interface PermitsPageProps {
-  params: { id: string }
+import { useEffect, useRef, useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { cn } from '@/lib/utils'
+import { Plus, X, FileCheck, FileText, ChevronDown, ChevronUp, Phone, Mail, Calendar, Building, ExternalLink } from 'lucide-react'
+
+const PERMIT_TYPES = ['Building', 'Electrical', 'Plumbing', 'Mechanical/HVAC', 'Fire Protection', 'Demolition', 'Excavation', 'Roofing', 'Sign', 'Other']
+const STATUS_COLORS: Record<string, string> = {
+  pending: 'bg-amber-50 border-amber-200 text-amber-700',
+  approved: 'bg-green-50 border-green-200 text-green-700',
+  active: 'bg-blue-50 border-blue-200 text-blue-700',
+  expired: 'bg-red-50 border-red-200 text-red-700',
+  rejected: 'bg-red-50 border-red-200 text-red-700',
 }
 
-export default async function PermitsPage({ params }: PermitsPageProps) {
-  const supabase = createClient()
-  const { data: permits } = await supabase
-    .from('permits')
-    .select('*')
-    .eq('project_id', params.id)
-    .order('created_at', { ascending: false })
+interface Permit {
+  id: string; permit_type: string; permit_number: string | null; description: string | null
+  status: string; issued_date: string | null; expiry_date: string | null
+  issuing_authority: string | null; inspector_name: string | null; inspector_phone: string | null
+  notes: string | null; file_url: string | null; created_at: string
+}
 
-  const items = permits ?? []
+export default function PermitsPage({ params }: { params: { id: string } }) {
+  const supabase = createClient()
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [permits, setPermits] = useState<Permit[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [expanded, setExpanded] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  // Form
+  const [permitType, setPermitType] = useState('Building')
+  const [permitNumber, setPermitNumber] = useState('')
+  const [description, setDescription] = useState('')
+  const [status, setStatus] = useState('pending')
+  const [issuedDate, setIssuedDate] = useState('')
+  const [expiryDate, setExpiryDate] = useState('')
+  const [issuingAuthority, setIssuingAuthority] = useState('')
+  const [inspectorName, setInspectorName] = useState('')
+  const [inspectorPhone, setInspectorPhone] = useState('')
+  const [notes, setNotes] = useState('')
+  const [permitFile, setPermitFile] = useState<File | null>(null)
+
+  async function getToken() {
+    const { data: { session } } = await supabase.auth.getSession()
+    return session?.access_token ?? ''
+  }
+
+  async function fetchPermits() {
+    const token = await getToken()
+    const res = await fetch(`/api/projects/${params.id}/permits`, { headers: { Authorization: `Bearer ${token}` } })
+    if (res.ok) setPermits((await res.json()).permits)
+    setLoading(false)
+  }
+
+  useEffect(() => { fetchPermits() }, [params.id])
+
+  function resetForm() {
+    setPermitType('Building'); setPermitNumber(''); setDescription(''); setStatus('pending')
+    setIssuedDate(''); setExpiryDate(''); setIssuingAuthority('')
+    setInspectorName(''); setInspectorPhone(''); setNotes(''); setPermitFile(null)
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setSubmitting(true)
+    const token = await getToken()
+    const form = new FormData()
+    form.append('permit_type', permitType)
+    if (permitNumber) form.append('permit_number', permitNumber)
+    if (description) form.append('description', description)
+    form.append('status', status)
+    if (issuedDate) form.append('issued_date', issuedDate)
+    if (expiryDate) form.append('expiry_date', expiryDate)
+    if (issuingAuthority) form.append('issuing_authority', issuingAuthority)
+    if (inspectorName) form.append('inspector_name', inspectorName)
+    if (inspectorPhone) form.append('inspector_phone', inspectorPhone)
+    if (notes) form.append('notes', notes)
+    if (permitFile) form.append('file', permitFile)
+    await fetch(`/api/projects/${params.id}/permits`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form })
+    resetForm(); setShowForm(false); setSubmitting(false); fetchPermits()
+  }
+
+  async function updateStatus(permitId: string, newStatus: string) {
+    const token = await getToken()
+    await fetch(`/api/projects/${params.id}/permits/${permitId}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ status: newStatus }),
+    })
+    fetchPermits()
+  }
+
+  const isExpiringSoon = (date: string | null) => {
+    if (!date) return false
+    const diff = (new Date(date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+    return diff > 0 && diff < 30
+  }
 
   return (
-    <div>
-      <PageHeader
-        title="Permits"
-        subtitle="Building permits and their current status."
-        action={
-          <Button>
-            <Plus className="h-4 w-4" />
-            Add Permit
-          </Button>
-        }
-      />
+    <div className="p-6 space-y-5">
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between">
+              <h2 className="font-semibold text-slate-900">Add Permit</h2>
+              <button onClick={() => { setShowForm(false); resetForm() }} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
+            </div>
+            <form onSubmit={handleSubmit}>
+              <div className="px-6 py-5 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Permit Type</Label>
+                    <select value={permitType} onChange={e => setPermitType(e.target.value)} required
+                      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white focus:border-orange-500 focus:outline-none">
+                      {PERMIT_TYPES.map(t => <option key={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Permit Number</Label>
+                    <Input placeholder="e.g. 2024-EL-001234" value={permitNumber} onChange={e => setPermitNumber(e.target.value)} />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Description</Label>
+                  <textarea rows={2} placeholder="What this permit covers..." value={description} onChange={e => setDescription(e.target.value)}
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none resize-none" />
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Status</Label>
+                    <select value={status} onChange={e => setStatus(e.target.value)}
+                      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white focus:border-orange-500 focus:outline-none">
+                      {['pending', 'approved', 'active', 'expired', 'rejected'].map(s => <option key={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Date Issued</Label>
+                    <Input type="date" value={issuedDate} onChange={e => setIssuedDate(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Expiry Date</Label>
+                    <Input type="date" value={expiryDate} onChange={e => setExpiryDate(e.target.value)} />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label><Building className="inline h-3.5 w-3.5 mr-1 text-slate-400" />Issuing Authority</Label>
+                  <Input placeholder="e.g. NYC Department of Buildings" value={issuingAuthority} onChange={e => setIssuingAuthority(e.target.value)} />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label><Phone className="inline h-3.5 w-3.5 mr-1 text-slate-400" />Inspector Name</Label>
+                    <Input placeholder="Inspector name" value={inspectorName} onChange={e => setInspectorName(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Inspector Phone</Label>
+                    <Input type="tel" placeholder="(555) 000-0000" value={inspectorPhone} onChange={e => setInspectorPhone(e.target.value)} />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Notes</Label>
+                  <textarea rows={2} placeholder="Any additional notes..." value={notes} onChange={e => setNotes(e.target.value)}
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none resize-none" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label><FileText className="inline h-3.5 w-3.5 mr-1 text-slate-400" />Attach Permit Document</Label>
+                  <div onClick={() => fileRef.current?.click()}
+                    className="flex items-center gap-2 rounded-lg border-2 border-dashed border-slate-200 px-4 py-2.5 text-sm text-slate-400 hover:border-orange-300 hover:text-orange-500 transition-colors cursor-pointer">
+                    <FileText className="h-4 w-4" />
+                    {permitFile ? permitFile.name : 'Upload PDF or image'}
+                  </div>
+                  <input ref={fileRef} type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png" onChange={e => setPermitFile(e.target.files?.[0] ?? null)} />
+                </div>
+              </div>
+              <div className="sticky bottom-0 bg-white border-t border-slate-100 px-6 py-4 flex gap-2 justify-end">
+                <Button type="button" variant="secondary" onClick={() => { setShowForm(false); resetForm() }}>Cancel</Button>
+                <Button type="submit" disabled={submitting}>{submitting ? 'Saving...' : 'Add Permit'}</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
-      <Card>
-        <CardContent className="p-0">
-          {items.length === 0 ? (
-            <EmptyState
-              icon={FileCheck}
-              title="No permits tracked yet"
-              description="Add building permits to track their submission, issuance, and expiration dates."
-              action={{ label: 'Add Permit' }}
-            />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Permit #</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Expiry Date</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {items.map((permit: any) => (
-                  <TableRow key={permit.id}>
-                    <TableCell className="font-medium">{permit.type}</TableCell>
-                    <TableCell className="font-mono text-sm">
-                      {permit.permit_number ?? '—'}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={getStatusVariant(permit.status)}>
-                        {permit.status.replace('_', ' ')}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{permit.expiry_date ?? '—'}</TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="sm">Edit</Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Permits</h1>
+          <p className="text-sm text-slate-500 mt-0.5">Project permits, approvals, and inspector contacts.</p>
+        </div>
+        <Button onClick={() => setShowForm(true)}><Plus className="h-4 w-4" /> Add Permit</Button>
+      </div>
+
+      {loading ? (
+        <div className="text-sm text-slate-400 py-12 text-center">Loading...</div>
+      ) : permits.length === 0 ? (
+        <div className="rounded-xl border-2 border-dashed border-slate-200 py-16 text-center">
+          <FileCheck className="h-8 w-8 text-slate-300 mx-auto mb-3" />
+          <p className="text-sm font-medium text-slate-500">No permits added yet</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {permits.map(permit => {
+            const isExpanded = expanded === permit.id
+            const expiring = isExpiringSoon(permit.expiry_date)
+            return (
+              <div key={permit.id} className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+                <button className="w-full flex items-center gap-4 px-5 py-4 hover:bg-slate-50 transition-colors text-left"
+                  onClick={() => setExpanded(isExpanded ? null : permit.id)}>
+                  <FileCheck className="h-5 w-5 text-slate-400 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-slate-900">{permit.permit_type}</span>
+                      {permit.permit_number && <span className="text-xs font-mono text-slate-500">#{permit.permit_number}</span>}
+                      <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5', STATUS_COLORS[permit.status] ?? STATUS_COLORS.pending)}>
+                        {permit.status}
+                      </span>
+                      {expiring && <span className="text-xs font-medium bg-red-50 border border-red-200 text-red-600 rounded-full px-2 py-0.5">Expiring soon</span>}
+                    </div>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {permit.issuing_authority ?? '—'}
+                      {permit.expiry_date && ` · Expires ${new Date(permit.expiry_date).toLocaleDateString()}`}
+                    </p>
+                  </div>
+                  {permit.file_url && <FileText className="h-4 w-4 text-orange-400 shrink-0" />}
+                  {isExpanded ? <ChevronUp className="h-4 w-4 text-slate-400 shrink-0" /> : <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" />}
+                </button>
+
+                {isExpanded && (
+                  <div className="border-t border-slate-100 px-5 py-5 space-y-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      {permit.issued_date && <div><p className="text-xs text-slate-400">Issued</p><p className="font-medium text-slate-700">{new Date(permit.issued_date).toLocaleDateString()}</p></div>}
+                      {permit.expiry_date && <div><p className="text-xs text-slate-400">Expires</p><p className={cn('font-medium', expiring ? 'text-red-600' : 'text-slate-700')}>{new Date(permit.expiry_date).toLocaleDateString()}</p></div>}
+                      {permit.issuing_authority && <div><p className="text-xs text-slate-400">Issued By</p><p className="font-medium text-slate-700">{permit.issuing_authority}</p></div>}
+                      {permit.inspector_name && (
+                        <div>
+                          <p className="text-xs text-slate-400">Inspector</p>
+                          <p className="font-medium text-slate-700">{permit.inspector_name}</p>
+                          {permit.inspector_phone && (
+                            <a href={`tel:${permit.inspector_phone}`} className="flex items-center gap-1 text-xs text-orange-600 hover:underline mt-0.5">
+                              <Phone className="h-3 w-3" />{permit.inspector_phone}
+                            </a>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    {permit.description && <p className="text-sm text-slate-600">{permit.description}</p>}
+                    {permit.notes && <div className="rounded-lg bg-slate-50 border border-slate-100 px-3 py-2 text-sm text-slate-600">{permit.notes}</div>}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {permit.file_url && (
+                        <a href={permit.file_url} target="_blank" rel="noopener noreferrer">
+                          <Button size="sm" variant="outline"><ExternalLink className="h-3.5 w-3.5" /> View Document</Button>
+                        </a>
+                      )}
+                      <select value={permit.status} onChange={e => updateStatus(permit.id, e.target.value)}
+                        className="rounded-md border border-slate-300 px-2 py-1.5 text-xs bg-white focus:border-orange-500 focus:outline-none">
+                        {['pending', 'approved', 'active', 'expired', 'rejected'].map(s => <option key={s}>{s}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

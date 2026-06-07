@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, FileText, MapPin, Calendar, Users, Clock, DollarSign, Paperclip, CheckCircle2, AlertCircle, XCircle, ListChecks } from 'lucide-react'
+import { ArrowLeft, FileText, MapPin, Calendar, Users, Clock, DollarSign, Paperclip, CheckCircle2, AlertCircle, XCircle, ListChecks, MessageSquare, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -48,6 +48,16 @@ export default function BidDetailPage({ params }: { params: { packageId: string 
   const [proposalFile, setProposalFile] = useState<File | null>(null)
   const [scopeCategories, setScopeCategories] = useState<ScopeCategory[]>([])
 
+  // RFI state
+  const [rfis, setRfis] = useState<any[]>([])
+  const [showRfiForm, setShowRfiForm] = useState(false)
+  const [rfiSubject, setRfiSubject] = useState('')
+  const [rfiDescription, setRfiDescription] = useState('')
+  const [rfiIsChangeOrder, setRfiIsChangeOrder] = useState(false)
+  const [rfiCoDescription, setRfiCoDescription] = useState('')
+  const [rfiCoAmount, setRfiCoAmount] = useState('')
+  const [rfiSubmitting, setRfiSubmitting] = useState(false)
+
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
     return session?.access_token ?? ''
@@ -71,6 +81,11 @@ export default function BidDetailPage({ params }: { params: { packageId: string 
         setStartDate(d.myBid.earliest_start_date ?? '')
         setPaymentTerms(d.myBid.payment_terms ?? '')
         if (d.myBid.scope_categories) setScopeCategories(d.myBid.scope_categories)
+        // Load RFIs if bid exists
+        if (d.pkg?.projects?.id) {
+          const rfiRes = await fetch(`/api/projects/${d.pkg.projects.id}/rfis`, { headers: { Authorization: `Bearer ${token}` } })
+          if (rfiRes.ok) setRfis((await rfiRes.json()).rfis ?? [])
+        }
       }
       setLoading(false)
     }
@@ -112,6 +127,37 @@ export default function BidDetailPage({ params }: { params: { packageId: string 
     const token2 = await getToken()
     const res2 = await fetch(`/api/my-bids/${params.packageId}`, { headers: { Authorization: `Bearer ${token2}` } })
     if (res2.ok) setData(await res2.json())
+  }
+
+  async function fetchRfis(projectId: string) {
+    const token = await getToken()
+    const res = await fetch(`/api/projects/${projectId}/rfis`, { headers: { Authorization: `Bearer ${token}` } })
+    if (res.ok) setRfis((await res.json()).rfis ?? [])
+  }
+
+  async function submitRfi(e: React.FormEvent) {
+    e.preventDefault()
+    if (!data) return
+    setRfiSubmitting(true)
+    const token = await getToken()
+    const { data: { session } } = await supabase.auth.getSession()
+    const projectId = data.pkg.projects?.id
+    await fetch(`/api/projects/${projectId}/rfis`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        subject: rfiSubject, description: rfiDescription,
+        is_change_order: rfiIsChangeOrder,
+        change_order_description: rfiIsChangeOrder ? rfiCoDescription : null,
+        change_order_amount: rfiIsChangeOrder && rfiCoAmount ? parseFloat(rfiCoAmount) : null,
+        submitted_by_name: session?.user?.email ?? 'Sub',
+        company_name: null, company_id: null,
+      }),
+    })
+    setRfiSubject(''); setRfiDescription(''); setRfiIsChangeOrder(false)
+    setRfiCoDescription(''); setRfiCoAmount('')
+    setShowRfiForm(false); setRfiSubmitting(false)
+    fetchRfis(projectId)
   }
 
   const scopeAutoTotal = scopeTotal(scopeCategories)
@@ -372,6 +418,99 @@ export default function BidDetailPage({ params }: { params: { packageId: string 
             {myBid.notes && <div className="col-span-2 md:col-span-4"><p className="text-slate-400">Notes</p><p className="text-slate-700">{myBid.notes}</p></div>}
             {myBid.proposal_url && <div className="col-span-2 md:col-span-4"><a href={myBid.proposal_url} target="_blank" rel="noopener noreferrer" className="text-orange-600 hover:underline text-sm flex items-center gap-1"><FileText className="h-3.5 w-3.5" />View Proposal</a></div>}
           </div>
+        </div>
+      )}
+
+      {/* RFIs — only show when bid is submitted/awarded */}
+      {myBid && (
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-700">RFIs & Change Orders</h2>
+              <p className="text-xs text-slate-400 mt-0.5">Questions or change order requests to the GC</p>
+            </div>
+            {!showRfiForm && (
+              <button onClick={() => setShowRfiForm(true)}
+                className="flex items-center gap-1.5 text-xs font-medium text-orange-600 hover:text-orange-700">
+                <Plus className="h-3.5 w-3.5" /> Submit RFI
+              </button>
+            )}
+          </div>
+
+          {showRfiForm && (
+            <form onSubmit={submitRfi} className="space-y-3 mb-4 rounded-lg border border-orange-200 bg-orange-50 p-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-slate-700">Subject</label>
+                <input type="text" required value={rfiSubject} onChange={e => setRfiSubject(e.target.value)}
+                  placeholder="e.g. Clarify panel location on 2nd floor"
+                  className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm focus:border-orange-500 focus:outline-none" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-slate-700">Description</label>
+                <textarea required rows={3} value={rfiDescription} onChange={e => setRfiDescription(e.target.value)}
+                  placeholder="Describe your question in detail..."
+                  className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm focus:border-orange-500 focus:outline-none resize-none" />
+              </div>
+              <button type="button" onClick={() => setRfiIsChangeOrder(!rfiIsChangeOrder)}
+                className={cn('flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors',
+                  rfiIsChangeOrder ? 'border-purple-400 bg-purple-50 text-purple-700' : 'border-slate-200 bg-white text-slate-600 hover:border-purple-300')}>
+                <DollarSign className="h-3.5 w-3.5" />
+                {rfiIsChangeOrder ? 'Change Order Included' : 'Include Change Order Request'}
+              </button>
+              {rfiIsChangeOrder && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5 col-span-2">
+                    <label className="text-xs font-medium text-slate-700">Change Order Description</label>
+                    <textarea rows={2} value={rfiCoDescription} onChange={e => setRfiCoDescription(e.target.value)}
+                      placeholder="What additional work is required and why..."
+                      className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm focus:border-orange-500 focus:outline-none resize-none" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-slate-700">Proposed Amount</label>
+                    <div className="relative">
+                      <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                      <input type="number" step="0.01" value={rfiCoAmount} onChange={e => setRfiCoAmount(e.target.value)}
+                        placeholder="0.00" className="w-full rounded-md border border-slate-300 pl-7 pr-3 py-1.5 text-sm focus:border-orange-500 focus:outline-none" />
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div className="flex gap-2 justify-end">
+                <button type="button" onClick={() => setShowRfiForm(false)} className="text-xs text-slate-500 hover:text-slate-700 px-3 py-1.5">Cancel</button>
+                <button type="submit" disabled={rfiSubmitting}
+                  className="rounded-lg bg-orange-500 text-white text-xs font-medium px-4 py-1.5 hover:bg-orange-600 disabled:opacity-50">
+                  {rfiSubmitting ? 'Submitting...' : 'Submit RFI'}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {rfis.length === 0 ? (
+            <p className="text-xs text-slate-400 text-center py-4">No RFIs submitted yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {rfis.map(rfi => (
+                <div key={rfi.id} className={cn('rounded-lg border px-3 py-3 text-sm',
+                  rfi.status === 'open' ? 'border-orange-200 bg-orange-50/50' : 'border-slate-200')}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-mono text-slate-400">RFI-{String(rfi.rfi_number).padStart(3, '0')}</span>
+                    <span className="font-medium text-slate-800">{rfi.subject}</span>
+                    {rfi.is_change_order && <span className="text-xs bg-purple-50 border border-purple-200 text-purple-700 rounded-full px-1.5 py-0.5">CO</span>}
+                    <span className={cn('ml-auto text-xs font-medium rounded-full px-2 py-0.5',
+                      rfi.status === 'open' ? 'text-orange-600' : 'text-green-600')}>
+                      {rfi.status}
+                    </span>
+                  </div>
+                  {rfi.response && (
+                    <div className="mt-2 rounded bg-green-50 border border-green-100 px-2.5 py-2 text-xs text-green-700">
+                      <p className="font-medium text-green-500 mb-0.5">Response from GC</p>
+                      {rfi.response}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
