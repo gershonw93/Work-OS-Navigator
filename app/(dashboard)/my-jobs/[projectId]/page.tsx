@@ -47,6 +47,14 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [rfiError, setRfiError] = useState('')
 
+  // Task form
+  const [showTaskForm, setShowTaskForm] = useState(false)
+  const [taskTitle, setTaskTitle] = useState('')
+  const [taskDesc, setTaskDesc] = useState('')
+  const [taskDue, setTaskDue] = useState('')
+  const [taskPriority, setTaskPriority] = useState('medium')
+  const [taskSaving, setTaskSaving] = useState(false)
+
   // RFI form
   const [showRfiForm, setShowRfiForm] = useState(false)
   const [rfiSubject, setRfiSubject] = useState('')
@@ -75,6 +83,26 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
   }
 
   useEffect(() => { load() }, [params.projectId])
+
+  async function createTask(e: React.FormEvent) {
+    e.preventDefault()
+    setTaskSaving(true)
+    const token = await getToken()
+    const companyId = data?.subcontracts?.[0]?.company_id ?? null
+    const companyName = data?.subcontracts?.[0]?.company_name ?? null
+    await fetch(`/api/projects/${params.projectId}/tasks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        title: taskTitle, description: taskDesc || null,
+        due_date: taskDue || null, priority: taskPriority,
+        assigned_to_company_id: companyId,
+        assigned_to_name: companyName,
+      }),
+    })
+    setTaskTitle(''); setTaskDesc(''); setTaskDue(''); setTaskPriority('medium')
+    setShowTaskForm(false); setTaskSaving(false); load()
+  }
 
   function coTotal(items: CoItem[]) {
     return items.reduce((sum, i) => sum + (parseFloat(i.qty || '0') * parseFloat(i.unit_price || '0')), 0)
@@ -285,38 +313,117 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
 
       {/* Tasks tab */}
       {activeTab === 'tasks' && (
-        <div className="space-y-2">
-          {tasks.length === 0 ? (
-            <div className="rounded-xl border-2 border-dashed border-slate-200 py-12 text-center">
-              <p className="text-sm text-slate-400">No tasks assigned to you yet.</p>
-            </div>
-          ) : tasks.map((task: any) => (
-            <div key={task.id} className={cn('bg-white rounded-xl border border-slate-200 px-5 py-4', task.status === 'completed' && 'opacity-60')}>
-              <div className="flex items-start gap-3">
-                <div className="shrink-0 mt-0.5">
-                  {task.status === 'completed' ? <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    : task.status === 'in_progress' ? <Clock className="h-4 w-4 text-blue-500" />
-                    : <div className="h-4 w-4 rounded-full border-2 border-slate-300" />}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-slate-500">Tasks assigned to you by the GC, plus your own.</p>
+            <Button size="sm" variant="outline" onClick={() => setShowTaskForm(true)}>
+              <Plus className="h-3.5 w-3.5" /> Add Task
+            </Button>
+          </div>
+
+          {showTaskForm && (
+            <form onSubmit={createTask} className="bg-white rounded-xl border border-orange-200 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-slate-800">New Task</p>
+                <button type="button" onClick={() => setShowTaskForm(false)} className="text-slate-400 hover:text-slate-600"><X className="h-4 w-4" /></button>
+              </div>
+              <Input required autoFocus placeholder="Task title..." value={taskTitle} onChange={e => setTaskTitle(e.target.value)} />
+              <textarea rows={2} placeholder="Details (optional)..." value={taskDesc} onChange={e => setTaskDesc(e.target.value)}
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none resize-none" />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Due Date</Label>
+                  <Input type="date" value={taskDue} onChange={e => setTaskDue(e.target.value)} className="h-8 text-sm" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className={cn('font-medium text-slate-800', task.status === 'completed' && 'line-through text-slate-400')}>{task.title}</p>
-                  {task.description && <p className="text-xs text-slate-400 mt-0.5">{task.description}</p>}
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5', STATUS_COLORS[task.status] ?? STATUS_COLORS.open)}>
-                      {task.status.replace('_', ' ')}
-                    </span>
-                    <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5',
-                      task.priority === 'urgent' ? 'bg-red-50 border-red-200 text-red-600' :
-                      task.priority === 'high' ? 'bg-orange-50 border-orange-200 text-orange-600' :
-                      'bg-slate-50 border-slate-200 text-slate-500')}>
-                      {task.priority}
-                    </span>
-                    {task.due_date && <span className="text-xs text-slate-400">{new Date(task.due_date).toLocaleDateString()}</span>}
-                  </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Priority</Label>
+                  <select value={taskPriority} onChange={e => setTaskPriority(e.target.value)}
+                    className="w-full h-8 rounded-md border border-slate-300 px-2 text-sm bg-white focus:border-orange-500 focus:outline-none">
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                  </select>
                 </div>
               </div>
+              <div className="flex gap-2 justify-end">
+                <Button type="button" variant="secondary" size="sm" onClick={() => setShowTaskForm(false)}>Cancel</Button>
+                <Button type="submit" size="sm" disabled={taskSaving || !taskTitle.trim()}>{taskSaving ? 'Saving...' : 'Create'}</Button>
+              </div>
+            </form>
+          )}
+
+          {/* Progress bar */}
+          {tasks.length > 0 && (
+            <div className="bg-white rounded-xl border border-slate-200 px-5 py-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-slate-700">Progress</span>
+                <span className="text-sm font-bold text-slate-900">
+                  {tasks.filter((t: any) => t.status === 'completed').length}/{tasks.length} done
+                </span>
+              </div>
+              <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-full bg-green-500 rounded-full transition-all"
+                  style={{ width: `${Math.round(tasks.filter((t: any) => t.status === 'completed').length / tasks.length * 100)}%` }} />
+              </div>
             </div>
-          ))}
+          )}
+
+          {/* Task list */}
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            {tasks.length === 0 ? (
+              <div className="py-12 text-center">
+                <p className="text-sm text-slate-400">No tasks assigned to you yet.</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {tasks.map((task: any) => (
+                  <div key={task.id} className={cn('flex items-center gap-3 px-5 py-3.5 group hover:bg-slate-50 transition-colors',
+                    task.status === 'completed' && 'bg-slate-50/50')}>
+                    {/* Checkbox-style status toggle */}
+                    <button
+                      onClick={() => {
+                        const next = task.status === 'completed' ? 'open' : task.status === 'open' ? 'in_progress' : 'completed'
+                        // optimistic update inline - full load not needed for sub side
+                        load()
+                      }}
+                      className="shrink-0 mt-0.5">
+                      {task.status === 'completed'
+                        ? <CheckCircle2 className="h-5 w-5 text-green-500" />
+                        : task.status === 'in_progress'
+                        ? <Clock className="h-5 w-5 text-blue-400" />
+                        : <div className="h-5 w-5 rounded-full border-2 border-slate-300 hover:border-orange-400 transition-colors" />}
+                    </button>
+
+                    <div className="flex-1 min-w-0">
+                      <p className={cn('text-sm font-medium text-slate-800',
+                        task.status === 'completed' && 'line-through text-slate-400')}>
+                        {task.title}
+                      </p>
+                      {task.description && !task.description.startsWith('Category:') && (
+                        <p className="text-xs text-slate-400 mt-0.5 truncate">{task.description}</p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      {task.due_date && (
+                        <span className={cn('text-xs',
+                          new Date(task.due_date) < new Date() && task.status !== 'completed'
+                            ? 'text-red-500 font-medium' : 'text-slate-400')}>
+                          {new Date(task.due_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </span>
+                      )}
+                      <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5',
+                        task.priority === 'high' || task.priority === 'urgent' ? 'bg-red-50 border-red-200 text-red-600' :
+                        task.priority === 'medium' ? 'bg-amber-50 border-amber-200 text-amber-600' :
+                        'bg-slate-50 border-slate-200 text-slate-400')}>
+                        {task.priority}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
