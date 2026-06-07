@@ -129,6 +129,11 @@ export default function BidDetailPage({ params }: { params: { packageId: string 
 
   const scopeAutoTotal = scopeTotal(scopeCategories)
 
+  // Auto-fill bid amount from scope total
+  useEffect(() => {
+    if (scopeAutoTotal > 0) setAmount(scopeAutoTotal.toString())
+  }, [scopeAutoTotal])
+
   return (
     <div className="p-6 max-w-5xl space-y-5">
       {/* Back */}
@@ -268,11 +273,8 @@ export default function BidDetailPage({ params }: { params: { packageId: string 
                   <Input id="amount" type="number" step="0.01" placeholder="0.00" value={amount}
                     onChange={e => setAmount(e.target.value)} required className="pl-8" />
                 </div>
-                {scopeAutoTotal > 0 && Number(amount) !== scopeAutoTotal && (
-                  <button type="button" onClick={() => setAmount(scopeAutoTotal.toString())}
-                    className="text-xs text-orange-500 hover:underline">
-                    Use scope total (${scopeAutoTotal.toLocaleString()})
-                  </button>
+                {scopeAutoTotal > 0 && (
+                  <p className="text-xs text-slate-400">Auto-calculated from scope</p>
                 )}
               </div>
               <div className="space-y-1.5">
