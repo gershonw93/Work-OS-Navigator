@@ -53,7 +53,12 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
   async function load() {
     const token = await getToken()
     const res = await fetch(`/api/my-jobs/${params.projectId}`, { headers: { Authorization: `Bearer ${token}` } })
-    if (res.ok) setData(await res.json())
+    if (res.ok) {
+      setData(await res.json())
+    } else {
+      const err = await res.json().catch(() => ({}))
+      setData({ error: err.error || `HTTP ${res.status}` })
+    }
     setLoading(false)
   }
 
@@ -94,7 +99,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
   }
 
   if (loading) return <div className="p-6 text-sm text-slate-400 py-12 text-center">Loading...</div>
-  if (!data) return <div className="p-6 text-sm text-red-500">Job not found or access denied.</div>
+  if (!data || data.error) return <div className="p-6 text-sm text-red-500">Error: {data?.error ?? 'Job not found or access denied.'}</div>
 
   const { project, subcontract, tasks, rfis, inspections, invoices, recentLogs } = data
   const paymentItems = subcontract?.payment_schedule_items ?? []
