@@ -79,6 +79,8 @@ export async function POST(request: Request, { params }: { params: { packageId: 
   const crew_size = formData.get('crew_size') ? parseInt(formData.get('crew_size') as string) : null
   const earliest_start_date = formData.get('earliest_start_date') as string | null
   const payment_terms = formData.get('payment_terms') as string | null
+  const scope_categories_raw = formData.get('scope_categories') as string | null
+  const scope_categories = scope_categories_raw ? JSON.parse(scope_categories_raw) : null
   const file = formData.get('proposal') as File | null
 
   if (!amount || isNaN(amount)) return NextResponse.json({ error: 'Bid amount is required' }, { status: 400 })
@@ -131,6 +133,7 @@ export async function POST(request: Request, { params }: { params: { packageId: 
     earliest_start_date: earliest_start_date || null,
     payment_terms: payment_terms || null,
     ...(proposal_url ? { proposal_url, proposal_storage_path } : {}),
+    ...(scope_categories ? { scope_categories } : {}),
     status: 'submitted',
     revision_note: null,
     submitted_at: new Date().toISOString(),

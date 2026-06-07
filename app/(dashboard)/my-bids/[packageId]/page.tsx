@@ -2,12 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, FileText, MapPin, Calendar, Users, Clock, DollarSign, Paperclip, CheckCircle2, AlertCircle, XCircle } from 'lucide-react'
+import { ArrowLeft, FileText, MapPin, Calendar, Users, Clock, DollarSign, Paperclip, CheckCircle2, AlertCircle, XCircle, ListChecks } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge, getStatusVariant } from '@/components/ui/badge'
+import { ScopeBuilder, ScopeCategory } from '@/components/ui/scope-builder'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
 
@@ -45,6 +46,7 @@ export default function BidDetailPage({ params }: { params: { packageId: string 
   const [startDate, setStartDate] = useState('')
   const [paymentTerms, setPaymentTerms] = useState('')
   const [proposalFile, setProposalFile] = useState<File | null>(null)
+  const [scopeCategories, setScopeCategories] = useState<ScopeCategory[]>([])
 
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -68,6 +70,7 @@ export default function BidDetailPage({ params }: { params: { packageId: string 
         setCrewSize(d.myBid.crew_size?.toString() ?? '')
         setStartDate(d.myBid.earliest_start_date ?? '')
         setPaymentTerms(d.myBid.payment_terms ?? '')
+        if (d.myBid.scope_categories) setScopeCategories(d.myBid.scope_categories)
       }
       setLoading(false)
     }
@@ -87,6 +90,7 @@ export default function BidDetailPage({ params }: { params: { packageId: string 
     if (crewSize) form.append('crew_size', crewSize)
     if (startDate) form.append('earliest_start_date', startDate)
     if (paymentTerms) form.append('payment_terms', paymentTerms)
+    if (scopeCategories.length > 0) form.append('scope_categories', JSON.stringify(scopeCategories))
     if (proposalFile) form.append('proposal', proposalFile)
 
     const res = await fetch(`/api/my-bids/${params.packageId}`, {
@@ -295,6 +299,18 @@ export default function BidDetailPage({ params }: { params: { packageId: string 
                     placeholder="e.g. Price excludes fire alarm. Price based on plans dated June 3. Owner-supplied fixtures not included."
                     value={notes} onChange={e => setNotes(e.target.value)}
                     className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 resize-none" />
+                </div>
+
+                {/* Scope Breakdown */}
+                <div className="space-y-2">
+                  <div>
+                    <Label>
+                      <ListChecks className="inline h-3.5 w-3.5 mr-1 text-slate-400" />
+                      Scope Breakdown
+                    </Label>
+                    <p className="text-xs text-slate-400 mt-0.5">Add categories (e.g. First Floor) and line items. Mark each as included or excluded. These become trackable tasks when awarded.</p>
+                  </div>
+                  <ScopeBuilder value={scopeCategories} onChange={setScopeCategories} />
                 </div>
 
                 {/* Proposal Upload */}
