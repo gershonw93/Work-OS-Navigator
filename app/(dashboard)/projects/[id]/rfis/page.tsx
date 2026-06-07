@@ -147,7 +147,7 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
 
             {(rfi.attachments?.length ?? 0) > 0 && (
               <div className="flex flex-wrap gap-2">
-                {rfi.attachments.map((att: any, i: number) => (
+                {(rfi.attachments ?? []).map((att: any, i: number) => (
                   <a key={i} href={att.url} target="_blank" rel="noopener noreferrer"
                     className="flex items-center gap-1.5 text-xs text-orange-600 hover:underline bg-orange-50 border border-orange-200 rounded px-2 py-1">
                     <Paperclip className="h-3 w-3" />{att.name}
