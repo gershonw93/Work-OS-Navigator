@@ -21,7 +21,7 @@ export async function GET(request: Request, { params }: { params: { projectId: s
 
   // Fetch project and subcontract first to verify access
   const [{ data: project, error: projectError }, { data: subcontract }] = await Promise.all([
-    db.from('projects').select('id, name, address, type, status, start_date, description').eq('id', params.projectId).single(),
+    db.from('projects').select('id, name, address, type, status, start_date').eq('id', params.projectId).single(),
     db.from('subcontracts').select('*').eq('project_id', params.projectId).eq('company_id', companyId).maybeSingle(),
   ])
 
