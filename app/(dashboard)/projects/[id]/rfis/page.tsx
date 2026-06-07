@@ -145,7 +145,7 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
               </div>
             )}
 
-            {rfi.attachments?.length > 0 && (
+            {(rfi.attachments?.length ?? 0) > 0 && (
               <div className="flex flex-wrap gap-2">
                 {rfi.attachments.map((att: any, i: number) => (
                   <a key={i} href={att.url} target="_blank" rel="noopener noreferrer"
