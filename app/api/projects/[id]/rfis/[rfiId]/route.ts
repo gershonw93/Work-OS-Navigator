@@ -18,23 +18,22 @@ export async function PATCH(
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: profile } = await db
-    .from('profiles')
-    .select('full_name')
-    .eq('id', user.id)
-    .single()
+  const { data: profile } = await db.from('profiles').select('full_name').eq('id', user.id).single()
 
   const body = await request.json()
-  const { response, status } = body
+  const { response, status, change_order_status } = body
+
+  const updates: Record<string, any> = {
+    responded_by_name: (profile as any)?.full_name ?? null,
+    responded_at: new Date().toISOString(),
+  }
+  if (response !== undefined) updates.response = response
+  if (status !== undefined) updates.status = status
+  if (change_order_status !== undefined) updates.change_order_status = change_order_status
 
   const { data: rfi, error } = await db
     .from('rfis')
-    .update({
-      response: response ?? null,
-      responded_by_name: (profile as any)?.full_name ?? null,
-      responded_at: new Date().toISOString(),
-      status,
-    })
+    .update(updates)
     .eq('id', params.rfiId)
     .eq('project_id', params.id)
     .select()
@@ -43,14 +42,13 @@ export async function PATCH(
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   const actorName = (profile as any)?.full_name ?? 'Someone'
-  await logActivity(
-    db,
-    params.id,
-    actorName,
-    'rfi_answered',
-    `RFI #${rfi.rfi_number} marked ${status}`,
-    { rfi_id: rfi.id, rfi_number: rfi.rfi_number, status },
-  )
+  const action = change_order_status
+    ? `Change order ${change_order_status.replace('_', ' ')} on RFI #${rfi.rfi_number}`
+    : `RFI #${rfi.rfi_number} marked ${status}`
+
+  await logActivity(db, params.id, actorName, 'rfi_answered', action, {
+    rfi_id: rfi.id, rfi_number: rfi.rfi_number, status, change_order_status,
+  })
 
   return NextResponse.json({ rfi })
 }
@@ -66,12 +64,7 @@ export async function DELETE(
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { error } = await db
-    .from('rfis')
-    .delete()
-    .eq('id', params.rfiId)
-    .eq('project_id', params.id)
-
+  const { error } = await db.from('rfis').delete().eq('id', params.rfiId).eq('project_id', params.id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true })
 }

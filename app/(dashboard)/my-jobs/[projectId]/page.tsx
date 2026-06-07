@@ -6,8 +6,7 @@ import { cn } from '@/lib/utils'
 import Link from 'next/link'
 import {
   ArrowLeft, MapPin, Calendar, DollarSign, CheckCircle2, Clock,
-  XCircle, AlertCircle, ChevronRight, MessageSquare, ClipboardCheck,
-  Receipt, BookOpen, Flag, Plus, X, Phone,
+  XCircle, AlertCircle, Plus, X, Phone, Trash2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,13 +14,17 @@ import { Label } from '@/components/ui/label'
 
 type Tab = 'overview' | 'tasks' | 'rfis' | 'inspections' | 'invoices'
 
+interface CoItem { description: string; qty: string; unit_price: string }
+
 const STATUS_COLORS: Record<string, string> = {
   open: 'bg-slate-50 border-slate-200 text-slate-600',
   in_progress: 'bg-blue-50 border-blue-200 text-blue-700',
   completed: 'bg-green-50 border-green-200 text-green-700',
   pending: 'bg-amber-50 border-amber-200 text-amber-700',
   paid: 'bg-green-50 border-green-200 text-green-700',
-  approved: 'bg-blue-50 border-blue-200 text-blue-700',
+  approved: 'bg-green-50 border-green-200 text-green-700',
+  denied: 'bg-red-50 border-red-200 text-red-600',
+  revision_requested: 'bg-amber-50 border-amber-200 text-amber-700',
   sent: 'bg-purple-50 border-purple-200 text-purple-700',
   pending_approval: 'bg-amber-50 border-amber-200 text-amber-700',
   passed: 'bg-green-50 border-green-200 text-green-700',
@@ -30,11 +33,19 @@ const STATUS_COLORS: Record<string, string> = {
   not_scheduled: 'bg-slate-50 border-slate-200 text-slate-500',
 }
 
+const CO_STATUS_LABELS: Record<string, string> = {
+  pending: 'Pending Review',
+  approved: 'Approved',
+  denied: 'Denied',
+  revision_requested: 'Revision Requested',
+}
+
 export default function SubJobDetailPage({ params }: { params: { projectId: string } }) {
   const supabase = createClient()
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<Tab>('overview')
+  const [rfiError, setRfiError] = useState('')
 
   // RFI form
   const [showRfiForm, setShowRfiForm] = useState(false)
@@ -42,7 +53,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
   const [rfiDescription, setRfiDescription] = useState('')
   const [rfiIsChangeOrder, setRfiIsChangeOrder] = useState(false)
   const [rfiCoDescription, setRfiCoDescription] = useState('')
-  const [rfiCoAmount, setRfiCoAmount] = useState('')
+  const [rfiCoItems, setRfiCoItems] = useState<CoItem[]>([{ description: '', qty: '1', unit_price: '' }])
   const [rfiSubmitting, setRfiSubmitting] = useState(false)
 
   async function getToken() {
@@ -64,25 +75,45 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
 
   useEffect(() => { load() }, [params.projectId])
 
+  function coTotal(items: CoItem[]) {
+    return items.reduce((sum, i) => sum + (parseFloat(i.qty || '0') * parseFloat(i.unit_price || '0')), 0)
+  }
+
   async function submitRfi(e: React.FormEvent) {
     e.preventDefault()
     setRfiSubmitting(true)
+    setRfiError('')
     const token = await getToken()
-    const { data: { session } } = await supabase.auth.getSession()
-    await fetch(`/api/projects/${params.projectId}/rfis`, {
+    const companyId = data?.subcontracts?.[0]?.company_id ?? null
+    const companyName = data?.subcontracts?.[0]?.company_name ?? null
+
+    const items = rfiIsChangeOrder ? rfiCoItems.filter(i => i.description.trim()) : []
+    const total = rfiIsChangeOrder ? coTotal(items) : null
+
+    const res = await fetch(`/api/projects/${params.projectId}/rfis`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({
-        subject: rfiSubject, description: rfiDescription,
+        subject: rfiSubject,
+        description: rfiDescription,
         is_change_order: rfiIsChangeOrder,
         change_order_description: rfiIsChangeOrder ? rfiCoDescription : null,
-        change_order_amount: rfiIsChangeOrder && rfiCoAmount ? parseFloat(rfiCoAmount) : null,
-        submitted_by_name: session?.user?.email ?? 'Sub',
-        company_name: null, company_id: null,
+        change_order_items: rfiIsChangeOrder ? items : null,
+        change_order_amount: total,
+        company_id: companyId,
+        company_name: companyName,
       }),
     })
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      setRfiError(err.error || 'Failed to submit RFI. Please try again.')
+      setRfiSubmitting(false)
+      return
+    }
+
     setRfiSubject(''); setRfiDescription(''); setRfiIsChangeOrder(false)
-    setRfiCoDescription(''); setRfiCoAmount('')
+    setRfiCoDescription(''); setRfiCoItems([{ description: '', qty: '1', unit_price: '' }])
     setShowRfiForm(false); setRfiSubmitting(false)
     load()
   }
@@ -118,7 +149,6 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
 
   return (
     <div className="p-6 space-y-5">
-      {/* Back */}
       <Link href="/my-jobs" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700">
         <ArrowLeft className="h-4 w-4" /> Back to My Jobs
       </Link>
@@ -143,7 +173,6 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
           )}
         </div>
 
-        {/* Quick stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4 pt-4 border-t border-slate-100">
           {[
             { label: 'Open Tasks', value: openTasks.length, color: openTasks.length > 0 ? 'text-blue-600' : 'text-green-600' },
@@ -179,7 +208,6 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
       {/* Overview tab */}
       {activeTab === 'overview' && (
         <div className="space-y-4">
-          {/* Payment schedules — one card per subcontract */}
           {(subcontracts ?? []).map((sub: any) => (
             <div key={sub.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
               <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
@@ -187,39 +215,36 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                 <span className="text-sm font-bold text-slate-900">${Number(sub.contract_amount).toLocaleString()}</span>
               </div>
               {sub.payment_schedule_items?.length > 0 ? (
-                <>
-                  <div className="divide-y divide-slate-50">
-                    {sub.payment_schedule_items.map((item: any) => (
-                      <div key={item.id} className="flex items-center gap-3 px-5 py-3">
-                        <div className="shrink-0">
-                          {item.status === 'paid'
-                            ? <CheckCircle2 className="h-4 w-4 text-green-500" />
-                            : <Clock className="h-4 w-4 text-slate-300" />}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-800">{item.label}</p>
-                          {item.percentage && <p className="text-xs text-slate-400">{item.percentage}% of contract</p>}
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-sm font-semibold text-slate-900">
-                            {item.amount ? `$${Number(item.amount).toLocaleString()}` : item.percentage ? `${item.percentage}%` : '—'}
-                          </p>
-                          <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5',
-                            STATUS_COLORS[item.status] ?? STATUS_COLORS.pending)}>
-                            {item.status}
-                          </span>
-                        </div>
+                <div className="divide-y divide-slate-50">
+                  {sub.payment_schedule_items.map((item: any) => (
+                    <div key={item.id} className="flex items-center gap-3 px-5 py-3">
+                      <div className="shrink-0">
+                        {item.status === 'paid'
+                          ? <CheckCircle2 className="h-4 w-4 text-green-500" />
+                          : <Clock className="h-4 w-4 text-slate-300" />}
                       </div>
-                    ))}
-                  </div>
-                </>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-800">{item.label}</p>
+                        {item.percentage && <p className="text-xs text-slate-400">{item.percentage}% of contract</p>}
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-semibold text-slate-900">
+                          {item.amount ? `$${Number(item.amount).toLocaleString()}` : item.percentage ? `${item.percentage}%` : '—'}
+                        </p>
+                        <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5',
+                          STATUS_COLORS[item.status] ?? STATUS_COLORS.pending)}>
+                          {item.status}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               ) : (
                 <p className="px-5 py-4 text-sm text-slate-400">No payment schedule set.</p>
               )}
             </div>
           ))}
 
-          {/* Recent logs */}
           {recentLogs.length > 0 && (
             <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
               <div className="px-5 py-3.5 border-b border-slate-100">
@@ -252,14 +277,11 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
               <p className="text-sm text-slate-400">No tasks assigned to you yet.</p>
             </div>
           ) : tasks.map((task: any) => (
-            <div key={task.id} className={cn('bg-white rounded-xl border border-slate-200 px-5 py-4',
-              task.status === 'completed' && 'opacity-60')}>
+            <div key={task.id} className={cn('bg-white rounded-xl border border-slate-200 px-5 py-4', task.status === 'completed' && 'opacity-60')}>
               <div className="flex items-start gap-3">
                 <div className="shrink-0 mt-0.5">
-                  {task.status === 'completed'
-                    ? <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    : task.status === 'in_progress'
-                    ? <Clock className="h-4 w-4 text-blue-500" />
+                  {task.status === 'completed' ? <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    : task.status === 'in_progress' ? <Clock className="h-4 w-4 text-blue-500" />
                     : <div className="h-4 w-4 rounded-full border-2 border-slate-300" />}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -275,9 +297,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                       'bg-slate-50 border-slate-200 text-slate-500')}>
                       {task.priority}
                     </span>
-                    {task.due_date && (
-                      <span className="text-xs text-slate-400">{new Date(task.due_date).toLocaleDateString()}</span>
-                    )}
+                    {task.due_date && <span className="text-xs text-slate-400">{new Date(task.due_date).toLocaleDateString()}</span>}
                   </div>
                 </div>
               </div>
@@ -290,7 +310,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
       {activeTab === 'rfis' && (
         <div className="space-y-3">
           {!showRfiForm && (
-            <Button onClick={() => setShowRfiForm(true)} variant="outline">
+            <Button onClick={() => { setShowRfiForm(true); setRfiError('') }} variant="outline">
               <Plus className="h-4 w-4" /> Submit New RFI
             </Button>
           )}
@@ -308,31 +328,64 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
               <div className="space-y-1.5">
                 <Label>Description</Label>
                 <textarea required rows={3} value={rfiDescription} onChange={e => setRfiDescription(e.target.value)}
-                  placeholder="Describe your question..."
+                  placeholder="Describe your question in detail..."
                   className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none resize-none" />
               </div>
+
+              {/* Change order toggle */}
               <button type="button" onClick={() => setRfiIsChangeOrder(!rfiIsChangeOrder)}
                 className={cn('flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors',
                   rfiIsChangeOrder ? 'border-purple-400 bg-purple-50 text-purple-700' : 'border-slate-200 text-slate-600 hover:border-purple-300')}>
                 <DollarSign className="h-3.5 w-3.5" />{rfiIsChangeOrder ? 'Change Order Included' : 'Include Change Order Request'}
               </button>
+
               {rfiIsChangeOrder && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5 col-span-2">
-                    <Label>Change Order Description</Label>
-                    <textarea rows={2} value={rfiCoDescription} onChange={e => setRfiCoDescription(e.target.value)}
-                      placeholder="What additional work is required..."
-                      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none resize-none" />
-                  </div>
+                <div className="space-y-3 rounded-lg bg-purple-50 border border-purple-200 p-4">
+                  <p className="text-xs font-semibold text-purple-700 uppercase tracking-wide">Change Order Details</p>
                   <div className="space-y-1.5">
-                    <Label>Proposed Amount</Label>
-                    <div className="relative">
-                      <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-                      <Input type="number" step="0.01" value={rfiCoAmount} onChange={e => setRfiCoAmount(e.target.value)} placeholder="0.00" className="pl-7" />
-                    </div>
+                    <Label>Scope of Extra Work</Label>
+                    <textarea rows={2} value={rfiCoDescription} onChange={e => setRfiCoDescription(e.target.value)}
+                      placeholder="Describe the additional work required..."
+                      className="w-full rounded-md border border-purple-300 bg-white px-3 py-2 text-sm focus:border-purple-500 focus:outline-none resize-none" />
                   </div>
+                  {/* Line items */}
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-[1fr_60px_90px_28px] gap-2 text-xs font-medium text-purple-600 px-1">
+                      <span>Description</span><span className="text-center">Qty</span><span className="text-center">Unit Price</span><span />
+                    </div>
+                    {rfiCoItems.map((item, i) => (
+                      <div key={i} className="grid grid-cols-[1fr_60px_90px_28px] gap-2 items-center">
+                        <Input value={item.description} onChange={e => {
+                          const n = [...rfiCoItems]; n[i].description = e.target.value; setRfiCoItems(n)
+                        }} placeholder="Labor / material..." className="text-sm h-8" />
+                        <Input type="number" min="0" value={item.qty} onChange={e => {
+                          const n = [...rfiCoItems]; n[i].qty = e.target.value; setRfiCoItems(n)
+                        }} className="text-sm h-8 text-center" />
+                        <div className="relative">
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">$</span>
+                          <Input type="number" min="0" step="0.01" value={item.unit_price} onChange={e => {
+                            const n = [...rfiCoItems]; n[i].unit_price = e.target.value; setRfiCoItems(n)
+                          }} className="text-sm h-8 pl-5" placeholder="0.00" />
+                        </div>
+                        <button type="button" onClick={() => setRfiCoItems(rfiCoItems.filter((_, j) => j !== i))}
+                          className="h-8 w-7 flex items-center justify-center text-slate-300 hover:text-red-400">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                    <button type="button" onClick={() => setRfiCoItems([...rfiCoItems, { description: '', qty: '1', unit_price: '' }])}
+                      className="text-xs text-purple-600 hover:underline font-medium">+ Add line item</button>
+                  </div>
+                  {coTotal(rfiCoItems) > 0 && (
+                    <div className="flex justify-end pt-1 border-t border-purple-200">
+                      <span className="text-sm font-bold text-purple-900">Total: ${coTotal(rfiCoItems).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                  )}
                 </div>
               )}
+
+              {rfiError && <p className="text-sm text-red-500">{rfiError}</p>}
+
               <div className="flex gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => setShowRfiForm(false)}>Cancel</Button>
                 <Button type="submit" disabled={rfiSubmitting}>{rfiSubmitting ? 'Submitting...' : 'Submit RFI'}</Button>
@@ -353,7 +406,16 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-mono text-slate-400">RFI-{String(rfi.rfi_number).padStart(3, '0')}</span>
                       <span className="font-semibold text-slate-900">{rfi.subject}</span>
-                      {rfi.is_change_order && <span className="text-xs bg-purple-50 border border-purple-200 text-purple-700 rounded-full px-2 py-0.5">Change Order{rfi.change_order_amount ? ` · $${Number(rfi.change_order_amount).toLocaleString()}` : ''}</span>}
+                      {rfi.is_change_order && (
+                        <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5 flex items-center gap-1',
+                          rfi.change_order_status === 'approved' ? 'bg-green-50 border-green-200 text-green-700' :
+                          rfi.change_order_status === 'denied' ? 'bg-red-50 border-red-200 text-red-600' :
+                          rfi.change_order_status === 'revision_requested' ? 'bg-amber-50 border-amber-200 text-amber-700' :
+                          'bg-purple-50 border-purple-200 text-purple-700')}>
+                          <DollarSign className="h-3 w-3" />
+                          Change Order{rfi.change_order_amount ? ` · $${Number(rfi.change_order_amount).toLocaleString()}` : ''} · {CO_STATUS_LABELS[rfi.change_order_status ?? 'pending']}
+                        </span>
+                      )}
                     </div>
                     <p className="text-sm text-slate-600 mt-1">{rfi.description}</p>
                   </div>
@@ -362,6 +424,26 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                     {rfi.status}
                   </span>
                 </div>
+
+                {/* Change order line items */}
+                {rfi.is_change_order && rfi.change_order_items?.length > 0 && (
+                  <div className="mt-3 rounded-lg bg-purple-50 border border-purple-200 px-3 py-2.5">
+                    <p className="text-xs font-semibold text-purple-600 mb-2">Change Order Breakdown</p>
+                    {rfi.change_order_description && <p className="text-xs text-purple-700 mb-2">{rfi.change_order_description}</p>}
+                    <div className="space-y-1">
+                      {rfi.change_order_items.map((item: any, i: number) => (
+                        <div key={i} className="flex items-center justify-between text-xs text-purple-800">
+                          <span>{item.description}</span>
+                          <span className="font-medium">{item.qty} × ${Number(item.unit_price).toLocaleString()} = ${(item.qty * item.unit_price).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-2 pt-1.5 border-t border-purple-300 flex justify-end">
+                      <span className="text-sm font-bold text-purple-900">${Number(rfi.change_order_amount).toLocaleString()}</span>
+                    </div>
+                  </div>
+                )}
+
                 {rfi.response && (
                   <div className="mt-3 rounded-lg bg-green-50 border border-green-100 px-3 py-2.5">
                     <p className="text-xs font-semibold text-green-500 mb-1">GC Response</p>
@@ -409,10 +491,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                   {insp.inspector_name && (
                     <p className="text-xs text-slate-400 mt-0.5">
                       Inspector: {insp.inspector_name}
-                      {insp.inspector_phone && ` · `}
-                      {insp.inspector_phone && (
-                        <a href={`tel:${insp.inspector_phone}`} className="text-orange-500 hover:underline">{insp.inspector_phone}</a>
-                      )}
+                      {insp.inspector_phone && <> · <a href={`tel:${insp.inspector_phone}`} className="text-orange-500 hover:underline">{insp.inspector_phone}</a></>}
                     </p>
                   )}
                 </div>
@@ -446,14 +525,11 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                     </span>
                   </div>
                   {inv.description && <p className="text-xs text-slate-400 mt-0.5">{inv.description}</p>}
-                  <div className="flex items-center gap-3 mt-0.5 text-xs text-slate-400">
-                    {inv.due_date && <span>Due {new Date(inv.due_date).toLocaleDateString()}</span>}
-                    {inv.approved_at && <span>Approved {new Date(inv.approved_at).toLocaleDateString()}</span>}
-                  </div>
                 </div>
                 {(inv.status === 'approved' || inv.status === 'sent') && (
-                  <Link href={`/projects/${params.projectId}/invoices/${inv.id}/print`} target="_blank">
-                    <Button size="sm" variant="outline">View Invoice</Button>
+                  <Link href={`/projects/${project.id}/invoices/${inv.id}/print`}
+                    className="text-xs text-orange-500 hover:underline font-medium shrink-0">
+                    View Invoice
                   </Link>
                 )}
               </div>
