@@ -18,22 +18,23 @@ export async function PATCH(
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const allowed = ['title', 'description', 'due_date', 'priority', 'status', 'assigned_to_member_id', 'assigned_to_company_id', 'assigned_to_name']
-  const update = Object.fromEntries(Object.entries(body).filter(([k]) => allowed.includes(k)))
-
-  if (update.status === 'completed') {
-    (update as any).completed_at = new Date().toISOString()
-  }
+  const updates: Record<string, any> = {}
+  if (body.status !== undefined) updates.status = body.status
+  if (body.title !== undefined) updates.title = body.title
+  if (body.description !== undefined) updates.description = body.description
+  if (body.due_date !== undefined) updates.due_date = body.due_date
+  if (body.priority !== undefined) updates.priority = body.priority
 
   const { data, error } = await db
     .from('project_tasks')
-    .update(update)
+    .update(updates)
     .eq('id', params.taskId)
     .eq('project_id', params.id)
     .select()
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
   return NextResponse.json({ task: data })
 }
 
@@ -48,6 +49,13 @@ export async function DELETE(
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  await db.from('project_tasks').delete().eq('id', params.taskId).eq('project_id', params.id)
+  const { error } = await db
+    .from('project_tasks')
+    .delete()
+    .eq('id', params.taskId)
+    .eq('project_id', params.id)
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
   return NextResponse.json({ ok: true })
 }
