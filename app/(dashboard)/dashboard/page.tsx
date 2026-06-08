@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { FolderKanban, AlertCircle, ShieldAlert, MessageSquare, Package } from 'lucide-react'
+import { FolderKanban, AlertCircle, ShieldAlert, MessageSquare, Package, CheckSquare, DollarSign } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { StatCard } from '@/components/ui/stat-card'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
@@ -24,10 +24,20 @@ interface Project {
   start_date: string
 }
 
+interface Stats {
+  activeProjects: number
+  openRfis: number
+  pendingApprovals: number
+  openTasks: number
+  expiringCompliance: number
+  totalContractValue: number
+}
+
 export default function DashboardPage() {
   const supabase = createClient()
   const [newBidNotifications, setNewBidNotifications] = useState<Notification[]>([])
   const [projects, setProjects] = useState<Project[]>([])
+  const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
 
   async function getToken() {
@@ -39,9 +49,10 @@ export default function DashboardPage() {
     async function load() {
       const token = await getToken()
 
-      const [notifRes, projRes] = await Promise.all([
+      const [notifRes, projRes, statsRes] = await Promise.all([
         fetch('/api/notifications', { headers: { Authorization: `Bearer ${token}` } }),
         fetch('/api/projects', { headers: { Authorization: `Bearer ${token}` } }),
+        fetch('/api/dashboard/stats', { headers: { Authorization: `Bearer ${token}` } }),
       ])
 
       if (notifRes.ok) {
@@ -54,6 +65,10 @@ export default function DashboardPage() {
       if (projRes.ok) {
         const data = await projRes.json()
         setProjects(data.projects ?? [])
+      }
+
+      if (statsRes.ok) {
+        setStats(await statsRes.json())
       }
 
       setLoading(false)
@@ -70,6 +85,11 @@ export default function DashboardPage() {
     })
     setNewBidNotifications([])
   }
+
+  const v = (n: number | undefined) => loading || !stats ? '—' : String(n ?? 0)
+  const money = (n: number | undefined) => loading || !stats ? '—' : n && n >= 1000000
+    ? `$${(n / 1000000).toFixed(1)}M`
+    : n && n >= 1000 ? `$${(n / 1000).toFixed(0)}K` : `$${(n ?? 0).toLocaleString()}`
 
   return (
     <div className="p-6 space-y-5">
@@ -108,11 +128,13 @@ export default function DashboardPage() {
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Active Projects" value={loading ? '—' : projects.filter(p => p.status === 'active').length.toString()} icon={FolderKanban} iconColor="text-orange-500" />
-        <StatCard label="Pending Approvals" value="—" icon={AlertCircle} iconColor="text-yellow-500" />
-        <StatCard label="Expiring Compliance" value="—" icon={ShieldAlert} iconColor="text-red-500" />
-        <StatCard label="Open RFIs" value="—" icon={MessageSquare} iconColor="text-blue-500" />
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
+        <StatCard label="Active Projects" value={v(stats?.activeProjects)} icon={FolderKanban} iconColor="text-orange-500" />
+        <StatCard label="Open RFIs" value={v(stats?.openRfis)} icon={MessageSquare} iconColor="text-blue-500" />
+        <StatCard label="Pending Approvals" value={v(stats?.pendingApprovals)} icon={AlertCircle} iconColor="text-yellow-500" />
+        <StatCard label="Open Tasks" value={v(stats?.openTasks)} icon={CheckSquare} iconColor="text-purple-500" />
+        <StatCard label="Expiring Compliance" value={v(stats?.expiringCompliance)} icon={ShieldAlert} iconColor="text-red-500" />
+        <StatCard label="Total Under Contract" value={money(stats?.totalContractValue)} icon={DollarSign} iconColor="text-green-500" />
       </div>
 
       {/* Recent Projects */}
