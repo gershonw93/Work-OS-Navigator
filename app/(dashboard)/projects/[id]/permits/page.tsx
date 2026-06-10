@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 import { Plus, X, FileCheck, FileText, ChevronDown, ChevronUp, Phone, Building, ExternalLink, Sparkles, Loader2, AlertCircle } from 'lucide-react'
+import { ContactPicker } from '@/components/contact-picker'
 
 const PERMIT_TYPES = ['Building', 'Electrical', 'Plumbing', 'Mechanical/HVAC', 'Fire Protection', 'Demolition', 'Excavation', 'Roofing', 'Sign', 'Other']
 const STATUS_COLORS: Record<string, string> = {
@@ -231,8 +232,14 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label><Phone className="inline h-3.5 w-3.5 mr-1 text-slate-400" />Inspector Name</Label>
-                    <Input placeholder="Inspector name" value={inspectorName} onChange={e => setInspectorName(e.target.value)} />
+                    <Label>Inspector Name</Label>
+                    <ContactPicker
+                      filterType="inspector"
+                      value={inspectorName}
+                      onChange={name => setInspectorName(name)}
+                      onPhoneChange={phone => setInspectorPhone(phone)}
+                      placeholder="Search inspectors…"
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label>Inspector Phone</Label>

@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 import { Plus, X, ClipboardCheck, Phone, Calendar, CheckCircle2, XCircle, Clock, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react'
+import { ContactPicker } from '@/components/contact-picker'
 
 const INSPECTION_TYPES = [
   'Foundation', 'Framing', 'Rough Electrical', 'Rough Plumbing', 'Rough Mechanical',
@@ -221,7 +222,13 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Inspector Name</Label>
-                    <Input placeholder="Inspector name" value={inspectorName} onChange={e => setInspectorName(e.target.value)} />
+                    <ContactPicker
+                      filterType="inspector"
+                      value={inspectorName}
+                      onChange={name => setInspectorName(name)}
+                      onPhoneChange={phone => setInspectorPhone(phone)}
+                      placeholder="Search inspectors…"
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label>Inspector Phone</Label>
