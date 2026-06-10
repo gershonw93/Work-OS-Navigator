@@ -48,6 +48,9 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
   const [analyzing, setAnalyzing] = useState(false)
   const [analyzeError, setAnalyzeError] = useState('')
 
+  const [submitError, setSubmitError] = useState('')
+  const [fetchError, setFetchError] = useState('')
+
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
     return session?.access_token ?? ''
@@ -56,7 +59,9 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
   async function fetchPermits() {
     const token = await getToken()
     const res = await fetch(`/api/projects/${params.id}/permits`, { headers: { Authorization: `Bearer ${token}` } })
-    if (res.ok) setPermits((await res.json()).permits)
+    const json = await res.json()
+    if (res.ok) setPermits(json.permits ?? [])
+    else setFetchError(json.error ?? `Error ${res.status}`)
     setLoading(false)
   }
 
@@ -116,7 +121,14 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
     if (inspectorPhone) form.append('inspector_phone', inspectorPhone)
     if (notes) form.append('notes', notes)
     if (permitFile) form.append('file', permitFile)
-    await fetch(`/api/projects/${params.id}/permits`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form })
+    const res = await fetch(`/api/projects/${params.id}/permits`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form })
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}))
+      setSubmitError(json.error ?? `Save failed (${res.status})`)
+      setSubmitting(false)
+      return
+    }
+    setSubmitError('')
     resetForm(); setShowForm(false); setSubmitting(false); fetchPermits()
   }
 
@@ -233,11 +245,14 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                     className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none resize-none" />
                 </div>
               </div>
-              <div className="sticky bottom-0 bg-white border-t border-slate-100 px-6 py-4 flex gap-2 justify-end">
+              <div className="sticky bottom-0 bg-white border-t border-slate-100 px-6 py-4 space-y-2">
+                {submitError && <p className="text-xs text-red-600 flex items-center gap-1"><AlertCircle className="h-3 w-3 shrink-0" />{submitError}</p>}
+                <div className="flex gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => { setShowForm(false); resetForm() }}>Cancel</Button>
                 <Button type="submit" disabled={submitting || analyzing}>
                   {analyzing ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Analyzing...</> : submitting ? 'Saving...' : 'Add Permit'}
                 </Button>
+                </div>
               </div>
             </form>
           </div>
@@ -251,6 +266,13 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
         </div>
         <Button onClick={() => setShowForm(true)}><Plus className="h-4 w-4" /> Add Permit</Button>
       </div>
+
+      {fetchError && (
+        <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 flex items-center gap-2">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>Could not load permits: <strong>{fetchError}</strong></span>
+        </div>
+      )}
 
       {loading ? (
         <div className="text-sm text-slate-400 py-12 text-center">Loading...</div>
