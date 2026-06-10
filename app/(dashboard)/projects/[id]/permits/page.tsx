@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
-import { Plus, X, FileCheck, FileText, ChevronDown, ChevronUp, Phone, Mail, Calendar, Building, ExternalLink } from 'lucide-react'
+import { Plus, X, FileCheck, FileText, ChevronDown, ChevronUp, Phone, Building, ExternalLink, Sparkles, Loader2, AlertCircle } from 'lucide-react'
 
 const PERMIT_TYPES = ['Building', 'Electrical', 'Plumbing', 'Mechanical/HVAC', 'Fire Protection', 'Demolition', 'Excavation', 'Roofing', 'Sign', 'Other']
 const STATUS_COLORS: Record<string, string> = {
@@ -45,6 +45,8 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
   const [inspectorPhone, setInspectorPhone] = useState('')
   const [notes, setNotes] = useState('')
   const [permitFile, setPermitFile] = useState<File | null>(null)
+  const [analyzing, setAnalyzing] = useState(false)
+  const [analyzeError, setAnalyzeError] = useState('')
 
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -64,6 +66,38 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
     setPermitType('Building'); setPermitNumber(''); setDescription(''); setStatus('pending')
     setIssuedDate(''); setExpiryDate(''); setIssuingAuthority('')
     setInspectorName(''); setInspectorPhone(''); setNotes(''); setPermitFile(null)
+    setAnalyzeError('')
+  }
+
+  async function analyzePermitImage(file: File) {
+    setAnalyzing(true)
+    setAnalyzeError('')
+    const token = await getToken()
+    const form = new FormData()
+    form.append('file', file)
+    const res = await fetch(`/api/projects/${params.id}/permits/analyze`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+    })
+    const data = await res.json()
+    if (!res.ok || !data.fields) {
+      setAnalyzeError(data.error ?? 'Analysis failed. Please fill in the fields manually.')
+      setAnalyzing(false)
+      return
+    }
+    const f = data.fields
+    if (f.permit_type && PERMIT_TYPES.includes(f.permit_type)) setPermitType(f.permit_type)
+    if (f.permit_number) setPermitNumber(f.permit_number)
+    if (f.description) setDescription(f.description)
+    if (f.status) setStatus(f.status)
+    if (f.issued_date) setIssuedDate(f.issued_date)
+    if (f.expiry_date) setExpiryDate(f.expiry_date)
+    if (f.issuing_authority) setIssuingAuthority(f.issuing_authority)
+    if (f.inspector_name) setInspectorName(f.inspector_name)
+    if (f.inspector_phone) setInspectorPhone(f.inspector_phone)
+    if (f.notes) setNotes(f.notes)
+    setAnalyzing(false)
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -112,6 +146,38 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
             </div>
             <form onSubmit={handleSubmit}>
               <div className="px-6 py-5 space-y-4">
+                {/* Upload first so AI fills the rest */}
+                <div className="space-y-1.5">
+                  <Label><Sparkles className="inline h-3.5 w-3.5 mr-1 text-orange-400" />Upload Permit (AI Auto-Fill)</Label>
+                  <div onClick={() => fileRef.current?.click()}
+                    className={cn('flex items-center gap-2 rounded-lg border-2 border-dashed px-4 py-3.5 text-sm transition-colors cursor-pointer',
+                      analyzing ? 'border-orange-300 bg-orange-50 text-orange-600' :
+                      permitFile ? 'border-green-300 bg-green-50 text-green-700' :
+                      'border-orange-200 bg-orange-50/40 text-orange-500 hover:border-orange-400')}>
+                    {analyzing
+                      ? <><Loader2 className="h-4 w-4 animate-spin" /><span>Analyzing permit with AI — filling in fields...</span></>
+                      : permitFile
+                      ? <><FileText className="h-4 w-4" /><span>{permitFile.name}</span><span className="ml-auto text-xs text-green-600 font-medium">✓ Fields auto-filled</span></>
+                      : <><Sparkles className="h-4 w-4" /><span className="font-medium">Upload a photo or scan of your permit</span><span className="text-xs ml-1 text-orange-400">— AI fills the fields automatically</span></>}
+                  </div>
+                  <input ref={fileRef} type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png,.webp"
+                    onChange={e => {
+                      const file = e.target.files?.[0] ?? null
+                      setPermitFile(file)
+                      if (file && file.type.startsWith('image/')) analyzePermitImage(file)
+                    }} />
+                  {analyzeError && (
+                    <p className="text-xs text-red-600 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />{analyzeError}
+                    </p>
+                  )}
+                </div>
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-100" /></div>
+                  <div className="relative flex justify-center"><span className="bg-white px-2 text-xs text-slate-400">or fill in manually</span></div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Permit Type</Label>
@@ -166,19 +232,12 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                   <textarea rows={2} placeholder="Any additional notes..." value={notes} onChange={e => setNotes(e.target.value)}
                     className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none resize-none" />
                 </div>
-                <div className="space-y-1.5">
-                  <Label><FileText className="inline h-3.5 w-3.5 mr-1 text-slate-400" />Attach Permit Document</Label>
-                  <div onClick={() => fileRef.current?.click()}
-                    className="flex items-center gap-2 rounded-lg border-2 border-dashed border-slate-200 px-4 py-2.5 text-sm text-slate-400 hover:border-orange-300 hover:text-orange-500 transition-colors cursor-pointer">
-                    <FileText className="h-4 w-4" />
-                    {permitFile ? permitFile.name : 'Upload PDF or image'}
-                  </div>
-                  <input ref={fileRef} type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png" onChange={e => setPermitFile(e.target.files?.[0] ?? null)} />
-                </div>
               </div>
               <div className="sticky bottom-0 bg-white border-t border-slate-100 px-6 py-4 flex gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => { setShowForm(false); resetForm() }}>Cancel</Button>
-                <Button type="submit" disabled={submitting}>{submitting ? 'Saving...' : 'Add Permit'}</Button>
+                <Button type="submit" disabled={submitting || analyzing}>
+                  {analyzing ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Analyzing...</> : submitting ? 'Saving...' : 'Add Permit'}
+                </Button>
               </div>
             </form>
           </div>
