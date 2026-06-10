@@ -10,6 +10,7 @@ import { Select } from '@/components/ui/select'
 import { Badge, getStatusVariant } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
 import { cn } from '@/lib/utils'
+import { ContactPicker } from '@/components/contact-picker'
 
 const GC_ROLES = [
   'Project Manager', 'Site Manager', 'Superintendent', 'Foreman',
@@ -111,7 +112,16 @@ export default function TeamPage({ params }: { params: { id: string } }) {
               <div className="px-6 py-5 space-y-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="name">Full Name <span className="text-red-500">*</span></Label>
-                  <Input id="name" placeholder="e.g. Marcus Johnson" value={name} onChange={e => setName(e.target.value)} required autoFocus />
+                  <ContactPicker
+                    filterType="worker"
+                    value={name}
+                    onChange={(n, contact) => {
+                      setName(n)
+                      if (contact?.phone) setPhone(contact.phone)
+                      if (contact?.contact_email && !contact.contact_email.includes('placeholder.com')) setEmail(contact.contact_email)
+                    }}
+                    placeholder="Search workers or type a name…"
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="role">Role <span className="text-red-500">*</span></Label>
