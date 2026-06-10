@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Building2, Plus, X, Search } from 'lucide-react'
+import { Building2, Plus, X, Search, Phone, Mail, MapPin, Globe, BadgeCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,17 +9,71 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
+import { cn } from '@/lib/utils'
+
+// ─── Constants ───────────────────────────────────────────────────────────────
 
 const TRADES = [
-  '', 'Demolition', 'Concrete', 'Masonry', 'Structural Steel', 'Framing',
+  'Demolition', 'Concrete', 'Masonry', 'Structural Steel', 'Framing',
   'Roofing', 'Waterproofing', 'Insulation', 'Drywall', 'Doors & Hardware',
   'Glazing', 'Tile', 'Flooring', 'Paint', 'Electrical', 'Plumbing',
   'HVAC', 'Fire Protection', 'Elevators', 'Landscaping', 'Other',
 ]
 
+const INSPECTOR_SPECIALTIES = [
+  'Electrical', 'Plumbing', 'Structural', 'Mechanical/HVAC',
+  'Fire', 'Building/General', 'Zoning', 'Environmental', 'Other',
+]
+
+const SUPPLIER_CATEGORIES = [
+  'Lumber & Framing', 'Concrete & Masonry', 'Electrical Supplies', 'Plumbing Supplies',
+  'HVAC Equipment', 'Roofing Materials', 'Flooring', 'Paint & Finishes',
+  'Tools & Equipment', 'Safety Equipment', 'Other',
+]
+
+type ContactType = 'gc' | 'subcontractor' | 'inspector' | 'supplier' | 'worker' | 'other'
+
+const TYPE_LABELS: Record<ContactType, string> = {
+  gc: 'GC',
+  subcontractor: 'Sub',
+  inspector: 'Inspector',
+  supplier: 'Supplier',
+  worker: 'Worker',
+  other: 'Other',
+}
+
+const TYPE_BADGE_CLASSES: Record<ContactType, string> = {
+  gc: 'bg-blue-100 text-blue-800',
+  subcontractor: 'bg-orange-100 text-orange-800',
+  inspector: 'bg-purple-100 text-purple-800',
+  supplier: 'bg-green-100 text-green-800',
+  worker: 'bg-slate-100 text-slate-600',
+  other: 'bg-slate-100 text-slate-600',
+}
+
+const TABS: { key: 'all' | ContactType; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'gc', label: 'GCs' },
+  { key: 'subcontractor', label: 'Subs' },
+  { key: 'inspector', label: 'Inspectors' },
+  { key: 'supplier', label: 'Suppliers' },
+  { key: 'worker', label: 'Workers' },
+]
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface Extra {
+  specialty?: string
+  jurisdiction?: string
+  certification_number?: string
+  notes?: string
+  website?: string
+}
+
 interface Company {
   id: string
   name: string
+  type: ContactType
   trade: string | null
   contact_email: string
   phone: string | null
@@ -27,23 +81,36 @@ interface Company {
   insurance_status: string
   license_number: string | null
   has_account: boolean
+  extra?: Extra | null
 }
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function DirectoryPage() {
   const supabase = createClient()
   const [companies, setCompanies] = useState<Company[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [activeTab, setActiveTab] = useState<'all' | ContactType>('all')
 
+  // Modal state
   const [showAdd, setShowAdd] = useState(false)
-  const [name, setName] = useState('')
-  const [trade, setTrade] = useState('')
-  const [email, setEmail] = useState('')
-  const [phone, setPhone] = useState('')
-  const [address, setAddress] = useState('')
-  const [license, setLicense] = useState('')
   const [addLoading, setAddLoading] = useState(false)
   const [addError, setAddError] = useState<string | null>(null)
+
+  // Form fields
+  const [formType, setFormType] = useState<ContactType>('subcontractor')
+  const [formName, setFormName] = useState('')
+  const [formEmail, setFormEmail] = useState('')
+  const [formPhone, setFormPhone] = useState('')
+  const [formAddress, setFormAddress] = useState('')
+  const [formTrade, setFormTrade] = useState('')
+  const [formLicense, setFormLicense] = useState('')
+  const [formSpecialty, setFormSpecialty] = useState('')
+  const [formJurisdiction, setFormJurisdiction] = useState('')
+  const [formCertNumber, setFormCertNumber] = useState('')
+  const [formNotes, setFormNotes] = useState('')
+  const [formWebsite, setFormWebsite] = useState('')
 
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -58,7 +125,7 @@ export default function DirectoryPage() {
     })
     if (res.ok) {
       const data = await res.json()
-      setCompanies(data.companies)
+      setCompanies(data.companies ?? [])
     }
     setLoading(false)
   }
@@ -66,7 +133,10 @@ export default function DirectoryPage() {
   useEffect(() => { fetchData() }, [])
 
   function resetForm() {
-    setName(''); setTrade(''); setEmail(''); setPhone(''); setAddress(''); setLicense('')
+    setFormType('subcontractor')
+    setFormName(''); setFormEmail(''); setFormPhone(''); setFormAddress('')
+    setFormTrade(''); setFormLicense(''); setFormSpecialty(''); setFormJurisdiction('')
+    setFormCertNumber(''); setFormNotes(''); setFormWebsite('')
     setAddError(null)
   }
 
@@ -78,7 +148,20 @@ export default function DirectoryPage() {
     const res = await fetch('/api/directory', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ name, trade, contact_email: email, phone, address, license_number: license }),
+      body: JSON.stringify({
+        name: formName,
+        type: formType,
+        contact_email: formEmail,
+        phone: formPhone || undefined,
+        address: formAddress || undefined,
+        trade: formTrade || undefined,
+        license_number: formLicense || undefined,
+        specialty: formSpecialty || undefined,
+        jurisdiction: formJurisdiction || undefined,
+        certification_number: formCertNumber || undefined,
+        notes: formNotes || undefined,
+        website: formWebsite || undefined,
+      }),
     })
     if (!res.ok) {
       const body = await res.json()
@@ -92,149 +175,415 @@ export default function DirectoryPage() {
     fetchData()
   }
 
-  const filtered = companies.filter(c =>
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    (c.trade ?? '').toLowerCase().includes(search.toLowerCase()) ||
-    c.contact_email.toLowerCase().includes(search.toLowerCase())
-  )
+  // ─── Filtering ──────────────────────────────────────────────────────────────
 
-  const insuranceBadge = (status: string) => {
-    if (status === 'active') return <Badge variant="success">Active</Badge>
-    if (status === 'expired') return <Badge variant="danger">Expired</Badge>
-    return <Badge variant="muted">Missing</Badge>
+  const tabFiltered = activeTab === 'all' ? companies : companies.filter(c => c.type === activeTab)
+
+  const filtered = tabFiltered.filter(c => {
+    const q = search.toLowerCase()
+    return (
+      c.name.toLowerCase().includes(q) ||
+      (c.contact_email ?? '').toLowerCase().includes(q) ||
+      (c.phone ?? '').toLowerCase().includes(q) ||
+      (c.trade ?? '').toLowerCase().includes(q)
+    )
+  })
+
+  // Counts per tab
+  const counts: Record<string, number> = { all: companies.length }
+  for (const t of ['gc', 'subcontractor', 'inspector', 'supplier', 'worker', 'other'] as ContactType[]) {
+    counts[t] = companies.filter(c => c.type === t).length
   }
+
+  // ─── Helpers ────────────────────────────────────────────────────────────────
+
+  function TypeBadge({ type }: { type: ContactType }) {
+    return (
+      <span className={cn(
+        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+        TYPE_BADGE_CLASSES[type] ?? 'bg-slate-100 text-slate-600'
+      )}>
+        {TYPE_LABELS[type] ?? type}
+      </span>
+    )
+  }
+
+  // ─── Add Modal ──────────────────────────────────────────────────────────────
+
+  const isSubOrGC = formType === 'subcontractor' || formType === 'gc'
+  const isInspector = formType === 'inspector'
+  const isSupplier = formType === 'supplier'
+
+  // ─── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div className="p-6">
-      {/* Add Company Modal */}
+
+      {/* ── Add Contact Modal ── */}
       {showAdd && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-900">Add Subcontractor</h2>
+              <h2 className="text-lg font-semibold text-slate-900">Add Contact</h2>
               <button onClick={() => { setShowAdd(false); resetForm() }} className="text-slate-400 hover:text-slate-600">
                 <X className="h-5 w-5" />
               </button>
             </div>
             <form onSubmit={handleAdd}>
               <div className="px-6 py-5 space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5 col-span-2">
-                    <Label htmlFor="name">Company Name *</Label>
-                    <Input id="name" placeholder="e.g. Citywide Electric" value={name} onChange={e => setName(e.target.value)} required autoFocus />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="trade">Trade</Label>
-                    <Select id="trade" value={trade} onChange={e => setTrade(e.target.value)}>
-                      <option value="">Select trade...</option>
-                      {TRADES.filter(Boolean).map(t => <option key={t} value={t}>{t}</option>)}
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="email">Contact Email *</Label>
-                    <Input id="email" type="email" placeholder="contact@company.com" value={email} onChange={e => setEmail(e.target.value)} required />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="phone">Phone <span className="text-slate-400 font-normal">(optional)</span></Label>
-                    <Input id="phone" placeholder="(555) 000-0000" value={phone} onChange={e => setPhone(e.target.value)} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="license">License # <span className="text-slate-400 font-normal">(optional)</span></Label>
-                    <Input id="license" placeholder="e.g. LIC-123456" value={license} onChange={e => setLicense(e.target.value)} />
-                  </div>
-                  <div className="space-y-1.5 col-span-2">
-                    <Label htmlFor="address">Address <span className="text-slate-400 font-normal">(optional)</span></Label>
-                    <Input id="address" placeholder="123 Main St, City, State" value={address} onChange={e => setAddress(e.target.value)} />
-                  </div>
+
+                {/* Type */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="form-type">Contact Type</Label>
+                  <Select
+                    id="form-type"
+                    value={formType}
+                    onChange={e => setFormType(e.target.value as ContactType)}
+                  >
+                    <option value="gc">General Contractor (GC)</option>
+                    <option value="subcontractor">Subcontractor</option>
+                    <option value="inspector">Inspector</option>
+                    <option value="supplier">Supplier</option>
+                    <option value="worker">Worker</option>
+                    <option value="other">Other</option>
+                  </Select>
                 </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Name */}
+                  <div className="space-y-1.5 col-span-2">
+                    <Label htmlFor="form-name">
+                      {isInspector || formType === 'worker' ? 'Full Name' : 'Company Name'} *
+                    </Label>
+                    <Input
+                      id="form-name"
+                      placeholder={isInspector ? 'e.g. John Martinez' : 'e.g. Citywide Electric'}
+                      value={formName}
+                      onChange={e => setFormName(e.target.value)}
+                      required
+                      autoFocus
+                    />
+                  </div>
+
+                  {/* Email */}
+                  <div className="space-y-1.5 col-span-2">
+                    <Label htmlFor="form-email">Contact Email *</Label>
+                    <Input
+                      id="form-email"
+                      type="email"
+                      placeholder="contact@example.com"
+                      value={formEmail}
+                      onChange={e => setFormEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  {/* Phone */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="form-phone">Phone <span className="text-slate-400 font-normal">(optional)</span></Label>
+                    <Input
+                      id="form-phone"
+                      placeholder="(555) 000-0000"
+                      value={formPhone}
+                      onChange={e => setFormPhone(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Address */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="form-address">Address <span className="text-slate-400 font-normal">(optional)</span></Label>
+                    <Input
+                      id="form-address"
+                      placeholder="123 Main St, City, State"
+                      value={formAddress}
+                      onChange={e => setFormAddress(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Sub / GC fields */}
+                  {isSubOrGC && (
+                    <>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="form-trade">Trade <span className="text-slate-400 font-normal">(optional)</span></Label>
+                        <Select
+                          id="form-trade"
+                          value={formTrade}
+                          onChange={e => setFormTrade(e.target.value)}
+                        >
+                          <option value="">Select trade...</option>
+                          {TRADES.map(t => <option key={t} value={t}>{t}</option>)}
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="form-license">License # <span className="text-slate-400 font-normal">(optional)</span></Label>
+                        <Input
+                          id="form-license"
+                          placeholder="e.g. LIC-123456"
+                          value={formLicense}
+                          onChange={e => setFormLicense(e.target.value)}
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {/* Inspector fields */}
+                  {isInspector && (
+                    <>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="form-specialty">Specialty</Label>
+                        <Select
+                          id="form-specialty"
+                          value={formSpecialty}
+                          onChange={e => setFormSpecialty(e.target.value)}
+                        >
+                          <option value="">Select specialty...</option>
+                          {INSPECTOR_SPECIALTIES.map(s => <option key={s} value={s}>{s}</option>)}
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="form-jurisdiction">Jurisdiction <span className="text-slate-400 font-normal">(optional)</span></Label>
+                        <Input
+                          id="form-jurisdiction"
+                          placeholder="e.g. City of Austin"
+                          value={formJurisdiction}
+                          onChange={e => setFormJurisdiction(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1.5 col-span-2">
+                        <Label htmlFor="form-cert">Certification # <span className="text-slate-400 font-normal">(optional)</span></Label>
+                        <Input
+                          id="form-cert"
+                          placeholder="e.g. CERT-78901"
+                          value={formCertNumber}
+                          onChange={e => setFormCertNumber(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1.5 col-span-2">
+                        <Label htmlFor="form-notes">Notes <span className="text-slate-400 font-normal">(optional)</span></Label>
+                        <textarea
+                          id="form-notes"
+                          rows={3}
+                          placeholder="Any additional notes about this inspector..."
+                          value={formNotes}
+                          onChange={e => setFormNotes(e.target.value)}
+                          className="flex w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 resize-none"
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {/* Supplier fields */}
+                  {isSupplier && (
+                    <>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="form-category">Category <span className="text-slate-400 font-normal">(optional)</span></Label>
+                        <Select
+                          id="form-category"
+                          value={formTrade}
+                          onChange={e => setFormTrade(e.target.value)}
+                        >
+                          <option value="">Select category...</option>
+                          {SUPPLIER_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="form-website">Website <span className="text-slate-400 font-normal">(optional)</span></Label>
+                        <Input
+                          id="form-website"
+                          type="url"
+                          placeholder="https://supplier.com"
+                          value={formWebsite}
+                          onChange={e => setFormWebsite(e.target.value)}
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+
                 {addError && <p className="text-sm text-red-600">{addError}</p>}
               </div>
+
               <div className="sticky bottom-0 bg-white border-t border-slate-100 px-6 py-4 flex gap-2 justify-end">
-                <Button type="button" variant="secondary" onClick={() => { setShowAdd(false); resetForm() }}>Cancel</Button>
-                <Button type="submit" disabled={addLoading}>{addLoading ? 'Adding...' : 'Add Subcontractor'}</Button>
+                <Button type="button" variant="secondary" onClick={() => { setShowAdd(false); resetForm() }}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={addLoading}>
+                  {addLoading ? 'Adding...' : `Add ${TYPE_LABELS[formType]}`}
+                </Button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* Header */}
+      {/* ── Header ── */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Subcontractor Directory</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Your approved vendor and subcontractor list.</p>
+          <h1 className="text-2xl font-bold text-slate-900">Contacts Directory</h1>
+          <p className="text-sm text-slate-500 mt-0.5">GCs, subs, inspectors, suppliers, and workers.</p>
         </div>
         <Button onClick={() => setShowAdd(true)}>
           <Plus className="h-4 w-4" />
-          Add Company
+          Add Contact
         </Button>
       </div>
 
-      {/* Search */}
+      {/* ── Tabs ── */}
+      <div className="flex gap-0 border-b border-slate-200 mb-5">
+        {TABS.map(tab => {
+          const count = counts[tab.key] ?? 0
+          const active = activeTab === tab.key
+          return (
+            <button
+              key={tab.key}
+              onClick={() => { setActiveTab(tab.key); setSearch('') }}
+              className={cn(
+                'flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors',
+                active
+                  ? 'border-orange-500 text-orange-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+              )}
+            >
+              {tab.label}
+              {count > 0 && (
+                <span className={cn(
+                  'inline-flex items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-medium min-w-[1.25rem]',
+                  active ? 'bg-orange-100 text-orange-700' : 'bg-slate-100 text-slate-500'
+                )}>
+                  {count}
+                </span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* ── Search ── */}
       <div className="relative mb-5 max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
         <Input
-          placeholder="Search by name, trade, or email..."
+          placeholder="Search by name, email, or phone..."
           value={search}
           onChange={e => setSearch(e.target.value)}
           className="pl-9"
         />
       </div>
 
-      {/* Table */}
+      {/* ── Content ── */}
       {loading ? (
         <div className="text-sm text-slate-400 py-12 text-center">Loading...</div>
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={Building2}
-          title={companies.length === 0 ? 'No companies in directory' : 'No matches found'}
-          description={companies.length === 0
-            ? 'Add subcontractors to your directory to invite them to bid on projects.'
-            : 'Try a different search term.'}
-          action={companies.length === 0 ? { label: 'Add Company', onClick: () => setShowAdd(true) } : undefined}
+          title={companies.length === 0 ? 'No contacts yet' : 'No matches found'}
+          description={
+            companies.length === 0
+              ? 'Add GCs, subcontractors, inspectors, suppliers, and workers to your directory.'
+              : 'Try a different search term or switch tabs.'
+          }
+          action={companies.length === 0 ? { label: 'Add Contact', onClick: () => setShowAdd(true) } : undefined}
         />
       ) : (
-        <div className="rounded-xl border border-slate-200 overflow-hidden bg-white">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 border-b border-slate-200">
-              <tr>
-                <th className="text-left px-5 py-3 font-medium text-slate-600">Company</th>
-                <th className="text-left px-5 py-3 font-medium text-slate-600">Trade</th>
-                <th className="text-left px-5 py-3 font-medium text-slate-600">Contact</th>
-                <th className="text-left px-5 py-3 font-medium text-slate-600">Phone</th>
-                <th className="text-left px-5 py-3 font-medium text-slate-600">Insurance</th>
-                <th className="text-left px-5 py-3 font-medium text-slate-600">License #</th>
-                <th className="px-5 py-3" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filtered.map(company => (
-                <tr key={company.id} className="hover:bg-slate-50">
-                  <td className="px-5 py-3">
-                    <div className="flex items-center gap-2.5">
-                      <span
-                        title={company.has_account ? 'Has WorkOS account' : 'No account yet'}
-                        className={`h-2 w-2 rounded-full shrink-0 ${company.has_account ? 'bg-green-500' : 'bg-slate-300'}`}
-                      />
-                      <span className="font-medium text-slate-900">{company.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-5 py-3 text-slate-500">{company.trade ?? '—'}</td>
-                  <td className="px-5 py-3">
-                    <a href={`mailto:${company.contact_email}`} className="text-orange-600 hover:underline">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {filtered.map(company => {
+            const type = (company.type ?? 'other') as ContactType
+            const extra = company.extra ?? {}
+            return (
+              <div
+                key={company.id}
+                className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col gap-3 hover:border-slate-300 transition-colors"
+              >
+                {/* Card header */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {company.has_account && (
+                      <span title="On Platform" className="shrink-0 h-2 w-2 rounded-full bg-green-500" />
+                    )}
+                    <span className="font-semibold text-slate-900 truncate">{company.name}</span>
+                  </div>
+                  <TypeBadge type={type} />
+                </div>
+
+                {/* Inspector specialty badge */}
+                {type === 'inspector' && extra.specialty && (
+                  <span className="inline-flex items-center gap-1 self-start rounded-full px-2.5 py-0.5 text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200">
+                    <BadgeCheck className="h-3 w-3" />
+                    {extra.specialty}
+                  </span>
+                )}
+
+                {/* Trade / category */}
+                {company.trade && (
+                  <p className="text-xs text-slate-500">{company.trade}</p>
+                )}
+
+                {/* Inspector extra fields */}
+                {type === 'inspector' && (extra.jurisdiction || extra.certification_number) && (
+                  <div className="space-y-0.5">
+                    {extra.jurisdiction && (
+                      <p className="text-xs text-slate-500">
+                        <span className="font-medium text-slate-700">Jurisdiction:</span> {extra.jurisdiction}
+                      </p>
+                    )}
+                    {extra.certification_number && (
+                      <p className="text-xs font-mono text-slate-500">
+                        <span className="font-sans font-medium text-slate-700">Cert #:</span> {extra.certification_number}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Supplier website */}
+                {type === 'supplier' && extra.website && (
+                  <a
+                    href={extra.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-orange-600 hover:underline truncate"
+                  >
+                    <Globe className="h-3 w-3 shrink-0" />
+                    {extra.website.replace(/^https?:\/\//, '')}
+                  </a>
+                )}
+
+                {/* Contact row */}
+                <div className="mt-auto space-y-1">
+                  {company.contact_email && (
+                    <a
+                      href={`mailto:${company.contact_email}`}
+                      className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-orange-600 truncate"
+                    >
+                      <Mail className="h-3 w-3 shrink-0 text-slate-400" />
                       {company.contact_email}
                     </a>
-                  </td>
-                  <td className="px-5 py-3 text-slate-500">{company.phone ?? '—'}</td>
-                  <td className="px-5 py-3">{insuranceBadge(company.insurance_status)}</td>
-                  <td className="px-5 py-3 font-mono text-slate-500">{company.license_number ?? '—'}</td>
-                  <td className="px-5 py-3 text-right">
-                    <Button variant="ghost" size="sm">Edit</Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  )}
+                  {company.phone && (
+                    <a
+                      href={`tel:${company.phone}`}
+                      className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-orange-600"
+                    >
+                      <Phone className="h-3 w-3 shrink-0 text-slate-400" />
+                      {company.phone}
+                    </a>
+                  )}
+                  {company.address && (
+                    <p className="flex items-start gap-1.5 text-xs text-slate-500">
+                      <MapPin className="h-3 w-3 shrink-0 text-slate-400 mt-0.5" />
+                      {company.address}
+                    </p>
+                  )}
+                </div>
+
+                {/* On-platform indicator */}
+                {company.has_account && (
+                  <div className="flex items-center gap-1 pt-1 border-t border-slate-100">
+                    <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                    <span className="text-xs text-green-700 font-medium">On Platform</span>
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
     </div>

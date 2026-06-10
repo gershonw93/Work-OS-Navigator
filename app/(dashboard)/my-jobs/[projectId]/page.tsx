@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import Link from 'next/link'
 import {
   ArrowLeft, MapPin, Calendar, DollarSign, CheckCircle2, Clock,
-  XCircle, AlertCircle, Plus, X, Phone, Trash2, Paperclip,
+  XCircle, AlertCircle, Plus, X, Phone, Trash2, Paperclip, TrendingUp, Zap,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -58,6 +58,10 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
   const [taskPriority, setTaskPriority] = useState('medium')
   const [taskSaving, setTaskSaving] = useState(false)
   const [expandedTask, setExpandedTask] = useState<string | null>(null)
+  const [billingProgress, setBillingProgress] = useState<Record<string, string>>({})
+  const [billingLoading, setBillingLoading] = useState<string | null>(null)
+  const [billingSuccess, setBillingSuccess] = useState<string | null>(null)
+  const [billingError, setBillingError] = useState<Record<string, string>>({})
 
   // RFI form
   const [showRfiForm, setShowRfiForm] = useState(false)
@@ -117,6 +121,52 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
       body: JSON.stringify({ status: next }),
     })
     load()
+  }
+
+  async function submitBilling(sub: any, billingType: string) {
+    setBillingLoading(sub.id)
+    setBillingError(prev => ({ ...prev, [sub.id]: '' }))
+    const token = await getToken()
+    const body: any = { billing_type: billingType }
+    if (billingType === 'percent') body.progress_percent = parseFloat(billingProgress[sub.id] ?? '0')
+    if (billingType === 'weekly') body.week_start = new Date().toISOString().split('T')[0]
+
+    const res = await fetch(`/api/projects/${params.projectId}/subcontracts/${sub.id}/billing`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    })
+    const json = await res.json()
+    if (!res.ok) {
+      setBillingError(prev => ({ ...prev, [sub.id]: json.error ?? 'Failed to generate invoice' }))
+    } else {
+      setBillingSuccess(sub.id)
+      setTimeout(() => setBillingSuccess(null), 3000)
+      load()
+    }
+    setBillingLoading(null)
+  }
+
+  // Auto-generate weekly invoice if billing_type is weekly and no invoice this week
+  async function checkWeeklyBilling(sub: any) {
+    if (sub.billing_type !== 'weekly' || !sub.weekly_amount) return
+    const token = await getToken()
+    const weekStart = new Date()
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay())
+    const weekStartStr = weekStart.toISOString().split('T')[0]
+    // Check if invoice already exists for this week
+    const existing = (data?.invoices ?? []).find((inv: any) =>
+      inv.subcontract_id === sub.id &&
+      inv.description?.includes(weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }))
+    )
+    if (!existing) {
+      await fetch(`/api/projects/${params.projectId}/subcontracts/${sub.id}/billing`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ billing_type: 'weekly', week_start: weekStartStr }),
+      })
+      load()
+    }
   }
 
   function coTotal(items: CoItem[]) {
@@ -265,42 +315,119 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
       {/* Overview tab */}
       {activeTab === 'overview' && (
         <div className="space-y-4">
-          {(subcontracts ?? []).map((sub: any) => (
-            <div key={sub.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-              <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-slate-700">Payment Schedule — {sub.trade}</h2>
-                <span className="text-sm font-bold text-slate-900">${Number(sub.contract_amount).toLocaleString()}</span>
-              </div>
-              {sub.payment_schedule_items?.length > 0 ? (
-                <div className="divide-y divide-slate-50">
-                  {sub.payment_schedule_items.map((item: any) => (
-                    <div key={item.id} className="flex items-center gap-3 px-5 py-3">
-                      <div className="shrink-0">
-                        {item.status === 'paid'
-                          ? <CheckCircle2 className="h-4 w-4 text-green-500" />
-                          : <Clock className="h-4 w-4 text-slate-300" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-800">{item.label}</p>
-                        {item.percentage && <p className="text-xs text-slate-400">{item.percentage}% of contract</p>}
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-sm font-semibold text-slate-900">
-                          {item.amount ? `$${Number(item.amount).toLocaleString()}` : item.percentage ? `${item.percentage}%` : '—'}
-                        </p>
-                        <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5',
-                          STATUS_COLORS[item.status] ?? STATUS_COLORS.pending)}>
-                          {item.status}
-                        </span>
-                      </div>
+          {(subcontracts ?? []).map((sub: any) => {
+            const billingType = sub.billing_type ?? 'milestone'
+            const subInvoices = (data?.invoices ?? []).filter((inv: any) => inv.subcontract_id === sub.id)
+            const totalBilled = subInvoices.filter((inv: any) => inv.status !== 'rejected').reduce((s: number, inv: any) => s + Number(inv.amount ?? 0), 0)
+            const billedPct = sub.contract_amount > 0 ? Math.round(totalBilled / sub.contract_amount * 100) : 0
+
+            return (
+              <div key={sub.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+                  <div>
+                    <h2 className="text-sm font-semibold text-slate-700">{sub.trade}</h2>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className={cn('text-xs rounded-full border px-1.5 py-0.5 font-medium',
+                        billingType === 'weekly' ? 'bg-blue-50 border-blue-200 text-blue-700' :
+                        billingType === 'percent' ? 'bg-purple-50 border-purple-200 text-purple-700' :
+                        billingType === 'task' ? 'bg-orange-50 border-orange-200 text-orange-700' :
+                        'bg-slate-50 border-slate-200 text-slate-500')}>
+                        {billingType === 'weekly' ? '⟳ Weekly billing' :
+                         billingType === 'percent' ? '% Progress billing' :
+                         billingType === 'task' ? '✓ Task billing' : 'Milestone billing'}
+                      </span>
+                      {billingType === 'weekly' && sub.weekly_amount && (
+                        <span className="text-xs text-slate-400">${Number(sub.weekly_amount).toLocaleString()}/week</span>
+                      )}
                     </div>
-                  ))}
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-slate-900">${Number(sub.contract_amount).toLocaleString()}</p>
+                    <p className="text-xs text-slate-400">${totalBilled.toLocaleString()} billed ({billedPct}%)</p>
+                  </div>
                 </div>
-              ) : (
-                <p className="px-5 py-4 text-sm text-slate-400">No payment schedule set.</p>
-              )}
-            </div>
-          ))}
+
+                {/* Progress billing controls */}
+                {billingType === 'percent' && (
+                  <div className="px-5 py-4 border-b border-slate-100 bg-purple-50/40">
+                    <p className="text-xs font-semibold text-purple-700 mb-2 flex items-center gap-1"><TrendingUp className="h-3.5 w-3.5" /> Report Progress & Request Payment</p>
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <input type="range" min="0" max="100" step="5"
+                            value={billingProgress[sub.id] ?? String(billedPct)}
+                            onChange={e => setBillingProgress(prev => ({ ...prev, [sub.id]: e.target.value }))}
+                            className="flex-1 accent-purple-600" />
+                          <span className="text-sm font-bold text-purple-700 w-10 text-right">
+                            {billingProgress[sub.id] ?? billedPct}%
+                          </span>
+                        </div>
+                        <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                          <div className="h-full bg-purple-500 transition-all" style={{ width: `${billingProgress[sub.id] ?? billedPct}%` }} />
+                        </div>
+                        <p className="text-xs text-slate-400 mt-1">
+                          Invoice will be for {Math.max(0, Number(billingProgress[sub.id] ?? 0) - billedPct)}% = ${Math.round(Math.max(0, Number(billingProgress[sub.id] ?? 0) - billedPct) / 100 * sub.contract_amount).toLocaleString()}
+                        </p>
+                      </div>
+                      <button onClick={() => submitBilling(sub, 'percent')}
+                        disabled={billingLoading === sub.id || Number(billingProgress[sub.id] ?? 0) <= billedPct}
+                        className="shrink-0 flex items-center gap-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:opacity-40 text-white text-xs font-semibold px-3 py-2 transition-colors">
+                        <Zap className="h-3.5 w-3.5" />
+                        {billingLoading === sub.id ? 'Generating...' : 'Request Payment'}
+                      </button>
+                    </div>
+                    {billingError[sub.id] && <p className="text-xs text-red-600 mt-1">{billingError[sub.id]}</p>}
+                    {billingSuccess === sub.id && <p className="text-xs text-green-600 mt-1">✓ Invoice submitted for GC approval</p>}
+                  </div>
+                )}
+
+                {billingType === 'weekly' && (
+                  <div className="px-5 py-3 border-b border-slate-100 bg-blue-50/40">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-blue-700 font-medium">Weekly invoices auto-generate every Monday for GC approval</p>
+                      <button onClick={() => submitBilling(sub, 'weekly')}
+                        disabled={billingLoading === sub.id}
+                        className="text-xs rounded-lg border border-blue-300 bg-white text-blue-700 px-3 py-1.5 font-medium hover:bg-blue-50 transition-colors">
+                        {billingLoading === sub.id ? 'Generating...' : 'Generate This Week'}
+                      </button>
+                    </div>
+                    {billingError[sub.id] && <p className="text-xs text-red-600 mt-1">{billingError[sub.id]}</p>}
+                    {billingSuccess === sub.id && <p className="text-xs text-green-600 mt-1">✓ Invoice submitted for GC approval</p>}
+                  </div>
+                )}
+
+                {/* Payment schedule milestones */}
+                {sub.payment_schedule_items?.length > 0 ? (
+                  <div className="divide-y divide-slate-50">
+                    {sub.payment_schedule_items.map((item: any) => (
+                      <div key={item.id} className="flex items-center gap-3 px-5 py-3">
+                        <div className="shrink-0">
+                          {item.status === 'paid'
+                            ? <CheckCircle2 className="h-4 w-4 text-green-500" />
+                            : <Clock className="h-4 w-4 text-slate-300" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-800">{item.label}</p>
+                          {item.percentage && <p className="text-xs text-slate-400">{item.percentage}% of contract</p>}
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-semibold text-slate-900">
+                            {item.amount ? `$${Number(item.amount).toLocaleString()}` : item.percentage ? `${item.percentage}%` : '—'}
+                          </p>
+                          <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5',
+                            STATUS_COLORS[item.status] ?? STATUS_COLORS.pending)}>
+                            {item.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="px-5 py-4 text-sm text-slate-400">No payment milestones set.</p>
+                )}
+              </div>
+            )
+          })}
 
           {recentLogs.length > 0 && (
             <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
