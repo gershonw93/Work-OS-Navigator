@@ -93,7 +93,7 @@ export default function ProgressPage({ params }: { params: { id: string } }) {
             </div>
             <ProgressBar pct={pct} color={pct === 100 ? 'bg-green-500' : 'bg-orange-500'} />
 
-            <div className="grid grid-cols-4 gap-4 mt-5">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5">
               {[
                 { label: 'Completed', value: completed, color: 'text-green-600', bg: 'bg-green-50 border-green-100' },
                 { label: 'In Progress', value: inProgress, color: 'text-blue-600', bg: 'bg-blue-50 border-blue-100' },

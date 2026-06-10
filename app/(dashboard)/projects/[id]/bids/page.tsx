@@ -256,7 +256,7 @@ export default function BidsPage({ params }: { params: { id: string } }) {
       {/* Request Revision Modal */}
       {revisionBid && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-md">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">Request Revision</h2>
@@ -298,7 +298,7 @@ export default function BidsPage({ params }: { params: { id: string } }) {
       {/* Invite to Existing Package Modal */}
       {invitePkgId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[80vh] overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-md max-h-[80vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-slate-900">Invite Subcontractors</h2>
               <button onClick={() => { setInvitePkgId(null); setInviteSelected([]); setInviteSearch('') }} className="text-slate-400 hover:text-slate-600">
@@ -354,7 +354,7 @@ export default function BidsPage({ params }: { params: { id: string } }) {
       {/* New Package Modal */}
       {showNewPkg && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-slate-900">New Bid Package</h2>
               <button onClick={() => { setShowNewPkg(false); resetForm() }} className="text-slate-400 hover:text-slate-600">

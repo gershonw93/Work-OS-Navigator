@@ -119,7 +119,7 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
     <div className="p-6 space-y-5">
       {respondingTo && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white">
               <div>
                 <h2 className="font-semibold text-slate-900">Respond to RFI-{String(respondingTo.rfi_number).padStart(3, '0')}</h2>

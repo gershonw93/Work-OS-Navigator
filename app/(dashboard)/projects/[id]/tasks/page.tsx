@@ -258,7 +258,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
       {/* New task modal */}
       {showAdd && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-lg">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-slate-900">New Task</h2>
               <button onClick={() => { setShowAdd(false); resetForm() }} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
@@ -330,7 +330,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
       {/* Create invoice from task modal */}
       {invoiceTask && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-md">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h2 className="font-semibold text-slate-900">Create Invoice</h2>

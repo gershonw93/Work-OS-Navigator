@@ -100,7 +100,7 @@ export function ActivityDrawer({ projectId, open, onClose }: ActivityDrawerProps
 
       {/* Drawer */}
       <div className={cn(
-        'fixed top-0 right-0 z-50 h-full w-96 bg-white shadow-2xl border-l border-slate-200 flex flex-col transition-transform duration-300 ease-in-out',
+        'fixed top-0 right-0 z-50 h-full w-full sm:w-96 bg-white shadow-2xl border-l border-slate-200 flex flex-col transition-transform duration-300 ease-in-out',
         open ? 'translate-x-0' : 'translate-x-full'
       )}>
         {/* Header */}

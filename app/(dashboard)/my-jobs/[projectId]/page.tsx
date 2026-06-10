@@ -738,7 +738,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
           {/* RFI detail modal */}
           {selectedRfi && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-              <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+              <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
                 <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white">
                   <div>
                     <p className="text-xs font-mono text-slate-400">RFI-{String(selectedRfi.rfi_number).padStart(3, '0')}</p>
@@ -842,7 +842,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
         <>
           {selectedInspection && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-              <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+              <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-md">
                 <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                   <h3 className="font-semibold text-slate-900">{selectedInspection.inspection_type}</h3>
                   <button onClick={() => setSelectedInspection(null)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
@@ -913,7 +913,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
         <>
           {selectedInvoice && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-              <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+              <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-md">
                 <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                   <div>
                     <p className="text-xs font-mono text-slate-400">{selectedInvoice.invoice_number}</p>
