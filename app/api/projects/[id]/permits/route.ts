@@ -53,7 +53,6 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const file = formData.get('file') as File | null
 
   let file_url: string | null = null
-  let storage_path: string | null = null
 
   if (file && file.size > 0) {
     const timestamp = Date.now()
@@ -72,7 +71,6 @@ export async function POST(request: Request, { params }: { params: { id: string 
       .createSignedUrl(storagePath, 60 * 60 * 24 * 365 * 10)
 
     file_url = signed?.signedUrl ?? null
-    storage_path = storagePath
   }
 
   const { data: permit, error } = await db
@@ -90,8 +88,6 @@ export async function POST(request: Request, { params }: { params: { id: string 
       inspector_phone: inspector_phone || null,
       notes: notes || null,
       file_url,
-      storage_path,
-      created_by: user.id,
     })
     .select()
     .single()
