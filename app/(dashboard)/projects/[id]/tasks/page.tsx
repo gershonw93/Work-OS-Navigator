@@ -172,8 +172,10 @@ export default function TasksPage({ params }: { params: { id: string } }) {
     setInvoiceTask(null); setCreatingInvoice(false)
   }
 
-  const generalTasks = tasks.filter(t => !t.assigned_to_company_id)
-  const subTasks = tasks.filter(t => t.assigned_to_company_id)
+  // Filter out legacy auto-generated scope line item tasks (created before this was removed)
+  const visibleTasks = tasks.filter(t => !t.description?.startsWith('Category:'))
+  const generalTasks = visibleTasks.filter(t => !t.assigned_to_company_id)
+  const subTasks = visibleTasks.filter(t => t.assigned_to_company_id)
 
   // Group sub tasks by company
   const subGroups: Record<string, { name: string; tasks: Task[] }> = {}
