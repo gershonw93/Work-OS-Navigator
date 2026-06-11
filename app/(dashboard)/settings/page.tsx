@@ -34,7 +34,7 @@ export default async function SettingsPage() {
   const team = teammates ?? []
 
   return (
-    <div className="p-6 max-w-3xl space-y-8">
+    <div className="p-4 sm:p-6 max-w-3xl space-y-8">
       <PageHeader title="Settings" subtitle="Manage your company profile, team, and preferences." />
 
       {/* Company Profile */}
@@ -43,7 +43,7 @@ export default async function SettingsPage() {
           <CardTitle>Company Profile</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label htmlFor="companyName">Company Name</Label>
               <Input
@@ -60,7 +60,7 @@ export default async function SettingsPage() {
               </Select>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label htmlFor="contactEmail">Contact Email</Label>
               <Input

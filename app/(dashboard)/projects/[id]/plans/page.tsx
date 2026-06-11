@@ -140,9 +140,9 @@ export default function PlansPage({ params }: { params: { id: string } }) {
   const visibleFolders = activeFolderId ? [] : folders
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between mb-6">
         <div className="flex items-center gap-3">
           {activeFolderId && (
             <button onClick={() => setActiveFolderId(null)} className="text-slate-400 hover:text-slate-600">
@@ -157,7 +157,7 @@ export default function PlansPage({ params }: { params: { id: string } }) {
             <h1 className="text-2xl font-bold text-slate-900">{activeFolder ? activeFolder.name : 'Plans'}</h1>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {!activeFolderId && (
             <Button variant="outline" onClick={() => setShowNewFolder(true)}>
               <FolderPlus className="h-4 w-4" />
@@ -281,7 +281,8 @@ export default function PlansPage({ params }: { params: { id: string } }) {
           {visiblePlans.length > 0 && (
             <div>
               {visibleFolders.length > 0 && <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Files</p>}
-              <div className="rounded-lg border border-slate-200 overflow-hidden">
+              {/* Desktop table */}
+              <div className="hidden md:block rounded-lg border border-slate-200 overflow-hidden">
                 <table className="w-full text-sm">
                   <thead className="bg-slate-50 border-b border-slate-200">
                     <tr>

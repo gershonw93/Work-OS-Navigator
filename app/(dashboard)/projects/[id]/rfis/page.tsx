@@ -149,7 +149,7 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
                       )}
                     </div>
                     <Label className="text-xs">Change Order Decision</Label>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       {([
                         { key: 'approved', label: 'Approve', icon: Check, color: 'border-green-400 bg-green-50 text-green-700' },
                         { key: 'denied', label: 'Deny', icon: XCircle, color: 'border-red-400 bg-red-50 text-red-600' },
@@ -219,7 +219,7 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
           {open.length > 0 && (
             <div className="space-y-2">
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Awaiting Response ({open.length})</p>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                 {open.map(r => <RfiCard key={r.id} rfi={r} />)}
               </div>
             </div>
@@ -228,14 +228,6 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
             <div className="space-y-2">
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Answered ({answered.length})</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                {answered.map(r => <RfiCard key={r.id} rfi={r} />)}
-              </div>
-            </div>
-          )}
-          {answered.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Answered ({answered.length})</p>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {answered.map(r => <RfiCard key={r.id} rfi={r} />)}
               </div>
             </div>

@@ -234,7 +234,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
   }
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="p-4 sm:p-6 space-y-5">
 
       {/* Create task modal */}
       {createTaskFromLog && (
@@ -265,7 +265,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                     placeholder="Additional context..."
                     className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none resize-none" />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label>Priority</Label>
                     <div className="grid grid-cols-2 gap-1.5">
@@ -323,7 +323,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Daily Logs</h1>
           <p className="text-sm text-slate-500 mt-0.5">Field reports, site conditions, and crew activity.</p>
@@ -450,9 +450,9 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                 </button>
               </div>
               {delays.map((delay, i) => (
-                <div key={i} className="flex gap-2 items-start">
+                <div key={i} className="flex flex-wrap sm:flex-nowrap gap-2 items-start">
                   <select value={delay.type} onChange={e => setDelays(prev => prev.map((d, j) => j === i ? { ...d, type: e.target.value } : d))}
-                    className="rounded-md border border-slate-300 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:border-orange-400 bg-white w-44 shrink-0">
+                    className="rounded-md border border-slate-300 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:border-orange-400 bg-white w-full sm:w-44 sm:shrink-0">
                     <option value="">Select type</option>
                     {DELAY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
@@ -577,7 +577,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
 
                     {/* Issue banner */}
                     {log.has_issues && (
-                      <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 flex items-start justify-between gap-4">
+                      <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 flex flex-col sm:flex-row items-start sm:justify-between gap-3 sm:gap-4">
                         <div className="flex items-start gap-2">
                           <Flag className="h-4 w-4 text-red-500 shrink-0 mt-0.5 fill-red-400" />
                           <div>

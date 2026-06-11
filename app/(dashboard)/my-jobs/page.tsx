@@ -69,7 +69,7 @@ export default function MyJobsPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-lg">
@@ -119,18 +119,18 @@ export default function MyJobsPage() {
         </div>
       )}
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">My Jobs</h1>
           <p className="text-sm text-slate-500 mt-0.5">Projects you're working on — awarded and your own.</p>
         </div>
         {activeTab === 'own' && (
-          <Button onClick={() => setShowForm(true)}><Plus className="h-4 w-4" /> New Project</Button>
+          <Button onClick={() => setShowForm(true)} className="self-start sm:self-auto"><Plus className="h-4 w-4" /> New Project</Button>
         )}
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-slate-200">
+      <div className="flex gap-1 border-b border-slate-200 overflow-x-auto">
         {([
           { key: 'awarded', label: 'Awarded Jobs', count: awarded.length, icon: Award },
           { key: 'own', label: 'My Projects', count: own.length, icon: FolderOpen },
@@ -138,7 +138,7 @@ export default function MyJobsPage() {
           const Icon = t.icon
           return (
             <button key={t.key} onClick={() => setActiveTab(t.key)}
-              className={cn('flex items-center gap-2 px-5 py-2.5 text-sm font-medium transition-colors',
+              className={cn('shrink-0 whitespace-nowrap flex items-center gap-2 px-3 sm:px-5 py-2.5 text-sm font-medium transition-colors',
                 activeTab === t.key ? 'border-b-2 border-orange-500 text-orange-600 -mb-px' : 'text-slate-500 hover:text-slate-700')}>
               <Icon className="h-4 w-4" />
               {t.label}
@@ -168,7 +168,7 @@ export default function MyJobsPage() {
               const proj = sub.projects
               return (
                 <Link key={sub.id} href={`/my-jobs/${proj.id}`}
-                  className="flex items-center gap-4 bg-white rounded-xl border border-slate-200 px-5 py-4 hover:border-orange-300 hover:shadow-sm transition-all group">
+                  className="flex items-center gap-3 sm:gap-4 bg-white rounded-xl border border-slate-200 px-4 sm:px-5 py-4 hover:border-orange-300 hover:shadow-sm transition-all group">
                   <div className="h-10 w-10 rounded-lg bg-orange-50 border border-orange-100 flex items-center justify-center shrink-0">
                     <Award className="h-5 w-5 text-orange-500" />
                   </div>
@@ -183,7 +183,7 @@ export default function MyJobsPage() {
                         {sub.status}
                       </span>
                     </div>
-                    <div className="flex items-center gap-3 mt-0.5 text-xs text-slate-400">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5 text-xs text-slate-400">
                       {proj.address && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{proj.address}</span>}
                       {proj.start_date && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{new Date(proj.start_date).toLocaleDateString()}</span>}
                     </div>

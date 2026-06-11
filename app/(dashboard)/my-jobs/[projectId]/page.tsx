@@ -255,13 +255,13 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
   ]
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="p-4 sm:p-6 space-y-5">
       <Link href="/my-jobs" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700">
         <ArrowLeft className="h-4 w-4" /> Back to My Jobs
       </Link>
 
       {/* Project header */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5">
+      <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">{project.name}</h1>
@@ -296,7 +296,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-slate-200 overflow-x-auto">
+      <div className="flex gap-1 border-b border-slate-200 overflow-x-auto scrollbar-hide">
         {tabs.map(t => (
           <button key={t.key} onClick={() => setActiveTab(t.key)}
             className={cn('flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors shrink-0',
@@ -323,10 +323,10 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
 
             return (
               <div key={sub.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+                <div className="px-4 sm:px-5 py-3.5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
                   <div>
                     <h2 className="text-sm font-semibold text-slate-700">{sub.trade}</h2>
-                    <div className="flex items-center gap-2 mt-0.5">
+                    <div className="flex flex-wrap items-center gap-2 mt-0.5">
                       <span className={cn('text-xs rounded-full border px-1.5 py-0.5 font-medium',
                         billingType === 'weekly' ? 'bg-blue-50 border-blue-200 text-blue-700' :
                         billingType === 'percent' ? 'bg-purple-50 border-purple-200 text-purple-700' :
@@ -349,9 +349,9 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
 
                 {/* Progress billing controls */}
                 {billingType === 'percent' && (
-                  <div className="px-5 py-4 border-b border-slate-100 bg-purple-50/40">
+                  <div className="px-4 sm:px-5 py-4 border-b border-slate-100 bg-purple-50/40">
                     <p className="text-xs font-semibold text-purple-700 mb-2 flex items-center gap-1"><TrendingUp className="h-3.5 w-3.5" /> Report Progress & Request Payment</p>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <input type="range" min="0" max="100" step="5"
@@ -371,7 +371,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                       </div>
                       <button onClick={() => submitBilling(sub, 'percent')}
                         disabled={billingLoading === sub.id || Number(billingProgress[sub.id] ?? 0) <= billedPct}
-                        className="shrink-0 flex items-center gap-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:opacity-40 text-white text-xs font-semibold px-3 py-2 transition-colors">
+                        className="shrink-0 self-start sm:self-auto flex items-center gap-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:opacity-40 text-white text-xs font-semibold px-3 py-2 transition-colors">
                         <Zap className="h-3.5 w-3.5" />
                         {billingLoading === sub.id ? 'Generating...' : 'Request Payment'}
                       </button>
@@ -382,8 +382,8 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                 )}
 
                 {billingType === 'weekly' && (
-                  <div className="px-5 py-3 border-b border-slate-100 bg-blue-50/40">
-                    <div className="flex items-center justify-between">
+                  <div className="px-4 sm:px-5 py-3 border-b border-slate-100 bg-blue-50/40">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-xs text-blue-700 font-medium">Weekly invoices auto-generate every Monday for GC approval</p>
                       <button onClick={() => submitBilling(sub, 'weekly')}
                         disabled={billingLoading === sub.id}
@@ -400,7 +400,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                 {sub.payment_schedule_items?.length > 0 ? (
                   <div className="divide-y divide-slate-50">
                     {sub.payment_schedule_items.map((item: any) => (
-                      <div key={item.id} className="flex items-center gap-3 px-5 py-3">
+                      <div key={item.id} className="flex items-center gap-3 px-4 sm:px-5 py-3">
                         <div className="shrink-0">
                           {item.status === 'paid'
                             ? <CheckCircle2 className="h-4 w-4 text-green-500" />
@@ -503,7 +503,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                 </div>
               </div>
               {isExpanded && (
-                <div className="px-12 pb-4 space-y-2">
+                <div className="px-4 sm:px-12 pb-4 space-y-2">
                   {task.description && !task.description.startsWith('Category:') && (
                     <p className="text-sm text-slate-600 whitespace-pre-wrap">{task.description}</p>
                   )}
@@ -669,11 +669,11 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                   </div>
                   {/* Line items */}
                   <div className="space-y-2">
-                    <div className="grid grid-cols-[1fr_60px_90px_28px] gap-2 text-xs font-medium text-purple-600 px-1">
+                    <div className="grid grid-cols-[1fr_44px_76px_28px] sm:grid-cols-[1fr_60px_90px_28px] gap-2 text-xs font-medium text-purple-600 px-1">
                       <span>Description</span><span className="text-center">Qty</span><span className="text-center">Unit Price</span><span />
                     </div>
                     {rfiCoItems.map((item, i) => (
-                      <div key={i} className="grid grid-cols-[1fr_60px_90px_28px] gap-2 items-center">
+                      <div key={i} className="grid grid-cols-[1fr_44px_76px_28px] sm:grid-cols-[1fr_60px_90px_28px] gap-2 items-center">
                         <Input value={item.description} onChange={e => {
                           const n = [...rfiCoItems]; n[i].description = e.target.value; setRfiCoItems(n)
                         }} placeholder="Labor / material..." className="text-sm h-8" />
@@ -803,7 +803,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
               <p className="text-sm text-slate-400">No RFIs submitted yet.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
               {rfis.map((rfi: any) => (
                 <button key={rfi.id} onClick={() => setSelectedRfi(rfi)}
                   className={cn('bg-white rounded-xl border p-4 text-left hover:shadow-md transition-all hover:-translate-y-0.5',
@@ -883,7 +883,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
               <p className="text-sm text-slate-400">No inspections listed yet.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
               {inspections.map((insp: any) => (
                 <button key={insp.id} onClick={() => setSelectedInspection(insp)}
                   className="bg-white rounded-xl border border-slate-200 p-4 text-left hover:shadow-md transition-all hover:-translate-y-0.5">
@@ -942,7 +942,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
               <p className="text-sm text-slate-400">No invoices yet.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
               {invoices.map((inv: any) => (
                 <button key={inv.id} onClick={() => setSelectedInvoice(inv)}
                   className="bg-white rounded-xl border border-slate-200 p-4 text-left hover:shadow-md transition-all hover:-translate-y-0.5">
