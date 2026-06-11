@@ -175,7 +175,7 @@ export default function PlansPage({ params }: { params: { id: string } }) {
       {/* New Folder Modal */}
       {showNewFolder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 min-w-0 px-4 sm:px-6 py-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-slate-900">New Folder</h2>
               <button onClick={() => { setShowNewFolder(false); setFolderName(''); setFolderError(null) }} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
@@ -186,7 +186,7 @@ export default function PlansPage({ params }: { params: { id: string } }) {
                 <Input id="folderName" placeholder="e.g. Architectural" value={folderName} onChange={e => setFolderName(e.target.value)} required autoFocus />
               </div>
               {folderError && <p className="text-sm text-red-600">{folderError}</p>}
-              <div className="flex gap-2 justify-end">
+              <div className="flex flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => { setShowNewFolder(false); setFolderName('') }}>Cancel</Button>
                 <Button type="submit" disabled={folderLoading}>{folderLoading ? 'Creating...' : 'Create Folder'}</Button>
               </div>
@@ -198,7 +198,7 @@ export default function PlansPage({ params }: { params: { id: string } }) {
       {/* Upload Modal */}
       {showUpload && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 min-w-0 px-4 sm:px-6 py-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-slate-900">Upload Plan</h2>
               <button onClick={() => { setShowUpload(false); setUploadFile(null); setUploadError(null) }} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
@@ -207,7 +207,7 @@ export default function PlansPage({ params }: { params: { id: string } }) {
               {uploadFile && (
                 <div className="flex items-center gap-3 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2.5">
                   <FileText className="h-5 w-5 text-slate-400 shrink-0" />
-                  <span className="text-sm text-slate-700 truncate">{uploadFile.name}</span>
+                  <span className="text-sm text-slate-700 truncate min-w-0">{uploadFile.name}</span>
                   <span className="text-xs text-slate-400 shrink-0 ml-auto">{(uploadFile.size / 1024 / 1024).toFixed(1)} MB</span>
                 </div>
               )}
@@ -233,7 +233,7 @@ export default function PlansPage({ params }: { params: { id: string } }) {
                   <div className="h-full bg-orange-500 rounded-full animate-pulse w-2/3" />
                 </div>
               )}
-              <div className="flex gap-2 justify-end">
+              <div className="flex flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => { setShowUpload(false); setUploadFile(null) }}>Cancel</Button>
                 <Button type="submit" disabled={uploadLoading}>{uploadLoading ? 'Uploading...' : 'Upload'}</Button>
               </div>

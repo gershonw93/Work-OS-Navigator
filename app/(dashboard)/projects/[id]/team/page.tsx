@@ -101,15 +101,15 @@ export default function TeamPage({ params }: { params: { id: string } }) {
       {/* Add Member Modal */}
       {showAdd && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md min-w-0">
+            <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-slate-900">Add Team Member</h2>
               <button onClick={() => setShowAdd(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="h-5 w-5" />
               </button>
             </div>
             <form onSubmit={addMember}>
-              <div className="px-6 py-5 space-y-4">
+              <div className="px-4 sm:px-6 py-5 space-y-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="name">Full Name <span className="text-red-500">*</span></Label>
                   <ContactPicker
@@ -129,7 +129,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                     {GC_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                   </Select>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label htmlFor="phone">Phone</Label>
                     <Input id="phone" type="tel" placeholder="(555) 000-0000" value={phone} onChange={e => setPhone(e.target.value)} />
@@ -140,7 +140,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                   </div>
                 </div>
               </div>
-              <div className="px-6 py-4 border-t border-slate-100 flex gap-2 justify-end">
+              <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => setShowAdd(false)}>Cancel</Button>
                 <Button type="submit" disabled={saving || !name.trim()}>
                   {saving ? 'Adding...' : 'Add Member'}
@@ -188,7 +188,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                       {member.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-slate-900 text-sm">{member.name}</p>
+                      <p className="font-semibold text-slate-900 text-sm break-words">{member.name}</p>
                       <p className="text-xs text-slate-500 mt-0.5">{member.role}</p>
                       {member.phone && (
                         <a href={`tel:${member.phone}`} className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 mt-1">
@@ -197,7 +197,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                       )}
                       {member.email && (
                         <a href={`mailto:${member.email}`} className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 mt-0.5">
-                          <Mail className="h-3 w-3" />{member.email}
+                          <Mail className="h-3 w-3 shrink-0" /><span className="truncate min-w-0">{member.email}</span>
                         </a>
                       )}
                     </div>
@@ -255,7 +255,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                     <div className="mt-2 space-y-0.5">
                       {sub.companies?.contact_email && (
                         <a href={`mailto:${sub.companies.contact_email}`} className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600">
-                          <Mail className="h-3 w-3" />{sub.companies.contact_email}
+                          <Mail className="h-3 w-3 shrink-0" /><span className="truncate min-w-0">{sub.companies.contact_email}</span>
                         </a>
                       )}
                       {sub.companies?.phone && (
