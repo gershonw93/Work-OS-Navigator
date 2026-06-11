@@ -21,6 +21,7 @@ const tabs = [
   { label: 'Inspections', slug: 'inspections' },
   { label: 'Submittals', slug: 'submittals' },
   { label: 'Compliance', slug: 'compliance' },
+  { label: 'Reports', slug: 'reports' },
 ]
 
 interface ProjectTabsProps {
