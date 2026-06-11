@@ -137,7 +137,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
               {invoice.due_date && ` · Due ${new Date(invoice.due_date).toLocaleDateString()}`}
             </p>
           </div>
-          <div className="text-sm font-bold text-slate-900 shrink-0">${Number(invoice.amount).toLocaleString()}</div>
+          <div className="hidden sm:block text-sm font-bold text-slate-900 shrink-0">${Number(invoice.amount).toLocaleString()}</div>
           {isExpanded ? <ChevronUp className="h-4 w-4 text-slate-400 shrink-0" /> : <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" />}
         </button>
 
@@ -181,7 +181,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
   }
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="p-4 sm:p-6 space-y-5">
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-lg">
@@ -242,12 +242,12 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
         </div>
       )}
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Invoices</h1>
           <p className="text-sm text-slate-500 mt-0.5">Subcontractor invoices — approve, send, and track payments.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {pending.length > 0 && (
             <span className="flex items-center gap-1.5 text-sm text-amber-600 font-medium">
               <Clock className="h-4 w-4" />{pending.length} pending approval

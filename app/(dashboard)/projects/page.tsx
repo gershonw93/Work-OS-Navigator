@@ -18,7 +18,7 @@ export default async function ProjectsPage() {
   const items = projects ?? []
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <PageHeader
         title="Projects"
         subtitle="Manage all your construction projects."
@@ -42,6 +42,30 @@ export default async function ProjectsPage() {
               action={{ label: 'New Project' }}
             />
           ) : (
+            <>
+            {/* Mobile card list */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {items.map((project) => (
+                <Link
+                  key={project.id}
+                  href={`/projects/${project.id}/plans`}
+                  className="block p-4 hover:bg-slate-50 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="font-medium text-slate-900">{project.name}</span>
+                    <Badge variant={getStatusVariant(project.status)}>
+                      {project.status?.replace('_', ' ')}
+                    </Badge>
+                  </div>
+                  <div className="mt-1 flex items-center gap-3 text-xs text-slate-500">
+                    <span className="capitalize">{project.type?.replace('_', ' ')}</span>
+                    {project.start_date && <span>{project.start_date}</span>}
+                  </div>
+                </Link>
+              ))}
+            </div>
+            {/* Desktop table */}
+            <div className="hidden md:block">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -81,6 +105,8 @@ export default async function ProjectsPage() {
                 ))}
               </TableBody>
             </Table>
+            </div>
+            </>
           )}
         </CardContent>
       </Card>

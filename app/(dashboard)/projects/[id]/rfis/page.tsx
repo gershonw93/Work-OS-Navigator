@@ -116,7 +116,7 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
   }
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="p-4 sm:p-6 space-y-5">
       {respondingTo && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
@@ -194,7 +194,7 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
         </div>
       )}
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">RFIs</h1>
           <p className="text-sm text-slate-500 mt-0.5">Requests for information from subcontractors.</p>
@@ -221,6 +221,14 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Awaiting Response ({open.length})</p>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {open.map(r => <RfiCard key={r.id} rfi={r} />)}
+              </div>
+            </div>
+          )}
+          {answered.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Answered ({answered.length})</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                {answered.map(r => <RfiCard key={r.id} rfi={r} />)}
               </div>
             </div>
           )}

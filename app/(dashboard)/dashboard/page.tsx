@@ -92,12 +92,12 @@ export default function DashboardPage() {
     : n && n >= 1000 ? `$${(n / 1000).toFixed(0)}K` : `$${(n ?? 0).toLocaleString()}`
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="p-4 sm:p-6 space-y-5">
 
       {/* New Bid Banner */}
       {newBidNotifications.length > 0 && (
-        <div className="rounded-xl bg-orange-500 text-white px-5 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+        <div className="rounded-xl bg-orange-500 text-white px-4 sm:px-5 py-4 flex items-start sm:items-center justify-between gap-4">
+          <div className="flex items-start sm:items-center gap-3 min-w-0">
             <Package className="h-5 w-5 shrink-0" />
             <div>
               <p className="font-semibold">
@@ -153,7 +153,25 @@ export default function DashboardPage() {
               action={{ label: 'New Project', onClick: () => window.location.href = '/projects/new' }}
             />
           ) : (
-            <table className="w-full text-sm">
+            <>
+            {/* Mobile card list */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {projects.slice(0, 5).map(p => (
+                <Link
+                  key={p.id}
+                  href={`/projects/${p.id}/plans`}
+                  className="block p-4 hover:bg-slate-50 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="font-medium text-slate-900">{p.name}</span>
+                    <Badge variant={getStatusVariant(p.status)}>{p.status.replace('_', ' ')}</Badge>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">{new Date(p.start_date).toLocaleDateString()}</p>
+                </Link>
+              ))}
+            </div>
+            {/* Desktop table */}
+            <table className="w-full text-sm hidden md:table">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
                   <th className="text-left px-5 py-3 font-medium text-slate-600">Name</th>
@@ -177,6 +195,7 @@ export default function DashboardPage() {
                 ))}
               </tbody>
             </table>
+            </>
           )}
         </CardContent>
       </Card>

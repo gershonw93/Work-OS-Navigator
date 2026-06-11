@@ -149,7 +149,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
   }
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="p-4 sm:p-6 space-y-5">
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -209,7 +209,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                   <textarea rows={2} placeholder="What this permit covers..." value={description} onChange={e => setDescription(e.target.value)}
                     className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none resize-none" />
                 </div>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="space-y-1.5">
                     <Label>Status</Label>
                     <select value={status} onChange={e => setStatus(e.target.value)}
@@ -266,7 +266,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
         </div>
       )}
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Permits</h1>
           <p className="text-sm text-slate-500 mt-0.5">Project permits, approvals, and inspector contacts.</p>

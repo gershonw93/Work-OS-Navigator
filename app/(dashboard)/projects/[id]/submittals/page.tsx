@@ -126,7 +126,7 @@ export default function SubmittalsPage({ params }: { params: { id: string } }) {
     const isReviewing = reviewingId === sub.id
     return (
       <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-        <button className="w-full flex items-center gap-4 px-5 py-4 hover:bg-slate-50 transition-colors text-left"
+        <button className="w-full flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-4 hover:bg-slate-50 transition-colors text-left"
           onClick={() => setExpanded(isExpanded ? null : sub.id)}>
           <Icon className={cn('h-5 w-5 shrink-0',
             sub.status === 'approved' ? 'text-green-500' : sub.status === 'rejected' ? 'text-red-400' : sub.status === 'revise' ? 'text-blue-500' : 'text-amber-500')} />
@@ -148,7 +148,7 @@ export default function SubmittalsPage({ params }: { params: { id: string } }) {
         </button>
 
         {isExpanded && (
-          <div className="border-t border-slate-100 px-5 py-5 space-y-4">
+          <div className="border-t border-slate-100 px-4 sm:px-5 py-5 space-y-4">
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
               <div><p className="text-xs text-slate-400">Type</p><p className="font-medium text-slate-700">{sub.type}</p></div>
               {sub.trade && <div><p className="text-xs text-slate-400">Trade</p><p className="font-medium text-slate-700">{sub.trade}</p></div>}
@@ -214,7 +214,7 @@ export default function SubmittalsPage({ params }: { params: { id: string } }) {
   }
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="p-4 sm:p-6 space-y-5">
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
@@ -274,12 +274,12 @@ export default function SubmittalsPage({ params }: { params: { id: string } }) {
         </div>
       )}
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Submittals</h1>
           <p className="text-sm text-slate-500 mt-0.5">Tech sheets, shop drawings, and product data for review and approval.</p>
         </div>
-        <Button onClick={() => setShowForm(true)}><Plus className="h-4 w-4" /> Add Submittal</Button>
+        <Button onClick={() => setShowForm(true)} className="self-start sm:self-auto shrink-0"><Plus className="h-4 w-4" /> Add Submittal</Button>
       </div>
 
       {loading ? (

@@ -246,7 +246,7 @@ function SubCard({ sub, docs, projectId, token, onRefresh }: SubCardProps) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
       {/* Card header */}
-      <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 sm:px-5 py-4 border-b border-slate-100">
         <h3 className="font-semibold text-slate-900">{companyName}</h3>
         <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-medium', chip.classes)}>
           {chip.label}
@@ -262,9 +262,9 @@ function SubCard({ sub, docs, projectId, token, onRefresh }: SubCardProps) {
 
           return (
             <div key={type}>
-              <div className="flex items-center gap-3 px-5 py-3">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 sm:px-5 py-3">
                 {/* Label */}
-                <span className="w-28 text-sm text-slate-600 shrink-0">{DOC_LABELS[type]}</span>
+                <span className="w-24 sm:w-28 text-sm text-slate-600 shrink-0">{DOC_LABELS[type]}</span>
 
                 {/* Status badge */}
                 <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium', cfg.classes)}>
@@ -305,7 +305,7 @@ function SubCard({ sub, docs, projectId, token, onRefresh }: SubCardProps) {
 
               {/* Inline upload form */}
               {openForm === type && (
-                <div className="px-5 pb-4">
+                <div className="px-4 sm:px-5 pb-4">
                   <UploadForm
                     projectId={projectId}
                     companyId={companyId}
@@ -381,7 +381,7 @@ export default function CompliancePage({ params }: { params: { id: string } }) {
   }).length
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Compliance</h1>

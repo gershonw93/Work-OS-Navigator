@@ -46,18 +46,18 @@ export default async function ApprovalsPage() {
   ]
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <PageHeader
         title="Approvals"
         subtitle="Review and act on pending invoices, RFIs, and change orders."
       />
 
       {/* Filter tabs */}
-      <div className="flex gap-1 mb-4 border-b border-slate-200">
+      <div className="flex gap-1 mb-4 border-b border-slate-200 overflow-x-auto">
         {['All', 'Invoices', 'RFIs', 'Change Orders'].map((filter) => (
           <button
             key={filter}
-            className="px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-900 border-b-2 border-transparent hover:border-slate-300 transition-colors first:border-orange-500 first:text-orange-600"
+            className="shrink-0 whitespace-nowrap px-3 sm:px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-900 border-b-2 border-transparent hover:border-slate-300 transition-colors first:border-orange-500 first:text-orange-600"
           >
             {filter}
           </button>
@@ -73,6 +73,37 @@ export default async function ApprovalsPage() {
               description="Invoices, RFIs, and change orders submitted for your review will appear here."
             />
           ) : (
+            <>
+            {/* Mobile card list */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {allItems.map((item) => (
+                <div key={`${item.type}-${item.id}`} className="p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <Badge variant={item.type === 'Invoice' ? 'info' : 'warning'}>
+                      {item.type}
+                    </Badge>
+                    <span className="text-xs text-slate-500">
+                      {item.date ? new Date(item.date).toLocaleDateString() : '—'}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="font-medium text-slate-900">{item.project ?? '—'}</p>
+                    <p className="text-sm text-slate-500">{item.submitted_by ?? '—'}</p>
+                    {item.amount != null && (
+                      <p className="text-sm font-semibold text-slate-700 mt-0.5">
+                        ${Number(item.amount).toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button variant="default" size="sm">Approve</Button>
+                    <Button variant="destructive" size="sm">Reject</Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Desktop table */}
+            <div className="hidden md:block">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -114,6 +145,8 @@ export default async function ApprovalsPage() {
                 ))}
               </TableBody>
             </Table>
+            </div>
+            </>
           )}
         </CardContent>
       </Card>

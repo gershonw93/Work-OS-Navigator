@@ -83,8 +83,8 @@ export default function ProgressPage({ params }: { params: { id: string } }) {
         <div className="space-y-6">
 
           {/* Overall */}
-          <div className="bg-white rounded-xl border border-slate-200 p-6">
-            <div className="flex items-end justify-between mb-3">
+          <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-6">
+            <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1 mb-3">
               <div>
                 <p className="text-sm font-medium text-slate-500">Overall Progress</p>
                 <p className="text-4xl font-bold text-slate-900 mt-1">{pct}<span className="text-xl text-slate-400">%</span></p>
@@ -110,7 +110,7 @@ export default function ProgressPage({ params }: { params: { id: string } }) {
 
           {/* By assignee */}
           <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-slate-100">
+            <div className="px-4 sm:px-5 py-3.5 border-b border-slate-100">
               <p className="text-sm font-semibold text-slate-700">Progress by Person / Company</p>
             </div>
             <div className="divide-y divide-slate-50">
@@ -119,9 +119,9 @@ export default function ProgressPage({ params }: { params: { id: string } }) {
                 const gpct = Math.round((done / group.tasks.length) * 100)
                 const hasOverdue = group.tasks.some(t => t.status !== 'completed' && t.due_date && new Date(t.due_date + 'T00:00:00') < new Date())
                 return (
-                  <div key={group.name} className="px-5 py-4">
+                  <div key={group.name} className="px-4 sm:px-5 py-4">
                     <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
                         <div className={cn('h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0',
                           group.isSub ? 'bg-slate-100 text-slate-600' : 'bg-orange-100 text-orange-600')}>
                           {group.isSub
@@ -130,8 +130,8 @@ export default function ProgressPage({ params }: { params: { id: string } }) {
                               ? <Circle className="h-3.5 w-3.5 text-slate-400" />
                               : group.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
                         </div>
-                        <div>
-                          <span className="text-sm font-semibold text-slate-800">{group.name}</span>
+                        <div className="min-w-0">
+                          <span className="text-sm font-semibold text-slate-800 break-words">{group.name}</span>
                           {hasOverdue && <span className="ml-2 text-xs text-red-500 font-medium">· has overdue</span>}
                         </div>
                       </div>

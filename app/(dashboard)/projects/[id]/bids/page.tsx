@@ -251,7 +251,7 @@ export default function BidsPage({ params }: { params: { id: string } }) {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
 
       {/* Request Revision Modal */}
       {revisionBid && (
@@ -366,7 +366,7 @@ export default function BidsPage({ params }: { params: { id: string } }) {
               <div className="px-6 py-5 space-y-5">
 
                 {/* Scope + Trade */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label htmlFor="scope">Scope of Work</Label>
                     <Input id="scope" placeholder="e.g. Electrical" value={scope} onChange={e => setScope(e.target.value)} required autoFocus />
@@ -406,7 +406,7 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                       <Paperclip className="inline h-3.5 w-3.5 mr-1 text-slate-400" />
                       Attach Plans <span className="text-slate-400 font-normal">(optional)</span>
                     </Label>
-                    <div className="grid grid-cols-2 gap-2 max-h-36 overflow-y-auto p-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-36 overflow-y-auto p-1">
                       {allPlans.map(plan => (
                         <button
                           key={plan.id}
@@ -500,7 +500,7 @@ export default function BidsPage({ params }: { params: { id: string } }) {
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Bids</h1>
           <p className="text-sm text-slate-500 mt-0.5">Manage bid packages, invitations, and received bids.</p>
@@ -537,7 +537,7 @@ export default function BidsPage({ params }: { params: { id: string } }) {
               <div key={pkg.id} className="rounded-xl border border-slate-200 bg-white overflow-hidden">
                 {/* Package header */}
                 <button
-                  className="w-full flex items-center gap-4 px-5 py-4 hover:bg-slate-50 transition-colors text-left"
+                  className="w-full flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-4 sm:px-5 py-4 hover:bg-slate-50 transition-colors text-left"
                   onClick={() => setExpandedPkg(isExpanded ? null : pkg.id)}
                 >
                   <div className="flex-1 min-w-0">
@@ -550,7 +550,7 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                     </div>
                     <p className="text-sm text-slate-500 mt-0.5 truncate">{pkg.description}</p>
                   </div>
-                  <div className="flex items-center gap-5 shrink-0 text-sm text-slate-500">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 sm:gap-5 sm:shrink-0 text-sm text-slate-500">
                     {attachCount > 0 && (
                       <span className="flex items-center gap-1">
                         <Paperclip className="h-3.5 w-3.5" />{attachCount}
@@ -618,6 +618,44 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                         {invitedCount === 0 ? (
                           <div className="px-5 py-8 text-center text-sm text-slate-400">No subcontractors invited yet.</div>
                         ) : (
+                          <>
+                          {/* Mobile invitation cards */}
+                          <div className="md:hidden divide-y divide-slate-100">
+                            {pkg.bid_invitations.map(inv => {
+                              const hasBid = pkgBids.find(b => b.company_id === inv.company_id)
+                              return (
+                                <div key={inv.id} className="px-4 py-3 space-y-1.5">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <p className="font-medium text-slate-800 text-sm">{inv.companies?.name}</p>
+                                    {!hasBid && pkg.status !== 'awarded' && (
+                                      <Button
+                                        size="sm" variant="ghost"
+                                        disabled={remindingCompany === inv.company_id}
+                                        onClick={() => remindSub(pkg.id, inv.company_id)}
+                                        title="Send reminder notification"
+                                      >
+                                        <Bell className="h-3.5 w-3.5" />
+                                        {remindingCompany === inv.company_id ? 'Sent' : 'Remind'}
+                                      </Button>
+                                    )}
+                                  </div>
+                                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                                    <span className="flex items-center gap-1.5 text-slate-600">
+                                      {invitationIcon(inv.status)}
+                                      <span className="capitalize">{inv.status}</span>
+                                    </span>
+                                    {hasBid ? (
+                                      <span className="text-green-600 font-medium">${Number(hasBid.amount).toLocaleString()}</span>
+                                    ) : (
+                                      <span className="text-slate-400">No bid yet</span>
+                                    )}
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                          {/* Desktop invitation table */}
+                          <div className="hidden md:block">
                           <table className="w-full text-sm">
                             <thead className="bg-slate-50 border-b border-slate-100">
                               <tr>
@@ -664,6 +702,8 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                               })}
                             </tbody>
                           </table>
+                          </div>
+                          </>
                         )}
                       </>
                     )}

@@ -82,7 +82,7 @@ export default function FinancialsPage({ params }: { params: { id: string } }) {
   ]
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Financials</h1>
         <p className="text-sm text-slate-500 mt-0.5">Project cost breakdown and payment status.</p>
@@ -117,7 +117,7 @@ export default function FinancialsPage({ params }: { params: { id: string } }) {
             <div className="h-full bg-blue-400 transition-all" style={{ width: `${approvedPct}%` }} title={`Approved: $${data.total_approved.toLocaleString()}`} />
             <div className="h-full bg-amber-400 transition-all" style={{ width: `${pendingPct}%` }} title={`Pending: $${data.total_pending.toLocaleString()}`} />
           </div>
-          <div className="flex gap-4 mt-2 text-xs text-slate-500">
+          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-slate-500">
             <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-green-500" />Paid ${data.total_paid.toLocaleString()}</span>
             <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-blue-400" />Approved ${data.total_approved.toLocaleString()}</span>
             <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-amber-400" />Pending ${data.total_pending.toLocaleString()}</span>
@@ -129,9 +129,9 @@ export default function FinancialsPage({ params }: { params: { id: string } }) {
       {/* Subcontracts with payment schedule */}
       {data.subcontracts.length > 0 && (
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+          <div className="px-4 sm:px-5 py-3.5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
             <h2 className="text-sm font-semibold text-slate-700">Subcontracts & Payment Schedule</h2>
-            <span className="text-xs text-slate-400">Click a subcontract to see milestones</span>
+            <span className="text-xs text-slate-400 hidden sm:inline">Click a subcontract to see milestones</span>
           </div>
           <div className="divide-y divide-slate-100">
             {data.subcontracts.map((sub: any) => {
@@ -144,10 +144,10 @@ export default function FinancialsPage({ params }: { params: { id: string } }) {
 
               return (
                 <div key={sub.id}>
-                  <button className="w-full flex items-center gap-4 px-5 py-4 hover:bg-slate-50 transition-colors text-left"
+                  <button className="w-full flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-4 hover:bg-slate-50 transition-colors text-left"
                     onClick={() => setExpandedSub(isExpanded ? null : sub.id)}>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <span className="font-medium text-slate-800">{sub.companies?.name ?? 'Unknown'}</span>
                         <span className="text-xs text-slate-400">{sub.trade}</span>
                         {readyToInvoice.length > 0 && (
@@ -174,7 +174,7 @@ export default function FinancialsPage({ params }: { params: { id: string } }) {
                     <div className="border-t border-slate-100 bg-slate-50 divide-y divide-slate-100">
                       {/* Payment schedule milestones */}
                       {subItems.length > 0 && (
-                        <div className="px-5 py-3 space-y-2">
+                        <div className="px-4 sm:px-5 py-3 space-y-2">
                           <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Payment Milestones</p>
                           {subItems.map((item: any) => {
                             const itemAmount = item.amount ?? (item.percentage ? Math.round(item.percentage / 100 * sub.contract_amount * 100) / 100 : null)
@@ -184,7 +184,7 @@ export default function FinancialsPage({ params }: { params: { id: string } }) {
 
                             return (
                               <div key={item.id} className={cn(
-                                'flex items-center gap-3 rounded-lg border px-4 py-3',
+                                'flex flex-wrap items-center gap-3 rounded-lg border px-3 sm:px-4 py-3',
                                 isPaid ? 'bg-green-50 border-green-200' : hasInvoice ? 'bg-blue-50 border-blue-200' : 'bg-white border-slate-200'
                               )}>
                                 <div className="shrink-0">
@@ -208,7 +208,7 @@ export default function FinancialsPage({ params }: { params: { id: string } }) {
                                     )}
                                   </div>
                                 </div>
-                                <div className="flex items-center gap-3 shrink-0">
+                                <div className="flex flex-wrap items-center gap-3 shrink-0 ml-auto">
                                   {itemAmount && (
                                     <span className="text-sm font-bold text-slate-900">${Number(itemAmount).toLocaleString()}</span>
                                   )}
@@ -229,11 +229,11 @@ export default function FinancialsPage({ params }: { params: { id: string } }) {
 
                       {/* Invoice history */}
                       {subInvoices.length > 0 && (
-                        <div className="px-5 py-3 space-y-1.5">
+                        <div className="px-4 sm:px-5 py-3 space-y-1.5">
                           <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Invoice History</p>
                           {subInvoices.map((inv: any) => (
-                            <div key={inv.id} className="flex items-center justify-between text-sm py-1">
-                              <div className="flex items-center gap-2">
+                            <div key={inv.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm py-1">
+                              <div className="flex items-center gap-2 min-w-0">
                                 <span className="font-mono text-xs text-slate-400">{inv.invoice_number}</span>
                                 <span className="text-slate-700">{inv.description ?? '—'}</span>
                               </div>
@@ -276,7 +276,7 @@ export default function FinancialsPage({ params }: { params: { id: string } }) {
           </div>
           <div className="divide-y divide-slate-50">
             {data.change_orders.map((co: any) => (
-              <div key={co.id} className="flex items-center gap-4 px-5 py-3 text-sm">
+              <div key={co.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 sm:px-5 py-3 text-sm">
                 <span className="font-mono text-xs text-slate-400">RFI-{String(co.rfi_number).padStart(3, '0')}</span>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-slate-800 truncate">{co.subject}</p>

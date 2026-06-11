@@ -174,7 +174,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
                   <CheckCircle2 className="h-3.5 w-3.5" /> Mark Ready for Inspection
                 </Button>
               )}
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-xs text-slate-400">Update status:</span>
                 {['not_scheduled', 'scheduled', 'passed', 'failed', 'pending_reinspection'].map(s => (
                   <button key={s} type="button" onClick={() => updateStatus(insp, s)}
@@ -192,7 +192,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
   }
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="p-4 sm:p-6 space-y-5">
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-lg">
@@ -255,7 +255,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
         </div>
       )}
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Inspections</h1>
           <p className="text-sm text-slate-500 mt-0.5">Track all required inspections, status, and inspector contacts.</p>

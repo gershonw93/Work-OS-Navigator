@@ -277,12 +277,12 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
         </div>
       )}
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Schedule</h1>
           <p className="text-sm text-slate-500 mt-0.5">Auto-populated from awarded bids. Add milestones manually.</p>
         </div>
-        <Button onClick={() => setShowAdd(true)}><Plus className="h-4 w-4" />Add Milestone</Button>
+        <Button onClick={() => setShowAdd(true)} className="self-start sm:self-auto"><Plus className="h-4 w-4" />Add Milestone</Button>
       </div>
 
       {loading ? (
@@ -355,7 +355,38 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
             <div className="px-5 py-3 border-b border-slate-100">
               <span className="text-sm font-semibold text-slate-700">All Items</span>
             </div>
-            <table className="w-full text-sm">
+            {/* Mobile card list */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {sorted.map(item => {
+                const duration = daysBetween(item.start_date, item.end_date) + 1
+                return (
+                  <div key={item.id} className="px-4 py-3 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className={cn('h-2 w-2 rounded-full shrink-0', barColor(item))} />
+                        <div className="min-w-0">
+                          <p className="font-medium text-slate-800 truncate">{getLabel(item)}</p>
+                          {getSubLabel(item) && <p className="text-xs text-slate-400 truncate">{getSubLabel(item)}</p>}
+                        </div>
+                      </div>
+                      <button onClick={() => openEdit(item)} className="text-slate-400 hover:text-slate-600 p-1 rounded shrink-0">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
+                      <span className={cn('text-xs font-medium px-2 py-0.5 rounded-full border', lightColor(item))}>
+                        {item.subcontract_id ? 'Sub Work' : 'Milestone'}
+                      </span>
+                      <span>{formatDate(item.start_date)} – {formatDate(item.end_date)}</span>
+                      <span className="text-slate-400">{duration} day{duration !== 1 ? 's' : ''}</span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Desktop table */}
+            <table className="w-full text-sm hidden md:table">
               <thead className="bg-slate-50 border-b border-slate-100">
                 <tr>
                   <th className="text-left px-5 py-3 font-medium text-slate-600">Item</th>

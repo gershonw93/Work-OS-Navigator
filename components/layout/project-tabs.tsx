@@ -30,7 +30,7 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
 
   return (
     <div className="border-b border-slate-200 bg-white">
-      <nav className="flex overflow-x-auto scrollbar-hide -mb-px px-6" aria-label="Project tabs">
+      <nav className="flex overflow-x-auto scrollbar-hide -mb-px px-4 sm:px-6" aria-label="Project tabs">
         {tabs.map((tab) => {
           const href = `/projects/${projectId}/${tab.slug}`
           const isActive = pathname.endsWith(`/${tab.slug}`)

@@ -84,7 +84,7 @@ export default function MyBidsPage() {
     const pkg = inv.bid_packages
     return (
       <Link href={`/my-bids/${pkg.id}`}
-        className="flex items-center gap-4 bg-white rounded-xl border border-slate-200 px-5 py-4 hover:border-orange-300 hover:shadow-sm transition-all group">
+        className="flex items-center gap-3 sm:gap-4 bg-white rounded-xl border border-slate-200 px-4 sm:px-5 py-4 hover:border-orange-300 hover:shadow-sm transition-all group">
         <div className="shrink-0">
           {activeTab === 'awarded' && <CheckCircle2 className="h-5 w-5 text-green-500" />}
           {activeTab === 'revisions' && <AlertCircle className="h-5 w-5 text-amber-400" />}
@@ -113,7 +113,7 @@ export default function MyBidsPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">My Bids</h1>
         <p className="text-sm text-slate-500 mt-0.5">Bid invitations and your submitted proposals.</p>
@@ -130,13 +130,13 @@ export default function MyBidsPage() {
       ) : (
         <>
           {/* Tabs */}
-          <div className="flex gap-1 border-b border-slate-200">
+          <div className="flex gap-1 border-b border-slate-200 overflow-x-auto">
             {tabs.map(t => (
               <button
                 key={t.key}
                 onClick={() => setActiveTab(t.key)}
                 className={cn(
-                  'px-5 py-2.5 text-sm font-medium transition-colors flex items-center gap-2',
+                  'shrink-0 whitespace-nowrap px-3 sm:px-5 py-2.5 text-sm font-medium transition-colors flex items-center gap-2',
                   activeTab === t.key
                     ? 'border-b-2 border-orange-500 text-orange-600 -mb-px'
                     : 'text-slate-500 hover:text-slate-700'
@@ -174,7 +174,7 @@ export default function MyBidsPage() {
                   const pkg = inv.bid_packages
                   return (
                     <Link key={group.projectId} href={`/my-bids/${pkg.id}`}
-                      className="flex items-center gap-4 bg-white rounded-xl border border-slate-200 px-5 py-4 hover:border-orange-300 hover:shadow-sm transition-all group">
+                      className="flex items-center gap-3 sm:gap-4 bg-white rounded-xl border border-slate-200 px-4 sm:px-5 py-4 hover:border-orange-300 hover:shadow-sm transition-all group">
                       <div className="shrink-0">
                         {activeTab === 'awarded' && <CheckCircle2 className="h-5 w-5 text-green-500" />}
                         {activeTab === 'revisions' && <AlertCircle className="h-5 w-5 text-amber-400" />}
@@ -209,7 +209,7 @@ export default function MyBidsPage() {
                   <div key={group.projectId} className="rounded-xl border border-slate-200 bg-white overflow-hidden">
                     <button
                       onClick={() => setExpandedJob(isExpanded ? null : group.projectId)}
-                      className="w-full flex items-center gap-4 px-5 py-4 hover:bg-slate-50 transition-colors text-left"
+                      className="w-full flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-4 hover:bg-slate-50 transition-colors text-left"
                     >
                       <div className="shrink-0">
                         {activeTab === 'awarded' && <CheckCircle2 className="h-5 w-5 text-green-500" />}
