@@ -7,12 +7,13 @@ import Link from 'next/link'
 import {
   ArrowLeft, MapPin, Calendar, DollarSign, CheckCircle2, Clock,
   XCircle, AlertCircle, Plus, X, Phone, Trash2, Paperclip, TrendingUp, Zap,
+  ShieldCheck, Upload, RefreshCw, AlertTriangle, FileWarning,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
-type Tab = 'overview' | 'tasks' | 'rfis' | 'inspections' | 'invoices'
+type Tab = 'overview' | 'tasks' | 'rfis' | 'inspections' | 'invoices' | 'compliance'
 
 interface CoItem { description: string; qty: string; unit_price: string }
 
@@ -63,6 +64,12 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
   const [billingSuccess, setBillingSuccess] = useState<string | null>(null)
   const [billingError, setBillingError] = useState<Record<string, string>>({})
 
+  // Compliance
+  const [complianceDocs, setComplianceDocs] = useState<any[]>([])
+  const [complianceLoading, setComplianceLoading] = useState(false)
+  const [openComplianceForm, setOpenComplianceForm] = useState<string | null>(null) // `${docType}`
+  const [complianceFormState, setComplianceFormState] = useState<Record<string, { status: string; expiry: string; fileUrl: string; notes: string; saving: boolean; error: string }>>({})
+
   // RFI form
   const [showRfiForm, setShowRfiForm] = useState(false)
   const [rfiSubject, setRfiSubject] = useState('')
@@ -90,7 +97,19 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
     setLoading(false)
   }
 
+  async function loadCompliance() {
+    setComplianceLoading(true)
+    const token = await getToken()
+    const res = await fetch(`/api/projects/${params.projectId}/compliance`, { headers: { Authorization: `Bearer ${token}` } })
+    if (res.ok) {
+      const json = await res.json()
+      setComplianceDocs(json.docs ?? [])
+    }
+    setComplianceLoading(false)
+  }
+
   useEffect(() => { load() }, [params.projectId])
+  useEffect(() => { if (activeTab === 'compliance') loadCompliance() }, [activeTab])
 
   async function createTask(e: React.FormEvent) {
     e.preventDefault()
@@ -252,6 +271,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
     { key: 'rfis', label: 'RFIs', badge: openRfis.length },
     { key: 'inspections', label: 'Inspections', badge: pendingInspections.length },
     { key: 'invoices', label: 'Invoices', badge: pendingInvoices.length },
+    { key: 'compliance', label: 'Compliance' },
   ]
 
   return (
@@ -909,59 +929,346 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
       )}
 
       {/* Invoices tab */}
-      {activeTab === 'invoices' && (
-        <>
-          {selectedInvoice && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-              <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-md">
-                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-mono text-slate-400">{selectedInvoice.invoice_number}</p>
-                    <h3 className="font-semibold text-slate-900">${Number(selectedInvoice.amount).toLocaleString()}</h3>
+      {activeTab === 'invoices' && (() => {
+        const totalInvoiced = invoices
+          .filter((inv: any) => inv.status !== 'rejected')
+          .reduce((s: number, inv: any) => s + Number(inv.amount ?? 0), 0)
+        const totalPaid = invoices
+          .filter((inv: any) => inv.status === 'paid')
+          .reduce((s: number, inv: any) => s + Number(inv.amount ?? 0), 0)
+        const outstanding = totalInvoiced - totalPaid
+        const paidPct = totalContractValue > 0 ? Math.min(100, Math.round(totalPaid / totalContractValue * 100)) : 0
+
+        return (
+          <>
+            {selectedInvoice && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-md">
+                  <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-mono text-slate-400">{selectedInvoice.invoice_number}</p>
+                      <h3 className="font-semibold text-slate-900">${Number(selectedInvoice.amount).toLocaleString()}</h3>
+                    </div>
+                    <button onClick={() => setSelectedInvoice(null)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
                   </div>
-                  <button onClick={() => setSelectedInvoice(null)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
+                  <div className="px-6 py-5 space-y-3">
+                    <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5', STATUS_COLORS[selectedInvoice.status] ?? STATUS_COLORS.pending_approval)}>
+                      {selectedInvoice.status.replace(/_/g, ' ')}
+                    </span>
+                    {selectedInvoice.description && <p className="text-sm text-slate-700">{selectedInvoice.description}</p>}
+                    {selectedInvoice.due_date && <p className="text-sm text-slate-500">Due: {new Date(selectedInvoice.due_date).toLocaleDateString()}</p>}
+                    {(selectedInvoice.status === 'approved' || selectedInvoice.status === 'sent') && (
+                      <Link href={`/projects/${project.id}/invoices/${selectedInvoice.id}/print`}
+                        className="flex items-center justify-center gap-2 w-full mt-2 py-2 text-sm font-medium text-orange-600 border border-orange-200 rounded-lg hover:bg-orange-50 transition-colors">
+                        View / Print Invoice
+                      </Link>
+                    )}
+                  </div>
                 </div>
-                <div className="px-6 py-5 space-y-3">
-                  <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5', STATUS_COLORS[selectedInvoice.status] ?? STATUS_COLORS.pending_approval)}>
-                    {selectedInvoice.status.replace(/_/g, ' ')}
-                  </span>
-                  {selectedInvoice.description && <p className="text-sm text-slate-700">{selectedInvoice.description}</p>}
-                  {selectedInvoice.due_date && <p className="text-sm text-slate-500">Due: {new Date(selectedInvoice.due_date).toLocaleDateString()}</p>}
-                  {(selectedInvoice.status === 'approved' || selectedInvoice.status === 'sent') && (
-                    <Link href={`/projects/${project.id}/invoices/${selectedInvoice.id}/print`}
-                      className="flex items-center justify-center gap-2 w-full mt-2 py-2 text-sm font-medium text-orange-600 border border-orange-200 rounded-lg hover:bg-orange-50 transition-colors">
-                      View / Print Invoice
-                    </Link>
-                  )}
+              </div>
+            )}
+
+            {invoices.length === 0 ? (
+              <div className="rounded-xl border-2 border-dashed border-slate-200 py-12 text-center">
+                <p className="text-sm text-slate-400">No invoices yet.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                {invoices.map((inv: any) => (
+                  <button key={inv.id} onClick={() => setSelectedInvoice(inv)}
+                    className="bg-white rounded-xl border border-slate-200 p-4 text-left hover:shadow-md transition-all hover:-translate-y-0.5">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-mono text-slate-400">{inv.invoice_number}</span>
+                      <span className={cn('text-xs font-medium rounded-full border px-1.5 py-0.5', STATUS_COLORS[inv.status] ?? STATUS_COLORS.pending_approval)}>
+                        {inv.status.replace(/_/g, ' ')}
+                      </span>
+                    </div>
+                    <p className="text-2xl font-bold text-slate-900">${Number(inv.amount).toLocaleString()}</p>
+                    {inv.description && <p className="text-xs text-slate-400 mt-1 line-clamp-2">{inv.description}</p>}
+                    {inv.due_date && <p className="text-xs text-slate-400 mt-2">{new Date(inv.due_date).toLocaleDateString()}</p>}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Payment Summary */}
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+              <div className="px-4 sm:px-5 py-3.5 border-b border-slate-100">
+                <h3 className="text-sm font-semibold text-slate-700">Payment Summary</h3>
+              </div>
+              <div className="px-4 sm:px-5 py-4 space-y-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  {[
+                    { label: 'Contract Value', value: `$${totalContractValue.toLocaleString()}`, color: 'text-slate-900' },
+                    { label: 'Total Invoiced', value: `$${totalInvoiced.toLocaleString()}`, color: 'text-slate-900' },
+                    { label: 'Total Paid', value: `$${totalPaid.toLocaleString()}`, color: 'text-green-600' },
+                    { label: 'Outstanding', value: `$${outstanding.toLocaleString()}`, color: outstanding > 0 ? 'text-amber-600' : 'text-green-600' },
+                  ].map(s => (
+                    <div key={s.label}>
+                      <p className="text-xs text-slate-400">{s.label}</p>
+                      <p className={cn('text-lg font-bold mt-0.5', s.color)}>{s.value}</p>
+                    </div>
+                  ))}
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs text-slate-500">Paid vs. contract value</span>
+                    <span className="text-xs font-semibold text-slate-700">{paidPct}%</span>
+                  </div>
+                  <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-green-500 rounded-full transition-all"
+                      style={{ width: `${paidPct}%` }}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
-          )}
-          {invoices.length === 0 ? (
-            <div className="rounded-xl border-2 border-dashed border-slate-200 py-12 text-center">
-              <p className="text-sm text-slate-400">No invoices yet.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-              {invoices.map((inv: any) => (
-                <button key={inv.id} onClick={() => setSelectedInvoice(inv)}
-                  className="bg-white rounded-xl border border-slate-200 p-4 text-left hover:shadow-md transition-all hover:-translate-y-0.5">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-mono text-slate-400">{inv.invoice_number}</span>
-                    <span className={cn('text-xs font-medium rounded-full border px-1.5 py-0.5', STATUS_COLORS[inv.status] ?? STATUS_COLORS.pending_approval)}>
-                      {inv.status.replace(/_/g, ' ')}
-                    </span>
+          </>
+        )
+      })()}
+
+      {/* Compliance tab */}
+      {activeTab === 'compliance' && (() => {
+        const myCompanyId = data?.subcontracts?.[0]?.company_id ?? ''
+        const myCompanyName = data?.subcontracts?.[0]?.company_name ?? 'My Company'
+
+        const DOC_TYPES = ['coi', 'license', 'w9', 'workers_comp'] as const
+        type DocType = typeof DOC_TYPES[number]
+
+        const DOC_LABELS: Record<DocType, string> = {
+          coi: 'COI',
+          license: 'License',
+          w9: 'W-9',
+          workers_comp: "Workers' Comp",
+        }
+
+        const STATUS_CONFIG: Record<string, { label: string; classes: string }> = {
+          missing:       { label: 'Missing',       classes: 'bg-red-100 text-red-700' },
+          pending:       { label: 'Pending',       classes: 'bg-amber-100 text-amber-700' },
+          approved:      { label: 'Approved',      classes: 'bg-green-100 text-green-700' },
+          expired:       { label: 'Expired',       classes: 'bg-red-100 text-red-700' },
+          expiring_soon: { label: 'Expiring Soon', classes: 'bg-orange-100 text-orange-700' },
+        }
+
+        function isExpiringSoon(expiry: string | null): boolean {
+          if (!expiry) return false
+          const diff = new Date(expiry).getTime() - Date.now()
+          return diff > 0 && diff <= 30 * 24 * 60 * 60 * 1000
+        }
+
+        function getDoc(type: DocType) {
+          return complianceDocs.find((d: any) => d.company_id === myCompanyId && d.type === type) ?? null
+        }
+
+        function resolveStatus(type: DocType): string {
+          const doc = getDoc(type)
+          if (!doc) return 'missing'
+          if (doc.status === 'approved' && isExpiringSoon(doc.expiry_date)) return 'expiring_soon'
+          return doc.status
+        }
+
+        async function saveDoc(type: DocType) {
+          const key = type
+          const fs = complianceFormState[key]
+          if (!fs) return
+          setComplianceFormState(prev => ({ ...prev, [key]: { ...prev[key], saving: true, error: '' } }))
+          const token = await getToken()
+          const res = await fetch(`/api/projects/${params.projectId}/compliance`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({
+              company_id: myCompanyId,
+              type,
+              status: fs.status || 'pending',
+              expiry_date: fs.expiry || null,
+              notes: fs.notes || null,
+              file_url: fs.fileUrl || null,
+            }),
+          })
+          if (res.ok) {
+            setOpenComplianceForm(null)
+            loadCompliance()
+          } else {
+            const err = await res.json().catch(() => ({}))
+            setComplianceFormState(prev => ({ ...prev, [key]: { ...prev[key], saving: false, error: err.error ?? 'Failed to save' } }))
+            return
+          }
+          setComplianceFormState(prev => ({ ...prev, [key]: { ...prev[key], saving: false } }))
+        }
+
+        function openForm(type: DocType) {
+          const doc = getDoc(type)
+          setComplianceFormState(prev => ({
+            ...prev,
+            [type]: {
+              status: doc?.status ?? 'pending',
+              expiry: doc?.expiry_date?.slice(0, 10) ?? '',
+              fileUrl: doc?.file_url ?? '',
+              notes: doc?.notes ?? '',
+              saving: false,
+              error: '',
+            },
+          }))
+          setOpenComplianceForm(type)
+        }
+
+        const allStatuses = DOC_TYPES.map(resolveStatus)
+        const missingCount = allStatuses.filter(s => s === 'missing' || s === 'expired').length
+        const expiringCount = allStatuses.filter(s => s === 'expiring_soon').length
+
+        return (
+          <div className="space-y-4">
+            {/* Summary */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { label: 'Required Docs', value: DOC_TYPES.length, icon: ShieldCheck, color: 'text-slate-500' },
+                { label: 'Approved', value: allStatuses.filter(s => s === 'approved').length, icon: CheckCircle2, color: 'text-green-500' },
+                { label: 'Expiring Soon', value: expiringCount, icon: AlertTriangle, color: 'text-orange-500' },
+                { label: 'Missing / Expired', value: missingCount, icon: FileWarning, color: 'text-red-500' },
+              ].map(s => (
+                <div key={s.label} className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3">
+                  <s.icon className={cn('h-8 w-8 shrink-0', s.color)} />
+                  <div>
+                    <p className="text-2xl font-bold text-slate-900">{s.value}</p>
+                    <p className="text-xs text-slate-400">{s.label}</p>
                   </div>
-                  <p className="text-2xl font-bold text-slate-900">${Number(inv.amount).toLocaleString()}</p>
-                  {inv.description && <p className="text-xs text-slate-400 mt-1 line-clamp-2">{inv.description}</p>}
-                  {inv.due_date && <p className="text-xs text-slate-400 mt-2">{new Date(inv.due_date).toLocaleDateString()}</p>}
-                </button>
+                </div>
               ))}
             </div>
-          )}
-        </>
-      )}
-      {/* placeholder to close old invoices tab */}
+
+            {/* Doc cards */}
+            {complianceLoading ? (
+              <div className="py-12 text-center text-sm text-slate-400">Loading compliance docs...</div>
+            ) : (
+              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                <div className="px-4 sm:px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-700">{myCompanyName}</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">Your compliance documents for this project</p>
+                  </div>
+                </div>
+                <div className="divide-y divide-slate-100">
+                  {DOC_TYPES.map((type) => {
+                    const doc = getDoc(type)
+                    const status = resolveStatus(type)
+                    const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.missing
+                    const isOpen = openComplianceForm === type
+                    const fs = complianceFormState[type]
+
+                    return (
+                      <div key={type}>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 sm:px-5 py-3">
+                          <span className="w-24 sm:w-28 text-sm text-slate-600 shrink-0">{DOC_LABELS[type]}</span>
+                          <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium', cfg.classes)}>
+                            {cfg.label}
+                          </span>
+                          {doc?.expiry_date && (
+                            <span className={cn('text-xs',
+                              status === 'expiring_soon' ? 'text-orange-600 font-medium' :
+                              status === 'expired' ? 'text-red-500' : 'text-slate-400')}>
+                              {status === 'expiring_soon' && <AlertTriangle className="inline h-3 w-3 mr-0.5 -mt-0.5" />}
+                              Exp {new Date(doc.expiry_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </span>
+                          )}
+                          {doc?.file_url && (
+                            <a href={doc.file_url} target="_blank" rel="noopener noreferrer"
+                              className="text-xs text-orange-600 hover:underline">View file</a>
+                          )}
+                          <div className="ml-auto">
+                            <button
+                              onClick={() => isOpen ? setOpenComplianceForm(null) : openForm(type)}
+                              className={cn(
+                                'flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors',
+                                isOpen
+                                  ? 'border-orange-400 bg-orange-50 text-orange-700'
+                                  : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700',
+                              )}
+                            >
+                              {doc ? <><RefreshCw className="h-3 w-3" /> Update</> : <><Upload className="h-3 w-3" /> Upload</>}
+                            </button>
+                          </div>
+                        </div>
+
+                        {isOpen && fs && (
+                          <div className="px-4 sm:px-5 pb-4">
+                            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+                              <div className="flex items-center justify-between">
+                                <p className="text-sm font-semibold text-slate-800">
+                                  {doc ? 'Update' : 'Upload'} {DOC_LABELS[type]}
+                                </p>
+                                <button onClick={() => setOpenComplianceForm(null)} className="text-slate-400 hover:text-slate-600">
+                                  <X className="h-4 w-4" />
+                                </button>
+                              </div>
+
+                              {/* Status toggles */}
+                              <div className="space-y-1">
+                                <p className="text-xs font-medium text-slate-600">Status</p>
+                                <div className="flex flex-wrap gap-2">
+                                  {(['pending', 'approved', 'expired'] as const).map((s) => (
+                                    <button key={s} type="button"
+                                      onClick={() => setComplianceFormState(prev => ({ ...prev, [type]: { ...prev[type], status: s } }))}
+                                      className={cn(
+                                        'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                                        fs.status === s
+                                          ? STATUS_CONFIG[s].classes + ' border-transparent'
+                                          : 'border-slate-200 text-slate-500 hover:border-slate-300',
+                                      )}>
+                                      {STATUS_CONFIG[s].label}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* Expiry */}
+                              <div className="space-y-1">
+                                <label className="text-xs font-medium text-slate-600">Expiry Date <span className="text-slate-400 font-normal">(optional)</span></label>
+                                <input type="date" value={fs.expiry}
+                                  onChange={e => setComplianceFormState(prev => ({ ...prev, [type]: { ...prev[type], expiry: e.target.value } }))}
+                                  className="w-full h-8 rounded-md border border-slate-300 px-3 text-sm focus:border-orange-500 focus:outline-none" />
+                              </div>
+
+                              {/* File URL */}
+                              <div className="space-y-1">
+                                <label className="text-xs font-medium text-slate-600">File URL <span className="text-slate-400 font-normal">(optional)</span></label>
+                                <input type="url" placeholder="https://..." value={fs.fileUrl}
+                                  onChange={e => setComplianceFormState(prev => ({ ...prev, [type]: { ...prev[type], fileUrl: e.target.value } }))}
+                                  className="w-full h-8 rounded-md border border-slate-300 px-3 text-sm focus:border-orange-500 focus:outline-none" />
+                              </div>
+
+                              {/* Notes */}
+                              <div className="space-y-1">
+                                <label className="text-xs font-medium text-slate-600">Notes <span className="text-slate-400 font-normal">(optional)</span></label>
+                                <textarea rows={2} value={fs.notes} placeholder="Any notes..."
+                                  onChange={e => setComplianceFormState(prev => ({ ...prev, [type]: { ...prev[type], notes: e.target.value } }))}
+                                  className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm focus:border-orange-500 focus:outline-none resize-none" />
+                              </div>
+
+                              {fs.error && <p className="text-xs text-red-600">{fs.error}</p>}
+
+                              <div className="flex gap-2 justify-end pt-1">
+                                <button type="button" onClick={() => setOpenComplianceForm(null)}
+                                  className="h-7 px-3 text-xs rounded-md border border-slate-300 text-slate-600 hover:bg-slate-50 transition-colors">
+                                  Cancel
+                                </button>
+                                <button type="button" onClick={() => saveDoc(type)} disabled={fs.saving}
+                                  className="h-7 px-3 text-xs rounded-md bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-medium transition-colors">
+                                  {fs.saving ? 'Saving...' : doc ? 'Update' : 'Save'}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )
+      })()}
     </div>
   )
 }

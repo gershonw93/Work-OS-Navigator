@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Package, Plus, X, ChevronDown, ChevronUp, Award, Paperclip, Users, CheckCircle2, Clock, XCircle, Bell, FileText, RotateCcw, ChevronRight, Check, Ban, BarChart2 } from 'lucide-react'
+import { Package, Plus, X, ChevronDown, ChevronUp, Award, Paperclip, Users, CheckCircle2, Clock, XCircle, Bell, FileText, RotateCcw, ChevronRight, Check, Ban, BarChart2, PenLine } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -66,6 +66,18 @@ interface Bid {
 interface Plan { id: string; name: string; plan_type: string }
 interface Company { id: string; name: string; trade: string | null; contact_email: string; has_account: boolean }
 
+interface Subcontract {
+  id: string
+  bid_id: string | null
+  gc_signed_at: string | null
+  gc_signed_by: string | null
+  gc_signature_url: string | null
+  sub_signed_at: string | null
+  sub_signed_by: string | null
+  sub_signature_url: string | null
+  fully_executed_at: string | null
+}
+
 export default function BidsPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
   const [packages, setPackages] = useState<BidPackage[]>([])
@@ -88,9 +100,16 @@ export default function BidsPage({ params }: { params: { id: string } }) {
   const [pkgError, setPkgError] = useState<string | null>(null)
   const [companySearch, setCompanySearch] = useState('')
 
+  const [subcontracts, setSubcontracts] = useState<Subcontract[]>([])
+
   const [awardingBid, setAwardingBid] = useState<string | null>(null)
   const [expandedBid, setExpandedBid] = useState<string | null>(null)
   const [levelingPkgId, setLevelingPkgId] = useState<string | null>(null)
+
+  // Signature signing
+  const [signBidId, setSignBidId] = useState<string | null>(null)
+  const [signingLoading, setSigningLoading] = useState(false)
+  const [signingError, setSigningError] = useState<string | null>(null)
 
   // Invite to existing package
   const [invitePkgId, setInvitePkgId] = useState<string | null>(null)
@@ -128,6 +147,7 @@ export default function BidsPage({ params }: { params: { id: string } }) {
       setBids(data.bids)
       setAllPlans(data.plans)
       setAllCompanies(data.companies)
+      setSubcontracts(data.subcontracts ?? [])
     }
     setLoading(false)
   }
@@ -268,6 +288,30 @@ export default function BidsPage({ params }: { params: { id: string } }) {
     setAwardInvitePrompt(null)
   }
 
+  async function signSubcontract(bidId: string, dataUrl: string, signerName: string) {
+    const sub = subcontracts.find(s => s.bid_id === bidId)
+    if (!sub) return
+    setSigningLoading(true)
+    setSigningError(null)
+    const token = await getToken()
+    const res = await fetch(`/api/projects/${params.id}/subcontracts/${sub.id}/sign`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ signer_type: 'gc', signer_name: signerName, signature_data_url: dataUrl }),
+    })
+    if (!res.ok) {
+      const body = await res.json()
+      setSigningError(body.error ?? 'Failed to save signature')
+      setSigningLoading(false)
+      return
+    }
+    setSignBidId(null)
+    setSigningLoading(false)
+    fetchData()
+  }
+
+  const subForBid = (bidId: string) => subcontracts.find(s => s.bid_id === bidId) ?? null
+
   const bidsForPackage = (pkgId: string) => bids.filter(b => b.bid_package_id === pkgId)
   const filteredCompanies = allCompanies.filter(c => {
     const matchesSearch = c.name.toLowerCase().includes(companySearch.toLowerCase()) ||
@@ -284,6 +328,35 @@ export default function BidsPage({ params }: { params: { id: string } }) {
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
+
+      {/* Signature Modal */}
+      {signBidId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-lg min-w-0">
+            <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">Sign as GC</h2>
+                <p className="text-xs text-slate-500 mt-0.5">Your signature will be saved to this subcontract.</p>
+              </div>
+              <button
+                onClick={() => { setSignBidId(null); setSigningError(null) }}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="px-4 sm:px-6 py-5">
+              {signingError && (
+                <p className="mb-3 text-sm text-red-600">{signingError}</p>
+              )}
+              <SignaturePad
+                onSign={(dataUrl, name) => signSubcontract(signBidId, dataUrl, name)}
+                onCancel={() => { setSignBidId(null); setSigningError(null) }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Post-Award Invite Prompt */}
       {awardInvitePrompt && (
@@ -865,6 +938,48 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                                       <span className="text-xs text-amber-600 font-medium ml-auto">Revision Requested</span>
                                     )}
                                   </div>
+                                  {/* Signatures section — mobile */}
+                                  {bid.status === 'awarded' && (() => {
+                                    const sub = subForBid(bid.id)
+                                    if (!sub) return null
+                                    return (
+                                      <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-2">
+                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Signatures</p>
+                                        {sub.fully_executed_at && (
+                                          <div className="rounded-md bg-green-50 border border-green-200 px-3 py-2 text-xs font-semibold text-green-700 flex items-center gap-1.5">
+                                            <CheckCircle2 className="h-3.5 w-3.5" />
+                                            Fully Executed — {new Date(sub.fully_executed_at).toLocaleDateString()}
+                                          </div>
+                                        )}
+                                        <div className="grid grid-cols-2 gap-2">
+                                          <div className="rounded-md border border-slate-200 px-3 py-2 space-y-1">
+                                            <p className="text-xs text-slate-500 font-medium">GC Signature</p>
+                                            {sub.gc_signed_at ? (
+                                              <div className="flex items-center gap-1 text-xs text-green-600">
+                                                <CheckCircle2 className="h-3 w-3 shrink-0" />
+                                                <span className="truncate">{sub.gc_signed_by}</span>
+                                              </div>
+                                            ) : (
+                                              <Button size="sm" variant="outline" className="w-full text-xs h-7" onClick={() => setSignBidId(bid.id)}>
+                                                <PenLine className="h-3 w-3" />Sign as GC
+                                              </Button>
+                                            )}
+                                          </div>
+                                          <div className="rounded-md border border-slate-200 px-3 py-2 space-y-1">
+                                            <p className="text-xs text-slate-500 font-medium">Sub Signature</p>
+                                            {sub.sub_signed_at ? (
+                                              <div className="flex items-center gap-1 text-xs text-green-600">
+                                                <CheckCircle2 className="h-3 w-3 shrink-0" />
+                                                <span className="truncate">{sub.sub_signed_by}</span>
+                                              </div>
+                                            ) : (
+                                              <span className="inline-flex items-center rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-xs px-2 py-0.5">Awaiting sub</span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )
+                                  })()}
                                   {isBidExpanded && (
                                     <div className={cn('rounded-lg px-3 py-3 space-y-4', bid.status === 'awarded' ? 'bg-green-50/50' : 'bg-slate-50/50')}>
                                       {scopeCats && scopeCats.length > 0 && (
@@ -1054,6 +1169,51 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                                                 <p className="text-sm text-slate-400">No additional details provided.</p>
                                               )}
                                             </div>
+
+                                            {/* Signatures section — desktop */}
+                                            {bid.status === 'awarded' && (() => {
+                                              const sub = subForBid(bid.id)
+                                              if (!sub) return null
+                                              return (
+                                                <div className="md:col-span-3 rounded-lg border border-slate-200 bg-white px-4 py-3 space-y-3">
+                                                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Signatures</p>
+                                                  {sub.fully_executed_at && (
+                                                    <div className="rounded-md bg-green-50 border border-green-200 px-3 py-2 text-sm font-semibold text-green-700 flex items-center gap-2">
+                                                      <CheckCircle2 className="h-4 w-4" />
+                                                      Fully Executed — {new Date(sub.fully_executed_at).toLocaleDateString()}
+                                                    </div>
+                                                  )}
+                                                  <div className="grid grid-cols-2 gap-4">
+                                                    <div className="space-y-1">
+                                                      <p className="text-xs font-medium text-slate-500">GC Signature</p>
+                                                      {sub.gc_signed_at ? (
+                                                        <div className="flex items-center gap-1.5 text-sm text-green-600">
+                                                          <CheckCircle2 className="h-4 w-4 shrink-0" />
+                                                          <span className="font-medium">{sub.gc_signed_by}</span>
+                                                          <span className="text-xs text-slate-400">{new Date(sub.gc_signed_at).toLocaleDateString()}</span>
+                                                        </div>
+                                                      ) : (
+                                                        <Button size="sm" variant="outline" onClick={() => setSignBidId(bid.id)}>
+                                                          <PenLine className="h-3.5 w-3.5" />Sign as GC
+                                                        </Button>
+                                                      )}
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                      <p className="text-xs font-medium text-slate-500">Sub Signature</p>
+                                                      {sub.sub_signed_at ? (
+                                                        <div className="flex items-center gap-1.5 text-sm text-green-600">
+                                                          <CheckCircle2 className="h-4 w-4 shrink-0" />
+                                                          <span className="font-medium">{sub.sub_signed_by}</span>
+                                                          <span className="text-xs text-slate-400">{new Date(sub.sub_signed_at).toLocaleDateString()}</span>
+                                                        </div>
+                                                      ) : (
+                                                        <span className="inline-flex items-center rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-xs px-2.5 py-1">Awaiting sub signature</span>
+                                                      )}
+                                                    </div>
+                                                  </div>
+                                                </div>
+                                              )
+                                            })()}
                                           </div>
                                         </td>
                                       </tr>

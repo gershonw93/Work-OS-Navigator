@@ -138,7 +138,11 @@ export default function DashboardPage() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
-        <p className="text-sm text-slate-500 mt-0.5">Welcome back. Here's what's happening across your projects.</p>
+        <p className="text-sm text-slate-500 mt-0.5">
+          {isSub
+            ? "Welcome back. Here's a summary of your active jobs and financials."
+            : "Welcome back. Here's what's happening across your projects."}
+        </p>
       </div>
 
       {/* Stat cards */}
@@ -165,7 +169,7 @@ export default function DashboardPage() {
       {/* Recent Projects */}
       <Card>
         <CardHeader>
-          <CardTitle>Recent Projects</CardTitle>
+          <CardTitle>{isSub ? 'Recent Jobs' : 'Recent Projects'}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
