@@ -251,7 +251,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
                       : <><Sparkles className="h-4 w-4 text-orange-400 shrink-0" /><span className="text-orange-600 font-medium">Upload a photo or scan of the inspection card</span><span className="text-slate-400 text-xs">— AI fills the fields automatically</span></>
                     }
                   </div>
-                  <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden"
+                  <input ref={fileRef} type="file" accept="image/*" className="hidden"
                     onChange={e => { const f = e.target.files?.[0]; if (f) analyzeImage(f) }} />
                   {analyzeError && <p className="text-xs text-red-500 flex items-center gap-1"><X className="h-3 w-3 shrink-0" />{analyzeError}</p>}
                   {!analyzeError && !analyzing && <p className="text-xs text-slate-400">or fill in manually below</p>}
