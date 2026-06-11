@@ -81,11 +81,19 @@ export async function POST(request: Request, { params }: { params: { id: string 
     .select()
     .single()
 
-  // If card_image_url column doesn't exist yet, retry without it
-  if (error && (error.message?.includes('card_image_url') || error.code === '42703')) {
-    const retry = await db.from('inspections').insert(basePayload).select().single()
-    inspection = retry.data
-    error = retry.error
+  // Retry stripping optional columns that may not exist yet
+  if (error && error.code === '42703') {
+    const retry2 = await db.from('inspections').insert(basePayload).select().single()
+    inspection = retry2.data
+    error = retry2.error
+  }
+
+  // Final fallback: only core columns guaranteed to exist
+  if (error && error.code === '42703') {
+    const minimal = { project_id: params.id, inspection_type: basePayload.inspection_type, status: basePayload.status }
+    const retry3 = await db.from('inspections').insert(minimal).select().single()
+    inspection = retry3.data
+    error = retry3.error
   }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
