@@ -259,12 +259,12 @@ export default function TasksPage({ params }: { params: { id: string } }) {
       {showAdd && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-lg">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-slate-900">New Task</h2>
               <button onClick={() => { setShowAdd(false); resetForm() }} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
             </div>
             <form onSubmit={createTask}>
-              <div className="px-6 py-5 space-y-4">
+              <div className="px-4 sm:px-6 py-5 space-y-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="title">Task <span className="text-red-500">*</span></Label>
                   <Input id="title" placeholder="e.g. Inspect concrete pour on level 2" value={title} onChange={e => setTitle(e.target.value)} required autoFocus />
@@ -274,7 +274,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
                   <textarea id="desc" rows={2} placeholder="Additional context..." value={description} onChange={e => setDescription(e.target.value)}
                     className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 resize-none" />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label htmlFor="due">Due Date</Label>
                     <Input id="due" type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
@@ -318,7 +318,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
                   )}
                 </div>
               </div>
-              <div className="px-6 py-4 border-t border-slate-100 flex gap-2 justify-end">
+              <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => { setShowAdd(false); resetForm() }}>Cancel</Button>
                 <Button type="submit" disabled={saving || !title.trim()}>{saving ? 'Creating...' : 'Create Task'}</Button>
               </div>
@@ -331,7 +331,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
       {invoiceTask && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-md">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h2 className="font-semibold text-slate-900">Create Invoice</h2>
                 <p className="text-xs text-slate-500 mt-0.5">For {invoiceTask.assigned_to_name} · {invoiceTask.title}</p>
@@ -339,7 +339,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
               <button onClick={() => setInvoiceTask(null)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
             </div>
             <form onSubmit={createInvoiceFromTask}>
-              <div className="px-6 py-5 space-y-4">
+              <div className="px-4 sm:px-6 py-5 space-y-4">
                 <div className="space-y-1.5">
                   <Label>Amount <span className="text-red-500">*</span></Label>
                   <div className="relative">
@@ -356,7 +356,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
                   <Input type="date" value={invoiceDue} onChange={e => setInvoiceDue(e.target.value)} />
                 </div>
               </div>
-              <div className="px-6 py-4 border-t border-slate-100 flex gap-2 justify-end">
+              <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => setInvoiceTask(null)}>Cancel</Button>
                 <Button type="submit" disabled={creatingInvoice || !invoiceAmount}>{creatingInvoice ? 'Creating...' : 'Create Invoice'}</Button>
               </div>

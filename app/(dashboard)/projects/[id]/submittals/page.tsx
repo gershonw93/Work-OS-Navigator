@@ -199,7 +199,7 @@ export default function SubmittalsPage({ params }: { params: { id: string } }) {
                 <textarea rows={2} autoFocus value={reviewNotes} onChange={e => setReviewNotes(e.target.value)}
                   placeholder="Add review notes for the submitter..."
                   className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none resize-none" />
-                <div className="flex gap-2 justify-end">
+                <div className="flex flex-wrap gap-2 justify-end">
                   <Button type="button" size="sm" variant="secondary" onClick={() => { setReviewingId(null); setReviewNotes('') }}>Cancel</Button>
                   <Button type="button" size="sm" onClick={() => updateStatus(sub, reviewStatus, reviewNotes || undefined)}>
                     {reviewStatus === 'rejected' ? 'Reject Submittal' : 'Request Revision'}
@@ -218,17 +218,17 @@ export default function SubmittalsPage({ params }: { params: { id: string } }) {
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <h2 className="font-semibold text-slate-900">Add Submittal</h2>
               <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
             </div>
             <form onSubmit={handleSubmit}>
-              <div className="px-6 py-5 space-y-4">
+              <div className="px-4 sm:px-6 py-5 space-y-4">
                 <div className="space-y-1.5">
                   <Label>Title</Label>
                   <Input placeholder="e.g. Roof Membrane — GAF EverGuard TPO" value={title} onChange={e => setTitle(e.target.value)} required />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Type</Label>
                     <select value={type} onChange={e => setType(e.target.value)} required
@@ -241,7 +241,7 @@ export default function SubmittalsPage({ params }: { params: { id: string } }) {
                     <Input placeholder="e.g. Roofing" value={trade} onChange={e => setTrade(e.target.value)} />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Manufacturer</Label>
                     <Input placeholder="e.g. GAF" value={manufacturer} onChange={e => setManufacturer(e.target.value)} />
@@ -265,7 +265,7 @@ export default function SubmittalsPage({ params }: { params: { id: string } }) {
                     className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none resize-none" />
                 </div>
               </div>
-              <div className="px-6 py-4 border-t border-slate-100 flex gap-2 justify-end">
+              <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>Cancel</Button>
                 <Button type="submit" disabled={submitting}>{submitting ? 'Submitting...' : 'Add Submittal'}</Button>
               </div>

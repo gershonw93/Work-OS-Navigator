@@ -152,13 +152,13 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
     <div className="p-4 sm:p-6 space-y-5">
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between">
+          <div className="bg-white rounded-xl shadow-xl w-full min-w-0 max-w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-slate-100 px-4 sm:px-6 py-4 flex items-center justify-between">
               <h2 className="font-semibold text-slate-900">Add Permit</h2>
               <button onClick={() => { setShowForm(false); resetForm() }} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
             </div>
             <form onSubmit={handleSubmit}>
-              <div className="px-6 py-5 space-y-4">
+              <div className="px-4 sm:px-6 py-5 pb-6 space-y-4">
                 {/* Upload first so AI fills the rest */}
                 <div className="space-y-1.5">
                   <Label><Sparkles className="inline h-3.5 w-3.5 mr-1 text-orange-400" />Upload Permit (AI Auto-Fill)</Label>
@@ -170,7 +170,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                     {analyzing
                       ? <><Loader2 className="h-4 w-4 animate-spin" /><span>Analyzing permit with AI — filling in fields...</span></>
                       : permitFile
-                      ? <><FileText className="h-4 w-4" /><span>{permitFile.name}</span><span className="ml-auto text-xs text-green-600 font-medium">✓ Fields auto-filled</span></>
+                      ? <><FileText className="h-4 w-4 shrink-0" /><span className="min-w-0 truncate">{permitFile.name}</span><span className="ml-auto text-xs text-green-600 font-medium shrink-0">✓ Fields auto-filled</span></>
                       : <><Sparkles className="h-4 w-4" /><span className="font-medium">Upload a photo or scan of your permit</span><span className="text-xs ml-1 text-orange-400">— AI fills the fields automatically</span></>}
                   </div>
                   <input ref={fileRef} type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png,.webp"
@@ -191,7 +191,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                   <div className="relative flex justify-center"><span className="bg-white px-2 text-xs text-slate-400">or fill in manually</span></div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Permit Type</Label>
                     <select value={permitType} onChange={e => setPermitType(e.target.value)} required
@@ -230,7 +230,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                   <Label><Building className="inline h-3.5 w-3.5 mr-1 text-slate-400" />Issuing Authority</Label>
                   <Input placeholder="e.g. NYC Department of Buildings" value={issuingAuthority} onChange={e => setIssuingAuthority(e.target.value)} />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Inspector Name</Label>
                     <ContactPicker
@@ -252,9 +252,9 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                     className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none resize-none" />
                 </div>
               </div>
-              <div className="sticky bottom-0 bg-white border-t border-slate-100 px-6 py-4 space-y-2">
+              <div className="sticky bottom-0 bg-white border-t border-slate-100 px-4 sm:px-6 py-4 space-y-2">
                 {submitError && <p className="text-xs text-red-600 flex items-center gap-1"><AlertCircle className="h-3 w-3 shrink-0" />{submitError}</p>}
-                <div className="flex gap-2 justify-end">
+                <div className="flex flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => { setShowForm(false); resetForm() }}>Cancel</Button>
                 <Button type="submit" disabled={submitting || analyzing}>
                   {analyzing ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Analyzing...</> : submitting ? 'Saving...' : 'Add Permit'}
@@ -334,7 +334,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                         </div>
                       )}
                     </div>
-                    {permit.description && <p className="text-sm text-slate-600">{permit.description}</p>}
+                    {permit.description && <p className="text-sm text-slate-600 break-words">{permit.description}</p>}
                     {permit.notes && <div className="rounded-lg bg-slate-50 border border-slate-100 px-3 py-2 text-sm text-slate-600">{permit.notes}</div>}
                     <div className="flex items-center gap-2 flex-wrap">
                       {permit.file_url && (

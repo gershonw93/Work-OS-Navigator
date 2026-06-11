@@ -240,7 +240,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
       {createTaskFromLog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h2 className="text-base font-semibold text-slate-900">Create Task from Issue</h2>
                 <p className="text-xs text-slate-500 mt-0.5">Log: {new Date(createTaskFromLog.log_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
@@ -248,7 +248,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
               <button onClick={() => setCreateTaskFromLog(null)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
             </div>
             <form onSubmit={handleCreateTask}>
-              <div className="px-6 py-5 space-y-4">
+              <div className="px-4 sm:px-6 py-5 space-y-4">
                 {createTaskFromLog.issue_description && (
                   <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">
                     <p className="font-medium text-xs text-amber-500 mb-0.5">Issue logged</p>
@@ -310,7 +310,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                   )}
                 </div>
               </div>
-              <div className="px-6 py-4 border-t border-slate-100 flex gap-2 justify-end">
+              <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => setCreateTaskFromLog(null)}>Cancel</Button>
                 <Button type="submit" disabled={creatingTask || !taskTitle.trim()}>
                   <CheckSquare className="h-3.5 w-3.5" />
@@ -490,7 +490,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
 
             {error && <p className="text-sm text-red-600">{error}</p>}
 
-            <div className="flex gap-2 justify-end">
+            <div className="flex flex-wrap gap-2 justify-end">
               <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>Cancel</Button>
               <Button type="submit" disabled={submitting}>{submitting ? 'Saving...' : 'Submit Log'}</Button>
             </div>

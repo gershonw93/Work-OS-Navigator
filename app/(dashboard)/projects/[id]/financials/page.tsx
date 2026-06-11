@@ -195,7 +195,7 @@ export default function FinancialsPage({ params }: { params: { id: string } }) {
                                     : <Clock className="h-5 w-5 text-slate-300" />}
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium text-slate-800">{item.label}</p>
+                                  <p className="text-sm font-medium text-slate-800 break-words">{item.label}</p>
                                   <div className="flex items-center gap-2 mt-0.5">
                                     {item.percentage && <span className="text-xs text-slate-400">{item.percentage}% of contract</span>}
                                     {hasInvoice && existingInvoice && (
@@ -208,7 +208,7 @@ export default function FinancialsPage({ params }: { params: { id: string } }) {
                                     )}
                                   </div>
                                 </div>
-                                <div className="flex flex-wrap items-center gap-3 shrink-0 ml-auto">
+                                <div className="flex flex-wrap items-center gap-2 sm:gap-3 min-w-0 ml-auto">
                                   {itemAmount && (
                                     <span className="text-sm font-bold text-slate-900">${Number(itemAmount).toLocaleString()}</span>
                                   )}
@@ -234,10 +234,10 @@ export default function FinancialsPage({ params }: { params: { id: string } }) {
                           {subInvoices.map((inv: any) => (
                             <div key={inv.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm py-1">
                               <div className="flex items-center gap-2 min-w-0">
-                                <span className="font-mono text-xs text-slate-400">{inv.invoice_number}</span>
-                                <span className="text-slate-700">{inv.description ?? '—'}</span>
+                                <span className="font-mono text-xs text-slate-400 shrink-0">{inv.invoice_number}</span>
+                                <span className="text-slate-700 truncate min-w-0">{inv.description ?? '—'}</span>
                               </div>
-                              <div className="flex items-center gap-2">
+                              <div className="flex flex-wrap items-center gap-2">
                                 <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5',
                                   inv.status === 'paid' ? 'bg-green-50 border-green-200 text-green-700' :
                                   inv.status === 'approved' ? 'bg-blue-50 border-blue-200 text-blue-700' :
@@ -280,7 +280,7 @@ export default function FinancialsPage({ params }: { params: { id: string } }) {
                 <span className="font-mono text-xs text-slate-400">RFI-{String(co.rfi_number).padStart(3, '0')}</span>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-slate-800 truncate">{co.subject}</p>
-                  <p className="text-xs text-slate-400">{co.company_name}</p>
+                  <p className="text-xs text-slate-400 truncate">{co.company_name}</p>
                 </div>
                 <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5',
                   co.change_order_status === 'approved' ? 'bg-green-50 border-green-200 text-green-700' :

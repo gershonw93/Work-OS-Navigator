@@ -128,10 +128,10 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-mono text-slate-500">{invoice.invoice_number}</span>
-              <span className="font-semibold text-slate-900">{invoice.company_name}</span>
+              <span className="font-semibold text-slate-900 break-words">{invoice.company_name}</span>
               <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5', cfg.color)}>{cfg.label}</span>
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-slate-400 mt-0.5 break-words">
               ${Number(invoice.amount).toLocaleString()}
               {invoice.description && ` · ${invoice.description}`}
               {invoice.due_date && ` · Due ${new Date(invoice.due_date).toLocaleDateString()}`}
@@ -152,7 +152,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
               {invoice.approved_at && <div><p className="text-xs text-slate-400">Approved</p><p className="font-medium text-slate-700">{new Date(invoice.approved_at).toLocaleDateString()}</p></div>}
               {invoice.sent_at && <div><p className="text-xs text-slate-400">Sent</p><p className="font-medium text-slate-700">{new Date(invoice.sent_at).toLocaleDateString()}</p></div>}
             </div>
-            {invoice.description && <p className="text-sm text-slate-600">{invoice.description}</p>}
+            {invoice.description && <p className="text-sm text-slate-600 break-words">{invoice.description}</p>}
 
             <div className="flex items-center gap-2 flex-wrap">
               <Link href={`/projects/${params.id}/invoices/${invoice.id}/print`} target="_blank">
@@ -190,7 +190,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
               <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
             </div>
             <form onSubmit={handleCreate}>
-              <div className="px-6 py-5 space-y-4">
+              <div className="px-4 sm:px-6 py-5 pb-4 space-y-4">
                 <div className="space-y-1.5">
                   <Label>Subcontractor</Label>
                   <select value={subId} onChange={e => { setSubId(e.target.value); setScheduleItemId('') }} required
@@ -233,7 +233,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
                   <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
                 </div>
               </div>
-              <div className="px-6 py-4 border-t border-slate-100 flex gap-2 justify-end">
+              <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>Cancel</Button>
                 <Button type="submit" disabled={submitting}>{submitting ? 'Creating...' : 'Create Invoice'}</Button>
               </div>

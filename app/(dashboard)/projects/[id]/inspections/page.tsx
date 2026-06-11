@@ -166,7 +166,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
               </div>
             )}
 
-            {insp.notes && <p className="text-sm text-slate-600">{insp.notes}</p>}
+            {insp.notes && <p className="text-sm text-slate-600 break-words">{insp.notes}</p>}
 
             <div className="flex items-center gap-2 flex-wrap">
               {insp.status === 'scheduled' && !insp.ready_marked_by && (
@@ -195,14 +195,14 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
     <div className="p-4 sm:p-6 space-y-5">
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-lg">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div className="bg-white rounded-xl shadow-xl w-full min-w-0 max-w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <h2 className="font-semibold text-slate-900">Add Inspection</h2>
               <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
             </div>
             <form onSubmit={handleSubmit}>
-              <div className="px-6 py-5 space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+              <div className="px-4 sm:px-6 py-5 pb-4 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Inspection Type</Label>
                     <select value={inspType} onChange={e => setInspType(e.target.value)} required
@@ -219,7 +219,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
                   <Label>Scheduled Date <span className="text-slate-400 font-normal">(if known)</span></Label>
                   <Input type="date" value={scheduledDate} onChange={e => setScheduledDate(e.target.value)} />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Inspector Name</Label>
                     <ContactPicker
@@ -246,7 +246,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
                     className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none resize-none" />
                 </div>
               </div>
-              <div className="px-6 py-4 border-t border-slate-100 flex gap-2 justify-end">
+              <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>Cancel</Button>
                 <Button type="submit" disabled={submitting}>{submitting ? 'Adding...' : 'Add Inspection'}</Button>
               </div>

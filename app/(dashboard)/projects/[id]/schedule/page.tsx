@@ -185,18 +185,18 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
 
       {showAdd && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md min-w-0">
+            <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-slate-900">Add Milestone</h2>
               <button onClick={() => setShowAdd(false)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
             </div>
             <form onSubmit={addItem}>
-              <div className="px-6 py-5 space-y-4">
+              <div className="px-4 sm:px-6 py-5 space-y-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="alabel">Label <span className="text-red-500">*</span></Label>
                   <Input id="alabel" placeholder="e.g. Permits Approved" value={addLabel} onChange={e => setAddLabel(e.target.value)} required autoFocus />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label htmlFor="astart">Start Date <span className="text-red-500">*</span></Label>
                     <Input id="astart" type="date" value={addStart} onChange={e => setAddStart(e.target.value)} required />
@@ -216,7 +216,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                   </div>
                 </div>
               </div>
-              <div className="px-6 py-4 border-t border-slate-100 flex gap-2 justify-end">
+              <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => setShowAdd(false)}>Cancel</Button>
                 <Button type="submit" disabled={addSaving || !addLabel || !addStart || !addEnd}>
                   {addSaving ? 'Adding...' : 'Add Milestone'}
@@ -229,18 +229,18 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
 
       {editItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md min-w-0">
+            <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-slate-900">Edit Item</h2>
               <button onClick={() => setEditItem(null)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
             </div>
             <form onSubmit={saveEdit}>
-              <div className="px-6 py-5 space-y-4">
+              <div className="px-4 sm:px-6 py-5 space-y-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="elabel">Label</Label>
                   <Input id="elabel" value={editLabel} onChange={e => setEditLabel(e.target.value)} required autoFocus />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label htmlFor="estart">Start Date</Label>
                     <Input id="estart" type="date" value={editStart} onChange={e => setEditStart(e.target.value)} required />
@@ -262,12 +262,12 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                   </div>
                 )}
               </div>
-              <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between">
+              <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex flex-wrap items-center gap-2 justify-between">
                 <button type="button" onClick={() => { deleteItem(editItem.id); setEditItem(null) }}
                   className="flex items-center gap-1.5 text-sm text-red-500 hover:text-red-700">
                   <Trash2 className="h-3.5 w-3.5" /> Delete
                 </button>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2 justify-end">
                   <Button type="button" variant="secondary" onClick={() => setEditItem(null)}>Cancel</Button>
                   <Button type="submit" disabled={editSaving}>{editSaving ? 'Saving...' : 'Save Changes'}</Button>
                 </div>
@@ -298,8 +298,8 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
         <div className="space-y-5">
 
           {/* Gantt */}
-          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-            <div className="px-5 py-3 border-b border-slate-100 flex items-center gap-2">
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden min-w-0">
+            <div className="px-5 py-3 border-b border-slate-100 flex items-center gap-2 flex-wrap">
               <CalendarDays className="h-4 w-4 text-slate-400" />
               <span className="text-sm font-semibold text-slate-700">Timeline</span>
               <span className="text-xs text-slate-400 ml-1">{formatDateFull(minDate)} — {formatDateFull(maxDate)}</span>

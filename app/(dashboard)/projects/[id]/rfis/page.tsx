@@ -120,7 +120,7 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
       {respondingTo && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white">
+            <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white">
               <div>
                 <h2 className="font-semibold text-slate-900">Respond to RFI-{String(respondingTo.rfi_number).padStart(3, '0')}</h2>
                 <p className="text-xs text-slate-500 mt-0.5">{respondingTo.subject}</p>
@@ -128,7 +128,7 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
               <button onClick={() => setRespondingTo(null)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
             </div>
             <form onSubmit={handleRespond}>
-              <div className="px-6 py-5 space-y-4">
+              <div className="px-4 sm:px-6 py-5 space-y-4">
                 <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2.5 text-sm text-slate-600 whitespace-pre-wrap">{respondingTo.description}</div>
 
                 {/* Change order decision */}
@@ -183,7 +183,7 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
                   ))}
                 </div>
               </div>
-              <div className="px-6 py-4 border-t border-slate-100 flex gap-2 justify-end">
+              <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => setRespondingTo(null)}>Cancel</Button>
                 <Button type="submit" disabled={responding || (respondingTo.is_change_order && !coDecision)}>
                   {responding ? 'Sending...' : 'Send Response'}

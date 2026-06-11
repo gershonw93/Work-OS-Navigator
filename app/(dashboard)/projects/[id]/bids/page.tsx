@@ -256,8 +256,8 @@ export default function BidsPage({ params }: { params: { id: string } }) {
       {/* Request Revision Modal */}
       {revisionBid && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-md">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-md min-w-0">
+            <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">Request Revision</h2>
                 <p className="text-sm text-slate-500 mt-0.5">{revisionBid.companies?.name}</p>
@@ -267,7 +267,7 @@ export default function BidsPage({ params }: { params: { id: string } }) {
               </button>
             </div>
             <form onSubmit={requestRevision}>
-              <div className="px-6 py-5 space-y-4">
+              <div className="px-4 sm:px-6 py-5 space-y-4">
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-slate-700">Note to Subcontractor</label>
                   <textarea
@@ -283,7 +283,7 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                 </div>
                 {revisionError && <p className="text-sm text-red-600">{revisionError}</p>}
               </div>
-              <div className="px-6 py-4 border-t border-slate-100 flex gap-2 justify-end">
+              <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => { setRevisionBid(null); setRevisionNote('') }}>Cancel</Button>
                 <Button type="submit" variant="outline" disabled={revisionLoading || !revisionNote.trim()}>
                   <RotateCcw className="h-3.5 w-3.5" />
@@ -298,15 +298,15 @@ export default function BidsPage({ params }: { params: { id: string } }) {
       {/* Invite to Existing Package Modal */}
       {invitePkgId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-md max-h-[80vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-md min-w-0 max-h-[80vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-slate-100 px-4 sm:px-6 py-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-slate-900">Invite Subcontractors</h2>
               <button onClick={() => { setInvitePkgId(null); setInviteSelected([]); setInviteSearch('') }} className="text-slate-400 hover:text-slate-600">
                 <X className="h-5 w-5" />
               </button>
             </div>
             <form onSubmit={inviteToPackage}>
-              <div className="px-6 py-4 space-y-3">
+              <div className="px-4 sm:px-6 py-4 space-y-3">
                 <Input placeholder="Search companies..." value={inviteSearch} onChange={e => setInviteSearch(e.target.value)} autoFocus />
                 {(() => {
                   const invitedIds = new Set(packages.find(p => p.id === invitePkgId)?.bid_invitations.map(i => i.company_id) ?? [])
@@ -340,7 +340,7 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                 })()}
                 {inviteError && <p className="text-sm text-red-600">{inviteError}</p>}
               </div>
-              <div className="sticky bottom-0 bg-white border-t border-slate-100 px-6 py-4 flex gap-2 justify-end">
+              <div className="sticky bottom-0 bg-white border-t border-slate-100 px-4 sm:px-6 py-4 flex flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => { setInvitePkgId(null); setInviteSelected([]) }}>Cancel</Button>
                 <Button type="submit" disabled={inviteLoading || inviteSelected.length === 0}>
                   {inviteLoading ? 'Sending...' : `Invite${inviteSelected.length > 0 ? ` ${inviteSelected.length}` : ''}`}
@@ -354,8 +354,8 @@ export default function BidsPage({ params }: { params: { id: string } }) {
       {/* New Package Modal */}
       {showNewPkg && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-2xl min-w-0 max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-slate-100 px-4 sm:px-6 py-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-slate-900">New Bid Package</h2>
               <button onClick={() => { setShowNewPkg(false); resetForm() }} className="text-slate-400 hover:text-slate-600">
                 <X className="h-5 w-5" />
@@ -363,7 +363,7 @@ export default function BidsPage({ params }: { params: { id: string } }) {
             </div>
 
             <form onSubmit={createPackage}>
-              <div className="px-6 py-5 space-y-5">
+              <div className="px-4 sm:px-6 py-5 space-y-5">
 
                 {/* Scope + Trade */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -488,7 +488,7 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                 {pkgError && <p className="text-sm text-red-600">{pkgError}</p>}
               </div>
 
-              <div className="sticky bottom-0 bg-white border-t border-slate-100 px-6 py-4 flex gap-2 justify-end">
+              <div className="sticky bottom-0 bg-white border-t border-slate-100 px-4 sm:px-6 py-4 flex flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => { setShowNewPkg(false); resetForm() }}>Cancel</Button>
                 <Button type="submit" disabled={pkgLoading}>
                   {pkgLoading ? 'Creating...' : `Create Package${selectedCompanies.length > 0 ? ` & Invite ${selectedCompanies.length}` : ''}`}
