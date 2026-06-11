@@ -1,12 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
-import { Plus, X, Receipt, CheckCircle2, Clock, Send, DollarSign, ChevronDown, ChevronUp, Printer } from 'lucide-react'
+import { Plus, X, Receipt, CheckCircle2, Clock, Send, DollarSign, ChevronDown, ChevronUp, Printer, Upload, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
@@ -24,6 +24,7 @@ interface Invoice {
   approved_by_name: string | null; approved_at: string | null; sent_at: string | null
   due_date: string | null; created_at: string; subcontract_id: string | null
   payment_schedule_item_id: string | null; subcontracts?: { trade: string; contract_amount: number }
+  lien_waiver_url: string | null; lien_waiver_type: string | null; lien_waiver_uploaded_at: string | null
 }
 
 export default function InvoicesPage({ params }: { params: { id: string } }) {
@@ -36,6 +37,9 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
   const [showForm, setShowForm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [updating, setUpdating] = useState<string | null>(null)
+  const [uploadingWaiver, setUploadingWaiver] = useState<string | null>(null)
+  const conditionalInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+  const unconditionalInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
   // Form
   const [subId, setSubId] = useState('')
@@ -109,6 +113,21 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
       body: JSON.stringify({ status: newStatus }),
     })
     setUpdating(null); fetchData()
+  }
+
+  async function handleLienWaiverUpload(invoice: Invoice, waiverType: 'conditional' | 'unconditional', file: File) {
+    setUploadingWaiver(invoice.id)
+    const token = await getToken()
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('waiver_type', waiverType)
+    await fetch(`/api/projects/${params.id}/invoices/${invoice.id}/lien-waiver`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: fd,
+    })
+    setUploadingWaiver(null)
+    fetchData()
   }
 
   const subPaymentItems = paymentItems.filter(p => p.subcontract_id === subId && p.status !== 'paid')

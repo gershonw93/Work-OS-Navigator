@@ -17,7 +17,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
   const { data: logs, error } = await db
     .from('daily_logs')
-    .select('*')
+    .select('*, daily_log_photos(id, photo_url, created_at)')
     .eq('project_id', params.id)
     .order('log_date', { ascending: false })
     .order('created_at', { ascending: false })
@@ -87,6 +87,13 @@ export async function POST(request: Request, { params }: { params: { id: string 
   }).select().single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Insert into daily_log_photos table
+  if (photos.length > 0) {
+    await db.from('daily_log_photos').insert(
+      photos.map(p => ({ daily_log_id: log.id, photo_url: p.url }))
+    )
+  }
 
   const actorName = (profile as any)?.full_name ?? 'Someone'
   const delayNote = delays.length > 0 ? ` · Delays: ${delays.map((d: any) => d.type).join(', ')}` : ''

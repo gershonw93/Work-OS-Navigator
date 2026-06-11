@@ -36,6 +36,7 @@ interface DailyLog {
   subs_on_site: { company_id: string; name: string }[]
   workers_on_site: { name: string; role: string }[]
   photos: { url: string; path: string; caption: string }[]
+  daily_log_photos?: { id: string; photo_url: string; created_at: string }[]
 }
 
 interface TeamMember { id: string; name: string; role: string }
@@ -69,6 +70,11 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
   const [photos, setPhotos] = useState<File[]>([])
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([])
 
+  // Weather auto-fill
+  const [weatherLoading, setWeatherLoading] = useState(false)
+  const [weatherChip, setWeatherChip] = useState<string | null>(null)
+  const [projectAddress, setProjectAddress] = useState<string | null>(null)
+
   // Create task from issue
   const [createTaskFromLog, setCreateTaskFromLog] = useState<DailyLog | null>(null)
   const [taskTitle, setTaskTitle] = useState('')
@@ -98,9 +104,10 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
     fetchLogs()
     async function fetchContext() {
       const token = await getToken()
-      const [teamRes, subRes] = await Promise.all([
+      const [teamRes, subRes, projRes] = await Promise.all([
         fetch(`/api/projects/${params.id}/team`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`/api/projects/${params.id}/tasks`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/projects/${params.id}/activity`, { headers: { Authorization: `Bearer ${token}` } }),
       ])
       if (teamRes.ok) {
         const d = await teamRes.json()
@@ -110,6 +117,14 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
         const d = await subRes.json()
         setSubcontracts(d.subcontracts ?? [])
       }
+      // Fetch project address directly from Supabase
+      const supabaseClient = createClient()
+      const { data: proj } = await supabaseClient
+        .from('projects')
+        .select('address')
+        .eq('id', params.id)
+        .single()
+      if (proj?.address) setProjectAddress(proj.address)
     }
     fetchContext()
   }, [params.id])
