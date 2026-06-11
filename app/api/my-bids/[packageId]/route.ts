@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
+import { createNotification } from '@/lib/notify'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -153,7 +154,7 @@ export async function POST(request: Request, { params }: { params: { packageId: 
     .eq('bid_package_id', params.packageId)
     .eq('company_id', profile.company_id)
 
-  // Log to project activity
+  // Log to project activity and notify GC
   if (pkg?.project_id) {
     const companyName = (profile.companies as any)?.name ?? (profile as any)?.full_name ?? 'A sub'
     const action = isRevision ? 'bid_revised' : existing ? 'bid_updated' : 'bid_submitted'
@@ -162,6 +163,33 @@ export async function POST(request: Request, { params }: { params: { packageId: 
       `${companyName} ${verb} bid for "${pkg.scope}" — $${Number(amount).toLocaleString()}`,
       { bid_id: bid?.id, package_id: params.packageId, amount, duration_days, crew_size }
     )
+
+    // Notify GC team members
+    const { data: projectRow } = await db
+      .from('projects')
+      .select('gc_company_id')
+      .eq('id', pkg.project_id)
+      .single()
+    if (projectRow?.gc_company_id) {
+      const { data: gcProfiles } = await db
+        .from('profiles')
+        .select('id')
+        .eq('company_id', projectRow.gc_company_id)
+      if (gcProfiles?.length) {
+        await Promise.all(
+          gcProfiles.map(p =>
+            createNotification(
+              db,
+              p.id,
+              `New Bid: ${pkg.scope}`,
+              `${companyName} ${verb} a bid — $${Number(amount).toLocaleString()}`,
+              `/projects/${pkg.project_id}/bids`,
+              'bid',
+            )
+          )
+        )
+      }
+    }
   }
 
   return NextResponse.json({ bid })

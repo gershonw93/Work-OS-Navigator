@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
+import { createNotification } from '@/lib/notify'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -45,18 +46,23 @@ export async function PATCH(
 
     // Notify sub company
     if (invoice.company_id) {
-      const { data: subProfile } = await db
+      const { data: subProfiles } = await db
         .from('profiles')
         .select('id')
         .eq('company_id', invoice.company_id)
-        .single()
-      if (subProfile) {
-        await db.from('notifications').insert({
-          user_id: subProfile.id,
-          type: 'invoice_approved',
-          message: `Invoice ${invoice.invoice_number} has been approved — $${invoice.amount}`,
-          read: false,
-        })
+      if (subProfiles?.length) {
+        await Promise.all(
+          subProfiles.map(p =>
+            createNotification(
+              db,
+              p.id,
+              `Invoice Approved`,
+              `Invoice ${invoice.invoice_number} has been approved — $${Number(invoice.amount).toLocaleString()}`,
+              `/projects/${params.id}/invoices`,
+              'invoice_approved',
+            )
+          )
+        )
       }
     }
   } else if (status === 'sent') {
@@ -67,23 +73,50 @@ export async function PATCH(
 
     // Notify sub company
     if (invoice.company_id) {
-      const { data: subProfile } = await db
+      const { data: subProfiles } = await db
         .from('profiles')
         .select('id')
         .eq('company_id', invoice.company_id)
-        .single()
-      if (subProfile) {
-        await db.from('notifications').insert({
-          user_id: subProfile.id,
-          type: 'invoice_sent',
-          message: `Invoice ${invoice.invoice_number} has been sent — $${invoice.amount}. Please review.`,
-          read: false,
-        })
+      if (subProfiles?.length) {
+        await Promise.all(
+          subProfiles.map(p =>
+            createNotification(
+              db,
+              p.id,
+              `Invoice Sent`,
+              `Invoice ${invoice.invoice_number} — $${Number(invoice.amount).toLocaleString()}. Please review.`,
+              `/projects/${params.id}/invoices`,
+              'invoice_sent',
+            )
+          )
+        )
       }
     }
   } else if (status === 'paid') {
     const { data: paidProfile } = await db.from('profiles').select('full_name').eq('id', user.id).single()
     await logActivity(db, params.id, (paidProfile as any)?.full_name ?? 'GC', 'invoice_paid', `Invoice ${invoice.invoice_number} marked as paid — $${Number(invoice.amount).toLocaleString()}`)
+
+    // Notify sub company
+    if (invoice.company_id) {
+      const { data: subProfiles } = await db
+        .from('profiles')
+        .select('id')
+        .eq('company_id', invoice.company_id)
+      if (subProfiles?.length) {
+        await Promise.all(
+          subProfiles.map(p =>
+            createNotification(
+              db,
+              p.id,
+              `Invoice Paid`,
+              `Invoice ${invoice.invoice_number} has been marked as paid — $${Number(invoice.amount).toLocaleString()}`,
+              `/projects/${params.id}/invoices`,
+              'invoice_paid',
+            )
+          )
+        )
+      }
+    }
 
     // Mark related payment schedule item as paid
     if (invoice.payment_schedule_item_id) {

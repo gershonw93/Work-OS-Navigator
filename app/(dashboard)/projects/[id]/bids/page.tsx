@@ -62,7 +62,7 @@ interface Bid {
 }
 
 interface Plan { id: string; name: string; plan_type: string }
-interface Company { id: string; name: string; trade: string | null; contact_email: string }
+interface Company { id: string; name: string; trade: string | null; contact_email: string; has_account: boolean }
 
 export default function BidsPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
@@ -97,6 +97,10 @@ export default function BidsPage({ params }: { params: { id: string } }) {
   const [inviteError, setInviteError] = useState<string | null>(null)
 
   const [remindingCompany, setRemindingCompany] = useState<string | null>(null)
+
+  // Post-award invite prompt
+  const [awardInvitePrompt, setAwardInvitePrompt] = useState<{ company: Company; email: string } | null>(null)
+  const [awardInviteLoading, setAwardInviteLoading] = useState(false)
 
   // Request revision
   const [revisionBid, setRevisionBid] = useState<Bid | null>(null)
@@ -233,7 +237,32 @@ export default function BidsPage({ params }: { params: { id: string } }) {
       body: JSON.stringify({ bid_id: bidId }),
     })
     setAwardingBid(null)
+    // Check if the awarded sub lacks an account — prompt to invite
+    const awardedBid = bids.find(b => b.id === bidId)
+    if (awardedBid) {
+      const company = allCompanies.find(c => c.id === awardedBid.company_id)
+      if (company && !company.has_account) {
+        setAwardInvitePrompt({ company, email: company.contact_email ?? '' })
+      }
+    }
     fetchData()
+  }
+
+  async function sendAwardInvite() {
+    if (!awardInvitePrompt) return
+    setAwardInviteLoading(true)
+    const token = await getToken()
+    await fetch('/api/invite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        company_id: awardInvitePrompt.company.id,
+        email: awardInvitePrompt.email,
+        company_name: awardInvitePrompt.company.name,
+      }),
+    })
+    setAwardInviteLoading(false)
+    setAwardInvitePrompt(null)
   }
 
   const bidsForPackage = (pkgId: string) => bids.filter(b => b.bid_package_id === pkgId)
@@ -252,6 +281,32 @@ export default function BidsPage({ params }: { params: { id: string } }) {
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
+
+      {/* Post-Award Invite Prompt */}
+      {awardInvitePrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm">
+            <div className="px-6 py-5 space-y-3">
+              <h2 className="text-base font-semibold text-slate-900">Invite to Work OS Navigator?</h2>
+              <p className="text-sm text-slate-600">
+                Invite <span className="font-medium text-slate-900">{awardInvitePrompt.company.name}</span> to Work OS Navigator so they can see their awarded jobs and submit bids online.
+              </p>
+            </div>
+            <div className="px-6 pb-5 flex flex-wrap gap-2 justify-end">
+              <Button type="button" variant="secondary" onClick={() => setAwardInvitePrompt(null)}>
+                Skip
+              </Button>
+              <Button
+                type="button"
+                disabled={awardInviteLoading}
+                onClick={sendAwardInvite}
+              >
+                {awardInviteLoading ? 'Sending...' : `Yes, Invite ${awardInvitePrompt.company.name}`}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Request Revision Modal */}
       {revisionBid && (

@@ -20,7 +20,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
   const db = admin()
 
-  const [{ data: packages }, { data: bids }, { data: plans }, { data: companies }] = await Promise.all([
+  const [{ data: packages }, { data: bids }, { data: plans }, { data: companies }, { data: profiles }] = await Promise.all([
     db.from('bid_packages')
       .select('*, bid_invitations(id, company_id, status, companies(name)), bid_package_attachments(id, plan_id, project_plans(name, plan_type))')
       .eq('project_id', params.id)
@@ -37,13 +37,20 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .select('id, name, trade, contact_email')
       .eq('type', 'subcontractor')
       .order('name'),
+    db.from('profiles').select('company_id'),
   ])
+
+  const companiesWithAccount = new Set((profiles ?? []).map(p => p.company_id))
+  const companiesResult = (companies ?? []).map(c => ({
+    ...c,
+    has_account: companiesWithAccount.has(c.id),
+  }))
 
   return NextResponse.json({
     packages: packages ?? [],
     bids: bids ?? [],
     plans: plans ?? [],
-    companies: companies ?? [],
+    companies: companiesResult,
   })
 }
 

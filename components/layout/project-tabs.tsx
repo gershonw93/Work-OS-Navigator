@@ -16,6 +16,7 @@ const tabs = [
   { label: 'RFIs', slug: 'rfis' },
   { label: 'Invoices', slug: 'invoices' },
   { label: 'Financials', slug: 'financials' },
+  { label: 'Change Orders', slug: 'change-orders' },
   { label: 'Permits', slug: 'permits' },
   { label: 'Inspections', slug: 'inspections' },
   { label: 'Submittals', slug: 'submittals' },

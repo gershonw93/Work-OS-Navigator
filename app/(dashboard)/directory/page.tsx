@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { Building2, Plus, X, Search, Phone, Mail, MapPin, Globe, BadgeCheck, Send } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -653,11 +653,27 @@ export default function DirectoryPage() {
                   )}
                 </div>
 
-                {/* On-platform indicator */}
-                {company.has_account && (
+                {/* On-platform indicator / Invite button */}
+                {company.has_account ? (
                   <div className="flex items-center gap-1 pt-1 border-t border-slate-100">
                     <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
                     <span className="text-xs text-green-700 font-medium">On Platform</span>
+                  </div>
+                ) : (
+                  <div className="pt-1 border-t border-slate-100">
+                    {invitedIds.includes(company.id) ? (
+                      <span className="text-xs text-green-600 font-medium flex items-center gap-1">
+                        <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                        Invited ✓
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => openInvite(company)}
+                        className="text-xs font-medium text-orange-600 border border-orange-300 rounded-md px-2 py-1 hover:bg-orange-50 transition-colors"
+                      >
+                        Invite to Platform
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
