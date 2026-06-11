@@ -187,7 +187,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
 
   function TaskCard({ task }: { task: Task }) {
     return (
-      <div className={cn('bg-white rounded-xl border px-5 py-4 flex items-start gap-4 group transition-colors',
+      <div className={cn('bg-white rounded-xl border px-4 sm:px-5 py-4 flex flex-wrap items-start gap-3 sm:gap-4 group transition-colors',
         isOverdue(task) ? 'border-red-200 bg-red-50/30' : 'border-slate-200 hover:border-slate-300')}>
         <div className="mt-0.5 shrink-0 relative">
           <button className="group/status" title="Change status">
@@ -204,7 +204,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
           </div>
         </div>
 
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 basis-52">
           <div className="flex items-start gap-2 flex-wrap">
             <span className={cn('font-semibold text-slate-900', task.status === 'completed' && 'line-through text-slate-400')}>
               {task.title}
@@ -233,7 +233,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
           </div>
         </div>
 
-        <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex flex-wrap items-center gap-1 shrink-0 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
           {task.status === 'completed' && task.assigned_to_company_id && (
             <button onClick={() => openInvoiceModal(task)}
               className="flex items-center gap-1 px-2 py-1 text-xs text-orange-600 border border-orange-200 rounded-md hover:bg-orange-50 transition-colors font-medium">
@@ -365,7 +365,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
         </div>
       )}
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Tasks</h1>
           <p className="text-sm text-slate-500 mt-0.5">Assign and track work across your crew and subcontractors.</p>

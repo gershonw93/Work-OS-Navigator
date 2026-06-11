@@ -90,7 +90,7 @@ export default function MyJobsPage() {
                   <Label>Address <span className="text-slate-400 font-normal">(optional)</span></Label>
                   <Input value={address} onChange={e => setAddress(e.target.value)} placeholder="123 Main St, City, State" />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Type</Label>
                     <select value={type} onChange={e => setType(e.target.value)}

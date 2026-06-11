@@ -313,6 +313,24 @@ export default function PlansPage({ params }: { params: { id: string } }) {
                   </tbody>
                 </table>
               </div>
+
+              {/* Mobile card list */}
+              <div className="md:hidden rounded-lg border border-slate-200 overflow-hidden divide-y divide-slate-100 bg-white">
+                {visiblePlans.map(plan => (
+                  <div key={plan.id} className="flex items-center gap-3 px-4 py-3">
+                    <FileText className="h-4 w-4 text-slate-400 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-800 truncate">{plan.name}</p>
+                      <p className="text-xs text-slate-500">
+                        <span className="capitalize">{plan.plan_type}</span> · {new Date(plan.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <a href={plan.file_url} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                      <Button variant="ghost" size="sm">View</Button>
+                    </a>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>

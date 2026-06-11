@@ -104,6 +104,31 @@ export default async function SettingsPage() {
           </Button>
         </CardHeader>
         <CardContent className="p-0">
+          {/* Mobile card list */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {team.length === 0 ? (
+              <p className="text-center text-sm text-slate-400 py-8 px-4">
+                No team members yet. Invite your first teammate.
+              </p>
+            ) : (
+              team.map((member: any) => (
+                <div key={member.id} className="p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-medium text-slate-900 truncate">{member.full_name}</p>
+                      <p className="text-sm text-slate-500 truncate">{member.email}</p>
+                    </div>
+                    <Button variant="ghost" size="sm">Edit</Button>
+                  </div>
+                  <div className="mt-2">
+                    <Badge variant="muted" className="capitalize">{member.role}</Badge>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          {/* Desktop table */}
+          <div className="hidden md:block">
           <Table>
             <TableHeader>
               <TableRow>
@@ -136,6 +161,7 @@ export default async function SettingsPage() {
               )}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
 

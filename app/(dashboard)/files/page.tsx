@@ -260,7 +260,7 @@ export default function FilesPage() {
   const visibleFiles = categoryFilter === 'All' ? files : files.filter(f => f.category === categoryFilter)
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="p-4 sm:p-6 space-y-5">
       {/* Upload modal */}
       {showUpload && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -402,14 +402,14 @@ export default function FilesPage() {
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Files</h1>
           <p className="text-sm text-slate-500 mt-0.5">Company documents and ready-to-go submission packets.</p>
         </div>
         {tab === 'files'
-          ? <Button onClick={() => setShowUpload(true)}><Plus className="h-4 w-4" /> Upload File</Button>
-          : <Button onClick={openNewPacket}><Plus className="h-4 w-4" /> New Packet</Button>}
+          ? <Button onClick={() => setShowUpload(true)} className="self-start sm:self-auto"><Plus className="h-4 w-4" /> Upload File</Button>
+          : <Button onClick={openNewPacket} className="self-start sm:self-auto"><Plus className="h-4 w-4" /> New Packet</Button>}
       </div>
 
       {/* Tabs */}

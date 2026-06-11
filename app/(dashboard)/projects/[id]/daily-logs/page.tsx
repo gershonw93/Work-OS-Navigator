@@ -348,7 +348,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                 <Label htmlFor="logDate">Date</Label>
                 <Input id="logDate" type="date" value={logDate} onChange={e => setLogDate(e.target.value)} required />
               </div>
-              <div className="space-y-1.5 md:col-span-2">
+              <div className="space-y-1.5 col-span-2 md:col-span-2">
                 <Label>Weather</Label>
                 <div className="flex gap-2">
                   {WEATHER_OPTIONS.map(w => {
