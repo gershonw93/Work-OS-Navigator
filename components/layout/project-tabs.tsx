@@ -1,8 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
+import { ChevronDown } from 'lucide-react'
 
 const tabs = [
   { label: 'Plans', slug: 'plans' },
@@ -27,10 +28,31 @@ interface ProjectTabsProps {
 
 export function ProjectTabs({ projectId }: ProjectTabsProps) {
   const pathname = usePathname()
+  const router = useRouter()
+
+  const activeTab = tabs.find(t => pathname.includes(`/${t.slug}`))
 
   return (
     <div className="border-b border-slate-200 bg-white">
-      <nav className="flex overflow-x-auto scrollbar-hide -mb-px px-4 sm:px-6" aria-label="Project tabs">
+      {/* Mobile: dropdown section picker */}
+      <div className="sm:hidden px-4 py-2.5">
+        <div className="relative">
+          <select
+            value={activeTab?.slug ?? ''}
+            onChange={e => router.push(`/projects/${projectId}/${e.target.value}`)}
+            className="w-full appearance-none rounded-lg border border-slate-300 bg-white pl-3 pr-9 py-2.5 text-sm font-semibold text-slate-800 focus:border-orange-500 focus:outline-none"
+          >
+            {!activeTab && <option value="" disabled>Go to section…</option>}
+            {tabs.map(tab => (
+              <option key={tab.slug} value={tab.slug}>{tab.label}</option>
+            ))}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+        </div>
+      </div>
+
+      {/* Desktop: underline tabs */}
+      <nav className="hidden sm:flex overflow-x-auto scrollbar-hide -mb-px px-4 sm:px-6" aria-label="Project tabs">
         {tabs.map((tab) => {
           const href = `/projects/${projectId}/${tab.slug}`
           const isActive = pathname.endsWith(`/${tab.slug}`)
