@@ -1,12 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
-import { Plus, X, ClipboardCheck, Phone, Calendar, CheckCircle2, XCircle, Clock, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react'
+import { Plus, X, ClipboardCheck, Phone, Calendar, CheckCircle2, XCircle, Clock, AlertCircle, ChevronDown, ChevronUp, Sparkles, Loader2 } from 'lucide-react'
 import { ContactPicker } from '@/components/contact-picker'
 
 const INSPECTION_TYPES = [
@@ -37,6 +37,9 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
   const [expanded, setExpanded] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [currentUser, setCurrentUser] = useState('')
+  const [analyzing, setAnalyzing] = useState(false)
+  const [analyzeError, setAnalyzeError] = useState('')
+  const fileRef = useRef<HTMLInputElement>(null)
 
   // Form
   const [inspType, setInspType] = useState('Foundation')
@@ -65,6 +68,37 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
       if (session?.user?.email) setCurrentUser(session.user.email)
     })
   }, [params.id])
+
+  async function analyzeImage(file: File) {
+    setAnalyzing(true)
+    setAnalyzeError('')
+    const token = await getToken()
+    const form = new FormData()
+    form.append('file', file)
+    const res = await fetch(`/api/projects/${params.id}/inspections/analyze`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+    })
+    const data = await res.json()
+    if (!res.ok || !data.fields) {
+      setAnalyzeError(data.error ?? 'Could not read image. Fill in the fields manually.')
+      setAnalyzing(false)
+      return
+    }
+    const f = data.fields
+    if (f.inspection_type && INSPECTION_TYPES.includes(f.inspection_type)) setInspType(f.inspection_type)
+    if (f.trade) setTrade(f.trade)
+    if (f.scheduled_date) setScheduledDate(f.scheduled_date)
+    if (f.inspector_name) setInspectorName(f.inspector_name)
+    if (f.inspector_phone) setInspectorPhone(f.inspector_phone)
+    if (f.scheduling_phone) setSchedulingPhone(f.scheduling_phone)
+    if (f.notes) {
+      const extra = [f.notes, f.issuing_authority && `Authority: ${f.issuing_authority}`, f.permit_number && `Permit #${f.permit_number}`].filter(Boolean).join(' · ')
+      setNotes(extra)
+    }
+    setAnalyzing(false)
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -202,6 +236,27 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
             </div>
             <form onSubmit={handleSubmit}>
               <div className="px-4 sm:px-6 py-5 pb-4 space-y-4">
+                {/* AI photo scan */}
+                <div className="space-y-1.5">
+                  <Label><Sparkles className="inline h-3.5 w-3.5 mr-1 text-orange-400" />Scan Inspection Card (AI Auto-Fill)</Label>
+                  <div
+                    onClick={() => !analyzing && fileRef.current?.click()}
+                    className={cn(
+                      'flex flex-col sm:flex-row items-center gap-3 rounded-lg border-2 border-dashed px-4 py-3.5 text-sm transition-colors cursor-pointer',
+                      analyzing ? 'border-orange-300 bg-orange-50 cursor-wait' : 'border-orange-200 bg-orange-50/50 hover:bg-orange-50 hover:border-orange-300'
+                    )}
+                  >
+                    {analyzing
+                      ? <><Loader2 className="h-4 w-4 text-orange-500 animate-spin shrink-0" /><span className="text-orange-600 font-medium">Analyzing card…</span></>
+                      : <><Sparkles className="h-4 w-4 text-orange-400 shrink-0" /><span className="text-orange-600 font-medium">Upload a photo or scan of the inspection card</span><span className="text-slate-400 text-xs">— AI fills the fields automatically</span></>
+                    }
+                  </div>
+                  <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden"
+                    onChange={e => { const f = e.target.files?.[0]; if (f) analyzeImage(f) }} />
+                  {analyzeError && <p className="text-xs text-red-500 flex items-center gap-1"><X className="h-3 w-3 shrink-0" />{analyzeError}</p>}
+                  {!analyzeError && !analyzing && <p className="text-xs text-slate-400">or fill in manually below</p>}
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Inspection Type</Label>
