@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation'
 import { Menu, User } from 'lucide-react'
 import { NotificationBell } from './notification-bell'
-import { openMobileSidebar } from './sidebar'
+import { OPEN_SIDEBAR_EVENT } from './sidebar'
 
 const sectionLabels: Record<string, string> = {
   '/dashboard': 'Dashboard',
@@ -46,7 +46,7 @@ export function TopNav() {
         {/* Hamburger — mobile only */}
         <button
           className="sm:hidden flex items-center justify-center w-8 h-8 rounded-md text-slate-600 hover:bg-slate-100 transition-colors"
-          onClick={() => openMobileSidebar?.()}
+          onClick={() => window.dispatchEvent(new Event(OPEN_SIDEBAR_EVENT))}
           aria-label="Open menu"
         >
           <Menu className="h-5 w-5" />

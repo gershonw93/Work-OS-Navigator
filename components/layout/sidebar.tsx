@@ -29,8 +29,8 @@ const SUB_NAV = [
   { label: 'Settings', href: '/settings', icon: Settings },
 ]
 
-// Exported so TopNav can trigger it on mobile
-export let openMobileSidebar: (() => void) | null = null
+// TopNav dispatches this event to open the drawer on mobile
+export const OPEN_SIDEBAR_EVENT = 'workos:open-sidebar'
 
 export function Sidebar() {
   const pathname = usePathname()
@@ -39,10 +39,11 @@ export function Sidebar() {
   const [navItems, setNavItems] = useState(GC_NAV)
   const [mobileOpen, setMobileOpen] = useState(false)
 
-  // Register the open function so TopNav can call it
+  // Listen for the open event from TopNav's hamburger
   useEffect(() => {
-    openMobileSidebar = () => setMobileOpen(true)
-    return () => { openMobileSidebar = null }
+    const handler = () => setMobileOpen(true)
+    window.addEventListener(OPEN_SIDEBAR_EVENT, handler)
+    return () => window.removeEventListener(OPEN_SIDEBAR_EVENT, handler)
   }, [])
 
   // Close sidebar on route change
