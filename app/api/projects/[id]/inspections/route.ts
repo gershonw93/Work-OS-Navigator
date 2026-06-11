@@ -56,7 +56,6 @@ export async function POST(request: Request, { params }: { params: { id: string 
       inspector_phone: inspector_phone ?? null,
       scheduling_phone: scheduling_phone ?? null,
       notes: notes ?? null,
-      created_by: user.id,
     })
     .select()
     .single()
