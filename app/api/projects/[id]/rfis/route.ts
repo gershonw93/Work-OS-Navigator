@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
+import { createNotification } from '@/lib/notify'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -87,6 +88,33 @@ export async function POST(request: Request, { params }: { params: { id: string 
     `RFI #${rfi_number}: ${subject}`,
     { rfi_id: rfi.id, rfi_number, subject, company_name, is_change_order },
   )
+
+  // Notify GC team members about the new RFI
+  const { data: project } = await db
+    .from('projects')
+    .select('name, gc_company_id')
+    .eq('id', params.id)
+    .single()
+  if (project?.gc_company_id) {
+    const { data: gcProfiles } = await db
+      .from('profiles')
+      .select('id')
+      .eq('company_id', project.gc_company_id)
+    if (gcProfiles?.length) {
+      await Promise.all(
+        gcProfiles.map(p =>
+          createNotification(
+            db,
+            p.id,
+            `New RFI #${rfi_number}`,
+            `${actorName} submitted RFI: ${subject}`,
+            `/projects/${params.id}/rfis`,
+            'rfi',
+          )
+        )
+      )
+    }
+  }
 
   return NextResponse.json({ rfi }, { status: 201 })
 }

@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Building2, Plus, X, Search, Phone, Mail, MapPin, Globe, BadgeCheck } from 'lucide-react'
+import { useEffect, useState, useRef } from 'react'
+import { Building2, Plus, X, Search, Phone, Mail, MapPin, Globe, BadgeCheck, Send } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -97,6 +97,13 @@ export default function DirectoryPage() {
   const [showAdd, setShowAdd] = useState(false)
   const [addLoading, setAddLoading] = useState(false)
   const [addError, setAddError] = useState<string | null>(null)
+
+  // Invite state
+  const [inviteCompany, setInviteCompany] = useState<Company | null>(null)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteLoading, setInviteLoading] = useState(false)
+  const [inviteError, setInviteError] = useState<string | null>(null)
+  const [invitedIds, setInvitedIds] = useState<string[]>([])
 
   // Form fields
   const [formType, setFormType] = useState<ContactType>('subcontractor')
@@ -206,6 +213,38 @@ export default function DirectoryPage() {
         {TYPE_LABELS[type] ?? type}
       </span>
     )
+  }
+
+  function openInvite(company: Company) {
+    setInviteCompany(company)
+    setInviteEmail(company.contact_email ?? '')
+    setInviteError(null)
+  }
+
+  async function handleInvite(e: React.FormEvent) {
+    e.preventDefault()
+    if (!inviteCompany) return
+    setInviteError(null)
+    setInviteLoading(true)
+    const token = await getToken()
+    const res = await fetch('/api/invite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        company_id: inviteCompany.id,
+        email: inviteEmail,
+        company_name: inviteCompany.name,
+      }),
+    })
+    if (!res.ok) {
+      const body = await res.json()
+      setInviteError(body.error)
+      setInviteLoading(false)
+      return
+    }
+    setInvitedIds(prev => [...prev, inviteCompany.id])
+    setInviteCompany(null)
+    setInviteLoading(false)
   }
 
   // ─── Add Modal ──────────────────────────────────────────────────────────────
@@ -409,6 +448,46 @@ export default function DirectoryPage() {
                 </Button>
                 <Button type="submit" disabled={addLoading}>
                   {addLoading ? 'Adding...' : `Add ${TYPE_LABELS[formType]}`}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Invite Modal ── */}
+      {inviteCompany && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h2 className="text-base font-semibold text-slate-900">Invite to Platform</h2>
+              <button onClick={() => setInviteCompany(null)} className="text-slate-400 hover:text-slate-600">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <form onSubmit={handleInvite}>
+              <div className="px-6 py-5 space-y-4">
+                <p className="text-sm text-slate-600">
+                  Send <span className="font-medium text-slate-900">{inviteCompany.name}</span> an invite so they can log in and view their jobs on Work OS Navigator.
+                </p>
+                <div className="space-y-1.5">
+                  <Label htmlFor="invite-email">Email address</Label>
+                  <Input
+                    id="invite-email"
+                    type="email"
+                    value={inviteEmail}
+                    onChange={e => setInviteEmail(e.target.value)}
+                    required
+                    autoFocus
+                  />
+                </div>
+                {inviteError && <p className="text-sm text-red-600">{inviteError}</p>}
+              </div>
+              <div className="px-6 py-4 border-t border-slate-100 flex gap-2 justify-end">
+                <Button type="button" variant="secondary" onClick={() => setInviteCompany(null)}>Cancel</Button>
+                <Button type="submit" disabled={inviteLoading}>
+                  <Send className="h-3.5 w-3.5" />
+                  {inviteLoading ? 'Sending...' : 'Send Invite'}
                 </Button>
               </div>
             </form>
