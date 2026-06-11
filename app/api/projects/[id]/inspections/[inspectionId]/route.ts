@@ -8,7 +8,7 @@ const admin = () => createClient(
 )
 
 const ALLOWED_FIELDS = [
-  'inspection_type',
+  'type',
   'trade',
   'status',
   'scheduled_date',
@@ -70,16 +70,14 @@ export async function PATCH(
   if (newStatus === 'passed' || newStatus === 'failed') {
     const activityType = newStatus === 'passed' ? 'inspection_passed' : 'inspection_failed'
     const trade = inspection.trade ? ` (${inspection.trade})` : ''
-    const inspectionLabel = inspection.inspection_type
-      ? `${inspection.inspection_type}${trade}`
-      : 'Inspection'
+    const inspectionLabel = inspection.type ? `${inspection.type}${trade}` : 'Inspection'
     await logActivity(
       db,
       params.id,
       actorName,
       activityType,
       `${inspectionLabel} ${newStatus}`,
-      { inspection_id: inspection.id, inspection_type: inspection.inspection_type, trade: inspection.trade, status: newStatus },
+      { inspection_id: inspection.id, inspection_type: inspection.type, trade: inspection.trade, status: newStatus },
     )
   }
 

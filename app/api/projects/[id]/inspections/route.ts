@@ -33,7 +33,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const formData = await request.formData()
-  const inspection_type = formData.get('inspection_type') as string
+  const inspection_type = (formData.get('inspection_type') ?? formData.get('type')) as string
   const trade = formData.get('trade') as string | null
   const status = formData.get('status') as string | null
   const scheduled_date = formData.get('scheduled_date') as string | null
@@ -65,7 +65,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   const basePayload = {
     project_id: params.id,
-    inspection_type: inspection_type ?? null,
+    type: inspection_type ?? null,
     trade: trade || null,
     status: status ?? 'not_scheduled',
     scheduled_date: scheduled_date || null,
@@ -90,7 +90,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   // Final fallback: only core columns guaranteed to exist
   if (error && error.code === '42703') {
-    const minimal = { project_id: params.id, inspection_type: basePayload.inspection_type, status: basePayload.status }
+    const minimal = { project_id: params.id, type: basePayload.type, status: basePayload.status }
     const retry3 = await db.from('inspections').insert(minimal).select().single()
     inspection = retry3.data
     error = retry3.error

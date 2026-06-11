@@ -23,7 +23,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }>
 }
 
 interface Inspection {
-  id: string; inspection_type: string; trade: string | null; status: string
+  id: string; type: string; trade: string | null; status: string
   scheduled_date: string | null; completed_date: string | null
   inspector_name: string | null; inspector_phone: string | null; scheduling_phone: string | null
   notes: string | null; ready_marked_by: string | null; ready_marked_at: string | null
@@ -162,7 +162,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
           <Icon className={cn('h-5 w-5 shrink-0', insp.status === 'passed' ? 'text-green-500' : insp.status === 'failed' ? 'text-red-400' : insp.status === 'scheduled' ? 'text-blue-500' : 'text-slate-400')} />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-semibold text-slate-900">{insp.inspection_type}</span>
+              <span className="font-semibold text-slate-900">{insp.type}</span>
               {insp.trade && <span className="text-xs bg-slate-100 text-slate-600 rounded-full px-2 py-0.5">{insp.trade}</span>}
               <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5', cfg.color)}>{cfg.label}</span>
               {insp.ready_marked_by && insp.status === 'scheduled' && (
