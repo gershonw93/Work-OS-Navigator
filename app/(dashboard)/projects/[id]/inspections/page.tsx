@@ -26,7 +26,8 @@ interface Inspection {
   id: string; inspection_type: string; trade: string | null; status: string
   scheduled_date: string | null; completed_date: string | null
   inspector_name: string | null; inspector_phone: string | null; scheduling_phone: string | null
-  notes: string | null; ready_marked_by: string | null; ready_marked_at: string | null; created_at: string
+  notes: string | null; ready_marked_by: string | null; ready_marked_at: string | null
+  card_image_url: string | null; created_at: string
 }
 
 export default function InspectionsPage({ params }: { params: { id: string } }) {
@@ -39,6 +40,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
   const [currentUser, setCurrentUser] = useState('')
   const [analyzing, setAnalyzing] = useState(false)
   const [analyzeError, setAnalyzeError] = useState('')
+  const [scannedFile, setScannedFile] = useState<File | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   // Form
@@ -75,6 +77,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
     const token = await getToken()
     const form = new FormData()
     form.append('file', file)
+    setScannedFile(file)
     const res = await fetch(`/api/projects/${params.id}/inspections/analyze`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
@@ -104,13 +107,24 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
     e.preventDefault()
     setSubmitting(true)
     const token = await getToken()
+    const form = new FormData()
+    form.append('inspection_type', inspType)
+    if (trade) form.append('trade', trade)
+    if (scheduledDate) form.append('scheduled_date', scheduledDate)
+    form.append('status', scheduledDate ? 'scheduled' : 'not_scheduled')
+    if (inspectorName) form.append('inspector_name', inspectorName)
+    if (inspectorPhone) form.append('inspector_phone', inspectorPhone)
+    if (schedulingPhone) form.append('scheduling_phone', schedulingPhone)
+    if (notes) form.append('notes', notes)
+    if (scannedFile) form.append('file', scannedFile)
     await fetch(`/api/projects/${params.id}/inspections`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ inspection_type: inspType, trade: trade || null, scheduled_date: scheduledDate || null, status: scheduledDate ? 'scheduled' : 'not_scheduled', inspector_name: inspectorName || null, inspector_phone: inspectorPhone || null, scheduling_phone: schedulingPhone || null, notes: notes || null }),
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
     })
     setInspType('Foundation'); setTrade(''); setScheduledDate('')
     setInspectorName(''); setInspectorPhone(''); setSchedulingPhone(''); setNotes('')
+    setScannedFile(null)
     setShowForm(false); setSubmitting(false); fetchInspections()
   }
 
@@ -202,6 +216,13 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
 
             {insp.notes && <p className="text-sm text-slate-600 break-words">{insp.notes}</p>}
 
+            {insp.card_image_url && (
+              <a href={insp.card_image_url} target="_blank" rel="noopener noreferrer" className="block">
+                <img src={insp.card_image_url} alt="Inspection card" className="rounded-lg border border-slate-200 max-h-48 object-contain w-auto" />
+                <p className="text-xs text-orange-600 mt-1 hover:underline">View full image ↗</p>
+              </a>
+            )}
+
             <div className="flex items-center gap-2 flex-wrap">
               {insp.status === 'scheduled' && !insp.ready_marked_by && (
                 <Button size="sm" variant="outline" onClick={() => markReady(insp)}>
@@ -254,7 +275,17 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
                   <input ref={fileRef} type="file" accept="image/*" className="hidden"
                     onChange={e => { const f = e.target.files?.[0]; if (f) analyzeImage(f) }} />
                   {analyzeError && <p className="text-xs text-red-500 flex items-center gap-1"><X className="h-3 w-3 shrink-0" />{analyzeError}</p>}
-                  {!analyzeError && !analyzing && <p className="text-xs text-slate-400">or fill in manually below</p>}
+                  {scannedFile && !analyzeError && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <img src={URL.createObjectURL(scannedFile)} alt="Scanned card" className="h-14 w-14 rounded object-cover border border-slate-200 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-green-600">✓ Card scanned — fields filled</p>
+                        <p className="text-xs text-slate-400 truncate">{scannedFile.name}</p>
+                        <button type="button" onClick={() => { setScannedFile(null); if (fileRef.current) fileRef.current.value = '' }} className="text-xs text-red-400 hover:text-red-600">Remove</button>
+                      </div>
+                    </div>
+                  )}
+                  {!scannedFile && !analyzing && <p className="text-xs text-slate-400">or fill in manually below</p>}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
