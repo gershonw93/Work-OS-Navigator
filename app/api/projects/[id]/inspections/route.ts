@@ -63,22 +63,30 @@ export async function POST(request: Request, { params }: { params: { id: string 
     }
   }
 
-  const { data: inspection, error } = await db
+  const basePayload = {
+    project_id: params.id,
+    inspection_type: inspection_type ?? null,
+    trade: trade || null,
+    status: status ?? 'not_scheduled',
+    scheduled_date: scheduled_date || null,
+    inspector_name: inspector_name || null,
+    inspector_phone: inspector_phone || null,
+    scheduling_phone: scheduling_phone || null,
+    notes: notes || null,
+  }
+
+  let { data: inspection, error } = await db
     .from('inspections')
-    .insert({
-      project_id: params.id,
-      inspection_type: inspection_type ?? null,
-      trade: trade || null,
-      status: status ?? 'not_scheduled',
-      scheduled_date: scheduled_date || null,
-      inspector_name: inspector_name || null,
-      inspector_phone: inspector_phone || null,
-      scheduling_phone: scheduling_phone || null,
-      notes: notes || null,
-      card_image_url,
-    })
+    .insert({ ...basePayload, card_image_url })
     .select()
     .single()
+
+  // If card_image_url column doesn't exist yet, retry without it
+  if (error && (error.message?.includes('card_image_url') || error.code === '42703')) {
+    const retry = await db.from('inspections').insert(basePayload).select().single()
+    inspection = retry.data
+    error = retry.error
+  }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ inspection }, { status: 201 })
