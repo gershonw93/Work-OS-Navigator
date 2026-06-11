@@ -62,8 +62,8 @@ export default function FinancialsPage({ params }: { params: { id: string } }) {
     load()
   }
 
-  if (loading) return <div className="p-6 text-sm text-slate-400 py-12 text-center">Loading...</div>
-  if (!data) return <div className="p-6 text-sm text-red-500">Failed to load financials.</div>
+  if (loading) return <div className="p-4 sm:p-6 text-sm text-slate-400 py-12 text-center">Loading...</div>
+  if (!data) return <div className="p-4 sm:p-6 text-sm text-red-500">Failed to load financials.</div>
 
   const totalOutstanding = data.total_approved + data.total_pending
   const remaining = data.total_contracted - data.total_paid - data.total_approved - data.total_pending
