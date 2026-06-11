@@ -20,7 +20,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
   const db = admin()
 
-  const [{ data: packages }, { data: bids }, { data: plans }, { data: companies }, { data: profiles }] = await Promise.all([
+  const [{ data: packages }, { data: bids }, { data: plans }, { data: companies }, { data: profiles }, { data: subcontracts }] = await Promise.all([
     db.from('bid_packages')
       .select('*, bid_invitations(id, company_id, status, companies(name)), bid_package_attachments(id, plan_id, project_plans(name, plan_type))')
       .eq('project_id', params.id)
@@ -38,6 +38,9 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .eq('type', 'subcontractor')
       .order('name'),
     db.from('profiles').select('company_id'),
+    db.from('subcontracts')
+      .select('id, bid_id, gc_signed_at, gc_signed_by, gc_signature_url, sub_signed_at, sub_signed_by, sub_signature_url, fully_executed_at')
+      .eq('project_id', params.id),
   ])
 
   const companiesWithAccount = new Set((profiles ?? []).map(p => p.company_id))
@@ -51,6 +54,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     bids: bids ?? [],
     plans: plans ?? [],
     companies: companiesResult,
+    subcontracts: subcontracts ?? [],
   })
 }
 

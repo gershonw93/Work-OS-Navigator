@@ -168,6 +168,25 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
     setHasIssues(false); setIssueDescription('')
     setDelays([]); setSubsOnSite([]); setWorkersOnSite([])
     setPhotos([]); setPhotoPreviews([]); setError(null)
+    setWeatherChip(null)
+  }
+
+  async function handleAutoFillWeather() {
+    if (!projectAddress) return
+    setWeatherLoading(true)
+    try {
+      const res = await fetch(`/api/weather?address=${encodeURIComponent(projectAddress)}`)
+      if (res.ok) {
+        const data = await res.json()
+        setWeatherCondition(data.weather)
+        setTemperature(String(data.temp_f))
+        setWeatherChip(`${data.temp_f}°F`)
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setWeatherLoading(false)
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -364,7 +383,26 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                 <Input id="logDate" type="date" value={logDate} onChange={e => setLogDate(e.target.value)} required />
               </div>
               <div className="space-y-1.5 col-span-2 md:col-span-2">
-                <Label>Weather</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Weather</Label>
+                  <div className="flex items-center gap-2">
+                    {weatherChip && (
+                      <span className="text-xs font-medium bg-orange-50 text-orange-600 border border-orange-200 rounded-full px-2 py-0.5">
+                        {weatherChip}
+                      </span>
+                    )}
+                    {projectAddress && (
+                      <button
+                        type="button"
+                        onClick={handleAutoFillWeather}
+                        disabled={weatherLoading}
+                        className="text-xs border border-slate-300 rounded-md px-2 py-0.5 text-slate-600 hover:border-orange-400 hover:text-orange-600 transition-colors disabled:opacity-50"
+                      >
+                        {weatherLoading ? 'Fetching...' : 'Auto-fill weather'}
+                      </button>
+                    )}
+                  </div>
+                </div>
                 <div className="flex gap-2">
                   {WEATHER_OPTIONS.map(w => {
                     const Icon = w.icon
@@ -561,10 +599,20 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      {log.created_by_name}
-                      {log.workers_on_site?.length > 0 && ` · ${log.workers_on_site.length + (log.subs_on_site?.length ?? 0)} on site`}
-                      {log.photos?.length > 0 && ` · ${log.photos.length} photo${log.photos.length !== 1 ? 's' : ''}`}
+                    <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-2 flex-wrap">
+                      <span>{log.created_by_name}</span>
+                      {log.workers_on_site?.length > 0 && (
+                        <span>· {log.workers_on_site.length + (log.subs_on_site?.length ?? 0)} on site</span>
+                      )}
+                      {(() => {
+                        const photoCount = (log.daily_log_photos?.length ?? 0) || (log.photos?.length ?? 0)
+                        return photoCount > 0 ? (
+                          <span className="inline-flex items-center gap-1 bg-slate-100 border border-slate-200 text-slate-600 rounded-full px-2 py-0.5 text-xs font-medium">
+                            <Camera className="h-3 w-3" />
+                            {photoCount} photo{photoCount !== 1 ? 's' : ''}
+                          </span>
+                        ) : null
+                      })()}
                     </p>
                   </div>
                   <div className="shrink-0 text-slate-400">
@@ -660,19 +708,31 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                     </div>
 
                     {/* Photos */}
-                    {log.photos?.length > 0 && (
-                      <div>
-                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Site Photos</p>
-                        <div className="flex flex-wrap gap-2">
-                          {log.photos.map((p, i) => (
-                            <a key={i} href={p.url} target="_blank" rel="noopener noreferrer">
-                              <img src={p.url} alt={p.caption || `Photo ${i + 1}`}
-                                className="h-24 w-24 object-cover rounded-lg border border-slate-200 hover:opacity-90 transition-opacity" />
-                            </a>
-                          ))}
+                    {(() => {
+                      const dbPhotos = log.daily_log_photos ?? []
+                      const legacyPhotos = log.photos ?? []
+                      // Prefer daily_log_photos if populated, else fall back to legacy photos JSONB
+                      const photoItems: { url: string; caption?: string }[] =
+                        dbPhotos.length > 0
+                          ? dbPhotos.map(p => ({ url: p.photo_url }))
+                          : legacyPhotos.map(p => ({ url: p.url, caption: p.caption }))
+                      if (photoItems.length === 0) return null
+                      return (
+                        <div>
+                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">
+                            Site Photos <span className="normal-case font-normal text-slate-400">({photoItems.length})</span>
+                          </p>
+                          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                            {photoItems.map((p, i) => (
+                              <a key={i} href={p.url} target="_blank" rel="noopener noreferrer" className="block aspect-square overflow-hidden rounded-lg border border-slate-200 hover:opacity-90 transition-opacity">
+                                <img src={p.url} alt={p.caption || `Photo ${i + 1}`}
+                                  className="h-full w-full object-cover" />
+                              </a>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )
+                    })()}
                   </div>
                 )}
               </div>

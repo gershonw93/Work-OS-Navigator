@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Package, Plus, X, ChevronDown, ChevronUp, Award, Paperclip, Users, CheckCircle2, Clock, XCircle, Bell, FileText, RotateCcw, ChevronRight, Check, Ban } from 'lucide-react'
+import { Package, Plus, X, ChevronDown, ChevronUp, Award, Paperclip, Users, CheckCircle2, Clock, XCircle, Bell, FileText, RotateCcw, ChevronRight, Check, Ban, BarChart2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,6 +9,8 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Badge, getStatusVariant } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
+import { BidLevelingModal } from '@/components/ui/bid-leveling-modal'
+import { SignaturePad } from '@/components/signature-pad'
 import { cn } from '@/lib/utils'
 
 const TRADES = [
@@ -88,6 +90,7 @@ export default function BidsPage({ params }: { params: { id: string } }) {
 
   const [awardingBid, setAwardingBid] = useState<string | null>(null)
   const [expandedBid, setExpandedBid] = useState<string | null>(null)
+  const [levelingPkgId, setLevelingPkgId] = useState<string | null>(null)
 
   // Invite to existing package
   const [invitePkgId, setInvitePkgId] = useState<string | null>(null)
@@ -554,6 +557,27 @@ export default function BidsPage({ params }: { params: { id: string } }) {
         </div>
       )}
 
+      {/* Bid Leveling Modal */}
+      {levelingPkgId && (() => {
+        const pkg = packages.find(p => p.id === levelingPkgId)
+        const pkgBids = bidsForPackage(levelingPkgId).filter(b => b.status === 'submitted' || b.status === 'awarded' || b.status === 'revision_requested' || b.amount > 0)
+        if (!pkg) return null
+        return (
+          <BidLevelingModal
+            packageName={pkg.scope}
+            packageTrade={pkg.trade}
+            bids={pkgBids as any}
+            onClose={() => setLevelingPkgId(null)}
+            onAward={async (bidId) => {
+              await awardBid(pkg.id, bidId)
+              setLevelingPkgId(null)
+            }}
+            awardingBid={awardingBid}
+            packageStatus={pkg.status}
+          />
+        )
+      })()}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div>
@@ -591,9 +615,12 @@ export default function BidsPage({ params }: { params: { id: string } }) {
             return (
               <div key={pkg.id} className="rounded-xl border border-slate-200 bg-white overflow-hidden">
                 {/* Package header */}
-                <button
-                  className="w-full flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-4 sm:px-5 py-4 hover:bg-slate-50 transition-colors text-left"
+                <div
+                  className="w-full flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-4 sm:px-5 py-4 hover:bg-slate-50 transition-colors cursor-pointer"
                   onClick={() => setExpandedPkg(isExpanded ? null : pkg.id)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setExpandedPkg(isExpanded ? null : pkg.id) }}
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2.5 flex-wrap">
@@ -605,7 +632,7 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                     </div>
                     <p className="text-sm text-slate-500 mt-0.5 truncate">{pkg.description}</p>
                   </div>
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 sm:gap-5 sm:shrink-0 text-sm text-slate-500">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:shrink-0 text-sm text-slate-500">
                     {attachCount > 0 && (
                       <span className="flex items-center gap-1">
                         <Paperclip className="h-3.5 w-3.5" />{attachCount}
@@ -619,9 +646,20 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                     {lowestBid && pkg.status !== 'awarded' && (
                       <span className="text-green-600 font-medium">Low: ${Number(lowestBid.amount).toLocaleString()}</span>
                     )}
+                    {pkgBids.length >= 2 && (
+                      <button
+                        type="button"
+                        onClick={e => { e.stopPropagation(); setLevelingPkgId(pkg.id) }}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-orange-300 bg-orange-50 px-2.5 py-1 text-xs font-medium text-orange-700 hover:bg-orange-100 transition-colors"
+                        title="Open bid leveling sheet"
+                      >
+                        <BarChart2 className="h-3.5 w-3.5" />
+                        Level Bids
+                      </button>
+                    )}
                     {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                   </div>
-                </button>
+                </div>
 
                 {/* Expanded content */}
                 {isExpanded && (

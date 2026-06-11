@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { FolderKanban, AlertCircle, ShieldAlert, MessageSquare, Package, CheckSquare, DollarSign } from 'lucide-react'
+import { FolderKanban, AlertCircle, ShieldAlert, MessageSquare, Package, CheckSquare, DollarSign, Briefcase, FileText, Receipt } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { StatCard } from '@/components/ui/stat-card'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
@@ -24,7 +24,8 @@ interface Project {
   start_date: string
 }
 
-interface Stats {
+interface GcStats {
+  isSub: false
   activeProjects: number
   openRfis: number
   pendingApprovals: number
@@ -32,6 +33,18 @@ interface Stats {
   expiringCompliance: number
   totalContractValue: number
 }
+
+interface SubStats {
+  isSub: true
+  activeJobs: number
+  pendingInvoices: number
+  paidThisMonth: number
+  openRfis: number
+  expiringCompliance: number
+  totalContractValue: number
+}
+
+type Stats = GcStats | SubStats
 
 export default function DashboardPage() {
   const supabase = createClient()
@@ -90,6 +103,7 @@ export default function DashboardPage() {
   const money = (n: number | undefined) => loading || !stats ? '—' : n && n >= 1000000
     ? `$${(n / 1000000).toFixed(1)}M`
     : n && n >= 1000 ? `$${(n / 1000).toFixed(0)}K` : `$${(n ?? 0).toLocaleString()}`
+  const isSub = stats?.isSub === true
 
   return (
     <div className="p-4 sm:p-6 space-y-5">
@@ -128,14 +142,25 @@ export default function DashboardPage() {
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
-        <StatCard label="Active Projects" value={v(stats?.activeProjects)} icon={FolderKanban} iconColor="text-orange-500" />
-        <StatCard label="Open RFIs" value={v(stats?.openRfis)} icon={MessageSquare} iconColor="text-blue-500" />
-        <StatCard label="Pending Approvals" value={v(stats?.pendingApprovals)} icon={AlertCircle} iconColor="text-yellow-500" />
-        <StatCard label="Open Tasks" value={v(stats?.openTasks)} icon={CheckSquare} iconColor="text-purple-500" />
-        <StatCard label="Expiring Compliance" value={v(stats?.expiringCompliance)} icon={ShieldAlert} iconColor="text-red-500" />
-        <StatCard label="Total Under Contract" value={money(stats?.totalContractValue)} icon={DollarSign} iconColor="text-green-500" />
-      </div>
+      {stats?.isSub ? (
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
+          <StatCard label="Active Jobs" value={v((stats as SubStats).activeJobs)} icon={Briefcase} iconColor="text-orange-500" />
+          <StatCard label="Pending Invoices" value={v((stats as SubStats).pendingInvoices)} icon={FileText} iconColor="text-yellow-500" />
+          <StatCard label="Paid This Month" value={money((stats as SubStats).paidThisMonth)} icon={Receipt} iconColor="text-green-500" />
+          <StatCard label="Open RFIs" value={v((stats as SubStats).openRfis)} icon={MessageSquare} iconColor="text-blue-500" />
+          <StatCard label="Expiring Docs" value={v((stats as SubStats).expiringCompliance)} icon={ShieldAlert} iconColor="text-red-500" />
+          <StatCard label="Contract Value" value={money((stats as SubStats).totalContractValue)} icon={DollarSign} iconColor="text-slate-500" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
+          <StatCard label="Active Projects" value={v((stats as GcStats | null)?.activeProjects)} icon={FolderKanban} iconColor="text-orange-500" />
+          <StatCard label="Open RFIs" value={v((stats as GcStats | null)?.openRfis)} icon={MessageSquare} iconColor="text-blue-500" />
+          <StatCard label="Pending Approvals" value={v((stats as GcStats | null)?.pendingApprovals)} icon={AlertCircle} iconColor="text-yellow-500" />
+          <StatCard label="Open Tasks" value={v((stats as GcStats | null)?.openTasks)} icon={CheckSquare} iconColor="text-purple-500" />
+          <StatCard label="Expiring Compliance" value={v((stats as GcStats | null)?.expiringCompliance)} icon={ShieldAlert} iconColor="text-red-500" />
+          <StatCard label="Total Under Contract" value={money((stats as GcStats | null)?.totalContractValue)} icon={DollarSign} iconColor="text-green-500" />
+        </div>
+      )}
 
       {/* Recent Projects */}
       <Card>

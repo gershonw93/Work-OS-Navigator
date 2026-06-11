@@ -173,6 +173,84 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
             </div>
             {invoice.description && <p className="text-sm text-slate-600 break-words">{invoice.description}</p>}
 
+            {/* Lien Waiver Section */}
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 space-y-3">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Lien Waiver</p>
+
+              {invoice.status === 'paid' && !invoice.lien_waiver_url && (
+                <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <span>Payment released — unconditional lien waiver required</span>
+                </div>
+              )}
+
+              {invoice.lien_waiver_url ? (
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 border border-green-200 text-green-700 text-xs font-medium px-3 py-1">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    {invoice.lien_waiver_type === 'conditional' ? 'Conditional' : 'Unconditional'} Lien Waiver
+                  </span>
+                  {invoice.lien_waiver_uploaded_at && (
+                    <span className="text-xs text-slate-400">
+                      Uploaded {new Date(invoice.lien_waiver_uploaded_at).toLocaleDateString()}
+                    </span>
+                  )}
+                  <a
+                    href={invoice.lien_waiver_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs font-medium text-orange-500 hover:text-orange-600 underline underline-offset-2"
+                  >
+                    View Document
+                  </a>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {/* Hidden file inputs */}
+                  <input
+                    type="file"
+                    accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+                    className="hidden"
+                    ref={el => { conditionalInputRefs.current[invoice.id] = el }}
+                    onChange={e => {
+                      const file = e.target.files?.[0]
+                      if (file) handleLienWaiverUpload(invoice, 'conditional', file)
+                      e.target.value = ''
+                    }}
+                  />
+                  <input
+                    type="file"
+                    accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+                    className="hidden"
+                    ref={el => { unconditionalInputRefs.current[invoice.id] = el }}
+                    onChange={e => {
+                      const file = e.target.files?.[0]
+                      if (file) handleLienWaiverUpload(invoice, 'unconditional', file)
+                      e.target.value = ''
+                    }}
+                  />
+                  <button
+                    type="button"
+                    disabled={uploadingWaiver === invoice.id}
+                    onClick={() => conditionalInputRefs.current[invoice.id]?.click()}
+                    className="flex items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:border-orange-400 transition-colors disabled:opacity-50"
+                  >
+                    <Upload className="h-4 w-4 text-slate-400" />
+                    {uploadingWaiver === invoice.id ? 'Uploading...' : 'Upload Conditional Waiver'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={uploadingWaiver === invoice.id}
+                    onClick={() => unconditionalInputRefs.current[invoice.id]?.click()}
+                    className="flex items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:border-orange-400 transition-colors disabled:opacity-50"
+                  >
+                    <Upload className="h-4 w-4 text-slate-400" />
+                    {uploadingWaiver === invoice.id ? 'Uploading...' : 'Upload Unconditional Waiver'}
+                  </button>
+                </div>
+              )}
+            </div>
+
             <div className="flex items-center gap-2 flex-wrap">
               <Link href={`/projects/${params.id}/invoices/${invoice.id}/print`} target="_blank">
                 <Button size="sm" variant="outline"><Printer className="h-3.5 w-3.5" /> View / Print</Button>
