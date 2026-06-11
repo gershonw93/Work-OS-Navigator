@@ -64,7 +64,7 @@ export default function NewProjectPage() {
   }
 
   return (
-    <div className="p-6 max-w-2xl">
+    <div className="p-4 sm:p-6 max-w-2xl">
       <PageHeader
         title="New Project"
         subtitle="Fill in the details to create your construction project."
@@ -119,7 +119,7 @@ export default function NewProjectPage() {
               </Select>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="startDate">Start Date</Label>
                 <Input

@@ -20,6 +20,28 @@
     box-sizing: border-box;
   }
 
+  /* Native date/time inputs have an intrinsic min-width on iOS that
+     forces grids and modals wider than the viewport — let them shrink. */
+  input,
+  select,
+  textarea {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  input[type='date'],
+  input[type='time'],
+  input[type='datetime-local'] {
+    -webkit-appearance: none;
+    appearance: none;
+    min-height: 2.25rem;
+  }
+
+  html,
+  body {
+    overflow-x: hidden;
+  }
+
   body {
     background-color: #f8fafc;
     color: #0f172a;
