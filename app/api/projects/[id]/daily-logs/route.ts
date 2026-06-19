@@ -34,7 +34,24 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: profile } = await db.from('profiles').select('full_name, company_id').eq('id', user.id).single()
+  let { data: profile } = await db.from('profiles').select('full_name, company_id').eq('id', user.id).single()
+
+  // Auto-create profile if missing (handles users created before schema existed)
+  if (!profile) {
+    const { data: project } = await db.from('projects').select('gc_company_id').eq('id', params.id).single()
+    const company_id = (project as any)?.gc_company_id
+    if (company_id) {
+      await db.from('profiles').upsert({
+        id: user.id,
+        company_id,
+        email: user.email ?? '',
+        full_name: user.user_metadata?.full_name ?? user.email ?? 'User',
+        role: 'admin',
+      })
+      const retry = await db.from('profiles').select('full_name, company_id').eq('id', user.id).single()
+      profile = retry.data
+    }
+  }
 
   const formData = await request.formData()
   const log_date = formData.get('log_date') as string
