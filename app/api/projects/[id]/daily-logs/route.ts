@@ -70,7 +70,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     }
   }
 
-  const { data: log, error } = await db.from('daily_logs').insert({
+  const fullPayload = {
     project_id: params.id,
     created_by: user.id,
     created_by_name: (profile as any)?.full_name ?? 'Unknown',
@@ -84,7 +84,17 @@ export async function POST(request: Request, { params }: { params: { id: string 
     subs_on_site,
     workers_on_site,
     photos,
-  }).select().single()
+  }
+
+  let { data: log, error } = await db.from('daily_logs').insert(fullPayload).select().single()
+
+  // Fallback: strip extended columns if they don't exist yet
+  if (error && error.code === '42703') {
+    const minimal = { project_id: params.id, created_by: user.id, log_date, notes: notes || null }
+    const retry = await db.from('daily_logs').insert(minimal).select().single()
+    log = retry.data
+    error = retry.error
+  }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
