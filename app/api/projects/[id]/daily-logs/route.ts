@@ -70,28 +70,18 @@ export async function POST(request: Request, { params }: { params: { id: string 
     }
   }
 
-  // Try inserting with all extended columns first, then progressively strip back
-  const attempts = [
-    // Full payload with all fields
-    { project_id: params.id, created_by: user.id, created_by_name: (profile as any)?.full_name ?? 'Unknown', log_date, notes: notes || '', workers_onsite: workers_on_site.length || 0, weather_condition: weather_condition || null, temperature: temperature || null, has_issues, issue_description: has_issues ? (issue_description || null) : null, delays, subs_on_site, workers_on_site, photos },
-    // Without extended columns
-    { project_id: params.id, created_by: user.id, log_date, notes: notes || '', workers_onsite: workers_on_site.length || 0 },
-    // Without created_by (in case profile FK missing)
-    { project_id: params.id, log_date, notes: notes || '', workers_onsite: 0 },
-  ]
+  // Use actual DB column names: weather (not weather_condition), temp_f (not temperature)
+  const { data: log, error } = await db.from('daily_logs').insert({
+    project_id: params.id,
+    created_by: user.id,
+    log_date,
+    notes: notes || '',
+    workers_onsite: workers_on_site.length || 0,
+    weather: weather_condition || null,
+    temp_f: temperature ? parseFloat(temperature) : null,
+  } as any).select().single()
 
-  let log: any = null
-  let error: any = null
-
-  for (const payload of attempts) {
-    const result = await db.from('daily_logs').insert(payload as any).select().single()
-    if (!result.error) { log = result.data; break }
-    error = result.error
-    // Only retry on column/FK errors, not on other errors
-    if (!['42703', '42P01', '23503', '23502'].includes(result.error.code)) break
-  }
-
-  if (!log) return NextResponse.json({ error: `Save failed: ${error?.message} (code: ${error?.code})` }, { status: 500 })
+  if (error) return NextResponse.json({ error: `Save failed: ${error.message} (code: ${error.code})` }, { status: 500 })
 
   // Insert into daily_log_photos table
   if (photos.length > 0) {

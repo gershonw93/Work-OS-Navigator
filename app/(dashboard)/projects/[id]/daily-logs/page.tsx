@@ -27,8 +27,10 @@ interface DailyLog {
   log_date: string
   created_by_name: string
   created_at: string
-  weather_condition: string | null
-  temperature: string | null
+  weather: string | null
+  weather_condition: string | null  // alias fallback
+  temp_f: number | null
+  temperature: string | null        // alias fallback
   notes: string | null
   has_issues: boolean
   issue_description: string | null
@@ -217,7 +219,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
     setEditLogDate(log.log_date)
     setEditWorkersOnsite(String(log.workers_on_site?.length ?? ''))
     setEditNotes(log.notes ?? '')
-    setEditWeather(log.weather_condition ?? '')
+    setEditWeather((log.weather ?? log.weather_condition) ?? '')
     setEditTempF(log.temperature ?? '')
     setShowEditModal(true)
   }
@@ -696,10 +698,10 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2.5 flex-wrap">
                       <span className="font-semibold text-slate-900">{dateLabel}</span>
-                      {log.weather_condition && (
+                      {(log.weather ?? log.weather_condition) && (
                         <span className="flex items-center gap-1 text-xs text-slate-500">
-                          {weatherIcon(log.weather_condition)}
-                          <span className="capitalize">{log.weather_condition}</span>
+                          {weatherIcon(log.weather ?? log.weather_condition)}
+                          <span className="capitalize">{log.weather ?? log.weather_condition}</span>
                           {log.temperature && <span>· {log.temperature}°F</span>}
                         </span>
                       )}
@@ -748,8 +750,8 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                     {/* Top bar: weather + location */}
                     <div className="flex flex-wrap gap-4 rounded-lg bg-slate-50 border border-slate-100 px-4 py-3 text-sm">
                       <div className="flex items-center gap-1.5 text-slate-600">
-                        {weatherIcon(log.weather_condition)}
-                        <span className="capitalize font-medium">{log.weather_condition ?? 'No weather logged'}</span>
+                        {weatherIcon(log.weather ?? log.weather_condition)}
+                        <span className="capitalize font-medium">{log.weather ?? log.weather_condition ?? 'No weather logged'}</span>
                         {log.temperature && <span className="text-slate-400">· {log.temperature}°F</span>}
                       </div>
                       <div className="text-slate-400">|</div>
