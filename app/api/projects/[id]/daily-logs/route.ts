@@ -73,6 +73,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   // Insert only columns confirmed to exist in DB
   const { data: log, error } = await db.from('daily_logs').insert({
     project_id: params.id,
+    created_by: user.id,
     log_date,
     notes: notes || '',
     workers_onsite: workers_on_site.length || 0,
