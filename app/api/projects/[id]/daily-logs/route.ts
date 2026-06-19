@@ -70,15 +70,14 @@ export async function POST(request: Request, { params }: { params: { id: string 
     }
   }
 
-  // Use actual DB column names: weather (not weather_condition), temp_f (not temperature)
+  // Insert only columns confirmed to exist in DB
   const { data: log, error } = await db.from('daily_logs').insert({
     project_id: params.id,
-    created_by: user.id,
     log_date,
     notes: notes || '',
     workers_onsite: workers_on_site.length || 0,
     weather: weather_condition || null,
-  } as any).select().single()
+  }).select().single()
 
   if (error) return NextResponse.json({ error: `Save failed: ${error.message} (code: ${error.code})` }, { status: 500 })
 
