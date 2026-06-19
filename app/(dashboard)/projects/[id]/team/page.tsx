@@ -133,6 +133,50 @@ export default function TeamPage({ params }: { params: { id: string } }) {
   return (
     <div className="space-y-6">
 
+      {/* Edit Member Modal */}
+      {editMember && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md min-w-0">
+            <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-slate-900">Edit Team Member</h2>
+              <button onClick={() => setEditMember(null)} className="text-slate-400 hover:text-slate-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <form onSubmit={handleEditMember}>
+              <div className="px-4 sm:px-6 py-5 space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-name">Full Name <span className="text-red-500">*</span></Label>
+                  <Input id="edit-name" required value={editName} onChange={e => setEditName(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-role">Role <span className="text-red-500">*</span></Label>
+                  <Select id="edit-role" value={editRole} onChange={e => setEditRole(e.target.value)}>
+                    {GC_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                  </Select>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-phone">Phone</Label>
+                    <Input id="edit-phone" type="tel" placeholder="(555) 000-0000" value={editPhone} onChange={e => setEditPhone(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-email">Email</Label>
+                    <Input id="edit-email" type="email" placeholder="name@company.com" value={editEmail} onChange={e => setEditEmail(e.target.value)} />
+                  </div>
+                </div>
+              </div>
+              <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex flex-wrap gap-2 justify-end">
+                <Button type="button" variant="secondary" onClick={() => setEditMember(null)}>Cancel</Button>
+                <Button type="submit" disabled={editSaving || !editName.trim()}>
+                  {editSaving ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Add Member Modal */}
       {showAdd && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -236,12 +280,22 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                         </a>
                       )}
                     </div>
-                    <button
-                      onClick={() => removeMember(member.id)}
-                      className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-400 transition-all"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
+                    <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                      <button
+                        onClick={() => openEditMember(member)}
+                        className="text-slate-300 hover:text-slate-600 transition-colors"
+                        title="Edit member"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => removeMember(member.id)}
+                        className="text-slate-300 hover:text-red-400 transition-colors"
+                        title="Remove member"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

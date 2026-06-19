@@ -75,6 +75,16 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
   const [weatherChip, setWeatherChip] = useState<string | null>(null)
   const [projectAddress, setProjectAddress] = useState<string | null>(null)
 
+  // Edit log
+  const [editingLog, setEditingLog] = useState<DailyLog | null>(null)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editLogDate, setEditLogDate] = useState('')
+  const [editWorkersOnsite, setEditWorkersOnsite] = useState('')
+  const [editNotes, setEditNotes] = useState('')
+  const [editWeather, setEditWeather] = useState('')
+  const [editTempF, setEditTempF] = useState('')
+  const [editSubmitting, setEditSubmitting] = useState(false)
+
   // Create task from issue
   const [createTaskFromLog, setCreateTaskFromLog] = useState<DailyLog | null>(null)
   const [taskTitle, setTaskTitle] = useState('')

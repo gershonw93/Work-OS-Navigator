@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
-import { Plus, X, ClipboardCheck, Phone, Calendar, CheckCircle2, XCircle, Clock, AlertCircle, ChevronDown, ChevronUp, Sparkles, Loader2 } from 'lucide-react'
+import { Plus, X, ClipboardCheck, Phone, Calendar, CheckCircle2, XCircle, Clock, AlertCircle, ChevronDown, ChevronUp, Sparkles, Loader2, Trash2, Pencil } from 'lucide-react'
 import { ContactPicker } from '@/components/contact-picker'
 
 const INSPECTION_TYPES = [
@@ -42,6 +42,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
   const [analyzeError, setAnalyzeError] = useState('')
   const [scannedFile, setScannedFile] = useState<File | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const [editingInsp, setEditingInsp] = useState<Inspection | null>(null)
 
   // Form
   const [inspType, setInspType] = useState('Foundation')
@@ -107,6 +108,29 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
     e.preventDefault()
     setSubmitting(true)
     const token = await getToken()
+
+    if (editingInsp) {
+      await fetch(`/api/projects/${params.id}/inspections/${editingInsp.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          type: inspType,
+          trade: trade || null,
+          scheduled_date: scheduledDate || null,
+          inspector_name: inspectorName || null,
+          inspector_phone: inspectorPhone || null,
+          scheduling_phone: schedulingPhone || null,
+          notes: notes || null,
+        }),
+      })
+      setEditingInsp(null)
+      setInspType('Foundation'); setTrade(''); setScheduledDate('')
+      setInspectorName(''); setInspectorPhone(''); setSchedulingPhone(''); setNotes('')
+      setScannedFile(null)
+      setShowForm(false); setSubmitting(false); fetchInspections()
+      return
+    }
+
     const form = new FormData()
     form.append('inspection_type', inspType)
     if (trade) form.append('trade', trade)
@@ -134,6 +158,29 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ status: newStatus }),
+    })
+    fetchInspections()
+  }
+
+  function openEditInsp(insp: Inspection) {
+    setEditingInsp(insp)
+    setInspType(insp.type)
+    setTrade(insp.trade ?? '')
+    setScheduledDate(insp.scheduled_date ?? '')
+    setInspectorName(insp.inspector_name ?? '')
+    setInspectorPhone(insp.inspector_phone ?? '')
+    setSchedulingPhone(insp.scheduling_phone ?? '')
+    setNotes(insp.notes ?? '')
+    setScannedFile(null)
+    setShowForm(true)
+  }
+
+  async function handleDeleteInsp(inspId: string) {
+    if (!window.confirm('Delete this inspection? This cannot be undone.')) return
+    const token = await getToken()
+    await fetch(`/api/projects/${params.id}/inspections/${inspId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
     })
     fetchInspections()
   }
@@ -239,6 +286,12 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
                   </button>
                 ))}
               </div>
+              <button onClick={() => openEditInsp(insp)} className="text-slate-400 hover:text-slate-600 p-1 ml-auto" title="Edit inspection">
+                <Pencil className="h-4 w-4" />
+              </button>
+              <button onClick={() => handleDeleteInsp(insp.id)} className="text-red-400 hover:text-red-600 p-1" title="Delete inspection">
+                <Trash2 className="h-4 w-4" />
+              </button>
             </div>
           </div>
         )}
@@ -252,8 +305,8 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full min-w-0 max-w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-              <h2 className="font-semibold text-slate-900">Add Inspection</h2>
-              <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
+              <h2 className="font-semibold text-slate-900">{editingInsp ? 'Edit Inspection' : 'Add Inspection'}</h2>
+              <button onClick={() => { setShowForm(false); setEditingInsp(null) }} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
             </div>
             <form onSubmit={handleSubmit}>
               <div className="px-4 sm:px-6 py-5 pb-4 space-y-4">
@@ -333,8 +386,8 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
                 </div>
               </div>
               <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex flex-wrap gap-2 justify-end">
-                <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>Cancel</Button>
-                <Button type="submit" disabled={submitting}>{submitting ? 'Adding...' : 'Add Inspection'}</Button>
+                <Button type="button" variant="secondary" onClick={() => { setShowForm(false); setEditingInsp(null) }}>Cancel</Button>
+                <Button type="submit" disabled={submitting}>{submitting ? 'Saving...' : editingInsp ? 'Save Changes' : 'Add Inspection'}</Button>
               </div>
             </form>
           </div>

@@ -202,7 +202,7 @@ export default function ProjectsPage() {
                     <Link href={`/projects/${project.id}/plans`} className="font-medium text-slate-900 hover:text-orange-600">
                       {project.name}
                     </Link>
-                    <Badge variant={getStatusVariant(project.status)}>
+                    <Badge variant={getStatusVariant(project.status ?? '')}>
                       {project.status?.replace('_', ' ')}
                     </Badge>
                   </div>
@@ -248,7 +248,7 @@ export default function ProjectsPage() {
                       {project.type?.replace('_', ' ')}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={getStatusVariant(project.status)}>
+                      <Badge variant={getStatusVariant(project.status ?? '')}>
                         {project.status?.replace('_', ' ')}
                       </Badge>
                     </TableCell>

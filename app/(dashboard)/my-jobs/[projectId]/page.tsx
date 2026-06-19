@@ -7,7 +7,7 @@ import Link from 'next/link'
 import {
   ArrowLeft, MapPin, Calendar, DollarSign, CheckCircle2, Clock,
   XCircle, AlertCircle, Plus, X, Phone, Trash2, Paperclip, TrendingUp, Zap,
-  ShieldCheck, Upload, RefreshCw, AlertTriangle, FileWarning,
+  ShieldCheck, Upload, RefreshCw, AlertTriangle, FileWarning, Pencil,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -64,6 +64,13 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
   const [billingSuccess, setBillingSuccess] = useState<string | null>(null)
   const [billingError, setBillingError] = useState<Record<string, string>>({})
 
+  // Edit project
+  const [showEditProject, setShowEditProject] = useState(false)
+  const [editProjectName, setEditProjectName] = useState('')
+  const [editProjectAddress, setEditProjectAddress] = useState('')
+  const [editProjectStatus, setEditProjectStatus] = useState('')
+  const [editProjectSaving, setEditProjectSaving] = useState(false)
+
   // Compliance
   const [complianceDocs, setComplianceDocs] = useState<any[]>([])
   const [complianceLoading, setComplianceLoading] = useState(false)
@@ -106,6 +113,31 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
       setComplianceDocs(json.docs ?? [])
     }
     setComplianceLoading(false)
+  }
+
+  function openEditProject() {
+    setEditProjectName(data?.project?.name ?? '')
+    setEditProjectAddress(data?.project?.address ?? '')
+    setEditProjectStatus(data?.project?.status ?? '')
+    setShowEditProject(true)
+  }
+
+  async function handleEditProject(e: React.FormEvent) {
+    e.preventDefault()
+    setEditProjectSaving(true)
+    const token = await getToken()
+    await fetch(`/api/projects/${params.projectId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        name: editProjectName,
+        address: editProjectAddress || null,
+        status: editProjectStatus || null,
+      }),
+    })
+    setEditProjectSaving(false)
+    setShowEditProject(false)
+    load()
   }
 
   useEffect(() => { load() }, [params.projectId])
@@ -276,6 +308,52 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
 
   return (
     <div className="p-4 sm:p-6 space-y-5">
+      {/* Edit Project Modal */}
+      {showEditProject && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h2 className="font-semibold text-slate-900">Edit Project</h2>
+              <button onClick={() => setShowEditProject(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <form onSubmit={handleEditProject}>
+              <div className="px-6 py-5 space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">Project Name <span className="text-red-500">*</span></label>
+                  <input required value={editProjectName} onChange={e => setEditProjectName(e.target.value)}
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">Address</label>
+                  <input value={editProjectAddress} onChange={e => setEditProjectAddress(e.target.value)}
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">Status</label>
+                  <select value={editProjectStatus} onChange={e => setEditProjectStatus(e.target.value)}
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white focus:border-orange-500 focus:outline-none">
+                    <option value="">Select status...</option>
+                    {['planning', 'active', 'on_hold', 'completed', 'cancelled'].map(s => (
+                      <option key={s} value={s}>{s.replace('_', ' ')}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="px-6 py-4 border-t border-slate-100 flex gap-2 justify-end">
+                <button type="button" onClick={() => setShowEditProject(false)}
+                  className="px-4 py-2 text-sm rounded-md border border-slate-300 text-slate-600 hover:bg-slate-50">Cancel</button>
+                <button type="submit" disabled={editProjectSaving}
+                  className="px-4 py-2 text-sm rounded-md bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-medium">
+                  {editProjectSaving ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       <Link href="/my-jobs" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700">
         <ArrowLeft className="h-4 w-4" /> Back to My Jobs
       </Link>
@@ -284,7 +362,12 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
       <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">{project.name}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold text-slate-900">{project.name}</h1>
+              <button onClick={openEditProject} className="p-1.5 text-slate-400 hover:text-slate-600 rounded transition-colors" title="Edit project">
+                <Pencil className="h-4 w-4" />
+              </button>
+            </div>
             <div className="flex items-center gap-3 mt-1 text-sm text-slate-500 flex-wrap">
               {project.address && <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{project.address}</span>}
               {project.start_date && <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" />{new Date(project.start_date).toLocaleDateString()}</span>}

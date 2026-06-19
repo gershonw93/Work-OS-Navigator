@@ -20,7 +20,7 @@ export async function PATCH(
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { status, due_date, description } = body
+  const { status, due_date, description, invoice_number, amount } = body
 
   // Fetch existing invoice
   const { data: invoice, error: fetchError } = await db
@@ -36,6 +36,8 @@ export async function PATCH(
   if (status !== undefined) updates.status = status
   if (due_date !== undefined) updates.due_date = due_date
   if (description !== undefined) updates.description = description
+  if (invoice_number !== undefined) updates.invoice_number = invoice_number
+  if (amount !== undefined) updates.amount = amount
 
   if (status === 'approved') {
     const { data: profile } = await db.from('profiles').select('full_name').eq('id', user.id).single()

@@ -211,7 +211,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full min-w-0 max-w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-slate-100 px-4 sm:px-6 py-4 flex items-center justify-between">
-              <h2 className="font-semibold text-slate-900">Add Permit</h2>
+              <h2 className="font-semibold text-slate-900">{editingPermit ? 'Edit Permit' : 'Add Permit'}</h2>
               <button onClick={() => { setShowForm(false); resetForm() }} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
             </div>
             <form onSubmit={handleSubmit}>
@@ -314,7 +314,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                 <div className="flex flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => { setShowForm(false); resetForm() }}>Cancel</Button>
                 <Button type="submit" disabled={submitting || analyzing}>
-                  {analyzing ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Analyzing...</> : submitting ? 'Saving...' : 'Add Permit'}
+                  {analyzing ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Analyzing...</> : submitting ? 'Saving...' : editingPermit ? 'Save Changes' : 'Add Permit'}
                 </Button>
                 </div>
               </div>
@@ -403,6 +403,12 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                         className="rounded-md border border-slate-300 px-2 py-1.5 text-xs bg-white focus:border-orange-500 focus:outline-none">
                         {['pending', 'approved', 'active', 'expired', 'rejected'].map(s => <option key={s}>{s}</option>)}
                       </select>
+                      <button onClick={() => openEdit(permit)} className="text-slate-400 hover:text-slate-600 p-1" title="Edit permit">
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button onClick={() => handleDeletePermit(permit.id)} className="text-red-400 hover:text-red-600 p-1" title="Delete permit">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
                   </div>
                 )}
