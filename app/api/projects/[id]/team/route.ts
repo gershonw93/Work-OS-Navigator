@@ -25,7 +25,16 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .order('created_at', { ascending: true }),
   ])
 
-  return NextResponse.json({ members: members ?? [], subcontracts: subcontracts ?? [] })
+  // Deduplicate subcontracts by company — show each company once
+  const seenCompanies = new Set<string>()
+  const uniqueSubs = (subcontracts ?? []).filter((s: any) => {
+    const cid = (s.companies as any)?.name
+    if (!cid || seenCompanies.has(cid)) return false
+    seenCompanies.add(cid)
+    return true
+  })
+
+  return NextResponse.json({ members: members ?? [], subcontracts: uniqueSubs })
 }
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
