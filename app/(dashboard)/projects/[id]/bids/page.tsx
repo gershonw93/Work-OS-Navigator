@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Package, Plus, X, ChevronDown, ChevronUp, Award, Paperclip, Users, CheckCircle2, Clock, XCircle, Bell, FileText, RotateCcw, ChevronRight, Check, Ban, BarChart2, PenLine } from 'lucide-react'
+import { Package, Plus, X, ChevronDown, ChevronUp, Award, Paperclip, Users, CheckCircle2, Clock, XCircle, Bell, FileText, RotateCcw, ChevronRight, Check, Ban, BarChart2, PenLine, Trash2, Pencil } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -130,9 +130,64 @@ export default function BidsPage({ params }: { params: { id: string } }) {
   const [revisionLoading, setRevisionLoading] = useState(false)
   const [revisionError, setRevisionError] = useState<string | null>(null)
 
+  // Edit/Delete package
+  const [editingPkg, setEditingPkg] = useState<BidPackage | null>(null)
+  const [editPkgScope, setEditPkgScope] = useState('')
+  const [editPkgTrade, setEditPkgTrade] = useState('')
+  const [editPkgDescription, setEditPkgDescription] = useState('')
+  const [editPkgDueDate, setEditPkgDueDate] = useState('')
+  const [editPkgLoading, setEditPkgLoading] = useState(false)
+  const [editPkgError, setEditPkgError] = useState<string | null>(null)
+
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
     return session?.access_token ?? ''
+  }
+
+  function openEditPkg(pkg: BidPackage) {
+    setEditingPkg(pkg)
+    setEditPkgScope(pkg.scope)
+    setEditPkgTrade(pkg.trade ?? '')
+    setEditPkgDescription(pkg.description)
+    setEditPkgDueDate(pkg.due_date ?? '')
+    setEditPkgError(null)
+  }
+
+  async function handleEditPkg(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editingPkg) return
+    setEditPkgLoading(true)
+    setEditPkgError(null)
+    const token = await getToken()
+    const res = await fetch(`/api/projects/${params.id}/bids/packages/${editingPkg.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        scope: editPkgScope,
+        trade: editPkgTrade || null,
+        description: editPkgDescription,
+        due_date: editPkgDueDate || null,
+      }),
+    })
+    if (!res.ok) {
+      const body = await res.json()
+      setEditPkgError(body.error)
+      setEditPkgLoading(false)
+      return
+    }
+    setEditingPkg(null)
+    setEditPkgLoading(false)
+    fetchData()
+  }
+
+  async function handleDeletePkg(pkgId: string) {
+    if (!window.confirm('Delete this bid package? This will delete all bids for this package.')) return
+    const token = await getToken()
+    await fetch(`/api/projects/${params.id}/bids/packages/${pkgId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    fetchData()
   }
 
   async function fetchData() {
@@ -328,6 +383,49 @@ export default function BidsPage({ params }: { params: { id: string } }) {
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
+
+      {/* Edit Package Modal */}
+      {editingPkg && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-lg min-w-0">
+            <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-slate-900">Edit Bid Package</h2>
+              <button onClick={() => setEditingPkg(null)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
+            </div>
+            <form onSubmit={handleEditPkg}>
+              <div className="px-4 sm:px-6 py-5 space-y-4">
+                <div className="space-y-1.5">
+                  <Label>Scope of Work</Label>
+                  <Input value={editPkgScope} onChange={e => setEditPkgScope(e.target.value)} required placeholder="e.g. Electrical" />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Trade</Label>
+                    <Select value={editPkgTrade} onChange={e => setEditPkgTrade(e.target.value)}>
+                      {TRADES.map(t => <option key={t} value={t === 'All Trades' ? '' : t}>{t}</option>)}
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Due Date</Label>
+                    <Input type="date" value={editPkgDueDate} onChange={e => setEditPkgDueDate(e.target.value)} />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Description</Label>
+                  <textarea rows={3} value={editPkgDescription} onChange={e => setEditPkgDescription(e.target.value)}
+                    placeholder="Describe the work included in this package..."
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none resize-none" />
+                </div>
+                {editPkgError && <p className="text-sm text-red-600">{editPkgError}</p>}
+              </div>
+              <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex flex-wrap gap-2 justify-end">
+                <Button type="button" variant="secondary" onClick={() => setEditingPkg(null)}>Cancel</Button>
+                <Button type="submit" disabled={editPkgLoading}>{editPkgLoading ? 'Saving...' : 'Save Changes'}</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Signature Modal */}
       {signBidId && (
@@ -730,6 +828,14 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                         Level Bids
                       </button>
                     )}
+                    <button type="button" onClick={e => { e.stopPropagation(); openEditPkg(pkg) }}
+                      className="p-1 text-slate-400 hover:text-slate-600" title="Edit package">
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <button type="button" onClick={e => { e.stopPropagation(); handleDeletePkg(pkg.id) }}
+                      className="p-1 text-red-400 hover:text-red-600" title="Delete package">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                     {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                   </div>
                 </div>

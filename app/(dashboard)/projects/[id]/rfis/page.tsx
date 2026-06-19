@@ -116,38 +116,47 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
     const coConfig = CO_STATUS_CONFIG[coStatus] ?? CO_STATUS_CONFIG.pending
 
     return (
-      <button onClick={() => openRespond(rfi)}
-        className={cn('rounded-xl border bg-white p-4 text-left hover:shadow-md transition-all hover:-translate-y-0.5 w-full',
-          rfi.status === 'open' ? 'border-orange-200' : 'border-slate-200')}>
+      <div className={cn('rounded-xl border bg-white p-4 text-left hover:shadow-md transition-all hover:-translate-y-0.5',
+        rfi.status === 'open' ? 'border-orange-200' : 'border-slate-200')}>
         <div className="flex items-start justify-between gap-2 mb-2">
           <span className="text-xs font-mono text-slate-400">RFI-{String(rfi.rfi_number).padStart(3, '0')}</span>
-          <span className={cn('text-xs font-medium rounded-full border px-1.5 py-0.5 shrink-0',
-            rfi.status === 'open' ? 'bg-orange-50 border-orange-200 text-orange-700' :
-            rfi.status === 'closed' ? 'bg-slate-50 border-slate-200 text-slate-500' :
-            'bg-green-50 border-green-200 text-green-700')}>
-            {rfi.status}
-          </span>
-        </div>
-        <p className="text-sm font-semibold text-slate-900 line-clamp-2 leading-snug">{rfi.subject}</p>
-        <p className="text-xs text-slate-400 mt-1 truncate">{rfi.company_name ?? rfi.submitted_by_name}</p>
-        <div className="mt-2 flex flex-wrap gap-1">
-          {rfi.is_change_order && (
-            <span className={cn('text-xs rounded-full border px-1.5 py-0.5 flex items-center gap-0.5', coConfig.color)}>
-              <DollarSign className="h-2.5 w-2.5" />
-              {rfi.change_order_amount ? `$${Number(rfi.change_order_amount).toLocaleString()}` : 'CO'} · {coConfig.label}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className={cn('text-xs font-medium rounded-full border px-1.5 py-0.5',
+              rfi.status === 'open' ? 'bg-orange-50 border-orange-200 text-orange-700' :
+              rfi.status === 'closed' ? 'bg-slate-50 border-slate-200 text-slate-500' :
+              'bg-green-50 border-green-200 text-green-700')}>
+              {rfi.status}
             </span>
-          )}
-          {(rfi.attachments?.length ?? 0) > 0 && (
-            <span className="text-xs text-slate-400 flex items-center gap-0.5"><Paperclip className="h-3 w-3" />{rfi.attachments?.length}</span>
-          )}
-        </div>
-        <p className="text-xs text-slate-400 mt-2">{new Date(rfi.created_at).toLocaleDateString()}</p>
-        {rfi.status === 'open' && (
-          <div className="mt-3 pt-2 border-t border-slate-100">
-            <span className="text-xs font-medium text-orange-600">Click to respond →</span>
+            <button onClick={() => openEditRfi(rfi)} className="text-slate-400 hover:text-slate-600 p-0.5" title="Edit RFI">
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+            <button onClick={() => handleDeleteRfi(rfi.id)} className="text-red-400 hover:text-red-600 p-0.5" title="Delete RFI">
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
           </div>
-        )}
-      </button>
+        </div>
+        <button onClick={() => openRespond(rfi)} className="w-full text-left">
+          <p className="text-sm font-semibold text-slate-900 line-clamp-2 leading-snug">{rfi.subject}</p>
+          <p className="text-xs text-slate-400 mt-1 truncate">{rfi.company_name ?? rfi.submitted_by_name}</p>
+          <div className="mt-2 flex flex-wrap gap-1">
+            {rfi.is_change_order && (
+              <span className={cn('text-xs rounded-full border px-1.5 py-0.5 flex items-center gap-0.5', coConfig.color)}>
+                <DollarSign className="h-2.5 w-2.5" />
+                {rfi.change_order_amount ? `$${Number(rfi.change_order_amount).toLocaleString()}` : 'CO'} · {coConfig.label}
+              </span>
+            )}
+            {(rfi.attachments?.length ?? 0) > 0 && (
+              <span className="text-xs text-slate-400 flex items-center gap-0.5"><Paperclip className="h-3 w-3" />{rfi.attachments?.length}</span>
+            )}
+          </div>
+          <p className="text-xs text-slate-400 mt-2">{new Date(rfi.created_at).toLocaleDateString()}</p>
+          {rfi.status === 'open' && (
+            <div className="mt-3 pt-2 border-t border-slate-100">
+              <span className="text-xs font-medium text-orange-600">Click to respond →</span>
+            </div>
+          )}
+        </button>
+      </div>
     )
   }
 
@@ -224,6 +233,36 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
                 <Button type="submit" disabled={responding || (respondingTo.is_change_order && !coDecision)}>
                   {responding ? 'Sending...' : 'Send Response'}
                 </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit RFI modal */}
+      {editingRfi && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+            <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h2 className="font-semibold text-slate-900">Edit RFI-{String(editingRfi.rfi_number).padStart(3, '0')}</h2>
+              <button onClick={() => setEditingRfi(null)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
+            </div>
+            <form onSubmit={handleEditRfi}>
+              <div className="px-4 sm:px-6 py-5 space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">Subject</label>
+                  <input value={editSubject} onChange={e => setEditSubject(e.target.value)} required
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">Description / Question</label>
+                  <textarea rows={4} value={editDescription} onChange={e => setEditDescription(e.target.value)}
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none resize-none" />
+                </div>
+              </div>
+              <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex flex-wrap gap-2 justify-end">
+                <Button type="button" variant="secondary" onClick={() => setEditingRfi(null)}>Cancel</Button>
+                <Button type="submit" disabled={editSubmitting}>{editSubmitting ? 'Saving...' : 'Save Changes'}</Button>
               </div>
             </form>
           </div>

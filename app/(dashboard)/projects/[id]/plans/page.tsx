@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { FileText, Folder, FolderPlus, Upload, X, ChevronRight, ArrowLeft } from 'lucide-react'
+import { FileText, Folder, FolderPlus, Upload, X, ChevronRight, ArrowLeft, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
@@ -85,6 +85,31 @@ export default function PlansPage({ params }: { params: { id: string } }) {
     setFolderName('')
     setShowNewFolder(false)
     setFolderLoading(false)
+    fetchData()
+  }
+
+  async function handleDeletePlan(planId: string) {
+    if (!window.confirm('Delete this plan file? This cannot be undone.')) return
+    const token = await getToken()
+    await fetch(`/api/projects/${params.id}/plans/${planId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    fetchData()
+  }
+
+  async function handleDeleteFolder(folderId: string) {
+    const filesInFolder = plans.filter(p => p.folder_id === folderId)
+    if (filesInFolder.length > 0) {
+      alert('Remove files first before deleting this folder.')
+      return
+    }
+    if (!window.confirm('Delete this folder?')) return
+    const token = await getToken()
+    await fetch(`/api/projects/${params.id}/plans/folders/${folderId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    })
     fetchData()
   }
 
@@ -262,15 +287,23 @@ export default function PlansPage({ params }: { params: { id: string } }) {
                 {visibleFolders.map(folder => {
                   const count = plans.filter(p => p.folder_id === folder.id).length
                   return (
-                    <button
-                      key={folder.id}
-                      onClick={() => setActiveFolderId(folder.id)}
-                      className="flex flex-col items-center gap-2 rounded-xl border border-slate-200 bg-white p-4 hover:border-orange-300 hover:bg-orange-50 transition-colors group"
-                    >
-                      <Folder className="h-10 w-10 text-amber-400 group-hover:text-amber-500" />
-                      <span className="text-sm font-medium text-slate-700 text-center leading-tight">{folder.name}</span>
-                      <span className="text-xs text-slate-400">{count} {count === 1 ? 'file' : 'files'}</span>
-                    </button>
+                    <div key={folder.id} className="relative group">
+                      <button
+                        onClick={() => setActiveFolderId(folder.id)}
+                        className="w-full flex flex-col items-center gap-2 rounded-xl border border-slate-200 bg-white p-4 hover:border-orange-300 hover:bg-orange-50 transition-colors"
+                      >
+                        <Folder className="h-10 w-10 text-amber-400 group-hover:text-amber-500" />
+                        <span className="text-sm font-medium text-slate-700 text-center leading-tight">{folder.name}</span>
+                        <span className="text-xs text-slate-400">{count} {count === 1 ? 'file' : 'files'}</span>
+                      </button>
+                      <button
+                        onClick={e => { e.stopPropagation(); handleDeleteFolder(folder.id) }}
+                        className="absolute top-1.5 right-1.5 p-1 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity bg-white rounded"
+                        title="Delete folder"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   )
                 })}
               </div>
@@ -304,9 +337,14 @@ export default function PlansPage({ params }: { params: { id: string } }) {
                         <td className="px-4 py-3 text-slate-500 capitalize">{plan.plan_type}</td>
                         <td className="px-4 py-3 text-slate-500">{new Date(plan.created_at).toLocaleDateString()}</td>
                         <td className="px-4 py-3 text-right">
-                          <a href={plan.file_url} target="_blank" rel="noopener noreferrer">
-                            <Button variant="ghost" size="sm">View</Button>
-                          </a>
+                          <div className="flex items-center justify-end gap-1">
+                            <a href={plan.file_url} target="_blank" rel="noopener noreferrer">
+                              <Button variant="ghost" size="sm">View</Button>
+                            </a>
+                            <button onClick={() => handleDeletePlan(plan.id)} className="p-1 text-red-400 hover:text-red-600" title="Delete plan">
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -325,9 +363,14 @@ export default function PlansPage({ params }: { params: { id: string } }) {
                         <span className="capitalize">{plan.plan_type}</span> · {new Date(plan.created_at).toLocaleDateString()}
                       </p>
                     </div>
-                    <a href={plan.file_url} target="_blank" rel="noopener noreferrer" className="shrink-0">
-                      <Button variant="ghost" size="sm">View</Button>
-                    </a>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <a href={plan.file_url} target="_blank" rel="noopener noreferrer">
+                        <Button variant="ghost" size="sm">View</Button>
+                      </a>
+                      <button onClick={() => handleDeletePlan(plan.id)} className="p-1 text-red-400 hover:text-red-600" title="Delete plan">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
