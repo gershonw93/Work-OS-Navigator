@@ -90,7 +90,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   // Fallback 1: strip extended columns if they don't exist yet
   if (error && (error.code === '42703' || error.code === '42P01')) {
-    const mid = { project_id: params.id, created_by: user.id, log_date, notes: notes || '', workers_onsite: workersOnSite.length || 0 }
+    const mid = { project_id: params.id, created_by: user.id, log_date, notes: notes || '', workers_onsite: workers_on_site.length || 0 }
     const retry = await db.from('daily_logs').insert(mid).select().single()
     log = retry.data
     error = retry.error
