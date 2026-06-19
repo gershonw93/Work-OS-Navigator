@@ -78,7 +78,6 @@ export async function POST(request: Request, { params }: { params: { id: string 
     notes: notes || '',
     workers_onsite: workers_on_site.length || 0,
     weather: weather_condition || null,
-    temp_f: temperature ? parseFloat(temperature) : null,
   } as any).select().single()
 
   if (error) return NextResponse.json({ error: `Save failed: ${error.message} (code: ${error.code})` }, { status: 500 })
