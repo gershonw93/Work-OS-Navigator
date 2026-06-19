@@ -28,7 +28,7 @@ export async function GET(request: Request) {
   const { latitude, longitude } = result
 
   const weatherRes = await fetch(
-    `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weathercode&temperature_unit=fahrenheit&timezone=auto`
+    `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weathercode,windspeed_10m&temperature_unit=fahrenheit&windspeed_unit=mph&timezone=auto`
   )
   if (!weatherRes.ok) return NextResponse.json({ error: 'Weather fetch failed' }, { status: 502 })
 
@@ -38,7 +38,11 @@ export async function GET(request: Request) {
 
   const weatherCode: number = current.weathercode ?? current.weather_code ?? 0
   const tempF: number = Math.round(current.temperature_2m)
-  const weather = wmoToWeather(weatherCode)
+  const windMph: number = Math.round(current.windspeed_10m ?? 0)
 
-  return NextResponse.json({ weather, temp_f: tempF })
+  // Windy overrides precipitation-based condition if wind is strong enough
+  let weather = wmoToWeather(weatherCode)
+  if (windMph >= 20 && weather !== 'rainy' && weather !== 'snowy') weather = 'windy'
+
+  return NextResponse.json({ weather, temp_f: tempF, wind_mph: windMph })
 }
