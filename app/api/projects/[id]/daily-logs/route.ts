@@ -88,15 +88,23 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   let { data: log, error } = await db.from('daily_logs').insert(fullPayload).select().single()
 
-  // Fallback: strip extended columns if they don't exist yet
-  if (error && error.code === '42703') {
-    const minimal = { project_id: params.id, created_by: user.id, log_date, notes: notes || null }
-    const retry = await db.from('daily_logs').insert(minimal).select().single()
+  // Fallback 1: strip extended columns if they don't exist yet
+  if (error && (error.code === '42703' || error.code === '42P01')) {
+    const mid = { project_id: params.id, created_by: user.id, log_date, notes: notes || '', workers_onsite: workersOnSite.length || 0 }
+    const retry = await db.from('daily_logs').insert(mid).select().single()
     log = retry.data
     error = retry.error
   }
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  // Fallback 2: created_by FK might fail if profile doesn't exist — try without it
+  if (error && (error.code === '23503' || error.code === '42703')) {
+    const bare = { project_id: params.id, log_date, notes: notes || '', workers_onsite: workersOnSite.length || 0 }
+    const retry2 = await db.from('daily_logs').insert(bare).select().single()
+    log = retry2.data
+    error = retry2.error
+  }
+
+  if (error) return NextResponse.json({ error: `Save failed: ${error.message} (code: ${error.code})` }, { status: 500 })
 
   // Insert into daily_log_photos table
   if (photos.length > 0) {
