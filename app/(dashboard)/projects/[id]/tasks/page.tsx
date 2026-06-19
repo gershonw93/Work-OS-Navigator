@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import {
   Plus, X, CheckSquare, Circle, Clock, AlertCircle, Trash2,
   Building2, UserCircle2, Receipt, LayoutGrid, List, Users, Pencil,
+  ChevronDown, MessageSquare, Loader2,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -40,6 +41,14 @@ interface Task {
 interface Member { id: string; name: string; role: string }
 interface Sub { id: string; scope: string; trade: string | null; companies: { id: string; name: string } | null }
 
+interface TaskNote {
+  id: string
+  task_id: string
+  content: string
+  author_name: string
+  created_at: string
+}
+
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
 function isOverdue(task: Task) {
@@ -67,6 +76,20 @@ function formatDue(due: string) {
 function nextStatus(current: string) {
   const idx = STATUSES.findIndex(s => s.value === current)
   return STATUSES[(idx + 1) % STATUSES.length].value
+}
+
+function timeAgo(dateStr: string) {
+  const d = new Date(dateStr)
+  const now = new Date()
+  const diffMs = now.getTime() - d.getTime()
+  const diffMins = Math.floor(diffMs / 60000)
+  const diffHours = Math.floor(diffMins / 60)
+  const diffDays = Math.floor(diffHours / 24)
+  if (diffMins < 1) return 'just now'
+  if (diffMins < 60) return `${diffMins}m ago`
+  if (diffHours < 24) return `${diffHours}h ago`
+  if (diffDays < 7) return `${diffDays}d ago`
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
 // ─── small components ─────────────────────────────────────────────────────────
@@ -117,6 +140,127 @@ function GroupProgressBar({ tasks }: { tasks: Task[] }) {
   )
 }
 
+// ─── TaskDetailPanel ──────────────────────────────────────────────────────────
+
+interface TaskDetailPanelProps {
+  task: Task
+  notes: TaskNote[]
+  notesLoading: boolean
+  currentUser: string
+  onAddNote: (taskId: string, content: string) => Promise<void>
+}
+
+function TaskDetailPanel({ task, notes, notesLoading, onAddNote }: TaskDetailPanelProps) {
+  const [noteText, setNoteText] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  const statusObj = STATUSES.find(s => s.value === task.status) ?? STATUSES[0]
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!noteText.trim() || submitting) return
+    setSubmitting(true)
+    await onAddNote(task.id, noteText.trim())
+    setNoteText('')
+    setSubmitting(false)
+  }
+
+  return (
+    <div className="border-t border-slate-100 bg-slate-50/60 rounded-b-xl px-4 py-4">
+      <div className="flex flex-col md:flex-row gap-6">
+        {/* ── Left: task details ─────────────────────────────────────────── */}
+        <div className="flex-1 min-w-0 space-y-3">
+          <h2 className="text-base font-semibold text-slate-900 leading-snug">{task.title}</h2>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={cn(
+              'inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border',
+              statusObj.headerBg, statusObj.headerText, statusObj.colBorder,
+            )}>
+              <statusObj.icon className="h-3 w-3" />
+              {statusObj.label}
+            </span>
+            <PriorityBadge priority={task.priority} />
+          </div>
+
+          {task.assigned_to_name && (
+            <div className="flex items-center gap-1.5 text-sm text-slate-600">
+              {task.assigned_to_company_id
+                ? <Building2 className="h-4 w-4 text-slate-400 shrink-0" />
+                : <UserCircle2 className="h-4 w-4 text-slate-400 shrink-0" />}
+              <span>{task.assigned_to_name}</span>
+            </div>
+          )}
+
+          {task.due_date && (
+            <div className="flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+              <DueChip due={task.due_date} task={task} />
+            </div>
+          )}
+
+          {task.description && (
+            <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{task.description}</p>
+          )}
+
+          <div className="text-xs text-slate-400">
+            Created {new Date(task.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+          </div>
+        </div>
+
+        {/* ── Right: notes feed ──────────────────────────────────────────── */}
+        <div className="flex-1 min-w-0 flex flex-col gap-3">
+          <div className="flex items-center gap-1.5">
+            <MessageSquare className="h-4 w-4 text-slate-400" />
+            <span className="text-sm font-semibold text-slate-700">Notes &amp; Updates</span>
+          </div>
+
+          <div className="flex-1 space-y-2 max-h-48 overflow-y-auto">
+            {notesLoading ? (
+              <div className="flex items-center gap-2 py-4 text-slate-400 text-sm">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading updates…
+              </div>
+            ) : notes.length === 0 ? (
+              <p className="text-xs text-slate-400 py-2 italic">No updates yet — add the first one</p>
+            ) : (
+              notes.map(note => (
+                <div key={note.id} className="bg-white rounded-lg border border-slate-100 px-3 py-2">
+                  <div className="flex items-center justify-between gap-2 mb-0.5">
+                    <span className="text-xs font-semibold text-slate-700">{note.author_name}</span>
+                    <span className="text-xs text-slate-400 shrink-0">{timeAgo(note.created_at)}</span>
+                  </div>
+                  <p className="text-sm text-slate-600 leading-relaxed">{note.content}</p>
+                </div>
+              ))
+            )}
+          </div>
+
+          <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+            <textarea
+              rows={2}
+              placeholder="Add an update…"
+              value={noteText}
+              onChange={e => setNoteText(e.target.value)}
+              className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-orange-400 focus:outline-none focus:ring-1 focus:ring-orange-400 resize-none bg-white"
+            />
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                disabled={!noteText.trim() || submitting}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {submitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                Add Update
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── main page ────────────────────────────────────────────────────────────────
 
 export default function TasksPage({ params }: { params: { id: string } }) {
@@ -129,6 +273,19 @@ export default function TasksPage({ params }: { params: { id: string } }) {
   // view / filter
   const [viewMode, setViewMode]     = useState<ViewMode>('board')
   const [filterMode, setFilterMode] = useState<FilterMode>('all')
+
+  // expand panel
+  const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null)
+  const [notesCache, setNotesCache] = useState<Record<string, TaskNote[]>>({})
+  const [notesLoading, setNotesLoading] = useState<Record<string, boolean>>({})
+
+  // current user
+  const [currentUser, setCurrentUser] = useState('')
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setCurrentUser(session?.user?.email ?? '')
+    })
+  }, [])
 
   // add/edit form
   const [showAdd, setShowAdd]   = useState(false)
@@ -171,6 +328,49 @@ export default function TasksPage({ params }: { params: { id: string } }) {
   }
 
   useEffect(() => { load() }, [params.id])
+
+  // ── expand / notes ─────────────────────────────────────────────────────────
+
+  async function loadNotes(taskId: string) {
+    if (notesCache[taskId] !== undefined) return // already loaded
+    setNotesLoading(prev => ({ ...prev, [taskId]: true }))
+    const token = await getToken()
+    const res = await fetch(`/api/projects/${params.id}/tasks/${taskId}/notes`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (res.ok) {
+      const data = await res.json()
+      setNotesCache(prev => ({ ...prev, [taskId]: data.notes ?? [] }))
+    } else {
+      setNotesCache(prev => ({ ...prev, [taskId]: [] }))
+    }
+    setNotesLoading(prev => ({ ...prev, [taskId]: false }))
+  }
+
+  function toggleExpand(taskId: string) {
+    if (expandedTaskId === taskId) {
+      setExpandedTaskId(null)
+    } else {
+      setExpandedTaskId(taskId)
+      loadNotes(taskId)
+    }
+  }
+
+  async function handleAddNote(taskId: string, content: string) {
+    const token = await getToken()
+    const res = await fetch(`/api/projects/${params.id}/tasks/${taskId}/notes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ content }),
+    })
+    if (res.ok) {
+      const data = await res.json()
+      setNotesCache(prev => ({
+        ...prev,
+        [taskId]: [...(prev[taskId] ?? []), data.note],
+      }))
+    }
+  }
 
   // ── form helpers ───────────────────────────────────────────────────────────
 
@@ -271,6 +471,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
       headers: { Authorization: `Bearer ${token}` },
     })
     setTasks(prev => prev.filter(t => t.id !== taskId))
+    if (expandedTaskId === taskId) setExpandedTaskId(null)
   }
 
   function openInvoiceModal(task: Task) {
@@ -332,115 +533,156 @@ export default function TasksPage({ params }: { params: { id: string } }) {
   // ── sub-components ─────────────────────────────────────────────────────────
 
   function BoardCard({ task }: { task: Task }) {
+    const expanded = expandedTaskId === task.id
     return (
-      <div className={cn(
-        'group relative bg-white rounded-lg border p-3 flex flex-col gap-2 transition-all cursor-default',
-        isOverdue(task) ? 'border-red-200 bg-red-50/30' : 'border-slate-200 hover:border-slate-300 hover:shadow-sm',
-      )}>
-        {/* title row */}
-        <div className="flex items-start gap-1.5">
-          <PriorityDot priority={task.priority} />
-          <span className={cn('text-sm font-medium text-slate-900 leading-snug flex-1', task.status === 'completed' && 'line-through text-slate-400')}>
-            {task.title}
-          </span>
-        </div>
-
-        {/* meta */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {task.assigned_to_name && (
-            <span className="flex items-center gap-1 text-xs text-slate-500">
-              {task.assigned_to_company_id
-                ? <Building2 className="h-3 w-3 text-slate-400" />
-                : <UserCircle2 className="h-3 w-3 text-slate-400" />}
-              <span className="truncate max-w-[90px]">{task.assigned_to_name}</span>
+      <div
+        className={cn(
+          'group relative bg-white rounded-lg border flex flex-col transition-all cursor-pointer',
+          isOverdue(task) ? 'border-red-200 bg-red-50/30' : 'border-slate-200 hover:border-slate-300 hover:shadow-sm',
+          expanded && 'ring-2 ring-orange-300',
+        )}
+        onClick={() => toggleExpand(task.id)}
+      >
+        <div className="p-3 flex flex-col gap-2">
+          {/* title row */}
+          <div className="flex items-start gap-1.5">
+            <PriorityDot priority={task.priority} />
+            <span className={cn('text-sm font-medium text-slate-900 leading-snug flex-1', task.status === 'completed' && 'line-through text-slate-400')}>
+              {task.title}
             </span>
-          )}
-          {task.due_date && <DueChip due={task.due_date} task={task} />}
-        </div>
+            <ChevronDown className={cn('h-3.5 w-3.5 text-slate-300 shrink-0 transition-transform', expanded && 'rotate-180')} />
+          </div>
 
-        {/* hover actions */}
-        <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button
-            title={`Move to ${STATUSES.find(s => s.value === nextStatus(task.status))?.label}`}
-            onClick={() => updateStatus(task.id, nextStatus(task.status))}
-            className="p-1 rounded text-slate-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
-          >
-            <StatusIcon status={task.status} />
-          </button>
-          <button onClick={() => openEditForm(task)} className="p-1 rounded text-slate-400 hover:text-orange-500 hover:bg-orange-50 transition-colors">
-            <Pencil className="h-3 w-3" />
-          </button>
-          {task.status === 'completed' && task.assigned_to_company_id && (
-            <button onClick={() => openInvoiceModal(task)} className="p-1 rounded text-slate-400 hover:text-orange-500 hover:bg-orange-50 transition-colors" title="Create invoice">
-              <Receipt className="h-3 w-3" />
+          {/* meta */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {task.assigned_to_name && (
+              <span className="flex items-center gap-1 text-xs text-slate-500">
+                {task.assigned_to_company_id
+                  ? <Building2 className="h-3 w-3 text-slate-400" />
+                  : <UserCircle2 className="h-3 w-3 text-slate-400" />}
+                <span className="truncate max-w-[90px]">{task.assigned_to_name}</span>
+              </span>
+            )}
+            {task.due_date && <DueChip due={task.due_date} task={task} />}
+          </div>
+
+          {/* hover actions */}
+          <div className="absolute top-2 right-7 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              title={`Move to ${STATUSES.find(s => s.value === nextStatus(task.status))?.label}`}
+              onClick={e => { e.stopPropagation(); updateStatus(task.id, nextStatus(task.status)) }}
+              className="p-1 rounded text-slate-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
+            >
+              <StatusIcon status={task.status} />
             </button>
-          )}
-          <button onClick={() => deleteTask(task.id)} className="p-1 rounded text-slate-400 hover:text-red-400 hover:bg-red-50 transition-colors">
-            <Trash2 className="h-3 w-3" />
-          </button>
+            <button
+              onClick={e => { e.stopPropagation(); openEditForm(task) }}
+              className="p-1 rounded text-slate-400 hover:text-orange-500 hover:bg-orange-50 transition-colors">
+              <Pencil className="h-3 w-3" />
+            </button>
+            {task.status === 'completed' && task.assigned_to_company_id && (
+              <button
+                onClick={e => { e.stopPropagation(); openInvoiceModal(task) }}
+                className="p-1 rounded text-slate-400 hover:text-orange-500 hover:bg-orange-50 transition-colors"
+                title="Create invoice">
+                <Receipt className="h-3 w-3" />
+              </button>
+            )}
+            <button
+              onClick={e => { e.stopPropagation(); deleteTask(task.id) }}
+              className="p-1 rounded text-slate-400 hover:text-red-400 hover:bg-red-50 transition-colors">
+              <Trash2 className="h-3 w-3" />
+            </button>
+          </div>
         </div>
       </div>
     )
   }
 
   function ListCard({ task }: { task: Task }) {
+    const expanded = expandedTaskId === task.id
     return (
       <div className={cn(
-        'group bg-white rounded-xl border px-4 py-3 flex items-start gap-3 transition-all',
+        'bg-white rounded-xl border transition-all',
         isOverdue(task) ? 'border-red-200 bg-red-50/30' : 'border-slate-200 hover:border-slate-300',
+        expanded && 'ring-2 ring-orange-300',
       )}>
-        <button
-          title={`Move to ${STATUSES.find(s => s.value === nextStatus(task.status))?.label}`}
-          onClick={() => updateStatus(task.id, nextStatus(task.status))}
-          className="mt-0.5 shrink-0 hover:scale-110 transition-transform"
+        <div
+          className="group px-4 py-3 flex items-start gap-3 cursor-pointer"
+          onClick={() => toggleExpand(task.id)}
         >
-          <StatusIcon status={task.status} />
-        </button>
+          <button
+            title={`Move to ${STATUSES.find(s => s.value === nextStatus(task.status))?.label}`}
+            onClick={e => { e.stopPropagation(); updateStatus(task.id, nextStatus(task.status)) }}
+            className="mt-0.5 shrink-0 hover:scale-110 transition-transform"
+          >
+            <StatusIcon status={task.status} />
+          </button>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className={cn('font-semibold text-slate-900', task.status === 'completed' && 'line-through text-slate-400')}>
-              {task.title}
-            </span>
-            <PriorityBadge priority={task.priority} />
-            {isOverdue(task) && (
-              <span className="flex items-center gap-1 text-xs font-medium text-red-600">
-                <AlertCircle className="h-3 w-3" /> Overdue
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={cn('font-semibold text-slate-900', task.status === 'completed' && 'line-through text-slate-400')}>
+                {task.title}
               </span>
+              <PriorityBadge priority={task.priority} />
+              {isOverdue(task) && (
+                <span className="flex items-center gap-1 text-xs font-medium text-red-600">
+                  <AlertCircle className="h-3 w-3" /> Overdue
+                </span>
+              )}
+            </div>
+            {task.description && (
+              <p className="text-sm text-slate-500 mt-0.5 truncate">{task.description}</p>
             )}
+            <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+              {task.assigned_to_name && (
+                <span className="flex items-center gap-1.5 text-xs text-slate-500">
+                  {task.assigned_to_company_id ? <Building2 className="h-3 w-3 text-slate-400" /> : <UserCircle2 className="h-3 w-3 text-slate-400" />}
+                  {task.assigned_to_name}
+                </span>
+              )}
+              {task.due_date && <DueChip due={task.due_date} task={task} />}
+            </div>
           </div>
-          {task.description && (
-            <p className="text-sm text-slate-500 mt-0.5 truncate">{task.description}</p>
-          )}
-          <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-            {task.assigned_to_name && (
-              <span className="flex items-center gap-1.5 text-xs text-slate-500">
-                {task.assigned_to_company_id ? <Building2 className="h-3 w-3 text-slate-400" /> : <UserCircle2 className="h-3 w-3 text-slate-400" />}
-                {task.assigned_to_name}
-              </span>
-            )}
-            {task.due_date && <DueChip due={task.due_date} task={task} />}
-          </div>
-        </div>
 
-        <div className="flex items-center gap-1 shrink-0 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-          {task.status === 'completed' && task.assigned_to_company_id && (
-            <button onClick={() => openInvoiceModal(task)}
-              className="flex items-center gap-1 px-2 py-1 text-xs text-orange-600 border border-orange-200 rounded-md hover:bg-orange-50 transition-colors font-medium">
-              <Receipt className="h-3 w-3" /> Invoice
+          <div className="flex items-center gap-1 shrink-0 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+            {task.status === 'completed' && task.assigned_to_company_id && (
+              <button
+                onClick={e => { e.stopPropagation(); openInvoiceModal(task) }}
+                className="flex items-center gap-1 px-2 py-1 text-xs text-orange-600 border border-orange-200 rounded-md hover:bg-orange-50 transition-colors font-medium">
+                <Receipt className="h-3 w-3" /> Invoice
+              </button>
+            )}
+            <button
+              onClick={e => { e.stopPropagation(); openEditForm(task) }}
+              className="p-1.5 text-slate-300 hover:text-orange-400 rounded transition-colors">
+              <Pencil className="h-3.5 w-3.5" />
             </button>
-          )}
-          <button onClick={() => openEditForm(task)} className="p-1.5 text-slate-300 hover:text-orange-400 rounded transition-colors">
-            <Pencil className="h-3.5 w-3.5" />
-          </button>
-          <select value={task.status} onChange={e => updateStatus(task.id, e.target.value)}
-            className="text-xs border border-slate-200 rounded-md px-2 py-1 text-slate-600 bg-white focus:outline-none focus:border-orange-400">
-            {STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-          </select>
-          <button onClick={() => deleteTask(task.id)} className="p-1.5 text-slate-300 hover:text-red-400 rounded transition-colors">
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
+            <select
+              value={task.status}
+              onClick={e => e.stopPropagation()}
+              onChange={e => updateStatus(task.id, e.target.value)}
+              className="text-xs border border-slate-200 rounded-md px-2 py-1 text-slate-600 bg-white focus:outline-none focus:border-orange-400">
+              {STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+            </select>
+            <button
+              onClick={e => { e.stopPropagation(); deleteTask(task.id) }}
+              className="p-1.5 text-slate-300 hover:text-red-400 rounded transition-colors">
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+            <ChevronDown className={cn('h-4 w-4 text-slate-300 transition-transform', expanded && 'rotate-180')} />
+          </div>
         </div>
+
+        {expanded && (
+          <TaskDetailPanel
+            task={task}
+            notes={notesCache[task.id] ?? []}
+            notesLoading={!!notesLoading[task.id]}
+            currentUser={currentUser}
+            onAddNote={handleAddNote}
+          />
+        )}
       </div>
     )
   }
@@ -448,49 +690,75 @@ export default function TasksPage({ params }: { params: { id: string } }) {
   // ── board view ─────────────────────────────────────────────────────────────
 
   function BoardView() {
-    return (
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {STATUSES.map(col => {
-          const colTasks = filteredTasks.filter(t => t.status === col.value)
-          return (
-            <div key={col.value} className={cn('rounded-xl border flex flex-col overflow-hidden', col.colBorder)}>
-              {/* column header */}
-              <div className={cn('flex items-center justify-between px-3 py-2.5', col.headerBg)}>
-                <div className="flex items-center gap-2">
-                  <col.icon className={cn('h-4 w-4', col.color)} />
-                  <span className={cn('text-sm font-semibold', col.headerText)}>{col.label}</span>
-                  <span className={cn('text-xs font-bold rounded-full px-1.5 py-0.5 min-w-[1.25rem] text-center', col.headerBg, col.headerText, 'border', col.colBorder)}>
-                    {colTasks.length}
-                  </span>
-                </div>
-                <button
-                  onClick={() => openAddForm(col.value)}
-                  title={`Add ${col.label} task`}
-                  className={cn('p-1 rounded hover:bg-black/5 transition-colors', col.headerText)}
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                </button>
-              </div>
+    const expandedTask = expandedTaskId ? tasks.find(t => t.id === expandedTaskId) : null
 
-              {/* cards */}
-              <div className={cn('flex-1 p-2 space-y-2 min-h-[120px]', col.colBg)}>
-                {colTasks.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-8 gap-1">
-                    <p className="text-xs text-slate-400">No tasks</p>
-                    <button
-                      onClick={() => openAddForm(col.value)}
-                      className="text-xs text-slate-400 hover:text-orange-500 transition-colors flex items-center gap-0.5"
-                    >
-                      <Plus className="h-3 w-3" /> Add one
-                    </button>
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {STATUSES.map(col => {
+            const colTasks = filteredTasks.filter(t => t.status === col.value)
+            return (
+              <div key={col.value} className={cn('rounded-xl border flex flex-col overflow-hidden', col.colBorder)}>
+                {/* column header */}
+                <div className={cn('flex items-center justify-between px-3 py-2.5', col.headerBg)}>
+                  <div className="flex items-center gap-2">
+                    <col.icon className={cn('h-4 w-4', col.color)} />
+                    <span className={cn('text-sm font-semibold', col.headerText)}>{col.label}</span>
+                    <span className={cn('text-xs font-bold rounded-full px-1.5 py-0.5 min-w-[1.25rem] text-center', col.headerBg, col.headerText, 'border', col.colBorder)}>
+                      {colTasks.length}
+                    </span>
                   </div>
-                ) : (
-                  colTasks.map(task => <BoardCard key={task.id} task={task} />)
-                )}
+                  <button
+                    onClick={() => openAddForm(col.value)}
+                    title={`Add ${col.label} task`}
+                    className={cn('p-1 rounded hover:bg-black/5 transition-colors', col.headerText)}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+
+                {/* cards */}
+                <div className={cn('flex-1 p-2 space-y-2 min-h-[120px]', col.colBg)}>
+                  {colTasks.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-8 gap-1">
+                      <p className="text-xs text-slate-400">No tasks</p>
+                      <button
+                        onClick={() => openAddForm(col.value)}
+                        className="text-xs text-slate-400 hover:text-orange-500 transition-colors flex items-center gap-0.5"
+                      >
+                        <Plus className="h-3 w-3" /> Add one
+                      </button>
+                    </div>
+                  ) : (
+                    colTasks.map(task => <BoardCard key={task.id} task={task} />)
+                  )}
+                </div>
               </div>
+            )
+          })}
+        </div>
+
+        {/* Board expanded panel — drawer below the board */}
+        {expandedTask && (
+          <div className="rounded-xl border border-orange-200 bg-white shadow-md overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-2.5 bg-orange-50 border-b border-orange-100">
+              <span className="text-sm font-semibold text-orange-700">Task Detail</span>
+              <button
+                onClick={() => setExpandedTaskId(null)}
+                className="text-orange-400 hover:text-orange-600 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
-          )
-        })}
+            <TaskDetailPanel
+              task={expandedTask}
+              notes={notesCache[expandedTask.id] ?? []}
+              notesLoading={!!notesLoading[expandedTask.id]}
+              currentUser={currentUser}
+              onAddNote={handleAddNote}
+            />
+          </div>
+        )}
       </div>
     )
   }
