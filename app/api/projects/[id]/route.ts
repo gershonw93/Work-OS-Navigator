@@ -8,7 +8,7 @@ const admin = () => createClient(
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string; memberId: string } }
+  { params }: { params: { id: string } },
 ) {
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -18,30 +18,32 @@ export async function PATCH(
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { name, role, phone, email } = body
+  const { name, address, client, type, status, start_date, end_date } = body
 
   const updates: Record<string, unknown> = {}
   if (name !== undefined) updates.name = name
-  if (role !== undefined) updates.role = role
-  if (phone !== undefined) updates.phone = phone
-  if (email !== undefined) updates.email = email
+  if (address !== undefined) updates.address = address
+  if (client !== undefined) updates.client = client
+  if (type !== undefined) updates.type = type
+  if (status !== undefined) updates.status = status
+  if (start_date !== undefined) updates.start_date = start_date
+  if (end_date !== undefined) updates.end_date = end_date
 
   const { data, error } = await db
-    .from('project_team_members')
+    .from('projects')
     .update(updates)
-    .eq('id', params.memberId)
-    .eq('project_id', params.id)
+    .eq('id', params.id)
     .select()
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  return NextResponse.json({ member: data })
+  return NextResponse.json({ project: data })
 }
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string; memberId: string } }
+  { params }: { params: { id: string } },
 ) {
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -50,7 +52,9 @@ export async function DELETE(
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  await db.from('project_team_members').delete().eq('id', params.memberId).eq('project_id', params.id)
+  const { error } = await db.from('projects').delete().eq('id', params.id)
 
-  return NextResponse.json({ ok: true })
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  return NextResponse.json({ success: true })
 }

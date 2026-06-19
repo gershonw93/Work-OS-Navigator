@@ -6,9 +6,11 @@ const admin = () => createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
+const ALLOWED_FIELDS = ['scope', 'trade', 'description', 'due_date'] as const
+
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string; memberId: string } }
+  { params }: { params: { id: string; packageId: string } },
 ) {
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -18,30 +20,30 @@ export async function PATCH(
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { name, role, phone, email } = body
-
   const updates: Record<string, unknown> = {}
-  if (name !== undefined) updates.name = name
-  if (role !== undefined) updates.role = role
-  if (phone !== undefined) updates.phone = phone
-  if (email !== undefined) updates.email = email
+  for (const key of ALLOWED_FIELDS) {
+    if (key in body) updates[key] = body[key]
+  }
 
-  const { data, error } = await db
-    .from('project_team_members')
+  if (Object.keys(updates).length === 0) {
+    return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
+  }
+
+  const { data: pkg, error } = await db
+    .from('bid_packages')
     .update(updates)
-    .eq('id', params.memberId)
+    .eq('id', params.packageId)
     .eq('project_id', params.id)
     .select()
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  return NextResponse.json({ member: data })
+  return NextResponse.json({ package: pkg })
 }
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string; memberId: string } }
+  { params }: { params: { id: string; packageId: string } },
 ) {
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -50,7 +52,12 @@ export async function DELETE(
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  await db.from('project_team_members').delete().eq('id', params.memberId).eq('project_id', params.id)
+  const { error } = await db
+    .from('bid_packages')
+    .delete()
+    .eq('id', params.packageId)
+    .eq('project_id', params.id)
 
-  return NextResponse.json({ ok: true })
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ success: true })
 }

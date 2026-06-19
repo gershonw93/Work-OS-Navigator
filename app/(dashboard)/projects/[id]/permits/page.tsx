@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
-import { Plus, X, FileCheck, FileText, ChevronDown, ChevronUp, Phone, Building, ExternalLink, Sparkles, Loader2, AlertCircle } from 'lucide-react'
+import { Plus, X, FileCheck, FileText, ChevronDown, ChevronUp, Phone, Building, ExternalLink, Sparkles, Loader2, AlertCircle, Trash2, Pencil } from 'lucide-react'
 import { ContactPicker } from '@/components/contact-picker'
 
 const PERMIT_TYPES = ['Building', 'Electrical', 'Plumbing', 'Mechanical/HVAC', 'Fire Protection', 'Demolition', 'Excavation', 'Roofing', 'Sign', 'Other']
@@ -51,6 +51,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
 
   const [submitError, setSubmitError] = useState('')
   const [fetchError, setFetchError] = useState('')
+  const [editingPermit, setEditingPermit] = useState<Permit | null>(null)
 
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -72,7 +73,34 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
     setPermitType('Building'); setPermitNumber(''); setDescription(''); setStatus('pending')
     setIssuedDate(''); setExpiryDate(''); setIssuingAuthority('')
     setInspectorName(''); setInspectorPhone(''); setNotes(''); setPermitFile(null)
+    setAnalyzeError(''); setEditingPermit(null)
+  }
+
+  function openEdit(permit: Permit) {
+    setEditingPermit(permit)
+    setPermitType(permit.permit_type)
+    setPermitNumber(permit.permit_number ?? '')
+    setDescription(permit.description ?? '')
+    setStatus(permit.status)
+    setIssuedDate(permit.issued_date ?? '')
+    setExpiryDate(permit.expiry_date ?? '')
+    setIssuingAuthority(permit.issuing_authority ?? '')
+    setInspectorName(permit.inspector_name ?? '')
+    setInspectorPhone(permit.inspector_phone ?? '')
+    setNotes(permit.notes ?? '')
+    setPermitFile(null)
     setAnalyzeError('')
+    setShowForm(true)
+  }
+
+  async function handleDeletePermit(permitId: string) {
+    if (!window.confirm('Delete this permit? This cannot be undone.')) return
+    const token = await getToken()
+    await fetch(`/api/projects/${params.id}/permits/${permitId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    fetchPermits()
   }
 
   async function analyzePermitImage(file: File) {
@@ -110,6 +138,35 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
     e.preventDefault()
     setSubmitting(true)
     const token = await getToken()
+
+    if (editingPermit) {
+      const res = await fetch(`/api/projects/${params.id}/permits/${editingPermit.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          permit_type: permitType,
+          permit_number: permitNumber || null,
+          description: description || null,
+          status,
+          issued_date: issuedDate || null,
+          expiry_date: expiryDate || null,
+          issuing_authority: issuingAuthority || null,
+          inspector_name: inspectorName || null,
+          inspector_phone: inspectorPhone || null,
+          notes: notes || null,
+        }),
+      })
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}))
+        setSubmitError(json.error ?? `Save failed (${res.status})`)
+        setSubmitting(false)
+        return
+      }
+      setSubmitError('')
+      resetForm(); setShowForm(false); setSubmitting(false); fetchPermits()
+      return
+    }
+
     const form = new FormData()
     form.append('permit_type', permitType)
     if (permitNumber) form.append('permit_number', permitNumber)

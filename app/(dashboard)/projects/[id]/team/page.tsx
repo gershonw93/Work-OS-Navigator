@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Users, Plus, X, Phone, Mail, HardHat, Building2, DollarSign, UserCircle2 } from 'lucide-react'
+import { Users, Plus, X, Phone, Mail, HardHat, Building2, DollarSign, UserCircle2, Pencil } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -47,6 +47,13 @@ export default function TeamPage({ params }: { params: { id: string } }) {
   const [email, setEmail] = useState('')
   const [saving, setSaving] = useState(false)
 
+  const [editMember, setEditMember] = useState<TeamMember | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editRole, setEditRole] = useState('')
+  const [editPhone, setEditPhone] = useState('')
+  const [editEmail, setEditEmail] = useState('')
+  const [editSaving, setEditSaving] = useState(false)
+
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
     return session?.access_token ?? ''
@@ -82,6 +89,34 @@ export default function TeamPage({ params }: { params: { id: string } }) {
       load()
     }
     setSaving(false)
+  }
+
+  function openEditMember(member: TeamMember) {
+    setEditMember(member)
+    setEditName(member.name)
+    setEditRole(member.role)
+    setEditPhone(member.phone ?? '')
+    setEditEmail(member.email ?? '')
+  }
+
+  async function handleEditMember(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editMember) return
+    setEditSaving(true)
+    const token = await getToken()
+    await fetch(`/api/projects/${params.id}/team/${editMember.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        name: editName,
+        role: editRole,
+        phone: editPhone || null,
+        email: editEmail || null,
+      }),
+    })
+    setEditSaving(false)
+    setEditMember(null)
+    load()
   }
 
   async function removeMember(id: string) {

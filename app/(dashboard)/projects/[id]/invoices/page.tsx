@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
-import { Plus, X, Receipt, CheckCircle2, Clock, Send, DollarSign, ChevronDown, ChevronUp, Printer, Upload, AlertTriangle } from 'lucide-react'
+import { Plus, X, Receipt, CheckCircle2, Clock, Send, DollarSign, ChevronDown, ChevronUp, Printer, Upload, AlertTriangle, Pencil, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
@@ -38,6 +38,11 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
   const [submitting, setSubmitting] = useState(false)
   const [updating, setUpdating] = useState<string | null>(null)
   const [uploadingWaiver, setUploadingWaiver] = useState<string | null>(null)
+  const [editInvoice, setEditInvoice] = useState<Invoice | null>(null)
+  const [editInvoiceNumber, setEditInvoiceNumber] = useState('')
+  const [editAmount, setEditAmount] = useState('')
+  const [editNotes, setEditNotes] = useState('')
+  const [editSaving, setEditSaving] = useState(false)
   const conditionalInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const unconditionalInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
@@ -113,6 +118,42 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
       body: JSON.stringify({ status: newStatus }),
     })
     setUpdating(null); fetchData()
+  }
+
+  function openEditInvoice(invoice: Invoice) {
+    setEditInvoice(invoice)
+    setEditInvoiceNumber(invoice.invoice_number)
+    setEditAmount(String(invoice.amount))
+    setEditNotes(invoice.description ?? '')
+  }
+
+  async function handleEditInvoice(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editInvoice) return
+    setEditSaving(true)
+    const token = await getToken()
+    await fetch(`/api/projects/${params.id}/invoices/${editInvoice.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        invoice_number: editInvoiceNumber,
+        amount: parseFloat(editAmount),
+        description: editNotes || null,
+      }),
+    })
+    setEditSaving(false)
+    setEditInvoice(null)
+    fetchData()
+  }
+
+  async function handleDeleteInvoice(invoice: Invoice) {
+    if (!window.confirm('Delete this invoice?')) return
+    const token = await getToken()
+    await fetch(`/api/projects/${params.id}/invoices/${invoice.id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    fetchData()
   }
 
   async function handleLienWaiverUpload(invoice: Invoice, waiverType: 'conditional' | 'unconditional', file: File) {
@@ -270,6 +311,16 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
                   <DollarSign className="h-3.5 w-3.5" />{updating === invoice.id ? '...' : 'Mark Paid'}
                 </Button>
               )}
+              <button onClick={() => openEditInvoice(invoice)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded transition-colors" title="Edit invoice">
+                <Pencil className="h-4 w-4" />
+              </button>
+              {(invoice.status === 'pending_approval' || invoice.status === 'approved') && (
+                <button onClick={() => handleDeleteInvoice(invoice)}
+                  className="p-1.5 text-slate-400 hover:text-red-500 rounded transition-colors" title="Delete invoice">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -279,6 +330,47 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
 
   return (
     <div className="p-4 sm:p-6 space-y-5">
+      {editInvoice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h2 className="font-semibold text-slate-900">Edit Invoice</h2>
+              <button onClick={() => setEditInvoice(null)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
+            </div>
+            <form onSubmit={handleEditInvoice}>
+              <div className="px-6 py-5 space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">Invoice Number</label>
+                  <input value={editInvoiceNumber} onChange={e => setEditInvoiceNumber(e.target.value)}
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">Amount</label>
+                  <div className="relative">
+                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <input type="number" step="0.01" required value={editAmount} onChange={e => setEditAmount(e.target.value)}
+                      className="w-full rounded-md border border-slate-300 pl-8 pr-3 py-2 text-sm focus:border-orange-500 focus:outline-none" />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">Notes</label>
+                  <input value={editNotes} onChange={e => setEditNotes(e.target.value)} placeholder="Description or notes..."
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none" />
+                </div>
+              </div>
+              <div className="px-6 py-4 border-t border-slate-100 flex gap-2 justify-end">
+                <button type="button" onClick={() => setEditInvoice(null)}
+                  className="px-4 py-2 text-sm rounded-md border border-slate-300 text-slate-600 hover:bg-slate-50">Cancel</button>
+                <button type="submit" disabled={editSaving}
+                  className="px-4 py-2 text-sm rounded-md bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-medium">
+                  {editSaving ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full min-w-0 max-w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
