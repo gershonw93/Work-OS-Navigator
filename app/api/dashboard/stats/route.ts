@@ -138,8 +138,8 @@ export async function GET(request: Request) {
           .lt('expiry_date', thirtyDaysOut)
           .gt('expiry_date', today)
       : Promise.resolve({ count: 0 }),
-    db.from('projects').select('id', { count: 'exact', head: true }).in('id', projectIds).eq('status', 'active'),
-    db.from('subcontracts').select('contract_amount').in('project_id', projectIds).eq('status', 'active'),
+    db.from('projects').select('id', { count: 'exact', head: true }).in('id', projectIds).not('status', 'in', '("completed","cancelled")'),
+    db.from('subcontracts').select('contract_amount').in('project_id', projectIds).in('status', ['active', 'awarded']),
   ])
 
   const totalContract = ((totalContractRes as any).data ?? []).reduce((sum: number, s: any) => sum + Number(s.contract_amount ?? 0), 0)

@@ -157,7 +157,7 @@ export default function DashboardPage() {
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
-          <StatCard label="Active Projects" value={v((stats as GcStats | null)?.activeProjects)} icon={FolderKanban} iconColor="text-orange-500" />
+          <StatCard label="Projects" value={v((stats as GcStats | null)?.activeProjects)} icon={FolderKanban} iconColor="text-orange-500" />
           <StatCard label="Open RFIs" value={v((stats as GcStats | null)?.openRfis)} icon={MessageSquare} iconColor="text-blue-500" />
           <StatCard label="Pending Approvals" value={v((stats as GcStats | null)?.pendingApprovals)} icon={AlertCircle} iconColor="text-yellow-500" />
           <StatCard label="Open Tasks" value={v((stats as GcStats | null)?.openTasks)} icon={CheckSquare} iconColor="text-purple-500" />
