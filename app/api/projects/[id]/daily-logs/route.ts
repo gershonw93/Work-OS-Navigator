@@ -98,7 +98,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   // Fallback 2: created_by FK might fail if profile doesn't exist — try without it
   if (error && (error.code === '23503' || error.code === '42703')) {
-    const bare = { project_id: params.id, log_date, notes: notes || '', workers_onsite: workersOnSite.length || 0 }
+    const bare = { project_id: params.id, log_date, notes: notes || '', workers_onsite: workers_on_site.length || 0 }
     const retry2 = await db.from('daily_logs').insert(bare).select().single()
     log = retry2.data
     error = retry2.error
