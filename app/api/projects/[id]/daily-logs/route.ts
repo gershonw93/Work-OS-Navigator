@@ -17,7 +17,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
   const { data: logs, error } = await db
     .from('daily_logs')
-    .select('*, daily_log_photos(id, photo_url, created_at)')
+    .select('*')
     .eq('project_id', params.id)
     .order('log_date', { ascending: false })
     .order('created_at', { ascending: false })

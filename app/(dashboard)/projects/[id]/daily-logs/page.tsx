@@ -105,10 +105,9 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
   async function fetchLogs() {
     const token = await getToken()
     const res = await fetch(`/api/projects/${params.id}/daily-logs`, { headers: { Authorization: `Bearer ${token}` } })
-    if (res.ok) {
-      const data = await res.json()
-      setLogs(data.logs)
-    }
+    const body = await res.json()
+    if (res.ok) setLogs(body.logs ?? [])
+    else setError(`Load failed: ${body.error}`)
     setLoading(false)
   }
 
