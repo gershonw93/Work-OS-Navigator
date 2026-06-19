@@ -69,12 +69,13 @@ export async function POST(
     if (!task_ids || task_ids.length === 0) return NextResponse.json({ error: 'No tasks selected' }, { status: 400 })
     const { data: tasks } = await db
       .from('project_tasks')
-      .select('title, billing_amount')
+      .select('title')
       .in('id', task_ids)
       .eq('status', 'completed')
 
     const taskList = tasks ?? []
-    amount = taskList.reduce((sum: number, t: any) => sum + Number(t.billing_amount ?? 0), 0)
+    // billing_amount not on tasks — use contract_amount divided evenly across tasks as fallback
+    amount = taskList.length > 0 ? Math.round((sub.contract_amount / Math.max(taskList.length, 1)) * 100) / 100 : 0
     description = `Task completion billing: ${taskList.map((t: any) => t.title).join(', ')}`
 
     if (amount <= 0) return NextResponse.json({ error: 'Selected tasks have no billing amounts set' }, { status: 400 })

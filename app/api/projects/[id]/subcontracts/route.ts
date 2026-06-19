@@ -16,7 +16,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
   const { data: subcontracts, error } = await db
     .from('subcontracts')
-    .select('id, scope_of_work, companies(id, name)')
+    .select('id, scope, companies(id, name)')
     .eq('project_id', params.id)
     .order('created_at', { ascending: false })
 
