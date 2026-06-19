@@ -1,7 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Plus, X, CheckSquare, Circle, Clock, AlertCircle, Trash2, Building2, UserCircle2, Receipt } from 'lucide-react'
+import {
+  Plus, X, CheckSquare, Circle, Clock, AlertCircle, Trash2,
+  Building2, UserCircle2, Receipt, LayoutGrid, List, Users, Pencil,
+} from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,17 +12,24 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 
+// ─── constants ───────────────────────────────────────────────────────────────
+
 const PRIORITIES = [
-  { value: 'low',    label: 'Low',    bg: 'bg-slate-100 text-slate-600 border-slate-200' },
-  { value: 'medium', label: 'Medium', bg: 'bg-amber-50 text-amber-700 border-amber-200' },
-  { value: 'high',   label: 'High',   bg: 'bg-red-50 text-red-700 border-red-200' },
+  { value: 'low',    label: 'Low',    dot: 'bg-slate-400',  bg: 'bg-slate-100 text-slate-600 border-slate-200' },
+  { value: 'medium', label: 'Medium', dot: 'bg-amber-400',  bg: 'bg-amber-50 text-amber-700 border-amber-200' },
+  { value: 'high',   label: 'High',   dot: 'bg-red-500',    bg: 'bg-red-50 text-red-700 border-red-200' },
 ]
 
 const STATUSES = [
-  { value: 'open',        label: 'Open',        icon: Circle,       color: 'text-slate-400' },
-  { value: 'in_progress', label: 'In Progress', icon: Clock,        color: 'text-blue-500'  },
-  { value: 'completed',   label: 'Completed',   icon: CheckSquare,  color: 'text-green-500' },
+  { value: 'open',        label: 'Open',        icon: Circle,       color: 'text-slate-400',  colBg: 'bg-slate-50',   colBorder: 'border-slate-200', headerBg: 'bg-slate-100',  headerText: 'text-slate-600'  },
+  { value: 'in_progress', label: 'In Progress', icon: Clock,        color: 'text-blue-500',   colBg: 'bg-blue-50/40', colBorder: 'border-blue-200',  headerBg: 'bg-blue-100',   headerText: 'text-blue-700'   },
+  { value: 'completed',   label: 'Completed',   icon: CheckSquare,  color: 'text-green-500',  colBg: 'bg-green-50/40',colBorder: 'border-green-200', headerBg: 'bg-green-100',  headerText: 'text-green-700'  },
 ]
+
+type ViewMode = 'board' | 'list' | 'assignee'
+type FilterMode = 'all' | 'open' | 'in_progress' | 'completed' | 'overdue'
+
+// ─── interfaces ──────────────────────────────────────────────────────────────
 
 interface Task {
   id: string; title: string; description: string | null; due_date: string | null
@@ -30,19 +40,18 @@ interface Task {
 interface Member { id: string; name: string; role: string }
 interface Sub { id: string; scope: string; trade: string | null; companies: { id: string; name: string } | null }
 
-function PriorityBadge({ priority }: { priority: string }) {
-  const p = PRIORITIES.find(p => p.value === priority) ?? PRIORITIES[1]
-  return <span className={cn('text-xs font-medium px-2 py-0.5 rounded-full border', p.bg)}>{p.label}</span>
-}
-
-function StatusIcon({ status }: { status: string }) {
-  const s = STATUSES.find(s => s.value === status) ?? STATUSES[0]
-  const Icon = s.icon
-  return <Icon className={cn('h-4 w-4', s.color)} />
-}
+// ─── helpers ─────────────────────────────────────────────────────────────────
 
 function isOverdue(task: Task) {
   return task.status !== 'completed' && task.due_date && new Date(task.due_date + 'T00:00:00') < new Date()
+}
+
+function dueSoon(task: Task) {
+  if (!task.due_date || task.status === 'completed') return false
+  const d = new Date(task.due_date + 'T00:00:00')
+  const today = new Date(); today.setHours(0,0,0,0)
+  const diff = Math.round((d.getTime() - today.getTime()) / 86400000)
+  return diff >= 0 && diff <= 1
 }
 
 function formatDue(due: string) {
@@ -55,29 +64,92 @@ function formatDue(due: string) {
   return `Due ${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
 }
 
+function nextStatus(current: string) {
+  const idx = STATUSES.findIndex(s => s.value === current)
+  return STATUSES[(idx + 1) % STATUSES.length].value
+}
+
+// ─── small components ─────────────────────────────────────────────────────────
+
+function PriorityBadge({ priority }: { priority: string }) {
+  const p = PRIORITIES.find(x => x.value === priority) ?? PRIORITIES[1]
+  return (
+    <span className={cn('text-xs font-medium px-2 py-0.5 rounded-full border', p.bg)}>
+      {p.label}
+    </span>
+  )
+}
+
+function PriorityDot({ priority }: { priority: string }) {
+  const p = PRIORITIES.find(x => x.value === priority) ?? PRIORITIES[1]
+  return <span title={p.label} className={cn('inline-block w-2 h-2 rounded-full shrink-0', p.dot)} />
+}
+
+function StatusIcon({ status }: { status: string }) {
+  const s = STATUSES.find(x => x.value === status) ?? STATUSES[0]
+  const Icon = s.icon
+  return <Icon className={cn('h-4 w-4', s.color)} />
+}
+
+function DueChip({ due, task }: { due: string; task: Task }) {
+  const overdue = isOverdue(task)
+  const soon = dueSoon(task)
+  return (
+    <span className={cn(
+      'text-xs font-medium',
+      overdue ? 'text-red-500' : soon ? 'text-amber-500' : 'text-slate-400'
+    )}>
+      {formatDue(due)}
+    </span>
+  )
+}
+
+function GroupProgressBar({ tasks }: { tasks: Task[] }) {
+  const done = tasks.filter(t => t.status === 'completed').length
+  const pct = tasks.length ? Math.round((done / tasks.length) * 100) : 0
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-xs text-green-600 font-medium">{done}/{tasks.length} done</span>
+      <div className="w-16 h-1 rounded-full bg-slate-200 overflow-hidden">
+        <div className="h-full bg-green-400 rounded-full transition-all" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  )
+}
+
+// ─── main page ────────────────────────────────────────────────────────────────
+
 export default function TasksPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
-  const [tasks, setTasks] = useState<Task[]>([])
+  const [tasks, setTasks]     = useState<Task[]>([])
   const [members, setMembers] = useState<Member[]>([])
-  const [subs, setSubs] = useState<Sub[]>([])
+  const [subs, setSubs]       = useState<Sub[]>([])
   const [loading, setLoading] = useState(true)
 
-  const [showAdd, setShowAdd] = useState(false)
-  const [title, setTitle] = useState('')
+  // view / filter
+  const [viewMode, setViewMode]     = useState<ViewMode>('board')
+  const [filterMode, setFilterMode] = useState<FilterMode>('all')
+
+  // add/edit form
+  const [showAdd, setShowAdd]   = useState(false)
+  const [editTask, setEditTask] = useState<Task | null>(null)
+  const [title, setTitle]       = useState('')
   const [description, setDescription] = useState('')
-  const [dueDate, setDueDate] = useState('')
+  const [dueDate, setDueDate]   = useState('')
   const [priority, setPriority] = useState('medium')
   const [assigneeType, setAssigneeType] = useState<'member' | 'sub'>('member')
   const [assignedMemberId, setAssignedMemberId] = useState('')
-  const [assignedSubId, setAssignedSubId] = useState('')
+  const [assignedSubId, setAssignedSubId]       = useState('')
   const [saving, setSaving] = useState(false)
 
-  // Invoice modal
-  const [invoiceTask, setInvoiceTask] = useState<Task | null>(null)
-  const [invoiceAmount, setInvoiceAmount] = useState('')
-  const [invoiceDesc, setInvoiceDesc] = useState('')
-  const [invoiceDue, setInvoiceDue] = useState('')
+  // invoice modal
+  const [invoiceTask, setInvoiceTask]       = useState<Task | null>(null)
+  const [invoiceAmount, setInvoiceAmount]   = useState('')
+  const [invoiceDesc, setInvoiceDesc]       = useState('')
+  const [invoiceDue, setInvoiceDue]         = useState('')
   const [creatingInvoice, setCreatingInvoice] = useState(false)
+
+  // ── auth / load ────────────────────────────────────────────────────────────
 
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -86,7 +158,9 @@ export default function TasksPage({ params }: { params: { id: string } }) {
 
   async function load() {
     const token = await getToken()
-    const res = await fetch(`/api/projects/${params.id}/tasks`, { headers: { Authorization: `Bearer ${token}` } })
+    const res = await fetch(`/api/projects/${params.id}/tasks`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
     if (res.ok) {
       const data = await res.json()
       setTasks(data.tasks)
@@ -98,30 +172,85 @@ export default function TasksPage({ params }: { params: { id: string } }) {
 
   useEffect(() => { load() }, [params.id])
 
+  // ── form helpers ───────────────────────────────────────────────────────────
+
   function resetForm() {
     setTitle(''); setDescription(''); setDueDate(''); setPriority('medium')
     setAssigneeType('member'); setAssignedMemberId(''); setAssignedSubId('')
+    setEditTask(null)
   }
 
-  async function createTask(e: React.FormEvent) {
+  function openAddForm(defaultStatus?: string) {
+    resetForm()
+    if (defaultStatus) {
+      // we'll pass it via a transient state — handled below via addDefaultStatus
+    }
+    setShowAdd(true)
+  }
+
+  function openEditForm(task: Task) {
+    setEditTask(task)
+    setTitle(task.title)
+    setDescription(task.description ?? '')
+    setDueDate(task.due_date ?? '')
+    setPriority(task.priority)
+    if (task.assigned_to_member_id) {
+      setAssigneeType('member')
+      setAssignedMemberId(task.assigned_to_member_id)
+      setAssignedSubId('')
+    } else if (task.assigned_to_company_id) {
+      setAssigneeType('sub')
+      const s = subs.find(s => s.companies?.id === task.assigned_to_company_id)
+      setAssignedSubId(s?.id ?? '')
+      setAssignedMemberId('')
+    } else {
+      setAssigneeType('member')
+      setAssignedMemberId('')
+      setAssignedSubId('')
+    }
+    setShowAdd(true)
+  }
+
+  // ── API actions ────────────────────────────────────────────────────────────
+
+  async function submitTask(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
     const token = await getToken()
 
-    let assigned_to_member_id = null, assigned_to_company_id = null, assigned_to_name = null
+    let assigned_to_member_id: string | null = null
+    let assigned_to_company_id: string | null = null
+    let assigned_to_name: string | null = null
+
     if (assigneeType === 'member' && assignedMemberId) {
       const m = members.find(m => m.id === assignedMemberId)
-      assigned_to_member_id = assignedMemberId; assigned_to_name = m?.name ?? null
+      assigned_to_member_id = assignedMemberId
+      assigned_to_name = m?.name ?? null
     } else if (assigneeType === 'sub' && assignedSubId) {
       const s = subs.find(s => s.id === assignedSubId)
-      assigned_to_company_id = s?.companies?.id ?? null; assigned_to_name = s?.companies?.name ?? null
+      assigned_to_company_id = s?.companies?.id ?? null
+      assigned_to_name = s?.companies?.name ?? null
     }
 
-    await fetch(`/api/projects/${params.id}/tasks`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ title, description, due_date: dueDate || null, priority, assigned_to_member_id, assigned_to_company_id, assigned_to_name }),
+    const body = JSON.stringify({
+      title, description, due_date: dueDate || null, priority,
+      assigned_to_member_id, assigned_to_company_id, assigned_to_name,
     })
+
+    if (editTask) {
+      await fetch(`/api/projects/${params.id}/tasks/${editTask.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body,
+      })
+    } else {
+      await fetch(`/api/projects/${params.id}/tasks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body,
+      })
+    }
+
     setShowAdd(false); resetForm(); setSaving(false); load()
   }
 
@@ -137,7 +266,10 @@ export default function TasksPage({ params }: { params: { id: string } }) {
 
   async function deleteTask(taskId: string) {
     const token = await getToken()
-    await fetch(`/api/projects/${params.id}/tasks/${taskId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+    await fetch(`/api/projects/${params.id}/tasks/${taskId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    })
     setTasks(prev => prev.filter(t => t.id !== taskId))
   }
 
@@ -153,10 +285,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
     if (!invoiceTask) return
     setCreatingInvoice(true)
     const token = await getToken()
-
-    // Find subcontract for this task's company
     const sub = subs.find(s => s.companies?.id === invoiceTask.assigned_to_company_id)
-
     await fetch(`/api/projects/${params.id}/invoices`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -172,12 +301,27 @@ export default function TasksPage({ params }: { params: { id: string } }) {
     setInvoiceTask(null); setCreatingInvoice(false)
   }
 
-  // Filter out legacy auto-generated scope line item tasks (created before this was removed)
-  const visibleTasks = tasks.filter(t => !t.description?.startsWith('Category:'))
-  const generalTasks = visibleTasks.filter(t => !t.assigned_to_company_id)
-  const subTasks = visibleTasks.filter(t => t.assigned_to_company_id)
+  // ── derived data ───────────────────────────────────────────────────────────
 
-  // Group sub tasks by company
+  const visibleTasks = tasks.filter(t => !t.description?.startsWith('Category:'))
+
+  const overdueCount = visibleTasks.filter(t => isOverdue(t)).length
+
+  const filteredTasks = visibleTasks.filter(t => {
+    if (filterMode === 'all') return true
+    if (filterMode === 'overdue') return isOverdue(t)
+    return t.status === filterMode
+  })
+
+  const totalCount     = visibleTasks.length
+  const openCount      = visibleTasks.filter(t => t.status === 'open').length
+  const inProgCount    = visibleTasks.filter(t => t.status === 'in_progress').length
+  const completedCount = visibleTasks.filter(t => t.status === 'completed').length
+  const pctDone        = totalCount ? Math.round((completedCount / totalCount) * 100) : 0
+
+  const generalTasks = filteredTasks.filter(t => !t.assigned_to_company_id)
+  const subTasks     = filteredTasks.filter(t => t.assigned_to_company_id)
+
   const subGroups: Record<string, { name: string; tasks: Task[] }> = {}
   for (const t of subTasks) {
     const key = t.assigned_to_company_id!
@@ -185,27 +329,76 @@ export default function TasksPage({ params }: { params: { id: string } }) {
     subGroups[key].tasks.push(t)
   }
 
-  function TaskCard({ task }: { task: Task }) {
+  // ── sub-components ─────────────────────────────────────────────────────────
+
+  function BoardCard({ task }: { task: Task }) {
     return (
-      <div className={cn('bg-white rounded-xl border px-4 sm:px-5 py-4 flex flex-wrap items-start gap-3 sm:gap-4 group transition-colors',
-        isOverdue(task) ? 'border-red-200 bg-red-50/30' : 'border-slate-200 hover:border-slate-300')}>
-        <div className="mt-0.5 shrink-0 relative">
-          <button className="group/status" title="Change status">
-            <StatusIcon status={task.status} />
-          </button>
-          <div className="absolute left-0 top-6 z-10 hidden group-hover/status:block bg-white rounded-lg border border-slate-200 shadow-lg py-1 w-36">
-            {STATUSES.map(s => (
-              <button key={s.value} onClick={() => updateStatus(task.id, s.value)}
-                className={cn('w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-slate-50',
-                  task.status === s.value ? 'text-orange-600 font-medium' : 'text-slate-700')}>
-                <s.icon className={cn('h-3.5 w-3.5', s.color)} />{s.label}
-              </button>
-            ))}
-          </div>
+      <div className={cn(
+        'group relative bg-white rounded-lg border p-3 flex flex-col gap-2 transition-all cursor-default',
+        isOverdue(task) ? 'border-red-200 bg-red-50/30' : 'border-slate-200 hover:border-slate-300 hover:shadow-sm',
+      )}>
+        {/* title row */}
+        <div className="flex items-start gap-1.5">
+          <PriorityDot priority={task.priority} />
+          <span className={cn('text-sm font-medium text-slate-900 leading-snug flex-1', task.status === 'completed' && 'line-through text-slate-400')}>
+            {task.title}
+          </span>
         </div>
 
-        <div className="flex-1 min-w-0 basis-52">
-          <div className="flex items-start gap-2 flex-wrap">
+        {/* meta */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {task.assigned_to_name && (
+            <span className="flex items-center gap-1 text-xs text-slate-500">
+              {task.assigned_to_company_id
+                ? <Building2 className="h-3 w-3 text-slate-400" />
+                : <UserCircle2 className="h-3 w-3 text-slate-400" />}
+              <span className="truncate max-w-[90px]">{task.assigned_to_name}</span>
+            </span>
+          )}
+          {task.due_date && <DueChip due={task.due_date} task={task} />}
+        </div>
+
+        {/* hover actions */}
+        <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            title={`Move to ${STATUSES.find(s => s.value === nextStatus(task.status))?.label}`}
+            onClick={() => updateStatus(task.id, nextStatus(task.status))}
+            className="p-1 rounded text-slate-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
+          >
+            <StatusIcon status={task.status} />
+          </button>
+          <button onClick={() => openEditForm(task)} className="p-1 rounded text-slate-400 hover:text-orange-500 hover:bg-orange-50 transition-colors">
+            <Pencil className="h-3 w-3" />
+          </button>
+          {task.status === 'completed' && task.assigned_to_company_id && (
+            <button onClick={() => openInvoiceModal(task)} className="p-1 rounded text-slate-400 hover:text-orange-500 hover:bg-orange-50 transition-colors" title="Create invoice">
+              <Receipt className="h-3 w-3" />
+            </button>
+          )}
+          <button onClick={() => deleteTask(task.id)} className="p-1 rounded text-slate-400 hover:text-red-400 hover:bg-red-50 transition-colors">
+            <Trash2 className="h-3 w-3" />
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  function ListCard({ task }: { task: Task }) {
+    return (
+      <div className={cn(
+        'group bg-white rounded-xl border px-4 py-3 flex items-start gap-3 transition-all',
+        isOverdue(task) ? 'border-red-200 bg-red-50/30' : 'border-slate-200 hover:border-slate-300',
+      )}>
+        <button
+          title={`Move to ${STATUSES.find(s => s.value === nextStatus(task.status))?.label}`}
+          onClick={() => updateStatus(task.id, nextStatus(task.status))}
+          className="mt-0.5 shrink-0 hover:scale-110 transition-transform"
+        >
+          <StatusIcon status={task.status} />
+        </button>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className={cn('font-semibold text-slate-900', task.status === 'completed' && 'line-through text-slate-400')}>
               {task.title}
             </span>
@@ -216,30 +409,30 @@ export default function TasksPage({ params }: { params: { id: string } }) {
               </span>
             )}
           </div>
-          {task.description && <p className="text-sm text-slate-500 mt-1">{task.description}</p>}
-          <div className="flex items-center gap-3 mt-2 flex-wrap">
+          {task.description && (
+            <p className="text-sm text-slate-500 mt-0.5 truncate">{task.description}</p>
+          )}
+          <div className="flex items-center gap-3 mt-1.5 flex-wrap">
             {task.assigned_to_name && (
               <span className="flex items-center gap-1.5 text-xs text-slate-500">
                 {task.assigned_to_company_id ? <Building2 className="h-3 w-3 text-slate-400" /> : <UserCircle2 className="h-3 w-3 text-slate-400" />}
                 {task.assigned_to_name}
               </span>
             )}
-            {task.due_date && (
-              <span className={cn('text-xs font-medium', isOverdue(task) ? 'text-red-500' : 'text-slate-400')}>
-                {formatDue(task.due_date)}
-              </span>
-            )}
-            <span className="text-xs text-slate-300">by {task.created_by}</span>
+            {task.due_date && <DueChip due={task.due_date} task={task} />}
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-1 shrink-0 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+        <div className="flex items-center gap-1 shrink-0 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
           {task.status === 'completed' && task.assigned_to_company_id && (
             <button onClick={() => openInvoiceModal(task)}
               className="flex items-center gap-1 px-2 py-1 text-xs text-orange-600 border border-orange-200 rounded-md hover:bg-orange-50 transition-colors font-medium">
               <Receipt className="h-3 w-3" /> Invoice
             </button>
           )}
+          <button onClick={() => openEditForm(task)} className="p-1.5 text-slate-300 hover:text-orange-400 rounded transition-colors">
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
           <select value={task.status} onChange={e => updateStatus(task.id, e.target.value)}
             className="text-xs border border-slate-200 rounded-md px-2 py-1 text-slate-600 bg-white focus:outline-none focus:border-orange-400">
             {STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
@@ -252,18 +445,162 @@ export default function TasksPage({ params }: { params: { id: string } }) {
     )
   }
 
-  return (
-    <div className="space-y-6">
+  // ── board view ─────────────────────────────────────────────────────────────
 
-      {/* New task modal */}
+  function BoardView() {
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {STATUSES.map(col => {
+          const colTasks = filteredTasks.filter(t => t.status === col.value)
+          return (
+            <div key={col.value} className={cn('rounded-xl border flex flex-col overflow-hidden', col.colBorder)}>
+              {/* column header */}
+              <div className={cn('flex items-center justify-between px-3 py-2.5', col.headerBg)}>
+                <div className="flex items-center gap-2">
+                  <col.icon className={cn('h-4 w-4', col.color)} />
+                  <span className={cn('text-sm font-semibold', col.headerText)}>{col.label}</span>
+                  <span className={cn('text-xs font-bold rounded-full px-1.5 py-0.5 min-w-[1.25rem] text-center', col.headerBg, col.headerText, 'border', col.colBorder)}>
+                    {colTasks.length}
+                  </span>
+                </div>
+                <button
+                  onClick={() => openAddForm(col.value)}
+                  title={`Add ${col.label} task`}
+                  className={cn('p-1 rounded hover:bg-black/5 transition-colors', col.headerText)}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </button>
+              </div>
+
+              {/* cards */}
+              <div className={cn('flex-1 p-2 space-y-2 min-h-[120px]', col.colBg)}>
+                {colTasks.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 gap-1">
+                    <p className="text-xs text-slate-400">No tasks</p>
+                    <button
+                      onClick={() => openAddForm(col.value)}
+                      className="text-xs text-slate-400 hover:text-orange-500 transition-colors flex items-center gap-0.5"
+                    >
+                      <Plus className="h-3 w-3" /> Add one
+                    </button>
+                  </div>
+                ) : (
+                  colTasks.map(task => <BoardCard key={task.id} task={task} />)
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
+  // ── list view ──────────────────────────────────────────────────────────────
+
+  function ListView() {
+    return (
+      <div className="space-y-6">
+        {generalTasks.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-3 px-1">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">General Tasks</p>
+              <span className="text-xs bg-slate-100 text-slate-500 rounded-full px-2 py-0.5">{generalTasks.length}</span>
+              <GroupProgressBar tasks={generalTasks} />
+            </div>
+            {generalTasks.map(task => <ListCard key={task.id} task={task} />)}
+          </div>
+        )}
+        {Object.entries(subGroups).map(([companyId, group]) => (
+          <div key={companyId} className="space-y-2">
+            <div className="flex items-center gap-2 px-1 flex-wrap">
+              <Building2 className="h-3.5 w-3.5 text-slate-400" />
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">{group.name}</p>
+              <span className="text-xs bg-slate-100 text-slate-500 rounded-full px-2 py-0.5">{group.tasks.length}</span>
+              <GroupProgressBar tasks={group.tasks} />
+            </div>
+            {group.tasks.map(task => <ListCard key={task.id} task={task} />)}
+          </div>
+        ))}
+        {filteredTasks.length === 0 && <EmptyState />}
+      </div>
+    )
+  }
+
+  // ── assignee view ──────────────────────────────────────────────────────────
+
+  function AssigneeView() {
+    // Group ALL filtered tasks by assignee name (or "Unassigned")
+    const groups: Record<string, { name: string; tasks: Task[]; isCompany: boolean }> = {}
+
+    for (const t of filteredTasks) {
+      const key = t.assigned_to_name ?? '__unassigned__'
+      if (!groups[key]) groups[key] = {
+        name: t.assigned_to_name ?? 'Unassigned',
+        tasks: [],
+        isCompany: !!t.assigned_to_company_id,
+      }
+      groups[key].tasks.push(t)
+    }
+
+    return (
+      <div className="space-y-6">
+        {Object.entries(groups).length === 0 && <EmptyState />}
+        {Object.entries(groups).map(([key, group]) => (
+          <div key={key} className="space-y-2">
+            <div className="flex items-center gap-2 px-1 flex-wrap">
+              {group.isCompany
+                ? <Building2 className="h-3.5 w-3.5 text-slate-400" />
+                : <UserCircle2 className="h-3.5 w-3.5 text-slate-400" />}
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">{group.name}</p>
+              <span className="text-xs bg-slate-100 text-slate-500 rounded-full px-2 py-0.5">{group.tasks.length}</span>
+              <GroupProgressBar tasks={group.tasks} />
+            </div>
+            {group.tasks.map(task => <ListCard key={task.id} task={task} />)}
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  // ── empty state ────────────────────────────────────────────────────────────
+
+  function EmptyState() {
+    return (
+      <div className="rounded-xl border border-dashed border-slate-200 py-14 text-center">
+        <CheckSquare className="h-9 w-9 text-slate-200 mx-auto mb-3" />
+        <p className="text-sm font-medium text-slate-500">
+          {filterMode === 'all' ? 'No tasks yet' : `No ${filterMode.replace('_', ' ')} tasks`}
+        </p>
+        {filterMode === 'all' && (
+          <button onClick={() => openAddForm()} className="mt-2 text-sm text-orange-500 hover:underline">
+            Create your first task
+          </button>
+        )}
+      </div>
+    )
+  }
+
+  // ── form modal ─────────────────────────────────────────────────────────────
+
+  const formTitle = editTask ? 'Edit Task' : 'New Task'
+  const submitLabel = saving ? (editTask ? 'Saving…' : 'Creating…') : (editTask ? 'Save Changes' : 'Create Task')
+
+  // ── render ─────────────────────────────────────────────────────────────────
+
+  return (
+    <div className="space-y-5">
+
+      {/* ── New / Edit Task modal ──────────────────────────────────────────── */}
       {showAdd && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-lg">
             <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-900">New Task</h2>
-              <button onClick={() => { setShowAdd(false); resetForm() }} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
+              <h2 className="text-lg font-semibold text-slate-900">{formTitle}</h2>
+              <button onClick={() => { setShowAdd(false); resetForm() }} className="text-slate-400 hover:text-slate-600">
+                <X className="h-5 w-5" />
+              </button>
             </div>
-            <form onSubmit={createTask}>
+            <form onSubmit={submitTask}>
               <div className="px-4 sm:px-6 py-5 space-y-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="title">Task <span className="text-red-500">*</span></Label>
@@ -271,7 +608,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="desc">Details <span className="text-slate-400 font-normal">(optional)</span></Label>
-                  <textarea id="desc" rows={2} placeholder="Additional context..." value={description} onChange={e => setDescription(e.target.value)}
+                  <textarea id="desc" rows={2} placeholder="Additional context…" value={description} onChange={e => setDescription(e.target.value)}
                     className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 resize-none" />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -320,14 +657,14 @@ export default function TasksPage({ params }: { params: { id: string } }) {
               </div>
               <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => { setShowAdd(false); resetForm() }}>Cancel</Button>
-                <Button type="submit" disabled={saving || !title.trim()}>{saving ? 'Creating...' : 'Create Task'}</Button>
+                <Button type="submit" disabled={saving || !title.trim()}>{submitLabel}</Button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* Create invoice from task modal */}
+      {/* ── Create Invoice modal ───────────────────────────────────────────── */}
       {invoiceTask && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-md">
@@ -358,57 +695,116 @@ export default function TasksPage({ params }: { params: { id: string } }) {
               </div>
               <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => setInvoiceTask(null)}>Cancel</Button>
-                <Button type="submit" disabled={creatingInvoice || !invoiceAmount}>{creatingInvoice ? 'Creating...' : 'Create Invoice'}</Button>
+                <Button type="submit" disabled={creatingInvoice || !invoiceAmount}>{creatingInvoice ? 'Creating…' : 'Create Invoice'}</Button>
               </div>
             </form>
           </div>
         </div>
       )}
 
+      {/* ── Page header ───────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Tasks</h1>
           <p className="text-sm text-slate-500 mt-0.5">Assign and track work across your crew and subcontractors.</p>
         </div>
-        <Button onClick={() => setShowAdd(true)}><Plus className="h-4 w-4" />New Task</Button>
+        <div className="flex items-center gap-2">
+          {/* view toggle */}
+          <div className="flex items-center gap-0.5 p-1 bg-slate-100 rounded-lg">
+            <button
+              title="Board view"
+              onClick={() => setViewMode('board')}
+              className={cn('p-1.5 rounded-md transition-colors', viewMode === 'board' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-400 hover:text-slate-600')}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+            <button
+              title="List view"
+              onClick={() => setViewMode('list')}
+              className={cn('p-1.5 rounded-md transition-colors', viewMode === 'list' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-400 hover:text-slate-600')}
+            >
+              <List className="h-4 w-4" />
+            </button>
+            <button
+              title="By Assignee view"
+              onClick={() => setViewMode('assignee')}
+              className={cn('p-1.5 rounded-md transition-colors', viewMode === 'assignee' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-400 hover:text-slate-600')}
+            >
+              <Users className="h-4 w-4" />
+            </button>
+          </div>
+          <Button onClick={() => openAddForm()}><Plus className="h-4 w-4" />New Task</Button>
+        </div>
       </div>
 
-      {loading ? (
-        <div className="text-sm text-slate-400 py-12 text-center">Loading...</div>
-      ) : tasks.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-200 py-14 text-center">
-          <CheckSquare className="h-9 w-9 text-slate-200 mx-auto mb-3" />
-          <p className="text-sm font-medium text-slate-500">No tasks yet</p>
-          <button onClick={() => setShowAdd(true)} className="mt-2 text-sm text-orange-500 hover:underline">Create your first task</button>
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {/* General / GC tasks */}
-          {generalTasks.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">General Tasks</p>
-                <span className="text-xs bg-slate-100 text-slate-500 rounded-full px-2 py-0.5">{generalTasks.length}</span>
-              </div>
-              {generalTasks.map(task => <TaskCard key={task.id} task={task} />)}
-            </div>
-          )}
+      {/* ── Filter pills ──────────────────────────────────────────────────── */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mb-1 scrollbar-hide">
+        {([
+          { key: 'all',         label: 'All' },
+          { key: 'open',        label: 'Open' },
+          { key: 'in_progress', label: 'In Progress' },
+          { key: 'completed',   label: 'Completed' },
+          { key: 'overdue',     label: 'Overdue', count: overdueCount },
+        ] as { key: FilterMode; label: string; count?: number }[]).map(f => (
+          <button
+            key={f.key}
+            onClick={() => setFilterMode(f.key)}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border whitespace-nowrap transition-all shrink-0',
+              filterMode === f.key
+                ? f.key === 'overdue'
+                  ? 'bg-red-500 border-red-500 text-white'
+                  : 'bg-orange-500 border-orange-500 text-white'
+                : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50',
+            )}
+          >
+            {f.label}
+            {f.count !== undefined && f.count > 0 && (
+              <span className={cn(
+                'text-xs font-bold rounded-full px-1.5 py-0.5 leading-none',
+                filterMode === f.key ? 'bg-white/20 text-white' : 'bg-red-100 text-red-600',
+              )}>
+                {f.count}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
 
-          {/* Sub tasks — grouped by company */}
-          {Object.entries(subGroups).map(([companyId, group]) => (
-            <div key={companyId} className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Building2 className="h-3.5 w-3.5 text-slate-400" />
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">{group.name}</p>
-                <span className="text-xs bg-slate-100 text-slate-500 rounded-full px-2 py-0.5">{group.tasks.length}</span>
-                <span className="text-xs text-green-600 font-medium">
-                  {group.tasks.filter(t => t.status === 'completed').length}/{group.tasks.length} done
-                </span>
-              </div>
-              {group.tasks.map(task => <TaskCard key={task.id} task={task} />)}
-            </div>
-          ))}
+      {/* ── Stat chips ────────────────────────────────────────────────────── */}
+      {!loading && totalCount > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs bg-slate-100 text-slate-600 rounded-full px-2.5 py-1 font-medium border border-slate-200">
+            {totalCount} total
+          </span>
+          <span className="text-xs bg-slate-50 text-slate-500 rounded-full px-2.5 py-1 font-medium border border-slate-200">
+            {openCount} open
+          </span>
+          <span className="text-xs bg-blue-50 text-blue-600 rounded-full px-2.5 py-1 font-medium border border-blue-200">
+            {inProgCount} in progress
+          </span>
+          {overdueCount > 0 && (
+            <span className="text-xs bg-red-50 text-red-600 rounded-full px-2.5 py-1 font-medium border border-red-200">
+              {overdueCount} overdue
+            </span>
+          )}
+          <span className="text-xs bg-green-50 text-green-600 rounded-full px-2.5 py-1 font-medium border border-green-200">
+            {completedCount} completed · {pctDone}%
+          </span>
         </div>
+      )}
+
+      {/* ── Main content ─────────────────────────────────────────────────── */}
+      {loading ? (
+        <div className="text-sm text-slate-400 py-12 text-center">Loading…</div>
+      ) : totalCount === 0 ? (
+        <EmptyState />
+      ) : (
+        <>
+          {viewMode === 'board'    && <BoardView />}
+          {viewMode === 'list'     && <ListView />}
+          {viewMode === 'assignee' && <AssigneeView />}
+        </>
       )}
     </div>
   )
