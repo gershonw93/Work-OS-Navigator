@@ -10,22 +10,31 @@ function wmoToWeather(code: number): 'sunny' | 'cloudy' | 'rainy' | 'windy' | 's
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
+  const lat = searchParams.get('lat')
+  const lon = searchParams.get('lon')
   const address = searchParams.get('address')
-  if (!address) return NextResponse.json({ error: 'address is required' }, { status: 400 })
 
-  // Extract city/location for geocoding (use first part of address)
-  const city = address.split(',')[0].trim()
+  let latitude: number, longitude: number
 
-  const geoRes = await fetch(
-    `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=en&format=json`
-  )
-  if (!geoRes.ok) return NextResponse.json({ error: 'Geocoding failed' }, { status: 502 })
-
-  const geoData = await geoRes.json()
-  const result = geoData.results?.[0]
-  if (!result) return NextResponse.json({ error: `Could not geocode address: ${address}` }, { status: 404 })
-
-  const { latitude, longitude } = result
+  if (lat && lon) {
+    // Use GPS coordinates directly
+    latitude = parseFloat(lat)
+    longitude = parseFloat(lon)
+  } else if (address) {
+    // Geocode the address
+    const city = address.split(',')[0].trim()
+    const geoRes = await fetch(
+      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=en&format=json`
+    )
+    if (!geoRes.ok) return NextResponse.json({ error: 'Geocoding failed' }, { status: 502 })
+    const geoData = await geoRes.json()
+    const result = geoData.results?.[0]
+    if (!result) return NextResponse.json({ error: `Could not geocode: ${address}` }, { status: 404 })
+    latitude = result.latitude
+    longitude = result.longitude
+  } else {
+    return NextResponse.json({ error: 'Provide lat/lon or address' }, { status: 400 })
+  }
 
   const weatherRes = await fetch(
     `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weathercode,windspeed_10m&temperature_unit=fahrenheit&windspeed_unit=mph&timezone=auto`

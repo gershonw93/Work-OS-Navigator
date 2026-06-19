@@ -182,15 +182,28 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
   }
 
   async function handleAutoFillWeather() {
-    if (!projectAddress) return
     setWeatherLoading(true)
     try {
-      const res = await fetch(`/api/weather?address=${encodeURIComponent(projectAddress)}`)
+      let url = ''
+      // Try GPS first
+      const pos = await new Promise<GeolocationPosition | null>(resolve => {
+        if (!navigator.geolocation) { resolve(null); return }
+        navigator.geolocation.getCurrentPosition(resolve, () => resolve(null), { timeout: 5000 })
+      })
+      if (pos) {
+        url = `/api/weather?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`
+      } else if (projectAddress) {
+        url = `/api/weather?address=${encodeURIComponent(projectAddress)}`
+      } else {
+        setWeatherLoading(false)
+        return
+      }
+      const res = await fetch(url)
       if (res.ok) {
         const data = await res.json()
         setWeatherCondition(data.weather)
         setTemperature(String(data.temp_f))
-        setWeatherChip(`${data.temp_f}°F`)
+        setWeatherChip(`${data.weather} · ${data.temp_f}°F${data.wind_mph ? ` · ${data.wind_mph}mph` : ''}`)
       }
     } catch {
       // silently fail
@@ -493,8 +506,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                         {weatherChip}
                       </span>
                     )}
-                    {projectAddress && (
-                      <button
+                    <button
                         type="button"
                         onClick={handleAutoFillWeather}
                         disabled={weatherLoading}
@@ -502,7 +514,6 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                       >
                         {weatherLoading ? 'Fetching...' : 'Auto-fill weather'}
                       </button>
-                    )}
                   </div>
                 </div>
                 <div className="flex gap-2">
