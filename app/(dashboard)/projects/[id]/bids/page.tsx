@@ -103,7 +103,8 @@ export default function BidsPage({ params }: { params: { id: string } }) {
   const [subcontracts, setSubcontracts] = useState<Subcontract[]>([])
 
   const [awardingBid, setAwardingBid] = useState<string | null>(null)
-  const [expandedBid, setExpandedBid] = useState<string | null>(null)
+  const [selectedBid, setSelectedBid] = useState<Bid | null>(null)
+  const [selectedBidPkg, setSelectedBidPkg] = useState<BidPackage | null>(null)
   const [levelingPkgId, setLevelingPkgId] = useState<string | null>(null)
 
   // Signature signing
@@ -749,6 +750,184 @@ export default function BidsPage({ params }: { params: { id: string } }) {
         )
       })()}
 
+      {/* Bid Detail Modal */}
+      {selectedBid && selectedBidPkg && (() => {
+        const bid = selectedBid
+        const pkg = selectedBidPkg
+        const scopeCats = (bid as any).scope_categories
+        const hasDetails = bid.notes || bid.payment_terms || (scopeCats && scopeCats.length > 0)
+        const sub = subForBid(bid.id)
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+              {/* Modal header */}
+              <div className="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <h2 className="text-lg font-semibold text-slate-900">{bid.companies?.name}</h2>
+                  <p className="text-sm text-slate-500 mt-0.5">{pkg.scope}{pkg.trade ? ` · ${pkg.trade}` : ''}</p>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <Badge variant={getStatusVariant(bid.status)}>{bid.status}</Badge>
+                  <button onClick={() => { setSelectedBid(null); setSelectedBidPkg(null) }} className="text-slate-400 hover:text-slate-600">
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="px-6 py-5 space-y-6">
+                {/* Key stats */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div className="rounded-lg bg-slate-50 px-4 py-3">
+                    <p className="text-xs text-slate-500 mb-1">Amount</p>
+                    <p className="text-lg font-bold text-slate-900">${Number(bid.amount).toLocaleString()}</p>
+                  </div>
+                  <div className="rounded-lg bg-slate-50 px-4 py-3">
+                    <p className="text-xs text-slate-500 mb-1">Duration</p>
+                    <p className="text-lg font-bold text-slate-900">{bid.duration_days ? `${bid.duration_days}d` : '—'}</p>
+                  </div>
+                  <div className="rounded-lg bg-slate-50 px-4 py-3">
+                    <p className="text-xs text-slate-500 mb-1">Crew Size</p>
+                    <p className="text-lg font-bold text-slate-900">{bid.crew_size ?? '—'}</p>
+                  </div>
+                  <div className="rounded-lg bg-slate-50 px-4 py-3">
+                    <p className="text-xs text-slate-500 mb-1">Start Date</p>
+                    <p className="text-base font-bold text-slate-900">{bid.earliest_start_date ? new Date(bid.earliest_start_date).toLocaleDateString() : '—'}</p>
+                  </div>
+                </div>
+
+                {/* Proposal */}
+                {bid.proposal_url && (
+                  <div>
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Proposal Document</p>
+                    <a href={bid.proposal_url} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-4 py-2.5 text-sm font-medium text-orange-700 hover:bg-orange-100 transition-colors">
+                      <FileText className="h-4 w-4" />
+                      View Proposal
+                    </a>
+                  </div>
+                )}
+
+                {/* Scope Breakdown */}
+                {scopeCats && scopeCats.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Scope Breakdown</p>
+                    {scopeCats.map((cat: any) => (
+                      <div key={cat.id} className="rounded-lg border border-slate-200 overflow-hidden">
+                        <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 border-b border-slate-100">
+                          <span className="text-sm font-semibold text-slate-700">{cat.category || 'Uncategorized'}</span>
+                          <span className="text-sm font-semibold text-slate-600">
+                            ${cat.items?.filter((i: any) => i.included && i.qty && i.unit_price)
+                              .reduce((s: number, i: any) => s + i.qty * i.unit_price, 0)
+                              .toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="divide-y divide-slate-50">
+                          {cat.items?.map((item: any) => {
+                            const total = item.qty && item.unit_price ? item.qty * item.unit_price : null
+                            return (
+                              <div key={item.id} className={cn('grid grid-cols-[20px_1fr_auto_auto_auto] gap-3 items-center px-4 py-2 text-sm', !item.included && 'opacity-50')}>
+                                {item.included ? <Check className="h-3.5 w-3.5 text-green-500 shrink-0" /> : <Ban className="h-3.5 w-3.5 text-red-400 shrink-0" />}
+                                <span className={cn('text-slate-700', !item.included && 'line-through')}>{item.item}</span>
+                                <span className="text-slate-400 text-xs">{item.qty ? `×${item.qty}` : ''}</span>
+                                <span className="text-slate-400 text-xs">{item.unit_price ? `$${item.unit_price.toLocaleString()}` : ''}</span>
+                                <span className="text-slate-700 font-medium text-right">{total ? `$${total.toLocaleString()}` : '—'}</span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Payment Terms */}
+                {bid.payment_terms && (
+                  <div>
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Payment Terms</p>
+                    <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed bg-slate-50 rounded-lg px-4 py-3">{bid.payment_terms}</p>
+                  </div>
+                )}
+
+                {/* Notes */}
+                {bid.notes && (
+                  <div>
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Notes</p>
+                    <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed bg-slate-50 rounded-lg px-4 py-3">{bid.notes}</p>
+                  </div>
+                )}
+
+                {!hasDetails && (
+                  <p className="text-sm text-slate-400 text-center py-4">No additional details provided with this bid.</p>
+                )}
+
+                {/* Signatures */}
+                {bid.status === 'awarded' && sub && (
+                  <div className="rounded-lg border border-slate-200 px-5 py-4 space-y-3">
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Signatures</p>
+                    {sub.fully_executed_at && (
+                      <div className="rounded-md bg-green-50 border border-green-200 px-4 py-2.5 text-sm font-semibold text-green-700 flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4" />
+                        Fully Executed — {new Date(sub.fully_executed_at).toLocaleDateString()}
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <p className="text-xs font-medium text-slate-500">GC Signature</p>
+                        {sub.gc_signed_at ? (
+                          <div className="flex items-center gap-1.5 text-sm text-green-600">
+                            <CheckCircle2 className="h-4 w-4 shrink-0" />
+                            <span className="font-medium">{sub.gc_signed_by}</span>
+                            <span className="text-xs text-slate-400">{new Date(sub.gc_signed_at).toLocaleDateString()}</span>
+                          </div>
+                        ) : (
+                          <Button size="sm" variant="outline" onClick={() => { setSignBidId(bid.id); setSelectedBid(null); setSelectedBidPkg(null) }}>
+                            <PenLine className="h-3.5 w-3.5" />Sign as GC
+                          </Button>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-xs font-medium text-slate-500">Sub Signature</p>
+                        {sub.sub_signed_at ? (
+                          <div className="flex items-center gap-1.5 text-sm text-green-600">
+                            <CheckCircle2 className="h-4 w-4 shrink-0" />
+                            <span className="font-medium">{sub.sub_signed_by}</span>
+                            <span className="text-xs text-slate-400">{new Date(sub.sub_signed_at).toLocaleDateString()}</span>
+                          </div>
+                        ) : (
+                          <span className="inline-flex items-center rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-xs px-3 py-1">Awaiting sub signature</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal footer actions */}
+              <div className="sticky bottom-0 bg-white border-t border-slate-100 px-6 py-4 flex flex-wrap gap-2 justify-between items-center">
+                <Button variant="secondary" onClick={() => { setSelectedBid(null); setSelectedBidPkg(null) }}>Close</Button>
+                {pkg.status !== 'awarded' && bid.status !== 'rejected' && bid.status !== 'awarded' && (
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => { setRevisionBid(bid); setRevisionNote(''); setSelectedBid(null); setSelectedBidPkg(null) }}>
+                      <RotateCcw className="h-3.5 w-3.5" />
+                      Request Revision
+                    </Button>
+                    <Button disabled={awardingBid === bid.id} onClick={async () => { await awardBid(pkg.id, bid.id); setSelectedBid(null); setSelectedBidPkg(null) }}>
+                      <Award className="h-3.5 w-3.5" />
+                      {awardingBid === bid.id ? 'Awarding...' : 'Award Bid'}
+                    </Button>
+                  </div>
+                )}
+                {bid.status === 'awarded' && (
+                  <span className="text-sm font-medium text-green-600 flex items-center gap-1.5">
+                    <CheckCircle2 className="h-4 w-4" />Awarded
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div>
@@ -989,159 +1168,30 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                           <>
                           {/* Mobile bid cards */}
                           <div className="md:hidden divide-y divide-slate-100">
-                            {pkgBids.map((bid, i) => {
-                              const isBidExpanded = expandedBid === bid.id
-                              const scopeCats = (bid as any).scope_categories
-                              const hasDetails = bid.notes || bid.payment_terms || (scopeCats && scopeCats.length > 0)
-                              return (
-                                <div key={bid.id} className={cn('px-4 py-3 space-y-2', bid.status === 'awarded' && 'bg-green-50')}>
-                                  <button
-                                    type="button"
-                                    className="w-full text-left space-y-2"
-                                    onClick={() => setExpandedBid(isBidExpanded ? null : bid.id)}
-                                  >
-                                    <div className="flex items-start justify-between gap-2">
-                                      <div className="flex items-center gap-1.5 font-medium text-slate-800 min-w-0">
-                                        <ChevronRight className={cn('h-3.5 w-3.5 text-slate-400 transition-transform shrink-0', isBidExpanded && 'rotate-90')} />
-                                        <span className="truncate">{bid.companies?.name}</span>
-                                        {i === 0 && pkg.status !== 'awarded' && pkgBids.length > 1 && (
-                                          <span className="text-xs text-green-600 font-normal shrink-0">low</span>
-                                        )}
-                                      </div>
-                                      <Badge variant={getStatusVariant(bid.status)}>{bid.status}</Badge>
-                                    </div>
-                                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600">
-                                      <span className="font-semibold text-slate-900">${Number(bid.amount).toLocaleString()}</span>
-                                      <span>{bid.duration_days ? `${bid.duration_days}d` : '—'}</span>
-                                      <span>{bid.earliest_start_date ? new Date(bid.earliest_start_date).toLocaleDateString() : '—'}</span>
-                                      <span>Crew: {bid.crew_size ?? '—'}</span>
-                                    </div>
-                                  </button>
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    {bid.proposal_url && (
-                                      <a href={bid.proposal_url} target="_blank" rel="noopener noreferrer" className="text-xs text-orange-600 hover:underline flex items-center gap-1"><FileText className="h-3 w-3" />View Proposal</a>
-                                    )}
-                                    {pkg.status !== 'awarded' && bid.status !== 'rejected' && bid.status !== 'awarded' && (
-                                      <div className="flex items-center gap-1.5 ml-auto">
-                                        <Button
-                                          size="sm" variant="ghost"
-                                          onClick={() => { setRevisionBid(bid); setRevisionNote('') }}
-                                          title="Request revision from sub"
-                                        >
-                                          <RotateCcw className="h-3.5 w-3.5" />
-                                          Revise
-                                        </Button>
-                                        <Button size="sm" disabled={awardingBid === bid.id} onClick={() => awardBid(pkg.id, bid.id)}>
-                                          <Award className="h-3.5 w-3.5" />
-                                          {awardingBid === bid.id ? 'Awarding...' : 'Award'}
-                                        </Button>
-                                      </div>
-                                    )}
-                                    {bid.status === 'awarded' && (
-                                      <span className="text-xs font-medium text-green-600 ml-auto">Awarded ✓</span>
-                                    )}
-                                    {bid.status === 'revision_requested' && pkg.status !== 'awarded' && (
-                                      <span className="text-xs text-amber-600 font-medium ml-auto">Revision Requested</span>
+                            {pkgBids.map((bid, i) => (
+                              <button
+                                key={bid.id}
+                                type="button"
+                                className={cn('w-full text-left px-4 py-3 space-y-1.5 hover:bg-slate-50 transition-colors', bid.status === 'awarded' && 'bg-green-50')}
+                                onClick={() => { setSelectedBid(bid); setSelectedBidPkg(pkg) }}
+                              >
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="flex items-center gap-1.5 font-medium text-slate-800 min-w-0">
+                                    <span className="truncate">{bid.companies?.name}</span>
+                                    {i === 0 && pkg.status !== 'awarded' && pkgBids.length > 1 && (
+                                      <span className="text-xs text-green-600 font-normal shrink-0">low</span>
                                     )}
                                   </div>
-                                  {/* Signatures section — mobile */}
-                                  {bid.status === 'awarded' && (() => {
-                                    const sub = subForBid(bid.id)
-                                    if (!sub) return null
-                                    return (
-                                      <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-2">
-                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Signatures</p>
-                                        {sub.fully_executed_at && (
-                                          <div className="rounded-md bg-green-50 border border-green-200 px-3 py-2 text-xs font-semibold text-green-700 flex items-center gap-1.5">
-                                            <CheckCircle2 className="h-3.5 w-3.5" />
-                                            Fully Executed — {new Date(sub.fully_executed_at).toLocaleDateString()}
-                                          </div>
-                                        )}
-                                        <div className="grid grid-cols-2 gap-2">
-                                          <div className="rounded-md border border-slate-200 px-3 py-2 space-y-1">
-                                            <p className="text-xs text-slate-500 font-medium">GC Signature</p>
-                                            {sub.gc_signed_at ? (
-                                              <div className="flex items-center gap-1 text-xs text-green-600">
-                                                <CheckCircle2 className="h-3 w-3 shrink-0" />
-                                                <span className="truncate">{sub.gc_signed_by}</span>
-                                              </div>
-                                            ) : (
-                                              <Button size="sm" variant="outline" className="w-full text-xs h-7" onClick={() => setSignBidId(bid.id)}>
-                                                <PenLine className="h-3 w-3" />Sign as GC
-                                              </Button>
-                                            )}
-                                          </div>
-                                          <div className="rounded-md border border-slate-200 px-3 py-2 space-y-1">
-                                            <p className="text-xs text-slate-500 font-medium">Sub Signature</p>
-                                            {sub.sub_signed_at ? (
-                                              <div className="flex items-center gap-1 text-xs text-green-600">
-                                                <CheckCircle2 className="h-3 w-3 shrink-0" />
-                                                <span className="truncate">{sub.sub_signed_by}</span>
-                                              </div>
-                                            ) : (
-                                              <span className="inline-flex items-center rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-xs px-2 py-0.5">Awaiting sub</span>
-                                            )}
-                                          </div>
-                                        </div>
-                                      </div>
-                                    )
-                                  })()}
-                                  {isBidExpanded && (
-                                    <div className={cn('rounded-lg px-3 py-3 space-y-4', bid.status === 'awarded' ? 'bg-green-50/50' : 'bg-slate-50/50')}>
-                                      {scopeCats && scopeCats.length > 0 && (
-                                        <div className="space-y-2">
-                                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Scope Breakdown</p>
-                                          {scopeCats.map((cat: any) => (
-                                            <div key={cat.id} className="rounded-lg border border-slate-200 overflow-hidden bg-white">
-                                              <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border-b border-slate-100">
-                                                <span className="text-xs font-semibold text-slate-700">{cat.category || 'Uncategorized'}</span>
-                                                <span className="text-xs font-semibold text-slate-500">
-                                                  ${cat.items?.filter((i: any) => i.included && i.qty && i.unit_price)
-                                                    .reduce((s: number, i: any) => s + i.qty * i.unit_price, 0)
-                                                    .toLocaleString()}
-                                                </span>
-                                              </div>
-                                              <div className="divide-y divide-slate-50">
-                                                {cat.items?.map((item: any) => {
-                                                  const total = item.qty && item.unit_price ? item.qty * item.unit_price : null
-                                                  return (
-                                                    <div key={item.id} className={cn('flex flex-wrap items-center gap-x-3 gap-y-0.5 px-3 py-1.5 text-xs',
-                                                      !item.included && 'opacity-50')}>
-                                                      {item.included
-                                                        ? <Check className="h-3 w-3 text-green-500 shrink-0" />
-                                                        : <Ban className="h-3 w-3 text-red-400 shrink-0" />}
-                                                      <span className={cn('text-slate-700 flex-1 min-w-0', !item.included && 'line-through')}>{item.item}</span>
-                                                      <span className="text-slate-400">{item.qty ? `×${item.qty}` : ''}</span>
-                                                      <span className="text-slate-400">{item.unit_price ? `$${item.unit_price.toLocaleString()}` : ''}</span>
-                                                      <span className="text-slate-600 font-medium">{total ? `$${total.toLocaleString()}` : '—'}</span>
-                                                    </div>
-                                                  )
-                                                })}
-                                              </div>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      )}
-                                      {bid.payment_terms && (
-                                        <div>
-                                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Payment Terms</p>
-                                          <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{bid.payment_terms}</p>
-                                        </div>
-                                      )}
-                                      {bid.notes && (
-                                        <div>
-                                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Notes</p>
-                                          <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{bid.notes}</p>
-                                        </div>
-                                      )}
-                                      {!hasDetails && (
-                                        <p className="text-sm text-slate-400">No additional details provided.</p>
-                                      )}
-                                    </div>
-                                  )}
+                                  <Badge variant={getStatusVariant(bid.status)}>{bid.status}</Badge>
                                 </div>
-                              )
-                            })}
+                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600">
+                                  <span className="font-semibold text-slate-900">${Number(bid.amount).toLocaleString()}</span>
+                                  <span>{bid.duration_days ? `${bid.duration_days}d` : '—'}</span>
+                                  <span>Crew: {bid.crew_size ?? '—'}</span>
+                                  <span className="text-xs text-slate-400 ml-auto">Tap to view →</span>
+                                </div>
+                              </button>
+                            ))}
                           </div>
                           {/* Desktop bid table */}
                           <div className="hidden md:block">
@@ -1159,174 +1209,39 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                              {pkgBids.map((bid, i) => {
-                                const isBidExpanded = expandedBid === bid.id
-                                const scopeCats = (bid as any).scope_categories
-                                const hasDetails = bid.notes || bid.payment_terms || (scopeCats && scopeCats.length > 0)
-                                return (
-                                  <>
-                                    <tr
-                                      key={bid.id}
-                                      className={cn('hover:bg-slate-50 cursor-pointer transition-colors', bid.status === 'awarded' && 'bg-green-50 hover:bg-green-50/80')}
-                                      onClick={() => setExpandedBid(isBidExpanded ? null : bid.id)}
-                                    >
-                                      <td className="px-4 py-3 font-medium text-slate-800">
-                                        <div className="flex items-center gap-1.5">
-                                          <ChevronRight className={cn('h-3.5 w-3.5 text-slate-400 transition-transform shrink-0', isBidExpanded && 'rotate-90')} />
-                                          {bid.companies?.name}
-                                          {i === 0 && pkg.status !== 'awarded' && pkgBids.length > 1 && (
-                                            <span className="text-xs text-green-600 font-normal">low</span>
-                                          )}
-                                        </div>
-                                      </td>
-                                      <td className="px-4 py-3 font-semibold text-slate-900">${Number(bid.amount).toLocaleString()}</td>
-                                      <td className="px-4 py-3 text-slate-600">{bid.duration_days ? `${bid.duration_days}d` : '—'}</td>
-                                      <td className="px-4 py-3 text-slate-600">{bid.earliest_start_date ? new Date(bid.earliest_start_date).toLocaleDateString() : '—'}</td>
-                                      <td className="px-4 py-3 text-slate-600">{bid.crew_size ?? '—'}</td>
-                                      <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                                        {bid.proposal_url
-                                          ? <a href={bid.proposal_url} target="_blank" rel="noopener noreferrer" className="text-xs text-orange-600 hover:underline flex items-center gap-1"><FileText className="h-3 w-3" />View</a>
-                                          : <span className="text-slate-400 text-xs">—</span>}
-                                      </td>
-                                      <td className="px-4 py-3">
-                                        <Badge variant={getStatusVariant(bid.status)}>{bid.status}</Badge>
-                                      </td>
-                                      <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
-                                        {pkg.status !== 'awarded' && bid.status !== 'rejected' && bid.status !== 'awarded' && (
-                                          <div className="flex items-center gap-1.5 justify-end">
-                                            <Button
-                                              size="sm" variant="ghost"
-                                              onClick={() => { setRevisionBid(bid); setRevisionNote('') }}
-                                              title="Request revision from sub"
-                                            >
-                                              <RotateCcw className="h-3.5 w-3.5" />
-                                              Revise
-                                            </Button>
-                                            <Button size="sm" disabled={awardingBid === bid.id} onClick={() => awardBid(pkg.id, bid.id)}>
-                                              <Award className="h-3.5 w-3.5" />
-                                              {awardingBid === bid.id ? 'Awarding...' : 'Award'}
-                                            </Button>
-                                          </div>
-                                        )}
-                                        {bid.status === 'awarded' && (
-                                          <span className="text-xs font-medium text-green-600">Awarded ✓</span>
-                                        )}
-                                        {bid.status === 'revision_requested' && pkg.status !== 'awarded' && (
-                                          <span className="text-xs text-amber-600 font-medium">Revision Requested</span>
-                                        )}
-                                      </td>
-                                    </tr>
-                                    {isBidExpanded && (
-                                      <tr key={`${bid.id}-detail`} className={cn(bid.status === 'awarded' ? 'bg-green-50/50' : 'bg-slate-50/50')}>
-                                        <td colSpan={8} className="px-6 pb-5 pt-2">
-                                          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-
-                                            {/* Scope Breakdown */}
-                                            {scopeCats && scopeCats.length > 0 && (
-                                              <div className="md:col-span-2 space-y-2">
-                                                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Scope Breakdown</p>
-                                                {scopeCats.map((cat: any) => (
-                                                  <div key={cat.id} className="rounded-lg border border-slate-200 overflow-hidden bg-white">
-                                                    <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border-b border-slate-100">
-                                                      <span className="text-xs font-semibold text-slate-700">{cat.category || 'Uncategorized'}</span>
-                                                      <span className="text-xs font-semibold text-slate-500">
-                                                        ${cat.items?.filter((i: any) => i.included && i.qty && i.unit_price)
-                                                          .reduce((s: number, i: any) => s + i.qty * i.unit_price, 0)
-                                                          .toLocaleString()}
-                                                      </span>
-                                                    </div>
-                                                    <div className="divide-y divide-slate-50">
-                                                      {cat.items?.map((item: any) => {
-                                                        const total = item.qty && item.unit_price ? item.qty * item.unit_price : null
-                                                        return (
-                                                          <div key={item.id} className={cn('grid grid-cols-[16px_1fr_auto_auto_auto] gap-3 items-center px-3 py-1.5 text-xs',
-                                                            !item.included && 'opacity-50')}>
-                                                            {item.included
-                                                              ? <Check className="h-3 w-3 text-green-500 shrink-0" />
-                                                              : <Ban className="h-3 w-3 text-red-400 shrink-0" />}
-                                                            <span className={cn('text-slate-700', !item.included && 'line-through')}>{item.item}</span>
-                                                            <span className="text-slate-400">{item.qty ? `×${item.qty}` : ''}</span>
-                                                            <span className="text-slate-400">{item.unit_price ? `$${item.unit_price.toLocaleString()}` : ''}</span>
-                                                            <span className="text-slate-600 font-medium text-right">{total ? `$${total.toLocaleString()}` : '—'}</span>
-                                                          </div>
-                                                        )
-                                                      })}
-                                                    </div>
-                                                  </div>
-                                                ))}
-                                              </div>
-                                            )}
-
-                                            {/* Notes + Payment Terms */}
-                                            <div className="space-y-4">
-                                              {bid.payment_terms && (
-                                                <div>
-                                                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Payment Terms</p>
-                                                  <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{bid.payment_terms}</p>
-                                                </div>
-                                              )}
-                                              {bid.notes && (
-                                                <div>
-                                                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Notes</p>
-                                                  <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{bid.notes}</p>
-                                                </div>
-                                              )}
-                                              {!hasDetails && (
-                                                <p className="text-sm text-slate-400">No additional details provided.</p>
-                                              )}
-                                            </div>
-
-                                            {/* Signatures section — desktop */}
-                                            {bid.status === 'awarded' && (() => {
-                                              const sub = subForBid(bid.id)
-                                              if (!sub) return null
-                                              return (
-                                                <div className="md:col-span-3 rounded-lg border border-slate-200 bg-white px-4 py-3 space-y-3">
-                                                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Signatures</p>
-                                                  {sub.fully_executed_at && (
-                                                    <div className="rounded-md bg-green-50 border border-green-200 px-3 py-2 text-sm font-semibold text-green-700 flex items-center gap-2">
-                                                      <CheckCircle2 className="h-4 w-4" />
-                                                      Fully Executed — {new Date(sub.fully_executed_at).toLocaleDateString()}
-                                                    </div>
-                                                  )}
-                                                  <div className="grid grid-cols-2 gap-4">
-                                                    <div className="space-y-1">
-                                                      <p className="text-xs font-medium text-slate-500">GC Signature</p>
-                                                      {sub.gc_signed_at ? (
-                                                        <div className="flex items-center gap-1.5 text-sm text-green-600">
-                                                          <CheckCircle2 className="h-4 w-4 shrink-0" />
-                                                          <span className="font-medium">{sub.gc_signed_by}</span>
-                                                          <span className="text-xs text-slate-400">{new Date(sub.gc_signed_at).toLocaleDateString()}</span>
-                                                        </div>
-                                                      ) : (
-                                                        <Button size="sm" variant="outline" onClick={() => setSignBidId(bid.id)}>
-                                                          <PenLine className="h-3.5 w-3.5" />Sign as GC
-                                                        </Button>
-                                                      )}
-                                                    </div>
-                                                    <div className="space-y-1">
-                                                      <p className="text-xs font-medium text-slate-500">Sub Signature</p>
-                                                      {sub.sub_signed_at ? (
-                                                        <div className="flex items-center gap-1.5 text-sm text-green-600">
-                                                          <CheckCircle2 className="h-4 w-4 shrink-0" />
-                                                          <span className="font-medium">{sub.sub_signed_by}</span>
-                                                          <span className="text-xs text-slate-400">{new Date(sub.sub_signed_at).toLocaleDateString()}</span>
-                                                        </div>
-                                                      ) : (
-                                                        <span className="inline-flex items-center rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-xs px-2.5 py-1">Awaiting sub signature</span>
-                                                      )}
-                                                    </div>
-                                                  </div>
-                                                </div>
-                                              )
-                                            })()}
-                                          </div>
-                                        </td>
-                                      </tr>
-                                    )}
-                                  </>
-                                )
-                              })}
+                              {pkgBids.map((bid, i) => (
+                                <tr
+                                  key={bid.id}
+                                  className={cn('hover:bg-slate-50 cursor-pointer transition-colors', bid.status === 'awarded' && 'bg-green-50 hover:bg-green-50/80')}
+                                  onClick={() => { setSelectedBid(bid); setSelectedBidPkg(pkg) }}
+                                >
+                                  <td className="px-4 py-3 font-medium text-slate-800">
+                                    <div className="flex items-center gap-1.5">
+                                      {bid.companies?.name}
+                                      {i === 0 && pkg.status !== 'awarded' && pkgBids.length > 1 && (
+                                        <span className="text-xs text-green-600 font-normal">low</span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3 font-semibold text-slate-900">${Number(bid.amount).toLocaleString()}</td>
+                                  <td className="px-4 py-3 text-slate-600">{bid.duration_days ? `${bid.duration_days}d` : '—'}</td>
+                                  <td className="px-4 py-3 text-slate-600">{bid.earliest_start_date ? new Date(bid.earliest_start_date).toLocaleDateString() : '—'}</td>
+                                  <td className="px-4 py-3 text-slate-600">{bid.crew_size ?? '—'}</td>
+                                  <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                                    {bid.proposal_url
+                                      ? <a href={bid.proposal_url} target="_blank" rel="noopener noreferrer" className="text-xs text-orange-600 hover:underline flex items-center gap-1"><FileText className="h-3 w-3" />View</a>
+                                      : <span className="text-slate-400 text-xs">—</span>}
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <Badge variant={getStatusVariant(bid.status)}>{bid.status}</Badge>
+                                  </td>
+                                  <td className="px-4 py-3 text-right text-xs text-slate-400">
+                                    {bid.status === 'awarded' && <span className="font-medium text-green-600">Awarded ✓</span>}
+                                    {bid.status === 'revision_requested' && <span className="font-medium text-amber-600">Revision Requested</span>}
+                                    {bid.status === 'submitted' && <span>View →</span>}
+                                  </td>
+                                </tr>
+                              ))}
                             </tbody>
                           </table>
                           </div>
