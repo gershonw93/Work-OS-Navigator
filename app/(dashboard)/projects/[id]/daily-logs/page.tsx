@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 import {
   Plus, X, ChevronDown, ChevronUp, BookOpen, AlertTriangle,
   CloudRain, Sun, Cloud, CloudSnow, Wind, Thermometer,
-  Users, Building2, Camera, Clock, CheckSquare, Trash2, Flag,
+  Users, Building2, Camera, Clock, CheckSquare, Trash2, Flag, Pencil,
 } from 'lucide-react'
 
 const WEATHER_OPTIONS = [
@@ -197,6 +197,49 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
     } finally {
       setWeatherLoading(false)
     }
+  }
+
+  function openEditLog(log: DailyLog) {
+    setEditingLog(log)
+    setEditLogDate(log.log_date)
+    setEditWorkersOnsite(String(log.workers_on_site?.length ?? ''))
+    setEditNotes(log.notes ?? '')
+    setEditWeather(log.weather_condition ?? '')
+    setEditTempF(log.temperature ?? '')
+    setShowEditModal(true)
+  }
+
+  async function handleEditSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editingLog) return
+    setEditSubmitting(true)
+    const token = await getToken()
+    const body: Record<string, unknown> = {
+      log_date: editLogDate,
+      notes: editNotes || null,
+      weather_condition: editWeather || null,
+      temperature: editTempF || null,
+    }
+    if (editWorkersOnsite !== '') body.workers_onsite = Number(editWorkersOnsite)
+    await fetch(`/api/projects/${params.id}/daily-logs/${editingLog.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    })
+    setShowEditModal(false)
+    setEditingLog(null)
+    setEditSubmitting(false)
+    fetchLogs()
+  }
+
+  async function handleDeleteLog(logId: string) {
+    if (!window.confirm('Delete this daily log? This cannot be undone.')) return
+    const token = await getToken()
+    await fetch(`/api/projects/${params.id}/daily-logs/${logId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    fetchLogs()
   }
 
   async function handleSubmit(e: React.FormEvent) {
