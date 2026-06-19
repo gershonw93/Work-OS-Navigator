@@ -323,6 +323,55 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
   return (
     <div className="p-4 sm:p-6 space-y-5">
 
+      {/* Edit log modal */}
+      {showEditModal && editingLog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+            <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h2 className="font-semibold text-slate-900">Edit Daily Log</h2>
+              <button onClick={() => { setShowEditModal(false); setEditingLog(null) }} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
+            </div>
+            <form onSubmit={handleEditSubmit}>
+              <div className="px-4 sm:px-6 py-5 space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">Date</label>
+                  <input type="date" value={editLogDate} onChange={e => setEditLogDate(e.target.value)} required
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-slate-700">Weather</label>
+                    <select value={editWeather} onChange={e => setEditWeather(e.target.value)}
+                      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white focus:border-orange-500 focus:outline-none">
+                      <option value="">—</option>
+                      {WEATHER_OPTIONS.map(w => <option key={w.value} value={w.value}>{w.label}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-slate-700">Temp (°F)</label>
+                    <input type="number" value={editTempF} onChange={e => setEditTempF(e.target.value)} placeholder="e.g. 72"
+                      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none" />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">Notes</label>
+                  <textarea rows={3} value={editNotes} onChange={e => setEditNotes(e.target.value)} placeholder="Any notes..."
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none resize-none" />
+                </div>
+              </div>
+              <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex flex-wrap gap-2 justify-end">
+                <button type="button" onClick={() => { setShowEditModal(false); setEditingLog(null) }}
+                  className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+                <button type="submit" disabled={editSubmitting}
+                  className="rounded-md bg-orange-500 hover:bg-orange-600 text-white px-3 py-2 text-sm font-medium disabled:opacity-60">
+                  {editSubmitting ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Create task modal */}
       {createTaskFromLog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -668,7 +717,15 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                       })()}
                     </p>
                   </div>
-                  <div className="shrink-0 text-slate-400">
+                  <div className="flex items-center gap-1 shrink-0 text-slate-400">
+                    <button type="button" onClick={e => { e.stopPropagation(); openEditLog(log) }}
+                      className="p-1 text-slate-400 hover:text-slate-600" title="Edit log">
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <button type="button" onClick={e => { e.stopPropagation(); handleDeleteLog(log.id) }}
+                      className="p-1 text-red-400 hover:text-red-600" title="Delete log">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                     {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                   </div>
                 </button>

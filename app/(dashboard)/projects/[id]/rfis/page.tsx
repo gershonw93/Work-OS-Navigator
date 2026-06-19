@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
-import { X, ChevronDown, ChevronUp, MessageSquare, DollarSign, CheckCircle2, Clock, AlertCircle, Check, XCircle, RefreshCw, Paperclip } from 'lucide-react'
+import { X, ChevronDown, ChevronUp, MessageSquare, DollarSign, CheckCircle2, Clock, AlertCircle, Check, XCircle, RefreshCw, Paperclip, Trash2, Pencil } from 'lucide-react'
 
 interface RFI {
   id: string; rfi_number: number; submitted_by_name: string; company_name: string | null
@@ -34,6 +34,11 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
   const [coDecision, setCoDecision] = useState<'approved' | 'denied' | 'revision_requested' | null>(null)
   const [responding, setResponding] = useState(false)
 
+  const [editingRfi, setEditingRfi] = useState<RFI | null>(null)
+  const [editSubject, setEditSubject] = useState('')
+  const [editDescription, setEditDescription] = useState('')
+  const [editSubmitting, setEditSubmitting] = useState(false)
+
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
     return session?.access_token ?? ''
@@ -47,6 +52,37 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
   }
 
   useEffect(() => { fetchRfis() }, [params.id])
+
+  function openEditRfi(rfi: RFI) {
+    setEditingRfi(rfi)
+    setEditSubject(rfi.subject)
+    setEditDescription(rfi.description)
+  }
+
+  async function handleEditRfi(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editingRfi) return
+    setEditSubmitting(true)
+    const token = await getToken()
+    await fetch(`/api/projects/${params.id}/rfis/${editingRfi.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ subject: editSubject, description: editDescription }),
+    })
+    setEditingRfi(null)
+    setEditSubmitting(false)
+    fetchRfis()
+  }
+
+  async function handleDeleteRfi(rfiId: string) {
+    if (!window.confirm('Delete this RFI? This cannot be undone.')) return
+    const token = await getToken()
+    await fetch(`/api/projects/${params.id}/rfis/${rfiId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    fetchRfis()
+  }
 
   function openRespond(rfi: RFI) {
     setRespondingTo(rfi)
