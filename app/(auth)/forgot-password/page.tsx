@@ -1,0 +1,87 @@
+'use client'
+
+import Link from 'next/link'
+import { useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+
+export default function ForgotPasswordPage() {
+  const supabase = createClient()
+
+  const [email, setEmail] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
+  const [loading, setLoading] = useState(false)
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setLoading(true)
+
+    const { error: authError } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + '/reset-password',
+    })
+
+    setLoading(false)
+
+    if (authError) {
+      setError(authError.message)
+      return
+    }
+
+    setSuccess(true)
+  }
+
+  return (
+    <div>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-white">Forgot password</h1>
+        <p className="mt-1 text-sm text-slate-400">
+          Enter your email and we&apos;ll send you a reset link
+        </p>
+      </div>
+
+      {success ? (
+        <div className="rounded-md bg-green-900/40 border border-green-700 px-4 py-3">
+          <p className="text-sm text-green-400">Check your email for a reset link</p>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="email" className="text-slate-300">
+              Email address
+            </Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="you@company.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              autoComplete="email"
+              className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-500 focus:border-orange-500"
+            />
+          </div>
+
+          {error && (
+            <div className="rounded-md bg-red-900/40 border border-red-700 px-4 py-2.5">
+              <p className="text-sm text-red-400">{error}</p>
+            </div>
+          )}
+
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? 'Sending...' : 'Send Reset Link'}
+          </Button>
+        </form>
+      )}
+
+      <p className="mt-6 text-center text-sm text-slate-400">
+        <Link href="/login" className="font-medium text-orange-400 hover:text-orange-300 transition-colors">
+          Back to sign in
+        </Link>
+      </p>
+    </div>
+  )
+}
