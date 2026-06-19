@@ -70,41 +70,28 @@ export async function POST(request: Request, { params }: { params: { id: string 
     }
   }
 
-  const fullPayload = {
-    project_id: params.id,
-    created_by: user.id,
-    created_by_name: (profile as any)?.full_name ?? 'Unknown',
-    log_date,
-    weather_condition: weather_condition || null,
-    temperature: temperature || null,
-    notes: notes || null,
-    has_issues,
-    issue_description: has_issues ? (issue_description || null) : null,
-    delays,
-    subs_on_site,
-    workers_on_site,
-    photos,
+  // Try inserting with all extended columns first, then progressively strip back
+  const attempts = [
+    // Full payload with all fields
+    { project_id: params.id, created_by: user.id, created_by_name: (profile as any)?.full_name ?? 'Unknown', log_date, notes: notes || '', workers_onsite: workers_on_site.length || 0, weather_condition: weather_condition || null, temperature: temperature || null, has_issues, issue_description: has_issues ? (issue_description || null) : null, delays, subs_on_site, workers_on_site, photos },
+    // Without extended columns
+    { project_id: params.id, created_by: user.id, log_date, notes: notes || '', workers_onsite: workers_on_site.length || 0 },
+    // Without created_by (in case profile FK missing)
+    { project_id: params.id, log_date, notes: notes || '', workers_onsite: 0 },
+  ]
+
+  let log: any = null
+  let error: any = null
+
+  for (const payload of attempts) {
+    const result = await db.from('daily_logs').insert(payload as any).select().single()
+    if (!result.error) { log = result.data; break }
+    error = result.error
+    // Only retry on column/FK errors, not on other errors
+    if (!['42703', '42P01', '23503', '23502'].includes(result.error.code)) break
   }
 
-  let { data: log, error } = await db.from('daily_logs').insert(fullPayload).select().single()
-
-  // Fallback 1: strip extended columns if they don't exist yet
-  if (error && (error.code === '42703' || error.code === '42P01')) {
-    const mid = { project_id: params.id, created_by: user.id, log_date, notes: notes || '', workers_onsite: workers_on_site.length || 0 }
-    const retry = await db.from('daily_logs').insert(mid).select().single()
-    log = retry.data
-    error = retry.error
-  }
-
-  // Fallback 2: created_by FK might fail if profile doesn't exist — try without it
-  if (error && (error.code === '23503' || error.code === '42703')) {
-    const bare = { project_id: params.id, log_date, notes: notes || '', workers_onsite: workers_on_site.length || 0 }
-    const retry2 = await db.from('daily_logs').insert(bare).select().single()
-    log = retry2.data
-    error = retry2.error
-  }
-
-  if (error) return NextResponse.json({ error: `Save failed: ${error.message} (code: ${error.code})` }, { status: 500 })
+  if (!log) return NextResponse.json({ error: `Save failed: ${error?.message} (code: ${error?.code})` }, { status: 500 })
 
   // Insert into daily_log_photos table
   if (photos.length > 0) {
