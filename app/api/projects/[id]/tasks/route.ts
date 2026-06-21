@@ -16,26 +16,16 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
   const { data: profile } = await db.from('profiles').select('role, full_name').eq('id', user.id).single()
 
-  const [{ data: allTasks }, { data: members }, { data: subcontracts }] = await Promise.all([
-    db.from('project_tasks')
-      .select('*')
-      .eq('project_id', params.id)
-      .order('created_at', { ascending: false }),
-    db.from('project_team_members')
-      .select('id, name, role')
-      .eq('project_id', params.id)
-      .order('name'),
-    db.from('subcontracts')
-      .select('id, scope, trade, companies(id, name)')
-      .eq('project_id', params.id)
-      .order('created_at'),
+  const [{ data: members }, { data: subcontracts }] = await Promise.all([
+    db.from('project_team_members').select('id, name, role').eq('project_id', params.id).order('name'),
+    db.from('subcontracts').select('id, scope, trade, companies(id, name)').eq('project_id', params.id).order('created_at'),
   ])
 
-  const restrictedRoles = ['field_supervisor', 'worker', 'member']
-  let tasks = allTasks ?? []
+  const restrictedRoles = ['field_supervisor', 'worker', 'read_only', 'member']
+  let tasks: any[] = []
 
-  if (profile && restrictedRoles.includes((profile as any).role)) {
-    // Find this user's team member record by profile_id or name fallback
+  if (profile?.role && restrictedRoles.includes(profile.role)) {
+    // Find their team member record by profile_id first, then by name
     const { data: memberRecord } = await db
       .from('project_team_members')
       .select('id, name')
@@ -43,19 +33,14 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .eq('profile_id', user.id)
       .maybeSingle()
 
-    let memberId: string | null = memberRecord?.id ?? null
+    const { data: rawTasks } = memberRecord
+      ? await db.from('project_tasks').select('*').eq('project_id', params.id).eq('assigned_to_member_id', memberRecord.id).order('created_at', { ascending: false })
+      : await db.from('project_tasks').select('*').eq('project_id', params.id).eq('assigned_to_name', profile.full_name ?? '').order('created_at', { ascending: false })
 
-    if (!memberId && (profile as any).full_name) {
-      // Fallback: match by name
-      const nameMatch = (members ?? []).find((m: any) => m.name === (profile as any).full_name)
-      memberId = nameMatch?.id ?? null
-    }
-
-    if (memberId) {
-      tasks = tasks.filter((t: any) => t.assigned_to_member_id === memberId)
-    } else {
-      tasks = []
-    }
+    tasks = rawTasks ?? []
+  } else {
+    const { data: allTasks } = await db.from('project_tasks').select('*').eq('project_id', params.id).order('created_at', { ascending: false })
+    tasks = allTasks ?? []
   }
 
   return NextResponse.json({ tasks, members: members ?? [], subcontracts: subcontracts ?? [] })

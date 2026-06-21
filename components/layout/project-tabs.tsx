@@ -12,6 +12,18 @@ import {
   Wrench, ChevronRight,
 } from 'lucide-react'
 
+// What each role can see in project tabs
+const ROLE_ALLOWED_SLUGS: Record<string, string[]> = {
+  admin:            ['plans','schedule','tasks','progress','daily-logs','team','bids','rfis','invoices','financials','change-orders','permits','inspections','submittals','compliance','reports'],
+  project_manager:  ['plans','schedule','tasks','progress','daily-logs','team','bids','rfis','invoices','change-orders','permits','inspections','submittals','compliance','reports'],
+  office_staff:     ['invoices','financials','change-orders','compliance','submittals','reports','permits','inspections'],
+  field_supervisor: ['plans','schedule','tasks','daily-logs','progress'],
+  worker:           ['plans','tasks','daily-logs'],
+  member:           ['plans','tasks','daily-logs'],
+  manager:          ['plans','schedule','tasks','progress','daily-logs','team','bids','rfis','invoices','change-orders','permits','inspections','submittals','compliance','reports'],
+  read_only:        ['plans','schedule','tasks','progress','daily-logs','team','rfis','invoices','permits','inspections','compliance','reports'],
+}
+
 const groups = [
   {
     label: 'Field',
@@ -61,19 +73,6 @@ const groups = [
 
 const allTabs = groups.flatMap(g => g.tabs)
 
-const ALL_SLUGS = allTabs.map(t => t.slug)
-
-const ROLE_ALLOWED_SLUGS: Record<string, string[]> = {
-  admin: ALL_SLUGS,
-  project_manager: ['plans','schedule','tasks','progress','daily-logs','team','bids','rfis','invoices','change-orders','permits','inspections','submittals','compliance','reports'],
-  office_staff: ['invoices','financials','change-orders','compliance','submittals','reports','permits'],
-  field_supervisor: ['plans','schedule','tasks','daily-logs','progress'],
-  worker: ['plans','tasks','daily-logs'],
-  read_only: ALL_SLUGS,
-  manager: ['plans','schedule','tasks','progress','daily-logs','team','bids','rfis','invoices','change-orders','permits','inspections','submittals','compliance','reports'],
-  member: ['plans','tasks','daily-logs'],
-}
-
 interface ProjectTabsProps {
   projectId: string
 }
@@ -86,25 +85,22 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
 
   useEffect(() => {
     const supabase = createClient()
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session?.user) return
-      supabase.from('profiles').select('role').eq('id', session.user.id).single().then(({ data }) => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      supabase.from('profiles').select('role').eq('id', user.id).single().then(({ data }) => {
         if (data?.role) setUserRole(data.role)
       })
     })
   }, [])
 
-  const allowedSlugs = ROLE_ALLOWED_SLUGS[userRole] ?? ALL_SLUGS
-
-  const visibleGroups = groups.map(g => ({
-    ...g,
-    tabs: g.tabs.filter(t => allowedSlugs.includes(t.slug)),
-  })).filter(g => g.tabs.length > 0)
-
-  const visibleTabs = visibleGroups.flatMap(g => g.tabs)
+  const allowedSlugs = ROLE_ALLOWED_SLUGS[userRole] ?? ROLE_ALLOWED_SLUGS['admin']
+  const filteredGroups = groups
+    .map(g => ({ ...g, tabs: g.tabs.filter(t => allowedSlugs.includes(t.slug)) }))
+    .filter(g => g.tabs.length > 0)
+  const visibleTabs = filteredGroups.flatMap(g => g.tabs)
 
   const activeTab = visibleTabs.find(t => pathname.includes(`/${t.slug}`))
-  const activeGroup = visibleGroups.find(g => g.tabs.some(t => t.slug === activeTab?.slug))
+  const activeGroup = filteredGroups.find(g => g.tabs.some(t => t.slug === activeTab?.slug))
 
   function navigate(slug: string) {
     setOpen(false)
@@ -181,7 +177,7 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
             </div>
 
             <div className="px-4 pb-8 space-y-4">
-              {visibleGroups.map(group => (
+              {filteredGroups.map(group => (
                 <div key={group.label}>
                   <p className={cn('text-xs font-bold uppercase tracking-widest mb-2 px-1', group.color)}>
                     {group.label}
