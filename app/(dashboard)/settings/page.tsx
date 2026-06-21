@@ -212,17 +212,13 @@ export default function SettingsPage() {
   const [dangerMsg, setDangerMsg] = useState<{ ok: boolean; text: string } | null>(null)
 
   const loadTeammates = useCallback(async () => {
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    const { data: myProfile } = await supabase.from('profiles').select('company_id').eq('id', user.id).single()
-    if (!myProfile?.company_id) return
-    const { data } = await supabase
-      .from('profiles')
-      .select('id, full_name, email, role')
-      .eq('company_id', myProfile.company_id)
-      .order('full_name')
-    if (data) setTeammates(data)
+    // Use API (service role) so RLS doesn't block seeing other company members
+    const headers = await authHeaders()
+    const res = await fetch('/api/settings/teammates', { headers })
+    if (res.ok) {
+      const data = await res.json()
+      if (data.teammates) setTeammates(data.teammates)
+    }
   }, [])
 
   // ── Load — always pull directly from Supabase client first so profile/role
@@ -846,7 +842,7 @@ export default function SettingsPage() {
                                 </span>
                               </td>
                               <td className="px-4 py-3">
-                                {!isSelf && userRole === 'admin' && (
+                                {!isSelf && userRole === 'admin' && t.id !== profile?.id && (
                                   <button
                                     onClick={() => removeMember(t.id, t.full_name ?? t.email)}
                                     className="text-xs text-red-500 hover:text-red-700 hover:underline"
@@ -856,7 +852,8 @@ export default function SettingsPage() {
                                 )}
                               </td>
                             </tr>
-                          )})}
+                            )
+                          })}
 
                         </tbody>
                       </table>
