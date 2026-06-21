@@ -225,36 +225,58 @@ export default function SettingsPage() {
     if (data) setTeammates(data)
   }, [])
 
-  // ── Load ──────────────────────────────────────────────────────────────────
-
+  // ── Load — always pull directly from Supabase client first so profile/role
+  //    are never blank regardless of API errors
   const loadSettings = useCallback(async () => {
     try {
-      const headers = await authHeaders()
-      const res = await fetch('/api/settings', { headers })
-      if (!res.ok) throw new Error('Failed to load settings')
-      const data = await res.json()
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { setLoading(false); return }
 
-      const p: Profile = data.profile
-      setProfile(p)
-      setUserRole(p.role ?? 'read_only')
-      setFullName(p.full_name ?? '')
-      setProfilePhone(p.phone ?? '')
+      // Load profile directly — never silently blank
+      const { data: p } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, phone, role, company_id')
+        .eq('id', user.id)
+        .single()
 
-      if (data.company) {
-        const c: Company = data.company
-        setCompany(c)
-        setCompanyName(c.name ?? '')
-        setCompanyType(c.type ?? '')
-        setContactEmail(c.contact_email ?? '')
-        setCompanyPhone(c.phone ?? '')
-        setAddress(c.address ?? '')
-        setLicenseNumber(c.license_number ?? '')
+      if (p) {
+        // Fill blanks from auth if DB row is missing them
+        const resolvedName = p.full_name || user.user_metadata?.full_name || ''
+        const resolvedEmail = p.email || user.email || ''
+        setProfile({ ...p, full_name: resolvedName, email: resolvedEmail })
+        setUserRole(p.role ?? 'read_only')
+        setFullName(resolvedName)
+        setProfilePhone(p.phone ?? '')
       }
 
-      if (data.teammates?.length) setTeammates(data.teammates)
-      if (data.pendingInvites) setPendingInvites(data.pendingInvites)
+      // Load company if linked
+      if (p?.company_id) {
+        const { data: c } = await supabase
+          .from('companies')
+          .select('id, name, type, contact_email, phone, address, license_number')
+          .eq('id', p.company_id)
+          .single()
+        if (c) {
+          setCompany(c)
+          setCompanyName(c.name ?? '')
+          setCompanyType(c.type ?? '')
+          setContactEmail(c.contact_email ?? '')
+          setCompanyPhone(c.phone ?? '')
+          setAddress(c.address ?? '')
+          setLicenseNumber(c.license_number ?? '')
+        }
+      }
+
+      // Also fetch pending invites via API (needs service role)
+      const headers = await authHeaders()
+      const res = await fetch('/api/settings', { headers })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.pendingInvites) setPendingInvites(data.pendingInvites)
+      }
     } catch {
-      // silently fail — no state to clean up
+      // ignore — direct Supabase calls above already populated state
     } finally {
       setLoading(false)
     }
@@ -516,7 +538,10 @@ export default function SettingsPage() {
           <ul className="space-y-1">
             {TABS.filter(({ id }) => {
               const isAdmin = userRole === 'admin'
-              const isManager = isAdmin || userRole === 'project_manager' || userRole === 'manager'
+              const isManager = isAdmin || userRole === 'project_manager' || userRole === 'manager' || userRole === 'office_staff'
+              const isRestricted = ['field_supervisor', 'worker', 'member', 'read_only'].includes(userRole)
+              // Restricted users: only Profile and Notifications
+              if (isRestricted) return id === 'profile' || id === 'notifications'
               if (id === 'team' || id === 'permissions' || id === 'billing' || id === 'danger') return isAdmin
               if (id === 'company') return isManager
               return true
