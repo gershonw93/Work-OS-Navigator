@@ -63,6 +63,24 @@ export async function GET(request: Request) {
 
   if (!profile) return NextResponse.json({ error: 'Could not load profile' }, { status: 500 })
 
+  // Backfill email/full_name from auth if the profile row has blanks
+  const needsBackfill =
+    (!profile.email && user.email) ||
+    (!profile.full_name && user.user_metadata?.full_name)
+  if (needsBackfill) {
+    const backfill: Record<string, string> = {}
+    if (!profile.email && user.email) backfill.email = user.email
+    if (!profile.full_name && user.user_metadata?.full_name) backfill.full_name = user.user_metadata.full_name
+    await db.from('profiles').update(backfill).eq('id', user.id)
+    if (backfill.email) profile.email = backfill.email
+    if (backfill.full_name) profile.full_name = backfill.full_name
+  }
+
+  // Always ensure email matches auth (source of truth)
+  if (user.email && profile.email !== user.email) {
+    profile.email = user.email
+  }
+
   // If profile has no company_id, find the existing one from their projects first
   if (!profile.company_id) {
     // Look for a company linked to projects this user created
