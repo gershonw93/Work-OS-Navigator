@@ -1,14 +1,16 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useState, Suspense } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
-export default function ResetPasswordPage() {
+function ResetPasswordForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const isInvite = searchParams.get('type') === 'invite'
   const supabase = createClient()
 
   const [password, setPassword] = useState('')
@@ -46,8 +48,12 @@ export default function ResetPasswordPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white">Reset password</h1>
-        <p className="mt-1 text-sm text-slate-400">Enter your new password below</p>
+        <h1 className="text-2xl font-bold text-white">{isInvite ? 'Welcome! Set your password' : 'Reset password'}</h1>
+        <p className="mt-1 text-sm text-slate-400">
+          {isInvite
+            ? 'Create a password to activate your account'
+            : 'Enter your new password below'}
+        </p>
       </div>
 
       {success ? (
@@ -100,5 +106,13 @@ export default function ResetPasswordPage() {
         </form>
       )}
     </div>
+  )
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense>
+      <ResetPasswordForm />
+    </Suspense>
   )
 }

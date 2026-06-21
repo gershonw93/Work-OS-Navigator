@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   User, Building2, Users, Shield, Bell, CreditCard, AlertTriangle,
-  Check, X, SlidersHorizontal,
+  Check, X, SlidersHorizontal, Plug, Palette, Camera, RefreshCw, Ban,
 } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -425,6 +425,36 @@ export default function SettingsPage() {
     }
   }
 
+  // ── Resend Invite ─────────────────────────────────────────────────────────
+
+  async function resendInvite(email: string, role: string) {
+    try {
+      const headers = await authHeaders()
+      await fetch('/api/invite', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ email, role }),
+      })
+      setInviteMsg({ ok: true, text: `Invite resent to ${email}` })
+      setTimeout(() => setInviteMsg(null), 3000)
+    } catch {
+      setInviteMsg({ ok: false, text: 'Failed to resend invite.' })
+    }
+  }
+
+  // ── Cancel Invite ─────────────────────────────────────────────────────────
+
+  async function cancelInvite(inviteId: string) {
+    if (!window.confirm('Cancel this invite?')) return
+    try {
+      const headers = await authHeaders()
+      await fetch(`/api/invite/${inviteId}`, { method: 'DELETE', headers })
+      setPendingInvites((prev) => prev.filter((i) => i.id !== inviteId))
+    } catch {
+      // fail silently
+    }
+  }
+
   // ── Notifications ─────────────────────────────────────────────────────────
 
   async function toggleNotif(key: keyof NotifState, value: boolean) {
@@ -771,7 +801,7 @@ export default function SettingsPage() {
 
               {/* Pending Invites */}
               {pendingInvites.length > 0 && (
-                <Card>
+                <Card className="mt-4">
                   <CardHeader><CardTitle className="text-base">Pending Invites</CardTitle></CardHeader>
                   <CardContent className="p-0">
                     <table className="w-full text-sm">
@@ -780,7 +810,7 @@ export default function SettingsPage() {
                           <th className="text-left px-4 py-3 font-medium text-slate-600">Email</th>
                           <th className="text-left px-4 py-3 font-medium text-slate-600">Role</th>
                           <th className="text-left px-4 py-3 font-medium text-slate-600">Sent</th>
-                          <th className="text-left px-4 py-3 font-medium text-slate-600">Status</th>
+                          <th className="text-left px-4 py-3 font-medium text-slate-600">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -790,9 +820,25 @@ export default function SettingsPage() {
                             <td className="px-4 py-3"><RoleBadge role={inv.role} /></td>
                             <td className="px-4 py-3 text-slate-500 text-xs">{new Date(inv.created_at).toLocaleDateString()}</td>
                             <td className="px-4 py-3">
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
-                                Awaiting sign-up
-                              </span>
+                              <div className="flex items-center gap-3">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
+                                  Pending
+                                </span>
+                                <button
+                                  onClick={() => resendInvite(inv.email, inv.role)}
+                                  className="text-xs text-blue-500 hover:text-blue-700 hover:underline flex items-center gap-1"
+                                >
+                                  <RefreshCw className="h-3 w-3" />
+                                  Resend
+                                </button>
+                                <button
+                                  onClick={() => cancelInvite(inv.id)}
+                                  className="text-xs text-red-500 hover:text-red-700 hover:underline flex items-center gap-1"
+                                >
+                                  <Ban className="h-3 w-3" />
+                                  Cancel
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -800,6 +846,13 @@ export default function SettingsPage() {
                     </table>
                   </CardContent>
                 </Card>
+              )}
+
+              {/* Inline message for resend/cancel feedback */}
+              {inviteMsg && !showInvite && (
+                <p className={`mt-3 text-sm ${inviteMsg.ok ? 'text-green-600' : 'text-red-600'}`}>
+                  {inviteMsg.text}
+                </p>
               )}
 
               {/* Invite Modal */}
