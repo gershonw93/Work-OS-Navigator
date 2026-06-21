@@ -42,7 +42,7 @@ export async function POST(request: Request) {
   }
 
   // Send Supabase auth invite
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL?.replace('.supabase.co', '.vercel.app') ?? 'http://localhost:3000'
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://work-os-navigator.vercel.app').replace(/\/$/, '')
   const { error: inviteError } = await db.auth.admin.inviteUserByEmail(email, {
     data: { company_id, role: role ?? 'read_only', full_name: body.full_name ?? '' },
     redirectTo: `${siteUrl}/auth/callback`,
