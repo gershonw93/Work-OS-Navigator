@@ -14,38 +14,61 @@ export default function AuthCallbackPage() {
     const supabase = createClient()
 
     async function handleCallback() {
-      // Parse hash fragment manually so we can read type before Supabase consumes it
       const hash = window.location.hash.substring(1)
       const params = new URLSearchParams(hash)
-      const type = params.get('type')
+      const type = params.get('type') as 'invite' | 'recovery' | 'signup' | 'magiclink' | null
       const accessToken = params.get('access_token')
       const refreshToken = params.get('refresh_token')
+      const tokenHash = params.get('token_hash') // PKCE flow
 
-      if (!accessToken) {
-        setError('Invalid or expired link. Please request a new one.')
+      if (!accessToken && !tokenHash) {
+        // Maybe Supabase already handled it via onAuthStateChange
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) {
+          router.replace('/dashboard')
+          return
+        }
+        setError('Invalid or expired link. Please ask to be re-invited.')
         return
       }
 
-      // Exchange tokens with Supabase
-      const { error: sessionError } = await supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken ?? '',
-      })
-
-      if (sessionError) {
-        setError(sessionError.message)
-        return
-      }
-
+      // For invite/recovery tokens use verifyOtp
       if (type === 'invite' || type === 'recovery') {
-        // Send them to set their password
+        // The access_token in invite links IS a valid session token from Supabase
+        // Try setSession first; fall back to verifyOtp
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: accessToken!,
+          refresh_token: refreshToken ?? '',
+        })
+
+        if (sessionError) {
+          // Try as OTP token
+          const emailParam = params.get('email') ?? ''
+          const { error: otpError } = await supabase.auth.verifyOtp({
+            email: emailParam,
+            token: accessToken!,
+            type: type === 'invite' ? 'invite' : 'recovery',
+          })
+          if (otpError) {
+            setError(`Link error: ${otpError.message}. Please request a new invite.`)
+            return
+          }
+        }
+
         setMessage('Redirecting to set your password…')
-        router.replace(`/reset-password${type === 'invite' ? '?type=invite' : ''}`)
-      } else {
-        // email confirmation or other — go to dashboard
-        setMessage('Email confirmed! Redirecting…')
-        router.replace('/dashboard')
+        router.replace(type === 'invite' ? '/reset-password?type=invite' : '/reset-password')
+        return
       }
+
+      // Email confirmation / magic link
+      if (accessToken) {
+        await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken ?? '',
+        })
+      }
+      setMessage('Verified! Redirecting…')
+      router.replace('/dashboard')
     }
 
     handleCallback()
@@ -65,10 +88,7 @@ export default function AuthCallbackPage() {
         {error ? (
           <div className="bg-red-900/40 border border-red-700 rounded-lg px-6 py-4 max-w-sm">
             <p className="text-red-400 text-sm">{error}</p>
-            <a
-              href="/login"
-              className="mt-3 inline-block text-sm text-orange-400 hover:text-orange-300 underline"
-            >
+            <a href="/login" className="mt-3 inline-block text-sm text-orange-400 hover:text-orange-300 underline">
               Back to login
             </a>
           </div>
