@@ -63,6 +63,16 @@ export async function GET(request: Request) {
 
   if (!profile) return NextResponse.json({ error: 'Could not load profile' }, { status: 500 })
 
+  // Mark this user's invite as accepted (they've logged in and have a profile)
+  if (profile.company_id && user.email) {
+    await db
+      .from('company_invites')
+      .update({ status: 'accepted' })
+      .eq('company_id', profile.company_id)
+      .eq('email', user.email)
+      .eq('status', 'pending')
+  }
+
   // Backfill email/full_name from auth if the profile row has blanks
   const needsBackfill =
     (!profile.email && user.email) ||

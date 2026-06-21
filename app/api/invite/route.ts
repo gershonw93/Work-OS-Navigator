@@ -59,34 +59,21 @@ export async function POST(request: Request) {
     }
   }
 
-  // Record the invite (upsert so resend doesn't duplicate)
-  const { error: dbError } = await db
-    .from('company_invites')
-    .upsert(
-      {
-        company_id,
-        email,
-        invited_by: user.id,
-        role: role ?? 'read_only',
-        status: 'pending',
-      },
-      { onConflict: 'company_id,email', ignoreDuplicates: false }
-    )
+  // Delete any existing invites for this email+company so we never duplicate
+  await db.from('company_invites').delete().eq('company_id', company_id).eq('email', email)
 
-  if (dbError) {
-    // If upsert fails (e.g. no unique constraint), fall back to insert
-    const { error: insertError } = await db
-      .from('company_invites')
-      .insert({
-        company_id,
-        email,
-        invited_by: user.id,
-        role: role ?? 'read_only',
-        status: 'pending',
-      })
-    if (insertError) {
-      return NextResponse.json({ error: insertError.message }, { status: 500 })
-    }
+  // Insert fresh invite row
+  const { error: insertError } = await db
+    .from('company_invites')
+    .insert({
+      company_id,
+      email,
+      invited_by: user.id,
+      role: role ?? 'read_only',
+      status: 'pending',
+    })
+  if (insertError) {
+    return NextResponse.json({ error: insertError.message }, { status: 500 })
   }
 
   return NextResponse.json({
