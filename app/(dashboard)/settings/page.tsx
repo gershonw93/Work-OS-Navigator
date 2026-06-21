@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   User, Building2, Users, Shield, Bell, CreditCard, AlertTriangle,
-  Check, X,
+  Check, X, SlidersHorizontal,
 } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -54,13 +54,14 @@ interface NotifState {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const TABS: { id: string; label: string; icon: React.ElementType; danger?: boolean }[] = [
-  { id: 'profile',       label: 'Profile',      icon: User },
-  { id: 'company',       label: 'Company',       icon: Building2 },
-  { id: 'team',          label: 'Team & Users',  icon: Users },
-  { id: 'permissions',   label: 'Permissions',   icon: Shield },
-  { id: 'notifications', label: 'Notifications', icon: Bell },
-  { id: 'billing',       label: 'Billing',       icon: CreditCard },
-  { id: 'danger',        label: 'Danger Zone',   icon: AlertTriangle, danger: true },
+  { id: 'profile',       label: 'Profile',       icon: User },
+  { id: 'company',       label: 'Company',        icon: Building2 },
+  { id: 'team',          label: 'Team & Users',   icon: Users },
+  { id: 'permissions',   label: 'Permissions',    icon: Shield },
+  { id: 'notifications', label: 'Notifications',  icon: Bell },
+  { id: 'preferences',   label: 'Preferences',    icon: SlidersHorizontal },
+  { id: 'billing',       label: 'Billing',        icon: CreditCard },
+  { id: 'danger',        label: 'Danger Zone',    icon: AlertTriangle, danger: true },
 ]
 
 const ROLES = [
@@ -184,6 +185,17 @@ export default function SettingsPage() {
     change_order: false,
   })
 
+  // Preferences (localStorage)
+  const [prefDefaultType, setPrefDefaultType] = useState('residential')
+  const [prefStartOffset, setPrefStartOffset] = useState('today')
+  const [prefEnableBulk, setPrefEnableBulk] = useState(true)
+  const [prefAddressIncrement, setPrefAddressIncrement] = useState(1)
+  const [prefNamingPattern, setPrefNamingPattern] = useState('prefix_number')
+  const [prefMaxUnits, setPrefMaxUnits] = useState(50)
+  const [prefRequireCustomer, setPrefRequireCustomer] = useState(false)
+  const [prefShowCustomerCol, setPrefShowCustomerCol] = useState(true)
+  const [prefSaved, setPrefSaved] = useState(false)
+
   // Danger Zone
   const [dangerInput, setDangerInput] = useState('')
   const [dangerStep, setDangerStep] = useState<'idle' | 'confirm' | 'deleting' | 'done'>('idle')
@@ -222,7 +234,42 @@ export default function SettingsPage() {
     }
   }, [])
 
-  useEffect(() => { loadSettings() }, [loadSettings])
+  useEffect(() => {
+    loadSettings()
+    // Load preferences from localStorage
+    try {
+      const raw = localStorage.getItem('workos_preferences')
+      if (raw) {
+        const p = JSON.parse(raw)
+        if (p.defaultType) setPrefDefaultType(p.defaultType)
+        if (p.startOffset) setPrefStartOffset(p.startOffset)
+        if (p.enableBulk !== undefined) setPrefEnableBulk(p.enableBulk)
+        if (p.addressIncrement) setPrefAddressIncrement(p.addressIncrement)
+        if (p.namingPattern) setPrefNamingPattern(p.namingPattern)
+        if (p.maxUnits) setPrefMaxUnits(p.maxUnits)
+        if (p.requireCustomer !== undefined) setPrefRequireCustomer(p.requireCustomer)
+        if (p.showCustomerCol !== undefined) setPrefShowCustomerCol(p.showCustomerCol)
+      }
+    } catch {
+      // ignore
+    }
+  }, [loadSettings])
+
+  function savePreferences() {
+    const prefs = {
+      defaultType: prefDefaultType,
+      startOffset: prefStartOffset,
+      enableBulk: prefEnableBulk,
+      addressIncrement: prefAddressIncrement,
+      namingPattern: prefNamingPattern,
+      maxUnits: prefMaxUnits,
+      requireCustomer: prefRequireCustomer,
+      showCustomerCol: prefShowCustomerCol,
+    }
+    localStorage.setItem('workos_preferences', JSON.stringify(prefs))
+    setPrefSaved(true)
+    setTimeout(() => setPrefSaved(false), 2000)
+  }
 
   // ── Profile Save ──────────────────────────────────────────────────────────
 
@@ -868,6 +915,161 @@ export default function SettingsPage() {
                 ))}
               </CardContent>
             </Card>
+          )}
+
+          {/* ══════════════════════════════════════ TAB: PREFERENCES */}
+          {activeTab === 'preferences' && (
+            <div className="space-y-6">
+              {/* Project Defaults */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Project Defaults</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="pref-type">Default Project Type</Label>
+                      <select
+                        id="pref-type"
+                        value={prefDefaultType}
+                        onChange={(e) => setPrefDefaultType(e.target.value)}
+                        className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      >
+                        <option value="residential">Residential</option>
+                        <option value="commercial">Commercial</option>
+                        <option value="renovation">Renovation</option>
+                        <option value="mixed_use">Mixed Use</option>
+                      </select>
+                    </div>
+                    <div>
+                      <Label htmlFor="pref-offset">Default Start Date Offset</Label>
+                      <select
+                        id="pref-offset"
+                        value={prefStartOffset}
+                        onChange={(e) => setPrefStartOffset(e.target.value)}
+                        className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      >
+                        <option value="today">Today</option>
+                        <option value="1week">1 week out</option>
+                        <option value="2weeks">2 weeks out</option>
+                        <option value="1month">1 month out</option>
+                      </select>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Bulk Creation Settings */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Bulk Creation Settings</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-slate-700">Enable Bulk Creation</p>
+                      <p className="text-xs text-slate-500 mt-0.5">Show bulk creation options in the UI</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setPrefEnableBulk((v) => !v)}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${prefEnableBulk ? 'bg-orange-500' : 'bg-slate-200'}`}
+                      role="switch"
+                      aria-checked={prefEnableBulk}
+                    >
+                      <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition-transform ${prefEnableBulk ? 'translate-x-5' : 'translate-x-0'}`} />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="pref-increment">Default Address Increment</Label>
+                      <p className="text-xs text-slate-500 mb-1">How many numbers between each address (e.g. 2 = 95, 97, 99)</p>
+                      <select
+                        id="pref-increment"
+                        value={prefAddressIncrement}
+                        onChange={(e) => setPrefAddressIncrement(Number(e.target.value))}
+                        className="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      >
+                        {[1, 2, 3, 4, 5, 10].map((n) => <option key={n} value={n}>{n}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <Label htmlFor="pref-naming">Default Naming Pattern</Label>
+                      <select
+                        id="pref-naming"
+                        value={prefNamingPattern}
+                        onChange={(e) => setPrefNamingPattern(e.target.value)}
+                        className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      >
+                        <option value="prefix_number">Prefix + Number (e.g. House 1)</option>
+                        <option value="prefix_address">Prefix + Address (e.g. House - 95 Main St)</option>
+                        <option value="address_only">Address Only</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="pref-max-units">Max Units Per Bulk</Label>
+                    <Input
+                      id="pref-max-units"
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={prefMaxUnits}
+                      onChange={(e) => setPrefMaxUnits(Math.min(100, Math.max(1, Number(e.target.value))))}
+                      className="mt-1 max-w-[120px]"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">Maximum is 100</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Customer Settings */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Customer Settings</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-slate-700">Require Customer on Every Project</p>
+                      <p className="text-xs text-slate-500 mt-0.5">Projects must be linked to a customer record</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setPrefRequireCustomer((v) => !v)}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${prefRequireCustomer ? 'bg-orange-500' : 'bg-slate-200'}`}
+                      role="switch"
+                      aria-checked={prefRequireCustomer}
+                    >
+                      <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition-transform ${prefRequireCustomer ? 'translate-x-5' : 'translate-x-0'}`} />
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-slate-700">Show Customer Column in Project List</p>
+                      <p className="text-xs text-slate-500 mt-0.5">Display the customer column in project tables</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setPrefShowCustomerCol((v) => !v)}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${prefShowCustomerCol ? 'bg-orange-500' : 'bg-slate-200'}`}
+                      role="switch"
+                      aria-checked={prefShowCustomerCol}
+                    >
+                      <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition-transform ${prefShowCustomerCol ? 'translate-x-5' : 'translate-x-0'}`} />
+                    </button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="flex items-center gap-3">
+                <Button onClick={savePreferences}>Save Preferences</Button>
+                {prefSaved && <span className="text-sm text-green-600">Saved!</span>}
+              </div>
+            </div>
           )}
 
           {/* ══════════════════════════════════════ TAB: BILLING */}
