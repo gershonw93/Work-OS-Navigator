@@ -110,20 +110,28 @@ export async function GET(request: Request) {
         .neq('id', user.id)
     : { data: [] }
 
-  // Also fetch pending invites
-  const { data: pendingInvites } = profile.company_id
-    ? await db
-        .from('company_invites')
-        .select('id, email, role, status, created_at')
-        .eq('company_id', profile.company_id)
-        .eq('status', 'pending')
-    : { data: [] }
+  // Also fetch pending invites — select * to avoid column-not-found if role column missing
+  let pendingInvites: unknown[] = []
+  if (profile.company_id) {
+    const { data: rawInvites } = await db
+      .from('company_invites')
+      .select('*')
+      .eq('company_id', profile.company_id)
+      .eq('status', 'pending')
+    pendingInvites = (rawInvites ?? []).map((r: Record<string, unknown>) => ({
+      id: r.id,
+      email: r.email,
+      role: r.role ?? 'read_only',
+      status: r.status,
+      created_at: r.created_at,
+    }))
+  }
 
   return NextResponse.json({
     profile,
     company: company ?? null,
     teammates: teammates ?? [],
-    pendingInvites: pendingInvites ?? [],
+    pendingInvites,
   })
 }
 
