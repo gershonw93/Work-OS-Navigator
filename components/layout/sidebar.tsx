@@ -39,6 +39,7 @@ const FIELD_NAV = [
   { label: 'Projects', href: '/projects', icon: FolderKanban },
   { label: 'Files', href: '/files', icon: FolderOpen },
   { label: 'Approvals', href: '/approvals', icon: CheckSquare },
+  { label: 'Settings', href: '/settings', icon: Settings },
 ]
 
 export function Sidebar() {
