@@ -33,12 +33,21 @@ const SUB_NAV = [
 // TopNav dispatches this event to open the drawer on mobile
 export const OPEN_SIDEBAR_EVENT = 'workos:open-sidebar'
 
+const ADMIN_ONLY_ROLES = ['admin']
+const FIELD_NAV = [
+  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { label: 'Projects', href: '/projects', icon: FolderKanban },
+  { label: 'Files', href: '/files', icon: FolderOpen },
+  { label: 'Approvals', href: '/approvals', icon: CheckSquare },
+]
+
 export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
   const [navItems, setNavItems] = useState(GC_NAV)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [userRole, setUserRole] = useState<string>('admin')
 
   // Listen for the open event from TopNav's hamburger
   useEffect(() => {
@@ -56,12 +65,20 @@ export function Sidebar() {
       if (!user) return
       const { data: profile } = await supabase
         .from('profiles')
-        .select('company_id, companies(type)')
+        .select('role, company_id, companies(type)')
         .eq('id', user.id)
         .single()
       const companyType = (profile?.companies as any)?.type
-      if (companyType === 'subcontractor') setNavItems(SUB_NAV)
-      else setNavItems(GC_NAV)
+      const role = profile?.role ?? 'read_only'
+      setUserRole(role)
+
+      if (companyType === 'subcontractor') {
+        setNavItems(SUB_NAV)
+      } else if (role === 'field_supervisor' || role === 'read_only') {
+        setNavItems(FIELD_NAV)
+      } else {
+        setNavItems(GC_NAV)
+      }
     }
     detectRole()
   }, [])

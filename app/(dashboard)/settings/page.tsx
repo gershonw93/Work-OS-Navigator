@@ -148,6 +148,7 @@ function RoleBadge({ role }: { role: string }) {
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('profile')
   const [loading, setLoading] = useState(true)
+  const [userRole, setUserRole] = useState<string>('admin')
 
   // Profile
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -221,6 +222,7 @@ export default function SettingsPage() {
 
       const p: Profile = data.profile
       setProfile(p)
+      setUserRole(p.role ?? 'read_only')
       setFullName(p.full_name ?? '')
       setProfilePhone(p.phone ?? '')
 
@@ -497,7 +499,13 @@ export default function SettingsPage() {
         {/* ── Left Sidebar ─────────────────────────────────────────────── */}
         <nav className="shrink-0 w-14 md:w-52">
           <ul className="space-y-1">
-            {TABS.map(({ id, label, icon: Icon, danger }) => {
+            {TABS.filter(({ id }) => {
+              const isAdmin = userRole === 'admin'
+              const isManager = isAdmin || userRole === 'project_manager' || userRole === 'manager'
+              if (id === 'team' || id === 'permissions' || id === 'billing' || id === 'danger') return isAdmin
+              if (id === 'company') return isManager
+              return true
+            }).map(({ id, label, icon: Icon, danger }) => {
               const active = activeTab === id
               return (
                 <li key={id}>
