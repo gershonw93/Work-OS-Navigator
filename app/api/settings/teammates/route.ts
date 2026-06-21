@@ -22,11 +22,14 @@ export async function GET(request: Request) {
 
   if (!profile?.company_id) return NextResponse.json({ teammates: [] })
 
-  const { data: teammates } = await db
-    .from('profiles')
-    .select('id, full_name, email, role')
-    .eq('company_id', profile.company_id)
-    .order('full_name')
+  const [{ data: teammates }, { data: rawInvites }] = await Promise.all([
+    db.from('profiles').select('id, full_name, email, role').eq('company_id', profile.company_id).order('full_name'),
+    db.from('company_invites').select('*').eq('company_id', profile.company_id).eq('status', 'pending'),
+  ])
 
-  return NextResponse.json({ teammates: teammates ?? [] })
+  const pendingInvites = (rawInvites ?? []).map((r: Record<string, unknown>) => ({
+    id: r.id, email: r.email, role: r.role ?? 'read_only', status: r.status, created_at: r.created_at,
+  }))
+
+  return NextResponse.json({ teammates: teammates ?? [], pendingInvites })
 }

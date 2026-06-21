@@ -148,7 +148,7 @@ function RoleBadge({ role }: { role: string }) {
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('profile')
   const [loading, setLoading] = useState(true)
-  const [userRole, setUserRole] = useState<string>('admin')
+  const [userRole, setUserRole] = useState<string>('')
 
   // Profile
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -218,6 +218,7 @@ export default function SettingsPage() {
     if (res.ok) {
       const data = await res.json()
       if (data.teammates) setTeammates(data.teammates)
+      if (data.pendingInvites) setPendingInvites(data.pendingInvites)
     }
   }, [])
 
@@ -842,7 +843,7 @@ export default function SettingsPage() {
                                 </span>
                               </td>
                               <td className="px-4 py-3">
-                                {!isSelf && userRole === 'admin' && t.id !== profile?.id && (
+                                {userRole === 'admin' && !isSelf && (
                                   <button
                                     onClick={() => removeMember(t.id, t.full_name ?? t.email)}
                                     className="text-xs text-red-500 hover:text-red-700 hover:underline"
