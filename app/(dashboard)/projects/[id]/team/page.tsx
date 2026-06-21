@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Users, Plus, X, Phone, Mail, HardHat, Building2, DollarSign, UserCircle2, Pencil } from 'lucide-react'
+import { Users, Plus, X, Phone, Mail, HardHat, Building2, DollarSign, UserCircle2, Pencil, UserPlus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,6 +23,13 @@ interface TeamMember {
   role: string
   phone: string | null
   email: string | null
+}
+
+interface CompanyProfile {
+  id: string
+  full_name: string | null
+  email: string | null
+  role: string | null
 }
 
 interface Subcontract {
@@ -53,6 +60,13 @@ export default function TeamPage({ params }: { params: { id: string } }) {
   const [editPhone, setEditPhone] = useState('')
   const [editEmail, setEditEmail] = useState('')
   const [editSaving, setEditSaving] = useState(false)
+
+  const [showAddCompanyMember, setShowAddCompanyMember] = useState(false)
+  const [companyProfiles, setCompanyProfiles] = useState<CompanyProfile[]>([])
+  const [selectedProfileId, setSelectedProfileId] = useState('')
+  const [companyMemberRole, setCompanyMemberRole] = useState('Site Manager')
+  const [companyMemberSaving, setCompanyMemberSaving] = useState(false)
+  const [companyProfilesLoading, setCompanyProfilesLoading] = useState(false)
 
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -126,6 +140,47 @@ export default function TeamPage({ params }: { params: { id: string } }) {
       headers: { Authorization: `Bearer ${token}` },
     })
     load()
+  }
+
+  async function openAddCompanyMember() {
+    setShowAddCompanyMember(true)
+    setCompanyProfilesLoading(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.user) { setCompanyProfilesLoading(false); return }
+    const { data: myProfile } = await supabase.from('profiles').select('company_id').eq('id', session.user.id).single()
+    if (!myProfile?.company_id) { setCompanyProfilesLoading(false); return }
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, full_name, email, role')
+      .eq('company_id', myProfile.company_id)
+      .neq('id', session.user.id)
+      .order('full_name')
+    setCompanyProfiles(profiles ?? [])
+    setCompanyProfilesLoading(false)
+  }
+
+  async function addCompanyMember(e: React.FormEvent) {
+    e.preventDefault()
+    if (!selectedProfileId) return
+    setCompanyMemberSaving(true)
+    const selectedProfile = companyProfiles.find(p => p.id === selectedProfileId)
+    const token = await getToken()
+    const res = await fetch(`/api/projects/${params.id}/team`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        name: selectedProfile?.full_name ?? selectedProfile?.email ?? 'Unknown',
+        role: companyMemberRole,
+        email: selectedProfile?.email ?? null,
+      }),
+    })
+    if (res.ok) {
+      setShowAddCompanyMember(false)
+      setSelectedProfileId('')
+      setCompanyMemberRole('Site Manager')
+      load()
+    }
+    setCompanyMemberSaving(false)
   }
 
   const totalContractValue = subcontracts.reduce((sum, s) => sum + Number(s.contract_amount), 0)
@@ -230,16 +285,69 @@ export default function TeamPage({ params }: { params: { id: string } }) {
         </div>
       )}
 
+      {/* Add Company Member Modal */}
+      {showAddCompanyMember && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md min-w-0">
+            <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-slate-900">Add Company Member</h2>
+              <button onClick={() => setShowAddCompanyMember(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <form onSubmit={addCompanyMember}>
+              <div className="px-4 sm:px-6 py-5 space-y-4">
+                {companyProfilesLoading ? (
+                  <p className="text-sm text-slate-400 text-center py-4">Loading company members...</p>
+                ) : companyProfiles.length === 0 ? (
+                  <p className="text-sm text-slate-400 text-center py-4">No other company members found.</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="company-member">Select Member <span className="text-red-500">*</span></Label>
+                    <Select id="company-member" value={selectedProfileId} onChange={e => setSelectedProfileId(e.target.value)} required>
+                      <option value="">-- Choose a member --</option>
+                      {companyProfiles.map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.full_name || p.email || p.id}{p.role ? ` (${p.role})` : ''}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                )}
+                <div className="space-y-1.5">
+                  <Label htmlFor="company-member-role">Project Role <span className="text-red-500">*</span></Label>
+                  <Select id="company-member-role" value={companyMemberRole} onChange={e => setCompanyMemberRole(e.target.value)}>
+                    {GC_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                  </Select>
+                </div>
+              </div>
+              <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex flex-wrap gap-2 justify-end">
+                <Button type="button" variant="secondary" onClick={() => setShowAddCompanyMember(false)}>Cancel</Button>
+                <Button type="submit" disabled={companyMemberSaving || !selectedProfileId}>
+                  {companyMemberSaving ? 'Adding...' : 'Add to Project'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Team</h1>
           <p className="text-sm text-slate-500 mt-0.5">Your crew and awarded subcontractors on this project.</p>
         </div>
-        <Button onClick={() => setShowAdd(true)} className="self-start sm:self-auto shrink-0">
-          <Plus className="h-4 w-4" />
-          Add Member
-        </Button>
+        <div className="flex gap-2 self-start sm:self-auto shrink-0">
+          <Button variant="secondary" onClick={openAddCompanyMember}>
+            <UserPlus className="h-4 w-4" />
+            Add Company Member
+          </Button>
+          <Button onClick={() => setShowAdd(true)}>
+            <Plus className="h-4 w-4" />
+            Add Member
+          </Button>
+        </div>
       </div>
 
       {loading ? (

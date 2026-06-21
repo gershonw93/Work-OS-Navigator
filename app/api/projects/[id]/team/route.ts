@@ -1,3 +1,7 @@
+// -- Run in Supabase SQL Editor:
+// -- ALTER TABLE project_team_members ADD COLUMN IF NOT EXISTS profile_id uuid REFERENCES profiles(id);
+// -- ALTER TABLE project_activity ADD COLUMN IF NOT EXISTS actor_id uuid;
+
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
@@ -48,9 +52,27 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const { name, role, phone, email } = await request.json()
   if (!name || !role) return NextResponse.json({ error: 'Name and role are required' }, { status: 400 })
 
+  // Look up profile_id by email if provided
+  let profileId: string | null = null
+  if (email) {
+    const { data: profileRow } = await db
+      .from('profiles')
+      .select('id')
+      .eq('email', email)
+      .maybeSingle()
+    profileId = profileRow?.id ?? null
+  }
+
   const { data, error } = await db
     .from('project_team_members')
-    .insert({ project_id: params.id, name, role, phone: phone ?? null, email: email ?? null })
+    .insert({
+      project_id: params.id,
+      name,
+      role,
+      phone: phone ?? null,
+      email: email ?? null,
+      ...(profileId ? { profile_id: profileId } : {}),
+    })
     .select()
     .single()
 

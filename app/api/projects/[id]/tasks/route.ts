@@ -14,7 +14,9 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const [{ data: tasks }, { data: members }, { data: subcontracts }] = await Promise.all([
+  const { data: profile } = await db.from('profiles').select('role, full_name').eq('id', user.id).single()
+
+  const [{ data: allTasks }, { data: members }, { data: subcontracts }] = await Promise.all([
     db.from('project_tasks')
       .select('*')
       .eq('project_id', params.id)
@@ -29,7 +31,34 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .order('created_at'),
   ])
 
-  return NextResponse.json({ tasks: tasks ?? [], members: members ?? [], subcontracts: subcontracts ?? [] })
+  const restrictedRoles = ['field_supervisor', 'worker', 'member']
+  let tasks = allTasks ?? []
+
+  if (profile && restrictedRoles.includes((profile as any).role)) {
+    // Find this user's team member record by profile_id or name fallback
+    const { data: memberRecord } = await db
+      .from('project_team_members')
+      .select('id, name')
+      .eq('project_id', params.id)
+      .eq('profile_id', user.id)
+      .maybeSingle()
+
+    let memberId: string | null = memberRecord?.id ?? null
+
+    if (!memberId && (profile as any).full_name) {
+      // Fallback: match by name
+      const nameMatch = (members ?? []).find((m: any) => m.name === (profile as any).full_name)
+      memberId = nameMatch?.id ?? null
+    }
+
+    if (memberId) {
+      tasks = tasks.filter((t: any) => t.assigned_to_member_id === memberId)
+    } else {
+      tasks = []
+    }
+  }
+
+  return NextResponse.json({ tasks, members: members ?? [], subcontracts: subcontracts ?? [] })
 }
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {

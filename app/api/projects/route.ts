@@ -18,8 +18,28 @@ export async function GET(request: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const db = admin()
-  const { data: profile } = await db.from('profiles').select('company_id').eq('id', user.id).single()
+  const { data: profile } = await db.from('profiles').select('company_id, role').eq('id', user.id).single()
   if (!profile) return NextResponse.json({ projects: [] })
+
+  const restrictedRoles = ['field_supervisor', 'worker', 'read_only', 'member']
+  if (restrictedRoles.includes((profile as any).role)) {
+    // Only return projects where user's profile_id is in project_team_members
+    const { data: memberRows } = await db
+      .from('project_team_members')
+      .select('project_id')
+      .eq('profile_id', user.id)
+
+    const projectIds = (memberRows ?? []).map((r: any) => r.project_id)
+    if (projectIds.length === 0) return NextResponse.json({ projects: [] })
+
+    const { data } = await db
+      .from('projects')
+      .select('id, name, status, start_date, type')
+      .in('id', projectIds)
+      .order('created_at', { ascending: false })
+
+    return NextResponse.json({ projects: data ?? [] })
+  }
 
   const { data } = await db
     .from('projects')

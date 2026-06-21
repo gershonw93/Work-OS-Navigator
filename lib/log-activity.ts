@@ -7,6 +7,7 @@ export async function logActivity(
   type: string,
   message: string,
   metadata?: Record<string, unknown>,
+  actorId?: string,
 ) {
   await db.from('project_activity').insert({
     project_id: projectId,
@@ -14,5 +15,6 @@ export async function logActivity(
     type,
     message,
     metadata: metadata ?? null,
+    ...(actorId ? { actor_id: actorId } : {}),
   })
 }

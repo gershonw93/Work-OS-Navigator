@@ -2,8 +2,9 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/client'
 import {
   FileText, Users, Calendar, CheckSquare, TrendingUp, BookOpen,
   MessageSquare, Receipt, DollarSign, GitPullRequest, Shield,
@@ -60,6 +61,19 @@ const groups = [
 
 const allTabs = groups.flatMap(g => g.tabs)
 
+const ALL_SLUGS = allTabs.map(t => t.slug)
+
+const ROLE_ALLOWED_SLUGS: Record<string, string[]> = {
+  admin: ALL_SLUGS,
+  project_manager: ['plans','schedule','tasks','progress','daily-logs','team','bids','rfis','invoices','change-orders','permits','inspections','submittals','compliance','reports'],
+  office_staff: ['invoices','financials','change-orders','compliance','submittals','reports','permits'],
+  field_supervisor: ['plans','schedule','tasks','daily-logs','progress'],
+  worker: ['plans','tasks','daily-logs'],
+  read_only: ALL_SLUGS,
+  manager: ['plans','schedule','tasks','progress','daily-logs','team','bids','rfis','invoices','change-orders','permits','inspections','submittals','compliance','reports'],
+  member: ['plans','tasks','daily-logs'],
+}
+
 interface ProjectTabsProps {
   projectId: string
 }
@@ -68,9 +82,29 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [open, setOpen] = useState(false)
+  const [userRole, setUserRole] = useState<string>('admin')
 
-  const activeTab = allTabs.find(t => pathname.includes(`/${t.slug}`))
-  const activeGroup = groups.find(g => g.tabs.some(t => t.slug === activeTab?.slug))
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session?.user) return
+      supabase.from('profiles').select('role').eq('id', session.user.id).single().then(({ data }) => {
+        if (data?.role) setUserRole(data.role)
+      })
+    })
+  }, [])
+
+  const allowedSlugs = ROLE_ALLOWED_SLUGS[userRole] ?? ALL_SLUGS
+
+  const visibleGroups = groups.map(g => ({
+    ...g,
+    tabs: g.tabs.filter(t => allowedSlugs.includes(t.slug)),
+  })).filter(g => g.tabs.length > 0)
+
+  const visibleTabs = visibleGroups.flatMap(g => g.tabs)
+
+  const activeTab = visibleTabs.find(t => pathname.includes(`/${t.slug}`))
+  const activeGroup = visibleGroups.find(g => g.tabs.some(t => t.slug === activeTab?.slug))
 
   function navigate(slug: string) {
     setOpen(false)
@@ -110,7 +144,7 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
 
         {/* Desktop: underline tabs */}
         <nav className="hidden sm:flex overflow-x-auto scrollbar-hide -mb-px px-4 sm:px-6" aria-label="Project tabs">
-          {allTabs.map((tab) => {
+          {visibleTabs.map((tab) => {
             const href = `/projects/${projectId}/${tab.slug}`
             const isActive = pathname.endsWith(`/${tab.slug}`)
             return (
@@ -147,7 +181,7 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
             </div>
 
             <div className="px-4 pb-8 space-y-4">
-              {groups.map(group => (
+              {visibleGroups.map(group => (
                 <div key={group.label}>
                   <p className={cn('text-xs font-bold uppercase tracking-widest mb-2 px-1', group.color)}>
                     {group.label}
