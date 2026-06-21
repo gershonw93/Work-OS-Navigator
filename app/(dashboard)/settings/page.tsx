@@ -534,6 +534,8 @@ export default function SettingsPage() {
         <nav className="shrink-0 w-14 md:w-52">
           <ul className="space-y-1">
             {TABS.filter(({ id }) => {
+              // Don't render gated tabs until role is confirmed
+              if (!userRole) return id === 'profile'
               const isAdmin = userRole === 'admin'
               const isManager = isAdmin || userRole === 'project_manager' || userRole === 'manager' || userRole === 'office_staff'
               const isRestricted = ['field_supervisor', 'worker', 'member', 'read_only'].includes(userRole)
