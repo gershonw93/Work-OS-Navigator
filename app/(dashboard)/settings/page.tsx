@@ -983,18 +983,6 @@ export default function SettingsPage() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="pref-increment">Default Address Increment</Label>
-                      <p className="text-xs text-slate-500 mb-1">How many numbers between each address (e.g. 2 = 95, 97, 99)</p>
-                      <select
-                        id="pref-increment"
-                        value={prefAddressIncrement}
-                        onChange={(e) => setPrefAddressIncrement(Number(e.target.value))}
-                        className="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                      >
-                        {[1, 2, 3, 4, 5, 10].map((n) => <option key={n} value={n}>{n}</option>)}
-                      </select>
-                    </div>
-                    <div>
                       <Label htmlFor="pref-naming">Default Naming Pattern</Label>
                       <select
                         id="pref-naming"
