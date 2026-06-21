@@ -129,13 +129,16 @@ export async function GET(request: Request) {
         .single()
     : { data: null }
 
-  const { data: teammates } = profile.company_id
+  // Include ALL company members (including self) so the list is never empty
+  const { data: allMembers } = profile.company_id
     ? await db
         .from('profiles')
         .select('id, full_name, email, role')
         .eq('company_id', profile.company_id)
-        .neq('id', user.id)
+        .order('full_name')
     : { data: [] }
+
+  const teammates = allMembers ?? []
 
   // Also fetch pending invites — select * to avoid column-not-found if role column missing
   let pendingInvites: unknown[] = []

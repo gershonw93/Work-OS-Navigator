@@ -741,9 +741,11 @@ export default function SettingsPage() {
             <>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-slate-900">Team Members</h2>
-                <Button onClick={() => { setShowInvite(true); setInviteMsg(null) }}>
-                  + Invite User
-                </Button>
+                {userRole === 'admin' && (
+                  <Button onClick={() => { setShowInvite(true); setInviteMsg(null) }}>
+                    + Invite User
+                  </Button>
+                )}
               </div>
 
               <Card>
@@ -763,27 +765,36 @@ export default function SettingsPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {teammates.map((t) => (
+                          {teammates.map((t) => {
+                            const isSelf = t.id === profile?.id
+                            return (
                             <tr key={t.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50">
                               <td className="px-4 py-3">
                                 <div className="flex items-center gap-3">
                                   <div className="h-8 w-8 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center text-xs font-bold shrink-0">
                                     {initials(t.full_name ?? t.email ?? '?')}
                                   </div>
-                                  <span className="font-medium text-slate-800">{t.full_name || '—'}</span>
+                                  <div>
+                                    <span className="font-medium text-slate-800">{t.full_name || '—'}</span>
+                                    {isSelf && <span className="ml-2 text-xs text-slate-400">(you)</span>}
+                                  </div>
                                 </div>
                               </td>
                               <td className="px-4 py-3 text-slate-600">{t.email}</td>
                               <td className="px-4 py-3">
-                                <select
-                                  value={t.role}
-                                  onChange={(e) => changeRole(t.id, e.target.value)}
-                                  className="rounded border border-slate-200 px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-orange-400"
-                                >
-                                  {ROLES.map((r) => (
-                                    <option key={r.value} value={r.value}>{r.label}</option>
-                                  ))}
-                                </select>
+                                {userRole === 'admin' && !isSelf ? (
+                                  <select
+                                    value={t.role}
+                                    onChange={(e) => changeRole(t.id, e.target.value)}
+                                    className="rounded border border-slate-200 px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-orange-400"
+                                  >
+                                    {ROLES.map((r) => (
+                                      <option key={r.value} value={r.value}>{r.label}</option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  <RoleBadge role={t.role} />
+                                )}
                               </td>
                               <td className="px-4 py-3">
                                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
@@ -795,7 +806,7 @@ export default function SettingsPage() {
                                 </span>
                               </td>
                               <td className="px-4 py-3">
-                                {t.id !== profile?.id && (
+                                {!isSelf && userRole === 'admin' && (
                                   <button
                                     onClick={() => removeMember(t.id, t.full_name ?? t.email)}
                                     className="text-xs text-red-500 hover:text-red-700 hover:underline"
@@ -805,7 +816,8 @@ export default function SettingsPage() {
                                 )}
                               </td>
                             </tr>
-                          ))}
+                          )})}
+
                         </tbody>
                       </table>
                     </div>
