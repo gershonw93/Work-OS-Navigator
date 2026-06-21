@@ -54,16 +54,43 @@ export async function GET(request: Request) {
 
   if (!profile) return NextResponse.json({ error: 'Could not load profile' }, { status: 500 })
 
-  // If profile still has no company, try to find one owned by this user or auto-create
+  // If profile has no company_id, find the existing one from their projects first
   if (!profile.company_id) {
-    const { data: newCompany } = await db
-      .from('companies')
-      .insert({ name: user.email?.split('@')[0] ?? 'My Company', type: 'gc', contact_email: user.email ?? '', insurance_status: 'missing' })
-      .select()
-      .single()
-    if (newCompany) {
-      await db.from('profiles').update({ company_id: newCompany.id }).eq('id', user.id)
-      profile.company_id = newCompany.id
+    // Look for a company linked to projects this user created
+    const { data: projectRow } = await db
+      .from('projects')
+      .select('gc_company_id')
+      .eq('created_by', user.id)
+      .not('gc_company_id', 'is', null)
+      .limit(1)
+      .maybeSingle()
+
+    // Fallback: find any project where their auth email matches company contact email
+    let foundCompanyId = projectRow?.gc_company_id
+    if (!foundCompanyId) {
+      const { data: companyRow } = await db
+        .from('companies')
+        .select('id')
+        .eq('contact_email', user.email ?? '')
+        .limit(1)
+        .maybeSingle()
+      foundCompanyId = companyRow?.id
+    }
+
+    if (foundCompanyId) {
+      await db.from('profiles').update({ company_id: foundCompanyId }).eq('id', user.id)
+      profile.company_id = foundCompanyId
+    } else {
+      // Only create a blank company as last resort if truly nothing exists
+      const { data: newCompany } = await db
+        .from('companies')
+        .insert({ name: user.user_metadata?.full_name ?? user.email?.split('@')[0] ?? 'My Company', type: 'gc', contact_email: user.email ?? '', insurance_status: 'missing' })
+        .select()
+        .single()
+      if (newCompany) {
+        await db.from('profiles').update({ company_id: newCompany.id }).eq('id', user.id)
+        profile.company_id = newCompany.id
+      }
     }
   }
 
