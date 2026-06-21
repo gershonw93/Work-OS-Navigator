@@ -222,38 +222,42 @@ export default function SettingsPage() {
     }
   }, [])
 
-  // ── Load — always pull directly from Supabase client first so profile/role
-  //    are never blank regardless of API errors
   const loadSettings = useCallback(async () => {
     try {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setLoading(false); return }
 
-      // Load profile directly — never silently blank
-      const { data: p } = await supabase
-        .from('profiles')
-        .select('id, full_name, email, phone, role, company_id')
-        .eq('id', user.id)
-        .single()
+      // Use API as primary — it auto-creates profile if missing and uses service role
+      const headers = await authHeaders()
+      const res = await fetch('/api/settings', { headers })
+      if (res.ok) {
+        const data = await res.json()
+        const p = data.profile
+        const c = data.company
 
-      if (p) {
-        // Fill blanks from auth if DB row is missing them
-        const resolvedName = p.full_name || user.user_metadata?.full_name || ''
-        const resolvedEmail = p.email || user.email || ''
-        setProfile({ ...p, full_name: resolvedName, email: resolvedEmail })
-        setUserRole(p.role ?? 'read_only')
-        setFullName(resolvedName)
-        setProfilePhone(p.phone ?? '')
-      }
+        if (p) {
+          const resolvedName = p.full_name || user.user_metadata?.full_name || ''
+          const resolvedEmail = p.email || user.email || ''
+          setProfile({ ...p, full_name: resolvedName, email: resolvedEmail })
+          setUserRole(p.role ?? 'read_only')
+          setFullName(resolvedName)
+          setProfilePhone(p.phone ?? '')
+        } else {
+          // Profile row missing even after API — set role from auth metadata so tabs appear
+          const metaRole = user.user_metadata?.role ?? 'read_only'
+          setUserRole(metaRole)
+          setFullName(user.user_metadata?.full_name ?? '')
+          setProfile({
+            id: user.id,
+            full_name: user.user_metadata?.full_name ?? '',
+            email: user.email ?? '',
+            phone: '',
+            role: metaRole,
+            company_id: user.user_metadata?.company_id ?? '',
+          })
+        }
 
-      // Load company if linked
-      if (p?.company_id) {
-        const { data: c } = await supabase
-          .from('companies')
-          .select('id, name, type, contact_email, phone, address, license_number')
-          .eq('id', p.company_id)
-          .single()
         if (c) {
           setCompany(c)
           setCompanyName(c.name ?? '')
@@ -263,17 +267,25 @@ export default function SettingsPage() {
           setAddress(c.address ?? '')
           setLicenseNumber(c.license_number ?? '')
         }
-      }
 
-      // Also fetch pending invites via API (needs service role)
-      const headers = await authHeaders()
-      const res = await fetch('/api/settings', { headers })
-      if (res.ok) {
-        const data = await res.json()
         if (data.pendingInvites) setPendingInvites(data.pendingInvites)
+      } else {
+        // API failed — fall back to auth metadata so we're never stuck blank
+        const metaRole = user.user_metadata?.role ?? 'admin'
+        setUserRole(metaRole)
+        setFullName(user.user_metadata?.full_name ?? '')
+        setProfile({
+          id: user.id,
+          full_name: user.user_metadata?.full_name ?? '',
+          email: user.email ?? '',
+          phone: '',
+          role: metaRole,
+          company_id: user.user_metadata?.company_id ?? '',
+        })
       }
     } catch {
-      // ignore — direct Supabase calls above already populated state
+      // Last resort — don't stay blank
+      setUserRole('read_only')
     } finally {
       setLoading(false)
     }
