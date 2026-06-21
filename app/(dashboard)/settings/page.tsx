@@ -40,6 +40,14 @@ interface Teammate {
   status?: string
 }
 
+interface PendingInvite {
+  id: string
+  email: string
+  role: string
+  status: string
+  created_at: string
+}
+
 interface NotifState {
   new_invoice: boolean
   invoice_decision: boolean
@@ -166,6 +174,7 @@ export default function SettingsPage() {
 
   // Team
   const [teammates, setTeammates] = useState<Teammate[]>([])
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([])
   const [showInvite, setShowInvite] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteFullName, setInviteFullName] = useState('')
@@ -227,6 +236,7 @@ export default function SettingsPage() {
       }
 
       if (data.teammates) setTeammates(data.teammates)
+      if (data.pendingInvites) setPendingInvites(data.pendingInvites)
     } catch {
       // silently fail — no state to clean up
     } finally {
@@ -758,6 +768,39 @@ export default function SettingsPage() {
                   )}
                 </CardContent>
               </Card>
+
+              {/* Pending Invites */}
+              {pendingInvites.length > 0 && (
+                <Card>
+                  <CardHeader><CardTitle className="text-base">Pending Invites</CardTitle></CardHeader>
+                  <CardContent className="p-0">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-100 bg-slate-50">
+                          <th className="text-left px-4 py-3 font-medium text-slate-600">Email</th>
+                          <th className="text-left px-4 py-3 font-medium text-slate-600">Role</th>
+                          <th className="text-left px-4 py-3 font-medium text-slate-600">Sent</th>
+                          <th className="text-left px-4 py-3 font-medium text-slate-600">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pendingInvites.map((inv) => (
+                          <tr key={inv.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50">
+                            <td className="px-4 py-3 text-slate-700">{inv.email}</td>
+                            <td className="px-4 py-3"><RoleBadge role={inv.role} /></td>
+                            <td className="px-4 py-3 text-slate-500 text-xs">{new Date(inv.created_at).toLocaleDateString()}</td>
+                            <td className="px-4 py-3">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
+                                Awaiting sign-up
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Invite Modal */}
               {showInvite && (

@@ -22,14 +22,49 @@ export async function GET(request: Request) {
 
   const db = admin()
 
-  const { data: profile, error: profileError } = await db
+  let { data: profile } = await db
     .from('profiles')
     .select('id, full_name, email, phone, role, company_id')
     .eq('id', user.id)
     .single()
 
-  if (profileError || !profile) {
-    return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
+  // Auto-create profile if missing
+  if (!profile) {
+    // Create a company first
+    const { data: newCompany } = await db
+      .from('companies')
+      .insert({ name: user.email?.split('@')[0] ?? 'My Company', type: 'gc', contact_email: user.email ?? '', insurance_status: 'missing' })
+      .select()
+      .single()
+
+    const { data: newProfile } = await db
+      .from('profiles')
+      .upsert({
+        id: user.id,
+        email: user.email ?? '',
+        full_name: user.user_metadata?.full_name ?? '',
+        role: 'admin',
+        company_id: newCompany?.id ?? null,
+      })
+      .select('id, full_name, email, phone, role, company_id')
+      .single()
+
+    profile = newProfile
+  }
+
+  if (!profile) return NextResponse.json({ error: 'Could not load profile' }, { status: 500 })
+
+  // If profile still has no company, try to find one owned by this user or auto-create
+  if (!profile.company_id) {
+    const { data: newCompany } = await db
+      .from('companies')
+      .insert({ name: user.email?.split('@')[0] ?? 'My Company', type: 'gc', contact_email: user.email ?? '', insurance_status: 'missing' })
+      .select()
+      .single()
+    if (newCompany) {
+      await db.from('profiles').update({ company_id: newCompany.id }).eq('id', user.id)
+      profile.company_id = newCompany.id
+    }
   }
 
   const { data: company } = profile.company_id
@@ -45,12 +80,23 @@ export async function GET(request: Request) {
         .from('profiles')
         .select('id, full_name, email, role')
         .eq('company_id', profile.company_id)
+        .neq('id', user.id)
+    : { data: [] }
+
+  // Also fetch pending invites
+  const { data: pendingInvites } = profile.company_id
+    ? await db
+        .from('company_invites')
+        .select('id, email, role, status, created_at')
+        .eq('company_id', profile.company_id)
+        .eq('status', 'pending')
     : { data: [] }
 
   return NextResponse.json({
     profile,
     company: company ?? null,
     teammates: teammates ?? [],
+    pendingInvites: pendingInvites ?? [],
   })
 }
 

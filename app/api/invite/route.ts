@@ -18,21 +18,35 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { company_id, email, company_name } = body
+  const { email, company_name, role } = body
+  let { company_id } = body
 
-  if (!company_id || !email) {
-    return NextResponse.json({ error: 'company_id and email are required' }, { status: 400 })
+  if (!email) {
+    return NextResponse.json({ error: 'email is required' }, { status: 400 })
   }
 
   const db = admin()
 
+  // If company_id wasn't sent (or is null), look it up from the inviter's profile
+  if (!company_id) {
+    const { data: inviterProfile } = await db
+      .from('profiles')
+      .select('company_id')
+      .eq('id', user.id)
+      .single()
+    company_id = inviterProfile?.company_id
+  }
+
+  if (!company_id) {
+    return NextResponse.json({ error: 'No company linked to your account. Please set up your company first.' }, { status: 400 })
+  }
+
   // Send Supabase auth invite
   const { error: inviteError } = await db.auth.admin.inviteUserByEmail(email, {
-    data: { company_id, invited_as: 'subcontractor' },
+    data: { company_id, role: role ?? 'read_only', full_name: body.full_name ?? '' },
   })
 
   if (inviteError) {
-    // "User already registered" is acceptable — they may already have an account
     if (!inviteError.message?.toLowerCase().includes('already')) {
       return NextResponse.json({ error: inviteError.message }, { status: 500 })
     }
@@ -45,6 +59,7 @@ export async function POST(request: Request) {
       company_id,
       email,
       invited_by: user.id,
+      role: role ?? 'read_only',
       status: 'pending',
     })
 
