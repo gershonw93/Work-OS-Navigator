@@ -48,26 +48,50 @@ export async function POST(request: Request) {
     redirectTo: `${siteUrl}/auth/callback`,
   })
 
+  let emailSent = true
   if (inviteError) {
-    if (!inviteError.message?.toLowerCase().includes('already')) {
+    const msg = inviteError.message?.toLowerCase() ?? ''
+    if (msg.includes('already') || msg.includes('email rate limit') || msg.includes('already registered')) {
+      // User already exists or rate limited — still record in DB
+      emailSent = false
+    } else {
       return NextResponse.json({ error: inviteError.message }, { status: 500 })
     }
   }
 
-  // Record the invite
+  // Record the invite (upsert so resend doesn't duplicate)
   const { error: dbError } = await db
     .from('company_invites')
-    .insert({
-      company_id,
-      email,
-      invited_by: user.id,
-      role: role ?? 'read_only',
-      status: 'pending',
-    })
+    .upsert(
+      {
+        company_id,
+        email,
+        invited_by: user.id,
+        role: role ?? 'read_only',
+        status: 'pending',
+      },
+      { onConflict: 'company_id,email', ignoreDuplicates: false }
+    )
 
   if (dbError) {
-    return NextResponse.json({ error: dbError.message }, { status: 500 })
+    // If upsert fails (e.g. no unique constraint), fall back to insert
+    const { error: insertError } = await db
+      .from('company_invites')
+      .insert({
+        company_id,
+        email,
+        invited_by: user.id,
+        role: role ?? 'read_only',
+        status: 'pending',
+      })
+    if (insertError) {
+      return NextResponse.json({ error: insertError.message }, { status: 500 })
+    }
   }
 
-  return NextResponse.json({ success: true })
+  return NextResponse.json({
+    success: true,
+    emailSent,
+    note: emailSent ? undefined : 'Invite recorded but email could not be sent (user may already exist or rate limit reached)',
+  })
 }

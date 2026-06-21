@@ -375,7 +375,13 @@ export default function SettingsPage() {
         }),
       })
       if (res.ok) {
-        setInviteMsg({ ok: true, text: 'Invite sent!' })
+        const d = await res.json().catch(() => ({}))
+        setInviteMsg({
+          ok: true,
+          text: d.emailSent === false
+            ? `Recorded! ${d.note ?? 'Email may not have been sent — check Supabase email limits.'}`
+            : 'Invite sent! They will receive an email to set up their account.',
+        })
         setInviteEmail('')
         setInviteFullName('')
         setInviteRole('read_only')
