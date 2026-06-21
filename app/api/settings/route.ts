@@ -30,12 +30,21 @@ export async function GET(request: Request) {
 
   // Auto-create profile if missing
   if (!profile) {
-    // Create a company first
-    const { data: newCompany } = await db
-      .from('companies')
-      .insert({ name: user.email?.split('@')[0] ?? 'My Company', type: 'gc', contact_email: user.email ?? '', insurance_status: 'missing' })
-      .select()
-      .single()
+    // Check if this user was invited — invited users have company_id + role in their metadata
+    const metaCompanyId = user.user_metadata?.company_id as string | undefined
+    const metaRole = user.user_metadata?.role as string | undefined
+
+    let assignedCompanyId: string | null = metaCompanyId ?? null
+
+    if (!assignedCompanyId) {
+      // Brand-new user (not via invite) — create a company for them
+      const { data: newCompany } = await db
+        .from('companies')
+        .insert({ name: user.email?.split('@')[0] ?? 'My Company', type: 'gc', contact_email: user.email ?? '', insurance_status: 'missing' })
+        .select()
+        .single()
+      assignedCompanyId = newCompany?.id ?? null
+    }
 
     const { data: newProfile } = await db
       .from('profiles')
@@ -43,8 +52,8 @@ export async function GET(request: Request) {
         id: user.id,
         email: user.email ?? '',
         full_name: user.user_metadata?.full_name ?? '',
-        role: 'admin',
-        company_id: newCompany?.id ?? null,
+        role: metaRole ?? 'admin',
+        company_id: assignedCompanyId,
       })
       .select('id, full_name, email, phone, role, company_id')
       .single()
