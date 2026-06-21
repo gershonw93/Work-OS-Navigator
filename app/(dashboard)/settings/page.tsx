@@ -211,6 +211,20 @@ export default function SettingsPage() {
   const [dangerStep, setDangerStep] = useState<'idle' | 'confirm' | 'deleting' | 'done'>('idle')
   const [dangerMsg, setDangerMsg] = useState<{ ok: boolean; text: string } | null>(null)
 
+  const loadTeammates = useCallback(async () => {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data: myProfile } = await supabase.from('profiles').select('company_id').eq('id', user.id).single()
+    if (!myProfile?.company_id) return
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, full_name, email, role')
+      .eq('company_id', myProfile.company_id)
+      .order('full_name')
+    if (data) setTeammates(data)
+  }, [])
+
   // ── Load ──────────────────────────────────────────────────────────────────
 
   const loadSettings = useCallback(async () => {
@@ -237,7 +251,7 @@ export default function SettingsPage() {
         setLicenseNumber(c.license_number ?? '')
       }
 
-      if (data.teammates) setTeammates(data.teammates)
+      if (data.teammates?.length) setTeammates(data.teammates)
       if (data.pendingInvites) setPendingInvites(data.pendingInvites)
     } catch {
       // silently fail — no state to clean up
@@ -248,6 +262,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     loadSettings()
+    loadTeammates()
     // Load preferences from localStorage
     try {
       const raw = localStorage.getItem('workos_preferences')
