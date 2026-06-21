@@ -25,19 +25,37 @@ export async function GET(request: Request, { params }: { params: { id: string }
   let tasks: any[] = []
 
   if (profile?.role && restrictedRoles.includes(profile.role)) {
-    // Find their team member record by profile_id first, then by name
-    const { data: memberRecord } = await db
-      .from('project_team_members')
-      .select('id, name')
-      .eq('project_id', params.id)
-      .eq('profile_id', user.id)
-      .maybeSingle()
+    const { data: profileFull } = await db.from('profiles').select('email, full_name').eq('id', user.id).single()
 
-    const { data: rawTasks } = memberRecord
-      ? await db.from('project_tasks').select('*').eq('project_id', params.id).eq('assigned_to_member_id', memberRecord.id).order('created_at', { ascending: false })
-      : await db.from('project_tasks').select('*').eq('project_id', params.id).eq('assigned_to_name', profile.full_name ?? '').order('created_at', { ascending: false })
+    // Find team member record: try profile_id, then email, then name
+    let memberRecord: { id: string } | null = null
 
-    tasks = rawTasks ?? []
+    const { data: byProfileId } = await db
+      .from('project_team_members').select('id').eq('project_id', params.id).eq('profile_id', user.id).maybeSingle()
+    memberRecord = byProfileId ?? null
+
+    if (!memberRecord && profileFull?.email) {
+      const { data: byEmail } = await db
+        .from('project_team_members').select('id').eq('project_id', params.id).eq('email', profileFull.email).maybeSingle()
+      memberRecord = byEmail ?? null
+    }
+
+    if (!memberRecord && profileFull?.full_name) {
+      const { data: byName } = await db
+        .from('project_team_members').select('id').eq('project_id', params.id).eq('name', profileFull.full_name).maybeSingle()
+      memberRecord = byName ?? null
+    }
+
+    if (memberRecord) {
+      const { data: rawTasks } = await db
+        .from('project_tasks').select('*').eq('project_id', params.id).eq('assigned_to_member_id', memberRecord.id).order('created_at', { ascending: false })
+      tasks = rawTasks ?? []
+    } else if (profileFull?.full_name) {
+      // Last resort: match by assigned_to_name
+      const { data: rawTasks } = await db
+        .from('project_tasks').select('*').eq('project_id', params.id).eq('assigned_to_name', profileFull.full_name).order('created_at', { ascending: false })
+      tasks = rawTasks ?? []
+    }
   } else {
     const { data: allTasks } = await db.from('project_tasks').select('*').eq('project_id', params.id).order('created_at', { ascending: false })
     tasks = allTasks ?? []
@@ -78,7 +96,25 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Notify sub if assigned to a company
+  // Notify assigned team member if they have a profile
+  if (assigned_to_member_id) {
+    const { data: member } = await db.from('project_team_members').select('email, profile_id').eq('id', assigned_to_member_id).maybeSingle()
+    let notifyUserId: string | null = (member as any)?.profile_id ?? null
+    if (!notifyUserId && (member as any)?.email) {
+      const { data: p } = await db.from('profiles').select('id').eq('email', (member as any).email).maybeSingle()
+      notifyUserId = p?.id ?? null
+    }
+    if (notifyUserId) {
+      await db.from('notifications').insert({
+        user_id: notifyUserId,
+        type: 'task_assigned',
+        message: `You have been assigned a task: "${title}"`,
+        read: false,
+      })
+    }
+  }
+
+  // Also notify sub company if assigned to a company
   if (assigned_to_company_id) {
     const { data: subProfile } = await db.from('profiles').select('id').eq('company_id', assigned_to_company_id).single()
     if (subProfile) {

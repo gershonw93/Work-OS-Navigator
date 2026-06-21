@@ -25,12 +25,31 @@ export async function GET(request: Request) {
 
   // Restricted roles only see projects they are explicitly assigned to
   if (profile.role && RESTRICTED_ROLES.includes(profile.role)) {
-    const { data: assignments } = await db
+    const { data: profile2 } = await db.from('profiles').select('email, full_name').eq('id', user.id).single()
+
+    // Try profile_id match first (needs SQL migration), then fall back to email/name match
+    const { data: byProfileId } = await db
       .from('project_team_members')
       .select('project_id')
       .eq('profile_id', user.id)
 
-    const projectIds = (assignments ?? []).map((a: any) => a.project_id).filter(Boolean)
+    let projectIds = (byProfileId ?? []).map((a: any) => a.project_id).filter(Boolean)
+
+    // Fallback: match by email or name in project_team_members
+    if (projectIds.length === 0 && profile2) {
+      const conditions: string[] = []
+      if (profile2.email) conditions.push(`email.eq.${profile2.email}`)
+      if (profile2.full_name) conditions.push(`name.eq.${profile2.full_name}`)
+
+      if (conditions.length > 0) {
+        const { data: byNameEmail } = await db
+          .from('project_team_members')
+          .select('project_id')
+          .or(conditions.join(','))
+        projectIds = (byNameEmail ?? []).map((a: any) => a.project_id).filter(Boolean)
+      }
+    }
+
     if (projectIds.length === 0) return NextResponse.json({ projects: [] })
 
     const { data } = await db
