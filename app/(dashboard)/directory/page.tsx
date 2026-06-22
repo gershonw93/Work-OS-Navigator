@@ -800,42 +800,64 @@ export default function DirectoryPage() {
 
                   {/* DOCUMENTS TAB */}
                   {profileTab === 'documents' && (
-                    <div className="space-y-3">
+                    <div>
                       {profileData.complianceDocs?.length === 0 ? (
                         <div className="text-center py-10">
                           <p className="text-sm text-slate-400">No compliance documents on file.</p>
-                          <p className="text-xs text-slate-400 mt-1">Upload them from a project&apos;s Compliance tab.</p>
+                          <p className="text-xs text-slate-400 mt-1">Upload them from a project's Compliance tab.</p>
                         </div>
                       ) : (
-                        profileData.complianceDocs.map((doc: any) => {
-                          const isExpired = doc.expiry_date && new Date(doc.expiry_date + 'T00:00:00') < new Date()
-                          const resolvedStatus = (doc.status === 'expired' && doc.expiry_date && !isExpired) ? 'approved' : doc.status
-                          const statusColors: Record<string, string> = {
-                            approved: 'bg-green-100 text-green-700',
-                            pending: 'bg-amber-100 text-amber-700',
-                            expired: 'bg-red-100 text-red-700',
-                            missing: 'bg-red-100 text-red-700',
-                            expiring_soon: 'bg-orange-100 text-orange-700',
-                          }
-                          const typeLabels: Record<string, string> = { coi: 'COI', license: 'License', w9: 'W-9', workers_comp: "Workers' Comp", other: 'Other' }
-                          return (
-                            <div key={doc.id} className="rounded-lg border border-slate-200 bg-white p-4 space-y-2">
-                              <div className="flex items-center justify-between">
-                                <span className="font-medium text-slate-800">{typeLabels[doc.type] ?? doc.type}</span>
-                                <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium', statusColors[resolvedStatus] ?? 'bg-slate-100 text-slate-600')}>
-                                  {resolvedStatus.replace('_', ' ')}
-                                </span>
-                              </div>
-                              {doc.expiry_date && <p className="text-xs text-slate-400">Expires {new Date(doc.expiry_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>}
-                              {doc.notes && <p className="text-xs text-slate-600 whitespace-pre-line">{doc.notes}</p>}
-                              {doc.file_url && (
-                                <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-orange-600 hover:underline font-medium">
-                                  <ExternalLink className="h-3 w-3" /> View Document
-                                </a>
-                              )}
-                            </div>
-                          )
-                        })
+                        <div className="rounded-xl border border-slate-200 overflow-hidden">
+                          <table className="w-full text-sm">
+                            <thead className="bg-slate-50 border-b border-slate-100">
+                              <tr>
+                                <th className="text-left px-4 py-3 font-medium text-slate-500">Document</th>
+                                <th className="text-left px-4 py-3 font-medium text-slate-500">Status</th>
+                                <th className="text-left px-4 py-3 font-medium text-slate-500">Expires</th>
+                                <th className="text-left px-4 py-3 font-medium text-slate-500">Uploaded</th>
+                                <th className="px-4 py-3" />
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {profileData.complianceDocs.map((doc: any) => {
+                                const isExpired = doc.expiry_date && new Date(doc.expiry_date + 'T00:00:00') < new Date()
+                                const resolvedStatus = (doc.status === 'expired' && doc.expiry_date && !isExpired) ? 'approved' : doc.status
+                                const statusColors: Record<string, string> = {
+                                  approved: 'bg-green-100 text-green-700',
+                                  pending: 'bg-amber-100 text-amber-700',
+                                  expired: 'bg-red-100 text-red-700',
+                                  missing: 'bg-red-100 text-red-700',
+                                  expiring_soon: 'bg-orange-100 text-orange-700',
+                                }
+                                const typeLabels: Record<string, string> = { coi: 'COI', license: 'License', w9: 'W-9', workers_comp: "Workers' Comp", other: 'Other' }
+                                return (
+                                  <tr key={doc.id} className="hover:bg-slate-50">
+                                    <td className="px-4 py-3 font-medium text-slate-800">{typeLabels[doc.type] ?? doc.type}</td>
+                                    <td className="px-4 py-3">
+                                      <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-medium', statusColors[resolvedStatus] ?? 'bg-slate-100 text-slate-600')}>
+                                        {resolvedStatus.replace('_', ' ')}
+                                      </span>
+                                    </td>
+                                    <td className="px-4 py-3 text-slate-500 text-xs">
+                                      {doc.expiry_date ? new Date(doc.expiry_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                                    </td>
+                                    <td className="px-4 py-3 text-slate-400 text-xs">
+                                      {doc.created_at ? new Date(doc.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                                    </td>
+                                    <td className="px-4 py-3 text-right">
+                                      {doc.file_url ? (
+                                        <a href={doc.file_url} target="_blank" rel="noopener noreferrer"
+                                          className="inline-flex items-center gap-1 text-xs text-orange-600 hover:underline font-medium">
+                                          <ExternalLink className="h-3 w-3" /> View
+                                        </a>
+                                      ) : <span className="text-xs text-slate-300">No file</span>}
+                                    </td>
+                                  </tr>
+                                )
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
                       )}
                     </div>
                   )}

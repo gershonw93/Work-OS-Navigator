@@ -496,7 +496,6 @@ interface SubCardProps {
 
 function SubCard({ sub, docs, projectId, token, onRefresh }: SubCardProps) {
   const [openForm, setOpenForm] = useState<DocType | null>(null)
-  const [expandedType, setExpandedType] = useState<DocType | null>(null)
   const companyId = sub.companies?.id ?? ''
   const companyName = sub.companies?.name ?? 'Unknown'
 
@@ -507,7 +506,6 @@ function SubCard({ sub, docs, projectId, token, onRefresh }: SubCardProps) {
   function resolveStatus(type: DocType): DocStatus {
     const doc = getDoc(type)
     if (!doc) return 'missing'
-    // If expiry date is in the future but status is still 'expired', treat as approved
     if (doc.status === 'expired' && doc.expiry_date && new Date(doc.expiry_date + 'T00:00:00') > new Date()) return isExpiringSoon(doc.expiry_date) ? 'expiring_soon' : 'approved'
     if (doc.status === 'approved' && isExpiringSoon(doc.expiry_date)) return 'expiring_soon'
     return doc.status
@@ -527,105 +525,70 @@ function SubCard({ sub, docs, projectId, token, onRefresh }: SubCardProps) {
         </span>
       </div>
 
-      {/* Doc rows */}
-      <div className="divide-y divide-slate-100">
-        {DOC_TYPES.map((type) => {
-          const doc = getDoc(type)
-          const status = resolveStatus(type)
-          const cfg = STATUS_CONFIG[status]
-
-          return (
-            <div key={type}>
-              <div
-                className={cn('flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 sm:px-5 py-3', doc && 'cursor-pointer')}
-                onClick={() => { if (doc) setExpandedType(expandedType === type ? null : type) }}
-              >
-                {/* Label */}
-                <span className="w-24 sm:w-28 text-sm text-slate-600 shrink-0">{DOC_LABELS[type]}</span>
-
-                {/* Status badge */}
-                <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium', cfg.classes)}>
-                  {cfg.label}
-                </span>
-
-                {/* Expiry */}
-                {doc?.expiry_date && (
-                  <span className={cn(
-                    'text-xs',
-                    status === 'expiring_soon' ? 'text-orange-600 font-medium' :
-                    status === 'expired' ? 'text-red-500' : 'text-slate-400'
-                  )}>
+      {/* Doc table */}
+      <table className="w-full text-sm">
+        <thead className="bg-slate-50 border-b border-slate-100">
+          <tr>
+            <th className="text-left px-5 py-2.5 font-medium text-slate-500 text-xs">Document</th>
+            <th className="text-left px-5 py-2.5 font-medium text-slate-500 text-xs">Status</th>
+            <th className="text-left px-5 py-2.5 font-medium text-slate-500 text-xs">Expires</th>
+            <th className="text-left px-5 py-2.5 font-medium text-slate-500 text-xs">File</th>
+            <th className="px-5 py-2.5" />
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {DOC_TYPES.map((type) => {
+            const doc = getDoc(type)
+            const status = resolveStatus(type)
+            const cfg = STATUS_CONFIG[status]
+            return (
+              <tr key={type}>
+                <td className="px-5 py-3 text-slate-700 font-medium">{DOC_LABELS[type]}</td>
+                <td className="px-5 py-3">
+                  <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-medium', cfg.classes)}>
                     {status === 'expiring_soon' && <AlertTriangle className="inline h-3 w-3 mr-0.5 -mt-0.5" />}
-                    Exp {new Date(doc.expiry_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    {cfg.label}
                   </span>
-                )}
-
-                {/* Chevron (only when doc exists) */}
-                {doc && (
-                  <span className="text-slate-400">
-                    {expandedType === type
-                      ? <ChevronUp className="h-3.5 w-3.5" />
-                      : <ChevronDown className="h-3.5 w-3.5" />}
-                  </span>
-                )}
-
-                {/* Upload / Update button */}
-                <div className="ml-auto" onClick={(e) => e.stopPropagation()}>
+                </td>
+                <td className="px-5 py-3 text-xs text-slate-400">
+                  {doc?.expiry_date
+                    ? new Date(doc.expiry_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                    : '—'}
+                </td>
+                <td className="px-5 py-3">
+                  {doc?.file_url
+                    ? <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-orange-600 hover:underline font-medium"><ExternalLink className="h-3 w-3" /> View</a>
+                    : <span className="text-xs text-slate-300">—</span>}
+                </td>
+                <td className="px-5 py-3 text-right">
                   <button
                     onClick={() => setOpenForm(openForm === type ? null : type)}
-                    className={cn(
-                      'flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors',
-                      openForm === type
-                        ? 'border-orange-400 bg-orange-50 text-orange-700'
-                        : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700',
-                    )}
+                    className={cn('flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ml-auto',
+                      openForm === type ? 'border-orange-400 bg-orange-50 text-orange-700' : 'border-slate-200 text-slate-500 hover:border-slate-300')}
                   >
-                    {doc ? (
-                      <><RefreshCw className="h-3 w-3" /> Update</>
-                    ) : (
-                      <><Upload className="h-3 w-3" /> Upload</>
-                    )}
+                    {doc ? <><RefreshCw className="h-3 w-3" /> Update</> : <><Upload className="h-3 w-3" /> Upload</>}
                   </button>
-                </div>
-              </div>
-
-              {/* Expanded detail panel */}
-              {expandedType === type && doc && (
-                <div className="px-4 sm:px-5 pb-3 pt-0 space-y-2">
-                  {doc.file_url && (
-                    <a href={doc.file_url} target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-xs font-medium text-orange-600 hover:underline">
-                      <ExternalLink className="h-3.5 w-3.5" /> View Document
-                    </a>
-                  )}
-                  {doc.notes && (
-                    <p className="text-xs text-slate-600 whitespace-pre-line">{doc.notes}</p>
-                  )}
-                  {!doc.file_url && !doc.notes && (
-                    <p className="text-xs text-slate-400">No document or notes on file.</p>
-                  )}
-                </div>
-              )}
-
-              {/* Inline upload form */}
-              {openForm === type && (
-                <div className="px-4 sm:px-5 pb-4">
-                  <UploadForm
-                    projectId={projectId}
-                    companyId={companyId}
-                    companyName={companyName}
-                    docType={type}
-                    existingDoc={doc}
-                    token={token}
-                    onClose={() => setOpenForm(null)}
-                    onSaved={onRefresh}
-                  />
-                </div>
-              )}
-            </div>
-          )
-        })}
-      </div>
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+      {/* Inline upload form (below table) */}
+      {openForm && (
+        <div className="px-5 pb-5 pt-2">
+          <UploadForm
+            projectId={projectId}
+            companyId={companyId}
+            companyName={companyName}
+            docType={openForm}
+            existingDoc={getDoc(openForm)}
+            token={token}
+            onClose={() => setOpenForm(null)}
+            onSaved={onRefresh}
+          />
+        </div>
+      )}
     </div>
   )
 }
