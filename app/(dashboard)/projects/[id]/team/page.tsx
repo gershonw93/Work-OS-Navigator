@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Users, Plus, X, Phone, Mail, HardHat, Building2, DollarSign, UserCircle2, Pencil, UserPlus, Sparkles, Loader2, Paperclip } from 'lucide-react'
+import { Users, Plus, X, Phone, Mail, HardHat, Building2, DollarSign, UserCircle2, Pencil, UserPlus, Sparkles, Loader2, Paperclip, ChevronDown, ChevronUp } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,6 +14,14 @@ import { cn } from '@/lib/utils'
 const GC_ROLES = [
   'Project Manager', 'Site Manager', 'Superintendent', 'Foreman',
   'Laborer', 'Safety Officer', 'Quality Control', 'Other',
+]
+
+const TRADES = [
+  'General Labor', 'Excavation', 'Concrete / Foundation', 'Masonry', 'Framing',
+  'Carpentry', 'Roofing', 'Plumbing', 'Electrical', 'HVAC', 'Insulation',
+  'Drywall', 'Painting', 'Flooring', 'Tile', 'Cabinetry / Millwork',
+  'Windows / Glazing', 'Steel / Welding', 'Fire Protection', 'Low Voltage / Security',
+  'Landscaping', 'Demolition', 'Other',
 ]
 
 interface TeamMember {
@@ -39,6 +47,7 @@ interface Subcontract {
   status: string
   added_manually?: boolean | null
   proposal_url?: string | null
+  line_items?: { description: string; amount: number | null }[] | null
   companies: { name: string; contact_email: string | null; phone: string | null } | null
 }
 
@@ -71,6 +80,9 @@ export default function TeamPage({ params }: { params: { id: string } }) {
 
   // Add a subcontractor (manual / from directory)
   const [showAddSub, setShowAddSub] = useState(false)
+  const [editingSubId, setEditingSubId] = useState<string | null>(null)
+  const [expandedSubId, setExpandedSubId] = useState<string | null>(null)
+  const [deletingSubId, setDeletingSubId] = useState<string | null>(null)
   const [subMode, setSubMode] = useState<'new' | 'existing'>('new')
   const [subExistingId, setSubExistingId] = useState('')
   const [directorySubs, setDirectorySubs] = useState<{ id: string; name: string; trade: string | null }[]>([])
@@ -91,7 +103,45 @@ export default function TeamPage({ params }: { params: { id: string } }) {
 
   const lineItemsTotal = subLineItems.reduce((s, li) => s + (parseFloat(li.amount.replace(/[^0-9.]/g, '')) || 0), 0)
 
+  function resetSubForm() {
+    setSubMode('new'); setSubExistingId('')
+    setSubCompany(''); setSubTrade(''); setSubScope(''); setSubAmount('')
+    setSubStart(''); setSubEnd('')
+    setSubEmail(''); setSubPhone(''); setSubProposal(null); setSubScanned(false); setSubAnalyzeError('')
+    setSubLineItems([{ description: '', amount: '' }])
+  }
+
+  function openEditSub(sub: Subcontract) {
+    setEditingSubId(sub.id)
+    setSubMode('new')
+    setSubCompany(sub.companies?.name ?? '')
+    setSubEmail(sub.companies?.contact_email ?? '')
+    setSubPhone(sub.companies?.phone ?? '')
+    setSubTrade(sub.trade ?? '')
+    setSubScope(sub.scope ?? '')
+    setSubAmount(sub.contract_amount ? String(sub.contract_amount) : '')
+    const items = Array.isArray(sub.line_items) && sub.line_items.length > 0
+      ? sub.line_items.map((li: any) => ({ description: li.description ?? '', amount: li.amount != null ? String(li.amount) : '' }))
+      : [{ description: '', amount: '' }]
+    setSubLineItems(items)
+    setShowAddSub(true)
+  }
+
+  async function deleteSub(sub: Subcontract) {
+    if (!confirm(`Remove ${sub.companies?.name ?? 'this subcontractor'} from the project?`)) return
+    setDeletingSubId(sub.id)
+    const token = await getToken()
+    const res = await fetch(`/api/projects/${params.id}/subcontracts/${sub.id}`, {
+      method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
+    })
+    setDeletingSubId(null)
+    if (!res.ok) { alert('Could not remove subcontractor.'); return }
+    load()
+  }
+
   function openAddSub() {
+    setEditingSubId(null)
+    resetSubForm()
     setShowAddSub(true)
     getToken().then(async token => {
       const res = await fetch('/api/directory', { headers: { Authorization: `Bearer ${token}` } })
@@ -143,6 +193,35 @@ export default function TeamPage({ params }: { params: { id: string } }) {
     e.preventDefault()
     setSubSaving(true)
     const token = await getToken()
+
+    const cleanItemsArr = subLineItems
+      .filter(li => li.description.trim() || li.amount.trim())
+      .map(li => ({ description: li.description.trim(), amount: li.amount ? parseFloat(li.amount.replace(/[^0-9.]/g, '')) : null }))
+
+    // Edit existing subcontract
+    if (editingSubId) {
+      const res = await fetch(`/api/projects/${params.id}/subcontracts/${editingSubId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          company_name: subCompany,
+          contact_email: subEmail,
+          phone: subPhone,
+          trade: subTrade,
+          scope: subScope,
+          contract_amount: subAmount ? parseFloat(subAmount.replace(/[^0-9.]/g, '')) : (cleanItemsArr.reduce((s, li) => s + (li.amount || 0), 0) || null),
+          line_items: cleanItemsArr,
+        }),
+      })
+      if (!res.ok) {
+        const e2 = await res.json().catch(() => ({}))
+        alert(`Could not save: ${e2.error ?? res.statusText}`)
+        setSubSaving(false); return
+      }
+      setShowAddSub(false); setEditingSubId(null); setSubSaving(false); resetSubForm(); load()
+      return
+    }
+
     const fd = new FormData()
     if (subMode === 'existing' && subExistingId) {
       fd.append('existing_company_id', subExistingId)
@@ -482,14 +561,15 @@ export default function TeamPage({ params }: { params: { id: string } }) {
           <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto min-w-0">
             <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-slate-900">Add Subcontractor</h2>
-                <p className="text-xs text-slate-400">Enter a sub manually — they don't need an account.</p>
+                <h2 className="text-lg font-semibold text-slate-900">{editingSubId ? 'Edit Subcontractor' : 'Add Subcontractor'}</h2>
+                <p className="text-xs text-slate-400">{editingSubId ? 'Update this sub’s details.' : 'Enter a sub manually — they don’t need an account.'}</p>
               </div>
-              <button onClick={() => setShowAddSub(false)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
+              <button onClick={() => { setShowAddSub(false); setEditingSubId(null) }} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
             </div>
             <form onSubmit={addSub}>
               <div className="px-4 sm:px-6 py-5 space-y-4">
-                {/* New vs existing toggle */}
+                {/* New vs existing toggle (add only) */}
+                {!editingSubId && (
                 <div className="inline-flex rounded-lg border border-slate-200 p-0.5 text-sm">
                   <button type="button" onClick={() => setSubMode('new')}
                     className={cn('px-3 py-1 rounded-md font-medium', subMode === 'new' ? 'bg-slate-800 text-white' : 'text-slate-500')}>
@@ -500,6 +580,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                     From my directory
                   </button>
                 </div>
+                )}
 
                 {subMode === 'existing' ? (
                   <div className="space-y-1.5">
@@ -531,7 +612,11 @@ export default function TeamPage({ params }: { params: { id: string } }) {
 
                 <div className="space-y-1.5">
                   <Label>Trade</Label>
-                  <Input placeholder="e.g. Plumbing" value={subTrade} onChange={e => setSubTrade(e.target.value)} />
+                  <Select value={subTrade} onChange={e => setSubTrade(e.target.value)}>
+                    <option value="">-- Select trade --</option>
+                    {subTrade && !TRADES.includes(subTrade) && <option value={subTrade}>{subTrade}</option>}
+                    {TRADES.map(t => <option key={t} value={t}>{t}</option>)}
+                  </Select>
                 </div>
 
                 {/* Scope as line items */}
@@ -559,6 +644,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                   <Input placeholder={lineItemsTotal > 0 ? `Leave blank to use $${lineItemsTotal.toLocaleString()}` : 'e.g. 45000'} value={subAmount} onChange={e => setSubAmount(e.target.value)} />
                 </div>
 
+                {!editingSubId && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Start Date <span className="text-slate-400 font-normal">(adds to schedule)</span></Label>
@@ -569,8 +655,10 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                     <Input type="date" value={subEnd} onChange={e => setSubEnd(e.target.value)} />
                   </div>
                 </div>
+                )}
 
                 {/* Attach proposal / contract */}
+                {!editingSubId && (
                 <div className="space-y-1.5">
                   <Label><Paperclip className="inline h-3.5 w-3.5 mr-1 text-slate-400" />Attach proposal / contract <span className="text-slate-400 font-normal">(optional)</span></Label>
                   <Input type="file" accept="image/*,application/pdf" onChange={e => setSubProposal(e.target.files?.[0] ?? null)} />
@@ -585,10 +673,11 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                   {subAnalyzeError && <p className="text-xs text-red-500 flex items-center gap-1"><X className="h-3 w-3 shrink-0" />{subAnalyzeError}</p>}
                   {subScanned && !subAnalyzeError && <p className="text-xs font-medium text-green-600">✓ AI filled the fields below — review and edit as needed.</p>}
                 </div>
+                )}
               </div>
               <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex flex-wrap gap-2 justify-end">
-                <Button type="button" variant="secondary" onClick={() => setShowAddSub(false)}>Cancel</Button>
-                <Button type="submit" disabled={subSaving || (subMode === 'new' ? !subCompany : !subExistingId)}>{subSaving ? 'Adding...' : 'Add Subcontractor'}</Button>
+                <Button type="button" variant="secondary" onClick={() => { setShowAddSub(false); setEditingSubId(null) }}>Cancel</Button>
+                <Button type="submit" disabled={subSaving || (editingSubId ? !subCompany : (subMode === 'new' ? !subCompany : !subExistingId))}>{subSaving ? 'Saving...' : (editingSubId ? 'Save Changes' : 'Add Subcontractor')}</Button>
               </div>
             </form>
           </div>
@@ -702,45 +791,83 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                 <p className="text-xs text-slate-400 mt-1">Award bids to populate this automatically, or use <strong>Add Sub</strong> to enter one manually.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {subcontracts.map(sub => (
-                  <div key={sub.id} className="bg-white rounded-xl border border-slate-200 px-4 py-3.5 hover:border-slate-300 transition-colors">
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <div className="h-9 w-9 rounded-full bg-slate-100 flex items-center justify-center shrink-0 text-sm font-semibold text-slate-600">
-                        {(sub.companies?.name ?? '?').slice(0, 2).toUpperCase()}
-                      </div>
-                      <Badge variant={getStatusVariant(sub.status)}>{sub.status}</Badge>
+              <div className="space-y-2">
+                {subcontracts.map(sub => {
+                  const isOpen = expandedSubId === sub.id
+                  const items = Array.isArray(sub.line_items) ? sub.line_items : []
+                  return (
+                    <div key={sub.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                      {/* Collapsed row */}
+                      <button onClick={() => setExpandedSubId(isOpen ? null : sub.id)}
+                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors text-left">
+                        <div className="h-9 w-9 rounded-full bg-slate-100 flex items-center justify-center shrink-0 text-sm font-semibold text-slate-600">
+                          {(sub.companies?.name ?? '?').slice(0, 2).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-slate-900 text-sm">{sub.companies?.name ?? 'Unknown'}</span>
+                            {sub.trade && <span className="text-xs bg-slate-100 text-slate-600 rounded-full px-2 py-0.5">{sub.trade}</span>}
+                            {sub.added_manually && <span className="text-xs bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-2 py-0.5">Not on platform</span>}
+                          </div>
+                          {sub.scope && <p className="text-xs text-slate-400 truncate mt-0.5">{sub.scope}</p>}
+                        </div>
+                        <span className="text-sm font-bold text-slate-800 shrink-0">${Number(sub.contract_amount ?? 0).toLocaleString()}</span>
+                        {isOpen ? <ChevronUp className="h-4 w-4 text-slate-400 shrink-0" /> : <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" />}
+                      </button>
+
+                      {/* Expanded detail */}
+                      {isOpen && (
+                        <div className="border-t border-slate-100 px-4 py-4 space-y-4">
+                          {items.length > 0 && (
+                            <div>
+                              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Scope / Line Items</p>
+                              <div className="rounded-lg border border-slate-100 divide-y divide-slate-100">
+                                {items.map((li, i) => (
+                                  <div key={i} className="flex items-center justify-between gap-3 px-3 py-1.5 text-sm">
+                                    <span className="text-slate-700">{li.description || `Item ${i + 1}`}</span>
+                                    <span className="text-slate-600 font-medium shrink-0">{li.amount != null ? `$${Number(li.amount).toLocaleString()}` : '—'}</span>
+                                  </div>
+                                ))}
+                                <div className="flex items-center justify-between gap-3 px-3 py-1.5 text-sm bg-slate-50 font-semibold">
+                                  <span className="text-slate-700">Total</span>
+                                  <span className="text-slate-900">${Number(sub.contract_amount ?? 0).toLocaleString()}</span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs">
+                            {sub.companies?.contact_email && (
+                              <a href={`mailto:${sub.companies.contact_email}`} className="flex items-center gap-1 text-slate-500 hover:text-slate-700">
+                                <Mail className="h-3.5 w-3.5" />{sub.companies.contact_email}
+                              </a>
+                            )}
+                            {sub.companies?.phone && (
+                              <a href={`tel:${sub.companies.phone}`} className="flex items-center gap-1 text-slate-500 hover:text-slate-700">
+                                <Phone className="h-3.5 w-3.5" />{sub.companies.phone}
+                              </a>
+                            )}
+                            {sub.proposal_url && (
+                              <a href={sub.proposal_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-orange-600 hover:underline">
+                                <Paperclip className="h-3.5 w-3.5" />View proposal
+                              </a>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2 pt-1">
+                            <Button size="sm" variant="secondary" onClick={() => openEditSub(sub)}>
+                              <Pencil className="h-3.5 w-3.5" /> Edit
+                            </Button>
+                            <button onClick={() => deleteSub(sub)} disabled={deletingSubId === sub.id}
+                              className="flex items-center gap-1 text-xs text-slate-400 hover:text-red-500 transition-colors ml-auto">
+                              <X className="h-3.5 w-3.5" /> {deletingSubId === sub.id ? 'Removing…' : 'Remove'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <p className="font-semibold text-slate-900 text-sm">{sub.companies?.name ?? 'Unknown'}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">{sub.scope}</p>
-                    <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                      {sub.trade && (
-                        <span className="text-xs bg-slate-100 text-slate-600 rounded-full px-2 py-0.5">{sub.trade}</span>
-                      )}
-                      {sub.added_manually && (
-                        <span className="text-xs bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-2 py-0.5">Not on platform</span>
-                      )}
-                    </div>
-                    <p className="mt-2 text-sm font-semibold text-slate-800">${Number(sub.contract_amount).toLocaleString()}</p>
-                    <div className="mt-2 space-y-0.5">
-                      {sub.companies?.contact_email && (
-                        <a href={`mailto:${sub.companies.contact_email}`} className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600">
-                          <Mail className="h-3 w-3 shrink-0" /><span className="truncate min-w-0">{sub.companies.contact_email}</span>
-                        </a>
-                      )}
-                      {sub.companies?.phone && (
-                        <a href={`tel:${sub.companies.phone}`} className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600">
-                          <Phone className="h-3 w-3" />{sub.companies.phone}
-                        </a>
-                      )}
-                      {sub.proposal_url && (
-                        <a href={sub.proposal_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-orange-600 hover:underline">
-                          <Mail className="h-3 w-3" />View proposal
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>
