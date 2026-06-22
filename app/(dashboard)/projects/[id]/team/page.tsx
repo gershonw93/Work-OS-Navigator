@@ -113,7 +113,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
     setSubLineItems([{ description: '', amount: '' }]); setSubPayments([])
   }
 
-  function openEditSub(sub: Subcontract) {
+  async function openEditSub(sub: Subcontract) {
     setEditingSubId(sub.id)
     setSubMode('new')
     setSubCompany(sub.companies?.name ?? '')
@@ -126,7 +126,21 @@ export default function TeamPage({ params }: { params: { id: string } }) {
       ? sub.line_items.map((li: any) => ({ description: li.description ?? '', amount: li.amount != null ? String(li.amount) : '' }))
       : [{ description: '', amount: '' }]
     setSubLineItems(items)
+    setSubPayments([])
     setShowAddSub(true)
+    // Load existing payment schedule milestones
+    const token = await getToken()
+    const res = await fetch(`/api/projects/${params.id}/subcontracts/${sub.id}/payment-schedule`, { headers: { Authorization: `Bearer ${token}` } })
+    if (res.ok) {
+      const d = await res.json()
+      if (Array.isArray(d.items) && d.items.length > 0) {
+        setSubPayments(d.items.map((p: any) => ({
+          label: p.label ?? '',
+          percent: p.percentage != null ? String(p.percentage) : '',
+          amount: p.amount != null ? String(p.amount) : '',
+        })))
+      }
+    }
   }
 
   async function deleteSub(sub: Subcontract) {
@@ -232,6 +246,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
           scope: subScope,
           contract_amount: subAmount ? parseFloat(subAmount.replace(/[^0-9.]/g, '')) : (cleanItemsArr.reduce((s, li) => s + (li.amount || 0), 0) || null),
           line_items: cleanItemsArr,
+          payment_schedule: cleanPayments,
         }),
       })
       if (!res.ok) {
@@ -664,7 +679,6 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                 </div>
 
                 {/* Payment schedule (deposit / progress / final) */}
-                {!editingSubId && (
                 <div className="space-y-2 rounded-lg bg-slate-50 border border-slate-200 p-3">
                   <div className="flex items-center justify-between">
                     <Label className="mb-0">Payment Schedule <span className="text-slate-400 font-normal">(deposit / progress / final)</span></Label>
@@ -689,7 +703,6 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                     <Plus className="h-3 w-3" /> Add payment milestone
                   </button>
                 </div>
-                )}
 
                 {!editingSubId && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

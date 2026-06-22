@@ -19,6 +19,30 @@ export async function PATCH(
 
   const body = await request.json()
 
+  // Payment schedule replacement: if provided, delete old rows and insert new ones
+  if (Array.isArray(body.payment_schedule)) {
+    await db.from('payment_schedule_items').delete().eq('subcontract_id', params.subId)
+    const contractAmount = body.contract_amount ?? null
+    const paymentRows = (body.payment_schedule as any[])
+      .filter(p => (p.label ?? '').trim() || p.percent || p.amount)
+      .map((p: any, i: number) => {
+        const pct = p.percent != null ? Number(p.percent) : null
+        const amt = p.amount != null ? Number(p.amount) : (pct != null && contractAmount ? Math.round(contractAmount * pct) / 100 : null)
+        return {
+          subcontract_id: params.subId,
+          label: p.label || `Payment ${i + 1}`,
+          type: pct != null ? 'percent' : 'milestone',
+          percentage: pct,
+          amount: amt,
+          status: 'pending',
+          order_index: i,
+        }
+      })
+    if (paymentRows.length > 0) {
+      await db.from('payment_schedule_items').insert(paymentRows)
+    }
+  }
+
   // Subcontract fields
   const allowed = ['scope', 'trade', 'contract_amount', 'line_items', 'status', 'billing_type', 'progress_percent', 'weekly_amount', 'billing_notes']
   const updates: Record<string, unknown> = {}
