@@ -38,16 +38,34 @@ export async function GET(request: Request) {
 
   let acceptedElsewhere = new Set<string>()
   if (remainingInviteEmails.length > 0) {
+    // Check profiles table by email column
     const { data: existingProfiles } = await db
       .from('profiles')
       .select('id, email, company_id')
       .in('email', remainingInviteEmails)
 
-    for (const ep of existingProfiles ?? []) {
+    // Also check auth.users by email (profile.email may be blank)
+    const { data: authUsersData } = await db.auth.admin.listUsers({ perPage: 1000 })
+    const authUserMap = new Map<string, string>() // email -> user_id
+    for (const u of authUsersData?.users ?? []) {
+      if (u.email && remainingInviteEmails.includes(u.email)) {
+        authUserMap.set(u.email, u.id)
+      }
+    }
+    // Merge: find profile rows either by email column or by auth user id
+    const profilesById = existingProfiles ?? []
+    for (const [authEmail, authId] of authUserMap) {
+      if (!profilesById.find((p: Record<string, unknown>) => p.email === authEmail)) {
+        const { data: byId } = await db.from('profiles').select('id, email, company_id').eq('id', authId).maybeSingle()
+        if (byId) profilesById.push({ ...byId, email: authEmail })
+      }
+    }
+
+    for (const ep of profilesById) {
       acceptedElsewhere.add(ep.email)
       // Fix their company_id if it's wrong/missing
       if (ep.company_id !== profile.company_id) {
-        await db.from('profiles').update({ company_id: profile.company_id }).eq('id', ep.id)
+        await db.from('profiles').update({ company_id: profile.company_id, email: ep.email }).eq('id', ep.id)
       }
       // Mark invite as accepted in DB
       await db.from('company_invites')

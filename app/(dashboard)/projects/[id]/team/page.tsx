@@ -145,17 +145,15 @@ export default function TeamPage({ params }: { params: { id: string } }) {
   async function openAddCompanyMember() {
     setShowAddCompanyMember(true)
     setCompanyProfilesLoading(true)
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session?.user) { setCompanyProfilesLoading(false); return }
-    const { data: myProfile } = await supabase.from('profiles').select('company_id').eq('id', session.user.id).single()
-    if (!myProfile?.company_id) { setCompanyProfilesLoading(false); return }
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, full_name, email, role')
-      .eq('company_id', myProfile.company_id)
-      .neq('id', session.user.id)
-      .order('full_name')
-    setCompanyProfiles(profiles ?? [])
+    const token = await getToken()
+    // Use the teammates API (service role) so RLS doesn't hide company members
+    const res = await fetch('/api/settings/teammates', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (res.ok) {
+      const data = await res.json()
+      setCompanyProfiles(data.teammates ?? [])
+    }
     setCompanyProfilesLoading(false)
   }
 
