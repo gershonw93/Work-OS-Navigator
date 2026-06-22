@@ -27,18 +27,37 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const bytes = await file.arrayBuffer()
   const base64 = Buffer.from(bytes).toString('base64')
 
-  const prompt = `This is a construction subcontractor compliance document (COI, business license, W-9, workers' comp certificate, or similar). Extract key info and return ONLY a JSON object with these exact keys (use null for anything not found):
+  const prompt = `This is a construction subcontractor compliance document. Identify the document type and extract structured fields. Return ONLY a JSON object:
 {
   "doc_type": "one of: coi, license, w9, workers_comp, other",
-  "company_name": "the company/insured name on the document",
-  "expiry_date": "expiration/renewal date in YYYY-MM-DD format, or null",
-  "effective_date": "policy/effective start date in YYYY-MM-DD format, or null",
-  "policy_number": "policy or license number, or null",
-  "status": "approved if the document appears current and valid, expired if it is past its expiry date, pending otherwise",
-  "coverage_summary": "for COI: one-line summary of key coverage amounts (e.g. GL $1M/$2M, Auto $1M, Umbrella $2M). For license: license type and number. For W-9: just the entity name. Null for unknown.",
-  "notes": "any important flags: missing certificates, exclusions, upcoming expiry within 60 days, mismatch of company name, etc. Null if everything looks clean."
+  "company_name": "the company/insured name on the document or null",
+  "expiry_date": "expiry/renewal date as YYYY-MM-DD or null",
+  "effective_date": "policy start date as YYYY-MM-DD or null",
+  "status": "approved if current and valid, expired if past expiry, pending otherwise",
+
+  "insurer": "insurance company name or null",
+  "policy_number": "policy number or null",
+  "gl_per_occurrence": "general liability per occurrence limit as a number (e.g. 1000000) or null",
+  "gl_aggregate": "general liability aggregate limit as a number or null",
+  "auto_limit": "auto liability limit as a number or null",
+  "umbrella_limit": "umbrella/excess limit as a number or null",
+  "wc_el_accident": "workers comp EL per accident limit as a number or null",
+  "additional_insured": true or false or null,
+
+  "license_number": "license number or null",
+  "license_type": "type of license e.g. General Contractor, Electrical, Plumbing or null",
+  "issuing_state": "2-letter state code or null",
+
+  "entity_type": "one of: individual, llc, corporation, partnership, other or null",
+  "ein_last4": "last 4 digits of EIN/SSN or null",
+
+  "wc_carrier": "workers comp carrier name or null",
+  "wc_policy_number": "workers comp policy number or null",
+  "wc_el_disease_limit": "EL disease per employee limit as a number or null",
+
+  "notes": "any important flags: exclusions, missing coverage, name mismatch, etc. Null if clean."
 }
-Return ONLY the JSON object, no other text.`
+Return ONLY the JSON object.`
 
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -54,7 +73,7 @@ Return ONLY the JSON object, no other text.`
 
   const message = await anthropic.messages.create({
     model: 'claude-opus-4-8',
-    max_tokens: 512,
+    max_tokens: 1024,
     messages: [{ role: 'user', content }],
   })
 
