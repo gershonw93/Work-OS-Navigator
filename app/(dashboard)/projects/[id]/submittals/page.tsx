@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 import {
   Plus, X, FileText, Paperclip, CheckCircle2, XCircle, Clock, RefreshCw,
-  ChevronDown, ChevronUp, Trash2, ExternalLink,
+  ChevronDown, ChevronUp, Trash2, ExternalLink, Sparkles, Loader2,
 } from 'lucide-react'
 
 const SUBMITTAL_TYPES = ['Tech Sheet', 'Shop Drawing', 'Product Data', 'Sample', 'Other']
@@ -47,6 +47,9 @@ export default function SubmittalsPage({ params }: { params: { id: string } }) {
   const [specSection, setSpecSection] = useState('')
   const [notes, setNotes] = useState('')
   const [file, setFile] = useState<File | null>(null)
+  const [analyzing, setAnalyzing] = useState(false)
+  const [analyzeError, setAnalyzeError] = useState('')
+  const [scanned, setScanned] = useState(false)
 
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -61,6 +64,31 @@ export default function SubmittalsPage({ params }: { params: { id: string } }) {
   }
 
   useEffect(() => { fetchSubmittals() }, [params.id])
+
+  async function analyzeDoc(f: File) {
+    setAnalyzing(true); setAnalyzeError(''); setScanned(false)
+    setFile(f)
+    const token = await getToken()
+    const form = new FormData()
+    form.append('file', f)
+    const res = await fetch(`/api/projects/${params.id}/submittals/analyze`, {
+      method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form,
+    })
+    const data = await res.json()
+    if (!res.ok || !data.fields) {
+      setAnalyzeError(data.error ?? 'Could not read document. Fill in the fields manually.')
+      setAnalyzing(false); return
+    }
+    const fld = data.fields
+    if (fld.title) setTitle(fld.title)
+    if (fld.type && SUBMITTAL_TYPES.includes(fld.type)) setType(fld.type)
+    if (fld.trade) setTrade(fld.trade)
+    if (fld.manufacturer) setManufacturer(fld.manufacturer)
+    if (fld.model_number) setModelNumber(fld.model_number)
+    if (fld.spec_section) setSpecSection(fld.spec_section)
+    if (fld.notes) setNotes(fld.notes)
+    setScanned(true); setAnalyzing(false)
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -82,6 +110,7 @@ export default function SubmittalsPage({ params }: { params: { id: string } }) {
     })
     setTitle(''); setType('Tech Sheet'); setTrade(''); setManufacturer('')
     setModelNumber(''); setSpecSection(''); setNotes(''); setFile(null)
+    setScanned(false); setAnalyzeError('')
     setShowForm(false); setSubmitting(false); fetchSubmittals()
   }
 
@@ -224,6 +253,18 @@ export default function SubmittalsPage({ params }: { params: { id: string } }) {
             </div>
             <form onSubmit={handleSubmit}>
               <div className="px-4 sm:px-6 py-5 space-y-4">
+                <div className="space-y-1.5">
+                  <Label><Sparkles className="inline h-3.5 w-3.5 mr-1 text-orange-400" />Scan Submittal (AI Auto-Fill)</Label>
+                  <label className="flex items-center gap-2 rounded-lg border-2 border-dashed border-orange-200 bg-orange-50/40 px-3 py-3 cursor-pointer hover:bg-orange-50 transition-colors">
+                    {analyzing
+                      ? <><Loader2 className="h-4 w-4 text-orange-500 animate-spin shrink-0" /><span className="text-orange-600 font-medium text-sm">Reading document…</span></>
+                      : <><Sparkles className="h-4 w-4 text-orange-400 shrink-0" /><span className="text-orange-600 font-medium text-sm">Upload a tech sheet / cut sheet</span><span className="text-slate-400 text-xs">— AI fills the fields</span></>}
+                    <input type="file" accept="image/*,application/pdf" className="hidden"
+                      onChange={e => { const f = e.target.files?.[0]; if (f) analyzeDoc(f) }} />
+                  </label>
+                  {analyzeError && <p className="text-xs text-red-500 flex items-center gap-1"><X className="h-3 w-3 shrink-0" />{analyzeError}</p>}
+                  {scanned && !analyzeError && <p className="text-xs font-medium text-green-600">✓ Scanned — fields filled. The file is attached below.</p>}
+                </div>
                 <div className="space-y-1.5">
                   <Label>Title</Label>
                   <Input placeholder="e.g. Roof Membrane — GAF EverGuard TPO" value={title} onChange={e => setTitle(e.target.value)} required />

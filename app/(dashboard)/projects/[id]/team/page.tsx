@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Users, Plus, X, Phone, Mail, HardHat, Building2, DollarSign, UserCircle2, Pencil, UserPlus } from 'lucide-react'
+import { Users, Plus, X, Phone, Mail, HardHat, Building2, DollarSign, UserCircle2, Pencil, UserPlus, Sparkles, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -37,6 +37,8 @@ interface Subcontract {
   trade: string | null
   contract_amount: number
   status: string
+  added_manually?: boolean | null
+  proposal_url?: string | null
   companies: { name: string; contact_email: string | null; phone: string | null } | null
 }
 
@@ -66,6 +68,69 @@ export default function TeamPage({ params }: { params: { id: string } }) {
   const [companyMemberRole, setCompanyMemberRole] = useState('Site Manager')
   const [companyMemberSaving, setCompanyMemberSaving] = useState(false)
   const [companyProfilesLoading, setCompanyProfilesLoading] = useState(false)
+
+  // Manually add an off-platform subcontractor
+  const [showAddSub, setShowAddSub] = useState(false)
+  const [subCompany, setSubCompany] = useState('')
+  const [subTrade, setSubTrade] = useState('')
+  const [subScope, setSubScope] = useState('')
+  const [subAmount, setSubAmount] = useState('')
+  const [subEmail, setSubEmail] = useState('')
+  const [subPhone, setSubPhone] = useState('')
+  const [subProposal, setSubProposal] = useState<File | null>(null)
+  const [subSaving, setSubSaving] = useState(false)
+  const [subAnalyzing, setSubAnalyzing] = useState(false)
+  const [subAnalyzeError, setSubAnalyzeError] = useState('')
+  const [subScanned, setSubScanned] = useState(false)
+
+  async function analyzeProposal(f: File) {
+    setSubAnalyzing(true); setSubAnalyzeError(''); setSubScanned(false)
+    setSubProposal(f)
+    const token = await getToken()
+    const form = new FormData()
+    form.append('file', f)
+    const res = await fetch(`/api/projects/${params.id}/subcontracts/analyze-proposal`, {
+      method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form,
+    })
+    const data = await res.json()
+    if (!res.ok || !data.fields) {
+      setSubAnalyzeError(data.error ?? 'Could not read proposal. Fill in manually.')
+      setSubAnalyzing(false); return
+    }
+    const f2 = data.fields
+    if (f2.company_name) setSubCompany(f2.company_name)
+    if (f2.trade) setSubTrade(f2.trade)
+    if (f2.scope) setSubScope(f2.scope)
+    if (f2.contract_amount != null) setSubAmount(String(f2.contract_amount))
+    if (f2.contact_email) setSubEmail(f2.contact_email)
+    if (f2.phone) setSubPhone(f2.phone)
+    setSubScanned(true); setSubAnalyzing(false)
+  }
+
+  async function addSub(e: React.FormEvent) {
+    e.preventDefault()
+    setSubSaving(true)
+    const token = await getToken()
+    const fd = new FormData()
+    fd.append('company_name', subCompany)
+    fd.append('trade', subTrade)
+    fd.append('scope', subScope)
+    fd.append('contract_amount', subAmount)
+    fd.append('contact_email', subEmail)
+    fd.append('phone', subPhone)
+    if (subProposal) fd.append('proposal', subProposal)
+    const res = await fetch(`/api/projects/${params.id}/subcontracts`, {
+      method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd,
+    })
+    if (!res.ok) {
+      const e2 = await res.json().catch(() => ({}))
+      alert(`Could not add subcontractor: ${e2.error ?? res.statusText}`)
+      setSubSaving(false); return
+    }
+    setSubCompany(''); setSubTrade(''); setSubScope(''); setSubAmount('')
+    setSubEmail(''); setSubPhone(''); setSubProposal(null); setSubScanned(false); setSubAnalyzeError('')
+    setShowAddSub(false); setSubSaving(false); load()
+  }
 
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -366,6 +431,71 @@ export default function TeamPage({ params }: { params: { id: string } }) {
         </div>
       )}
 
+      {/* Add Subcontractor Manually Modal */}
+      {showAddSub && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto min-w-0">
+            <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">Add Subcontractor</h2>
+                <p className="text-xs text-slate-400">Enter a sub manually — they don't need an account.</p>
+              </div>
+              <button onClick={() => setShowAddSub(false)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
+            </div>
+            <form onSubmit={addSub}>
+              <div className="px-4 sm:px-6 py-5 space-y-4">
+                <div className="space-y-1.5">
+                  <Label><Sparkles className="inline h-3.5 w-3.5 mr-1 text-orange-400" />Upload their proposal (AI Auto-Fill)</Label>
+                  <label className="flex items-center gap-2 rounded-lg border-2 border-dashed border-orange-200 bg-orange-50/40 px-3 py-3 cursor-pointer hover:bg-orange-50 transition-colors">
+                    {subAnalyzing
+                      ? <><Loader2 className="h-4 w-4 text-orange-500 animate-spin shrink-0" /><span className="text-orange-600 font-medium text-sm">Reading proposal…</span></>
+                      : <><Sparkles className="h-4 w-4 text-orange-400 shrink-0" /><span className="text-orange-600 font-medium text-sm">Upload the proposal / quote</span><span className="text-slate-400 text-xs">— AI fills it in</span></>}
+                    <input type="file" accept="image/*,application/pdf" className="hidden"
+                      onChange={e => { const f = e.target.files?.[0]; if (f) analyzeProposal(f) }} />
+                  </label>
+                  {subAnalyzeError && <p className="text-xs text-red-500 flex items-center gap-1"><X className="h-3 w-3 shrink-0" />{subAnalyzeError}</p>}
+                  {subScanned && !subAnalyzeError && <p className="text-xs font-medium text-green-600">✓ Read — fields filled. The proposal is attached.</p>}
+                  {subProposal && <p className="text-xs text-slate-400 truncate">📎 {subProposal.name}</p>}
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Company Name <span className="text-red-500">*</span></Label>
+                  <Input placeholder="e.g. Joe's Plumbing" value={subCompany} onChange={e => setSubCompany(e.target.value)} required />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Trade</Label>
+                    <Input placeholder="e.g. Plumbing" value={subTrade} onChange={e => setSubTrade(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Contract Amount</Label>
+                    <Input placeholder="e.g. 45000" value={subAmount} onChange={e => setSubAmount(e.target.value)} />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Scope of Work</Label>
+                  <textarea rows={2} placeholder="What they're doing on this project..." value={subScope} onChange={e => setSubScope(e.target.value)}
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none resize-none" />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Contact Email</Label>
+                    <Input type="email" placeholder="joe@plumbing.com" value={subEmail} onChange={e => setSubEmail(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Phone</Label>
+                    <Input placeholder="(555) 123-4567" value={subPhone} onChange={e => setSubPhone(e.target.value)} />
+                  </div>
+                </div>
+              </div>
+              <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex flex-wrap gap-2 justify-end">
+                <Button type="button" variant="secondary" onClick={() => setShowAddSub(false)}>Cancel</Button>
+                <Button type="submit" disabled={subSaving || !subCompany}>{subSaving ? 'Adding...' : 'Add Subcontractor'}</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div>
@@ -453,19 +583,24 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                   Subcontractors ({subcontracts.length})
                 </p>
               </div>
-              {totalContractValue > 0 && (
-                <div className="flex items-center gap-1 text-sm text-slate-500">
-                  <DollarSign className="h-3.5 w-3.5" />
-                  <span className="font-semibold text-slate-700">{totalContractValue.toLocaleString()}</span>
-                  <span className="text-xs">total contracted</span>
-                </div>
-              )}
+              <div className="flex items-center gap-3">
+                {totalContractValue > 0 && (
+                  <div className="flex items-center gap-1 text-sm text-slate-500">
+                    <DollarSign className="h-3.5 w-3.5" />
+                    <span className="font-semibold text-slate-700">{totalContractValue.toLocaleString()}</span>
+                    <span className="text-xs">total contracted</span>
+                  </div>
+                )}
+                <Button size="sm" variant="secondary" onClick={() => setShowAddSub(true)}>
+                  <Plus className="h-4 w-4" /> Add Sub
+                </Button>
+              </div>
             </div>
             {subcontracts.length === 0 ? (
               <div className="rounded-xl border border-dashed border-slate-200 py-10 text-center">
                 <Building2 className="h-8 w-8 text-slate-200 mx-auto mb-2" />
                 <p className="text-sm text-slate-400">No subcontractors yet</p>
-                <p className="text-xs text-slate-400 mt-1">Award bids to populate this section automatically.</p>
+                <p className="text-xs text-slate-400 mt-1">Award bids to populate this automatically, or use <strong>Add Sub</strong> to enter one manually.</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -479,9 +614,14 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                     </div>
                     <p className="font-semibold text-slate-900 text-sm">{sub.companies?.name ?? 'Unknown'}</p>
                     <p className="text-xs text-slate-500 mt-0.5">{sub.scope}</p>
-                    {sub.trade && (
-                      <span className="inline-block mt-1.5 text-xs bg-slate-100 text-slate-600 rounded-full px-2 py-0.5">{sub.trade}</span>
-                    )}
+                    <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                      {sub.trade && (
+                        <span className="text-xs bg-slate-100 text-slate-600 rounded-full px-2 py-0.5">{sub.trade}</span>
+                      )}
+                      {sub.added_manually && (
+                        <span className="text-xs bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-2 py-0.5">Not on platform</span>
+                      )}
+                    </div>
                     <p className="mt-2 text-sm font-semibold text-slate-800">${Number(sub.contract_amount).toLocaleString()}</p>
                     <div className="mt-2 space-y-0.5">
                       {sub.companies?.contact_email && (
@@ -492,6 +632,11 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                       {sub.companies?.phone && (
                         <a href={`tel:${sub.companies.phone}`} className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600">
                           <Phone className="h-3 w-3" />{sub.companies.phone}
+                        </a>
+                      )}
+                      {sub.proposal_url && (
+                        <a href={sub.proposal_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-orange-600 hover:underline">
+                          <Mail className="h-3 w-3" />View proposal
                         </a>
                       )}
                     </div>

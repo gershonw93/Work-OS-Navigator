@@ -14,16 +14,25 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const [{ data: members }, { data: subcontracts }] = await Promise.all([
+  const subsSelect = (cols: string) => db.from('subcontracts')
+    .select(cols)
+    .eq('project_id', params.id)
+    .order('created_at', { ascending: true })
+
+  const [{ data: members }, subsRes] = await Promise.all([
     db.from('project_team_members')
       .select('*')
       .eq('project_id', params.id)
       .order('created_at', { ascending: true }),
-    db.from('subcontracts')
-      .select('id, scope, trade, contract_amount, status, companies(name, contact_email, phone)')
-      .eq('project_id', params.id)
-      .order('created_at', { ascending: true }),
+    subsSelect('id, scope, trade, contract_amount, status, added_manually, proposal_url, companies(name, contact_email, phone)'),
   ])
+
+  // Fall back if the manual-sub columns haven't been migrated yet
+  let subcontracts = subsRes.data
+  if (subsRes.error && (subsRes.error as any).code === '42703') {
+    const retry = await subsSelect('id, scope, trade, contract_amount, status, companies(name, contact_email, phone)')
+    subcontracts = retry.data
+  }
 
   // Deduplicate subcontracts by company — show each company once
   const seenCompanies = new Set<string>()
