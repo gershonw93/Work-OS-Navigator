@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { UserCog, Search, X, LogOut } from 'lucide-react'
+import { UserCog, Search, X, LogOut, Shield } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { isSuperAdmin } from '@/lib/super-admin'
 
@@ -30,6 +30,42 @@ interface AccountRow {
   email: string | null
   role: string
   company_name: string | null
+}
+
+// Shared impersonation flow — mints a real session for the target user and swaps to it.
+// Returns an error message on failure, or null on success (the page will redirect).
+export async function impersonateUser(userId: string): Promise<string | null> {
+  const supabase = createClient()
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) return 'No active session.'
+
+  const res = await fetch('/api/admin/impersonate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+    body: JSON.stringify({ userId }),
+  })
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}))
+    return e.error ?? res.statusText
+  }
+  const { token_hash, target } = await res.json()
+
+  localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify({
+    access_token: session.access_token,
+    refresh_token: session.refresh_token,
+  }))
+
+  const { error } = await supabase.auth.verifyOtp({ token_hash, type: 'magiclink' })
+  if (error) {
+    localStorage.removeItem(ADMIN_SESSION_KEY)
+    return error.message
+  }
+
+  localStorage.setItem(IMPERSONATING_KEY, JSON.stringify({
+    targetId: target.id, name: target.name, email: target.email,
+  }))
+  window.location.href = '/dashboard'
+  return null
 }
 
 export function ImpersonateSwitcher() {
@@ -73,47 +109,12 @@ export function ImpersonateSwitcher() {
 
   async function impersonate(u: AccountRow) {
     setBusy(u.id)
-    try {
-      const supabase = createClient()
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
-
-      const res = await fetch('/api/admin/impersonate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ userId: u.id }),
-      })
-      if (!res.ok) {
-        const e = await res.json().catch(() => ({}))
-        alert(`Could not log in as this user: ${e.error ?? res.statusText}`)
-        return
-      }
-      const { token_hash, target } = await res.json()
-
-      // Stash the owner's own session so we can restore it on exit
-      localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify({
-        access_token: session.access_token,
-        refresh_token: session.refresh_token,
-      }))
-
-      // Establish a REAL session as the target user
-      const { error } = await supabase.auth.verifyOtp({ token_hash, type: 'magiclink' })
-      if (error) {
-        localStorage.removeItem(ADMIN_SESSION_KEY)
-        alert(`Could not start session: ${error.message}`)
-        return
-      }
-
-      localStorage.setItem(IMPERSONATING_KEY, JSON.stringify({
-        targetId: target.id, name: target.name, email: target.email,
-      }))
-      window.location.href = '/dashboard'
-    } finally {
+    const err = await impersonateUser(u.id)
+    if (err) {
+      alert(`Could not log in as this user: ${err}`)
       setBusy(null)
     }
+    // On success the helper redirects, so no need to clear busy
   }
 
   if (!isOwner) return null
@@ -122,6 +123,14 @@ export function ImpersonateSwitcher() {
 
   return (
     <>
+      <a
+        href="/admin"
+        title="Platform admin console"
+        className="flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900 px-2 py-1 text-xs font-semibold text-white hover:bg-slate-800"
+      >
+        <Shield className="h-3.5 w-3.5" />
+        <span className="hidden sm:inline">Admin</span>
+      </a>
       <button
         onClick={() => setOpen(true)}
         title="Log in as another account"
