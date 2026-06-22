@@ -44,20 +44,39 @@ export async function GET(request: Request) {
       .select('id, email, company_id')
       .in('email', remainingInviteEmails)
 
-    // Also check auth.users by email (profile.email may be blank)
+    // Also check auth.users by email (profile.email may be blank or profile missing)
     const { data: authUsersData } = await db.auth.admin.listUsers({ perPage: 1000 })
-    const authUserMap = new Map<string, string>() // email -> user_id
+    const authUserMap = new Map<string, { id: string; full_name: string }>() // email -> {id, name}
     for (const u of authUsersData?.users ?? []) {
       if (u.email && remainingInviteEmails.includes(u.email)) {
-        authUserMap.set(u.email, u.id)
+        authUserMap.set(u.email, { id: u.id, full_name: (u.user_metadata?.full_name as string) ?? '' })
       }
     }
-    // Merge: find profile rows either by email column or by auth user id
+
     const profilesById = existingProfiles ?? []
-    for (const [authEmail, authId] of Array.from(authUserMap.entries())) {
-      if (!profilesById.find((p: Record<string, unknown>) => p.email === authEmail)) {
-        const { data: byId } = await db.from('profiles').select('id, email, company_id').eq('id', authId).maybeSingle()
-        if (byId) profilesById.push({ ...byId, email: authEmail })
+    for (const [authEmail, authUser] of Array.from(authUserMap.entries())) {
+      if (profilesById.find((p: Record<string, unknown>) => p.email === authEmail)) continue
+
+      // Look up profile by auth id
+      const { data: byId } = await db.from('profiles').select('id, email, company_id').eq('id', authUser.id).maybeSingle()
+      if (byId) {
+        profilesById.push({ ...byId, email: authEmail })
+      } else {
+        // Auth user confirmed their account but never got a profile row — create one now
+        const inviteRow = (rawInvites ?? []).find((r: Record<string, unknown>) => r.email === authEmail)
+        const inviteRole = (inviteRow?.role as string) ?? 'read_only'
+        const { data: created } = await db
+          .from('profiles')
+          .upsert({
+            id: authUser.id,
+            email: authEmail,
+            full_name: authUser.full_name,
+            company_id: profile.company_id,
+            role: inviteRole,
+          })
+          .select('id, email, company_id')
+          .single()
+        if (created) profilesById.push({ ...created, email: authEmail })
       }
     }
 
