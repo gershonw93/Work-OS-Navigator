@@ -175,6 +175,7 @@ export default function SettingsPage() {
 
   // Team
   const [teammates, setTeammates] = useState<Teammate[]>([])
+  const [pendingRoles, setPendingRoles] = useState<Record<string, string>>({})
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([])
   const [showInvite, setShowInvite] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
@@ -842,15 +843,28 @@ export default function SettingsPage() {
                               <td className="px-4 py-3 text-slate-600">{t.email}</td>
                               <td className="px-4 py-3">
                                 {userRole === 'admin' && !isSelf ? (
-                                  <select
-                                    value={t.role}
-                                    onChange={(e) => changeRole(t.id, e.target.value)}
-                                    className="rounded border border-slate-200 px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-orange-400"
-                                  >
-                                    {ROLES.map((r) => (
-                                      <option key={r.value} value={r.value}>{r.label}</option>
-                                    ))}
-                                  </select>
+                                  <div className="flex items-center gap-2">
+                                    <select
+                                      value={pendingRoles[t.id] ?? t.role}
+                                      onChange={(e) => setPendingRoles(prev => ({ ...prev, [t.id]: e.target.value }))}
+                                      className="rounded border border-slate-200 px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-orange-400"
+                                    >
+                                      {ROLES.map((r) => (
+                                        <option key={r.value} value={r.value}>{r.label}</option>
+                                      ))}
+                                    </select>
+                                    {pendingRoles[t.id] && pendingRoles[t.id] !== t.role && (
+                                      <button
+                                        onClick={() => {
+                                          changeRole(t.id, pendingRoles[t.id])
+                                          setPendingRoles(prev => { const n = { ...prev }; delete n[t.id]; return n })
+                                        }}
+                                        className="rounded bg-orange-500 px-2 py-1 text-xs font-medium text-white hover:bg-orange-600"
+                                      >
+                                        Save
+                                      </button>
+                                    )}
+                                  </div>
                                 ) : (
                                   <RoleBadge role={t.role} />
                                 )}
