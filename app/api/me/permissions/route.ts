@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { getEffectivePermissions, type OverrideMap } from '@/lib/permissions'
+import { getEffectivePermissions, getRoleDefaults, ROLE_DEFAULTS, type OverrideMap } from '@/lib/permissions'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -34,7 +34,20 @@ export async function GET(request: Request) {
     if (basic?.role) role = basic.role
   }
 
+  const realRole = role
+
+  // Admin-only "View as" preview — show the app as another role without switching accounts
+  const viewAs = new URL(request.url).searchParams.get('as')
+  if (viewAs && realRole === 'admin' && ROLE_DEFAULTS[viewAs]) {
+    return NextResponse.json({
+      role: viewAs,
+      realRole,
+      previewing: true,
+      permissions: getRoleDefaults(viewAs),
+    })
+  }
+
   const permissions = getEffectivePermissions(role, overrides)
 
-  return NextResponse.json({ role, permissions })
+  return NextResponse.json({ role, realRole, previewing: false, permissions })
 }

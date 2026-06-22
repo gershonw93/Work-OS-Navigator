@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation'
 import { Menu, User } from 'lucide-react'
 import { NotificationBell } from './notification-bell'
 import { OPEN_SIDEBAR_EVENT } from './sidebar'
+import { ViewAsSwitcher } from './view-as-switcher'
 
 const sectionLabels: Record<string, string> = {
   '/dashboard': 'Dashboard',
@@ -54,6 +55,7 @@ export function TopNav() {
         <p className="text-sm font-medium text-slate-600">{getBreadcrumb(pathname)}</p>
       </div>
       <div className="flex items-center gap-2">
+        <ViewAsSwitcher />
         <NotificationBell />
         <button className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-200 text-slate-600 hover:bg-slate-300 transition-colors">
           <User className="h-4 w-4" />
