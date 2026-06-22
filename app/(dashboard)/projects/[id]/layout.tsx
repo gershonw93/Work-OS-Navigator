@@ -4,6 +4,7 @@ import { ProjectTabs } from '@/components/layout/project-tabs'
 import { Badge, getStatusVariant } from '@/components/ui/badge'
 import { ProjectActivityButton } from '@/components/layout/project-activity-button'
 import { SharePortalButton } from '@/components/layout/share-portal-button'
+import { TeamQuickView } from '@/components/layout/team-quick-view'
 
 interface ProjectLayoutProps {
   children: ReactNode
@@ -39,6 +40,7 @@ export default async function ProjectLayout({ children, params }: ProjectLayoutP
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            <TeamQuickView projectId={params.id} />
             <SharePortalButton projectId={params.id} />
             <ProjectActivityButton projectId={params.id} />
           </div>
