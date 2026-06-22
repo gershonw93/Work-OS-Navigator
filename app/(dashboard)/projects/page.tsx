@@ -146,7 +146,7 @@ export default function ProjectsPage() {
     if (!editProject) return
     setSaving(true)
     const token = await getToken()
-    await fetch(`/api/projects/${editProject.id}`, {
+    const res = await fetch(`/api/projects/${editProject.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({
@@ -160,6 +160,11 @@ export default function ProjectsPage() {
       }),
     })
     setSaving(false)
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}))
+      alert(`Could not save: ${d.error ?? res.statusText}`)
+      return
+    }
     setEditProject(null)
     fetchProjects()
   }
