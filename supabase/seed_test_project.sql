@@ -132,12 +132,13 @@ BEGIN
    (v_project_id, 'Punch list — exterior',     'Before close-in',      CURRENT_DATE + 60, 'low',    'open',        v_tm_w1, 'Danny Cole', 'Seed');
 
   -- ── Invoices (drives Paid / Outstanding on the card) ──────────────────────
-  INSERT INTO invoices (project_id, subcontract_id, company_id, company_name, amount, description, due_date, invoice_number, status, submitted_at, approved_at, paid_at) VALUES
-   (v_project_id, v_sc_concrete, v_sub_concrete, 'Apex Concrete & Foundations', 92500, 'Foundation 50% draw', CURRENT_DATE - 40, 'INV-MAPL-001', 'paid',             NOW() - INTERVAL '42 days', NOW() - INTERVAL '40 days', NOW() - INTERVAL '35 days'),
-   (v_project_id, v_sc_concrete, v_sub_concrete, 'Apex Concrete & Foundations', 92500, 'Foundation final',    CURRENT_DATE - 10, 'INV-MAPL-002', 'approved',         NOW() - INTERVAL '12 days', NOW() - INTERVAL '10 days', NULL),
-   (v_project_id, v_sc_framing,  v_sub_framing,  'Ironwood Framing',            105000,'Framing 50% draw',    CURRENT_DATE - 5,  'INV-MAPL-003', 'paid',             NOW() - INTERVAL '8 days',  NOW() - INTERVAL '6 days',  NOW() - INTERVAL '3 days'),
-   (v_project_id, v_sc_framing,  v_sub_framing,  'Ironwood Framing',            42000, 'Framing progress',    CURRENT_DATE + 3,  'INV-MAPL-004', 'pending_approval', NOW() - INTERVAL '1 day',   NULL, NULL),
-   (v_project_id, v_sc_electric, v_sub_electric, 'Voltline Electric',           35000, 'Electrical mobilization', CURRENT_DATE + 5, 'INV-MAPL-005', 'pending_approval', NOW(), NULL, NULL);
+  -- Uses only base invoices columns. 'approved' = owed but unpaid (outstanding).
+  INSERT INTO invoices (project_id, subcontract_id, amount, status, submitted_at, approved_at, paid_at) VALUES
+   (v_project_id, v_sc_concrete, 92500,  'paid',     NOW() - INTERVAL '42 days', NOW() - INTERVAL '40 days', NOW() - INTERVAL '35 days'),
+   (v_project_id, v_sc_concrete, 92500,  'approved', NOW() - INTERVAL '12 days', NOW() - INTERVAL '10 days', NULL),
+   (v_project_id, v_sc_framing,  105000, 'paid',     NOW() - INTERVAL '8 days',  NOW() - INTERVAL '6 days',  NOW() - INTERVAL '3 days'),
+   (v_project_id, v_sc_framing,  42000,  'approved', NOW() - INTERVAL '1 day',   NOW() - INTERVAL '1 day',   NULL),
+   (v_project_id, v_sc_electric, 35000,  'submitted',NOW(), NULL, NULL);
 
   -- ── Plans ──────────────────────────────────────────────────────────────────
   INSERT INTO project_plans (project_id, name, plan_type, file_url) VALUES
