@@ -13,14 +13,26 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // Subs that don't have a schedule_items row yet
-  const { data: subs } = await db
+  // Get all sub IDs that already have a schedule_items row
+  const { data: scheduled } = await db
+    .from('schedule_items')
+    .select('subcontract_id')
+    .eq('project_id', params.id)
+    .not('subcontract_id', 'is', null)
+
+  const scheduledIds = (scheduled ?? []).map((r: any) => r.subcontract_id).filter(Boolean)
+
+  // Fetch subs for this project, excluding already-scheduled ones
+  let query = db
     .from('subcontracts')
     .select('id, scope, trade, companies(id, name)')
     .eq('project_id', params.id)
-    .not('id', 'in',
-      `(SELECT subcontract_id FROM schedule_items WHERE project_id = '${params.id}' AND subcontract_id IS NOT NULL)`
-    )
+
+  if (scheduledIds.length > 0) {
+    query = query.not('id', 'in', `(${scheduledIds.map((id: string) => `"${id}"`).join(',')})`)
+  }
+
+  const { data: subs } = await query
 
   return NextResponse.json({ subs: subs ?? [] })
 }
