@@ -200,31 +200,45 @@ function UploadForm({
           />
         </div>
 
-        {/* Attach document */}
-        <div className="space-y-1">
-          <Label className="text-xs">
-            Attach Document <span className="text-slate-400 font-normal">(PDF or image)</span>
-          </Label>
+        {/* AI Scan */}
+        <div className={cn('rounded-lg border p-3 space-y-2', scanned ? 'border-green-200 bg-green-50' : 'border-orange-200 bg-orange-50')}>
           <div className="flex items-center gap-2">
-            <Input
+            <span className="text-sm font-semibold text-slate-800">🤖 Scan with AI</span>
+            <span className="text-xs text-slate-500">— upload the document and Claude extracts expiry, status &amp; coverage</span>
+          </div>
+          <label className={cn(
+            'flex items-center justify-center gap-2 w-full rounded-lg border-2 border-dashed px-4 py-3 cursor-pointer transition-colors text-sm font-medium',
+            analyzing ? 'border-orange-300 bg-white text-orange-500' :
+            scanned ? 'border-green-300 bg-white text-green-700' :
+            'border-orange-300 bg-white text-orange-600 hover:bg-orange-50'
+          )}>
+            {analyzing ? (
+              <>
+                <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                Scanning document…
+              </>
+            ) : scanned ? (
+              <>✓ Scanned — fields auto-filled. Choose another to re-scan.</>
+            ) : (
+              <><Upload className="h-4 w-4" /> Choose PDF or image to scan</>
+            )}
+            <input
               type="file"
               accept="image/*,application/pdf"
-              className="h-8 text-xs"
+              className="hidden"
               onChange={e => {
                 const f = e.target.files?.[0]
                 if (f) analyzeDoc(f)
                 else setFile(null)
               }}
             />
-            {analyzing && <span className="text-xs text-slate-400 animate-pulse">Scanning…</span>}
-            {scanned && !analyzing && <span className="text-xs text-green-600 font-medium">✓ Auto-filled</span>}
-          </div>
-          {analyzeError && <p className="text-xs text-amber-600">{analyzeError}</p>}
+          </label>
+          {analyzeError && <p className="text-xs text-red-600">{analyzeError}</p>}
         </div>
 
         {/* File URL */}
         <div className="space-y-1">
-          <Label htmlFor="file_url" className="text-xs">File URL <span className="text-slate-400 font-normal">(optional)</span></Label>
+          <Label htmlFor="file_url" className="text-xs">File URL <span className="text-slate-400 font-normal">(optional — paste a link to the stored doc)</span></Label>
           <Input
             id="file_url"
             type="url"
