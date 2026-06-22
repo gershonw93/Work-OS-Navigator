@@ -450,16 +450,24 @@ export default function SettingsPage() {
   async function changeRole(memberId: string, newRole: string) {
     try {
       const headers = await authHeaders()
-      await fetch(`/api/settings/members/${memberId}`, {
+      const res = await fetch(`/api/settings/members/${memberId}`, {
         method: 'PATCH',
         headers,
         body: JSON.stringify({ role: newRole }),
       })
-      setTeammates((prev) =>
-        prev.map((t) => (t.id === memberId ? { ...t, role: newRole } : t))
-      )
+      if (res.ok) {
+        setTeammates((prev) =>
+          prev.map((t) => (t.id === memberId ? { ...t, role: newRole } : t))
+        )
+      } else {
+        const data = await res.json().catch(() => ({}))
+        alert(`Failed to update role: ${data.error ?? res.statusText}`)
+        // Reload to show actual DB state
+        loadTeammates()
+      }
     } catch {
-      // fail silently
+      alert('Network error — role not saved.')
+      loadTeammates()
     }
   }
 
