@@ -7,7 +7,7 @@ const admin = () => createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
-export async function POST(request: Request, { params: _params }: { params: { id: string } }) {
+export async function POST(request: Request, { params }: { params: { id: string } }) {
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()
@@ -24,7 +24,8 @@ export async function POST(request: Request, { params: _params }: { params: { id
     return NextResponse.json({ error: 'Upload an image (JPG, PNG) or PDF.' }, { status: 400 })
   }
 
-  const base64 = Buffer.from(await file.arrayBuffer()).toString('base64')
+  const bytes = await file.arrayBuffer()
+  const base64 = Buffer.from(bytes).toString('base64')
 
   const prompt = `This is a construction subcontractor compliance document (COI, business license, W-9, workers' comp certificate, or similar). Extract key info and return ONLY a JSON object with these exact keys (use null for anything not found):
 {
@@ -60,7 +61,18 @@ Return ONLY the JSON object, no other text.`
   const text = message.content[0].type === 'text' ? message.content[0].text : ''
   try {
     const cleaned = text.replace(/^```json\s*/i, '').replace(/\s*```$/, '').trim()
-    return NextResponse.json({ fields: JSON.parse(cleaned) })
+
+    // Upload file to storage
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+    const storagePath = `${params.id}/compliance/${Date.now()}-${safeName}`
+    let file_url: string | null = null
+    const { error: upErr } = await db.storage.from('submittals').upload(storagePath, bytes, { contentType: file.type, upsert: true })
+    if (!upErr) {
+      const { data: signed } = await db.storage.from('submittals').createSignedUrl(storagePath, 60 * 60 * 24 * 365 * 10)
+      file_url = signed?.signedUrl ?? null
+    }
+
+    return NextResponse.json({ fields: JSON.parse(cleaned), file_url })
   } catch {
     return NextResponse.json({ error: 'Could not read the document. Fill in the fields manually.' }, { status: 422 })
   }

@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { StatCard } from '@/components/ui/stat-card'
 import { cn } from '@/lib/utils'
-import { ShieldCheck, Upload, RefreshCw, X, AlertTriangle, CheckCircle2, FileWarning } from 'lucide-react'
+import { ShieldCheck, Upload, RefreshCw, X, AlertTriangle, CheckCircle2, FileWarning, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -116,7 +116,8 @@ function UploadForm({
       setAnalyzeError(e.error ?? 'Could not analyze document')
       return
     }
-    const { fields: f2 } = await res.json()
+    const { fields: f2, file_url } = await res.json()
+    if (file_url) setFileUrl(file_url)
     if (f2.expiry_date) setExpiryDate(f2.expiry_date)
     if (f2.status && ['pending', 'approved', 'expired'].includes(f2.status)) setStatus(f2.status as DocStatus)
     const noteParts = [f2.coverage_summary, f2.notes].filter(Boolean)
@@ -289,6 +290,7 @@ interface SubCardProps {
 
 function SubCard({ sub, docs, projectId, token, onRefresh }: SubCardProps) {
   const [openForm, setOpenForm] = useState<DocType | null>(null)
+  const [expandedType, setExpandedType] = useState<DocType | null>(null)
   const companyId = sub.companies?.id ?? ''
   const companyName = sub.companies?.name ?? 'Unknown'
 
@@ -326,7 +328,10 @@ function SubCard({ sub, docs, projectId, token, onRefresh }: SubCardProps) {
 
           return (
             <div key={type}>
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 sm:px-5 py-3">
+              <div
+                className={cn('flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 sm:px-5 py-3', doc && 'cursor-pointer')}
+                onClick={() => { if (doc) setExpandedType(expandedType === type ? null : type) }}
+              >
                 {/* Label */}
                 <span className="w-24 sm:w-28 text-sm text-slate-600 shrink-0">{DOC_LABELS[type]}</span>
 
@@ -347,8 +352,17 @@ function SubCard({ sub, docs, projectId, token, onRefresh }: SubCardProps) {
                   </span>
                 )}
 
+                {/* Chevron (only when doc exists) */}
+                {doc && (
+                  <span className="text-slate-400">
+                    {expandedType === type
+                      ? <ChevronUp className="h-3.5 w-3.5" />
+                      : <ChevronDown className="h-3.5 w-3.5" />}
+                  </span>
+                )}
+
                 {/* Upload / Update button */}
-                <div className="ml-auto">
+                <div className="ml-auto" onClick={(e) => e.stopPropagation()}>
                   <button
                     onClick={() => setOpenForm(openForm === type ? null : type)}
                     className={cn(
@@ -366,6 +380,24 @@ function SubCard({ sub, docs, projectId, token, onRefresh }: SubCardProps) {
                   </button>
                 </div>
               </div>
+
+              {/* Expanded detail panel */}
+              {expandedType === type && doc && (
+                <div className="px-4 sm:px-5 pb-3 pt-0 space-y-2">
+                  {doc.file_url && (
+                    <a href={doc.file_url} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-orange-600 hover:underline">
+                      <ExternalLink className="h-3.5 w-3.5" /> View Document
+                    </a>
+                  )}
+                  {doc.notes && (
+                    <p className="text-xs text-slate-600 whitespace-pre-line">{doc.notes}</p>
+                  )}
+                  {!doc.file_url && !doc.notes && (
+                    <p className="text-xs text-slate-400">No document or notes on file.</p>
+                  )}
+                </div>
+              )}
 
               {/* Inline upload form */}
               {openForm === type && (
