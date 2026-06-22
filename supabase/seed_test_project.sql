@@ -155,16 +155,16 @@ BEGIN
    (v_project_id, CURRENT_DATE,     10, 'Full crew. Safety audit in progress. Framing ~60% first floor.',    'Clear, 70F', v_owner_id);
 
   -- ── RFIs ────────────────────────────────────────────────────────────────────
-  INSERT INTO rfis (project_id, question, response, status, created_by) VALUES
-   (v_project_id, 'Confirm beam size at grid B/3 — drawings conflict between S-101 and S-201.', 'Use W12x26 per S-201. S-101 is superseded.', 'answered', v_owner_id),
-   (v_project_id, 'Is the electrical panel location flexible by 18 inches to clear plumbing?', NULL, 'open', v_owner_id),
-   (v_project_id, 'Approved substitute for spec''d window manufacturer?', NULL, 'open', v_owner_id);
+  INSERT INTO rfis (project_id, rfi_number, subject, description, response, status, submitted_by_name) VALUES
+   (v_project_id, 1, 'Beam size at grid B/3', 'Drawings conflict between S-101 and S-201.', 'Use W12x26 per S-201. S-101 is superseded.', 'answered', 'Mike Torres'),
+   (v_project_id, 2, 'Electrical panel location', 'Is the panel flexible by 18 inches to clear plumbing?', NULL, 'open', 'Danny Cole'),
+   (v_project_id, 3, 'Window manufacturer substitute', 'Requesting approved substitute for spec''d manufacturer.', NULL, 'open', 'Mike Torres');
 
   -- ── Permits ─────────────────────────────────────────────────────────────────
   INSERT INTO permits (project_id, type, permit_number, status, expiry_date) VALUES
-   (v_project_id, 'Building Permit',    'BP-2026-00841', 'issued',    CURRENT_DATE + 300),
-   (v_project_id, 'Electrical Permit',  'EP-2026-00219', 'submitted', NULL),
-   (v_project_id, 'Plumbing Permit',    NULL,            'not_started', NULL);
+   (v_project_id, 'Building Permit',    'BP-2026-00841', 'approved', CURRENT_DATE + 300),
+   (v_project_id, 'Electrical Permit',  'EP-2026-00219', 'pending',  NULL),
+   (v_project_id, 'Plumbing Permit',    NULL,            'pending',  NULL);
 
   -- ── Inspections ─────────────────────────────────────────────────────────────
   INSERT INTO inspections (project_id, type, status, scheduled_date, notes) VALUES
@@ -176,7 +176,7 @@ BEGIN
   INSERT INTO compliance_documents (company_id, project_id, type, status, expiry_date) VALUES
    (v_sub_concrete, v_project_id, 'coi',          'approved', CURRENT_DATE + 200),
    (v_sub_plumb,    v_project_id, 'coi',          'expired',  CURRENT_DATE - 5),
-   (v_sub_roofing,  v_project_id, 'coi',          'missing',  NULL),
+   (v_sub_roofing,  v_project_id, 'coi',          'pending',  NULL),
    (v_sub_electric, v_project_id, 'workers_comp', 'approved', CURRENT_DATE + 150);
 
   RAISE NOTICE 'Seeded project % under company %', v_project_id, v_company_id;
