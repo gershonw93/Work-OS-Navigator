@@ -455,12 +455,12 @@ export default function SettingsPage() {
         headers,
         body: JSON.stringify({ role: newRole }),
       })
+      const data = await res.json().catch(() => ({}))
       if (res.ok) {
         setTeammates((prev) =>
-          prev.map((t) => (t.id === memberId ? { ...t, role: newRole } : t))
+          prev.map((t) => (t.id === memberId ? { ...t, role: data.role ?? newRole } : t))
         )
       } else {
-        const data = await res.json().catch(() => ({}))
         alert(`Failed to update role: ${data.error ?? res.statusText}`)
         // Reload to show actual DB state
         loadTeammates()

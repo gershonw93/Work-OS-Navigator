@@ -62,17 +62,22 @@ export async function PATCH(
     return NextResponse.json({ error: 'You cannot change your own role.' }, { status: 400 })
   }
 
-  const { error } = await db
+  const { data: updated, error } = await db
     .from('profiles')
     .update({ role })
     .eq('id', memberId)
+    .select('id, role')
 
   if (error) {
     console.error('[PATCH /api/settings/members]', error)
-    return NextResponse.json({ error: 'Failed to update role' }, { status: 500 })
+    return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  return NextResponse.json({ ok: true })
+  if (!updated || updated.length === 0) {
+    return NextResponse.json({ error: 'No row was updated (id mismatch).' }, { status: 500 })
+  }
+
+  return NextResponse.json({ ok: true, role: updated[0].role })
 }
 
 // ── DELETE /api/settings/members/[memberId] — remove member ──────────────────

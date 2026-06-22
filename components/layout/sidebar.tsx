@@ -46,9 +46,9 @@ export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
-  const [navItems, setNavItems] = useState(GC_NAV)
+  const [navItems, setNavItems] = useState(FIELD_NAV)
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [userRole, setUserRole] = useState<string>('admin')
+  const [userRole, setUserRole] = useState<string>('')
 
   // Listen for the open event from TopNav's hamburger
   useEffect(() => {
@@ -73,9 +73,10 @@ export function Sidebar() {
       const role = profile?.role ?? 'read_only'
       setUserRole(role)
 
+      const FIELD_ROLES = ['field_supervisor', 'worker', 'member', 'read_only']
       if (companyType === 'subcontractor') {
         setNavItems(SUB_NAV)
-      } else if (role === 'field_supervisor' || role === 'read_only') {
+      } else if (FIELD_ROLES.includes(role)) {
         setNavItems(FIELD_NAV)
       } else {
         setNavItems(GC_NAV)
