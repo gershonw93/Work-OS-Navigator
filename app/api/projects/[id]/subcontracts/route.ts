@@ -168,7 +168,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     await db.from('payment_schedule_items').insert(paymentRows)
   }
 
-  // 1b) Record it on the Bids tab too: an awarded bid package + bid for this sub.
+  // 1b) Record it on the Bids tab too: an awarded bid package + bid with full detail.
   try {
     const { data: pkg } = await db.from('bid_packages').insert({
       project_id: params.id,
@@ -178,14 +178,40 @@ export async function POST(request: Request, { params }: { params: { id: string 
       status: 'awarded',
     }).select('id').single()
     if (pkg) {
-      await db.from('bids').insert({
+      // Map scope line items into the bid's scope_categories so they render in the bid modal
+      const scopeItems = (lineItems as any[]).map((li, i) => {
+        const qty = li.qty ?? (li.amount != null ? 1 : null)
+        const unit_price = li.unit_price ?? (li.amount != null ? Number(li.amount) : null)
+        return { id: `li-${i}`, item: li.description || `Item ${i + 1}`, qty, unit_price, included: true }
+      })
+      const scopeCategories = scopeItems.length > 0
+        ? [{ id: 'cat-0', category: trade || 'Scope of Work', items: scopeItems }]
+        : null
+
+      const paymentTermsText = paymentSchedule.length > 0
+        ? paymentSchedule.map(p => `${p.label || 'Payment'}${p.percent != null ? ` — ${p.percent}%` : ''}${p.amount != null ? ` ($${Number(p.amount).toLocaleString()})` : ''}`).join('\n')
+        : null
+
+      const startDateForBid = (form.get('start_date') as string ?? '').trim() || null
+
+      const fullBid: Record<string, unknown> = {
         bid_package_id: pkg.id,
         company_id: company.id,
         amount: contractAmount ?? 0,
-        notes: proposal_url ? `Proposal: ${proposal_url}` : (scopeText || null),
         status: 'awarded',
         submitted_at: new Date().toISOString(),
-      })
+        proposal_url,
+        scope_categories: scopeCategories,
+        payment_terms: paymentTermsText,
+        earliest_start_date: startDateForBid,
+        notes: scopeText || null,
+      }
+      let bidRes = await db.from('bids').insert(fullBid).select('id').single()
+      // Progressively drop optional columns that may not exist in this DB
+      if (bidRes.error && (bidRes.error as any).code === '42703') {
+        for (const k of ['scope_categories', 'proposal_url', 'payment_terms', 'earliest_start_date']) delete fullBid[k]
+        bidRes = await db.from('bids').insert(fullBid).select('id').single()
+      }
     }
   } catch { /* bids are a nice-to-have mirror; never block the sub creation */ }
 
