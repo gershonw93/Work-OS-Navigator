@@ -95,6 +95,34 @@ function UploadForm({
   const [status, setStatus] = useState<DocStatus>(existingDoc?.status ?? 'pending')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [file, setFile] = useState<File | null>(null)
+  const [analyzing, setAnalyzing] = useState(false)
+  const [analyzeError, setAnalyzeError] = useState('')
+  const [scanned, setScanned] = useState(false)
+
+  async function analyzeDoc(f: File) {
+    setAnalyzing(true); setAnalyzeError(''); setScanned(false)
+    setFile(f)
+    const fd = new FormData()
+    fd.append('file', f)
+    const res = await fetch(`/api/projects/${projectId}/compliance/analyze`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: fd,
+    })
+    setAnalyzing(false)
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}))
+      setAnalyzeError(e.error ?? 'Could not analyze document')
+      return
+    }
+    const { fields: f2 } = await res.json()
+    if (f2.expiry_date) setExpiryDate(f2.expiry_date)
+    if (f2.status && ['pending', 'approved', 'expired'].includes(f2.status)) setStatus(f2.status as DocStatus)
+    const noteParts = [f2.coverage_summary, f2.notes].filter(Boolean)
+    if (noteParts.length > 0) setNotes(noteParts.join('\n'))
+    setScanned(true)
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -170,6 +198,28 @@ function UploadForm({
             onChange={(e) => setExpiryDate(e.target.value)}
             className="h-8 text-sm"
           />
+        </div>
+
+        {/* Attach document */}
+        <div className="space-y-1">
+          <Label className="text-xs">
+            Attach Document <span className="text-slate-400 font-normal">(PDF or image)</span>
+          </Label>
+          <div className="flex items-center gap-2">
+            <Input
+              type="file"
+              accept="image/*,application/pdf"
+              className="h-8 text-xs"
+              onChange={e => {
+                const f = e.target.files?.[0]
+                if (f) analyzeDoc(f)
+                else setFile(null)
+              }}
+            />
+            {analyzing && <span className="text-xs text-slate-400 animate-pulse">Scanning…</span>}
+            {scanned && !analyzing && <span className="text-xs text-green-600 font-medium">✓ Auto-filled</span>}
+          </div>
+          {analyzeError && <p className="text-xs text-amber-600">{analyzeError}</p>}
         </div>
 
         {/* File URL */}
