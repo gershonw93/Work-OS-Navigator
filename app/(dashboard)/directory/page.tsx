@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Building2, Plus, X, Search, Phone, Mail, MapPin, Globe, BadgeCheck, Send, ExternalLink } from 'lucide-react'
+import { Building2, Plus, X, Search, Phone, Mail, MapPin, Globe, BadgeCheck, Send, ExternalLink, Pencil, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -103,6 +103,13 @@ export default function DirectoryPage() {
   const [profileData, setProfileData] = useState<any>(null)
   const [profileLoading, setProfileLoading] = useState(false)
   const [profileTab, setProfileTab] = useState<'overview' | 'documents' | 'payments' | 'projects'>('overview')
+  const [editingCompany, setEditingCompany] = useState<Company | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editEmail, setEditEmail] = useState('')
+  const [editPhone, setEditPhone] = useState('')
+  const [editAddress, setEditAddress] = useState('')
+  const [editTrade, setEditTrade] = useState('')
+  const [editSaving, setEditSaving] = useState(false)
 
   // Invite state
   const [inviteCompany, setInviteCompany] = useState<Company | null>(null)
@@ -232,6 +239,45 @@ export default function DirectoryPage() {
     })
     if (res.ok) setProfileData(await res.json())
     setProfileLoading(false)
+  }
+
+  function openEditCompany(company: any) {
+    if (!company) return
+    setEditingCompany(company)
+    setEditName(company.name ?? '')
+    setEditEmail(company.contact_email ?? '')
+    setEditPhone(company.phone ?? '')
+    setEditAddress(company.address ?? '')
+    setEditTrade(company.trade ?? '')
+  }
+
+  async function saveEditCompany(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editingCompany) return
+    setEditSaving(true)
+    const token = await getToken()
+    const res = await fetch(`/api/directory/${editingCompany.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ name: editName, contact_email: editEmail, phone: editPhone, address: editAddress, trade: editTrade }),
+    })
+    setEditSaving(false)
+    if (!res.ok) { alert('Could not save changes.'); return }
+    setEditingCompany(null)
+    fetchData()
+    if (profileCompanyId) openProfile(profileCompanyId)
+  }
+
+  async function deleteCompany(company: any) {
+    if (!company) return
+    if (!confirm(`Delete ${company.name}? This cannot be undone.`)) return
+    const token = await getToken()
+    const res = await fetch(`/api/directory/${company.id}`, {
+      method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!res.ok) { alert('Could not delete.'); return }
+    setProfileCompanyId(null)
+    fetchData()
   }
 
   function openInvite(company: Company) {
@@ -702,6 +748,47 @@ export default function DirectoryPage() {
         </div>
       )}
 
+      {/* Edit Modal */}
+      {editingCompany && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setEditingCompany(null)} />
+          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden">
+            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-slate-900">Edit {editingCompany.name}</h2>
+              <button onClick={() => setEditingCompany(null)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
+            </div>
+            <form onSubmit={saveEditCompany}>
+              <div className="px-6 py-5 space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-slate-600">Name</label>
+                  <input className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400" value={editName} onChange={e => setEditName(e.target.value)} required />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-slate-600">Email</label>
+                  <input type="email" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400" value={editEmail} onChange={e => setEditEmail(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-slate-600">Phone</label>
+                  <input className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400" value={editPhone} onChange={e => setEditPhone(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-slate-600">Trade</label>
+                  <input className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400" value={editTrade} onChange={e => setEditTrade(e.target.value)} placeholder="e.g. Flooring, Electrical" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-slate-600">Address</label>
+                  <input className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400" value={editAddress} onChange={e => setEditAddress(e.target.value)} />
+                </div>
+              </div>
+              <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-2">
+                <button type="button" onClick={() => setEditingCompany(null)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">Cancel</button>
+                <button type="submit" disabled={editSaving} className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-medium text-white hover:bg-orange-600 disabled:opacity-50">{editSaving ? 'Saving…' : 'Save Changes'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Profile Modal */}
       {profileCompanyId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8">
@@ -720,7 +807,15 @@ export default function DirectoryPage() {
                   <p className="text-sm text-slate-400 mt-0.5">{[profileData?.company?.trade, profileData?.company?.type ? TYPE_LABELS[profileData.company.type as ContactType] : null].filter(Boolean).join(' · ')}</p>
                 </div>
               </div>
-              <button onClick={() => setProfileCompanyId(null)} className="text-slate-400 hover:text-slate-600 mt-1"><X className="h-5 w-5" /></button>
+              <div className="flex items-center gap-2 mt-1">
+                <button onClick={() => openEditCompany(profileData?.company)} className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-300 hover:text-slate-800 transition-colors">
+                  <Pencil className="h-3.5 w-3.5" /> Edit
+                </button>
+                <button onClick={() => deleteCompany(profileData?.company)} className="flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-50 transition-colors">
+                  <Trash2 className="h-3.5 w-3.5" /> Delete
+                </button>
+                <button onClick={() => setProfileCompanyId(null)} className="text-slate-400 hover:text-slate-600 ml-2"><X className="h-5 w-5" /></button>
+              </div>
             </div>
 
             {/* Tabs */}
