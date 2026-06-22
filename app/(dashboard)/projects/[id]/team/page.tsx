@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Users, Plus, X, Phone, Mail, HardHat, Building2, DollarSign, UserCircle2, Pencil, UserPlus, Sparkles, Loader2 } from 'lucide-react'
+import { Users, Plus, X, Phone, Mail, HardHat, Building2, DollarSign, UserCircle2, Pencil, UserPlus, Sparkles, Loader2, Paperclip } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -69,11 +69,15 @@ export default function TeamPage({ params }: { params: { id: string } }) {
   const [companyMemberSaving, setCompanyMemberSaving] = useState(false)
   const [companyProfilesLoading, setCompanyProfilesLoading] = useState(false)
 
-  // Manually add an off-platform subcontractor
+  // Add a subcontractor (manual / from directory)
   const [showAddSub, setShowAddSub] = useState(false)
+  const [subMode, setSubMode] = useState<'new' | 'existing'>('new')
+  const [subExistingId, setSubExistingId] = useState('')
+  const [directorySubs, setDirectorySubs] = useState<{ id: string; name: string; trade: string | null }[]>([])
   const [subCompany, setSubCompany] = useState('')
   const [subTrade, setSubTrade] = useState('')
   const [subScope, setSubScope] = useState('')
+  const [subLineItems, setSubLineItems] = useState<{ description: string; amount: string }[]>([{ description: '', amount: '' }])
   const [subAmount, setSubAmount] = useState('')
   const [subEmail, setSubEmail] = useState('')
   const [subPhone, setSubPhone] = useState('')
@@ -82,6 +86,25 @@ export default function TeamPage({ params }: { params: { id: string } }) {
   const [subAnalyzing, setSubAnalyzing] = useState(false)
   const [subAnalyzeError, setSubAnalyzeError] = useState('')
   const [subScanned, setSubScanned] = useState(false)
+
+  const lineItemsTotal = subLineItems.reduce((s, li) => s + (parseFloat(li.amount.replace(/[^0-9.]/g, '')) || 0), 0)
+
+  function openAddSub() {
+    setShowAddSub(true)
+    getToken().then(async token => {
+      const res = await fetch('/api/directory', { headers: { Authorization: `Bearer ${token}` } })
+      if (!res.ok) return
+      const d = await res.json()
+      const subs = (d.companies ?? []).filter((c: any) => c.type === 'subcontractor').map((c: any) => ({ id: c.id, name: c.name, trade: c.trade }))
+      setDirectorySubs(subs)
+    })
+  }
+
+  function updateLineItem(i: number, field: 'description' | 'amount', val: string) {
+    setSubLineItems(items => items.map((li, idx) => idx === i ? { ...li, [field]: val } : li))
+  }
+  function addLineItem() { setSubLineItems(items => [...items, { description: '', amount: '' }]) }
+  function removeLineItem(i: number) { setSubLineItems(items => items.length > 1 ? items.filter((_, idx) => idx !== i) : items) }
 
   async function analyzeProposal(f: File) {
     setSubAnalyzing(true); setSubAnalyzeError(''); setSubScanned(false)
@@ -98,9 +121,16 @@ export default function TeamPage({ params }: { params: { id: string } }) {
       setSubAnalyzing(false); return
     }
     const f2 = data.fields
+    setSubMode('new')
     if (f2.company_name) setSubCompany(f2.company_name)
     if (f2.trade) setSubTrade(f2.trade)
     if (f2.scope) setSubScope(f2.scope)
+    if (Array.isArray(f2.line_items) && f2.line_items.length > 0) {
+      setSubLineItems(f2.line_items.map((li: any) => ({
+        description: li.description ?? '',
+        amount: li.amount != null ? String(li.amount) : '',
+      })))
+    }
     if (f2.contract_amount != null) setSubAmount(String(f2.contract_amount))
     if (f2.contact_email) setSubEmail(f2.contact_email)
     if (f2.phone) setSubPhone(f2.phone)
@@ -112,12 +142,20 @@ export default function TeamPage({ params }: { params: { id: string } }) {
     setSubSaving(true)
     const token = await getToken()
     const fd = new FormData()
-    fd.append('company_name', subCompany)
+    if (subMode === 'existing' && subExistingId) {
+      fd.append('existing_company_id', subExistingId)
+    } else {
+      fd.append('company_name', subCompany)
+      fd.append('contact_email', subEmail)
+      fd.append('phone', subPhone)
+    }
     fd.append('trade', subTrade)
     fd.append('scope', subScope)
     fd.append('contract_amount', subAmount)
-    fd.append('contact_email', subEmail)
-    fd.append('phone', subPhone)
+    const cleanItems = subLineItems
+      .filter(li => li.description.trim() || li.amount.trim())
+      .map(li => ({ description: li.description.trim(), amount: li.amount ? parseFloat(li.amount.replace(/[^0-9.]/g, '')) : null }))
+    fd.append('line_items', JSON.stringify(cleanItems))
     if (subProposal) fd.append('proposal', subProposal)
     const res = await fetch(`/api/projects/${params.id}/subcontracts`, {
       method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd,
@@ -127,8 +165,10 @@ export default function TeamPage({ params }: { params: { id: string } }) {
       alert(`Could not add subcontractor: ${e2.error ?? res.statusText}`)
       setSubSaving(false); return
     }
+    setSubMode('new'); setSubExistingId('')
     setSubCompany(''); setSubTrade(''); setSubScope(''); setSubAmount('')
     setSubEmail(''); setSubPhone(''); setSubProposal(null); setSubScanned(false); setSubAnalyzeError('')
+    setSubLineItems([{ description: '', amount: '' }])
     setShowAddSub(false); setSubSaving(false); load()
   }
 
@@ -444,52 +484,95 @@ export default function TeamPage({ params }: { params: { id: string } }) {
             </div>
             <form onSubmit={addSub}>
               <div className="px-4 sm:px-6 py-5 space-y-4">
+                {/* New vs existing toggle */}
+                <div className="inline-flex rounded-lg border border-slate-200 p-0.5 text-sm">
+                  <button type="button" onClick={() => setSubMode('new')}
+                    className={cn('px-3 py-1 rounded-md font-medium', subMode === 'new' ? 'bg-slate-800 text-white' : 'text-slate-500')}>
+                    New subcontractor
+                  </button>
+                  <button type="button" onClick={() => setSubMode('existing')}
+                    className={cn('px-3 py-1 rounded-md font-medium', subMode === 'existing' ? 'bg-slate-800 text-white' : 'text-slate-500')}>
+                    From my directory
+                  </button>
+                </div>
+
+                {subMode === 'existing' ? (
+                  <div className="space-y-1.5">
+                    <Label>Choose subcontractor <span className="text-red-500">*</span></Label>
+                    <Select value={subExistingId} onChange={e => setSubExistingId(e.target.value)}>
+                      <option value="">-- Pick from your saved subs --</option>
+                      {directorySubs.map(s => <option key={s.id} value={s.id}>{s.name}{s.trade ? ` (${s.trade})` : ''}</option>)}
+                    </Select>
+                    {directorySubs.length === 0 && <p className="text-xs text-slate-400">No saved subs yet — add a new one and it'll be saved here for next time.</p>}
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-1.5">
+                      <Label>Company Name <span className="text-red-500">*</span></Label>
+                      <Input placeholder="e.g. Joe's Plumbing" value={subCompany} onChange={e => setSubCompany(e.target.value)} />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <Label>Contact Email</Label>
+                        <Input type="email" placeholder="joe@plumbing.com" value={subEmail} onChange={e => setSubEmail(e.target.value)} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Phone</Label>
+                        <Input placeholder="(555) 123-4567" value={subPhone} onChange={e => setSubPhone(e.target.value)} />
+                      </div>
+                    </div>
+                  </>
+                )}
+
                 <div className="space-y-1.5">
-                  <Label><Sparkles className="inline h-3.5 w-3.5 mr-1 text-orange-400" />Upload their proposal (AI Auto-Fill)</Label>
-                  <label className="flex items-center gap-2 rounded-lg border-2 border-dashed border-orange-200 bg-orange-50/40 px-3 py-3 cursor-pointer hover:bg-orange-50 transition-colors">
+                  <Label>Trade</Label>
+                  <Input placeholder="e.g. Plumbing" value={subTrade} onChange={e => setSubTrade(e.target.value)} />
+                </div>
+
+                {/* Scope as line items */}
+                <div className="space-y-2">
+                  <Label>Scope of Work — line items</Label>
+                  <div className="space-y-2">
+                    {subLineItems.map((li, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <Input className="flex-1" placeholder={`Item ${i + 1} — e.g. Rough-in plumbing`} value={li.description} onChange={e => updateLineItem(i, 'description', e.target.value)} />
+                        <div className="relative w-28 shrink-0">
+                          <span className="absolute left-2.5 top-2 text-slate-400 text-sm">$</span>
+                          <Input className="pl-5" placeholder="0" value={li.amount} onChange={e => updateLineItem(i, 'amount', e.target.value)} />
+                        </div>
+                        <button type="button" onClick={() => removeLineItem(i)} className="text-slate-300 hover:text-red-500 shrink-0"><X className="h-4 w-4" /></button>
+                      </div>
+                    ))}
+                  </div>
+                  <button type="button" onClick={addLineItem} className="text-xs font-medium text-orange-600 hover:underline flex items-center gap-1">
+                    <Plus className="h-3 w-3" /> Add line item
+                  </button>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>Contract Amount {lineItemsTotal > 0 && <span className="text-slate-400 font-normal">(line items total: ${lineItemsTotal.toLocaleString()})</span>}</Label>
+                  <Input placeholder={lineItemsTotal > 0 ? `Leave blank to use $${lineItemsTotal.toLocaleString()}` : 'e.g. 45000'} value={subAmount} onChange={e => setSubAmount(e.target.value)} />
+                </div>
+
+                {/* Attach proposal / contract */}
+                <div className="space-y-1.5">
+                  <Label><Paperclip className="inline h-3.5 w-3.5 mr-1 text-slate-400" />Attach proposal / contract <span className="text-slate-400 font-normal">(optional)</span></Label>
+                  <Input type="file" accept="image/*,application/pdf" onChange={e => setSubProposal(e.target.files?.[0] ?? null)} />
+                  {subProposal && <p className="text-xs text-slate-400 truncate">📎 {subProposal.name}</p>}
+                  <label className="inline-flex items-center gap-1.5 text-xs font-medium text-orange-600 cursor-pointer hover:underline">
                     {subAnalyzing
-                      ? <><Loader2 className="h-4 w-4 text-orange-500 animate-spin shrink-0" /><span className="text-orange-600 font-medium text-sm">Reading proposal…</span></>
-                      : <><Sparkles className="h-4 w-4 text-orange-400 shrink-0" /><span className="text-orange-600 font-medium text-sm">Upload the proposal / quote</span><span className="text-slate-400 text-xs">— AI fills it in</span></>}
+                      ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Reading…</>
+                      : <><Sparkles className="h-3.5 w-3.5" /> Or scan a file and let AI fill the form</>}
                     <input type="file" accept="image/*,application/pdf" className="hidden"
                       onChange={e => { const f = e.target.files?.[0]; if (f) analyzeProposal(f) }} />
                   </label>
                   {subAnalyzeError && <p className="text-xs text-red-500 flex items-center gap-1"><X className="h-3 w-3 shrink-0" />{subAnalyzeError}</p>}
-                  {subScanned && !subAnalyzeError && <p className="text-xs font-medium text-green-600">✓ Read — fields filled. The proposal is attached.</p>}
-                  {subProposal && <p className="text-xs text-slate-400 truncate">📎 {subProposal.name}</p>}
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Company Name <span className="text-red-500">*</span></Label>
-                  <Input placeholder="e.g. Joe's Plumbing" value={subCompany} onChange={e => setSubCompany(e.target.value)} required />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label>Trade</Label>
-                    <Input placeholder="e.g. Plumbing" value={subTrade} onChange={e => setSubTrade(e.target.value)} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Contract Amount</Label>
-                    <Input placeholder="e.g. 45000" value={subAmount} onChange={e => setSubAmount(e.target.value)} />
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Scope of Work</Label>
-                  <textarea rows={2} placeholder="What they're doing on this project..." value={subScope} onChange={e => setSubScope(e.target.value)}
-                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none resize-none" />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label>Contact Email</Label>
-                    <Input type="email" placeholder="joe@plumbing.com" value={subEmail} onChange={e => setSubEmail(e.target.value)} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Phone</Label>
-                    <Input placeholder="(555) 123-4567" value={subPhone} onChange={e => setSubPhone(e.target.value)} />
-                  </div>
+                  {subScanned && !subAnalyzeError && <p className="text-xs font-medium text-green-600">✓ AI filled the fields below — review and edit as needed.</p>}
                 </div>
               </div>
               <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => setShowAddSub(false)}>Cancel</Button>
-                <Button type="submit" disabled={subSaving || !subCompany}>{subSaving ? 'Adding...' : 'Add Subcontractor'}</Button>
+                <Button type="submit" disabled={subSaving || (subMode === 'new' ? !subCompany : !subExistingId)}>{subSaving ? 'Adding...' : 'Add Subcontractor'}</Button>
               </div>
             </form>
           </div>
@@ -591,7 +674,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                     <span className="text-xs">total contracted</span>
                   </div>
                 )}
-                <Button size="sm" variant="secondary" onClick={() => setShowAddSub(true)}>
+                <Button size="sm" variant="secondary" onClick={openAddSub}>
                   <Plus className="h-4 w-4" /> Add Sub
                 </Button>
               </div>

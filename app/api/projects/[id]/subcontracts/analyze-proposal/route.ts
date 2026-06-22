@@ -31,11 +31,13 @@ export async function POST(request: Request, { params: _params }: { params: { id
 {
   "company_name": "the subcontractor / vendor company name",
   "trade": "the trade or type of work (e.g. Plumbing, Electrical, HVAC, Roofing) or null",
-  "scope": "a concise summary of the scope of work being proposed",
-  "contract_amount": numeric total price as a number with no symbols/commas, or null,
+  "line_items": [ { "description": "one scope item / task / material line", "amount": numeric price for that line or null } ],
+  "scope": "a one-line summary of the overall scope (in case there are no clear line items)",
+  "contract_amount": numeric grand total price as a number with no symbols/commas, or null,
   "contact_email": "contact email if shown or null",
   "phone": "contact phone if shown or null"
 }
+For "line_items": break the scope of work into individual line items — one per task, material, or priced row shown on the proposal. If the proposal is just a paragraph with no itemized pricing, still split it into the distinct scope items you can identify (amount null is fine). Return [] only if there is truly no scope described.
 Return ONLY the JSON object, no other text.`
 
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
