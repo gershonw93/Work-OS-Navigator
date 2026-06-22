@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { FileText, Folder, FolderPlus, Upload, X, ChevronRight, ArrowLeft, Trash2 } from 'lucide-react'
+import { FileText, Folder, FolderPlus, Upload, X, ChevronRight, ArrowLeft, Trash2, FolderInput, MoreVertical } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
@@ -36,6 +36,10 @@ export default function PlansPage({ params }: { params: { id: string } }) {
   const [folderName, setFolderName] = useState('')
   const [folderLoading, setFolderLoading] = useState(false)
   const [folderError, setFolderError] = useState<string | null>(null)
+
+  const [movingPlan, setMovingPlan] = useState<Plan | null>(null)
+  const [moveTargetFolderId, setMoveTargetFolderId] = useState<string>('__root__')
+  const [moveLoading, setMoveLoading] = useState(false)
 
   const [showUpload, setShowUpload] = useState(false)
   const [uploadFile, setUploadFile] = useState<File | null>(null)
@@ -113,6 +117,26 @@ export default function PlansPage({ params }: { params: { id: string } }) {
     fetchData()
   }
 
+  function openMove(plan: Plan) {
+    setMovingPlan(plan)
+    setMoveTargetFolderId(plan.folder_id ?? '__root__')
+  }
+
+  async function handleMove(e: React.FormEvent) {
+    e.preventDefault()
+    if (!movingPlan) return
+    setMoveLoading(true)
+    const token = await getToken()
+    await fetch(`/api/projects/${params.id}/plans/${movingPlan.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ folder_id: moveTargetFolderId === '__root__' ? null : moveTargetFolderId }),
+    })
+    setMoveLoading(false)
+    setMovingPlan(null)
+    fetchData()
+  }
+
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -161,7 +185,7 @@ export default function PlansPage({ params }: { params: { id: string } }) {
   const activeFolder = folders.find(f => f.id === activeFolderId)
   const visiblePlans = activeFolderId
     ? plans.filter(p => p.folder_id === activeFolderId)
-    : plans.filter(p => !p.folder_id)
+    : plans // root shows all files; folder badge shows which folder each belongs to
   const visibleFolders = activeFolderId ? [] : folders
 
   return (
@@ -267,6 +291,34 @@ export default function PlansPage({ params }: { params: { id: string } }) {
         </div>
       )}
 
+      {/* Move to Folder Modal */}
+      {movingPlan && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 px-6 py-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-slate-900">Move File</h2>
+              <button onClick={() => setMovingPlan(null)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
+            </div>
+            <p className="text-sm text-slate-500 mb-4 truncate">Moving: <span className="font-medium text-slate-700">{movingPlan.name}</span></p>
+            <form onSubmit={handleMove} className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="moveFolder">Destination Folder</Label>
+                <Select id="moveFolder" value={moveTargetFolderId} onChange={e => setMoveTargetFolderId(e.target.value)}>
+                  <option value="__root__">— Root (no folder) —</option>
+                  {folders.map(f => (
+                    <option key={f.id} value={f.id}>{f.name}</option>
+                  ))}
+                </Select>
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button type="button" variant="secondary" onClick={() => setMovingPlan(null)}>Cancel</Button>
+                <Button type="submit" disabled={moveLoading}>{moveLoading ? 'Moving...' : 'Move'}</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Content */}
       {loading ? (
         <div className="text-sm text-slate-400 py-12 text-center">Loading...</div>
@@ -334,13 +386,23 @@ export default function PlansPage({ params }: { params: { id: string } }) {
                             <span className="font-medium text-slate-800">{plan.name}</span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-slate-500 capitalize">{plan.plan_type}</td>
+                        <td className="px-4 py-3 text-slate-500">
+                          <span className="capitalize">{plan.plan_type}</span>
+                          {!activeFolderId && plan.folder_id && (
+                            <span className="ml-2 inline-flex items-center gap-0.5 text-xs text-slate-400">
+                              <Folder className="h-3 w-3" />{folders.find(f => f.id === plan.folder_id)?.name}
+                            </span>
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-slate-500">{new Date(plan.created_at).toLocaleDateString()}</td>
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-1">
                             <a href={plan.file_url} target="_blank" rel="noopener noreferrer">
                               <Button variant="ghost" size="sm">View</Button>
                             </a>
+                            <button onClick={() => openMove(plan)} className="p-1 text-slate-400 hover:text-orange-500" title="Move to folder">
+                              <FolderInput className="h-4 w-4" />
+                            </button>
                             <button onClick={() => handleDeletePlan(plan.id)} className="p-1 text-red-400 hover:text-red-600" title="Delete plan">
                               <Trash2 className="h-4 w-4" />
                             </button>
@@ -367,7 +429,10 @@ export default function PlansPage({ params }: { params: { id: string } }) {
                       <a href={plan.file_url} target="_blank" rel="noopener noreferrer">
                         <Button variant="ghost" size="sm">View</Button>
                       </a>
-                      <button onClick={() => handleDeletePlan(plan.id)} className="p-1 text-red-400 hover:text-red-600" title="Delete plan">
+                      <button onClick={() => openMove(plan)} className="p-1 text-slate-400 hover:text-orange-500" title="Move to folder">
+                        <FolderInput className="h-4 w-4" />
+                      </button>
+                      <button onClick={() => handleDeletePlan(plan.id)} className="p-1 text-red-400 hover:text-red-600" title="Delete">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
