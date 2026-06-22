@@ -54,7 +54,7 @@ export async function GET(request: Request) {
     }
     // Merge: find profile rows either by email column or by auth user id
     const profilesById = existingProfiles ?? []
-    for (const [authEmail, authId] of authUserMap) {
+    for (const [authEmail, authId] of Array.from(authUserMap.entries())) {
       if (!profilesById.find((p: Record<string, unknown>) => p.email === authEmail)) {
         const { data: byId } = await db.from('profiles').select('id, email, company_id').eq('id', authId).maybeSingle()
         if (byId) profilesById.push({ ...byId, email: authEmail })
