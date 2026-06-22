@@ -301,6 +301,8 @@ function SubCard({ sub, docs, projectId, token, onRefresh }: SubCardProps) {
   function resolveStatus(type: DocType): DocStatus {
     const doc = getDoc(type)
     if (!doc) return 'missing'
+    // If expiry date is in the future but status is still 'expired', treat as approved
+    if (doc.status === 'expired' && doc.expiry_date && new Date(doc.expiry_date + 'T00:00:00') > new Date()) return isExpiringSoon(doc.expiry_date) ? 'expiring_soon' : 'approved'
     if (doc.status === 'approved' && isExpiringSoon(doc.expiry_date)) return 'expiring_soon'
     return doc.status
   }
@@ -458,6 +460,7 @@ export default function CompliancePage({ params }: { params: { id: string } }) {
   function resolveStatus(companyId: string, type: DocType): DocStatus {
     const doc = docs.find((d) => d.company_id === companyId && d.type === type)
     if (!doc) return 'missing'
+    if (doc.status === 'expired' && doc.expiry_date && new Date(doc.expiry_date + 'T00:00:00') > new Date()) return isExpiringSoon(doc.expiry_date) ? 'expiring_soon' : 'approved'
     if (doc.status === 'approved' && isExpiringSoon(doc.expiry_date)) return 'expiring_soon'
     return doc.status
   }
