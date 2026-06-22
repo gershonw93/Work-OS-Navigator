@@ -54,7 +54,7 @@ export async function GET(request: Request) {
 
     const { data } = await db
       .from('projects')
-      .select('id, name, status, start_date, type')
+      .select('id, name, status, start_date, end_date, address, client, type, created_at')
       .in('id', projectIds)
       .order('created_at', { ascending: false })
 

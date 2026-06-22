@@ -10,6 +10,7 @@ import {
   User, Building2, Users, Shield, Bell, CreditCard, AlertTriangle,
   Check, X, SlidersHorizontal, Plug, Palette, Camera, RefreshCw, Ban,
 } from 'lucide-react'
+import { PermissionsPanel } from '@/components/settings/permissions-panel'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1039,45 +1040,10 @@ export default function SettingsPage() {
           {activeTab === 'permissions' && (
             <Card>
               <CardHeader>
-                <CardTitle>Permission Matrix</CardTitle>
+                <CardTitle>Permissions</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-xs text-slate-500 mb-4">
-                  Contact support to customize permissions for your plan.
-                </p>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm border border-slate-200 rounded-lg overflow-hidden">
-                    <thead>
-                      <tr className="bg-slate-50 border-b border-slate-200">
-                        <th className="text-left px-4 py-3 font-medium text-slate-700 sticky left-0 bg-slate-50 min-w-[160px] border-r border-slate-200">
-                          Feature
-                        </th>
-                        {['Admin', 'Project Manager', 'Field Supervisor', 'Office Staff', 'Read Only'].map((col) => (
-                          <th key={col} className="text-center px-4 py-3 font-medium text-slate-700 min-w-[130px]">
-                            {col}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {PERMISSION_MATRIX.map((row, i) => (
-                        <tr key={row.feature} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
-                          <td className="px-4 py-3 font-medium text-slate-700 sticky left-0 bg-inherit border-r border-slate-100">
-                            {row.feature}
-                          </td>
-                          {(['admin', 'project_manager', 'field_supervisor', 'office_staff', 'read_only'] as const).map((role) => (
-                            <td key={role} className="text-center px-4 py-3">
-                              {row[role]
-                                ? <Check className="h-4 w-4 text-green-500 mx-auto" />
-                                : <X className="h-4 w-4 text-red-400 mx-auto" />
-                              }
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <PermissionsPanel teammates={teammates as any} />
               </CardContent>
             </Card>
           )}

@@ -2,27 +2,15 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import { createClient } from '@/lib/supabase/client'
+import { usePermissions } from '@/lib/use-permissions'
 import {
   FileText, Users, Calendar, CheckSquare, TrendingUp, BookOpen,
   MessageSquare, Receipt, DollarSign, GitPullRequest, Shield,
   ClipboardCheck, FileCheck, BarChart2, X, LayoutGrid,
-  Wrench, ChevronRight,
+  Wrench,
 } from 'lucide-react'
-
-// What each role can see in project tabs
-const ROLE_ALLOWED_SLUGS: Record<string, string[]> = {
-  admin:            ['plans','schedule','tasks','progress','daily-logs','team','bids','rfis','invoices','financials','change-orders','permits','inspections','submittals','compliance','reports'],
-  project_manager:  ['plans','schedule','tasks','progress','daily-logs','team','bids','rfis','invoices','change-orders','permits','inspections','submittals','compliance','reports'],
-  office_staff:     ['invoices','financials','change-orders','compliance','submittals','reports','permits','inspections'],
-  field_supervisor: ['plans','schedule','tasks','daily-logs','progress'],
-  worker:           ['plans','tasks','daily-logs'],
-  member:           ['plans','tasks','daily-logs'],
-  manager:          ['plans','schedule','tasks','progress','daily-logs','team','bids','rfis','invoices','change-orders','permits','inspections','submittals','compliance','reports'],
-  read_only:        ['plans','schedule','tasks','progress','daily-logs','team','rfis','invoices','permits','inspections','compliance','reports'],
-}
 
 const groups = [
   {
@@ -81,22 +69,14 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [open, setOpen] = useState(false)
-  const [userRole, setUserRole] = useState<string>('admin')
+  const { can, loading } = usePermissions()
 
-  useEffect(() => {
-    const supabase = createClient()
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return
-      supabase.from('profiles').select('role').eq('id', user.id).single().then(({ data }) => {
-        if (data?.role) setUserRole(data.role)
-      })
-    })
-  }, [])
-
-  const allowedSlugs = ROLE_ALLOWED_SLUGS[userRole] ?? ROLE_ALLOWED_SLUGS['admin']
-  const filteredGroups = groups
-    .map(g => ({ ...g, tabs: g.tabs.filter(t => allowedSlugs.includes(t.slug)) }))
-    .filter(g => g.tabs.length > 0)
+  // While permissions load, show nothing (avoids flashing tabs the user can't see)
+  const filteredGroups = loading
+    ? []
+    : groups
+        .map(g => ({ ...g, tabs: g.tabs.filter(t => can(t.slug, 'view')) }))
+        .filter(g => g.tabs.length > 0)
   const visibleTabs = filteredGroups.flatMap(g => g.tabs)
 
   const activeTab = visibleTabs.find(t => pathname.includes(`/${t.slug}`))

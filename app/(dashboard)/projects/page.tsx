@@ -85,11 +85,15 @@ export default function ProjectsPage() {
   }
 
   async function fetchProjects() {
-    const { data } = await supabase
-      .from('projects')
-      .select('*')
-      .order('created_at', { ascending: false })
-    setItems(data ?? [])
+    // Use the API so role-based scoping (assigned-only for field roles) is enforced
+    const token = await getToken()
+    const res = await fetch('/api/projects', { headers: { Authorization: `Bearer ${token}` } })
+    if (res.ok) {
+      const data = await res.json()
+      setItems(data.projects ?? [])
+    } else {
+      setItems([])
+    }
     setLoading(false)
   }
 

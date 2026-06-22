@@ -8,16 +8,19 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
+import { usePermissions } from '@/lib/use-permissions'
 import { useEffect, useState } from 'react'
 
-const GC_NAV = [
-  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'Projects', href: '/projects', icon: FolderKanban },
-  { label: 'Customers', href: '/customers', icon: UsersRound },
-  { label: 'Directory', href: '/directory', icon: Building2 },
-  { label: 'Files', href: '/files', icon: FolderOpen },
-  { label: 'Approvals', href: '/approvals', icon: CheckSquare },
-  { label: 'Settings', href: '/settings', icon: Settings },
+// GC nav items mapped to permission resource keys. Settings has no resource —
+// everyone can reach Settings (at minimum their own profile).
+const GC_NAV_ITEMS = [
+  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, resource: 'dashboard' },
+  { label: 'Projects', href: '/projects', icon: FolderKanban, resource: 'projects' },
+  { label: 'Customers', href: '/customers', icon: UsersRound, resource: 'customers' },
+  { label: 'Directory', href: '/directory', icon: Building2, resource: 'directory' },
+  { label: 'Files', href: '/files', icon: FolderOpen, resource: 'files' },
+  { label: 'Approvals', href: '/approvals', icon: CheckSquare, resource: 'approvals' },
+  { label: 'Settings', href: '/settings', icon: Settings, resource: null },
 ]
 
 const SUB_NAV = [
@@ -33,22 +36,13 @@ const SUB_NAV = [
 // TopNav dispatches this event to open the drawer on mobile
 export const OPEN_SIDEBAR_EVENT = 'workos:open-sidebar'
 
-const ADMIN_ONLY_ROLES = ['admin']
-const FIELD_NAV = [
-  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'Projects', href: '/projects', icon: FolderKanban },
-  { label: 'Files', href: '/files', icon: FolderOpen },
-  { label: 'Approvals', href: '/approvals', icon: CheckSquare },
-  { label: 'Settings', href: '/settings', icon: Settings },
-]
-
 export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
-  const [navItems, setNavItems] = useState(FIELD_NAV)
+  const { can, loading: permsLoading } = usePermissions()
+  const [isSubcontractor, setIsSubcontractor] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [userRole, setUserRole] = useState<string>('')
 
   // Listen for the open event from TopNav's hamburger
   useEffect(() => {
@@ -60,30 +54,25 @@ export function Sidebar() {
   // Close sidebar on route change
   useEffect(() => { setMobileOpen(false) }, [pathname])
 
+  // Detect subcontractor company (uses a different nav entirely)
   useEffect(() => {
-    async function detectRole() {
+    async function detect() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
       const { data: profile } = await supabase
         .from('profiles')
-        .select('role, company_id, companies(type)')
+        .select('companies(type)')
         .eq('id', user.id)
         .single()
-      const companyType = (profile?.companies as any)?.type
-      const role = profile?.role ?? 'read_only'
-      setUserRole(role)
-
-      const FIELD_ROLES = ['field_supervisor', 'worker', 'member', 'read_only']
-      if (companyType === 'subcontractor') {
-        setNavItems(SUB_NAV)
-      } else if (FIELD_ROLES.includes(role)) {
-        setNavItems(FIELD_NAV)
-      } else {
-        setNavItems(GC_NAV)
-      }
+      if ((profile?.companies as any)?.type === 'subcontractor') setIsSubcontractor(true)
     }
-    detectRole()
+    detect()
   }, [])
+
+  // Build nav from permissions (Settings always available)
+  const navItems = isSubcontractor
+    ? SUB_NAV
+    : GC_NAV_ITEMS.filter(item => item.resource === null || (!permsLoading && can(item.resource, 'view')))
 
   async function handleLogout() {
     await supabase.auth.signOut()
