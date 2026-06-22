@@ -86,6 +86,8 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
   const [editWeather, setEditWeather] = useState('')
   const [editTempF, setEditTempF] = useState('')
   const [editSubsOnSite, setEditSubsOnSite] = useState<{ id: string; company_id: string; name: string }[]>([])
+  const [editCrewOnSite, setEditCrewOnSite] = useState<{ name: string; role: string }[]>([])
+  const [editDelays, setEditDelays] = useState<{ type: string; description: string }[]>([])
   const [editHasIssues, setEditHasIssues] = useState(false)
   const [editIssueDescription, setEditIssueDescription] = useState('')
   const [editSubmitting, setEditSubmitting] = useState(false)
@@ -224,6 +226,8 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
     setEditWeather((log.weather ?? log.weather_condition) ?? '')
     setEditTempF(log.temp_f != null ? String(log.temp_f) : (log.temperature ?? ''))
     setEditSubsOnSite((log.subs_on_site ?? []).map(s => ({ id: (s as any).id ?? s.company_id, company_id: s.company_id, name: s.name })))
+    setEditCrewOnSite((log.workers_on_site ?? []).map(w => ({ name: w.name, role: w.role })))
+    setEditDelays(Array.isArray(log.delays) ? log.delays : [])
     setEditHasIssues(!!log.has_issues)
     setEditIssueDescription(log.issue_description ?? '')
     setShowEditModal(true)
@@ -236,6 +240,12 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
     else setEditSubsOnSite(prev => [...prev, { id: sub.id, company_id: sub.company_id ?? sub.id, name }])
   }
 
+  function toggleEditCrew(m: TeamMember) {
+    const exists = editCrewOnSite.find(w => w.name === m.name)
+    if (exists) setEditCrewOnSite(prev => prev.filter(w => w.name !== m.name))
+    else setEditCrewOnSite(prev => [...prev, { name: m.name, role: m.role }])
+  }
+
   async function handleEditSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!editingLog) return
@@ -245,12 +255,13 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
       log_date: editLogDate,
       notes: editNotes || null,
       weather: editWeather || null,
+      workers_onsite: editCrewOnSite.length,
       temp_f: editTempF !== '' ? Number(editTempF) : null,
       has_issues: editHasIssues,
       issue_description: editHasIssues ? (editIssueDescription || null) : null,
       subs_on_site: editSubsOnSite.map(s => ({ company_id: s.company_id, name: s.name })),
+      delays: editDelays.filter(d => d.type || d.description),
     }
-    if (editWorkersOnsite !== '') body.workers_onsite = Number(editWorkersOnsite)
     await fetch(`/api/projects/${params.id}/daily-logs/${editingLog.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -368,26 +379,46 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                   <input type="date" value={editLogDate} onChange={e => setEditLogDate(e.target.value)} required
                     className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none" />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-slate-700">Weather</label>
-                    <select value={editWeather} onChange={e => setEditWeather(e.target.value)}
-                      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white focus:border-orange-500 focus:outline-none">
-                      <option value="">—</option>
-                      {WEATHER_OPTIONS.map(w => <option key={w.value} value={w.value}>{w.label}</option>)}
-                    </select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-slate-700">Temp (°F)</label>
-                    <input type="number" value={editTempF} onChange={e => setEditTempF(e.target.value)} placeholder="e.g. 72"
-                      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none" />
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">Weather</label>
+                  <div className="flex flex-wrap gap-2">
+                    {WEATHER_OPTIONS.map(w => {
+                      const Icon = w.icon
+                      const active = editWeather === w.value
+                      return (
+                        <button key={w.value} type="button" onClick={() => setEditWeather(active ? '' : w.value)}
+                          className={cn('flex flex-col items-center gap-1 rounded-lg border px-3 py-2 text-xs font-medium transition-colors',
+                            active ? 'border-orange-400 bg-orange-50 text-orange-700' : 'border-slate-200 text-slate-600 hover:border-slate-300')}>
+                          <Icon className="h-4 w-4" />
+                          {w.label}
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-slate-700">Workers on site</label>
-                  <input type="number" value={editWorkersOnsite} onChange={e => setEditWorkersOnsite(e.target.value)} placeholder="e.g. 8"
+                  <label className="text-sm font-medium text-slate-700">Temp (°F)</label>
+                  <input type="number" value={editTempF} onChange={e => setEditTempF(e.target.value)} placeholder="e.g. 72"
                     className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none" />
                 </div>
+                {teamMembers.length > 0 && (
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-slate-700">GC Crew on Site</label>
+                    <div className="flex flex-wrap gap-2">
+                      {teamMembers.map(m => {
+                        const active = editCrewOnSite.find(w => w.name === m.name)
+                        return (
+                          <button key={m.id} type="button" onClick={() => toggleEditCrew(m)}
+                            className={cn('flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                              active ? 'border-orange-400 bg-orange-50 text-orange-700' : 'border-slate-200 text-slate-600 hover:border-slate-300')}>
+                            <span className={cn('h-1.5 w-1.5 rounded-full', active ? 'bg-orange-500' : 'bg-slate-300')} />
+                            {m.name}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-slate-700">Notes</label>
                   <textarea rows={3} value={editNotes} onChange={e => setEditNotes(e.target.value)} placeholder="Any notes..."
@@ -424,6 +455,28 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                     <textarea rows={2} value={editIssueDescription} onChange={e => setEditIssueDescription(e.target.value)} placeholder="Describe the issue..."
                       className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none resize-none" />
                   )}
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-slate-700">Delays</label>
+                    <button type="button" onClick={() => setEditDelays(prev => [...prev, { type: '', description: '' }])}
+                      className="text-xs font-medium text-orange-600 hover:text-orange-700">+ Add Delay</button>
+                  </div>
+                  {editDelays.map((delay, i) => (
+                    <div key={i} className="flex flex-wrap sm:flex-nowrap gap-2 items-start">
+                      <select value={delay.type} onChange={e => setEditDelays(prev => prev.map((d, j) => j === i ? { ...d, type: e.target.value } : d))}
+                        className="rounded-md border border-slate-300 px-2 py-2 text-sm bg-white focus:border-orange-500 focus:outline-none">
+                        <option value="">Type...</option>
+                        {DELAY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                      <input value={delay.description} placeholder="Description"
+                        onChange={e => setEditDelays(prev => prev.map((d, j) => j === i ? { ...d, description: e.target.value } : d))}
+                        className="flex-1 min-w-0 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none" />
+                      <button type="button" onClick={() => setEditDelays(prev => prev.filter((_, j) => j !== i))}
+                        className="text-slate-400 hover:text-red-500 p-2"><X className="h-4 w-4" /></button>
+                    </div>
+                  ))}
                 </div>
               </div>
               <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex flex-wrap gap-2 justify-end">

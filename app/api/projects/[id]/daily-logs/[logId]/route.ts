@@ -29,13 +29,31 @@ export async function PATCH(
     return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
   }
 
-  const { data: log, error } = await db
-    .from('daily_logs')
-    .update(updates)
-    .eq('id', params.logId)
-    .eq('project_id', params.id)
-    .select()
-    .single()
+  // Core columns guaranteed to exist; the rest are optional and may be absent
+  const CORE = new Set(['log_date', 'workers_onsite', 'notes', 'weather'])
+
+  async function runUpdate(payload: Record<string, unknown>) {
+    return db
+      .from('daily_logs')
+      .update(payload)
+      .eq('id', params.logId)
+      .eq('project_id', params.id)
+      .select()
+      .single()
+  }
+
+  let { data: log, error } = await runUpdate(updates)
+
+  // If a column doesn't exist, retry with only the core columns so the save still succeeds
+  if (error && (error as any).code === '42703') {
+    const safe: Record<string, unknown> = {}
+    for (const k of Object.keys(updates)) if (CORE.has(k)) safe[k] = updates[k]
+    if (Object.keys(safe).length > 0) {
+      const retry = await runUpdate(safe)
+      log = retry.data
+      error = retry.error
+    }
+  }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ log })
