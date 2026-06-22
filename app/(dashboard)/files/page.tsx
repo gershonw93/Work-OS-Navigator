@@ -73,6 +73,7 @@ export default function FilesPage() {
   const [tab, setTab] = useState<'files' | 'packets'>('files')
   const [files, setFiles] = useState<CompanyFile[]>([])
   const [packets, setPackets] = useState<Packet[]>([])
+  const [complianceDocs, setComplianceDocs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string>('All')
@@ -114,6 +115,7 @@ export default function FilesPage() {
     if (res.ok) {
       setFiles(json.files ?? [])
       setPackets(json.packets ?? [])
+      setComplianceDocs(json.complianceDocs ?? [])
       setFetchError('')
     } else {
       setFetchError(json.error ?? `Error ${res.status}`)
@@ -485,14 +487,59 @@ export default function FilesPage() {
             ))}
           </div>
 
-          {visibleFiles.length === 0 ? (
+          {/* Compliance docs pulled from projects */}
+          {complianceDocs.length > 0 && (categoryFilter === 'All' || ['Insurance', 'License', 'W-9'].includes(categoryFilter)) && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">From Compliance</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {complianceDocs
+                  .filter(d => {
+                    if (categoryFilter === 'All') return true
+                    if (categoryFilter === 'Insurance') return d.type === 'coi' || d.type === 'workers_comp'
+                    if (categoryFilter === 'License') return d.type === 'license'
+                    if (categoryFilter === 'W-9') return d.type === 'w9'
+                    return false
+                  })
+                  .map((doc: any) => {
+                    const typeLabel: Record<string, string> = { coi: 'COI', license: 'License', w9: 'W-9', workers_comp: "Workers' Comp", other: 'Other' }
+                    const isExpired = doc.expiry_date && new Date(doc.expiry_date + 'T00:00:00') < new Date()
+                    const resolvedStatus = (doc.status === 'expired' && doc.expiry_date && !isExpired) ? 'approved' : doc.status
+                    const statusColor = resolvedStatus === 'approved' ? 'text-green-600' : resolvedStatus === 'expired' ? 'text-red-500' : 'text-amber-500'
+                    return (
+                      <div key={doc.id} className="rounded-xl border border-slate-200 bg-white p-4 flex flex-col gap-2">
+                        <div className="flex items-start gap-3">
+                          <div className="rounded-lg bg-blue-50 border border-blue-100 p-2 shrink-0">
+                            <ShieldCheck className="h-5 w-5 text-blue-500" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-slate-800 truncate">{typeLabel[doc.type] ?? doc.type}</p>
+                            <p className="text-xs text-slate-400 truncate">{doc.companies?.name ?? ''}</p>
+                          </div>
+                          <span className={cn('text-xs font-medium', statusColor)}>{resolvedStatus}</span>
+                        </div>
+                        {doc.expiry_date && (
+                          <p className="text-xs text-slate-400">Exp {new Date(doc.expiry_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                        )}
+                        {doc.notes && <p className="text-xs text-slate-500 line-clamp-2">{doc.notes}</p>}
+                        <a href={doc.file_url} target="_blank" rel="noopener noreferrer"
+                          className="mt-auto inline-flex items-center gap-1 text-xs font-medium text-orange-600 hover:underline">
+                          <ExternalLink className="h-3 w-3" /> View Document
+                        </a>
+                      </div>
+                    )
+                  })}
+              </div>
+            </div>
+          )}
+
+          {visibleFiles.length === 0 && complianceDocs.length === 0 ? (
             <div className="rounded-xl border-2 border-dashed border-slate-200 py-16 text-center">
               <FolderOpen className="h-8 w-8 text-slate-300 mx-auto mb-3" />
               <p className="text-sm font-medium text-slate-500">
                 {files.length === 0 ? 'No files yet. Upload your first document.' : 'No files in this category.'}
               </p>
             </div>
-          ) : (
+          ) : visibleFiles.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {visibleFiles.map(file => {
                 const TypeIcon = fileTypeIcon(file.file_type)
@@ -533,7 +580,7 @@ export default function FilesPage() {
                 )
               })}
             </div>
-          )}
+          ) : null}
         </>
       ) : (
         <>

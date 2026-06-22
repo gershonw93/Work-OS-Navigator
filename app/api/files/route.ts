@@ -25,15 +25,43 @@ export async function GET(request: Request) {
   const company_id = await getCompanyId(db, token)
   if (!company_id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const [filesRes, packetsRes] = await Promise.all([
+  // All projects this company is GC on
+  const { data: projects } = await db.from('projects').select('id').eq('gc_company_id', company_id)
+  const projectIds = (projects ?? []).map((p: any) => p.id)
+
+  // All company_ids of subs on those projects
+  let subCompanyIds: string[] = []
+  if (projectIds.length > 0) {
+    const { data: subs } = await db.from('subcontracts').select('company_id').in('project_id', projectIds)
+    const seen = new Set<string>()
+    subCompanyIds = (subs ?? []).map((s: any) => s.company_id).filter((id: string) => { if (!id || seen.has(id)) return false; seen.add(id); return true })
+  }
+
+  const [filesRes, packetsRes, complianceRes] = await Promise.all([
     db.from('company_files').select('*').eq('company_id', company_id).order('created_at', { ascending: false }),
     db.from('file_packets').select('*').eq('company_id', company_id).order('created_at', { ascending: false }),
+    // Compliance docs with a file_url — own company + all subs
+    subCompanyIds.length > 0
+      ? db.from('compliance_documents')
+          .select('id, type, status, expiry_date, file_url, notes, company_id, companies(name)')
+          .in('company_id', [company_id, ...subCompanyIds])
+          .not('file_url', 'is', null)
+          .order('type')
+      : db.from('compliance_documents')
+          .select('id, type, status, expiry_date, file_url, notes, company_id, companies(name)')
+          .eq('company_id', company_id)
+          .not('file_url', 'is', null)
+          .order('type'),
   ])
 
   if (filesRes.error) return NextResponse.json({ error: filesRes.error.message }, { status: 500 })
   if (packetsRes.error) return NextResponse.json({ error: packetsRes.error.message }, { status: 500 })
 
-  return NextResponse.json({ files: filesRes.data ?? [], packets: packetsRes.data ?? [] })
+  return NextResponse.json({
+    files: filesRes.data ?? [],
+    packets: packetsRes.data ?? [],
+    complianceDocs: complianceRes.data ?? [],
+  })
 }
 
 export async function POST(request: Request) {
