@@ -702,24 +702,29 @@ export default function DirectoryPage() {
         </div>
       )}
 
-      {/* Profile Drawer */}
+      {/* Profile Modal */}
       {profileCompanyId && (
-        <div className="fixed inset-0 z-50 flex justify-end">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8">
           {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/30" onClick={() => setProfileCompanyId(null)} />
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setProfileCompanyId(null)} />
           {/* Panel */}
-          <div className="relative w-full max-w-lg bg-white shadow-2xl flex flex-col h-full overflow-hidden">
+          <div className="relative w-full max-w-2xl bg-white shadow-2xl rounded-2xl flex flex-col max-h-[85vh] overflow-hidden">
             {/* Header */}
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
-              <div>
-                <h2 className="text-lg font-bold text-slate-900">{profileData?.company?.name ?? '…'}</h2>
-                <p className="text-xs text-slate-400">{profileData?.company?.trade ?? profileData?.company?.type ?? ''}</p>
+            <div className="px-8 pt-8 pb-6 border-b border-slate-100 flex items-start justify-between shrink-0">
+              <div className="flex items-center gap-4">
+                <div className="h-14 w-14 rounded-2xl bg-orange-100 flex items-center justify-center shrink-0">
+                  <Building2 className="h-7 w-7 text-orange-500" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-900">{profileData?.company?.name ?? '…'}</h2>
+                  <p className="text-sm text-slate-400 mt-0.5">{[profileData?.company?.trade, profileData?.company?.type ? TYPE_LABELS[profileData.company.type as ContactType] : null].filter(Boolean).join(' · ')}</p>
+                </div>
               </div>
-              <button onClick={() => setProfileCompanyId(null)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
+              <button onClick={() => setProfileCompanyId(null)} className="text-slate-400 hover:text-slate-600 mt-1"><X className="h-5 w-5" /></button>
             </div>
 
             {/* Tabs */}
-            <div className="flex border-b border-slate-100 shrink-0">
+            <div className="flex border-b border-slate-100 shrink-0 px-8">
               {[
                 { key: 'overview', label: 'Overview' },
                 { key: 'documents', label: 'Documents' },
@@ -727,7 +732,7 @@ export default function DirectoryPage() {
                 { key: 'projects', label: 'Projects' },
               ].map(t => (
                 <button key={t.key} onClick={() => setProfileTab(t.key as any)}
-                  className={cn('px-4 py-3 text-sm font-medium border-b-2 transition-colors',
+                  className={cn('px-5 py-3.5 text-sm font-medium border-b-2 transition-colors',
                     profileTab === t.key ? 'border-orange-500 text-orange-600' : 'border-transparent text-slate-500 hover:text-slate-700')}>
                   {t.label}
                 </button>
@@ -735,7 +740,7 @@ export default function DirectoryPage() {
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            <div className="flex-1 overflow-y-auto px-8 py-6 space-y-4">
               {profileLoading ? (
                 <p className="text-sm text-slate-400 text-center py-12">Loading…</p>
               ) : !profileData ? (
