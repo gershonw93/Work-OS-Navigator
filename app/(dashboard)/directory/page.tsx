@@ -694,13 +694,10 @@ export default function DirectoryPage() {
                 {/* Contact row */}
                 <div className="mt-auto space-y-1">
                   {company.contact_email && (
-                    <a
-                      href={`mailto:${company.contact_email}`}
-                      className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-orange-600 truncate"
-                    >
+                    <div className="flex items-center gap-1.5 text-xs text-slate-600 truncate">
                       <Mail className="h-3 w-3 shrink-0 text-slate-400" />
                       {company.contact_email}
-                    </a>
+                    </div>
                   )}
                   {company.phone && (
                     <a
@@ -849,7 +846,7 @@ export default function DirectoryPage() {
                         {profileData.company?.contact_email && (
                           <div className="flex items-center gap-3 px-4 py-3">
                             <Mail className="h-4 w-4 text-slate-400 shrink-0" />
-                            <a href={`mailto:${profileData.company.contact_email}`} className="text-sm text-orange-600 hover:underline">{profileData.company.contact_email}</a>
+                            <span className="text-sm text-slate-700 select-all">{profileData.company.contact_email}</span>
                           </div>
                         )}
                         {profileData.company?.phone && (
