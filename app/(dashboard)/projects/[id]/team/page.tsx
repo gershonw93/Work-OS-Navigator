@@ -79,6 +79,8 @@ export default function TeamPage({ params }: { params: { id: string } }) {
   const [subScope, setSubScope] = useState('')
   const [subLineItems, setSubLineItems] = useState<{ description: string; amount: string }[]>([{ description: '', amount: '' }])
   const [subAmount, setSubAmount] = useState('')
+  const [subStart, setSubStart] = useState('')
+  const [subEnd, setSubEnd] = useState('')
   const [subEmail, setSubEmail] = useState('')
   const [subPhone, setSubPhone] = useState('')
   const [subProposal, setSubProposal] = useState<File | null>(null)
@@ -152,6 +154,8 @@ export default function TeamPage({ params }: { params: { id: string } }) {
     fd.append('trade', subTrade)
     fd.append('scope', subScope)
     fd.append('contract_amount', subAmount)
+    fd.append('start_date', subStart)
+    fd.append('end_date', subEnd)
     const cleanItems = subLineItems
       .filter(li => li.description.trim() || li.amount.trim())
       .map(li => ({ description: li.description.trim(), amount: li.amount ? parseFloat(li.amount.replace(/[^0-9.]/g, '')) : null }))
@@ -167,6 +171,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
     }
     setSubMode('new'); setSubExistingId('')
     setSubCompany(''); setSubTrade(''); setSubScope(''); setSubAmount('')
+    setSubStart(''); setSubEnd('')
     setSubEmail(''); setSubPhone(''); setSubProposal(null); setSubScanned(false); setSubAnalyzeError('')
     setSubLineItems([{ description: '', amount: '' }])
     setShowAddSub(false); setSubSaving(false); load()
@@ -552,6 +557,17 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                 <div className="space-y-1.5">
                   <Label>Contract Amount {lineItemsTotal > 0 && <span className="text-slate-400 font-normal">(line items total: ${lineItemsTotal.toLocaleString()})</span>}</Label>
                   <Input placeholder={lineItemsTotal > 0 ? `Leave blank to use $${lineItemsTotal.toLocaleString()}` : 'e.g. 45000'} value={subAmount} onChange={e => setSubAmount(e.target.value)} />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Start Date <span className="text-slate-400 font-normal">(adds to schedule)</span></Label>
+                    <Input type="date" value={subStart} onChange={e => setSubStart(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>End Date</Label>
+                    <Input type="date" value={subEnd} onChange={e => setSubEnd(e.target.value)} />
+                  </div>
                 </div>
 
                 {/* Attach proposal / contract */}

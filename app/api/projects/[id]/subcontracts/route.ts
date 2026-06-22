@@ -135,12 +135,46 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   if (subErr) return NextResponse.json({ error: subErr.message }, { status: 500 })
 
+  // --- Tie in everywhere an awarded bid would ---
+
+  // 1) Payment schedule: turn the scope line items into payment schedule items.
+  //    (Falls back to a single line for the full contract amount if there are no items.)
+  const paymentRows = (lineItems.length > 0
+    ? lineItems.map((li, i) => ({
+        subcontract_id: subcontract.id,
+        label: li.description || `Line ${i + 1}`,
+        type: 'milestone',
+        percentage: null,
+        amount: Number(li.amount) || null,
+        status: 'pending',
+        order_index: i,
+      }))
+    : (contractAmount
+        ? [{ subcontract_id: subcontract.id, label: scopeText || 'Contract', type: 'milestone', percentage: null, amount: contractAmount, status: 'pending', order_index: 0 }]
+        : []))
+  if (paymentRows.length > 0) {
+    await db.from('payment_schedule_items').insert(paymentRows)
+  }
+
+  // 2) Schedule (timeline) bar, if dates were provided
+  const startDate = (form.get('start_date') as string ?? '').trim()
+  const endDate = (form.get('end_date') as string ?? '').trim()
+  if (startDate && endDate) {
+    await db.from('schedule_items').insert({
+      project_id: params.id,
+      subcontract_id: subcontract.id,
+      start_date: startDate,
+      end_date: endDate,
+    })
+  }
+
+  // 3) Activity log
   await logActivity(
     db,
     params.id,
     (profile as any)?.full_name ?? 'Someone',
     'subcontractor_added',
-    `Subcontractor added: ${company.name}${trade ? ` (${trade})` : ''}`,
+    `Subcontractor added: ${company.name}${trade ? ` (${trade})` : ''}${contractAmount ? ` — $${Number(contractAmount).toLocaleString()}` : ''}`,
     { subcontract_id: subcontract.id, company: company.name, trade },
   )
 
