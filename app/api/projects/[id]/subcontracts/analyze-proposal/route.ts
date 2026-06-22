@@ -30,14 +30,16 @@ export async function POST(request: Request, { params: _params }: { params: { id
   const prompt = `This is a subcontractor's proposal / bid / quote for a construction project. Extract the key info and return ONLY a JSON object with these exact keys (use null for anything not found):
 {
   "company_name": "the subcontractor / vendor company name",
-  "trade": "the trade or type of work (e.g. Plumbing, Electrical, HVAC, Roofing) or null",
-  "line_items": [ { "description": "one scope item / task / material line", "amount": numeric price for that line or null } ],
-  "scope": "a one-line summary of the overall scope (in case there are no clear line items)",
-  "contract_amount": numeric grand total price as a number with no symbols/commas, or null,
+  "trade": "the trade or type of work (e.g. Plumbing, Electrical, HVAC, Roofing, Flooring) or null",
+  "line_items": [ { "description": "the line item description", "qty": numeric quantity or null, "unit": "unit like SF, LF, EA, LS or null", "unit_price": numeric unit price or null, "amount": numeric line total or null } ],
+  "payment_schedule": [ { "label": "the milestone text, e.g. 'Deposit due on approval'", "percent": numeric percent (e.g. 40) or null, "amount": numeric dollar amount or null } ],
+  "scope": "a one-line summary of the overall scope",
+  "contract_amount": numeric grand total / project total as a number with no symbols/commas, or null,
   "contact_email": "contact email if shown or null",
   "phone": "contact phone if shown or null"
 }
-For "line_items": break the scope of work into individual line items — one per task, material, or priced row shown on the proposal. If the proposal is just a paragraph with no itemized pricing, still split it into the distinct scope items you can identify (amount null is fine). Return [] only if there is truly no scope described.
+For "line_items": copy the pricing-summary rows exactly — one object per priced row, preserving qty, unit, unit price and line total when shown. If there's no itemized pricing, split the scope paragraph into distinct items (amounts null is fine).
+For "payment_schedule": extract the proposal's payment terms / payment schedule (e.g. deposit %, amount due at start, balance at completion). One object per milestone with its percent and dollar amount. Return [] if no payment terms are stated.
 Return ONLY the JSON object, no other text.`
 
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })

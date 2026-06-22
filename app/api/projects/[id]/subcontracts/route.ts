@@ -54,6 +54,14 @@ export async function POST(request: Request, { params }: { params: { id: string 
   } catch { lineItems = [] }
   lineItems = (lineItems || []).filter(li => (li.description ?? '').trim() || li.amount)
 
+  // Payment schedule milestones: [{ label, percent, amount }]
+  let paymentSchedule: { label: string; percent: number | null; amount: number | null }[] = []
+  try {
+    const raw = form.get('payment_schedule') as string | null
+    if (raw) paymentSchedule = JSON.parse(raw)
+  } catch { paymentSchedule = [] }
+  paymentSchedule = (paymentSchedule || []).filter(p => (p.label ?? '').trim() || p.percent || p.amount)
+
   const amountRaw = (form.get('contract_amount') as string ?? '').replace(/[^0-9.]/g, '')
   // Contract amount = explicit value, else sum of line items
   const lineItemsTotal = lineItems.reduce((s, li) => s + (Number(li.amount) || 0), 0)
@@ -137,24 +145,49 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   // --- Tie in everywhere an awarded bid would ---
 
-  // 1) Payment schedule: turn the scope line items into payment schedule items.
-  //    (Falls back to a single line for the full contract amount if there are no items.)
-  const paymentRows = (lineItems.length > 0
-    ? lineItems.map((li, i) => ({
-        subcontract_id: subcontract.id,
-        label: li.description || `Line ${i + 1}`,
-        type: 'milestone',
-        percentage: null,
-        amount: Number(li.amount) || null,
-        status: 'pending',
-        order_index: i,
-      }))
+  // 1) Payment schedule (the proposal's payment TERMS: deposit / progress / final).
+  //    Use the entered/extracted schedule; otherwise a single line for the full amount.
+  const paymentRows = (paymentSchedule.length > 0
+    ? paymentSchedule.map((p, i) => {
+        const pct = p.percent != null ? Number(p.percent) : null
+        const amt = p.amount != null ? Number(p.amount) : (pct != null && contractAmount ? Math.round(contractAmount * pct) / 100 : null)
+        return {
+          subcontract_id: subcontract.id,
+          label: p.label || `Payment ${i + 1}`,
+          type: pct != null ? 'percent' : 'milestone',
+          percentage: pct,
+          amount: amt,
+          status: 'pending',
+          order_index: i,
+        }
+      })
     : (contractAmount
-        ? [{ subcontract_id: subcontract.id, label: scopeText || 'Contract', type: 'milestone', percentage: null, amount: contractAmount, status: 'pending', order_index: 0 }]
+        ? [{ subcontract_id: subcontract.id, label: 'Contract total', type: 'milestone', percentage: null, amount: contractAmount, status: 'pending', order_index: 0 }]
         : []))
   if (paymentRows.length > 0) {
     await db.from('payment_schedule_items').insert(paymentRows)
   }
+
+  // 1b) Record it on the Bids tab too: an awarded bid package + bid for this sub.
+  try {
+    const { data: pkg } = await db.from('bid_packages').insert({
+      project_id: params.id,
+      scope: scopeText || trade || company.name,
+      description: scopeText || `Proposal from ${company.name}`,
+      trade: trade || null,
+      status: 'awarded',
+    }).select('id').single()
+    if (pkg) {
+      await db.from('bids').insert({
+        bid_package_id: pkg.id,
+        company_id: company.id,
+        amount: contractAmount ?? 0,
+        notes: proposal_url ? `Proposal: ${proposal_url}` : (scopeText || null),
+        status: 'awarded',
+        submitted_at: new Date().toISOString(),
+      })
+    }
+  } catch { /* bids are a nice-to-have mirror; never block the sub creation */ }
 
   // 2) Schedule (timeline) bar, if dates were provided
   const startDate = (form.get('start_date') as string ?? '').trim()

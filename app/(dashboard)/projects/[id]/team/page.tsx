@@ -89,7 +89,8 @@ export default function TeamPage({ params }: { params: { id: string } }) {
   const [subCompany, setSubCompany] = useState('')
   const [subTrade, setSubTrade] = useState('')
   const [subScope, setSubScope] = useState('')
-  const [subLineItems, setSubLineItems] = useState<{ description: string; amount: string }[]>([{ description: '', amount: '' }])
+  const [subLineItems, setSubLineItems] = useState<{ description: string; amount: string; qty?: number | null; unit?: string | null; unit_price?: number | null }[]>([{ description: '', amount: '' }])
+  const [subPayments, setSubPayments] = useState<{ label: string; percent: string; amount: string }[]>([])
   const [subAmount, setSubAmount] = useState('')
   const [subStart, setSubStart] = useState('')
   const [subEnd, setSubEnd] = useState('')
@@ -102,13 +103,14 @@ export default function TeamPage({ params }: { params: { id: string } }) {
   const [subScanned, setSubScanned] = useState(false)
 
   const lineItemsTotal = subLineItems.reduce((s, li) => s + (parseFloat(li.amount.replace(/[^0-9.]/g, '')) || 0), 0)
+  const paymentTotalPct = Math.round(subPayments.reduce((s, p) => s + (parseFloat(p.percent.replace(/[^0-9.]/g, '')) || 0), 0))
 
   function resetSubForm() {
     setSubMode('new'); setSubExistingId('')
     setSubCompany(''); setSubTrade(''); setSubScope(''); setSubAmount('')
     setSubStart(''); setSubEnd('')
     setSubEmail(''); setSubPhone(''); setSubProposal(null); setSubScanned(false); setSubAnalyzeError('')
-    setSubLineItems([{ description: '', amount: '' }])
+    setSubLineItems([{ description: '', amount: '' }]); setSubPayments([])
   }
 
   function openEditSub(sub: Subcontract) {
@@ -158,6 +160,12 @@ export default function TeamPage({ params }: { params: { id: string } }) {
   function addLineItem() { setSubLineItems(items => [...items, { description: '', amount: '' }]) }
   function removeLineItem(i: number) { setSubLineItems(items => items.length > 1 ? items.filter((_, idx) => idx !== i) : items) }
 
+  function updatePayment(i: number, field: 'label' | 'percent' | 'amount', val: string) {
+    setSubPayments(items => items.map((p, idx) => idx === i ? { ...p, [field]: val } : p))
+  }
+  function addPayment() { setSubPayments(items => [...items, { label: '', percent: '', amount: '' }]) }
+  function removePayment(i: number) { setSubPayments(items => items.filter((_, idx) => idx !== i)) }
+
   async function analyzeProposal(f: File) {
     setSubAnalyzing(true); setSubAnalyzeError(''); setSubScanned(false)
     setSubProposal(f)
@@ -181,6 +189,16 @@ export default function TeamPage({ params }: { params: { id: string } }) {
       setSubLineItems(f2.line_items.map((li: any) => ({
         description: li.description ?? '',
         amount: li.amount != null ? String(li.amount) : '',
+        qty: li.qty ?? null,
+        unit: li.unit ?? null,
+        unit_price: li.unit_price ?? null,
+      })))
+    }
+    if (Array.isArray(f2.payment_schedule) && f2.payment_schedule.length > 0) {
+      setSubPayments(f2.payment_schedule.map((p: any) => ({
+        label: p.label ?? '',
+        percent: p.percent != null ? String(p.percent) : '',
+        amount: p.amount != null ? String(p.amount) : '',
       })))
     }
     if (f2.contract_amount != null) setSubAmount(String(f2.contract_amount))
@@ -196,7 +214,10 @@ export default function TeamPage({ params }: { params: { id: string } }) {
 
     const cleanItemsArr = subLineItems
       .filter(li => li.description.trim() || li.amount.trim())
-      .map(li => ({ description: li.description.trim(), amount: li.amount ? parseFloat(li.amount.replace(/[^0-9.]/g, '')) : null }))
+      .map(li => ({ description: li.description.trim(), amount: li.amount ? parseFloat(li.amount.replace(/[^0-9.]/g, '')) : null, qty: li.qty ?? null, unit: li.unit ?? null, unit_price: li.unit_price ?? null }))
+    const cleanPayments = subPayments
+      .filter(p => p.label.trim() || p.percent.trim() || p.amount.trim())
+      .map(p => ({ label: p.label.trim(), percent: p.percent ? parseFloat(p.percent.replace(/[^0-9.]/g, '')) : null, amount: p.amount ? parseFloat(p.amount.replace(/[^0-9.]/g, '')) : null }))
 
     // Edit existing subcontract
     if (editingSubId) {
@@ -235,10 +256,8 @@ export default function TeamPage({ params }: { params: { id: string } }) {
     fd.append('contract_amount', subAmount)
     fd.append('start_date', subStart)
     fd.append('end_date', subEnd)
-    const cleanItems = subLineItems
-      .filter(li => li.description.trim() || li.amount.trim())
-      .map(li => ({ description: li.description.trim(), amount: li.amount ? parseFloat(li.amount.replace(/[^0-9.]/g, '')) : null }))
-    fd.append('line_items', JSON.stringify(cleanItems))
+    fd.append('line_items', JSON.stringify(cleanItemsArr))
+    fd.append('payment_schedule', JSON.stringify(cleanPayments))
     if (subProposal) fd.append('proposal', subProposal)
     const res = await fetch(`/api/projects/${params.id}/subcontracts`, {
       method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd,
@@ -252,7 +271,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
     setSubCompany(''); setSubTrade(''); setSubScope(''); setSubAmount('')
     setSubStart(''); setSubEnd('')
     setSubEmail(''); setSubPhone(''); setSubProposal(null); setSubScanned(false); setSubAnalyzeError('')
-    setSubLineItems([{ description: '', amount: '' }])
+    setSubLineItems([{ description: '', amount: '' }]); setSubPayments([])
     setShowAddSub(false); setSubSaving(false); load()
   }
 
@@ -644,6 +663,34 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                   <Input placeholder={lineItemsTotal > 0 ? `Leave blank to use $${lineItemsTotal.toLocaleString()}` : 'e.g. 45000'} value={subAmount} onChange={e => setSubAmount(e.target.value)} />
                 </div>
 
+                {/* Payment schedule (deposit / progress / final) */}
+                {!editingSubId && (
+                <div className="space-y-2 rounded-lg bg-slate-50 border border-slate-200 p-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="mb-0">Payment Schedule <span className="text-slate-400 font-normal">(deposit / progress / final)</span></Label>
+                    {paymentTotalPct > 0 && <span className={cn('text-xs font-semibold', Math.round(paymentTotalPct) === 100 ? 'text-green-600' : 'text-amber-600')}>{paymentTotalPct}%</span>}
+                  </div>
+                  {subPayments.length === 0 && <p className="text-xs text-slate-400">No payment terms yet. Scan a proposal or add milestones (e.g. 40% deposit, 50% at start, 10% completion).</p>}
+                  {subPayments.map((p, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <Input className="flex-1" placeholder="e.g. Deposit on approval" value={p.label} onChange={e => updatePayment(i, 'label', e.target.value)} />
+                      <div className="relative w-16 shrink-0">
+                        <Input className="pr-5 text-right" placeholder="40" value={p.percent} onChange={e => updatePayment(i, 'percent', e.target.value)} />
+                        <span className="absolute right-2 top-2 text-slate-400 text-sm">%</span>
+                      </div>
+                      <div className="relative w-24 shrink-0">
+                        <span className="absolute left-2.5 top-2 text-slate-400 text-sm">$</span>
+                        <Input className="pl-5" placeholder="0" value={p.amount} onChange={e => updatePayment(i, 'amount', e.target.value)} />
+                      </div>
+                      <button type="button" onClick={() => removePayment(i)} className="text-slate-300 hover:text-red-500 shrink-0"><X className="h-4 w-4" /></button>
+                    </div>
+                  ))}
+                  <button type="button" onClick={addPayment} className="text-xs font-medium text-orange-600 hover:underline flex items-center gap-1">
+                    <Plus className="h-3 w-3" /> Add payment milestone
+                  </button>
+                </div>
+                )}
+
                 {!editingSubId && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
@@ -822,9 +869,16 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                             <div>
                               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Scope / Line Items</p>
                               <div className="rounded-lg border border-slate-100 divide-y divide-slate-100">
-                                {items.map((li, i) => (
+                                {items.map((li: any, i) => (
                                   <div key={i} className="flex items-center justify-between gap-3 px-3 py-1.5 text-sm">
-                                    <span className="text-slate-700">{li.description || `Item ${i + 1}`}</span>
+                                    <span className="text-slate-700">
+                                      {li.description || `Item ${i + 1}`}
+                                      {(li.qty != null || li.unit_price != null) && (
+                                        <span className="text-slate-400 text-xs ml-1">
+                                          {li.qty != null ? `${Number(li.qty).toLocaleString()}${li.unit ? ` ${li.unit}` : ''}` : ''}{li.unit_price != null ? ` @ $${Number(li.unit_price).toLocaleString()}` : ''}
+                                        </span>
+                                      )}
+                                    </span>
                                     <span className="text-slate-600 font-medium shrink-0">{li.amount != null ? `$${Number(li.amount).toLocaleString()}` : '—'}</span>
                                   </div>
                                 ))}
