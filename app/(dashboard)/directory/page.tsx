@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Building2, Plus, X, Search, Phone, Mail, MapPin, Globe, BadgeCheck, Send } from 'lucide-react'
+import { Building2, Plus, X, Search, Phone, Mail, MapPin, Globe, BadgeCheck, Send, ExternalLink } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -97,6 +97,12 @@ export default function DirectoryPage() {
   const [showAdd, setShowAdd] = useState(false)
   const [addLoading, setAddLoading] = useState(false)
   const [addError, setAddError] = useState<string | null>(null)
+
+  // Profile drawer state
+  const [profileCompanyId, setProfileCompanyId] = useState<string | null>(null)
+  const [profileData, setProfileData] = useState<any>(null)
+  const [profileLoading, setProfileLoading] = useState(false)
+  const [profileTab, setProfileTab] = useState<'overview' | 'documents' | 'payments' | 'projects'>('overview')
 
   // Invite state
   const [inviteCompany, setInviteCompany] = useState<Company | null>(null)
@@ -213,6 +219,19 @@ export default function DirectoryPage() {
         {TYPE_LABELS[type] ?? type}
       </span>
     )
+  }
+
+  async function openProfile(companyId: string) {
+    setProfileCompanyId(companyId)
+    setProfileData(null)
+    setProfileLoading(true)
+    setProfileTab('overview')
+    const token = await getToken()
+    const res = await fetch(`/api/directory/${companyId}/profile`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (res.ok) setProfileData(await res.json())
+    setProfileLoading(false)
   }
 
   function openInvite(company: Company) {
@@ -570,7 +589,8 @@ export default function DirectoryPage() {
             return (
               <div
                 key={company.id}
-                className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col gap-3 hover:border-slate-300 transition-colors"
+                onClick={() => openProfile(company.id)}
+                className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col gap-3 hover:border-slate-300 hover:shadow-md transition-shadow cursor-pointer"
               >
                 {/* Card header */}
                 <div className="flex items-start justify-between gap-2">
@@ -668,7 +688,7 @@ export default function DirectoryPage() {
                       </span>
                     ) : (
                       <button
-                        onClick={() => openInvite(company)}
+                        onClick={e => { e.stopPropagation(); openInvite(company) }}
                         className="text-xs font-medium text-orange-600 border border-orange-300 rounded-md px-2 py-1 hover:bg-orange-50 transition-colors"
                       >
                         Invite to Platform
@@ -679,6 +699,232 @@ export default function DirectoryPage() {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* Profile Drawer */}
+      {profileCompanyId && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/30" onClick={() => setProfileCompanyId(null)} />
+          {/* Panel */}
+          <div className="relative w-full max-w-lg bg-white shadow-2xl flex flex-col h-full overflow-hidden">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">{profileData?.company?.name ?? '…'}</h2>
+                <p className="text-xs text-slate-400">{profileData?.company?.trade ?? profileData?.company?.type ?? ''}</p>
+              </div>
+              <button onClick={() => setProfileCompanyId(null)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex border-b border-slate-100 shrink-0">
+              {[
+                { key: 'overview', label: 'Overview' },
+                { key: 'documents', label: 'Documents' },
+                { key: 'payments', label: 'Payments' },
+                { key: 'projects', label: 'Projects' },
+              ].map(t => (
+                <button key={t.key} onClick={() => setProfileTab(t.key as any)}
+                  className={cn('px-4 py-3 text-sm font-medium border-b-2 transition-colors',
+                    profileTab === t.key ? 'border-orange-500 text-orange-600' : 'border-transparent text-slate-500 hover:text-slate-700')}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {profileLoading ? (
+                <p className="text-sm text-slate-400 text-center py-12">Loading…</p>
+              ) : !profileData ? (
+                <p className="text-sm text-slate-400 text-center py-12">Could not load profile.</p>
+              ) : (
+                <>
+                  {/* OVERVIEW TAB */}
+                  {profileTab === 'overview' && (
+                    <div className="space-y-4">
+                      <div className="rounded-xl border border-slate-200 divide-y divide-slate-100">
+                        {profileData.company?.contact_email && (
+                          <div className="flex items-center gap-3 px-4 py-3">
+                            <Mail className="h-4 w-4 text-slate-400 shrink-0" />
+                            <a href={`mailto:${profileData.company.contact_email}`} className="text-sm text-orange-600 hover:underline">{profileData.company.contact_email}</a>
+                          </div>
+                        )}
+                        {profileData.company?.phone && (
+                          <div className="flex items-center gap-3 px-4 py-3">
+                            <Phone className="h-4 w-4 text-slate-400 shrink-0" />
+                            <span className="text-sm text-slate-700">{profileData.company.phone}</span>
+                          </div>
+                        )}
+                        {profileData.company?.address && (
+                          <div className="flex items-center gap-3 px-4 py-3">
+                            <MapPin className="h-4 w-4 text-slate-400 shrink-0" />
+                            <span className="text-sm text-slate-700">{profileData.company.address}</span>
+                          </div>
+                        )}
+                        {profileData.company?.license_number && (
+                          <div className="flex items-center gap-3 px-4 py-3">
+                            <BadgeCheck className="h-4 w-4 text-slate-400 shrink-0" />
+                            <span className="text-sm text-slate-700">License: {profileData.company.license_number}</span>
+                          </div>
+                        )}
+                      </div>
+                      {/* Quick stats */}
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="rounded-lg border border-slate-200 p-3 text-center">
+                          <p className="text-xl font-bold text-slate-900">{profileData.subcontracts?.length ?? 0}</p>
+                          <p className="text-xs text-slate-400 mt-0.5">Projects</p>
+                        </div>
+                        <div className="rounded-lg border border-slate-200 p-3 text-center">
+                          <p className="text-xl font-bold text-slate-900">
+                            {profileData.subcontracts?.reduce((s: number, sub: any) => s + (Number(sub.contract_amount) || 0), 0) > 0
+                              ? '$' + (profileData.subcontracts.reduce((s: number, sub: any) => s + (Number(sub.contract_amount) || 0), 0) / 1000).toFixed(0) + 'k'
+                              : '—'}
+                          </p>
+                          <p className="text-xs text-slate-400 mt-0.5">Contracted</p>
+                        </div>
+                        <div className="rounded-lg border border-slate-200 p-3 text-center">
+                          <p className="text-xl font-bold text-slate-900">{profileData.invoices?.length ?? 0}</p>
+                          <p className="text-xs text-slate-400 mt-0.5">Invoices</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* DOCUMENTS TAB */}
+                  {profileTab === 'documents' && (
+                    <div className="space-y-3">
+                      {profileData.complianceDocs?.length === 0 ? (
+                        <div className="text-center py-10">
+                          <p className="text-sm text-slate-400">No compliance documents on file.</p>
+                          <p className="text-xs text-slate-400 mt-1">Upload them from a project&apos;s Compliance tab.</p>
+                        </div>
+                      ) : (
+                        profileData.complianceDocs.map((doc: any) => {
+                          const isExpired = doc.expiry_date && new Date(doc.expiry_date + 'T00:00:00') < new Date()
+                          const resolvedStatus = (doc.status === 'expired' && doc.expiry_date && !isExpired) ? 'approved' : doc.status
+                          const statusColors: Record<string, string> = {
+                            approved: 'bg-green-100 text-green-700',
+                            pending: 'bg-amber-100 text-amber-700',
+                            expired: 'bg-red-100 text-red-700',
+                            missing: 'bg-red-100 text-red-700',
+                            expiring_soon: 'bg-orange-100 text-orange-700',
+                          }
+                          const typeLabels: Record<string, string> = { coi: 'COI', license: 'License', w9: 'W-9', workers_comp: "Workers' Comp", other: 'Other' }
+                          return (
+                            <div key={doc.id} className="rounded-lg border border-slate-200 bg-white p-4 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="font-medium text-slate-800">{typeLabels[doc.type] ?? doc.type}</span>
+                                <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium', statusColors[resolvedStatus] ?? 'bg-slate-100 text-slate-600')}>
+                                  {resolvedStatus.replace('_', ' ')}
+                                </span>
+                              </div>
+                              {doc.expiry_date && <p className="text-xs text-slate-400">Expires {new Date(doc.expiry_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>}
+                              {doc.notes && <p className="text-xs text-slate-600 whitespace-pre-line">{doc.notes}</p>}
+                              {doc.file_url && (
+                                <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-orange-600 hover:underline font-medium">
+                                  <ExternalLink className="h-3 w-3" /> View Document
+                                </a>
+                              )}
+                            </div>
+                          )
+                        })
+                      )}
+                    </div>
+                  )}
+
+                  {/* PAYMENTS TAB */}
+                  {profileTab === 'payments' && (
+                    <div className="space-y-4">
+                      {/* Invoices */}
+                      {profileData.invoices?.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Invoices</p>
+                          <div className="space-y-2">
+                            {profileData.invoices.map((inv: any) => (
+                              <div key={inv.id} className="rounded-lg border border-slate-200 bg-white p-3 flex items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="text-sm font-medium text-slate-800 truncate">{inv.invoice_number ?? `Invoice`}</p>
+                                  <p className="text-xs text-slate-400">{inv.projects?.name ?? ''}{inv.due_date ? ` · Due ${new Date(inv.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}</p>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <p className="text-sm font-semibold text-slate-900">${Number(inv.amount).toLocaleString()}</p>
+                                  <span className={cn('text-xs font-medium px-2 py-0.5 rounded-full',
+                                    inv.status === 'paid' ? 'bg-green-100 text-green-700' :
+                                    inv.status === 'overdue' ? 'bg-red-100 text-red-700' :
+                                    'bg-amber-100 text-amber-700')}>
+                                    {inv.status}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {/* Payment schedule */}
+                      {profileData.payments?.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Contract Milestones</p>
+                          <div className="space-y-2">
+                            {profileData.payments.map((p: any) => (
+                              <div key={p.id} className="rounded-lg border border-slate-200 bg-white p-3 flex items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="text-sm font-medium text-slate-800">{p.label}</p>
+                                  <p className="text-xs text-slate-400">{p.subcontracts?.projects?.name ?? ''}</p>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  {p.amount && <p className="text-sm font-semibold text-slate-900">${Number(p.amount).toLocaleString()}</p>}
+                                  {p.percentage && <p className="text-xs text-slate-400">{p.percentage}%</p>}
+                                  <span className={cn('text-xs font-medium px-2 py-0.5 rounded-full',
+                                    p.status === 'paid' ? 'bg-green-100 text-green-700' :
+                                    p.status === 'invoiced' ? 'bg-blue-100 text-blue-700' :
+                                    'bg-slate-100 text-slate-600')}>
+                                    {p.status}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {profileData.invoices?.length === 0 && profileData.payments?.length === 0 && (
+                        <div className="text-center py-10">
+                          <p className="text-sm text-slate-400">No invoices or payment milestones yet.</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* PROJECTS TAB */}
+                  {profileTab === 'projects' && (
+                    <div className="space-y-3">
+                      {profileData.subcontracts?.length === 0 ? (
+                        <div className="text-center py-10">
+                          <p className="text-sm text-slate-400">Not on any projects yet.</p>
+                        </div>
+                      ) : (
+                        profileData.subcontracts.map((sub: any) => (
+                          <div key={sub.id} className="rounded-lg border border-slate-200 bg-white p-4 space-y-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="font-medium text-slate-800">{sub.projects?.name ?? 'Unknown Project'}</p>
+                              <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium',
+                                sub.projects?.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500')}>
+                                {sub.projects?.status ?? ''}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-500">{sub.trade ?? ''}{sub.scope ? ` · ${sub.scope}` : ''}</p>
+                            {sub.contract_amount && <p className="text-sm font-semibold text-slate-900">${Number(sub.contract_amount).toLocaleString()}</p>}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
