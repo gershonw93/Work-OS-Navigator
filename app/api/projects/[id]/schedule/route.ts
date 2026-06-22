@@ -37,14 +37,17 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { label, start_date, end_date, color } = await request.json()
-  if (!label || !start_date || !end_date) {
-    return NextResponse.json({ error: 'label, start_date, and end_date are required' }, { status: 400 })
+  const { label, start_date, end_date, color, subcontract_id } = await request.json()
+  if (!start_date || !end_date) {
+    return NextResponse.json({ error: 'start_date and end_date are required' }, { status: 400 })
+  }
+  if (!label && !subcontract_id) {
+    return NextResponse.json({ error: 'label or subcontract_id required' }, { status: 400 })
   }
 
   const { data, error } = await db
     .from('schedule_items')
-    .insert({ project_id: params.id, label, start_date, end_date, color: color ?? null, subcontract_id: null })
+    .insert({ project_id: params.id, label: label ?? null, start_date, end_date, color: color ?? null, subcontract_id: subcontract_id ?? null })
     .select()
     .single()
 

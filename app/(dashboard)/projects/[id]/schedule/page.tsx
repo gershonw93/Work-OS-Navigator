@@ -93,6 +93,12 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
   const [editColor, setEditColor] = useState('blue')
   const [editSaving, setEditSaving] = useState(false)
 
+  const [unscheduled, setUnscheduled] = useState<{ id: string; scope: string; trade: string | null; companies: { id: string; name: string } | null }[]>([])
+  const [schedulingSubId, setSchedulingSubId] = useState<string | null>(null)
+  const [schedStart, setSchedStart] = useState('')
+  const [schedEnd, setSchedEnd] = useState('')
+  const [schedSaving, setSchedSaving] = useState(false)
+
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
     return session?.access_token ?? ''
@@ -110,7 +116,32 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [params.id])
+  async function loadUnscheduled() {
+    const token = await getToken()
+    const res = await fetch(`/api/projects/${params.id}/schedule/unscheduled`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (res.ok) {
+      const d = await res.json()
+      setUnscheduled(d.subs ?? [])
+    }
+  }
+
+  async function scheduleSubcontract(e: React.FormEvent) {
+    e.preventDefault()
+    if (!schedulingSubId) return
+    setSchedSaving(true)
+    const token = await getToken()
+    await fetch(`/api/projects/${params.id}/schedule`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ subcontract_id: schedulingSubId, start_date: schedStart, end_date: schedEnd }),
+    })
+    setSchedulingSubId(null); setSchedStart(''); setSchedEnd(''); setSchedSaving(false)
+    load(); loadUnscheduled()
+  }
+
+  useEffect(() => { load(); loadUnscheduled() }, [params.id])
 
   async function addItem(e: React.FormEvent) {
     e.preventDefault()
@@ -124,7 +155,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     setShowAdd(false)
     setAddLabel(''); setAddStart(''); setAddEnd(''); setAddColor('blue')
     setAddSaving(false)
-    load()
+    load(); loadUnscheduled()
   }
 
   async function saveEdit(e: React.FormEvent) {
@@ -139,7 +170,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     })
     setEditItem(null)
     setEditSaving(false)
-    load()
+    load(); loadUnscheduled()
   }
 
   async function deleteItem(itemId: string) {
@@ -148,7 +179,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     })
-    load()
+    load(); loadUnscheduled()
   }
 
   function openEdit(item: ScheduleItem) {
@@ -285,13 +316,47 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
         <Button onClick={() => setShowAdd(true)} className="self-start sm:self-auto"><Plus className="h-4 w-4" />Add Milestone</Button>
       </div>
 
+      {unscheduled.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-amber-500" />
+            <span className="text-sm font-semibold text-amber-800">
+              {unscheduled.length} subcontractor{unscheduled.length > 1 ? 's' : ''} not yet scheduled
+            </span>
+          </div>
+          <div className="space-y-2">
+            {unscheduled.map(sub => (
+              <div key={sub.id} className="flex flex-wrap items-center gap-3 bg-white rounded-lg border border-amber-100 px-3 py-2">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-slate-800">{sub.companies?.name ?? 'Unknown'}</p>
+                  <p className="text-xs text-slate-400 truncate">{sub.trade ? `${sub.trade} · ` : ''}{sub.scope}</p>
+                </div>
+                {schedulingSubId === sub.id ? (
+                  <form onSubmit={scheduleSubcontract} className="flex items-center gap-2 flex-wrap">
+                    <Input type="date" className="w-36 h-8 text-xs" value={schedStart} onChange={e => setSchedStart(e.target.value)} required />
+                    <span className="text-slate-400 text-xs">to</span>
+                    <Input type="date" className="w-36 h-8 text-xs" value={schedEnd} onChange={e => setSchedEnd(e.target.value)} required />
+                    <Button size="sm" type="submit" disabled={schedSaving} className="h-8">{schedSaving ? 'Saving…' : 'Add'}</Button>
+                    <button type="button" onClick={() => setSchedulingSubId(null)} className="text-slate-400 hover:text-slate-600"><X className="h-4 w-4" /></button>
+                  </form>
+                ) : (
+                  <Button size="sm" variant="secondary" className="h-8 shrink-0" onClick={() => { setSchedulingSubId(sub.id); setSchedStart(''); setSchedEnd('') }}>
+                    <CalendarDays className="h-3.5 w-3.5" /> Set Dates
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <div className="text-sm text-slate-400 py-12 text-center">Loading...</div>
       ) : items.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-200 py-16 text-center">
           <CalendarDays className="h-10 w-10 text-slate-200 mx-auto mb-3" />
           <p className="text-sm font-medium text-slate-500">No schedule yet</p>
-          <p className="text-xs text-slate-400 mt-1 mb-4">Award bids to auto-populate, or add milestones manually.</p>
+          <p className="text-xs text-slate-400 mt-1 mb-4">Add subcontractors with dates on the Team tab, or add milestones manually.</p>
           <Button size="sm" onClick={() => setShowAdd(true)}><Plus className="h-4 w-4" />Add Milestone</Button>
         </div>
       ) : (
