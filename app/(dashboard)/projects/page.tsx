@@ -29,6 +29,21 @@ interface Project {
   created_at: string
 }
 
+interface ProjectStat {
+  progressPct: number
+  contracted: number
+  paid: number
+  outstanding: number
+  taskTotal: number
+  taskDone: number
+}
+
+function fmtMoney(n: number) {
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`
+  return `$${n.toLocaleString()}`
+}
+
 const PROJECT_TYPES = ['residential', 'commercial', 'industrial', 'civil', 'other']
 const PROJECT_STATUSES = ['planning', 'active', 'on_hold', 'completed', 'cancelled']
 
@@ -59,6 +74,7 @@ function fmtDate(d: string | null) {
 export default function ProjectsPage() {
   const supabase = createClient()
   const [items, setItems] = useState<Project[]>([])
+  const [projectStats, setProjectStats] = useState<Record<string, ProjectStat>>({})
   const [loading, setLoading] = useState(true)
   const [editProject, setEditProject] = useState<Project | null>(null)
   const [saving, setSaving] = useState(false)
@@ -95,6 +111,11 @@ export default function ProjectsPage() {
       setItems([])
     }
     setLoading(false)
+    // Stats are non-blocking — load after the list renders
+    fetch('/api/projects/stats', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : { stats: {} })
+      .then(d => setProjectStats(d.stats ?? {}))
+      .catch(() => {})
   }
 
   useEffect(() => { fetchProjects() }, [])
@@ -449,6 +470,50 @@ export default function ProjectsPage() {
                       <span>{fmtDate(project.start_date)}{project.end_date ? ` → ${fmtDate(project.end_date)}` : ''}</span>
                     </div>
                   </div>
+
+                  {/* Progress bar */}
+                  {(() => {
+                    const st = projectStats[project.id]
+                    const pct = st?.progressPct ?? 0
+                    return (
+                      <div className="mt-4">
+                        <div className="flex items-center justify-between text-xs mb-1">
+                          <span className="font-medium text-slate-500">Progress</span>
+                          <span className="font-semibold text-slate-700">
+                            {pct}%{st && st.taskTotal > 0 ? <span className="font-normal text-slate-400"> · {st.taskDone}/{st.taskTotal} tasks</span> : ''}
+                          </span>
+                        </div>
+                        <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+                          <div
+                            className={cn('h-full rounded-full transition-all', pct === 100 ? 'bg-green-500' : 'bg-orange-500')}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })()}
+
+                  {/* Financial mini-info */}
+                  {(() => {
+                    const st = projectStats[project.id]
+                    if (!st || (st.contracted === 0 && st.paid === 0 && st.outstanding === 0)) return null
+                    return (
+                      <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                        <div className="rounded-lg bg-slate-50 py-1.5">
+                          <p className="text-xs text-slate-400">Contract</p>
+                          <p className="text-sm font-semibold text-slate-700">{fmtMoney(st.contracted)}</p>
+                        </div>
+                        <div className="rounded-lg bg-green-50 py-1.5">
+                          <p className="text-xs text-green-600/70">Paid</p>
+                          <p className="text-sm font-semibold text-green-700">{fmtMoney(st.paid)}</p>
+                        </div>
+                        <div className="rounded-lg bg-amber-50 py-1.5">
+                          <p className="text-xs text-amber-600/70">Outstanding</p>
+                          <p className="text-sm font-semibold text-amber-700">{fmtMoney(st.outstanding)}</p>
+                        </div>
+                      </div>
+                    )
+                  })()}
                 </Link>
 
                 {/* Action bar */}
