@@ -159,7 +159,7 @@ export default function ProjectsPage() {
     const q = query.trim().toLowerCase()
     if (q) {
       list = list.filter(p =>
-        p.name.toLowerCase().includes(q) ||
+        (p.name ?? '').toLowerCase().includes(q) ||
         (p.address ?? '').toLowerCase().includes(q) ||
         (p.client ?? '').toLowerCase().includes(q),
       )
@@ -167,14 +167,15 @@ export default function ProjectsPage() {
     if (statusFilter !== 'all') list = list.filter(p => p.status === statusFilter)
     if (typeFilter !== 'all') list = list.filter(p => p.type === typeFilter)
 
+    const s = (v: string | null | undefined) => v ?? ''
     const sorted = [...list].sort((a, b) => {
       switch (sort) {
-        case 'created_asc': return a.created_at.localeCompare(b.created_at)
-        case 'name_asc': return a.name.localeCompare(b.name)
-        case 'name_desc': return b.name.localeCompare(a.name)
-        case 'start_asc': return (a.start_date ?? '').localeCompare(b.start_date ?? '')
-        case 'start_desc': return (b.start_date ?? '').localeCompare(a.start_date ?? '')
-        default: return b.created_at.localeCompare(a.created_at)
+        case 'created_asc': return s(a.created_at).localeCompare(s(b.created_at))
+        case 'name_asc': return s(a.name).localeCompare(s(b.name))
+        case 'name_desc': return s(b.name).localeCompare(s(a.name))
+        case 'start_asc': return s(a.start_date).localeCompare(s(b.start_date))
+        case 'start_desc': return s(b.start_date).localeCompare(s(a.start_date))
+        default: return s(b.created_at).localeCompare(s(a.created_at))
       }
     })
     return sorted
