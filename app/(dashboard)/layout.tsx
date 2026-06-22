@@ -3,6 +3,7 @@ import { ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { Sidebar } from '@/components/layout/sidebar'
 import { TopNav } from '@/components/layout/top-nav'
+import { ViewAsBanner } from '@/components/layout/view-as-switcher'
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const supabase = createClient()
@@ -18,6 +19,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     <div className="flex min-h-screen bg-slate-50">
       <Sidebar />
       <div className="flex flex-1 flex-col min-w-0 sm:pl-60">
+        <ViewAsBanner />
         <TopNav />
         <main className="flex-1 overflow-y-auto overflow-x-hidden">
           {children}
