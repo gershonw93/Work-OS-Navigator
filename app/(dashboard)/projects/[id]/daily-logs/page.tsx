@@ -67,7 +67,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
   const [hasIssues, setHasIssues] = useState(false)
   const [issueDescription, setIssueDescription] = useState('')
   const [delays, setDelays] = useState<{ type: string; description: string }[]>([])
-  const [subsOnSite, setSubsOnSite] = useState<{ company_id: string; name: string }[]>([])
+  const [subsOnSite, setSubsOnSite] = useState<{ id: string; company_id: string; name: string }[]>([])
   const [workersOnSite, setWorkersOnSite] = useState<{ name: string; role: string }[]>([])
   const [photos, setPhotos] = useState<File[]>([])
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([])
@@ -85,6 +85,9 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
   const [editNotes, setEditNotes] = useState('')
   const [editWeather, setEditWeather] = useState('')
   const [editTempF, setEditTempF] = useState('')
+  const [editSubsOnSite, setEditSubsOnSite] = useState<{ id: string; company_id: string; name: string }[]>([])
+  const [editHasIssues, setEditHasIssues] = useState(false)
+  const [editIssueDescription, setEditIssueDescription] = useState('')
   const [editSubmitting, setEditSubmitting] = useState(false)
 
   // Create task from issue
@@ -158,9 +161,9 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
 
   function toggleSubOnSite(sub: SubContract) {
     const name = (sub.companies as any)?.name ?? sub.trade
-    const exists = subsOnSite.find(s => s.company_id === sub.company_id)
-    if (exists) setSubsOnSite(prev => prev.filter(s => s.company_id !== sub.company_id))
-    else setSubsOnSite(prev => [...prev, { company_id: sub.company_id, name }])
+    const exists = subsOnSite.find(s => s.id === sub.id)
+    if (exists) setSubsOnSite(prev => prev.filter(s => s.id !== sub.id))
+    else setSubsOnSite(prev => [...prev, { id: sub.id, company_id: sub.company_id ?? sub.id, name }])
   }
 
   function toggleWorkerOnSite(m: TeamMember) {
@@ -219,8 +222,18 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
     setEditWorkersOnsite(String(log.workers_on_site?.length ?? ''))
     setEditNotes(log.notes ?? '')
     setEditWeather((log.weather ?? log.weather_condition) ?? '')
-    setEditTempF(log.temperature ?? '')
+    setEditTempF(log.temp_f != null ? String(log.temp_f) : (log.temperature ?? ''))
+    setEditSubsOnSite((log.subs_on_site ?? []).map(s => ({ id: (s as any).id ?? s.company_id, company_id: s.company_id, name: s.name })))
+    setEditHasIssues(!!log.has_issues)
+    setEditIssueDescription(log.issue_description ?? '')
     setShowEditModal(true)
+  }
+
+  function toggleEditSub(sub: SubContract) {
+    const name = (sub.companies as any)?.name ?? sub.trade
+    const exists = editSubsOnSite.find(s => s.id === sub.id)
+    if (exists) setEditSubsOnSite(prev => prev.filter(s => s.id !== sub.id))
+    else setEditSubsOnSite(prev => [...prev, { id: sub.id, company_id: sub.company_id ?? sub.id, name }])
   }
 
   async function handleEditSubmit(e: React.FormEvent) {
@@ -231,8 +244,11 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
     const body: Record<string, unknown> = {
       log_date: editLogDate,
       notes: editNotes || null,
-      weather_condition: editWeather || null,
-      temperature: editTempF || null,
+      weather: editWeather || null,
+      temp_f: editTempF !== '' ? Number(editTempF) : null,
+      has_issues: editHasIssues,
+      issue_description: editHasIssues ? (editIssueDescription || null) : null,
+      subs_on_site: editSubsOnSite.map(s => ({ company_id: s.company_id, name: s.name })),
     }
     if (editWorkersOnsite !== '') body.workers_onsite = Number(editWorkersOnsite)
     await fetch(`/api/projects/${params.id}/daily-logs/${editingLog.id}`, {
@@ -368,9 +384,46 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                   </div>
                 </div>
                 <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">Workers on site</label>
+                  <input type="number" value={editWorkersOnsite} onChange={e => setEditWorkersOnsite(e.target.value)} placeholder="e.g. 8"
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none" />
+                </div>
+                <div className="space-y-1.5">
                   <label className="text-sm font-medium text-slate-700">Notes</label>
                   <textarea rows={3} value={editNotes} onChange={e => setEditNotes(e.target.value)} placeholder="Any notes..."
                     className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none resize-none" />
+                </div>
+
+                {subcontracts.length > 0 && (
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-slate-700">Subcontractors on Site</label>
+                    <div className="flex flex-wrap gap-2">
+                      {subcontracts.map(sub => {
+                        const name = (sub.companies as any)?.name ?? sub.trade
+                        const active = editSubsOnSite.find(s => s.id === sub.id)
+                        return (
+                          <button key={sub.id} type="button" onClick={() => toggleEditSub(sub)}
+                            className={cn('flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                              active ? 'border-orange-400 bg-orange-50 text-orange-700' : 'border-slate-200 text-slate-600 hover:border-slate-300')}>
+                            <span className={cn('h-1.5 w-1.5 rounded-full', active ? 'bg-orange-500' : 'bg-slate-300')} />
+                            {name} <span className="text-slate-400">({sub.trade})</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                    <input type="checkbox" checked={editHasIssues} onChange={e => setEditHasIssues(e.target.checked)}
+                      className="h-4 w-4 rounded border-slate-300 accent-orange-500" />
+                    Issues / incidents on site
+                  </label>
+                  {editHasIssues && (
+                    <textarea rows={2} value={editIssueDescription} onChange={e => setEditIssueDescription(e.target.value)} placeholder="Describe the issue..."
+                      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none resize-none" />
+                  )}
                 </div>
               </div>
               <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex flex-wrap gap-2 justify-end">
@@ -567,7 +620,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                 <div className="flex flex-wrap gap-2">
                   {subcontracts.map(sub => {
                     const name = (sub.companies as any)?.name ?? sub.trade
-                    const active = subsOnSite.find(s => s.company_id === sub.company_id)
+                    const active = subsOnSite.find(s => s.id === sub.id)
                     return (
                       <button key={sub.id} type="button" onClick={() => toggleSubOnSite(sub)}
                         className={cn('flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors',
