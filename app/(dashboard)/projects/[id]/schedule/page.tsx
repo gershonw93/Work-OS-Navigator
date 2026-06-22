@@ -132,12 +132,18 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     if (!schedulingSubId) return
     setSchedSaving(true)
     const token = await getToken()
-    await fetch(`/api/projects/${params.id}/schedule`, {
+    const res = await fetch(`/api/projects/${params.id}/schedule`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ subcontract_id: schedulingSubId, start_date: schedStart, end_date: schedEnd }),
     })
-    setSchedulingSubId(null); setSchedStart(''); setSchedEnd(''); setSchedSaving(false)
+    setSchedSaving(false)
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      alert(`Could not save: ${err.error ?? res.statusText}`)
+      return
+    }
+    setSchedulingSubId(null); setSchedStart(''); setSchedEnd('')
     load(); loadUnscheduled()
   }
 
