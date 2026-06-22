@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { X, History, Package, Users, Award, RotateCcw, Bell, FileText, Upload, ChevronRight } from 'lucide-react'
+import { X, History, Package, Users, Award, RotateCcw, Bell, FileText, Upload, ChevronRight, CheckSquare, MessageSquare, Pencil, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 
@@ -24,6 +24,10 @@ const TYPE_CONFIG: Record<string, { icon: React.ElementType; color: string; bg: 
   bid_awarded:     { icon: Award,      color: 'text-green-600',  bg: 'bg-green-50' },
   reminder_sent:   { icon: Bell,       color: 'text-slate-500',  bg: 'bg-slate-100' },
   plan_uploaded:   { icon: Upload,     color: 'text-teal-600',   bg: 'bg-teal-50' },
+  task_created:    { icon: CheckSquare, color: 'text-blue-600',   bg: 'bg-blue-50' },
+  task_updated:    { icon: Pencil,     color: 'text-orange-600', bg: 'bg-orange-50' },
+  task_note:       { icon: MessageSquare, color: 'text-violet-600', bg: 'bg-violet-50' },
+  task_deleted:    { icon: Trash2,     color: 'text-red-600',    bg: 'bg-red-50' },
 }
 
 function timeAgo(dateStr: string) {

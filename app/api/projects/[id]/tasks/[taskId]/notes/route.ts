@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { logActivity } from '@/lib/log-activity'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -58,6 +59,16 @@ export async function POST(
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Log to job history
+  const { data: task } = await db.from('project_tasks').select('title').eq('id', params.taskId).single()
+  const taskTitle = (task as any)?.title ?? 'a task'
+  const preview = content.trim().length > 80 ? `${content.trim().slice(0, 80)}…` : content.trim()
+  await logActivity(
+    db, params.id, author_name, 'task_note',
+    `${author_name} added a note on "${taskTitle}": ${preview}`,
+    { task_id: params.taskId }, user.id,
+  )
 
   return NextResponse.json({ note: data })
 }

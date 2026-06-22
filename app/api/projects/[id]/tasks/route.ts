@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { logActivity } from '@/lib/log-activity'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -95,6 +96,15 @@ export async function POST(request: Request, { params }: { params: { id: string 
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Log task creation to job history
+  const actorName = (profile as any)?.full_name ?? user.email ?? 'Someone'
+  const assignedLabel = assigned_to_name ? ` (assigned to ${assigned_to_name})` : ''
+  await logActivity(
+    db, params.id, actorName, 'task_created',
+    `${actorName} created task "${title}"${assignedLabel}`,
+    { task_id: (data as any)?.id }, user.id,
+  )
 
   // Notify assigned team member if they have a profile
   if (assigned_to_member_id) {
