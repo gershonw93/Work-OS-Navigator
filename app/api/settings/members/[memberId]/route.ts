@@ -77,6 +77,18 @@ export async function PATCH(
     return NextResponse.json({ error: 'No row was updated (id mismatch).' }, { status: 500 })
   }
 
+  // Keep auth user_metadata.role in sync so stale metadata never overrides the profile.
+  // Merge with existing metadata so company_id / full_name aren't wiped.
+  const { data: targetUser } = await db.auth.admin.getUserById(memberId)
+  const existingMeta = targetUser?.user?.user_metadata ?? {}
+  const { error: metaError } = await db.auth.admin.updateUserById(memberId, {
+    user_metadata: { ...existingMeta, role },
+  })
+  if (metaError) {
+    console.warn('[PATCH /api/settings/members] metadata sync failed:', metaError.message)
+    // Non-fatal — profile is the source of truth
+  }
+
   return NextResponse.json({ ok: true, role: updated[0].role })
 }
 
