@@ -10,7 +10,6 @@ import { Select } from '@/components/ui/select'
 import { Badge, getStatusVariant } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
 import { cn } from '@/lib/utils'
-import { ContactPicker } from '@/components/contact-picker'
 
 const GC_ROLES = [
   'Project Manager', 'Site Manager', 'Superintendent', 'Foreman',
@@ -142,6 +141,20 @@ export default function TeamPage({ params }: { params: { id: string } }) {
     load()
   }
 
+  async function openAddMember() {
+    setShowAdd(true)
+    setCompanyProfilesLoading(true)
+    const token = await getToken()
+    const res = await fetch('/api/settings/teammates', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (res.ok) {
+      const data = await res.json()
+      setCompanyProfiles(data.teammates ?? [])
+    }
+    setCompanyProfilesLoading(false)
+  }
+
   async function openAddCompanyMember() {
     setShowAddCompanyMember(true)
     setCompanyProfilesLoading(true)
@@ -244,16 +257,39 @@ export default function TeamPage({ params }: { params: { id: string } }) {
               <div className="px-4 sm:px-6 py-5 space-y-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="name">Full Name <span className="text-red-500">*</span></Label>
-                  <ContactPicker
-                    filterType="worker"
-                    value={name}
-                    onChange={(n, contact) => {
-                      setName(n)
-                      if (contact?.phone) setPhone(contact.phone)
-                      if (contact?.contact_email && !contact.contact_email.includes('placeholder.com')) setEmail(contact.contact_email)
-                    }}
-                    placeholder="Search workers or type a name…"
-                  />
+                  <div className="relative">
+                    <input
+                      id="name"
+                      type="text"
+                      required
+                      autoComplete="off"
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                      placeholder="Search teammates or type a name…"
+                      value={name}
+                      onChange={e => setName(e.target.value)}
+                    />
+                    {companyProfiles.length > 0 && (
+                      <ul className="absolute z-10 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
+                        {companyProfiles
+                          .filter(p => !name || (p.full_name ?? p.email ?? '').toLowerCase().includes(name.toLowerCase()))
+                          .map(p => (
+                            <li key={p.id}>
+                              <button
+                                type="button"
+                                className="w-full text-left px-3 py-2 text-sm hover:bg-orange-50 hover:text-orange-700 flex items-center gap-2"
+                                onClick={() => {
+                                  setName(p.full_name ?? '')
+                                  setEmail(p.email ?? '')
+                                }}
+                              >
+                                <span className="font-medium">{p.full_name || p.email}</span>
+                                {p.role && <span className="text-xs text-slate-400 capitalize">{p.role.replace('_', ' ')}</span>}
+                              </button>
+                            </li>
+                          ))}
+                      </ul>
+                    )}
+                  </div>
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="role">Role <span className="text-red-500">*</span></Label>
@@ -341,7 +377,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
             <UserPlus className="h-4 w-4" />
             Add Company Member
           </Button>
-          <Button onClick={() => setShowAdd(true)}>
+          <Button onClick={() => openAddMember()}>
             <Plus className="h-4 w-4" />
             Add Member
           </Button>
@@ -363,7 +399,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
               <div className="rounded-xl border border-dashed border-slate-200 py-10 text-center">
                 <UserCircle2 className="h-8 w-8 text-slate-200 mx-auto mb-2" />
                 <p className="text-sm text-slate-400">No crew members added yet</p>
-                <button onClick={() => setShowAdd(true)} className="mt-2 text-sm text-orange-500 hover:underline">Add your first member</button>
+                <button onClick={() => openAddMember()} className="mt-2 text-sm text-orange-500 hover:underline">Add your first member</button>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
