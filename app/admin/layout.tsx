@@ -1,8 +1,11 @@
 import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
 import { ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { isSuperAdmin } from '@/lib/super-admin'
+import { ADMIN_GATE_COOKIE, verifyGate } from '@/lib/admin-gate'
 import { AdminNav } from '@/components/admin/admin-nav'
+import { AdminPinGate } from '@/components/admin/admin-pin-gate'
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   const supabase = createClient()
@@ -10,6 +13,8 @@ export default async function AdminLayout({ children }: { children: ReactNode })
 
   if (!user) redirect('/login')
   if (!isSuperAdmin(user.email)) redirect('/dashboard')
+
+  const gateOk = verifyGate(user.id, cookies().get(ADMIN_GATE_COOKIE)?.value)
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -23,8 +28,14 @@ export default async function AdminLayout({ children }: { children: ReactNode })
         </div>
       </header>
       <div className="mx-auto max-w-6xl px-4 sm:px-6 py-6">
-        <AdminNav />
-        <div className="mt-6">{children}</div>
+        {gateOk ? (
+          <>
+            <AdminNav />
+            <div className="mt-6">{children}</div>
+          </>
+        ) : (
+          <AdminPinGate />
+        )}
       </div>
     </div>
   )
