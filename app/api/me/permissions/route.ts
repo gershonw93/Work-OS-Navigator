@@ -35,9 +35,31 @@ export async function GET(request: Request) {
   }
 
   const realRole = role
+  const url = new URL(request.url)
 
-  // Admin-only "View as" preview — show the app as another role without switching accounts
-  const viewAs = new URL(request.url).searchParams.get('as')
+  // Admin-only "View as specific user" — preview that user's effective permissions
+  const asUser = url.searchParams.get('as_user')
+  if (asUser && realRole === 'admin') {
+    // Caller's company for a same-company guard
+    const { data: callerProfile } = await db.from('profiles').select('company_id').eq('id', user.id).single()
+    const { data: target } = await db
+      .from('profiles')
+      .select('id, full_name, email, role, company_id, permission_overrides')
+      .eq('id', asUser)
+      .single()
+    if (target && target.company_id === callerProfile?.company_id) {
+      return NextResponse.json({
+        role: target.role ?? 'read_only',
+        realRole,
+        previewing: true,
+        previewingUser: target.full_name || target.email,
+        permissions: getEffectivePermissions(target.role, (target.permission_overrides ?? null) as OverrideMap | null),
+      })
+    }
+  }
+
+  // Admin-only "View as role" preview
+  const viewAs = url.searchParams.get('as')
   if (viewAs && realRole === 'admin' && ROLE_DEFAULTS[viewAs]) {
     return NextResponse.json({
       role: viewAs,
