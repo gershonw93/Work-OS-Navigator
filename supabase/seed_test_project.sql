@@ -161,7 +161,7 @@ BEGIN
    (v_project_id, 3, 'Window manufacturer substitute', 'Requesting approved substitute for spec''d manufacturer.', NULL, 'open', 'Mike Torres');
 
   -- ── Permits ─────────────────────────────────────────────────────────────────
-  INSERT INTO permits (project_id, type, permit_number, status, expiry_date) VALUES
+  INSERT INTO permits (project_id, permit_type, permit_number, status, expiry_date) VALUES
    (v_project_id, 'Building Permit',    'BP-2026-00841', 'approved', CURRENT_DATE + 300),
    (v_project_id, 'Electrical Permit',  'EP-2026-00219', 'pending',  NULL),
    (v_project_id, 'Plumbing Permit',    NULL,            'pending',  NULL);
