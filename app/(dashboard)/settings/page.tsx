@@ -78,7 +78,7 @@ const ROLES = [
   { value: 'project_manager',  label: 'Project Manager',  desc: 'Can create/edit projects, tasks, RFIs, daily logs' },
   { value: 'field_supervisor', label: 'Field Supervisor', desc: 'Can submit daily logs, view tasks, update progress' },
   { value: 'office_staff',     label: 'Office Staff',     desc: 'Can view projects, submit invoices, manage compliance docs' },
-  { value: 'read_only',        label: 'Read Only',        desc: 'View-only access to all project data' },
+  { value: 'read_only',        label: 'Field Worker',     desc: 'Sees only assigned projects and tasks; view-only access' },
 ]
 
 const ROLE_COLORS: Record<string, string> = {

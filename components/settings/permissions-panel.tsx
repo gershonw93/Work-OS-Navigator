@@ -14,7 +14,7 @@ interface Teammate { id: string; full_name: string; email: string; role: string 
 const ROLE_LABELS: Record<string, string> = {
   admin: 'Admin', manager: 'Manager', project_manager: 'Project Manager',
   office_staff: 'Office Staff', field_supervisor: 'Field Supervisor',
-  worker: 'Worker', read_only: 'Read Only', member: 'Member',
+  worker: 'Worker', read_only: 'Field Worker', member: 'Member',
 }
 const ACTION_LABELS: Record<Action, string> = { view: 'View', create: 'Create', edit: 'Edit', delete: 'Delete' }
 
