@@ -68,6 +68,7 @@ function fileTypeIcon(fileType: string | null) {
 export default function FilesPage() {
   const supabase = createClient()
   const fileRef = useRef<HTMLInputElement>(null)
+  const packetFileRef = useRef<HTMLInputElement>(null)
 
   const [tab, setTab] = useState<'files' | 'packets'>('files')
   const [files, setFiles] = useState<CompanyFile[]>([])
@@ -99,6 +100,7 @@ export default function FilesPage() {
   const [packetFileIds, setPacketFileIds] = useState<string[]>([])
   const [savingPacket, setSavingPacket] = useState(false)
   const [packetError, setPacketError] = useState('')
+  const [packetUploading, setPacketUploading] = useState(false)
 
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -209,6 +211,33 @@ export default function FilesPage() {
 
   function togglePacketFile(fileId: string) {
     setPacketFileIds(ids => ids.includes(fileId) ? ids.filter(id => id !== fileId) : [...ids, fileId])
+  }
+
+  // Upload a brand-new file directly from the packet editor and auto-add it to the packet
+  async function uploadIntoPacket(file: File) {
+    setPacketUploading(true)
+    setPacketError('')
+    const token = await getToken()
+    const form = new FormData()
+    form.append('file', file)
+    form.append('name', file.name.replace(/\.[^.]+$/, ''))
+    form.append('category', 'Other')
+    const res = await fetch('/api/files', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form })
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      setPacketError(json.error ?? `Upload failed (${res.status})`)
+      setPacketUploading(false)
+      return
+    }
+    // Refresh library and auto-select the new file
+    const newFile: CompanyFile | undefined = json.file
+    if (newFile) {
+      setFiles(prev => [newFile, ...prev])
+      setPacketFileIds(ids => ids.includes(newFile.id) ? ids : [...ids, newFile.id])
+    } else {
+      await fetchAll()
+    }
+    setPacketUploading(false)
   }
 
   async function savePacket(e: React.FormEvent) {
@@ -367,9 +396,17 @@ export default function FilesPage() {
                     className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none resize-none" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Files in this packet ({packetFileIds.length} selected)</Label>
+                  <div className="flex items-center justify-between">
+                    <Label>Files in this packet ({packetFileIds.length} selected)</Label>
+                    <button type="button" onClick={() => packetFileRef.current?.click()} disabled={packetUploading}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-orange-600 hover:text-orange-700 disabled:opacity-50">
+                      {packetUploading ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading...</> : <><Upload className="h-3.5 w-3.5" /> Upload new file</>}
+                    </button>
+                    <input ref={packetFileRef} type="file" className="hidden"
+                      onChange={e => { const f = e.target.files?.[0]; if (f) uploadIntoPacket(f); e.target.value = '' }} />
+                  </div>
                   {files.length === 0 ? (
-                    <p className="text-sm text-slate-400 py-3">No files in your library yet. Upload files first.</p>
+                    <p className="text-sm text-slate-400 py-3">No files yet — use “Upload new file” above to add one to this packet.</p>
                   ) : (
                     <div className="rounded-lg border border-slate-200 divide-y divide-slate-100 max-h-64 overflow-y-auto">
                       {files.map(file => {
@@ -544,13 +581,18 @@ export default function FilesPage() {
                         ))}
                       </div>
                     ) : (
-                      <p className="text-xs text-slate-400">No files in this packet.</p>
+                      <p className="text-xs text-slate-400">No files in this packet yet.</p>
                     )}
-                    {included.length > 0 && (
-                      <Button size="sm" variant="outline" onClick={() => openAll(packet)} className="w-full">
-                        <ExternalLink className="h-3.5 w-3.5" /> Open All ({included.length})
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => openEditPacket(packet)} className="flex-1">
+                        <Plus className="h-3.5 w-3.5" /> Add / Manage Files
                       </Button>
-                    )}
+                      {included.length > 0 && (
+                        <Button size="sm" variant="outline" onClick={() => openAll(packet)} className="flex-1">
+                          <ExternalLink className="h-3.5 w-3.5" /> Open All ({included.length})
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 )
               })}
