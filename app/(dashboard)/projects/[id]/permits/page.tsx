@@ -219,9 +219,8 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                 {/* Upload first so AI fills the rest */}
                 <div className="space-y-1.5">
                   <Label><Sparkles className="inline h-3.5 w-3.5 mr-1 text-orange-400" />Upload Permit (AI Auto-Fill)</Label>
-                  <div onClick={() => fileRef.current?.click()}
-                    className={cn('flex items-center gap-2 rounded-lg border-2 border-dashed px-4 py-3.5 text-sm transition-colors cursor-pointer',
-                      analyzing ? 'border-orange-300 bg-orange-50 text-orange-600' :
+                  <label className={cn('flex items-center gap-2 rounded-lg border-2 border-dashed px-4 py-3.5 text-sm transition-colors cursor-pointer',
+                      analyzing ? 'border-orange-300 bg-orange-50 text-orange-600 pointer-events-none' :
                       permitFile ? 'border-green-300 bg-green-50 text-green-700' :
                       'border-orange-200 bg-orange-50/40 text-orange-500 hover:border-orange-400')}>
                     {analyzing
@@ -229,13 +228,13 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                       : permitFile
                       ? <><FileText className="h-4 w-4 shrink-0" /><span className="min-w-0 truncate">{permitFile.name}</span><span className="ml-auto text-xs text-green-600 font-medium shrink-0">✓ Fields auto-filled</span></>
                       : <><Sparkles className="h-4 w-4" /><span className="font-medium">Upload a photo or scan of your permit</span><span className="text-xs ml-1 text-orange-400">— AI fills the fields automatically</span></>}
-                  </div>
-                  <input ref={fileRef} type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png,.webp"
+                    <input ref={fileRef} type="file" className="sr-only" accept=".pdf,.jpg,.jpeg,.png,.webp"
                     onChange={e => {
                       const file = e.target.files?.[0] ?? null
                       setPermitFile(file)
                       if (file && file.type.startsWith('image/')) analyzePermitImage(file)
                     }} />
+                  </label>
                   {analyzeError && (
                     <p className="text-xs text-red-600 flex items-center gap-1">
                       <AlertCircle className="h-3 w-3" />{analyzeError}

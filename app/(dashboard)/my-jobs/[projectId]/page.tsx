@@ -812,7 +812,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                 <label className="flex items-center gap-2 cursor-pointer rounded-lg border border-dashed border-slate-300 px-4 py-2.5 hover:border-orange-400 transition-colors">
                   <Paperclip className="h-4 w-4 text-slate-400" />
                   <span className="text-sm text-slate-500">Attach photos, drawings, or documents</span>
-                  <input type="file" multiple accept="image/*,.pdf,.doc,.docx,.dwg" className="hidden"
+                  <input type="file" multiple accept="image/*,.pdf,.doc,.docx,.dwg" className="sr-only"
                     onChange={e => setRfiFiles(prev => [...prev, ...Array.from(e.target.files ?? [])])} />
                 </label>
                 {rfiFiles.length > 0 && (

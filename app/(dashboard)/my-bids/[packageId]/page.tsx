@@ -376,8 +376,7 @@ export default function BidDetailPage({ params }: { params: { packageId: string 
             {/* Proposal Upload */}
             <div className="space-y-1.5">
               <Label>Attach Proposal <span className="text-slate-400 font-normal">(optional)</span></Label>
-              <div onClick={() => fileInputRef.current?.click()}
-                className={cn('flex items-center gap-3 rounded-lg border-2 border-dashed px-4 py-3 cursor-pointer transition-colors',
+              <label className={cn('flex items-center gap-3 rounded-lg border-2 border-dashed px-4 py-3 cursor-pointer transition-colors',
                   proposalFile ? 'border-orange-300 bg-orange-50' : 'border-slate-200 hover:border-orange-300 hover:bg-orange-50')}>
                 <Paperclip className="h-4 w-4 text-slate-400 shrink-0" />
                 <span className="text-sm text-slate-600">
@@ -387,9 +386,9 @@ export default function BidDetailPage({ params }: { params: { packageId: string 
                   <a href={myBid.proposal_url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
                     className="ml-auto text-xs text-orange-600 hover:underline">View current</a>
                 )}
-              </div>
-              <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx"
-                onChange={e => setProposalFile(e.target.files?.[0] ?? null)} />
+                <input ref={fileInputRef} type="file" className="sr-only" accept=".pdf,.doc,.docx,.xls,.xlsx"
+                  onChange={e => setProposalFile(e.target.files?.[0] ?? null)} />
+              </label>
             </div>
 
             {error && <p className="text-sm text-red-600">{error}</p>}

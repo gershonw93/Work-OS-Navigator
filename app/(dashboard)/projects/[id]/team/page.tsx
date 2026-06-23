@@ -727,7 +727,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                     {subAnalyzing
                       ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Reading…</>
                       : <><Sparkles className="h-3.5 w-3.5" /> Or scan a file and let AI fill the form</>}
-                    <input type="file" accept="image/*,application/pdf" className="hidden"
+                    <input type="file" accept="image/*,application/pdf" className="sr-only"
                       onChange={e => { const f = e.target.files?.[0]; if (f) analyzeProposal(f) }} />
                   </label>
                   {subAnalyzeError && <p className="text-xs text-red-500 flex items-center gap-1"><X className="h-3 w-3 shrink-0" />{subAnalyzeError}</p>}

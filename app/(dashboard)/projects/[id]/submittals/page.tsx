@@ -259,7 +259,7 @@ export default function SubmittalsPage({ params }: { params: { id: string } }) {
                     {analyzing
                       ? <><Loader2 className="h-4 w-4 text-orange-500 animate-spin shrink-0" /><span className="text-orange-600 font-medium text-sm">Reading document…</span></>
                       : <><Sparkles className="h-4 w-4 text-orange-400 shrink-0" /><span className="text-orange-600 font-medium text-sm">Upload a tech sheet / cut sheet</span><span className="text-slate-400 text-xs">— AI fills the fields</span></>}
-                    <input type="file" accept="image/*,application/pdf" className="hidden"
+                    <input type="file" accept="image/*,application/pdf" className="sr-only"
                       onChange={e => { const f = e.target.files?.[0]; if (f) analyzeDoc(f) }} />
                   </label>
                   {analyzeError && <p className="text-xs text-red-500 flex items-center gap-1"><X className="h-3 w-3 shrink-0" />{analyzeError}</p>}

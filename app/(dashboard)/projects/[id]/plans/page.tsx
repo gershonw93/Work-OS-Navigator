@@ -26,6 +26,7 @@ const PLAN_TYPES = [
 export default function PlansPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const emptyFileInputRef = useRef<HTMLInputElement>(null)
 
   const [folders, setFolders] = useState<PlanFolder[]>([])
   const [plans, setPlans] = useState<Plan[]>([])
@@ -213,11 +214,11 @@ export default function PlansPage({ params }: { params: { id: string } }) {
               New Folder
             </Button>
           )}
-          <Button onClick={() => fileInputRef.current?.click()}>
+          <label className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium cursor-pointer transition-colors">
             <Upload className="h-4 w-4" />
             Upload Plan
-          </Button>
-          <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.dwg,.dxf,.png,.jpg,.jpeg,.svg" onChange={handleFileChange} />
+            <input ref={fileInputRef} type="file" className="sr-only" accept=".pdf,.dwg,.dxf,.png,.jpg,.jpeg,.svg" onChange={handleFileChange} />
+          </label>
         </div>
       </div>
 
@@ -323,12 +324,15 @@ export default function PlansPage({ params }: { params: { id: string } }) {
       {loading ? (
         <div className="text-sm text-slate-400 py-12 text-center">Loading...</div>
       ) : visibleFolders.length === 0 && visiblePlans.length === 0 ? (
-        <EmptyState
-          icon={FileText}
-          title={activeFolderId ? 'No plans in this folder' : 'No plans yet'}
-          description={activeFolderId ? 'Upload a plan into this folder.' : 'Create folders to organize your drawings, then upload plans.'}
-          action={{ label: 'Upload Plan', onClick: () => fileInputRef.current?.click() }}
-        />
+        <>
+          <input ref={emptyFileInputRef} type="file" className="sr-only" accept=".pdf,.dwg,.dxf,.png,.jpg,.jpeg,.svg" onChange={handleFileChange} />
+          <EmptyState
+            icon={FileText}
+            title={activeFolderId ? 'No plans in this folder' : 'No plans yet'}
+            description={activeFolderId ? 'Upload a plan into this folder.' : 'Create folders to organize your drawings, then upload plans.'}
+            action={{ label: 'Upload Plan', onClick: () => emptyFileInputRef.current?.click() }}
+          />
+        </>
       ) : (
         <div className="space-y-6">
           {/* Folders */}

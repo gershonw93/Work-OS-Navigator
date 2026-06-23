@@ -432,7 +432,7 @@ function UploadForm({
             <input
               type="file"
               accept="image/*,application/pdf"
-              className="hidden"
+              className="sr-only"
               onChange={e => {
                 const f = e.target.files?.[0]
                 if (f) analyzeDoc(f)

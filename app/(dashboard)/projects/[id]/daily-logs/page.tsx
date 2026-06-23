@@ -754,11 +754,10 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                   ))}
                 </div>
               )}
-              <button type="button" onClick={() => photoInputRef.current?.click()}
-                className="flex items-center gap-2 rounded-lg border-2 border-dashed border-slate-200 px-4 py-2.5 text-sm text-slate-400 hover:border-orange-300 hover:text-orange-500 transition-colors">
+              <label className="flex items-center gap-2 rounded-lg border-2 border-dashed border-slate-200 px-4 py-2.5 text-sm text-slate-400 hover:border-orange-300 hover:text-orange-500 transition-colors cursor-pointer">
                 <Camera className="h-4 w-4" /> Add Photos
-              </button>
-              <input ref={photoInputRef} type="file" multiple accept="image/*" className="hidden" onChange={e => addPhoto(e.target.files)} />
+                <input ref={photoInputRef} type="file" multiple accept="image/*" className="sr-only" onChange={e => addPhoto(e.target.files)} />
+              </label>
             </div>
 
             {error && <p className="text-sm text-red-600">{error}</p>}

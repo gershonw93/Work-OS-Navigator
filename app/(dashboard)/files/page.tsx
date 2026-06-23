@@ -304,19 +304,18 @@ export default function FilesPage() {
               <div className="px-6 py-5 space-y-4">
                 <div className="space-y-1.5">
                   <Label>File</Label>
-                  <div onClick={() => fileRef.current?.click()}
-                    className={cn('flex items-center gap-2 rounded-lg border-2 border-dashed px-4 py-3.5 text-sm cursor-pointer transition-colors',
+                  <label className={cn('flex items-center gap-2 rounded-lg border-2 border-dashed px-4 py-3.5 text-sm cursor-pointer transition-colors',
                       uploadFile ? 'border-green-300 bg-green-50 text-green-700' : 'border-orange-200 bg-orange-50/40 text-orange-500 hover:border-orange-400')}>
                     {uploadFile
                       ? <><FileText className="h-4 w-4" /><span className="truncate">{uploadFile.name}</span><span className="ml-auto text-xs">{formatSize(uploadFile.size)}</span></>
                       : <><Upload className="h-4 w-4" /><span className="font-medium">Choose a file to upload</span></>}
-                  </div>
-                  <input ref={fileRef} type="file" className="hidden"
-                    onChange={e => {
-                      const f = e.target.files?.[0] ?? null
-                      setUploadFile(f)
-                      if (f && !uploadName) setUploadName(f.name.replace(/\.[^.]+$/, ''))
-                    }} />
+                    <input ref={fileRef} type="file" className="sr-only"
+                      onChange={e => {
+                        const f = e.target.files?.[0] ?? null
+                        setUploadFile(f)
+                        if (f && !uploadName) setUploadName(f.name.replace(/\.[^.]+$/, ''))
+                      }} />
+                  </label>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Name</Label>
@@ -400,12 +399,11 @@ export default function FilesPage() {
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <Label>Files in this packet ({packetFileIds.length} selected)</Label>
-                    <button type="button" onClick={() => packetFileRef.current?.click()} disabled={packetUploading}
-                      className="inline-flex items-center gap-1 text-xs font-medium text-orange-600 hover:text-orange-700 disabled:opacity-50">
+                    <label className={cn('inline-flex items-center gap-1 text-xs font-medium text-orange-600 hover:text-orange-700', packetUploading && 'opacity-50 pointer-events-none')}>
                       {packetUploading ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading...</> : <><Upload className="h-3.5 w-3.5" /> Upload new file</>}
-                    </button>
-                    <input ref={packetFileRef} type="file" className="hidden"
-                      onChange={e => { const f = e.target.files?.[0]; if (f) uploadIntoPacket(f); e.target.value = '' }} />
+                      <input ref={packetFileRef} type="file" className="sr-only"
+                        onChange={e => { const f = e.target.files?.[0]; if (f) uploadIntoPacket(f); e.target.value = '' }} />
+                    </label>
                   </div>
                   {files.length === 0 ? (
                     <p className="text-sm text-slate-400 py-3">No files yet — use “Upload new file” above to add one to this packet.</p>
