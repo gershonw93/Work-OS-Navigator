@@ -61,11 +61,11 @@ export async function GET(request: Request) {
     return NextResponse.json({ projects: data ?? [] })
   }
 
-  // Admin / project_manager / office_staff — all company projects
+  // All company projects — either as GC or as standalone owner
   const { data } = await db
     .from('projects')
     .select('id, name, status, start_date, type')
-    .eq('gc_company_id', profile.company_id)
+    .or(`gc_company_id.eq.${profile.company_id},created_by_company_id.eq.${profile.company_id}`)
     .order('created_at', { ascending: false })
 
   return NextResponse.json({ projects: data ?? [] })
@@ -115,6 +115,7 @@ export async function POST(request: Request) {
       end_date: end_date || null,
       status: 'planning',
       gc_company_id: profile.company_id,
+      created_by_company_id: profile.company_id,
     })
     .select()
     .single()

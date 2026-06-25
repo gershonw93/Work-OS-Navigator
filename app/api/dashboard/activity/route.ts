@@ -25,25 +25,29 @@ export async function GET(request: Request) {
   const fullName = (profile as any)?.full_name ?? ''
   const companyType = (profile as any)?.companies?.type
 
-  // GC company admin: sees all activity on their company's projects
-  // Everyone else (non-admin role, or subcontractor company): sees only their own activity
-  const isCompanyAdmin = role === 'admin' && companyType !== 'subcontractor'
+  // Company admin (any type): sees all activity on their company's projects
+  // Non-admin roles see only their own activity
+  const isCompanyAdmin = role === 'admin'
 
   if (!companyId) return NextResponse.json({ activity: [], isAdmin: false })
 
   // Collect project IDs this company is involved in
+  // Subs: awarded subcontracts + own projects (created_by_company_id / gc_company_id)
+  // GCs: all company projects
   let projectIds: string[] = []
   if (companyType === 'subcontractor') {
-    const { data: subs } = await db
-      .from('subcontracts')
-      .select('project_id')
-      .eq('company_id', companyId)
-    projectIds = (subs ?? []).map((s: any) => s.project_id).filter(Boolean)
+    const [subsRes, ownRes] = await Promise.all([
+      db.from('subcontracts').select('project_id').eq('company_id', companyId),
+      db.from('projects').select('id').or(`gc_company_id.eq.${companyId},created_by_company_id.eq.${companyId}`),
+    ])
+    const subProjectIds = (subsRes.data ?? []).map((s: any) => s.project_id)
+    const ownProjectIds = (ownRes.data ?? []).map((p: any) => p.id)
+    projectIds = Array.from(new Set([...subProjectIds, ...ownProjectIds])).filter(Boolean)
   } else {
     const { data: projects } = await db
       .from('projects')
       .select('id')
-      .eq('gc_company_id', companyId)
+      .or(`gc_company_id.eq.${companyId},created_by_company_id.eq.${companyId}`)
     projectIds = (projects ?? []).map((p: any) => p.id).filter(Boolean)
   }
 

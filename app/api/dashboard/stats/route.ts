@@ -101,11 +101,11 @@ export async function GET(request: Request) {
     })
   }
 
-  // ── GC stats (existing logic) ─────────────────────────────────────────────
+  // ── GC stats (also covers sub companies running standalone projects) ─────────
   const { data: projectRows } = await db
     .from('projects')
     .select('id')
-    .eq('gc_company_id', companyId)
+    .or(`gc_company_id.eq.${companyId},created_by_company_id.eq.${companyId}`)
 
   const projectIds = (projectRows ?? []).map((p: any) => p.id)
 

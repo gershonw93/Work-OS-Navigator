@@ -75,8 +75,8 @@ export default function MyJobsPage() {
           <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-lg">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <div>
-                <h2 className="font-semibold text-slate-900">New Private Project</h2>
-                <p className="text-xs text-slate-500 mt-0.5">A project for your own tracking — not tied to a GC bid.</p>
+                <h2 className="font-semibold text-slate-900">New Project</h2>
+                <p className="text-xs text-slate-500 mt-0.5">Create a project you manage directly — permits, inspections, plans, and more.</p>
               </div>
               <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
             </div>
@@ -202,8 +202,8 @@ export default function MyJobsPage() {
         own.length === 0 ? (
           <div className="rounded-xl border-2 border-dashed border-slate-200 py-16 text-center">
             <FolderOpen className="h-8 w-8 text-slate-300 mx-auto mb-3" />
-            <p className="text-sm font-medium text-slate-500">No private projects yet</p>
-            <p className="text-xs text-slate-400 mt-1">Create projects for jobs not coming through the bidding system.</p>
+            <p className="text-sm font-medium text-slate-500">No projects yet</p>
+            <p className="text-xs text-slate-400 mt-1">Create and manage your own projects — permits, inspections, plans, daily logs, and more.</p>
             <button onClick={() => setShowForm(true)} className="mt-4 text-sm text-orange-500 hover:underline font-medium">
               + Create your first project
             </button>
@@ -211,7 +211,7 @@ export default function MyJobsPage() {
         ) : (
           <div className="space-y-2">
             {own.map(proj => (
-              <Link key={proj.id} href={`/my-jobs/${proj.id}`}
+              <Link key={proj.id} href={`/projects/${proj.id}`}
                 className="flex items-center gap-4 bg-white rounded-xl border border-slate-200 px-5 py-4 hover:border-orange-300 hover:shadow-sm transition-all group">
                 <div className="h-10 w-10 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
                   <FolderOpen className="h-5 w-5 text-blue-500" />
@@ -219,7 +219,12 @@ export default function MyJobsPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-slate-900">{proj.name}</span>
-                    <span className="text-xs bg-blue-50 border border-blue-100 text-blue-600 rounded-full px-2 py-0.5">Private</span>
+                    <span className={cn('text-xs rounded-full px-2 py-0.5 font-medium border',
+                      proj.status === 'active' ? 'bg-green-50 border-green-200 text-green-700' :
+                      proj.status === 'completed' ? 'bg-slate-50 border-slate-200 text-slate-600' :
+                      'bg-amber-50 border-amber-200 text-amber-700')}>
+                      {proj.status}
+                    </span>
                   </div>
                   <div className="flex items-center gap-3 mt-0.5 text-xs text-slate-400">
                     {proj.address && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{proj.address}</span>}

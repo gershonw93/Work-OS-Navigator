@@ -27,6 +27,7 @@ const SUB_NAV = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { label: 'My Jobs', href: '/my-jobs', icon: Briefcase },
   { label: 'My Bids', href: '/my-bids', icon: ClipboardList },
+  { label: 'Projects', href: '/projects', icon: FolderKanban },
   { label: 'Directory', href: '/directory', icon: Building2 },
   { label: 'Files', href: '/files', icon: FolderOpen },
   { label: 'Approvals', href: '/approvals', icon: CheckSquare },
