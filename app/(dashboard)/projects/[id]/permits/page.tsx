@@ -232,7 +232,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                     onChange={e => {
                       const file = e.target.files?.[0] ?? null
                       setPermitFile(file)
-                      if (file && file.type.startsWith('image/')) analyzePermitImage(file)
+                      if (file) analyzePermitImage(file)
                     }} />
                   </label>
                   {analyzeError && (
