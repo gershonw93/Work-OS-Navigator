@@ -1,151 +1,319 @@
-import { CheckSquare } from 'lucide-react'
+'use client'
+
+import { useEffect, useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import { cn } from '@/lib/utils'
+import Link from 'next/link'
+import { CheckSquare, FileText, MessageSquare, DollarSign, Clock, CheckCircle2, XCircle, ExternalLink } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge, getStatusVariant } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table'
 import { EmptyState } from '@/components/ui/empty-state'
-import { createClient } from '@/lib/supabase/server'
 
-export default async function ApprovalsPage() {
+type FilterTab = 'all' | 'invoices' | 'rfis'
+
+const STATUS_COLORS: Record<string, string> = {
+  pending_approval: 'bg-amber-50 border-amber-200 text-amber-700',
+  approved:         'bg-green-50 border-green-200 text-green-700',
+  rejected:         'bg-red-50 border-red-200 text-red-600',
+  paid:             'bg-green-50 border-green-200 text-green-700',
+  open:             'bg-orange-50 border-orange-200 text-orange-700',
+  closed:           'bg-slate-50 border-slate-200 text-slate-500',
+  pending:          'bg-amber-50 border-amber-200 text-amber-700',
+}
+
+function formatStatus(s: string) {
+  return s.replace(/_/g, ' ')
+}
+
+export default function ApprovalsPage() {
   const supabase = createClient()
+  const [items, setItems] = useState<any[]>([])
+  const [isSub, setIsSub] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState<FilterTab>('all')
+  const [acting, setActing] = useState<string | null>(null)
+  const [error, setError] = useState('')
 
-  // Fetch submitted invoices awaiting approval
-  const { data: invoices } = await supabase
-    .from('invoices')
-    .select('*, projects(name), subcontracts(companies(name))')
-    .eq('status', 'submitted')
-    .order('submitted_at', { ascending: false })
+  async function getToken() {
+    const { data: { session } } = await supabase.auth.getSession()
+    return session?.access_token ?? ''
+  }
 
-  // Fetch open RFIs
-  const { data: rfis } = await supabase
-    .from('rfis')
-    .select('*, projects(name), profiles(full_name)')
-    .eq('status', 'open')
-    .order('created_at', { ascending: false })
+  async function load() {
+    const token = await getToken()
+    const res = await fetch('/api/approvals', { headers: { Authorization: `Bearer ${token}` } })
+    if (res.ok) {
+      const json = await res.json()
+      setItems(json.items ?? [])
+      setIsSub(json.isSub ?? false)
+    }
+    setLoading(false)
+  }
 
-  const pendingInvoices = invoices ?? []
-  const openRfis = rfis ?? []
-  const allItems = [
-    ...pendingInvoices.map((inv: any) => ({
-      id: inv.id,
-      type: 'Invoice',
-      project: inv.projects?.name,
-      submitted_by: inv.subcontracts?.companies?.name,
-      amount: inv.amount,
-      date: inv.submitted_at,
-    })),
-    ...openRfis.map((rfi: any) => ({
-      id: rfi.id,
-      type: 'RFI',
-      project: rfi.projects?.name,
-      submitted_by: rfi.profiles?.full_name,
-      amount: null,
-      date: rfi.created_at,
-    })),
+  useEffect(() => { load() }, [])
+
+  async function handleInvoiceAction(item: any, status: 'approved' | 'rejected') {
+    setActing(item.id)
+    setError('')
+    const token = await getToken()
+    const res = await fetch(`/api/projects/${item.project_id}/invoices/${item.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ status }),
+    })
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}))
+      setError(j.error ?? 'Action failed. Please try again.')
+    } else {
+      await load()
+    }
+    setActing(null)
+  }
+
+  const filtered = items.filter(item => {
+    if (filter === 'invoices') return item.type === 'invoice'
+    if (filter === 'rfis') return item.type === 'rfi'
+    return true
+  })
+
+  const invoiceCount = items.filter(i => i.type === 'invoice').length
+  const rfiCount = items.filter(i => i.type === 'rfi').length
+
+  const tabs: { key: FilterTab; label: string; count?: number }[] = [
+    { key: 'all', label: 'All', count: items.length },
+    { key: 'invoices', label: 'Invoices', count: invoiceCount },
+    { key: 'rfis', label: 'RFIs', count: rfiCount },
   ]
 
+  if (loading) {
+    return (
+      <div className="p-4 sm:p-6">
+        <PageHeader title="Approvals" subtitle="" />
+        <div className="py-16 text-center text-sm text-slate-400">Loading...</div>
+      </div>
+    )
+  }
+
   return (
-    <div className="p-4 sm:p-6">
+    <div className="p-4 sm:p-6 space-y-5">
       <PageHeader
-        title="Approvals"
-        subtitle="Review and act on pending invoices, RFIs, and change orders."
+        title={isSub ? 'My Submissions' : 'Approvals'}
+        subtitle={isSub
+          ? 'Track the status of your submitted invoices and RFIs.'
+          : 'Review and act on pending invoices and open RFIs.'}
       />
 
       {/* Filter tabs */}
-      <div className="flex gap-1 mb-4 border-b border-slate-200 overflow-x-auto">
-        {['All', 'Invoices', 'RFIs', 'Change Orders'].map((filter) => (
+      <div className="flex gap-1 border-b border-slate-200 overflow-x-auto">
+        {tabs.map(t => (
           <button
-            key={filter}
-            className="shrink-0 whitespace-nowrap px-3 sm:px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-900 border-b-2 border-transparent hover:border-slate-300 transition-colors first:border-orange-500 first:text-orange-600"
+            key={t.key}
+            onClick={() => setFilter(t.key)}
+            className={cn(
+              'flex items-center gap-1.5 shrink-0 whitespace-nowrap px-3 sm:px-4 py-2 text-sm font-medium transition-colors',
+              filter === t.key
+                ? 'border-b-2 border-orange-500 text-orange-600 -mb-px'
+                : 'text-slate-500 hover:text-slate-900',
+            )}
           >
-            {filter}
+            {t.label}
+            {t.count !== undefined && t.count > 0 && (
+              <span className={cn(
+                'text-xs rounded-full px-1.5 py-0.5 font-semibold min-w-[18px] text-center',
+                filter === t.key ? 'bg-orange-100 text-orange-600' : 'bg-slate-100 text-slate-500',
+              )}>
+                {t.count}
+              </span>
+            )}
           </button>
         ))}
       </div>
 
+      {error && (
+        <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-2.5 text-sm text-red-700">{error}</div>
+      )}
+
       <Card>
         <CardContent className="p-0">
-          {allItems.length === 0 ? (
+          {filtered.length === 0 ? (
             <EmptyState
               icon={CheckSquare}
-              title="No pending approvals"
-              description="Invoices, RFIs, and change orders submitted for your review will appear here."
+              title={isSub ? 'No submissions yet' : 'No pending items'}
+              description={isSub
+                ? 'Your submitted invoices and RFIs will appear here with their current status.'
+                : 'Invoices and RFIs submitted for your review will appear here.'}
             />
           ) : (
             <>
-            {/* Mobile card list */}
-            <div className="md:hidden divide-y divide-slate-100">
-              {allItems.map((item) => (
-                <div key={`${item.type}-${item.id}`} className="p-4 space-y-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <Badge variant={item.type === 'Invoice' ? 'info' : 'warning'}>
-                      {item.type}
-                    </Badge>
-                    <span className="text-xs text-slate-500">
-                      {item.date ? new Date(item.date).toLocaleDateString() : '—'}
-                    </span>
-                  </div>
-                  <div>
-                    <p className="font-medium text-slate-900">{item.project ?? '—'}</p>
-                    <p className="text-sm text-slate-500">{item.submitted_by ?? '—'}</p>
-                    {item.amount != null && (
-                      <p className="text-sm font-semibold text-slate-700 mt-0.5">
-                        ${Number(item.amount).toLocaleString()}
+              {/* Mobile card list */}
+              <div className="md:hidden divide-y divide-slate-100">
+                {filtered.map((item) => (
+                  <div key={`${item.type}-${item.id}`} className="p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        {item.type === 'invoice'
+                          ? <FileText className="h-4 w-4 text-blue-500" />
+                          : <MessageSquare className="h-4 w-4 text-orange-500" />}
+                        <span className="text-xs font-semibold text-slate-700">{item.label}</span>
+                      </div>
+                      <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5', STATUS_COLORS[item.status] ?? STATUS_COLORS.pending)}>
+                        {formatStatus(item.status)}
+                      </span>
+                    </div>
+
+                    <div>
+                      <p className="text-sm font-medium text-slate-800">{item.project ?? '—'}</p>
+                      {item.description && <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{item.description}</p>}
+                      {!isSub && item.submitted_by && (
+                        <p className="text-xs text-slate-400 mt-0.5">From: {item.submitted_by}</p>
+                      )}
+                      {item.amount != null && (
+                        <p className="text-sm font-semibold text-slate-700 mt-1 flex items-center gap-1">
+                          <DollarSign className="h-3.5 w-3.5 text-slate-400" />
+                          {Number(item.amount).toLocaleString()}
+                        </p>
+                      )}
+                      <p className="text-xs text-slate-400 mt-1">
+                        {new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                       </p>
+                    </div>
+
+                    {/* Actions */}
+                    {!isSub && item.type === 'invoice' && (
+                      <div className="flex items-center gap-2 pt-1">
+                        <button
+                          onClick={() => handleInvoiceAction(item, 'approved')}
+                          disabled={acting === item.id}
+                          className="flex items-center gap-1.5 rounded-lg bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 transition-colors"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          {acting === item.id ? '...' : 'Approve'}
+                        </button>
+                        <button
+                          onClick={() => handleInvoiceAction(item, 'rejected')}
+                          disabled={acting === item.id}
+                          className="flex items-center gap-1.5 rounded-lg bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 transition-colors"
+                        >
+                          <XCircle className="h-3.5 w-3.5" />
+                          Reject
+                        </button>
+                      </div>
+                    )}
+
+                    {!isSub && item.type === 'rfi' && (
+                      <Link
+                        href={`/projects/${item.project_id}/rfis`}
+                        className="inline-flex items-center gap-1.5 text-xs font-medium text-orange-600 hover:underline"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" /> View &amp; Respond
+                      </Link>
+                    )}
+
+                    {isSub && item.type === 'rfi' && item.meta?.responded && (
+                      <div className="flex items-center gap-1 text-xs text-green-600 font-medium">
+                        <CheckCircle2 className="h-3.5 w-3.5" /> GC Responded
+                      </div>
+                    )}
+                    {isSub && item.type === 'rfi' && !item.meta?.responded && (
+                      <div className="flex items-center gap-1 text-xs text-slate-400">
+                        <Clock className="h-3.5 w-3.5" /> Awaiting GC response
+                      </div>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button variant="default" size="sm">Approve</Button>
-                    <Button variant="destructive" size="sm">Reject</Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-            {/* Desktop table */}
-            <div className="hidden md:block">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Project</TableHead>
-                  <TableHead>Submitted By</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {allItems.map((item) => (
-                  <TableRow key={`${item.type}-${item.id}`}>
-                    <TableCell>
-                      <Badge variant={item.type === 'Invoice' ? 'info' : 'warning'}>
-                        {item.type}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="font-medium">{item.project ?? '—'}</TableCell>
-                    <TableCell>{item.submitted_by ?? '—'}</TableCell>
-                    <TableCell>
-                      {item.amount != null ? `$${Number(item.amount).toLocaleString()}` : '—'}
-                    </TableCell>
-                    <TableCell>
-                      {item.date ? new Date(item.date).toLocaleDateString() : '—'}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Button variant="default" size="sm">
-                          Approve
-                        </Button>
-                        <Button variant="destructive" size="sm">
-                          Reject
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
                 ))}
-              </TableBody>
-            </Table>
-            </div>
+              </div>
+
+              {/* Desktop table */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-100">
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Item</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Project</th>
+                      {!isSub && <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Submitted By</th>}
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Amount</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Date</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                        {isSub ? 'Notes' : 'Actions'}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {filtered.map((item) => (
+                      <tr key={`${item.type}-${item.id}`} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            {item.type === 'invoice'
+                              ? <FileText className="h-4 w-4 text-blue-400 shrink-0" />
+                              : <MessageSquare className="h-4 w-4 text-orange-400 shrink-0" />}
+                            <div>
+                              <p className="font-medium text-slate-800">{item.label}</p>
+                              {item.description && <p className="text-xs text-slate-400 mt-0.5 max-w-[200px] truncate">{item.description}</p>}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-slate-700">{item.project ?? '—'}</td>
+                        {!isSub && <td className="px-4 py-3 text-slate-500">{item.submitted_by ?? '—'}</td>}
+                        <td className="px-4 py-3 font-semibold text-slate-800">
+                          {item.amount != null ? `$${Number(item.amount).toLocaleString()}` : '—'}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5', STATUS_COLORS[item.status] ?? STATUS_COLORS.pending)}>
+                            {formatStatus(item.status)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                          {new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </td>
+                        <td className="px-4 py-3">
+                          {!isSub && item.type === 'invoice' && (
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleInvoiceAction(item, 'approved')}
+                                disabled={acting === item.id}
+                                className="flex items-center gap-1 rounded-lg bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-xs font-semibold px-2.5 py-1.5 transition-colors"
+                              >
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                {acting === item.id ? '...' : 'Approve'}
+                              </button>
+                              <button
+                                onClick={() => handleInvoiceAction(item, 'rejected')}
+                                disabled={acting === item.id}
+                                className="flex items-center gap-1 rounded-lg bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white text-xs font-semibold px-2.5 py-1.5 transition-colors"
+                              >
+                                <XCircle className="h-3.5 w-3.5" />
+                                Reject
+                              </button>
+                            </div>
+                          )}
+                          {!isSub && item.type === 'rfi' && (
+                            <Link
+                              href={`/projects/${item.project_id}/rfis`}
+                              className="inline-flex items-center gap-1.5 text-xs font-medium text-orange-600 hover:underline"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" /> View &amp; Respond
+                            </Link>
+                          )}
+                          {isSub && item.type === 'rfi' && item.meta?.responded && (
+                            <span className="text-xs text-green-600 font-medium flex items-center gap-1">
+                              <CheckCircle2 className="h-3.5 w-3.5" /> Responded
+                            </span>
+                          )}
+                          {isSub && item.type === 'rfi' && !item.meta?.responded && (
+                            <span className="text-xs text-slate-400 flex items-center gap-1">
+                              <Clock className="h-3.5 w-3.5" /> Awaiting response
+                            </span>
+                          )}
+                          {isSub && item.type === 'invoice' && (
+                            <span className="text-xs text-slate-400">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </>
           )}
         </CardContent>

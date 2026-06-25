@@ -8,6 +8,7 @@ import {
   ArrowLeft, MapPin, Calendar, DollarSign, CheckCircle2, Clock,
   XCircle, AlertCircle, Plus, X, Phone, Trash2, Paperclip, TrendingUp, Zap,
   ShieldCheck, Upload, RefreshCw, AlertTriangle, FileWarning, Pencil,
+  Cloud, FileCheck, Receipt,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -76,6 +77,32 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
   const [complianceLoading, setComplianceLoading] = useState(false)
   const [openComplianceForm, setOpenComplianceForm] = useState<string | null>(null) // `${docType}`
   const [complianceFormState, setComplianceFormState] = useState<Record<string, { status: string; expiry: string; fileUrl: string; notes: string; saving: boolean; error: string }>>({})
+
+  // Invoice form
+  const [showInvoiceForm, setShowInvoiceForm] = useState(false)
+  const [invoiceAmount, setInvoiceAmount] = useState('')
+  const [invoiceDesc, setInvoiceDesc] = useState('')
+  const [invoiceDueDate, setInvoiceDueDate] = useState('')
+  const [invoiceSubId, setInvoiceSubId] = useState('')
+  const [invoiceSubmitting, setInvoiceSubmitting] = useState(false)
+  const [invoiceError, setInvoiceError] = useState('')
+
+  // Daily log form
+  const [showLogForm, setShowLogForm] = useState(false)
+  const [logDate, setLogDate] = useState('')
+  const [logNotes, setLogNotes] = useState('')
+  const [logWeather, setLogWeather] = useState('')
+  const [logHasIssues, setLogHasIssues] = useState(false)
+  const [logIssue, setLogIssue] = useState('')
+  const [logSubmitting, setLogSubmitting] = useState(false)
+  const [logError, setLogError] = useState('')
+
+  // Compliance file upload
+  const [complianceUploading, setComplianceUploading] = useState<Record<string, boolean>>({})
+
+  // Lien waiver
+  const [lienWaiverUploading, setLienWaiverUploading] = useState<Record<string, boolean>>({})
+  const [lienWaiverError, setLienWaiverError] = useState<Record<string, string>>({})
 
   // RFI form
   const [showRfiForm, setShowRfiForm] = useState(false)
@@ -274,6 +301,85 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
     setRfiFiles([])
     setShowRfiForm(false); setRfiSubmitting(false)
     load()
+  }
+
+  async function submitInvoice(e: React.FormEvent) {
+    e.preventDefault()
+    setInvoiceSubmitting(true)
+    setInvoiceError('')
+    const token = await getToken()
+    const sub = invoiceSubId
+      ? data?.subcontracts?.find((s: any) => s.id === invoiceSubId)
+      : data?.subcontracts?.[0]
+    const res = await fetch(`/api/projects/${params.projectId}/invoices`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        subcontract_id: sub?.id ?? null,
+        company_id: sub?.company_id ?? null,
+        company_name: sub?.company_name ?? null,
+        amount: parseFloat(invoiceAmount),
+        description: invoiceDesc || null,
+        due_date: invoiceDueDate || null,
+      }),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      setInvoiceError(err.error || 'Failed to submit invoice. Please try again.')
+      setInvoiceSubmitting(false)
+      return
+    }
+    setInvoiceAmount(''); setInvoiceDesc(''); setInvoiceDueDate(''); setInvoiceSubId('')
+    setShowInvoiceForm(false); setInvoiceSubmitting(false)
+    load()
+  }
+
+  async function submitDailyLog(e: React.FormEvent) {
+    e.preventDefault()
+    setLogSubmitting(true)
+    setLogError('')
+    const token = await getToken()
+    const fd = new FormData()
+    fd.append('log_date', logDate)
+    if (logWeather) fd.append('weather_condition', logWeather)
+    if (logNotes) fd.append('notes', logNotes)
+    fd.append('has_issues', logHasIssues ? 'true' : 'false')
+    if (logHasIssues && logIssue) fd.append('issue_description', logIssue)
+    const res = await fetch(`/api/projects/${params.projectId}/daily-logs`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: fd,
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      setLogError(err.error || 'Failed to submit daily log.')
+      setLogSubmitting(false)
+      return
+    }
+    setLogDate(''); setLogNotes(''); setLogWeather(''); setLogHasIssues(false); setLogIssue('')
+    setShowLogForm(false); setLogSubmitting(false)
+    load()
+  }
+
+  async function uploadLienWaiver(invoiceId: string, file: File, waiverType: 'conditional' | 'unconditional') {
+    setLienWaiverUploading(prev => ({ ...prev, [invoiceId]: true }))
+    setLienWaiverError(prev => ({ ...prev, [invoiceId]: '' }))
+    const token = await getToken()
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('waiver_type', waiverType)
+    const res = await fetch(`/api/projects/${params.projectId}/invoices/${invoiceId}/lien-waiver`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: fd,
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      setLienWaiverError(prev => ({ ...prev, [invoiceId]: err.error || 'Upload failed.' }))
+    } else {
+      load()
+    }
+    setLienWaiverUploading(prev => ({ ...prev, [invoiceId]: false }))
   }
 
   async function markInspectionReady(inspId: string) {
@@ -532,11 +638,69 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
             )
           })}
 
-          {recentLogs.length > 0 && (
-            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-              <div className="px-5 py-3.5 border-b border-slate-100">
-                <h2 className="text-sm font-semibold text-slate-700">Recent Site Logs</h2>
-              </div>
+          {/* Daily log submission */}
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <div className="px-4 sm:px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-slate-700">Daily Log</h2>
+              {!showLogForm && (
+                <button onClick={() => { setShowLogForm(true); setLogError('') }}
+                  className="flex items-center gap-1.5 text-xs font-medium text-orange-600 hover:text-orange-700 transition-colors">
+                  <Plus className="h-3.5 w-3.5" /> Submit Log
+                </button>
+              )}
+            </div>
+            {showLogForm && (
+              <form onSubmit={submitDailyLog} className="px-4 sm:px-5 py-4 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-slate-600">Date <span className="text-red-500">*</span></label>
+                    <input required type="date" value={logDate} onChange={e => setLogDate(e.target.value)}
+                      className="w-full h-8 rounded-md border border-slate-300 px-3 text-sm focus:border-orange-500 focus:outline-none" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-slate-600">Weather</label>
+                    <select value={logWeather} onChange={e => setLogWeather(e.target.value)}
+                      className="w-full h-8 rounded-md border border-slate-300 px-2 text-sm bg-white focus:border-orange-500 focus:outline-none">
+                      <option value="">Select...</option>
+                      {['Clear', 'Partly Cloudy', 'Overcast', 'Rain', 'Heavy Rain', 'Snow', 'Windy', 'Hot', 'Cold'].map(w => (
+                        <option key={w} value={w}>{w}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate-600">Notes</label>
+                  <textarea rows={3} value={logNotes} onChange={e => setLogNotes(e.target.value)}
+                    placeholder="Work performed, crew on site, progress notes..."
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none resize-none" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={() => setLogHasIssues(!logHasIssues)}
+                    className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors',
+                      logHasIssues ? 'border-red-400 bg-red-50 text-red-700' : 'border-slate-200 text-slate-600 hover:border-red-300')}>
+                    <AlertCircle className="h-3.5 w-3.5" />{logHasIssues ? 'Issue Flagged' : 'Flag an Issue'}
+                  </button>
+                </div>
+                {logHasIssues && (
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-slate-600">Issue Description</label>
+                    <textarea rows={2} value={logIssue} onChange={e => setLogIssue(e.target.value)}
+                      placeholder="Describe the issue..."
+                      className="w-full rounded-md border border-red-300 px-3 py-2 text-sm focus:border-red-500 focus:outline-none resize-none" />
+                  </div>
+                )}
+                {logError && <p className="text-xs text-red-600">{logError}</p>}
+                <div className="flex gap-2 justify-end">
+                  <button type="button" onClick={() => setShowLogForm(false)}
+                    className="px-3 py-1.5 text-xs rounded-md border border-slate-300 text-slate-600 hover:bg-slate-50">Cancel</button>
+                  <button type="submit" disabled={logSubmitting || !logDate}
+                    className="px-3 py-1.5 text-xs rounded-md bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-medium">
+                    {logSubmitting ? 'Submitting...' : 'Submit Log'}
+                  </button>
+                </div>
+              </form>
+            )}
+            {recentLogs.length > 0 && (
               <div className="divide-y divide-slate-50">
                 {recentLogs.map((log: any) => (
                   <div key={log.id} className="flex items-center gap-3 px-5 py-3 text-sm">
@@ -551,8 +715,12 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+            {recentLogs.length === 0 && !showLogForm && (
+              <p className="px-5 py-4 text-sm text-slate-400">No logs submitted yet.</p>
+            )}
+          </div>
+
         </div>
       )}
 
@@ -1022,8 +1190,86 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
         const outstanding = totalInvoiced - totalPaid
         const paidPct = totalContractValue > 0 ? Math.min(100, Math.round(totalPaid / totalContractValue * 100)) : 0
 
+        const totalRetainage = (subcontracts ?? []).reduce((sum: number, s: any) => {
+          if (!s.retainage_percent || s.retainage_percent <= 0) return sum
+          const subPaid = invoices
+            .filter((inv: any) => inv.subcontract_id === s.id && inv.status === 'paid')
+            .reduce((ss: number, inv: any) => ss + Number(inv.amount ?? 0), 0)
+          return sum + Math.round(subPaid * s.retainage_percent / 100)
+        }, 0)
+        const netReceived = totalPaid - totalRetainage
+
         return (
           <>
+            {/* Submit Invoice button + form */}
+            {!showInvoiceForm && (
+              <div className="flex justify-end">
+                <button onClick={() => { setShowInvoiceForm(true); setInvoiceError('') }}
+                  className="flex items-center gap-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium px-4 py-2 transition-colors">
+                  <Plus className="h-4 w-4" /> Submit Invoice
+                </button>
+              </div>
+            )}
+
+            {showInvoiceForm && (
+              <form onSubmit={submitInvoice} className="bg-white rounded-xl border border-orange-200 p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-slate-800 text-sm">New Invoice</h3>
+                  <button type="button" onClick={() => setShowInvoiceForm(false)} className="text-slate-400 hover:text-slate-600">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                {(subcontracts ?? []).length > 1 && (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-slate-700">Contract / Trade</label>
+                    <select value={invoiceSubId} onChange={e => setInvoiceSubId(e.target.value)}
+                      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white focus:border-orange-500 focus:outline-none">
+                      <option value="">Select contract...</option>
+                      {(subcontracts ?? []).map((s: any) => (
+                        <option key={s.id} value={s.id}>{s.trade} — ${Number(s.contract_amount).toLocaleString()}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-slate-700">Amount <span className="text-red-500">*</span></label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+                      <input required type="number" min="0.01" step="0.01" value={invoiceAmount} onChange={e => setInvoiceAmount(e.target.value)}
+                        placeholder="0.00"
+                        className="w-full rounded-md border border-slate-300 pl-7 pr-3 py-2 text-sm focus:border-orange-500 focus:outline-none" />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-slate-700">Due Date</label>
+                    <input type="date" value={invoiceDueDate} onChange={e => setInvoiceDueDate(e.target.value)}
+                      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none" />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-slate-700">Description</label>
+                  <textarea rows={2} value={invoiceDesc} onChange={e => setInvoiceDesc(e.target.value)}
+                    placeholder="Work performed, payment milestone, etc."
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none resize-none" />
+                </div>
+
+                {invoiceError && <p className="text-sm text-red-600">{invoiceError}</p>}
+
+                <div className="flex gap-2 justify-end">
+                  <button type="button" onClick={() => setShowInvoiceForm(false)}
+                    className="px-4 py-2 text-sm rounded-md border border-slate-300 text-slate-600 hover:bg-slate-50">Cancel</button>
+                  <button type="submit" disabled={invoiceSubmitting || !invoiceAmount}
+                    className="px-4 py-2 text-sm rounded-md bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-medium">
+                    {invoiceSubmitting ? 'Submitting...' : 'Submit Invoice'}
+                  </button>
+                </div>
+              </form>
+            )}
+
             {selectedInvoice && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
                 <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-md">
@@ -1093,6 +1339,19 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                     </div>
                   ))}
                 </div>
+                {totalRetainage > 0 && (
+                  <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 flex flex-wrap gap-4">
+                    <div>
+                      <p className="text-xs text-amber-600 font-medium">Retainage Held</p>
+                      <p className="text-lg font-bold text-amber-700">${totalRetainage.toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-500">Net Received</p>
+                      <p className="text-lg font-bold text-slate-800">${netReceived.toLocaleString()}</p>
+                    </div>
+                    <p className="w-full text-xs text-amber-600">Retainage will be released upon project completion per contract terms.</p>
+                  </div>
+                )}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-xs text-slate-500">Paid vs. contract value</span>
@@ -1107,6 +1366,62 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                 </div>
               </div>
             </div>
+
+            {/* Lien waiver upload */}
+            {invoices.filter((inv: any) => inv.status === 'approved' || inv.status === 'paid').length > 0 && (
+              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                <div className="px-4 sm:px-5 py-3.5 border-b border-slate-100 flex items-center gap-2">
+                  <FileCheck className="h-4 w-4 text-slate-400" />
+                  <h3 className="text-sm font-semibold text-slate-700">Lien Waivers</h3>
+                </div>
+                <div className="divide-y divide-slate-100">
+                  {invoices
+                    .filter((inv: any) => inv.status === 'approved' || inv.status === 'paid')
+                    .map((inv: any) => (
+                      <div key={inv.id} className="flex flex-wrap items-center gap-3 px-4 sm:px-5 py-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-800">{inv.invoice_number}</p>
+                          <p className="text-xs text-slate-400">${Number(inv.amount).toLocaleString()} · {inv.status}</p>
+                        </div>
+                        {inv.lien_waiver_url ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-green-600 font-medium flex items-center gap-1">
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              {inv.lien_waiver_type === 'unconditional' ? 'Unconditional' : 'Conditional'} waiver uploaded
+                            </span>
+                            <a href={inv.lien_waiver_url} target="_blank" rel="noopener noreferrer"
+                              className="text-xs text-orange-600 hover:underline">View</a>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <label className={cn('flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium cursor-pointer transition-colors',
+                              lienWaiverUploading[inv.id]
+                                ? 'border-slate-200 text-slate-400 pointer-events-none'
+                                : 'border-slate-200 text-slate-600 hover:border-orange-400 hover:text-orange-600')}>
+                              <Upload className="h-3.5 w-3.5" />
+                              {lienWaiverUploading[inv.id] ? 'Uploading...' : 'Conditional'}
+                              <input type="file" className="sr-only" accept=".pdf,.jpg,.jpeg,.png"
+                                onChange={e => { const f = e.target.files?.[0]; if (f) uploadLienWaiver(inv.id, f, 'conditional'); e.target.value = '' }} />
+                            </label>
+                            <label className={cn('flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium cursor-pointer transition-colors',
+                              lienWaiverUploading[inv.id]
+                                ? 'border-slate-200 text-slate-400 pointer-events-none'
+                                : 'border-green-200 text-green-700 hover:bg-green-50')}>
+                              <Upload className="h-3.5 w-3.5" />
+                              {lienWaiverUploading[inv.id] ? '...' : 'Unconditional'}
+                              <input type="file" className="sr-only" accept=".pdf,.jpg,.jpeg,.png"
+                                onChange={e => { const f = e.target.files?.[0]; if (f) uploadLienWaiver(inv.id, f, 'unconditional'); e.target.value = '' }} />
+                            </label>
+                          </div>
+                        )}
+                        {lienWaiverError[inv.id] && (
+                          <p className="w-full text-xs text-red-600">{lienWaiverError[inv.id]}</p>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
           </>
         )
       })()}
@@ -1312,12 +1627,40 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                                   className="w-full h-8 rounded-md border border-slate-300 px-3 text-sm focus:border-orange-500 focus:outline-none" />
                               </div>
 
-                              {/* File URL */}
+                              {/* File upload */}
                               <div className="space-y-1">
-                                <label className="text-xs font-medium text-slate-600">File URL <span className="text-slate-400 font-normal">(optional)</span></label>
-                                <input type="url" placeholder="https://..." value={fs.fileUrl}
-                                  onChange={e => setComplianceFormState(prev => ({ ...prev, [type]: { ...prev[type], fileUrl: e.target.value } }))}
-                                  className="w-full h-8 rounded-md border border-slate-300 px-3 text-sm focus:border-orange-500 focus:outline-none" />
+                                <label className="text-xs font-medium text-slate-600">Document File <span className="text-slate-400 font-normal">(optional)</span></label>
+                                {fs.fileUrl ? (
+                                  <div className="flex items-center gap-2">
+                                    <a href={fs.fileUrl} target="_blank" rel="noopener noreferrer"
+                                      className="text-xs text-orange-600 hover:underline flex-1 truncate">View uploaded file</a>
+                                    <button type="button"
+                                      onClick={() => setComplianceFormState(prev => ({ ...prev, [type]: { ...prev[type], fileUrl: '' } }))}
+                                      className="text-xs text-slate-400 hover:text-red-500">Remove</button>
+                                  </div>
+                                ) : (
+                                  <label className={cn('flex items-center gap-2 rounded-lg border border-dashed px-3 py-2 cursor-pointer transition-colors',
+                                    complianceUploading[type] ? 'border-slate-200 text-slate-400 pointer-events-none' : 'border-slate-300 text-slate-500 hover:border-orange-400 hover:text-orange-600')}>
+                                    <Upload className="h-3.5 w-3.5 shrink-0" />
+                                    <span className="text-xs">{complianceUploading[type] ? 'Uploading...' : 'Upload PDF or image'}</span>
+                                    <input type="file" className="sr-only" accept=".pdf,.jpg,.jpeg,.png"
+                                      onChange={async e => {
+                                        const file = e.target.files?.[0]
+                                        if (!file) return
+                                        setComplianceUploading(prev => ({ ...prev, [type]: true }))
+                                        const path = `${params.projectId}/${myCompanyId}/${type}-${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+                                        const { data: uploaded, error: upErr } = await supabase.storage.from('submittals').upload(path, file)
+                                        if (!upErr && uploaded) {
+                                          const { data: sd } = await supabase.storage.from('submittals').createSignedUrl(uploaded.path, 315360000)
+                                          if (sd?.signedUrl) {
+                                            setComplianceFormState(prev => ({ ...prev, [type]: { ...prev[type], fileUrl: sd.signedUrl } }))
+                                          }
+                                        }
+                                        setComplianceUploading(prev => ({ ...prev, [type]: false }))
+                                        e.target.value = ''
+                                      }} />
+                                  </label>
+                                )}
                               </div>
 
                               {/* Notes */}
