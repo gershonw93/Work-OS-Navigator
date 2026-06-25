@@ -24,23 +24,14 @@ export async function GET(request: Request) {
   const role = (profile as any)?.role
   const fullName = (profile as any)?.full_name ?? ''
   const companyType = (profile as any)?.companies?.type
-  const isAdmin = role === 'admin'
 
-  if (isAdmin) {
-    // Admin: all activity across all projects, newest first
-    const { data, error } = await db
-      .from('project_activity')
-      .select('id, type, message, actor_name, created_at, project_id, projects(name)')
-      .order('created_at', { ascending: false })
-      .limit(30)
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ activity: data ?? [], isAdmin: true })
-  }
+  // GC company admin: sees all activity on their company's projects
+  // Everyone else (non-admin role, or subcontractor company): sees only their own activity
+  const isCompanyAdmin = role === 'admin' && companyType !== 'subcontractor'
 
-  // Non-admin: show only their own activity
-  if (!companyId || !fullName) return NextResponse.json({ activity: [], isAdmin: false })
+  if (!companyId) return NextResponse.json({ activity: [], isAdmin: false })
 
-  // Scope to projects this user's company is involved in
+  // Collect project IDs this company is involved in
   let projectIds: string[] = []
   if (companyType === 'subcontractor') {
     const { data: subs } = await db
@@ -56,16 +47,22 @@ export async function GET(request: Request) {
     projectIds = (projects ?? []).map((p: any) => p.id).filter(Boolean)
   }
 
-  if (projectIds.length === 0) return NextResponse.json({ activity: [], isAdmin: false })
+  if (projectIds.length === 0) return NextResponse.json({ activity: [], isAdmin: isCompanyAdmin })
 
-  const { data, error } = await db
+  let query = db
     .from('project_activity')
     .select('id, type, message, actor_name, created_at, project_id, projects(name)')
     .in('project_id', projectIds)
-    .eq('actor_name', fullName)
     .order('created_at', { ascending: false })
     .limit(30)
 
+  // Non-admin users only see their own actions
+  if (!isCompanyAdmin && fullName) {
+    query = query.eq('actor_name', fullName)
+  }
+
+  const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ activity: data ?? [], isAdmin: false })
+
+  return NextResponse.json({ activity: data ?? [], isAdmin: isCompanyAdmin })
 }
