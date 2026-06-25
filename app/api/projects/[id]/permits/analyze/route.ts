@@ -19,31 +19,26 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const file = formData.get('file') as File | null
   if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
 
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
-  if (!allowedTypes.includes(file.type)) {
-    return NextResponse.json({ error: 'Only image files (JPG, PNG, GIF, WEBP) can be analyzed. For PDFs, please fill in the fields manually.' }, { status: 400 })
+  const imageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+  const isPdf = file.type === 'application/pdf'
+  if (!isPdf && !imageTypes.includes(file.type)) {
+    return NextResponse.json({ error: 'Only PDF or image files (JPG, PNG, WEBP) are supported.' }, { status: 400 })
   }
 
   const arrayBuffer = await file.arrayBuffer()
   const base64 = Buffer.from(arrayBuffer).toString('base64')
-  const mediaType = file.type as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'
 
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-  const message = await anthropic.messages.create({
-    model: 'claude-opus-4-8',
-    max_tokens: 1024,
-    messages: [
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'image',
-            source: { type: 'base64', media_type: mediaType, data: base64 },
-          },
-          {
-            type: 'text',
-            text: `This is a construction permit document. Extract all visible information and return it as JSON with these exact keys (use null for any field not found):
+  const fileContent: Anthropic.MessageParam['content'] = isPdf
+    ? [
+        {
+          type: 'document',
+          source: { type: 'base64', media_type: 'application/pdf', data: base64 },
+        } as any,
+        {
+          type: 'text',
+          text: `This is a construction permit document. Extract all visible information and return it as JSON with these exact keys (use null for any field not found):
 {
   "permit_type": one of ["Building","Electrical","Plumbing","Mechanical/HVAC","Fire Protection","Demolition","Excavation","Roofing","Sign","Other"],
   "permit_number": "string or null",
@@ -57,10 +52,36 @@ export async function POST(request: Request, { params }: { params: { id: string 
   "notes": "any other relevant info visible on the permit"
 }
 Return ONLY the JSON object, no other text.`,
-          },
-        ],
-      },
-    ],
+        },
+      ]
+    : [
+        {
+          type: 'image',
+          source: { type: 'base64', media_type: file.type as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp', data: base64 },
+        },
+        {
+          type: 'text',
+          text: `This is a construction permit document. Extract all visible information and return it as JSON with these exact keys (use null for any field not found):
+{
+  "permit_type": one of ["Building","Electrical","Plumbing","Mechanical/HVAC","Fire Protection","Demolition","Excavation","Roofing","Sign","Other"],
+  "permit_number": "string or null",
+  "description": "brief description of work covered by the permit",
+  "status": one of ["pending","approved","active","expired","rejected"] - infer from document if possible,
+  "issued_date": "YYYY-MM-DD or null",
+  "expiry_date": "YYYY-MM-DD or null",
+  "issuing_authority": "name of the issuing city/department/authority",
+  "inspector_name": "string or null",
+  "inspector_phone": "string or null",
+  "notes": "any other relevant info visible on the permit"
+}
+Return ONLY the JSON object, no other text.`,
+        },
+      ]
+
+  const message = await anthropic.messages.create({
+    model: 'claude-opus-4-8',
+    max_tokens: 1024,
+    messages: [{ role: 'user', content: fileContent }],
   })
 
   const text = message.content[0].type === 'text' ? message.content[0].text : ''
@@ -70,6 +91,6 @@ Return ONLY the JSON object, no other text.`,
     const parsed = JSON.parse(cleaned)
     return NextResponse.json({ fields: parsed })
   } catch {
-    return NextResponse.json({ error: 'Could not parse permit data from image. Please fill in the fields manually.' }, { status: 422 })
+    return NextResponse.json({ error: 'Could not parse permit data. Please fill in the fields manually.' }, { status: 422 })
   }
 }

@@ -321,9 +321,9 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
                   >
                     {analyzing
                       ? <><Loader2 className="h-4 w-4 text-orange-500 animate-spin shrink-0" /><span className="text-orange-600 font-medium">Analyzing card…</span></>
-                      : <><Sparkles className="h-4 w-4 text-orange-400 shrink-0" /><span className="text-orange-600 font-medium">Upload a photo or scan of the inspection card</span><span className="text-slate-400 text-xs">— AI fills the fields automatically</span></>
+                      : <><Sparkles className="h-4 w-4 text-orange-400 shrink-0" /><span className="text-orange-600 font-medium">Upload a photo or PDF of the inspection card</span><span className="text-slate-400 text-xs">— AI fills the fields automatically</span></>
                     }
-                    <input ref={fileRef} type="file" accept="image/*" className="sr-only"
+                    <input ref={fileRef} type="file" accept="image/*,application/pdf" className="sr-only"
                       onChange={e => { const f = e.target.files?.[0]; if (f) analyzeImage(f) }} />
                   </label>
                   {analyzeError && <p className="text-xs text-red-500 flex items-center gap-1"><X className="h-3 w-3 shrink-0" />{analyzeError}</p>}

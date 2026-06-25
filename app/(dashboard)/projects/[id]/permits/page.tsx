@@ -227,7 +227,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                       ? <><Loader2 className="h-4 w-4 animate-spin" /><span>Analyzing permit with AI — filling in fields...</span></>
                       : permitFile
                       ? <><FileText className="h-4 w-4 shrink-0" /><span className="min-w-0 truncate">{permitFile.name}</span><span className="ml-auto text-xs text-green-600 font-medium shrink-0">✓ Fields auto-filled</span></>
-                      : <><Sparkles className="h-4 w-4" /><span className="font-medium">Upload a photo or scan of your permit</span><span className="text-xs ml-1 text-orange-400">— AI fills the fields automatically</span></>}
+                      : <><Sparkles className="h-4 w-4" /><span className="font-medium">Upload a photo or PDF of your permit</span><span className="text-xs ml-1 text-orange-400">— AI fills the fields automatically</span></>}
                     <input ref={fileRef} type="file" className="sr-only" accept=".pdf,.jpg,.jpeg,.png,.webp"
                     onChange={e => {
                       const file = e.target.files?.[0] ?? null
