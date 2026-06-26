@@ -17,7 +17,7 @@ const PERMIT_TYPES = [
   'Sewage/Septic', 'Stormwater', 'Utilities',
   'Fence/Wall', 'Pool/Spa', 'Solar',
   'Sign', 'Zoning/Land Use',
-  'Notice of Commencement', 'Survey',
+  'Notice of Commencement', 'Survey', 'Plans Review',
   'Other',
 ]
 const STATUS_COLORS: Record<string, string> = {

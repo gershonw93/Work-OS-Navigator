@@ -40,7 +40,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
           type: 'text',
           text: `This is a construction permit document. Extract all visible information and return it as JSON with these exact keys (use null for any field not found):
 {
-  "permit_type": one of ["Building","Electrical","Plumbing","Mechanical/HVAC","Fire Protection","Fire Alarm","Sprinkler","Demolition","Excavation","Grading","Roofing","Siding","Windows/Doors","Sewage/Septic","Stormwater","Utilities","Fence/Wall","Pool/Spa","Solar","Sign","Zoning/Land Use","Notice of Commencement","Survey","Other"] — pick the closest match (use "Notice of Commencement" for NOC documents, "Survey" for boundary/topographic/site surveys),
+  "permit_type": one of ["Building","Electrical","Plumbing","Mechanical/HVAC","Fire Protection","Fire Alarm","Sprinkler","Demolition","Excavation","Grading","Roofing","Siding","Windows/Doors","Sewage/Septic","Stormwater","Utilities","Fence/Wall","Pool/Spa","Solar","Sign","Zoning/Land Use","Notice of Commencement","Survey","Plans Review","Other"] — pick the closest match (use "Notice of Commencement" for NOC documents; "Survey" for boundary/topographic/form-board/site surveys; "Plans Review" for architect or engineer letters responding to building department comments or plan review deficiencies),
   "permit_number": "string or null",
   "description": "brief description of work covered by the permit",
   "status": one of ["pending","approved","active","recorded","expired","rejected"] - infer from document if possible (use "recorded" for filed NOCs),
@@ -63,7 +63,7 @@ Return ONLY the JSON object, no other text.`,
           type: 'text',
           text: `This is a construction permit document. Extract all visible information and return it as JSON with these exact keys (use null for any field not found):
 {
-  "permit_type": one of ["Building","Electrical","Plumbing","Mechanical/HVAC","Fire Protection","Fire Alarm","Sprinkler","Demolition","Excavation","Grading","Roofing","Siding","Windows/Doors","Sewage/Septic","Stormwater","Utilities","Fence/Wall","Pool/Spa","Solar","Sign","Zoning/Land Use","Notice of Commencement","Survey","Other"] — pick the closest match (use "Notice of Commencement" for NOC documents, "Survey" for boundary/topographic/site surveys),
+  "permit_type": one of ["Building","Electrical","Plumbing","Mechanical/HVAC","Fire Protection","Fire Alarm","Sprinkler","Demolition","Excavation","Grading","Roofing","Siding","Windows/Doors","Sewage/Septic","Stormwater","Utilities","Fence/Wall","Pool/Spa","Solar","Sign","Zoning/Land Use","Notice of Commencement","Survey","Plans Review","Other"] — pick the closest match (use "Notice of Commencement" for NOC documents; "Survey" for boundary/topographic/form-board/site surveys; "Plans Review" for architect or engineer letters responding to building department comments or plan review deficiencies),
   "permit_number": "string or null",
   "description": "brief description of work covered by the permit",
   "status": one of ["pending","approved","active","recorded","expired","rejected"] - infer from document if possible (use "recorded" for filed NOCs),
