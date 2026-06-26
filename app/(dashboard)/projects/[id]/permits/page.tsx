@@ -9,7 +9,15 @@ import { cn } from '@/lib/utils'
 import { Plus, X, FileCheck, FileText, ChevronDown, ChevronUp, Phone, Building, ExternalLink, Sparkles, Loader2, AlertCircle, Trash2, Pencil } from 'lucide-react'
 import { ContactPicker } from '@/components/contact-picker'
 
-const PERMIT_TYPES = ['Building', 'Electrical', 'Plumbing', 'Mechanical/HVAC', 'Fire Protection', 'Demolition', 'Excavation', 'Roofing', 'Sign', 'Other']
+const PERMIT_TYPES = [
+  'Building', 'Electrical', 'Plumbing', 'Mechanical/HVAC',
+  'Fire Protection', 'Fire Alarm', 'Sprinkler',
+  'Demolition', 'Excavation', 'Grading',
+  'Roofing', 'Siding', 'Windows/Doors',
+  'Sewage/Septic', 'Stormwater', 'Utilities',
+  'Fence/Wall', 'Pool/Spa', 'Solar',
+  'Sign', 'Zoning/Land Use', 'Other',
+]
 const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-amber-50 border-amber-200 text-amber-700',
   approved: 'bg-green-50 border-green-200 text-green-700',
