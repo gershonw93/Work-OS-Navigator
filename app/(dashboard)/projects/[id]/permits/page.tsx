@@ -374,8 +374,12 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                       </span>
                       {expiring && <span className="text-xs font-medium bg-red-50 border border-red-200 text-red-600 rounded-full px-2 py-0.5">Expiring soon</span>}
                     </div>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      {permit.issuing_authority ?? '—'}
+                    <p className="text-xs text-slate-500 mt-0.5 truncate">
+                      {permit.description
+                        ? <span className="text-slate-600 font-medium">{permit.description}</span>
+                        : null}
+                      {permit.description && (permit.issuing_authority || permit.expiry_date) && <span className="text-slate-300 mx-1">·</span>}
+                      {permit.issuing_authority}
                       {permit.expiry_date && ` · Expires ${new Date(permit.expiry_date).toLocaleDateString()}`}
                     </p>
                   </div>

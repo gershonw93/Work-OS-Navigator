@@ -42,7 +42,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
 {
   "permit_type": one of ["Building","Electrical","Plumbing","Mechanical/HVAC","Fire Protection","Fire Alarm","Sprinkler","Demolition","Excavation","Grading","Roofing","Siding","Windows/Doors","Sewage/Septic","Stormwater","Utilities","Fence/Wall","Pool/Spa","Solar","Sign","Zoning/Land Use","Notice of Commencement","Survey","Plans Review","Other"] — pick the closest match (use "Notice of Commencement" for NOC documents; "Survey" for boundary/topographic/form-board/site surveys; "Plans Review" for architect or engineer letters responding to building department comments or plan review deficiencies),
   "permit_number": "string or null",
-  "description": "brief description of work covered by the permit",
+  "description": "specific description that distinguishes this document — for surveys include the survey type (e.g. 'Boundary/Topographic Survey', 'Form Board Survey', 'As-Built Survey'); for permits describe the scope; for NOCs describe the improvement; never leave generic",
   "status": one of ["pending","approved","active","recorded","expired","rejected"] - infer from document if possible (use "recorded" for filed NOCs),
   "issued_date": "YYYY-MM-DD or null",
   "expiry_date": "YYYY-MM-DD or null",
@@ -65,7 +65,7 @@ Return ONLY the JSON object, no other text.`,
 {
   "permit_type": one of ["Building","Electrical","Plumbing","Mechanical/HVAC","Fire Protection","Fire Alarm","Sprinkler","Demolition","Excavation","Grading","Roofing","Siding","Windows/Doors","Sewage/Septic","Stormwater","Utilities","Fence/Wall","Pool/Spa","Solar","Sign","Zoning/Land Use","Notice of Commencement","Survey","Plans Review","Other"] — pick the closest match (use "Notice of Commencement" for NOC documents; "Survey" for boundary/topographic/form-board/site surveys; "Plans Review" for architect or engineer letters responding to building department comments or plan review deficiencies),
   "permit_number": "string or null",
-  "description": "brief description of work covered by the permit",
+  "description": "specific description that distinguishes this document — for surveys include the survey type (e.g. 'Boundary/Topographic Survey', 'Form Board Survey', 'As-Built Survey'); for permits describe the scope; for NOCs describe the improvement; never leave generic",
   "status": one of ["pending","approved","active","recorded","expired","rejected"] - infer from document if possible (use "recorded" for filed NOCs),
   "issued_date": "YYYY-MM-DD or null",
   "expiry_date": "YYYY-MM-DD or null",
