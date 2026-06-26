@@ -16,12 +16,15 @@ const PERMIT_TYPES = [
   'Roofing', 'Siding', 'Windows/Doors',
   'Sewage/Septic', 'Stormwater', 'Utilities',
   'Fence/Wall', 'Pool/Spa', 'Solar',
-  'Sign', 'Zoning/Land Use', 'Other',
+  'Sign', 'Zoning/Land Use',
+  'Notice of Commencement', 'Survey',
+  'Other',
 ]
 const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-amber-50 border-amber-200 text-amber-700',
   approved: 'bg-green-50 border-green-200 text-green-700',
   active: 'bg-blue-50 border-blue-200 text-blue-700',
+  recorded: 'bg-purple-50 border-purple-200 text-purple-700',
   expired: 'bg-red-50 border-red-200 text-red-700',
   rejected: 'bg-red-50 border-red-200 text-red-700',
 }
@@ -278,7 +281,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                     <Label>Status</Label>
                     <select value={status} onChange={e => setStatus(e.target.value)}
                       className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white focus:border-orange-500 focus:outline-none">
-                      {['pending', 'approved', 'active', 'expired', 'rejected'].map(s => <option key={s}>{s}</option>)}
+                      {['pending', 'approved', 'active', 'recorded', 'expired', 'rejected'].map(s => <option key={s}>{s}</option>)}
                     </select>
                   </div>
                   <div className="space-y-1.5">
@@ -408,7 +411,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                       )}
                       <select value={permit.status} onChange={e => updateStatus(permit.id, e.target.value)}
                         className="rounded-md border border-slate-300 px-2 py-1.5 text-xs bg-white focus:border-orange-500 focus:outline-none">
-                        {['pending', 'approved', 'active', 'expired', 'rejected'].map(s => <option key={s}>{s}</option>)}
+                        {['pending', 'approved', 'active', 'recorded', 'expired', 'rejected'].map(s => <option key={s}>{s}</option>)}
                       </select>
                       <button onClick={() => openEdit(permit)} className="text-slate-400 hover:text-slate-600 p-1" title="Edit permit">
                         <Pencil className="h-4 w-4" />

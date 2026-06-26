@@ -40,10 +40,10 @@ export async function POST(request: Request, { params }: { params: { id: string 
           type: 'text',
           text: `This is a construction permit document. Extract all visible information and return it as JSON with these exact keys (use null for any field not found):
 {
-  "permit_type": one of ["Building","Electrical","Plumbing","Mechanical/HVAC","Fire Protection","Fire Alarm","Sprinkler","Demolition","Excavation","Grading","Roofing","Siding","Windows/Doors","Sewage/Septic","Stormwater","Utilities","Fence/Wall","Pool/Spa","Solar","Sign","Zoning/Land Use","Other"] — pick the closest match,
+  "permit_type": one of ["Building","Electrical","Plumbing","Mechanical/HVAC","Fire Protection","Fire Alarm","Sprinkler","Demolition","Excavation","Grading","Roofing","Siding","Windows/Doors","Sewage/Septic","Stormwater","Utilities","Fence/Wall","Pool/Spa","Solar","Sign","Zoning/Land Use","Notice of Commencement","Survey","Other"] — pick the closest match (use "Notice of Commencement" for NOC documents, "Survey" for boundary/topographic/site surveys),
   "permit_number": "string or null",
   "description": "brief description of work covered by the permit",
-  "status": one of ["pending","approved","active","expired","rejected"] - infer from document if possible,
+  "status": one of ["pending","approved","active","recorded","expired","rejected"] - infer from document if possible (use "recorded" for filed NOCs),
   "issued_date": "YYYY-MM-DD or null",
   "expiry_date": "YYYY-MM-DD or null",
   "issuing_authority": "name of the issuing city/department/authority",
@@ -63,10 +63,10 @@ Return ONLY the JSON object, no other text.`,
           type: 'text',
           text: `This is a construction permit document. Extract all visible information and return it as JSON with these exact keys (use null for any field not found):
 {
-  "permit_type": one of ["Building","Electrical","Plumbing","Mechanical/HVAC","Fire Protection","Fire Alarm","Sprinkler","Demolition","Excavation","Grading","Roofing","Siding","Windows/Doors","Sewage/Septic","Stormwater","Utilities","Fence/Wall","Pool/Spa","Solar","Sign","Zoning/Land Use","Other"] — pick the closest match,
+  "permit_type": one of ["Building","Electrical","Plumbing","Mechanical/HVAC","Fire Protection","Fire Alarm","Sprinkler","Demolition","Excavation","Grading","Roofing","Siding","Windows/Doors","Sewage/Septic","Stormwater","Utilities","Fence/Wall","Pool/Spa","Solar","Sign","Zoning/Land Use","Notice of Commencement","Survey","Other"] — pick the closest match (use "Notice of Commencement" for NOC documents, "Survey" for boundary/topographic/site surveys),
   "permit_number": "string or null",
   "description": "brief description of work covered by the permit",
-  "status": one of ["pending","approved","active","expired","rejected"] - infer from document if possible,
+  "status": one of ["pending","approved","active","recorded","expired","rejected"] - infer from document if possible (use "recorded" for filed NOCs),
   "issued_date": "YYYY-MM-DD or null",
   "expiry_date": "YYYY-MM-DD or null",
   "issuing_authority": "name of the issuing city/department/authority",
