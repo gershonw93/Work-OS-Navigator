@@ -66,7 +66,9 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   const survey = survey_raw ? JSON.parse(survey_raw) : {}
   const workers_on_site = workers_on_site_raw ? JSON.parse(workers_on_site_raw) : []
-  void subs_on_site_raw
+  const subs_on_site = subs_on_site_raw ? JSON.parse(subs_on_site_raw) : []
+  const subWorkerTotal = subs_on_site.reduce((t: number, s: any) => t + (Number(s.workers) || 0), 0)
+  const totalWorkers = (workers_on_site.length || 0) + subWorkerTotal
 
   async function uploadTo(bucket: string, file: File) {
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
@@ -110,8 +112,9 @@ export async function POST(request: Request, { params }: { params: { id: string 
     created_by: user.id,
     log_date,
     notes: notes || '',
-    workers_onsite: workers_on_site.length || 0,
+    workers_onsite: totalWorkers,
     weather: weather_condition || null,
+    subs_on_site,
     survey,
     safety_observation: safety_observation || null,
     quality_observation: quality_observation || null,

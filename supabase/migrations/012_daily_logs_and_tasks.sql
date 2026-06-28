@@ -8,6 +8,7 @@ ALTER TABLE daily_logs ADD COLUMN IF NOT EXISTS quality_observation TEXT;
 ALTER TABLE daily_logs ADD COLUMN IF NOT EXISTS signed_by_name TEXT;
 ALTER TABLE daily_logs ADD COLUMN IF NOT EXISTS signature_url TEXT;
 ALTER TABLE daily_logs ADD COLUMN IF NOT EXISTS signed_at TIMESTAMPTZ;
+ALTER TABLE daily_logs ADD COLUMN IF NOT EXISTS subs_on_site JSONB DEFAULT '[]'::jsonb;
 
 -- ── daily_log_photos: ensure exists, then per-sub + caption ───────────────────
 CREATE TABLE IF NOT EXISTS daily_log_photos (

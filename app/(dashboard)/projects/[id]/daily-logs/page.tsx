@@ -52,7 +52,7 @@ interface DailyLog {
   has_issues: boolean
   issue_description: string | null
   delays: { type: string; description: string }[]
-  subs_on_site: { company_id: string; name: string }[]
+  subs_on_site: { company_id: string; name: string; workers?: number }[]
   workers_on_site: { name: string; role: string }[]
   photos: { url: string; path: string; caption: string }[]
   daily_log_photos?: { id: string; photo_url: string; caption: string | null; subcontract_id: string | null; created_at: string }[]
@@ -92,7 +92,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
   const [hasIssues, setHasIssues] = useState(false)
   const [issueDescription, setIssueDescription] = useState('')
   const [delays, setDelays] = useState<{ type: string; description: string }[]>([])
-  const [subsOnSite, setSubsOnSite] = useState<{ id: string; company_id: string; name: string }[]>([])
+  const [subsOnSite, setSubsOnSite] = useState<{ id: string; company_id: string; name: string; workers: number }[]>([])
   const [workersOnSite, setWorkersOnSite] = useState<{ name: string; role: string }[]>([])
   const [photos, setPhotos] = useState<File[]>([])
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([])
@@ -233,7 +233,11 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
     const name = (sub.companies as any)?.name ?? sub.trade
     const exists = subsOnSite.find(s => s.id === sub.id)
     if (exists) setSubsOnSite(prev => prev.filter(s => s.id !== sub.id))
-    else setSubsOnSite(prev => [...prev, { id: sub.id, company_id: sub.company_id ?? sub.id, name }])
+    else setSubsOnSite(prev => [...prev, { id: sub.id, company_id: sub.company_id ?? sub.id, name, workers: 0 }])
+  }
+
+  function setSubWorkers(id: string, workers: number) {
+    setSubsOnSite(prev => prev.map(s => s.id === id ? { ...s, workers: Math.max(0, workers || 0) } : s))
   }
 
   function toggleWorkerOnSite(m: TeamMember) {
@@ -377,19 +381,23 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
     if (sigMode === 'draw' && sigBlob) form.append('signature', new File([sigBlob], 'signature.png', { type: 'image/png' }))
     if (sigName.trim()) form.append('signed_by_name', sigName.trim())
 
-    const res = await fetch(`/api/projects/${params.id}/daily-logs`, {
-      method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form,
-    })
-    if (!res.ok) {
-      const body = await res.json()
-      setError(body.error)
+    try {
+      const res = await fetch(`/api/projects/${params.id}/daily-logs`, {
+        method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form,
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setError(body.error || `Save failed (${res.status}). If this persists, the daily-log database migration (012) may not be applied yet.`)
+        return
+      }
+      resetForm()
+      setShowForm(false)
+      fetchLogs()
+    } catch (err: any) {
+      setError(err?.message ? `Save failed: ${err.message}` : 'Save failed — please try again.')
+    } finally {
       setSubmitting(false)
-      return
     }
-    resetForm()
-    setShowForm(false)
-    setSubmitting(false)
-    fetchLogs()
   }
 
   async function handleCreateTask(e: React.FormEvent) {
@@ -762,6 +770,26 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                     )
                   })}
                 </div>
+                {/* Per-sub worker counts */}
+                {subsOnSite.length > 0 && (
+                  <div className="rounded-lg border border-line-soft divide-y divide-line-soft mt-1">
+                    {subsOnSite.map(s => (
+                      <div key={s.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                        <span className="text-sm text-ink-soft truncate">{s.name}</span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <label className="text-xs text-faint">Workers</label>
+                          <input type="number" min={0} value={s.workers || ''} placeholder="0"
+                            onChange={e => setSubWorkers(s.id, parseInt(e.target.value, 10))}
+                            className="w-20 rounded-md border border-muted2 px-2 py-1 text-sm text-ink-soft focus:outline-none focus:border-accent" />
+                        </div>
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between px-3 py-2 bg-surface text-sm">
+                      <span className="font-medium text-ink-soft">Total sub workers</span>
+                      <span className="font-semibold text-ink">{subsOnSite.reduce((t, s) => t + (s.workers || 0), 0)}</span>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1080,7 +1108,9 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                             <p className="text-xs font-semibold text-faint uppercase tracking-wide mb-1.5">Subs on Site</p>
                             <div className="flex flex-wrap gap-1.5">
                               {log.subs_on_site.map((s, i) => (
-                                <span key={i} className="text-xs bg-accent-tint border border-accent/20 text-accent-fg rounded-full px-2.5 py-0.5">{s.name}</span>
+                                <span key={i} className="text-xs bg-accent-tint border border-accent/20 text-accent-fg rounded-full px-2.5 py-0.5">
+                                  {s.name}{s.workers ? ` · ${s.workers} worker${s.workers !== 1 ? 's' : ''}` : ''}
+                                </span>
                               ))}
                             </div>
                           </div>

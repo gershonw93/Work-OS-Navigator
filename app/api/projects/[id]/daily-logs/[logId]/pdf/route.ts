@@ -110,6 +110,15 @@ export async function GET(request: Request, { params }: { params: { id: string; 
   if (log.weather) text(`Weather: ${log.weather}`, { size: 10, color: muted })
   text(`Workers on site: ${log.workers_onsite ?? 0}`, { size: 10, color: muted })
 
+  // Subs on site + worker counts
+  const subs = Array.isArray(log.subs_on_site) ? log.subs_on_site : []
+  if (subs.length) {
+    heading('Subcontractors On Site')
+    for (const s of subs) {
+      text(`${s.name}${s.workers ? ` — ${s.workers} worker${s.workers !== 1 ? 's' : ''}` : ''}`, { size: 10 })
+    }
+  }
+
   // General notes
   if (log.notes) { heading('General Notes'); text(log.notes) }
 

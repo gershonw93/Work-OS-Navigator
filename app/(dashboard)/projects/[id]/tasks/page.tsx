@@ -317,6 +317,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
   const [taskImage, setTaskImage] = useState<File | null>(null)
   const [taskImagePreview, setTaskImagePreview] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   // invoice modal
   const [invoiceTask, setInvoiceTask]       = useState<Task | null>(null)
@@ -397,6 +398,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
     setTitle(''); setDescription(''); setDueDate(''); setPriority('medium')
     setAssigneeType('member'); setAssignedMemberId(''); setAssignedSubId('')
     setFollowUpDate(''); setTaskImage(null); setTaskImagePreview(null)
+    setSaveError(null)
     setEditTask(null)
   }
 
@@ -439,56 +441,61 @@ export default function TasksPage({ params }: { params: { id: string } }) {
   async function submitTask(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
-    const token = await getToken()
+    setSaveError(null)
+    try {
+      const token = await getToken()
 
-    let assigned_to_member_id: string | null = null
-    let assigned_to_company_id: string | null = null
-    let assigned_to_name: string | null = null
+      let assigned_to_member_id: string | null = null
+      let assigned_to_company_id: string | null = null
+      let assigned_to_name: string | null = null
 
-    if (assigneeType === 'member' && assignedMemberId) {
-      const m = members.find(m => m.id === assignedMemberId)
-      assigned_to_member_id = assignedMemberId
-      assigned_to_name = m?.name ?? null
-    } else if (assigneeType === 'sub' && assignedSubId) {
-      const s = subs.find(s => s.id === assignedSubId)
-      assigned_to_company_id = s?.companies?.id ?? null
-      assigned_to_name = s?.companies?.name ?? null
-    }
+      if (assigneeType === 'member' && assignedMemberId) {
+        const m = members.find(m => m.id === assignedMemberId)
+        assigned_to_member_id = assignedMemberId
+        assigned_to_name = m?.name ?? null
+      } else if (assigneeType === 'sub' && assignedSubId) {
+        const s = subs.find(s => s.id === assignedSubId)
+        assigned_to_company_id = s?.companies?.id ?? null
+        assigned_to_name = s?.companies?.name ?? null
+      }
 
-    // Upload a newly-selected image to storage; keep existing url otherwise
-    let image_url: string | null = editTask?.image_url ?? null
-    if (taskImage) {
-      const path = `${params.id}/tasks/${Date.now()}-${taskImage.name.replace(/[^\w.-]/g, '_')}`
-      const { error: upErr } = await supabase.storage.from('daily-log-photos').upload(path, taskImage)
-      if (!upErr) {
+      // Upload a newly-selected image to storage; keep existing url otherwise
+      let image_url: string | null = editTask?.image_url ?? null
+      if (taskImage) {
+        const path = `${params.id}/tasks/${Date.now()}-${taskImage.name.replace(/[^\w.-]/g, '_')}`
+        const { error: upErr } = await supabase.storage.from('daily-log-photos').upload(path, taskImage)
+        if (upErr) { setSaveError(`Image upload failed: ${upErr.message}`); setSaving(false); return }
         const { data: signed } = await supabase.storage.from('daily-log-photos').createSignedUrl(path, 60 * 60 * 24 * 365 * 10)
         if (signed?.signedUrl) image_url = signed.signedUrl
+      } else if (taskImagePreview === null) {
+        image_url = null // image was removed
       }
-    } else if (taskImagePreview === null) {
-      image_url = null // image was removed
-    }
 
-    const body = JSON.stringify({
-      title, description, due_date: dueDate || null, priority,
-      assigned_to_member_id, assigned_to_company_id, assigned_to_name,
-      image_url, follow_up_date: followUpDate || null,
-    })
+      const body = JSON.stringify({
+        title, description, due_date: dueDate || null, priority,
+        assigned_to_member_id, assigned_to_company_id, assigned_to_name,
+        image_url, follow_up_date: followUpDate || null,
+      })
 
-    if (editTask) {
-      await fetch(`/api/projects/${params.id}/tasks/${editTask.id}`, {
-        method: 'PATCH',
+      const url = editTask
+        ? `/api/projects/${params.id}/tasks/${editTask.id}`
+        : `/api/projects/${params.id}/tasks`
+      const res = await fetch(url, {
+        method: editTask ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body,
       })
-    } else {
-      await fetch(`/api/projects/${params.id}/tasks`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body,
-      })
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}))
+        setSaveError(j.error || `Save failed (${res.status}). The task database migration (012) may not be applied yet.`)
+        return
+      }
+      setShowAdd(false); resetForm(); load()
+    } catch (err: any) {
+      setSaveError(err?.message ? `Save failed: ${err.message}` : 'Save failed — check your connection and try again.')
+    } finally {
+      setSaving(false)
     }
-
-    setShowAdd(false); resetForm(); setSaving(false); load()
   }
 
   async function updateStatus(taskId: string, status: string) {
@@ -997,9 +1004,12 @@ export default function TasksPage({ params }: { params: { id: string } }) {
                   )}
                 </div>
               </div>
-              <div className="px-4 sm:px-6 py-4 border-t border-line-soft flex flex-wrap gap-2 justify-end">
-                <Button type="button" variant="secondary" onClick={() => { setShowAdd(false); resetForm() }}>Cancel</Button>
-                <Button type="submit" disabled={saving || !title.trim()}>{submitLabel}</Button>
+              <div className="px-4 sm:px-6 py-4 border-t border-line-soft space-y-2">
+                {saveError && <p className="text-sm text-danger">{saveError}</p>}
+                <div className="flex flex-wrap gap-2 justify-end">
+                  <Button type="button" variant="secondary" onClick={() => { setShowAdd(false); resetForm() }}>Cancel</Button>
+                  <Button type="submit" disabled={saving || !title.trim()}>{submitLabel}</Button>
+                </div>
               </div>
             </form>
           </div>
