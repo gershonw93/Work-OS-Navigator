@@ -5,7 +5,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select'
 import {
   Plus, X, CheckSquare, Circle, Clock, AlertCircle, Trash2,
   Building2, UserCircle2, Receipt, LayoutGrid, List, Users, Pencil,
-  ChevronDown, MessageSquare, Loader2,
+  ChevronDown, MessageSquare, Loader2, ImagePlus, CalendarClock,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -38,6 +38,7 @@ interface Task {
   priority: string; status: string; assigned_to_member_id: string | null
   assigned_to_company_id: string | null; assigned_to_name: string | null
   created_by: string; completed_at: string | null; created_at: string
+  image_url: string | null; follow_up_date: string | null; follow_up_note: string | null
 }
 interface Member { id: string; name: string; role: string }
 interface Sub { id: string; scope: string; trade: string | null; companies: { id: string; name: string } | null }
@@ -200,8 +201,22 @@ function TaskDetailPanel({ task, notes, notesLoading, onAddNote }: TaskDetailPan
             </div>
           )}
 
+          {task.follow_up_date && (
+            <div className="flex items-center gap-1.5 text-sm text-info">
+              <CalendarClock className="h-3.5 w-3.5 shrink-0" />
+              <span>Follow up {new Date(task.follow_up_date + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+            </div>
+          )}
+
           {task.description && (
             <p className="text-sm text-muted-fg leading-relaxed whitespace-pre-wrap">{task.description}</p>
+          )}
+
+          {task.image_url && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <a href={task.image_url} target="_blank" rel="noreferrer">
+              <img src={task.image_url} alt="Task" className="rounded-lg border border-line max-h-56 object-cover" />
+            </a>
           )}
 
           <div className="text-xs text-faint">
@@ -298,6 +313,9 @@ export default function TasksPage({ params }: { params: { id: string } }) {
   const [assigneeType, setAssigneeType] = useState<'member' | 'sub'>('member')
   const [assignedMemberId, setAssignedMemberId] = useState('')
   const [assignedSubId, setAssignedSubId]       = useState('')
+  const [followUpDate, setFollowUpDate] = useState('')
+  const [taskImage, setTaskImage] = useState<File | null>(null)
+  const [taskImagePreview, setTaskImagePreview] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
   // invoice modal
@@ -378,6 +396,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
   function resetForm() {
     setTitle(''); setDescription(''); setDueDate(''); setPriority('medium')
     setAssigneeType('member'); setAssignedMemberId(''); setAssignedSubId('')
+    setFollowUpDate(''); setTaskImage(null); setTaskImagePreview(null)
     setEditTask(null)
   }
 
@@ -395,6 +414,9 @@ export default function TasksPage({ params }: { params: { id: string } }) {
     setDescription(task.description ?? '')
     setDueDate(task.due_date ?? '')
     setPriority(task.priority)
+    setFollowUpDate(task.follow_up_date ?? '')
+    setTaskImage(null)
+    setTaskImagePreview(task.image_url ?? null)
     if (task.assigned_to_member_id) {
       setAssigneeType('member')
       setAssignedMemberId(task.assigned_to_member_id)
@@ -433,9 +455,23 @@ export default function TasksPage({ params }: { params: { id: string } }) {
       assigned_to_name = s?.companies?.name ?? null
     }
 
+    // Upload a newly-selected image to storage; keep existing url otherwise
+    let image_url: string | null = editTask?.image_url ?? null
+    if (taskImage) {
+      const path = `${params.id}/tasks/${Date.now()}-${taskImage.name.replace(/[^\w.-]/g, '_')}`
+      const { error: upErr } = await supabase.storage.from('daily-log-photos').upload(path, taskImage)
+      if (!upErr) {
+        const { data: signed } = await supabase.storage.from('daily-log-photos').createSignedUrl(path, 60 * 60 * 24 * 365 * 10)
+        if (signed?.signedUrl) image_url = signed.signedUrl
+      }
+    } else if (taskImagePreview === null) {
+      image_url = null // image was removed
+    }
+
     const body = JSON.stringify({
       title, description, due_date: dueDate || null, priority,
       assigned_to_member_id, assigned_to_company_id, assigned_to_name,
+      image_url, follow_up_date: followUpDate || null,
     })
 
     if (editTask) {
@@ -565,6 +601,12 @@ export default function TasksPage({ params }: { params: { id: string } }) {
               </span>
             )}
             {task.due_date && <DueChip due={task.due_date} task={task} />}
+            {task.follow_up_date && (
+              <span className="flex items-center gap-1 text-xs text-info" title={`Follow up ${task.follow_up_date}`}>
+                <CalendarClock className="h-3 w-3" />
+              </span>
+            )}
+            {task.image_url && <ImagePlus className="h-3 w-3 text-faint" />}
           </div>
 
           {/* hover actions */}
@@ -921,6 +963,37 @@ export default function TasksPage({ params }: { params: { id: string } }) {
                           <option value="">Unassigned</option>
                           {subs.map(s => <option key={s.id} value={s.id}>{s.companies?.name} — {s.scope}</option>)}
                         </Select>
+                  )}
+                </div>
+
+                {/* Follow-up (optional scheduled reminder) */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="followup">Follow-up date <span className="text-faint font-normal">(optional)</span></Label>
+                  <Input id="followup" type="date" value={followUpDate} onChange={e => setFollowUpDate(e.target.value)} />
+                  <p className="text-xs text-faint">Set a date to revisit this task — leave blank for none.</p>
+                </div>
+
+                {/* Image attachment */}
+                <div className="space-y-1.5">
+                  <Label>Photo <span className="text-faint font-normal">(optional)</span></Label>
+                  {taskImagePreview ? (
+                    <div className="relative inline-block">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={taskImagePreview} alt="Task" className="h-28 w-28 object-cover rounded-lg border border-line" />
+                      <button type="button" onClick={() => { setTaskImage(null); setTaskImagePreview(null) }}
+                        className="absolute -top-2 -right-2 bg-danger-solid text-white rounded-full p-1 shadow">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="flex items-center gap-2 cursor-pointer rounded-lg border border-dashed border-muted2 px-3 py-2.5 text-sm text-muted-fg hover:bg-surface w-fit">
+                      <ImagePlus className="h-4 w-4" /> Add photo
+                      <input type="file" accept="image/*" className="sr-only"
+                        onChange={e => {
+                          const f = e.target.files?.[0]
+                          if (f) { setTaskImage(f); setTaskImagePreview(URL.createObjectURL(f)) }
+                        }} />
+                    </label>
                   )}
                 </div>
               </div>
