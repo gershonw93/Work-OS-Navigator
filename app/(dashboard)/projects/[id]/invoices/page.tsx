@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -382,25 +383,25 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
               <div className="px-4 sm:px-6 py-5 pb-4 space-y-4">
                 <div className="space-y-1.5">
                   <Label>Subcontractor</Label>
-                  <select value={subId} onChange={e => { setSubId(e.target.value); setScheduleItemId('') }} required
+                  <SearchableSelect value={subId} onChange={e => { setSubId(e.target.value); setScheduleItemId('') }} required
                     className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
                     <option value="">Select subcontractor...</option>
                     {subcontracts.map(s => (
                       <option key={s.id} value={s.id}>{(s.companies as any)?.name ?? s.trade} — {s.trade}</option>
                     ))}
-                  </select>
+                  </SearchableSelect>
                 </div>
 
                 {subId && subPaymentItems.length > 0 && (
                   <div className="space-y-1.5">
                     <Label>Payment Schedule Item <span className="text-faint font-normal">(optional)</span></Label>
-                    <select value={scheduleItemId} onChange={e => setScheduleItemId(e.target.value)}
+                    <SearchableSelect value={scheduleItemId} onChange={e => setScheduleItemId(e.target.value)}
                       className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
                       <option value="">Select milestone...</option>
                       {subPaymentItems.map(p => (
                         <option key={p.id} value={p.id}>{p.label}{p.amount ? ` — $${Number(p.amount).toLocaleString()}` : p.percentage ? ` — ${p.percentage}%` : ''}</option>
                       ))}
-                    </select>
+                    </SearchableSelect>
                   </div>
                 )}
 

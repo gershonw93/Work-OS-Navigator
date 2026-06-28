@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
@@ -438,13 +439,13 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-ink-soft">Status</label>
-                  <select value={editProjectStatus} onChange={e => setEditProjectStatus(e.target.value)}
+                  <SearchableSelect value={editProjectStatus} onChange={e => setEditProjectStatus(e.target.value)}
                     className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
                     <option value="">Select status...</option>
                     {['planning', 'active', 'on_hold', 'completed', 'cancelled'].map(s => (
                       <option key={s} value={s}>{s.replace('_', ' ')}</option>
                     ))}
-                  </select>
+                  </SearchableSelect>
                 </div>
               </div>
               <div className="px-6 py-4 border-t border-line-soft flex gap-2 justify-end">
@@ -659,13 +660,13 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-muted-fg">Weather</label>
-                    <select value={logWeather} onChange={e => setLogWeather(e.target.value)}
+                    <SearchableSelect value={logWeather} onChange={e => setLogWeather(e.target.value)}
                       className="w-full h-8 rounded-md border border-muted2 px-2 text-sm bg-panel focus:border-accent focus:outline-none">
                       <option value="">Select...</option>
                       {['Clear', 'Partly Cloudy', 'Overcast', 'Rain', 'Heavy Rain', 'Snow', 'Windy', 'Hot', 'Cold'].map(w => (
                         <option key={w} value={w}>{w}</option>
                       ))}
-                    </select>
+                    </SearchableSelect>
                   </div>
                 </div>
                 <div className="space-y-1">
@@ -833,12 +834,12 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Priority</Label>
-                    <select value={taskPriority} onChange={e => setTaskPriority(e.target.value)}
+                    <SearchableSelect value={taskPriority} onChange={e => setTaskPriority(e.target.value)}
                       className="w-full h-8 rounded-md border border-muted2 px-2 text-sm bg-panel focus:border-accent focus:outline-none">
                       <option value="low">Low</option>
                       <option value="medium">Medium</option>
                       <option value="high">High</option>
-                    </select>
+                    </SearchableSelect>
                   </div>
                 </div>
                 <div className="flex gap-2 justify-end">
@@ -1223,13 +1224,13 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                 {(subcontracts ?? []).length > 1 && (
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-ink-soft">Contract / Trade</label>
-                    <select value={invoiceSubId} onChange={e => setInvoiceSubId(e.target.value)}
+                    <SearchableSelect value={invoiceSubId} onChange={e => setInvoiceSubId(e.target.value)}
                       className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
                       <option value="">Select contract...</option>
                       {(subcontracts ?? []).map((s: any) => (
                         <option key={s.id} value={s.id}>{s.trade} — ${Number(s.contract_amount).toLocaleString()}</option>
                       ))}
-                    </select>
+                    </SearchableSelect>
                   </div>
                 )}
 

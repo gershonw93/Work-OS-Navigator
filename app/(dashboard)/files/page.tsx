@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -323,10 +324,10 @@ export default function FilesPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>Category</Label>
-                  <select value={uploadCategory} onChange={e => setUploadCategory(e.target.value)}
+                  <SearchableSelect value={uploadCategory} onChange={e => setUploadCategory(e.target.value)}
                     className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
                     {CATEGORIES.map(c => <option key={c}>{c}</option>)}
-                  </select>
+                  </SearchableSelect>
                 </div>
               </div>
               <div className="border-t border-line-soft px-6 py-4 space-y-2">
@@ -359,10 +360,10 @@ export default function FilesPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>Category</Label>
-                  <select value={editCategory} onChange={e => setEditCategory(e.target.value)}
+                  <SearchableSelect value={editCategory} onChange={e => setEditCategory(e.target.value)}
                     className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
                     {CATEGORIES.map(c => <option key={c}>{c}</option>)}
-                  </select>
+                  </SearchableSelect>
                 </div>
               </div>
               <div className="border-t border-line-soft px-6 py-4 space-y-2">

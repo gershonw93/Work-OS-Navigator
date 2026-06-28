@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -261,10 +262,10 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Permit Type</Label>
-                    <select value={permitType} onChange={e => setPermitType(e.target.value)} required
+                    <SearchableSelect value={permitType} onChange={e => setPermitType(e.target.value)} required
                       className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
                       {PERMIT_TYPES.map(t => <option key={t}>{t}</option>)}
-                    </select>
+                    </SearchableSelect>
                   </div>
                   <div className="space-y-1.5">
                     <Label>Permit Number</Label>
@@ -279,10 +280,10 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="space-y-1.5">
                     <Label>Status</Label>
-                    <select value={status} onChange={e => setStatus(e.target.value)}
+                    <SearchableSelect value={status} onChange={e => setStatus(e.target.value)}
                       className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
                       {['pending', 'approved', 'active', 'recorded', 'expired', 'rejected'].map(s => <option key={s}>{s}</option>)}
-                    </select>
+                    </SearchableSelect>
                   </div>
                   <div className="space-y-1.5">
                     <Label>Date Issued</Label>
@@ -413,10 +414,10 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                           <Button size="sm" variant="outline"><ExternalLink className="h-3.5 w-3.5" /> View Document</Button>
                         </a>
                       )}
-                      <select value={permit.status} onChange={e => updateStatus(permit.id, e.target.value)}
+                      <SearchableSelect value={permit.status} onChange={e => updateStatus(permit.id, e.target.value)}
                         className="rounded-md border border-muted2 px-2 py-1.5 text-xs bg-panel focus:border-accent focus:outline-none">
                         {['pending', 'approved', 'active', 'recorded', 'expired', 'rejected'].map(s => <option key={s}>{s}</option>)}
-                      </select>
+                      </SearchableSelect>
                       <button onClick={() => openEdit(permit)} className="text-faint hover:text-muted-fg p-1" title="Edit permit">
                         <Pencil className="h-4 w-4" />
                       </button>

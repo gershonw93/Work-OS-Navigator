@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import {
   Plus, X, CheckSquare, Circle, Clock, AlertCircle, Trash2,
   Building2, UserCircle2, Receipt, LayoutGrid, List, Users, Pencil,
@@ -658,13 +659,13 @@ export default function TasksPage({ params }: { params: { id: string } }) {
               className="p-1.5 text-faint hover:text-accent-fg rounded transition-colors">
               <Pencil className="h-3.5 w-3.5" />
             </button>
-            <select
+            <SearchableSelect
               value={task.status}
               onClick={e => e.stopPropagation()}
               onChange={e => updateStatus(task.id, e.target.value)}
               className="text-xs border border-line rounded-md px-2 py-1 text-muted-fg bg-panel focus:outline-none focus:border-accent">
               {STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-            </select>
+            </SearchableSelect>
             <button
               onClick={e => { e.stopPropagation(); deleteTask(task.id) }}
               className="p-1.5 text-faint hover:text-danger rounded transition-colors">

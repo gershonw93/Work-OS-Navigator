@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -465,11 +466,11 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                   </div>
                   {editDelays.map((delay, i) => (
                     <div key={i} className="flex flex-wrap sm:flex-nowrap gap-2 items-start">
-                      <select value={delay.type} onChange={e => setEditDelays(prev => prev.map((d, j) => j === i ? { ...d, type: e.target.value } : d))}
+                      <SearchableSelect value={delay.type} onChange={e => setEditDelays(prev => prev.map((d, j) => j === i ? { ...d, type: e.target.value } : d))}
                         className="rounded-md border border-muted2 px-2 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
                         <option value="">Type...</option>
                         {DELAY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                      </select>
+                      </SearchableSelect>
                       <input value={delay.description} placeholder="Description"
                         onChange={e => setEditDelays(prev => prev.map((d, j) => j === i ? { ...d, description: e.target.value } : d))}
                         className="flex-1 min-w-0 rounded-md border border-muted2 px-3 py-2 text-sm focus:border-accent focus:outline-none" />
@@ -551,18 +552,18 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                     ))}
                   </div>
                   {taskAssigneeType === 'member' && teamMembers.length > 0 && (
-                    <select value={taskAssigneeId} onChange={e => setTaskAssigneeId(e.target.value)}
+                    <SearchableSelect value={taskAssigneeId} onChange={e => setTaskAssigneeId(e.target.value)}
                       className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
                       <option value="">Select crew member...</option>
                       {teamMembers.map(m => <option key={m.id} value={m.id}>{m.name} — {m.role}</option>)}
-                    </select>
+                    </SearchableSelect>
                   )}
                   {taskAssigneeType === 'sub' && subcontracts.length > 0 && (
-                    <select value={taskAssigneeId} onChange={e => setTaskAssigneeId(e.target.value)}
+                    <SearchableSelect value={taskAssigneeId} onChange={e => setTaskAssigneeId(e.target.value)}
                       className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
                       <option value="">Select subcontractor...</option>
                       {subcontracts.map(s => <option key={s.id} value={s.id}>{(s.companies as any)?.name ?? s.trade} — {s.trade}</option>)}
-                    </select>
+                    </SearchableSelect>
                   )}
                 </div>
               </div>
@@ -724,11 +725,11 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
               </div>
               {delays.map((delay, i) => (
                 <div key={i} className="flex flex-wrap sm:flex-nowrap gap-2 items-start">
-                  <select value={delay.type} onChange={e => setDelays(prev => prev.map((d, j) => j === i ? { ...d, type: e.target.value } : d))}
+                  <SearchableSelect value={delay.type} onChange={e => setDelays(prev => prev.map((d, j) => j === i ? { ...d, type: e.target.value } : d))}
                     className="rounded-md border border-muted2 px-2 py-1.5 text-sm text-ink-soft focus:outline-none focus:border-accent bg-panel w-full sm:w-44 sm:shrink-0">
                     <option value="">Select type</option>
                     {DELAY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
+                  </SearchableSelect>
                   <input type="text" placeholder="Describe the delay..." value={delay.description}
                     onChange={e => setDelays(prev => prev.map((d, j) => j === i ? { ...d, description: e.target.value } : d))}
                     className="flex-1 rounded-md border border-muted2 px-2 py-1.5 text-sm text-ink-soft focus:outline-none focus:border-accent" />

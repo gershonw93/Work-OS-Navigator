@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -93,10 +94,10 @@ export default function MyJobsPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Type</Label>
-                    <select value={type} onChange={e => setType(e.target.value)}
+                    <SearchableSelect value={type} onChange={e => setType(e.target.value)}
                       className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none capitalize">
                       {PROJECT_TYPES.map(t => <option key={t} value={t} className="capitalize">{t}</option>)}
-                    </select>
+                    </SearchableSelect>
                   </div>
                   <div className="space-y-1.5">
                     <Label>Start Date <span className="text-faint font-normal">(optional)</span></Label>

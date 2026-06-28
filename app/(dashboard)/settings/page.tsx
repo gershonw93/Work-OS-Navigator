@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -728,7 +729,7 @@ export default function SettingsPage() {
                       </div>
                       <div>
                         <Label htmlFor="companyType">Company Type</Label>
-                        <select
+                        <SearchableSelect
                           id="companyType"
                           value={companyType}
                           onChange={(e) => setCompanyType(e.target.value)}
@@ -741,7 +742,7 @@ export default function SettingsPage() {
                           <option value="architect">Architect / Designer</option>
                           <option value="engineer">Engineer</option>
                           <option value="other">Other</option>
-                        </select>
+                        </SearchableSelect>
                       </div>
                       <div>
                         <Label htmlFor="contactEmail">Contact Email</Label>
@@ -845,7 +846,7 @@ export default function SettingsPage() {
                               <td className="px-4 py-3">
                                 {userRole === 'admin' && !isSelf ? (
                                   <div className="flex items-center gap-2">
-                                    <select
+                                    <SearchableSelect
                                       value={pendingRoles[t.id] ?? t.role}
                                       onChange={(e) => setPendingRoles(prev => ({ ...prev, [t.id]: e.target.value }))}
                                       className="rounded border border-line px-2 py-1 text-xs bg-panel focus:outline-none focus:ring-1 focus:ring-accent"
@@ -853,7 +854,7 @@ export default function SettingsPage() {
                                       {ROLES.map((r) => (
                                         <option key={r.value} value={r.value}>{r.label}</option>
                                       ))}
-                                    </select>
+                                    </SearchableSelect>
                                     {pendingRoles[t.id] && pendingRoles[t.id] !== t.role && (
                                       <button
                                         onClick={() => {
@@ -994,7 +995,7 @@ export default function SettingsPage() {
                       </div>
                       <div>
                         <Label htmlFor="inviteRole">Role</Label>
-                        <select
+                        <SearchableSelect
                           id="inviteRole"
                           value={inviteRole}
                           onChange={(e) => setInviteRole(e.target.value)}
@@ -1003,7 +1004,7 @@ export default function SettingsPage() {
                           {ROLES.map((r) => (
                             <option key={r.value} value={r.value}>{r.label}</option>
                           ))}
-                        </select>
+                        </SearchableSelect>
                         {inviteRole && (
                           <p className="mt-1.5 text-xs text-muted-fg">
                             {ROLES.find((r) => r.value === inviteRole)?.desc}
@@ -1091,7 +1092,7 @@ export default function SettingsPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="pref-type">Default Project Type</Label>
-                      <select
+                      <SearchableSelect
                         id="pref-type"
                         value={prefDefaultType}
                         onChange={(e) => setPrefDefaultType(e.target.value)}
@@ -1101,11 +1102,11 @@ export default function SettingsPage() {
                         <option value="commercial">Commercial</option>
                         <option value="renovation">Renovation</option>
                         <option value="mixed_use">Mixed Use</option>
-                      </select>
+                      </SearchableSelect>
                     </div>
                     <div>
                       <Label htmlFor="pref-offset">Default Start Date Offset</Label>
-                      <select
+                      <SearchableSelect
                         id="pref-offset"
                         value={prefStartOffset}
                         onChange={(e) => setPrefStartOffset(e.target.value)}
@@ -1115,7 +1116,7 @@ export default function SettingsPage() {
                         <option value="1week">1 week out</option>
                         <option value="2weeks">2 weeks out</option>
                         <option value="1month">1 month out</option>
-                      </select>
+                      </SearchableSelect>
                     </div>
                   </div>
                 </CardContent>
@@ -1146,7 +1147,7 @@ export default function SettingsPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="pref-naming">Default Naming Pattern</Label>
-                      <select
+                      <SearchableSelect
                         id="pref-naming"
                         value={prefNamingPattern}
                         onChange={(e) => setPrefNamingPattern(e.target.value)}
@@ -1155,7 +1156,7 @@ export default function SettingsPage() {
                         <option value="prefix_number">Prefix + Number (e.g. House 1)</option>
                         <option value="prefix_address">Prefix + Address (e.g. House - 95 Main St)</option>
                         <option value="address_only">Address Only</option>
-                      </select>
+                      </SearchableSelect>
                     </div>
                   </div>
 

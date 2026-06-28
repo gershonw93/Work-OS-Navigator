@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
 import {
   ACTIONS, RESOURCES, RESOURCE_GROUPS, ROLE_DEFAULTS, getRoleDefaults,
@@ -134,10 +135,10 @@ function RoleDefaultsView() {
     <div className="space-y-3">
       <div className="flex items-center gap-3">
         <label className="text-sm font-medium text-muted-fg">Showing defaults for</label>
-        <select value={role} onChange={e => setRole(e.target.value)}
+        <SearchableSelect value={role} onChange={e => setRole(e.target.value)}
           className="rounded-md border border-muted2 px-3 py-1.5 text-sm bg-panel focus:border-accent focus:outline-none">
           {roles.map(r => <option key={r} value={r}>{ROLE_LABELS[r] ?? r}</option>)}
-        </select>
+        </SearchableSelect>
       </div>
       <p className="text-xs text-muted-fg">Role defaults are fixed. To change what a specific person can do, use <strong>Per-User Overrides</strong>.</p>
       <PermGrid effective={defaults} defaults={defaults} editable={false} />
@@ -222,13 +223,13 @@ function UserOverridesView({ teammates }: { teammates: Teammate[] }) {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-3">
         <label className="text-sm font-medium text-muted-fg">Select a user</label>
-        <select value={selectedId} onChange={e => setSelectedId(e.target.value)}
+        <SearchableSelect value={selectedId} onChange={e => setSelectedId(e.target.value)}
           className="rounded-md border border-muted2 px-3 py-1.5 text-sm bg-panel focus:border-accent focus:outline-none min-w-[220px]">
           <option value="">— Choose a team member —</option>
           {teammates.map(t => (
             <option key={t.id} value={t.id}>{t.full_name || t.email} ({ROLE_LABELS[t.role] ?? t.role})</option>
           ))}
-        </select>
+        </SearchableSelect>
         {selected && (
           <span className="text-xs text-muted-fg">Base role: <strong>{ROLE_LABELS[selected.role] ?? selected.role}</strong></span>
         )}

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import Link from 'next/link'
 import {
   FolderKanban, Plus, Pencil, Trash2, X, Search, LayoutGrid, List,
@@ -253,19 +254,19 @@ export default function ProjectsPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Type</Label>
-                    <select value={editType} onChange={e => setEditType(e.target.value)}
+                    <SearchableSelect value={editType} onChange={e => setEditType(e.target.value)}
                       className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
                       <option value="">Select type...</option>
                       {PROJECT_TYPES.map(t => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}
-                    </select>
+                    </SearchableSelect>
                   </div>
                   <div className="space-y-1.5">
                     <Label>Status</Label>
-                    <select value={editStatus} onChange={e => setEditStatus(e.target.value)}
+                    <SearchableSelect value={editStatus} onChange={e => setEditStatus(e.target.value)}
                       className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
                       <option value="">Select status...</option>
                       {PROJECT_STATUSES.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
-                    </select>
+                    </SearchableSelect>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -344,39 +345,39 @@ export default function ProjectsPage() {
             {/* Type filter */}
             <div className="relative">
               <Building2 className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-faint pointer-events-none" />
-              <select
+              <SearchableSelect
                 value={typeFilter}
                 onChange={e => setTypeFilter(e.target.value)}
                 className="appearance-none rounded-lg border border-line bg-panel pl-8 pr-7 py-2 text-sm capitalize focus:border-accent focus:outline-none"
               >
                 <option value="all">All types</option>
                 {PROJECT_TYPES.map(t => <option key={t} value={t} className="capitalize">{t}</option>)}
-              </select>
+              </SearchableSelect>
             </div>
 
             {/* Status filter */}
             <div className="relative">
               <SlidersHorizontal className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-faint pointer-events-none" />
-              <select
+              <SearchableSelect
                 value={statusFilter}
                 onChange={e => setStatusFilter(e.target.value)}
                 className="appearance-none rounded-lg border border-line bg-panel pl-8 pr-7 py-2 text-sm capitalize focus:border-accent focus:outline-none"
               >
                 <option value="all">All statuses</option>
                 {PROJECT_STATUSES.map(s => <option key={s} value={s} className="capitalize">{s.replace('_', ' ')}</option>)}
-              </select>
+              </SearchableSelect>
             </div>
 
             {/* Sort */}
             <div className="relative">
               <ArrowUpDown className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-faint pointer-events-none" />
-              <select
+              <SearchableSelect
                 value={sort}
                 onChange={e => setSort(e.target.value as SortKey)}
                 className="appearance-none rounded-lg border border-line bg-panel pl-8 pr-7 py-2 text-sm focus:border-accent focus:outline-none"
               >
                 {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
+              </SearchableSelect>
             </div>
 
             {/* View toggle */}

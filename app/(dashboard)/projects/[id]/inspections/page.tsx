@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -343,10 +344,10 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Inspection Type</Label>
-                    <select value={inspType} onChange={e => setInspType(e.target.value)} required
+                    <SearchableSelect value={inspType} onChange={e => setInspType(e.target.value)} required
                       className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
                       {INSPECTION_TYPES.map(t => <option key={t}>{t}</option>)}
-                    </select>
+                    </SearchableSelect>
                   </div>
                   <div className="space-y-1.5">
                     <Label>Trade <span className="text-faint font-normal">(optional)</span></Label>

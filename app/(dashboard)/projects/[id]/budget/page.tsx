@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
 import { Wallet, DollarSign, CheckCircle2, TrendingDown, TrendingUp, Plus, Trash2, Pencil, X, Check, Link as LinkIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -211,10 +212,10 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <input className="rounded-lg border border-line px-3 py-2 text-sm" placeholder="Cost code (optional)"
               value={form.cost_code} onChange={e => setForm({ ...form, cost_code: e.target.value })} />
-            <select className="rounded-lg border border-line px-3 py-2 text-sm bg-panel"
+            <SearchableSelect className="rounded-lg border border-line px-3 py-2 text-sm bg-panel"
               value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
               {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
+            </SearchableSelect>
             <input className="rounded-lg border border-line px-3 py-2 text-sm col-span-2 sm:col-span-1" placeholder="Description *"
               value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
             <input type="number" className="rounded-lg border border-line px-3 py-2 text-sm" placeholder="Budgeted $"
@@ -242,11 +243,11 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
           {subOptions.length > 0 && (
             <div className="flex flex-col sm:flex-row sm:items-center gap-2">
               <label className="text-xs font-medium text-muted-fg sm:w-44 shrink-0">Link to subcontract (auto-fills Committed &amp; Actual)</label>
-              <select className="flex-1 rounded-lg border border-line px-3 py-2 text-sm bg-panel"
+              <SearchableSelect className="flex-1 rounded-lg border border-line px-3 py-2 text-sm bg-panel"
                 value={form.subcontract_id} onChange={e => setForm({ ...form, subcontract_id: e.target.value })}>
                 <option value="">Not linked — enter manually</option>
                 {subOptions.map(s => <option key={s.id} value={s.id}>{s.label} · {money(s.contract_amount)}</option>)}
-              </select>
+              </SearchableSelect>
             </div>
           )}
           <div className="flex gap-2 justify-end">
@@ -292,10 +293,10 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                             <input className="rounded-lg border border-line px-2.5 py-1.5 text-sm" placeholder="Cost code"
                               value={editForm.cost_code} onChange={e => setEditForm({ ...editForm, cost_code: e.target.value })} />
-                            <select className="rounded-lg border border-line px-2.5 py-1.5 text-sm bg-panel"
+                            <SearchableSelect className="rounded-lg border border-line px-2.5 py-1.5 text-sm bg-panel"
                               value={editForm.category} onChange={e => setEditForm({ ...editForm, category: e.target.value })}>
                               {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                            </select>
+                            </SearchableSelect>
                             <input className="rounded-lg border border-line px-2.5 py-1.5 text-sm col-span-2 sm:col-span-1" placeholder="Description"
                               value={editForm.description} onChange={e => setEditForm({ ...editForm, description: e.target.value })} />
                             <input type="number" className="rounded-lg border border-line px-2.5 py-1.5 text-sm" placeholder="Budgeted"
@@ -321,11 +322,11 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                             )}
                           </div>
                           {subOptions.length > 0 && (
-                            <select className="w-full rounded-lg border border-line px-2.5 py-1.5 text-sm bg-panel"
+                            <SearchableSelect className="w-full rounded-lg border border-line px-2.5 py-1.5 text-sm bg-panel"
                               value={editForm.subcontract_id} onChange={e => setEditForm({ ...editForm, subcontract_id: e.target.value })}>
                               <option value="">Not linked — enter manually</option>
                               {subOptions.map(s => <option key={s.id} value={s.id}>{s.label} · {money(s.contract_amount)}</option>)}
-                            </select>
+                            </SearchableSelect>
                           )}
                           <div className="flex gap-2 justify-end">
                             <button onClick={() => setEditingId(null)} className="inline-flex items-center gap-1 text-xs text-muted-fg px-2 py-1.5 rounded-lg hover:bg-muted">

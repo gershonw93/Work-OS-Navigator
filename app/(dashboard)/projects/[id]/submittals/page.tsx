@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -272,10 +273,10 @@ export default function SubmittalsPage({ params }: { params: { id: string } }) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Type</Label>
-                    <select value={type} onChange={e => setType(e.target.value)} required
+                    <SearchableSelect value={type} onChange={e => setType(e.target.value)} required
                       className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
                       {SUBMITTAL_TYPES.map(t => <option key={t}>{t}</option>)}
-                    </select>
+                    </SearchableSelect>
                   </div>
                   <div className="space-y-1.5">
                     <Label>Trade <span className="text-faint font-normal">(optional)</span></Label>

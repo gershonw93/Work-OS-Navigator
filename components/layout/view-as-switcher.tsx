@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { Eye, X, User } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { usePermissions, VIEW_AS_KEY, VIEW_AS_USER_KEY, getViewAs, getViewAsUser } from '@/lib/use-permissions'
@@ -87,15 +88,15 @@ export function ViewAsSwitcher() {
       </div>
 
       {tab === 'role' ? (
-        <select
+        <SearchableSelect
           value={currentRole}
           onChange={e => { setCurrentRole(e.target.value); setViewAs(e.target.value) }}
           className={`text-xs font-medium bg-transparent focus:outline-none cursor-pointer ${previewing ? 'text-warn' : 'text-muted-fg'}`}
         >
           {PREVIEW_ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
-        </select>
+        </SearchableSelect>
       ) : (
-        <select
+        <SearchableSelect
           value={currentUser}
           onChange={e => { setCurrentUser(e.target.value); setViewAsUser(e.target.value) }}
           className={`text-xs font-medium bg-transparent focus:outline-none cursor-pointer max-w-[130px] ${previewing ? 'text-warn' : 'text-muted-fg'}`}
@@ -106,7 +107,7 @@ export function ViewAsSwitcher() {
               {t.full_name || t.email || t.id.slice(0, 8)}
             </option>
           ))}
-        </select>
+        </SearchableSelect>
       )}
     </div>
   )

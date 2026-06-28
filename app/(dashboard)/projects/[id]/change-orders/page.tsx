@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -373,13 +374,13 @@ export default function ChangeOrdersPage({ params }: { params: { id: string } })
 
                   <div className="space-y-1.5">
                     <Label>Reason</Label>
-                    <select
+                    <SearchableSelect
                       value={reason}
                       onChange={e => setReason(e.target.value)}
                       className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none"
                     >
                       {REASONS.map(r => <option key={r}>{r}</option>)}
-                    </select>
+                    </SearchableSelect>
                   </div>
                 </div>
 
@@ -407,7 +408,7 @@ export default function ChangeOrdersPage({ params }: { params: { id: string } })
 
                   <div className="space-y-1.5">
                     <Label>Subcontract <span className="text-faint font-normal">(optional)</span></Label>
-                    <select
+                    <SearchableSelect
                       value={subcontractId}
                       onChange={e => setSubcontractId(e.target.value)}
                       className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none"
@@ -418,7 +419,7 @@ export default function ChangeOrdersPage({ params }: { params: { id: string } })
                           {s.companies?.name ?? s.scope_of_work ?? s.id}
                         </option>
                       ))}
-                    </select>
+                    </SearchableSelect>
                   </div>
                 </div>
               </div>

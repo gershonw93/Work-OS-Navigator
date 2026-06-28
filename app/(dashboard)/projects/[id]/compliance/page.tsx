@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -366,7 +367,7 @@ function UploadForm({
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
                 <Label className="text-xs">Entity Type</Label>
-                <select className="h-8 w-full rounded-md border border-muted2 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-accent"
+                <SearchableSelect className="h-8 w-full rounded-md border border-muted2 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-accent"
                   value={entityType} onChange={e => setEntityType(e.target.value)}>
                   <option value="">Select…</option>
                   <option value="individual">Individual / Sole Prop</option>
@@ -374,7 +375,7 @@ function UploadForm({
                   <option value="corporation">Corporation</option>
                   <option value="partnership">Partnership</option>
                   <option value="other">Other</option>
-                </select>
+                </SearchableSelect>
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">EIN (last 4)</Label>
