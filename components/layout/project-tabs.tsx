@@ -9,7 +9,7 @@ import {
   FileText, Users, Calendar, CheckSquare, TrendingUp, BookOpen,
   MessageSquare, Receipt, DollarSign, GitPullRequest, Shield,
   ClipboardCheck, FileCheck, BarChart2, X, LayoutGrid,
-  Wrench,
+  Wrench, Wallet,
 } from 'lucide-react'
 
 const groups = [
@@ -41,6 +41,7 @@ const groups = [
     bg: 'bg-emerald-50',
     tabs: [
       { label: 'Invoices', slug: 'invoices', icon: Receipt },
+      { label: 'Budget', slug: 'budget', icon: Wallet },
       { label: 'Financials', slug: 'financials', icon: DollarSign },
       { label: 'Change Orders', slug: 'change-orders', icon: GitPullRequest },
     ],
