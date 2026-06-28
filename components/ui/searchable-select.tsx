@@ -48,12 +48,14 @@ function optionsFromChildren(children: ReactNode): SelectOption[] {
     if (!isValidElement(child)) return
     if (child.type === 'option') {
       const p: any = child.props
-      const label = typeof p.children === 'string'
+      const label = (typeof p.children === 'string'
         ? p.children
         : Array.isArray(p.children)
           ? p.children.filter((c: any) => typeof c === 'string').join('')
-          : String(p.children ?? '')
-      out.push({ value: String(p.value ?? ''), label: label.trim(), disabled: p.disabled })
+          : String(p.children ?? '')).trim()
+      // Native <option> uses its text as the value when value is omitted.
+      const value = p.value !== undefined && p.value !== null ? String(p.value) : label
+      out.push({ value, label, disabled: p.disabled })
     } else if (child.props && (child.props as any).children) {
       out.push(...optionsFromChildren((child.props as any).children))
     }
