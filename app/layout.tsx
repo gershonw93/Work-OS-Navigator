@@ -27,10 +27,25 @@ const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL ||
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
 
+const description =
+  'Construction project management built for the field — permits, daily logs, RFIs, invoices, and compliance.'
+
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: 'SyteNav',
-  description: 'Construction project management built for the field — permits, daily logs, RFIs, invoices, and compliance.',
+  description,
+  openGraph: {
+    type: 'website',
+    siteName: 'SyteNav',
+    title: 'SyteNav',
+    description,
+    url: siteUrl,
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'SyteNav',
+    description,
+  },
 }
 
 // Set the theme class before paint to avoid a flash of the wrong mode.
