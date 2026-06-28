@@ -1,5 +1,10 @@
 import type { Config } from 'tailwindcss'
 
+// SyteNav — "Field" brand direction.
+// One accent system, two surface modes (light + dark). Colors are driven by
+// CSS variables defined in globals.css so every token flips with the theme.
+const v = (name: string) => `rgb(var(${name}) / <alpha-value>)`
+
 const config: Config = {
   darkMode: 'class',
   content: [
@@ -10,28 +15,34 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        brand: {
-          orange: {
-            50: '#fff7ed',
-            100: '#ffedd5',
-            200: '#fed7aa',
-            300: '#fdba74',
-            400: '#fb923c',
-            500: '#f97316',
-            600: '#ea6a0a',
-            700: '#c2410c',
-            800: '#9a3412',
-            900: '#7c2d12',
-          },
-          slate: {
-            850: '#1a2236',
-            900: '#0f172a',
-            950: '#020617',
-          },
-        },
+        // Surfaces
+        surface: v('--surface'),       // page background (Pit / Paper)
+        panel: v('--panel'),           // cards
+        muted: v('--muted'),           // subtle fills
+        muted2: v('--muted2'),         // stronger fills
+        line: v('--line'),             // borders
+        'line-soft': v('--line-soft'), // hairline borders
+        // Text
+        ink: v('--ink'),               // primary text
+        'ink-soft': v('--ink-soft'),   // secondary headings
+        'muted-fg': v('--muted-fg'),   // body / labels
+        faint: v('--faint'),           // hints / disabled
+        // Accent (Hi-Vis Lime) — fill stays lime in both modes, fg darkens in light
+        accent: v('--accent'),
+        'accent-fg': v('--accent-fg'),
+        'accent-ink': v('--accent-ink'),
+        'accent-tint': v('--accent-tint'),
+        // Status
+        success: v('--success'), 'success-tint': v('--success-tint'), 'success-solid': v('--success-solid'),
+        danger: v('--danger'), 'danger-tint': v('--danger-tint'), 'danger-solid': v('--danger-solid'),
+        warn: v('--warn'), 'warn-tint': v('--warn-tint'), 'warn-solid': v('--warn-solid'),
+        info: v('--info'), 'info-tint': v('--info-tint'), 'info-solid': v('--info-solid'),
+        special: v('--special'), 'special-tint': v('--special-tint'),
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['var(--font-archivo)', 'Archivo', 'system-ui', 'sans-serif'],
+        display: ['var(--font-saira)', '"Saira Condensed"', 'system-ui', 'sans-serif'],
+        mono: ['var(--font-space-mono)', '"Space Mono"', 'ui-monospace', 'monospace'],
       },
     },
   },

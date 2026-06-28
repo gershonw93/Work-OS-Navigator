@@ -49,7 +49,7 @@ function ResetPasswordForm() {
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-white">{isInvite ? 'Welcome! Set your password' : 'Reset password'}</h1>
-        <p className="mt-1 text-sm text-slate-400">
+        <p className="mt-1 text-sm text-faint">
           {isInvite
             ? 'Create a password to activate your account'
             : 'Enter your new password below'}
@@ -58,12 +58,12 @@ function ResetPasswordForm() {
 
       {success ? (
         <div className="rounded-md bg-green-900/40 border border-green-700 px-4 py-3">
-          <p className="text-sm text-green-400">Password updated! Redirecting…</p>
+          <p className="text-sm text-success">Password updated! Redirecting…</p>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="password" className="text-slate-300">
+            <Label htmlFor="password" className="text-faint">
               New Password
             </Label>
             <Input
@@ -74,12 +74,12 @@ function ResetPasswordForm() {
               onChange={(e) => setPassword(e.target.value)}
               required
               autoComplete="new-password"
-              className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-500 focus:border-orange-500"
+              className="bg-slate-700 border-slate-600 text-white placeholder:text-muted-fg focus:border-accent"
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="confirmPassword" className="text-slate-300">
+            <Label htmlFor="confirmPassword" className="text-faint">
               Confirm Password
             </Label>
             <Input
@@ -90,13 +90,13 @@ function ResetPasswordForm() {
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
               autoComplete="new-password"
-              className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-500 focus:border-orange-500"
+              className="bg-slate-700 border-slate-600 text-white placeholder:text-muted-fg focus:border-accent"
             />
           </div>
 
           {error && (
             <div className="rounded-md bg-red-900/40 border border-red-700 px-4 py-2.5">
-              <p className="text-sm text-red-400">{error}</p>
+              <p className="text-sm text-danger">{error}</p>
             </div>
           )}
 

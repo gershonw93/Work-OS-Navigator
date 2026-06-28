@@ -9,15 +9,15 @@ import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 
 const MILESTONE_COLORS = [
-  { label: 'Blue',   value: 'blue',   bg: 'bg-blue-500',   light: 'bg-blue-100 text-blue-700 border-blue-200' },
-  { label: 'Green',  value: 'green',  bg: 'bg-green-500',  light: 'bg-green-100 text-green-700 border-green-200' },
-  { label: 'Purple', value: 'purple', bg: 'bg-purple-500', light: 'bg-purple-100 text-purple-700 border-purple-200' },
-  { label: 'Red',    value: 'red',    bg: 'bg-red-500',    light: 'bg-red-100 text-red-700 border-red-200' },
-  { label: 'Amber',  value: 'amber',  bg: 'bg-amber-500',  light: 'bg-amber-100 text-amber-700 border-amber-200' },
+  { label: 'Blue',   value: 'blue',   bg: 'bg-info-solid',   light: 'bg-info-tint text-info border-info/30' },
+  { label: 'Green',  value: 'green',  bg: 'bg-success-solid',  light: 'bg-success-tint text-success border-success/30' },
+  { label: 'Purple', value: 'purple', bg: 'bg-purple-500', light: 'bg-special-tint text-special border-special/30' },
+  { label: 'Red',    value: 'red',    bg: 'bg-danger-solid',    light: 'bg-danger-tint text-danger border-danger/30' },
+  { label: 'Amber',  value: 'amber',  bg: 'bg-warn-solid',  light: 'bg-warn-tint text-warn border-warn/30' },
 ]
 
-const SUB_BAR = 'bg-orange-500'
-const SUB_LIGHT = 'bg-orange-100 text-orange-700 border-orange-200'
+const SUB_BAR = 'bg-accent'
+const SUB_LIGHT = 'bg-accent-tint text-accent-fg border-accent/40'
 
 interface ScheduleItem {
   id: string
@@ -47,13 +47,13 @@ function getSubLabel(item: ScheduleItem) {
 function barColor(item: ScheduleItem) {
   if (item.subcontract_id) return SUB_BAR
   const c = MILESTONE_COLORS.find(c => c.value === item.color)
-  return c?.bg ?? 'bg-slate-400'
+  return c?.bg ?? 'bg-faint'
 }
 
 function lightColor(item: ScheduleItem) {
   if (item.subcontract_id) return SUB_LIGHT
   const c = MILESTONE_COLORS.find(c => c.value === item.color)
-  return c?.light ?? 'bg-slate-100 text-slate-700 border-slate-200'
+  return c?.light ?? 'bg-muted text-ink-soft border-line'
 }
 
 function daysBetween(a: string, b: string) {
@@ -222,24 +222,24 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
 
       {showAdd && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md min-w-0">
-            <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-900">Add Milestone</h2>
-              <button onClick={() => setShowAdd(false)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
+          <div className="bg-panel rounded-xl shadow-xl w-full max-w-md min-w-0">
+            <div className="px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-ink">Add Milestone</h2>
+              <button onClick={() => setShowAdd(false)} className="text-faint hover:text-muted-fg"><X className="h-5 w-5" /></button>
             </div>
             <form onSubmit={addItem}>
               <div className="px-4 sm:px-6 py-5 space-y-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="alabel">Label <span className="text-red-500">*</span></Label>
+                  <Label htmlFor="alabel">Label <span className="text-danger">*</span></Label>
                   <Input id="alabel" placeholder="e.g. Permits Approved" value={addLabel} onChange={e => setAddLabel(e.target.value)} required autoFocus />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label htmlFor="astart">Start Date <span className="text-red-500">*</span></Label>
+                    <Label htmlFor="astart">Start Date <span className="text-danger">*</span></Label>
                     <Input id="astart" type="date" value={addStart} onChange={e => setAddStart(e.target.value)} required />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="aend">End Date <span className="text-red-500">*</span></Label>
+                    <Label htmlFor="aend">End Date <span className="text-danger">*</span></Label>
                     <Input id="aend" type="date" value={addEnd} onChange={e => setAddEnd(e.target.value)} required />
                   </div>
                 </div>
@@ -248,12 +248,12 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                   <div className="flex gap-2">
                     {MILESTONE_COLORS.map(c => (
                       <button key={c.value} type="button" onClick={() => setAddColor(c.value)}
-                        className={cn('h-7 w-7 rounded-full transition-all', c.bg, addColor === c.value ? 'ring-2 ring-offset-2 ring-slate-400 scale-110' : 'opacity-60 hover:opacity-100')} />
+                        className={cn('h-7 w-7 rounded-full transition-all', c.bg, addColor === c.value ? 'ring-2 ring-offset-2 ring-muted2 scale-110' : 'opacity-60 hover:opacity-100')} />
                     ))}
                   </div>
                 </div>
               </div>
-              <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex flex-wrap gap-2 justify-end">
+              <div className="px-4 sm:px-6 py-4 border-t border-line-soft flex flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => setShowAdd(false)}>Cancel</Button>
                 <Button type="submit" disabled={addSaving || !addLabel || !addStart || !addEnd}>
                   {addSaving ? 'Adding...' : 'Add Milestone'}
@@ -266,10 +266,10 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
 
       {editItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md min-w-0">
-            <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-900">Edit Item</h2>
-              <button onClick={() => setEditItem(null)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
+          <div className="bg-panel rounded-xl shadow-xl w-full max-w-md min-w-0">
+            <div className="px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-ink">Edit Item</h2>
+              <button onClick={() => setEditItem(null)} className="text-faint hover:text-muted-fg"><X className="h-5 w-5" /></button>
             </div>
             <form onSubmit={saveEdit}>
               <div className="px-4 sm:px-6 py-5 space-y-4">
@@ -293,15 +293,15 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                     <div className="flex gap-2">
                       {MILESTONE_COLORS.map(c => (
                         <button key={c.value} type="button" onClick={() => setEditColor(c.value)}
-                          className={cn('h-7 w-7 rounded-full transition-all', c.bg, editColor === c.value ? 'ring-2 ring-offset-2 ring-slate-400 scale-110' : 'opacity-60 hover:opacity-100')} />
+                          className={cn('h-7 w-7 rounded-full transition-all', c.bg, editColor === c.value ? 'ring-2 ring-offset-2 ring-muted2 scale-110' : 'opacity-60 hover:opacity-100')} />
                       ))}
                     </div>
                   </div>
                 )}
               </div>
-              <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex flex-wrap items-center gap-2 justify-between">
+              <div className="px-4 sm:px-6 py-4 border-t border-line-soft flex flex-wrap items-center gap-2 justify-between">
                 <button type="button" onClick={() => { deleteItem(editItem.id); setEditItem(null) }}
-                  className="flex items-center gap-1.5 text-sm text-red-500 hover:text-red-700">
+                  className="flex items-center gap-1.5 text-sm text-danger hover:text-danger">
                   <Trash2 className="h-3.5 w-3.5" /> Delete
                 </button>
                 <div className="flex flex-wrap gap-2 justify-end">
@@ -316,34 +316,34 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
 
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Schedule</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Auto-populated from awarded bids. Add milestones manually.</p>
+          <h1 className="text-2xl font-bold text-ink">Schedule</h1>
+          <p className="text-sm text-muted-fg mt-0.5">Auto-populated from awarded bids. Add milestones manually.</p>
         </div>
         <Button onClick={() => setShowAdd(true)} className="self-start sm:self-auto"><Plus className="h-4 w-4" />Add Milestone</Button>
       </div>
 
       {unscheduled.length > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
+        <div className="bg-warn-tint border border-warn/30 rounded-xl p-4 space-y-3">
           <div className="flex items-center gap-2">
-            <Building2 className="h-4 w-4 text-amber-500" />
-            <span className="text-sm font-semibold text-amber-800">
+            <Building2 className="h-4 w-4 text-warn" />
+            <span className="text-sm font-semibold text-warn">
               {unscheduled.length} subcontractor{unscheduled.length > 1 ? 's' : ''} not yet scheduled
             </span>
           </div>
           <div className="space-y-2">
             {unscheduled.map(sub => (
-              <div key={sub.id} className="flex flex-wrap items-center gap-3 bg-white rounded-lg border border-amber-100 px-3 py-2">
+              <div key={sub.id} className="flex flex-wrap items-center gap-3 bg-panel rounded-lg border border-amber-100 px-3 py-2">
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-800">{sub.companies?.name ?? 'Unknown'}</p>
-                  <p className="text-xs text-slate-400 truncate">{sub.trade ? `${sub.trade} · ` : ''}{sub.scope}</p>
+                  <p className="text-sm font-medium text-ink-soft">{sub.companies?.name ?? 'Unknown'}</p>
+                  <p className="text-xs text-faint truncate">{sub.trade ? `${sub.trade} · ` : ''}{sub.scope}</p>
                 </div>
                 {schedulingSubId === sub.id ? (
                   <form onSubmit={scheduleSubcontract} className="flex items-center gap-2 flex-wrap">
                     <Input type="date" className="w-36 h-8 text-xs" value={schedStart} onChange={e => setSchedStart(e.target.value)} required />
-                    <span className="text-slate-400 text-xs">to</span>
+                    <span className="text-faint text-xs">to</span>
                     <Input type="date" className="w-36 h-8 text-xs" value={schedEnd} onChange={e => setSchedEnd(e.target.value)} required />
                     <Button size="sm" type="submit" disabled={schedSaving} className="h-8">{schedSaving ? 'Saving…' : 'Add'}</Button>
-                    <button type="button" onClick={() => setSchedulingSubId(null)} className="text-slate-400 hover:text-slate-600"><X className="h-4 w-4" /></button>
+                    <button type="button" onClick={() => setSchedulingSubId(null)} className="text-faint hover:text-muted-fg"><X className="h-4 w-4" /></button>
                   </form>
                 ) : (
                   <Button size="sm" variant="secondary" className="h-8 shrink-0" onClick={() => { setSchedulingSubId(sub.id); setSchedStart(''); setSchedEnd('') }}>
@@ -357,46 +357,46 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
       )}
 
       {loading ? (
-        <div className="text-sm text-slate-400 py-12 text-center">Loading...</div>
+        <div className="text-sm text-faint py-12 text-center">Loading...</div>
       ) : items.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-200 py-16 text-center">
-          <CalendarDays className="h-10 w-10 text-slate-200 mx-auto mb-3" />
-          <p className="text-sm font-medium text-slate-500">No schedule yet</p>
-          <p className="text-xs text-slate-400 mt-1 mb-4">Add subcontractors with dates on the Team tab, or add milestones manually.</p>
+        <div className="rounded-xl border border-dashed border-line py-16 text-center">
+          <CalendarDays className="h-10 w-10 text-faint mx-auto mb-3" />
+          <p className="text-sm font-medium text-muted-fg">No schedule yet</p>
+          <p className="text-xs text-faint mt-1 mb-4">Add subcontractors with dates on the Team tab, or add milestones manually.</p>
           <Button size="sm" onClick={() => setShowAdd(true)}><Plus className="h-4 w-4" />Add Milestone</Button>
         </div>
       ) : (
         <div className="space-y-5">
 
           {/* Gantt */}
-          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden min-w-0">
-            <div className="px-5 py-3 border-b border-slate-100 flex items-center gap-2 flex-wrap">
-              <CalendarDays className="h-4 w-4 text-slate-400" />
-              <span className="text-sm font-semibold text-slate-700">Timeline</span>
-              <span className="text-xs text-slate-400 ml-1">{formatDateFull(minDate)} — {formatDateFull(maxDate)}</span>
+          <div className="bg-panel rounded-xl border border-line overflow-hidden min-w-0">
+            <div className="px-5 py-3 border-b border-line-soft flex items-center gap-2 flex-wrap">
+              <CalendarDays className="h-4 w-4 text-faint" />
+              <span className="text-sm font-semibold text-ink-soft">Timeline</span>
+              <span className="text-xs text-faint ml-1">{formatDateFull(minDate)} — {formatDateFull(maxDate)}</span>
             </div>
             <div className="overflow-x-auto">
               <div style={{ minWidth: Math.max(700, totalDays * 18) + 220 }}>
-                <div className="flex border-b border-slate-100" style={{ paddingLeft: 220 }}>
+                <div className="flex border-b border-line-soft" style={{ paddingLeft: 220 }}>
                   {months.map((m, i) => (
-                    <div key={i} className="text-xs font-medium text-slate-400 px-2 py-2 border-r border-slate-100 shrink-0" style={{ width: m.days * 18 }}>
+                    <div key={i} className="text-xs font-medium text-faint px-2 py-2 border-r border-line-soft shrink-0" style={{ width: m.days * 18 }}>
                       {m.label}
                     </div>
                   ))}
                 </div>
-                <div className="divide-y divide-slate-50">
+                <div className="divide-y divide-line-soft">
                   {sorted.map(item => {
                     const offsetDays = daysBetween(minDate, item.start_date)
                     const spanDays = daysBetween(item.start_date, item.end_date) + 1
                     return (
-                      <div key={item.id} className="flex items-center hover:bg-slate-50 group">
+                      <div key={item.id} className="flex items-center hover:bg-surface group">
                         <div className="w-[220px] shrink-0 px-4 py-2.5 flex items-center gap-2.5">
-                          <div className={cn('h-6 w-6 rounded flex items-center justify-center shrink-0', item.subcontract_id ? 'bg-orange-100' : 'bg-slate-100')}>
-                            {item.subcontract_id ? <Building2 className="h-3.5 w-3.5 text-orange-500" /> : <Flag className="h-3.5 w-3.5 text-slate-400" />}
+                          <div className={cn('h-6 w-6 rounded flex items-center justify-center shrink-0', item.subcontract_id ? 'bg-accent-tint' : 'bg-muted')}>
+                            {item.subcontract_id ? <Building2 className="h-3.5 w-3.5 text-accent-fg" /> : <Flag className="h-3.5 w-3.5 text-faint" />}
                           </div>
                           <div className="min-w-0">
-                            <p className="text-xs font-semibold text-slate-800 truncate">{getLabel(item)}</p>
-                            {getSubLabel(item) && <p className="text-xs text-slate-400 truncate">{getSubLabel(item)}</p>}
+                            <p className="text-xs font-semibold text-ink-soft truncate">{getLabel(item)}</p>
+                            {getSubLabel(item) && <p className="text-xs text-faint truncate">{getSubLabel(item)}</p>}
                           </div>
                         </div>
                         <div className="flex-1 relative py-2.5 pr-4" style={{ paddingLeft: Math.max(0, offsetDays - 1) * 18 }}>
@@ -409,7 +409,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                           </div>
                         </div>
                         <div className="pr-3 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                          <button onClick={() => openEdit(item)} className="text-slate-400 hover:text-slate-600 p-1 rounded">
+                          <button onClick={() => openEdit(item)} className="text-faint hover:text-muted-fg p-1 rounded">
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
                         </div>
@@ -422,12 +422,12 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
           </div>
 
           {/* List */}
-          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-            <div className="px-5 py-3 border-b border-slate-100">
-              <span className="text-sm font-semibold text-slate-700">All Items</span>
+          <div className="bg-panel rounded-xl border border-line overflow-hidden">
+            <div className="px-5 py-3 border-b border-line-soft">
+              <span className="text-sm font-semibold text-ink-soft">All Items</span>
             </div>
             {/* Mobile card list */}
-            <div className="md:hidden divide-y divide-slate-100">
+            <div className="md:hidden divide-y divide-line-soft">
               {sorted.map(item => {
                 const duration = daysBetween(item.start_date, item.end_date) + 1
                 return (
@@ -436,20 +436,20 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                       <div className="flex items-center gap-2 min-w-0">
                         <span className={cn('h-2 w-2 rounded-full shrink-0', barColor(item))} />
                         <div className="min-w-0">
-                          <p className="font-medium text-slate-800 truncate">{getLabel(item)}</p>
-                          {getSubLabel(item) && <p className="text-xs text-slate-400 truncate">{getSubLabel(item)}</p>}
+                          <p className="font-medium text-ink-soft truncate">{getLabel(item)}</p>
+                          {getSubLabel(item) && <p className="text-xs text-faint truncate">{getSubLabel(item)}</p>}
                         </div>
                       </div>
-                      <button onClick={() => openEdit(item)} className="text-slate-400 hover:text-slate-600 p-1 rounded shrink-0">
+                      <button onClick={() => openEdit(item)} className="text-faint hover:text-muted-fg p-1 rounded shrink-0">
                         <Pencil className="h-3.5 w-3.5" />
                       </button>
                     </div>
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-fg">
                       <span className={cn('text-xs font-medium px-2 py-0.5 rounded-full border', lightColor(item))}>
                         {item.subcontract_id ? 'Sub Work' : 'Milestone'}
                       </span>
                       <span>{formatDate(item.start_date)} – {formatDate(item.end_date)}</span>
-                      <span className="text-slate-400">{duration} day{duration !== 1 ? 's' : ''}</span>
+                      <span className="text-faint">{duration} day{duration !== 1 ? 's' : ''}</span>
                     </div>
                   </div>
                 )
@@ -458,38 +458,38 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
 
             {/* Desktop table */}
             <table className="w-full text-sm hidden md:table">
-              <thead className="bg-slate-50 border-b border-slate-100">
+              <thead className="bg-surface border-b border-line-soft">
                 <tr>
-                  <th className="text-left px-5 py-3 font-medium text-slate-600">Item</th>
-                  <th className="text-left px-5 py-3 font-medium text-slate-600">Type</th>
-                  <th className="text-left px-5 py-3 font-medium text-slate-600">Start</th>
-                  <th className="text-left px-5 py-3 font-medium text-slate-600">End</th>
-                  <th className="text-left px-5 py-3 font-medium text-slate-600">Duration</th>
+                  <th className="text-left px-5 py-3 font-medium text-muted-fg">Item</th>
+                  <th className="text-left px-5 py-3 font-medium text-muted-fg">Type</th>
+                  <th className="text-left px-5 py-3 font-medium text-muted-fg">Start</th>
+                  <th className="text-left px-5 py-3 font-medium text-muted-fg">End</th>
+                  <th className="text-left px-5 py-3 font-medium text-muted-fg">Duration</th>
                   <th className="px-5 py-3" />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50">
+              <tbody className="divide-y divide-line-soft">
                 {sorted.map(item => {
                   const duration = daysBetween(item.start_date, item.end_date) + 1
                   return (
-                    <tr key={item.id} className="hover:bg-slate-50">
+                    <tr key={item.id} className="hover:bg-surface">
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-2">
                           <span className={cn('h-2 w-2 rounded-full shrink-0', barColor(item))} />
-                          <span className="font-medium text-slate-800">{getLabel(item)}</span>
+                          <span className="font-medium text-ink-soft">{getLabel(item)}</span>
                         </div>
-                        {getSubLabel(item) && <p className="text-xs text-slate-400 ml-4 mt-0.5">{getSubLabel(item)}</p>}
+                        {getSubLabel(item) && <p className="text-xs text-faint ml-4 mt-0.5">{getSubLabel(item)}</p>}
                       </td>
                       <td className="px-5 py-3">
                         <span className={cn('text-xs font-medium px-2 py-0.5 rounded-full border', lightColor(item))}>
                           {item.subcontract_id ? 'Sub Work' : 'Milestone'}
                         </span>
                       </td>
-                      <td className="px-5 py-3 text-slate-600">{formatDate(item.start_date)}</td>
-                      <td className="px-5 py-3 text-slate-600">{formatDate(item.end_date)}</td>
-                      <td className="px-5 py-3 text-slate-600">{duration} day{duration !== 1 ? 's' : ''}</td>
+                      <td className="px-5 py-3 text-muted-fg">{formatDate(item.start_date)}</td>
+                      <td className="px-5 py-3 text-muted-fg">{formatDate(item.end_date)}</td>
+                      <td className="px-5 py-3 text-muted-fg">{duration} day{duration !== 1 ? 's' : ''}</td>
                       <td className="px-5 py-3 text-right">
-                        <button onClick={() => openEdit(item)} className="text-slate-400 hover:text-slate-600 p-1 rounded">
+                        <button onClick={() => openEdit(item)} className="text-faint hover:text-muted-fg p-1 rounded">
                           <Pencil className="h-3.5 w-3.5" />
                         </button>
                       </td>

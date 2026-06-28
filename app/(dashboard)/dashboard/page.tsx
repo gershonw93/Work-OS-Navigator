@@ -170,7 +170,7 @@ export default function DashboardPage() {
 
       {/* New Bid Banner */}
       {newBidNotifications.length > 0 && (
-        <div className="rounded-xl bg-orange-500 text-white px-4 sm:px-5 py-4 flex items-start sm:items-center justify-between gap-4">
+        <div className="rounded-xl bg-accent text-accent-ink px-4 sm:px-5 py-4 flex items-start sm:items-center justify-between gap-4">
           <div className="flex items-start sm:items-center gap-3 min-w-0">
             <Package className="h-5 w-5 shrink-0" />
             <div>
@@ -179,7 +179,7 @@ export default function DashboardPage() {
                   ? 'You have a new bid invitation'
                   : `You have ${newBidNotifications.length} new bid invitations`}
               </p>
-              <p className="text-sm text-orange-100 mt-0.5 line-clamp-1">
+              <p className="text-sm text-accent-ink/80 mt-0.5 line-clamp-1">
                 {newBidNotifications[0].message}
               </p>
             </div>
@@ -187,7 +187,7 @@ export default function DashboardPage() {
           <div className="flex items-center gap-3 shrink-0">
             <button
               onClick={dismissBidBanners}
-              className="text-sm text-orange-200 hover:text-white transition-colors"
+              className="text-sm text-accent-ink/70 hover:text-accent-ink transition-colors"
             >
               Dismiss
             </button>
@@ -197,8 +197,8 @@ export default function DashboardPage() {
 
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
-        <p className="text-sm text-slate-500 mt-0.5">
+        <h1 className="text-2xl font-bold text-ink">Dashboard</h1>
+        <p className="text-sm text-muted-fg mt-0.5">
           {isSub
             ? "Welcome back. Here's a summary of your active jobs and financials."
             : "Welcome back. Here's what's happening across your projects."}
@@ -208,21 +208,21 @@ export default function DashboardPage() {
       {/* Stat cards */}
       {stats?.isSub ? (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
-          <StatCard label="Active Jobs" value={v((stats as SubStats).activeJobs)} icon={Briefcase} iconColor="text-orange-500" />
+          <StatCard label="Active Jobs" value={v((stats as SubStats).activeJobs)} icon={Briefcase} iconColor="text-accent-fg" />
           <StatCard label="Pending Invoices" value={v((stats as SubStats).pendingInvoices)} icon={FileText} iconColor="text-yellow-500" />
-          <StatCard label="Paid This Month" value={money((stats as SubStats).paidThisMonth)} icon={Receipt} iconColor="text-green-500" />
-          <StatCard label="Open RFIs" value={v((stats as SubStats).openRfis)} icon={MessageSquare} iconColor="text-blue-500" />
-          <StatCard label="Expiring Docs" value={v((stats as SubStats).expiringCompliance)} icon={ShieldAlert} iconColor="text-red-500" />
-          <StatCard label="Contract Value" value={money((stats as SubStats).totalContractValue)} icon={DollarSign} iconColor="text-slate-500" />
+          <StatCard label="Paid This Month" value={money((stats as SubStats).paidThisMonth)} icon={Receipt} iconColor="text-success" />
+          <StatCard label="Open RFIs" value={v((stats as SubStats).openRfis)} icon={MessageSquare} iconColor="text-info" />
+          <StatCard label="Expiring Docs" value={v((stats as SubStats).expiringCompliance)} icon={ShieldAlert} iconColor="text-danger" />
+          <StatCard label="Contract Value" value={money((stats as SubStats).totalContractValue)} icon={DollarSign} iconColor="text-muted-fg" />
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
-          <StatCard label="Projects" value={v((stats as GcStats | null)?.activeProjects)} icon={FolderKanban} iconColor="text-orange-500" />
-          <StatCard label="Open RFIs" value={v((stats as GcStats | null)?.openRfis)} icon={MessageSquare} iconColor="text-blue-500" />
+          <StatCard label="Projects" value={v((stats as GcStats | null)?.activeProjects)} icon={FolderKanban} iconColor="text-accent-fg" />
+          <StatCard label="Open RFIs" value={v((stats as GcStats | null)?.openRfis)} icon={MessageSquare} iconColor="text-info" />
           <StatCard label="Pending Approvals" value={v((stats as GcStats | null)?.pendingApprovals)} icon={AlertCircle} iconColor="text-yellow-500" />
           <StatCard label="Open Tasks" value={v((stats as GcStats | null)?.openTasks)} icon={CheckSquare} iconColor="text-purple-500" />
-          <StatCard label="Expiring Compliance" value={v((stats as GcStats | null)?.expiringCompliance)} icon={ShieldAlert} iconColor="text-red-500" />
-          <StatCard label="Total Under Contract" value={money((stats as GcStats | null)?.totalContractValue)} icon={DollarSign} iconColor="text-green-500" />
+          <StatCard label="Expiring Compliance" value={v((stats as GcStats | null)?.expiringCompliance)} icon={ShieldAlert} iconColor="text-danger" />
+          <StatCard label="Total Under Contract" value={money((stats as GcStats | null)?.totalContractValue)} icon={DollarSign} iconColor="text-success" />
         </div>
       )}
 
@@ -237,7 +237,7 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent className="p-0">
               {loading ? (
-                <div className="py-10 text-center text-sm text-slate-400">Loading...</div>
+                <div className="py-10 text-center text-sm text-faint">Loading...</div>
               ) : projects.length === 0 ? (
                 <EmptyState
                   icon={FolderKanban}
@@ -248,38 +248,38 @@ export default function DashboardPage() {
               ) : (
                 <>
                 {/* Mobile */}
-                <div className="md:hidden divide-y divide-slate-100">
+                <div className="md:hidden divide-y divide-line-soft">
                   {projects.slice(0, 5).map(p => (
-                    <Link key={p.id} href={`/projects/${p.id}/plans`} className="block p-4 hover:bg-slate-50 transition-colors">
+                    <Link key={p.id} href={`/projects/${p.id}/plans`} className="block p-4 hover:bg-surface transition-colors">
                       <div className="flex items-start justify-between gap-2">
-                        <span className="font-medium text-slate-900">{p.name}</span>
+                        <span className="font-medium text-ink">{p.name}</span>
                         <Badge variant={getStatusVariant(p.status)}>{p.status.replace('_', ' ')}</Badge>
                       </div>
-                      <p className="mt-1 text-xs text-slate-500">{new Date(p.start_date).toLocaleDateString()}</p>
+                      <p className="mt-1 text-xs text-muted-fg">{new Date(p.start_date).toLocaleDateString()}</p>
                     </Link>
                   ))}
                 </div>
                 {/* Desktop */}
                 <table className="w-full text-sm hidden md:table">
-                  <thead className="bg-slate-50 border-b border-slate-200">
+                  <thead className="bg-surface border-b border-line">
                     <tr>
-                      <th className="text-left px-5 py-3 font-medium text-slate-600">Name</th>
-                      <th className="text-left px-5 py-3 font-medium text-slate-600">Status</th>
-                      <th className="text-left px-5 py-3 font-medium text-slate-600">Start Date</th>
+                      <th className="text-left px-5 py-3 font-medium text-muted-fg">Name</th>
+                      <th className="text-left px-5 py-3 font-medium text-muted-fg">Status</th>
+                      <th className="text-left px-5 py-3 font-medium text-muted-fg">Start Date</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-line-soft">
                     {projects.slice(0, 5).map(p => (
-                      <tr key={p.id} className="hover:bg-slate-50">
+                      <tr key={p.id} className="hover:bg-surface">
                         <td className="px-5 py-3">
-                          <Link href={`/projects/${p.id}/plans`} className="font-medium text-slate-900 hover:text-orange-600 transition-colors">
+                          <Link href={`/projects/${p.id}/plans`} className="font-medium text-ink hover:text-accent-fg transition-colors">
                             {p.name}
                           </Link>
                         </td>
                         <td className="px-5 py-3">
                           <Badge variant={getStatusVariant(p.status)}>{p.status.replace('_', ' ')}</Badge>
                         </td>
-                        <td className="px-5 py-3 text-slate-500">{new Date(p.start_date).toLocaleDateString()}</td>
+                        <td className="px-5 py-3 text-muted-fg">{new Date(p.start_date).toLocaleDateString()}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -296,41 +296,41 @@ export default function DashboardPage() {
             <CardHeader className="flex flex-row items-center justify-between pb-3">
               <CardTitle>Recent Activity</CardTitle>
               {activityIsAdmin && (
-                <span className="text-xs bg-orange-100 text-orange-600 font-medium px-2 py-0.5 rounded-full">All users</span>
+                <span className="text-xs bg-accent-tint text-accent-fg font-medium px-2 py-0.5 rounded-full">All users</span>
               )}
             </CardHeader>
             <CardContent className="p-0">
               {loading ? (
-                <div className="py-10 text-center text-sm text-slate-400">Loading...</div>
+                <div className="py-10 text-center text-sm text-faint">Loading...</div>
               ) : activity.length === 0 ? (
-                <div className="py-10 text-center text-sm text-slate-400">No activity yet</div>
+                <div className="py-10 text-center text-sm text-faint">No activity yet</div>
               ) : (
-                <div className="divide-y divide-slate-100 max-h-[440px] overflow-y-auto">
+                <div className="divide-y divide-line-soft max-h-[440px] overflow-y-auto">
                   {activity.map(item => {
                     const Icon = getActivityIcon(item.type)
                     return (
-                      <div key={item.id} className="flex items-start gap-3 px-4 py-3 hover:bg-slate-50 transition-colors">
-                        <div className="mt-0.5 h-7 w-7 rounded-full bg-orange-50 flex items-center justify-center shrink-0">
-                          <Icon className="h-3.5 w-3.5 text-orange-500" />
+                      <div key={item.id} className="flex items-start gap-3 px-4 py-3 hover:bg-surface transition-colors">
+                        <div className="mt-0.5 h-7 w-7 rounded-full bg-accent-tint flex items-center justify-center shrink-0">
+                          <Icon className="h-3.5 w-3.5 text-accent-fg" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm text-slate-700 leading-snug line-clamp-2">{item.message}</p>
+                          <p className="text-sm text-ink-soft leading-snug line-clamp-2">{item.message}</p>
                           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                             {activityIsAdmin && item.actor_name && (
-                              <span className="text-xs font-medium text-slate-500">{item.actor_name}</span>
+                              <span className="text-xs font-medium text-muted-fg">{item.actor_name}</span>
                             )}
                             {item.projects?.name && (
                               <>
-                                {activityIsAdmin && <span className="text-xs text-slate-300">·</span>}
+                                {activityIsAdmin && <span className="text-xs text-faint">·</span>}
                                 <Link
                                   href={`/projects/${item.project_id}/plans`}
-                                  className="text-xs text-orange-600 hover:underline truncate max-w-[130px]"
+                                  className="text-xs text-accent-fg hover:underline truncate max-w-[130px]"
                                 >
                                   {item.projects.name}
                                 </Link>
                               </>
                             )}
-                            <span className="text-xs text-slate-400 ml-auto shrink-0">{timeAgo(item.created_at)}</span>
+                            <span className="text-xs text-faint ml-auto shrink-0">{timeAgo(item.created_at)}</span>
                           </div>
                         </div>
                       </div>

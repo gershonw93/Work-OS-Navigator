@@ -36,30 +36,30 @@ function getBreadcrumb(pathname: string): string {
   for (const [key, label] of Object.entries(sectionLabels)) {
     if (pathname.startsWith(key)) return label
   }
-  return 'WorkOS Navigator'
+  return 'SyteNav'
 }
 
 export function TopNav() {
   const pathname = usePathname()
 
   return (
-    <header className="flex h-14 items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-6">
+    <header className="flex h-14 items-center justify-between border-b border-line bg-panel px-4 sm:px-6">
       <div className="flex items-center gap-3">
         {/* Hamburger — mobile only */}
         <button
-          className="sm:hidden flex items-center justify-center w-8 h-8 rounded-md text-slate-600 hover:bg-slate-100 transition-colors"
+          className="sm:hidden flex items-center justify-center w-8 h-8 rounded-md text-muted-fg hover:bg-muted transition-colors"
           onClick={() => window.dispatchEvent(new Event(OPEN_SIDEBAR_EVENT))}
           aria-label="Open menu"
         >
           <Menu className="h-5 w-5" />
         </button>
-        <p className="text-sm font-medium text-slate-600">{getBreadcrumb(pathname)}</p>
+        <p className="text-sm font-medium text-muted-fg">{getBreadcrumb(pathname)}</p>
       </div>
       <div className="flex items-center gap-2">
         <ImpersonateSwitcher />
         <ViewAsSwitcher />
         <NotificationBell />
-        <button className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-200 text-slate-600 hover:bg-slate-300 transition-colors">
+        <button className="flex items-center justify-center w-8 h-8 rounded-full bg-muted2 text-muted-fg hover:bg-muted2 transition-colors">
           <User className="h-4 w-4" />
         </button>
       </div>

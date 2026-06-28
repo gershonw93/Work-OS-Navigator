@@ -12,13 +12,13 @@ import { EmptyState } from '@/components/ui/empty-state'
 type FilterTab = 'all' | 'invoices' | 'rfis'
 
 const STATUS_COLORS: Record<string, string> = {
-  pending_approval: 'bg-amber-50 border-amber-200 text-amber-700',
-  approved:         'bg-green-50 border-green-200 text-green-700',
-  rejected:         'bg-red-50 border-red-200 text-red-600',
-  paid:             'bg-green-50 border-green-200 text-green-700',
-  open:             'bg-orange-50 border-orange-200 text-orange-700',
-  closed:           'bg-slate-50 border-slate-200 text-slate-500',
-  pending:          'bg-amber-50 border-amber-200 text-amber-700',
+  pending_approval: 'bg-warn-tint border-warn/30 text-warn',
+  approved:         'bg-success-tint border-success/30 text-success',
+  rejected:         'bg-danger-tint border-danger/30 text-danger',
+  paid:             'bg-success-tint border-success/30 text-success',
+  open:             'bg-accent-tint border-accent/40 text-accent-fg',
+  closed:           'bg-surface border-line text-muted-fg',
+  pending:          'bg-warn-tint border-warn/30 text-warn',
 }
 
 function formatStatus(s: string) {
@@ -89,7 +89,7 @@ export default function ApprovalsPage() {
     return (
       <div className="p-4 sm:p-6">
         <PageHeader title="Approvals" subtitle="" />
-        <div className="py-16 text-center text-sm text-slate-400">Loading...</div>
+        <div className="py-16 text-center text-sm text-faint">Loading...</div>
       </div>
     )
   }
@@ -104,7 +104,7 @@ export default function ApprovalsPage() {
       />
 
       {/* Filter tabs */}
-      <div className="flex gap-1 border-b border-slate-200 overflow-x-auto">
+      <div className="flex gap-1 border-b border-line overflow-x-auto">
         {tabs.map(t => (
           <button
             key={t.key}
@@ -112,15 +112,15 @@ export default function ApprovalsPage() {
             className={cn(
               'flex items-center gap-1.5 shrink-0 whitespace-nowrap px-3 sm:px-4 py-2 text-sm font-medium transition-colors',
               filter === t.key
-                ? 'border-b-2 border-orange-500 text-orange-600 -mb-px'
-                : 'text-slate-500 hover:text-slate-900',
+                ? 'border-b-2 border-accent text-accent-fg -mb-px'
+                : 'text-muted-fg hover:text-ink',
             )}
           >
             {t.label}
             {t.count !== undefined && t.count > 0 && (
               <span className={cn(
                 'text-xs rounded-full px-1.5 py-0.5 font-semibold min-w-[18px] text-center',
-                filter === t.key ? 'bg-orange-100 text-orange-600' : 'bg-slate-100 text-slate-500',
+                filter === t.key ? 'bg-accent-tint text-accent-fg' : 'bg-muted text-muted-fg',
               )}>
                 {t.count}
               </span>
@@ -130,7 +130,7 @@ export default function ApprovalsPage() {
       </div>
 
       {error && (
-        <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-2.5 text-sm text-red-700">{error}</div>
+        <div className="rounded-lg bg-danger-tint border border-danger/30 px-4 py-2.5 text-sm text-danger">{error}</div>
       )}
 
       <Card>
@@ -146,15 +146,15 @@ export default function ApprovalsPage() {
           ) : (
             <>
               {/* Mobile card list */}
-              <div className="md:hidden divide-y divide-slate-100">
+              <div className="md:hidden divide-y divide-line-soft">
                 {filtered.map((item) => (
                   <div key={`${item.type}-${item.id}`} className="p-4 space-y-3">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2">
                         {item.type === 'invoice'
-                          ? <FileText className="h-4 w-4 text-blue-500" />
-                          : <MessageSquare className="h-4 w-4 text-orange-500" />}
-                        <span className="text-xs font-semibold text-slate-700">{item.label}</span>
+                          ? <FileText className="h-4 w-4 text-info" />
+                          : <MessageSquare className="h-4 w-4 text-accent-fg" />}
+                        <span className="text-xs font-semibold text-ink-soft">{item.label}</span>
                       </div>
                       <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5', STATUS_COLORS[item.status] ?? STATUS_COLORS.pending)}>
                         {formatStatus(item.status)}
@@ -162,18 +162,18 @@ export default function ApprovalsPage() {
                     </div>
 
                     <div>
-                      <p className="text-sm font-medium text-slate-800">{item.project ?? '—'}</p>
-                      {item.description && <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{item.description}</p>}
+                      <p className="text-sm font-medium text-ink-soft">{item.project ?? '—'}</p>
+                      {item.description && <p className="text-xs text-muted-fg mt-0.5 line-clamp-2">{item.description}</p>}
                       {!isSub && item.submitted_by && (
-                        <p className="text-xs text-slate-400 mt-0.5">From: {item.submitted_by}</p>
+                        <p className="text-xs text-faint mt-0.5">From: {item.submitted_by}</p>
                       )}
                       {item.amount != null && (
-                        <p className="text-sm font-semibold text-slate-700 mt-1 flex items-center gap-1">
-                          <DollarSign className="h-3.5 w-3.5 text-slate-400" />
+                        <p className="text-sm font-semibold text-ink-soft mt-1 flex items-center gap-1">
+                          <DollarSign className="h-3.5 w-3.5 text-faint" />
                           {Number(item.amount).toLocaleString()}
                         </p>
                       )}
-                      <p className="text-xs text-slate-400 mt-1">
+                      <p className="text-xs text-faint mt-1">
                         {new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                       </p>
                     </div>
@@ -184,7 +184,7 @@ export default function ApprovalsPage() {
                         <button
                           onClick={() => handleInvoiceAction(item, 'approved')}
                           disabled={acting === item.id}
-                          className="flex items-center gap-1.5 rounded-lg bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 transition-colors"
+                          className="flex items-center gap-1.5 rounded-lg bg-success-solid hover:bg-green-700 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 transition-colors"
                         >
                           <CheckCircle2 className="h-3.5 w-3.5" />
                           {acting === item.id ? '...' : 'Approve'}
@@ -192,7 +192,7 @@ export default function ApprovalsPage() {
                         <button
                           onClick={() => handleInvoiceAction(item, 'rejected')}
                           disabled={acting === item.id}
-                          className="flex items-center gap-1.5 rounded-lg bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 transition-colors"
+                          className="flex items-center gap-1.5 rounded-lg bg-danger-solid hover:bg-danger-solid disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 transition-colors"
                         >
                           <XCircle className="h-3.5 w-3.5" />
                           Reject
@@ -203,19 +203,19 @@ export default function ApprovalsPage() {
                     {!isSub && item.type === 'rfi' && (
                       <Link
                         href={`/projects/${item.project_id}/rfis`}
-                        className="inline-flex items-center gap-1.5 text-xs font-medium text-orange-600 hover:underline"
+                        className="inline-flex items-center gap-1.5 text-xs font-medium text-accent-fg hover:underline"
                       >
                         <ExternalLink className="h-3.5 w-3.5" /> View &amp; Respond
                       </Link>
                     )}
 
                     {isSub && item.type === 'rfi' && item.meta?.responded && (
-                      <div className="flex items-center gap-1 text-xs text-green-600 font-medium">
+                      <div className="flex items-center gap-1 text-xs text-success font-medium">
                         <CheckCircle2 className="h-3.5 w-3.5" /> GC Responded
                       </div>
                     )}
                     {isSub && item.type === 'rfi' && !item.meta?.responded && (
-                      <div className="flex items-center gap-1 text-xs text-slate-400">
+                      <div className="flex items-center gap-1 text-xs text-faint">
                         <Clock className="h-3.5 w-3.5" /> Awaiting GC response
                       </div>
                     )}
@@ -227,35 +227,35 @@ export default function ApprovalsPage() {
               <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-slate-100">
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Item</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Project</th>
-                      {!isSub && <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Submitted By</th>}
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Amount</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Date</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                    <tr className="border-b border-line-soft">
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-muted-fg uppercase tracking-wide">Item</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-muted-fg uppercase tracking-wide">Project</th>
+                      {!isSub && <th className="text-left px-4 py-3 text-xs font-semibold text-muted-fg uppercase tracking-wide">Submitted By</th>}
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-muted-fg uppercase tracking-wide">Amount</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-muted-fg uppercase tracking-wide">Status</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-muted-fg uppercase tracking-wide">Date</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-muted-fg uppercase tracking-wide">
                         {isSub ? 'Notes' : 'Actions'}
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-50">
+                  <tbody className="divide-y divide-line-soft">
                     {filtered.map((item) => (
-                      <tr key={`${item.type}-${item.id}`} className="hover:bg-slate-50 transition-colors">
+                      <tr key={`${item.type}-${item.id}`} className="hover:bg-surface transition-colors">
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             {item.type === 'invoice'
-                              ? <FileText className="h-4 w-4 text-blue-400 shrink-0" />
-                              : <MessageSquare className="h-4 w-4 text-orange-400 shrink-0" />}
+                              ? <FileText className="h-4 w-4 text-info shrink-0" />
+                              : <MessageSquare className="h-4 w-4 text-accent-fg shrink-0" />}
                             <div>
-                              <p className="font-medium text-slate-800">{item.label}</p>
-                              {item.description && <p className="text-xs text-slate-400 mt-0.5 max-w-[200px] truncate">{item.description}</p>}
+                              <p className="font-medium text-ink-soft">{item.label}</p>
+                              {item.description && <p className="text-xs text-faint mt-0.5 max-w-[200px] truncate">{item.description}</p>}
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-slate-700">{item.project ?? '—'}</td>
-                        {!isSub && <td className="px-4 py-3 text-slate-500">{item.submitted_by ?? '—'}</td>}
-                        <td className="px-4 py-3 font-semibold text-slate-800">
+                        <td className="px-4 py-3 text-ink-soft">{item.project ?? '—'}</td>
+                        {!isSub && <td className="px-4 py-3 text-muted-fg">{item.submitted_by ?? '—'}</td>}
+                        <td className="px-4 py-3 font-semibold text-ink-soft">
                           {item.amount != null ? `$${Number(item.amount).toLocaleString()}` : '—'}
                         </td>
                         <td className="px-4 py-3">
@@ -263,7 +263,7 @@ export default function ApprovalsPage() {
                             {formatStatus(item.status)}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                        <td className="px-4 py-3 text-muted-fg whitespace-nowrap">
                           {new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                         </td>
                         <td className="px-4 py-3">
@@ -272,7 +272,7 @@ export default function ApprovalsPage() {
                               <button
                                 onClick={() => handleInvoiceAction(item, 'approved')}
                                 disabled={acting === item.id}
-                                className="flex items-center gap-1 rounded-lg bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-xs font-semibold px-2.5 py-1.5 transition-colors"
+                                className="flex items-center gap-1 rounded-lg bg-success-solid hover:bg-green-700 disabled:opacity-50 text-white text-xs font-semibold px-2.5 py-1.5 transition-colors"
                               >
                                 <CheckCircle2 className="h-3.5 w-3.5" />
                                 {acting === item.id ? '...' : 'Approve'}
@@ -280,7 +280,7 @@ export default function ApprovalsPage() {
                               <button
                                 onClick={() => handleInvoiceAction(item, 'rejected')}
                                 disabled={acting === item.id}
-                                className="flex items-center gap-1 rounded-lg bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white text-xs font-semibold px-2.5 py-1.5 transition-colors"
+                                className="flex items-center gap-1 rounded-lg bg-danger-solid hover:bg-danger-solid disabled:opacity-50 text-white text-xs font-semibold px-2.5 py-1.5 transition-colors"
                               >
                                 <XCircle className="h-3.5 w-3.5" />
                                 Reject
@@ -290,23 +290,23 @@ export default function ApprovalsPage() {
                           {!isSub && item.type === 'rfi' && (
                             <Link
                               href={`/projects/${item.project_id}/rfis`}
-                              className="inline-flex items-center gap-1.5 text-xs font-medium text-orange-600 hover:underline"
+                              className="inline-flex items-center gap-1.5 text-xs font-medium text-accent-fg hover:underline"
                             >
                               <ExternalLink className="h-3.5 w-3.5" /> View &amp; Respond
                             </Link>
                           )}
                           {isSub && item.type === 'rfi' && item.meta?.responded && (
-                            <span className="text-xs text-green-600 font-medium flex items-center gap-1">
+                            <span className="text-xs text-success font-medium flex items-center gap-1">
                               <CheckCircle2 className="h-3.5 w-3.5" /> Responded
                             </span>
                           )}
                           {isSub && item.type === 'rfi' && !item.meta?.responded && (
-                            <span className="text-xs text-slate-400 flex items-center gap-1">
+                            <span className="text-xs text-faint flex items-center gap-1">
                               <Clock className="h-3.5 w-3.5" /> Awaiting response
                             </span>
                           )}
                           {isSub && item.type === 'invoice' && (
-                            <span className="text-xs text-slate-400">—</span>
+                            <span className="text-xs text-faint">—</span>
                           )}
                         </td>
                       </tr>

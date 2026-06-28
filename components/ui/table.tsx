@@ -14,14 +14,14 @@ export function Table({ className, ...props }: HTMLAttributes<HTMLTableElement>)
 
 export function TableHeader({ className, ...props }: HTMLAttributes<HTMLTableSectionElement>) {
   return (
-    <thead className={cn('[&_tr]:border-b [&_tr]:border-slate-200', className)} {...props} />
+    <thead className={cn('[&_tr]:border-b [&_tr]:border-line', className)} {...props} />
   )
 }
 
 export function TableBody({ className, ...props }: HTMLAttributes<HTMLTableSectionElement>) {
   return (
     <tbody
-      className={cn('[&_tr:last-child]:border-0 [&_tr]:border-b [&_tr]:border-slate-100', className)}
+      className={cn('[&_tr:last-child]:border-0 [&_tr]:border-b [&_tr]:border-line-soft', className)}
       {...props}
     />
   )
@@ -30,7 +30,7 @@ export function TableBody({ className, ...props }: HTMLAttributes<HTMLTableSecti
 export function TableRow({ className, ...props }: HTMLAttributes<HTMLTableRowElement>) {
   return (
     <tr
-      className={cn('transition-colors hover:bg-slate-50', className)}
+      className={cn('transition-colors hover:bg-surface', className)}
       {...props}
     />
   )
@@ -40,7 +40,7 @@ export function TableHead({ className, ...props }: ThHTMLAttributes<HTMLTableCel
   return (
     <th
       className={cn(
-        'h-11 px-4 text-left align-middle text-xs font-semibold text-slate-500 uppercase tracking-wide',
+        'h-11 px-4 text-left align-middle text-xs font-semibold text-muted-fg uppercase tracking-wide',
         '[&:has([role=checkbox])]:pr-0',
         className
       )}
@@ -52,7 +52,7 @@ export function TableHead({ className, ...props }: ThHTMLAttributes<HTMLTableCel
 export function TableCell({ className, ...props }: TdHTMLAttributes<HTMLTableCellElement>) {
   return (
     <td
-      className={cn('px-4 py-3 align-middle text-sm text-slate-700 [&:has([role=checkbox])]:pr-0', className)}
+      className={cn('px-4 py-3 align-middle text-sm text-ink-soft [&:has([role=checkbox])]:pr-0', className)}
       {...props}
     />
   )

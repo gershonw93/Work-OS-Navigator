@@ -1,17 +1,35 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Archivo, Saira_Condensed, Space_Mono } from 'next/font/google'
 import './globals.css'
 
-const inter = Inter({
+const archivo = Archivo({
   subsets: ['latin'],
   display: 'swap',
-  variable: '--font-inter',
+  weight: ['400', '500', '600', '700', '800'],
+  variable: '--font-archivo',
+})
+
+const saira = Saira_Condensed({
+  subsets: ['latin'],
+  display: 'swap',
+  weight: ['500', '600', '700'],
+  variable: '--font-saira',
+})
+
+const spaceMono = Space_Mono({
+  subsets: ['latin'],
+  display: 'swap',
+  weight: ['400', '700'],
+  variable: '--font-space-mono',
 })
 
 export const metadata: Metadata = {
-  title: 'WorkOS Navigator',
-  description: 'Construction operations platform for general contractors and subcontractors.',
+  title: 'SyteNav',
+  description: 'Construction project management built for the field — permits, daily logs, RFIs, invoices, and compliance.',
 }
+
+// Set the theme class before paint to avoid a flash of the wrong mode.
+const themeScript = `(function(){try{var t=localStorage.getItem('sytenav-theme');if(!t){t=window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';}if(t==='dark'){document.documentElement.classList.add('dark');}}catch(e){document.documentElement.classList.add('dark');}})();`
 
 export default function RootLayout({
   children,
@@ -19,8 +37,11 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={inter.variable}>
-      <body className="min-h-screen bg-slate-50 font-sans antialiased">
+    <html lang="en" className={`${archivo.variable} ${saira.variable} ${spaceMono.variable}`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
+      <body className="min-h-screen bg-surface font-sans antialiased">
         {children}
       </body>
     </html>

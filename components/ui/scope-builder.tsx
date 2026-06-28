@@ -80,10 +80,10 @@ export function ScopeBuilder({ value, onChange }: ScopeBuildProps) {
           .reduce((s, i) => s + i.qty! * i.unit_price!, 0)
 
         return (
-          <div key={cat.id} className="rounded-lg border border-slate-200 overflow-hidden">
+          <div key={cat.id} className="rounded-lg border border-line overflow-hidden">
             {/* Category header */}
-            <div className="flex items-center gap-2 px-3 py-2.5 bg-slate-50 border-b border-slate-200">
-              <button type="button" onClick={() => toggleCollapse(cat.id)} className="text-slate-400 hover:text-slate-600 shrink-0">
+            <div className="flex items-center gap-2 px-3 py-2.5 bg-surface border-b border-line">
+              <button type="button" onClick={() => toggleCollapse(cat.id)} className="text-faint hover:text-muted-fg shrink-0">
                 {collapsed[cat.id] ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </button>
               <input
@@ -91,14 +91,14 @@ export function ScopeBuilder({ value, onChange }: ScopeBuildProps) {
                 placeholder="Category (e.g. First Floor)"
                 value={cat.category}
                 onChange={e => updateCategoryName(cat.id, e.target.value)}
-                className="flex-1 bg-transparent text-sm font-semibold text-slate-800 placeholder:text-slate-400 focus:outline-none min-w-0"
+                className="flex-1 bg-transparent text-sm font-semibold text-ink-soft placeholder:text-faint focus:outline-none min-w-0"
               />
               <div className="flex items-center gap-3 shrink-0">
                 {catTotal > 0 && (
-                  <span className="text-xs font-semibold text-slate-600">${catTotal.toLocaleString()}</span>
+                  <span className="text-xs font-semibold text-muted-fg">${catTotal.toLocaleString()}</span>
                 )}
-                <span className="text-xs text-slate-400">{cat.items.length} item{cat.items.length !== 1 ? 's' : ''}</span>
-                <button type="button" onClick={() => removeCategory(cat.id)} className="text-slate-300 hover:text-red-400 transition-colors">
+                <span className="text-xs text-faint">{cat.items.length} item{cat.items.length !== 1 ? 's' : ''}</span>
+                <button type="button" onClick={() => removeCategory(cat.id)} className="text-faint hover:text-danger transition-colors">
                   <X className="h-3.5 w-3.5" />
                 </button>
               </div>
@@ -106,12 +106,12 @@ export function ScopeBuilder({ value, onChange }: ScopeBuildProps) {
 
             {/* Column headers */}
             {!collapsed[cat.id] && cat.items.length > 0 && (
-              <div className="grid grid-cols-[28px_1fr_80px_100px_90px_60px_20px] gap-2 px-3 py-1.5 bg-slate-50/50 border-b border-slate-100">
+              <div className="grid grid-cols-[28px_1fr_80px_100px_90px_60px_20px] gap-2 px-3 py-1.5 bg-surface/50 border-b border-line-soft">
                 <div />
-                <p className="text-xs font-medium text-slate-400">Description</p>
-                <p className="text-xs font-medium text-slate-400">Qty</p>
-                <p className="text-xs font-medium text-slate-400">Unit Price</p>
-                <p className="text-xs font-medium text-slate-400 text-right">Total</p>
+                <p className="text-xs font-medium text-faint">Description</p>
+                <p className="text-xs font-medium text-faint">Qty</p>
+                <p className="text-xs font-medium text-faint">Unit Price</p>
+                <p className="text-xs font-medium text-faint text-right">Total</p>
                 <div />
                 <div />
               </div>
@@ -119,19 +119,19 @@ export function ScopeBuilder({ value, onChange }: ScopeBuildProps) {
 
             {/* Items */}
             {!collapsed[cat.id] && (
-              <div className="divide-y divide-slate-50">
+              <div className="divide-y divide-line-soft">
                 {cat.items.map(item => {
                   const lineTotal = item.qty && item.unit_price ? item.qty * item.unit_price : null
                   return (
                     <div key={item.id} className={cn('grid grid-cols-[28px_1fr_80px_100px_90px_60px_20px] gap-2 items-center px-3 py-2',
-                      !item.included && 'bg-red-50/30')}>
+                      !item.included && 'bg-danger-tint/30')}>
 
                       {/* Included/excluded toggle */}
                       <button
                         type="button"
                         onClick={() => updateItem(cat.id, item.id, { included: !item.included })}
                         className={cn('h-6 w-6 rounded-full flex items-center justify-center shrink-0 transition-colors border',
-                          item.included ? 'bg-green-500 border-green-500 text-white' : 'bg-red-50 border-red-300 text-red-400'
+                          item.included ? 'bg-success-solid border-success text-white' : 'bg-danger-tint border-danger/40 text-danger'
                         )}
                         title={item.included ? 'Included — click to exclude' : 'Excluded — click to include'}
                       >
@@ -145,7 +145,7 @@ export function ScopeBuilder({ value, onChange }: ScopeBuildProps) {
                         value={item.item}
                         onChange={e => updateItem(cat.id, item.id, { item: e.target.value })}
                         className={cn('text-sm focus:outline-none bg-transparent min-w-0',
-                          item.included ? 'text-slate-800' : 'text-slate-400 line-through'
+                          item.included ? 'text-ink-soft' : 'text-faint line-through'
                         )}
                       />
 
@@ -157,12 +157,12 @@ export function ScopeBuilder({ value, onChange }: ScopeBuildProps) {
                         value={item.qty ?? ''}
                         onChange={e => updateItem(cat.id, item.id, { qty: e.target.value ? parseFloat(e.target.value) : null })}
                         disabled={!item.included}
-                        className="text-sm text-center border border-slate-200 rounded px-1.5 py-1 w-full focus:outline-none focus:border-orange-400 disabled:opacity-30 disabled:bg-slate-50"
+                        className="text-sm text-center border border-line rounded px-1.5 py-1 w-full focus:outline-none focus:border-accent disabled:opacity-30 disabled:bg-surface"
                       />
 
                       {/* Unit price */}
                       <div className="relative">
-                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-400">$</span>
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-faint">$</span>
                         <input
                           type="number"
                           placeholder="0.00"
@@ -171,22 +171,22 @@ export function ScopeBuilder({ value, onChange }: ScopeBuildProps) {
                           value={item.unit_price ?? ''}
                           onChange={e => updateItem(cat.id, item.id, { unit_price: e.target.value ? parseFloat(e.target.value) : null })}
                           disabled={!item.included}
-                          className="text-sm border border-slate-200 rounded px-1.5 py-1 pl-5 w-full focus:outline-none focus:border-orange-400 disabled:opacity-30 disabled:bg-slate-50"
+                          className="text-sm border border-line rounded px-1.5 py-1 pl-5 w-full focus:outline-none focus:border-accent disabled:opacity-30 disabled:bg-surface"
                         />
                       </div>
 
                       {/* Line total */}
-                      <p className={cn('text-sm font-medium text-right', item.included ? 'text-slate-700' : 'text-slate-300')}>
+                      <p className={cn('text-sm font-medium text-right', item.included ? 'text-ink-soft' : 'text-faint')}>
                         {lineTotal != null ? `$${lineTotal.toLocaleString()}` : '—'}
                       </p>
 
                       {/* Status label */}
-                      <span className={cn('text-xs font-medium shrink-0', item.included ? 'text-green-600' : 'text-red-400')}>
+                      <span className={cn('text-xs font-medium shrink-0', item.included ? 'text-success' : 'text-danger')}>
                         {item.included ? 'In' : 'Ex'}
                       </span>
 
                       {/* Remove */}
-                      <button type="button" onClick={() => removeItem(cat.id, item.id)} className="text-slate-200 hover:text-red-400 transition-colors">
+                      <button type="button" onClick={() => removeItem(cat.id, item.id)} className="text-faint hover:text-danger transition-colors">
                         <X className="h-3.5 w-3.5" />
                       </button>
                     </div>
@@ -195,7 +195,7 @@ export function ScopeBuilder({ value, onChange }: ScopeBuildProps) {
 
                 <div className="px-3 py-2">
                   <button type="button" onClick={() => addItem(cat.id)}
-                    className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-orange-500 transition-colors">
+                    className="flex items-center gap-1.5 text-xs text-faint hover:text-accent-fg transition-colors">
                     <Plus className="h-3.5 w-3.5" /> Add line item
                   </button>
                 </div>
@@ -208,7 +208,7 @@ export function ScopeBuilder({ value, onChange }: ScopeBuildProps) {
       <button
         type="button"
         onClick={addCategory}
-        className="flex items-center gap-2 w-full rounded-lg border-2 border-dashed border-slate-200 px-4 py-2.5 text-sm text-slate-400 hover:border-orange-300 hover:text-orange-500 transition-colors"
+        className="flex items-center gap-2 w-full rounded-lg border-2 border-dashed border-line px-4 py-2.5 text-sm text-faint hover:border-accent hover:text-accent-fg transition-colors"
       >
         <Plus className="h-4 w-4" /> Add Category
       </button>
@@ -216,9 +216,9 @@ export function ScopeBuilder({ value, onChange }: ScopeBuildProps) {
       {/* Summary row */}
       {(totalIncluded > 0 || totalExcluded > 0) && (
         <div className="flex items-center justify-between px-1 pt-1">
-          <div className="flex items-center gap-4 text-xs text-slate-500">
+          <div className="flex items-center gap-4 text-xs text-muted-fg">
             <span className="flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-green-500" />
+              <span className="h-2 w-2 rounded-full bg-success-solid" />
               {totalIncluded} included
             </span>
             {totalExcluded > 0 && (
@@ -230,8 +230,8 @@ export function ScopeBuilder({ value, onChange }: ScopeBuildProps) {
           </div>
           {grandTotal > 0 && (
             <div className="text-right">
-              <p className="text-xs text-slate-400">Scope total</p>
-              <p className="text-base font-bold text-slate-800">${grandTotal.toLocaleString()}</p>
+              <p className="text-xs text-faint">Scope total</p>
+              <p className="text-base font-bold text-ink-soft">${grandTotal.toLocaleString()}</p>
             </div>
           )}
         </div>

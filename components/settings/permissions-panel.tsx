@@ -31,17 +31,17 @@ export function PermissionsPanel({ teammates }: { teammates: Teammate[] }) {
   return (
     <div className="space-y-5">
       {/* Mode toggle */}
-      <div className="flex gap-1 border-b border-slate-200">
+      <div className="flex gap-1 border-b border-line">
         <button
           onClick={() => setMode('roles')}
           className={cn('flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors',
-            mode === 'roles' ? 'border-orange-500 text-orange-600' : 'border-transparent text-slate-500 hover:text-slate-700')}>
+            mode === 'roles' ? 'border-accent text-accent-fg' : 'border-transparent text-muted-fg hover:text-ink-soft')}>
           <Shield className="h-4 w-4" /> Role Defaults
         </button>
         <button
           onClick={() => setMode('users')}
           className={cn('flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors',
-            mode === 'users' ? 'border-orange-500 text-orange-600' : 'border-transparent text-slate-500 hover:text-slate-700')}>
+            mode === 'users' ? 'border-accent text-accent-fg' : 'border-transparent text-muted-fg hover:text-ink-soft')}>
           <User className="h-4 w-4" /> Per-User Overrides
         </button>
       </div>
@@ -61,13 +61,13 @@ function PermGrid({
   onToggle?: (resource: string, action: Action, value: boolean) => void
 }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-slate-200">
+    <div className="overflow-x-auto rounded-lg border border-line">
       <table className="w-full text-sm">
         <thead>
-          <tr className="bg-slate-50 border-b border-slate-200">
-            <th className="text-left px-4 py-2.5 font-medium text-slate-600 sticky left-0 bg-slate-50 min-w-[200px]">Resource</th>
+          <tr className="bg-surface border-b border-line">
+            <th className="text-left px-4 py-2.5 font-medium text-muted-fg sticky left-0 bg-surface min-w-[200px]">Resource</th>
             {ACTIONS.map(a => (
-              <th key={a} className="text-center px-3 py-2.5 font-medium text-slate-600 w-20">{ACTION_LABELS[a]}</th>
+              <th key={a} className="text-center px-3 py-2.5 font-medium text-muted-fg w-20">{ACTION_LABELS[a]}</th>
             ))}
           </tr>
         </thead>
@@ -78,8 +78,8 @@ function PermGrid({
             return (
               <FragmentGroup key={group} group={group}>
                 {rows.map((r, i) => (
-                  <tr key={r.key} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'}>
-                    <td className="px-4 py-2 text-slate-700 sticky left-0 bg-inherit">{r.label}</td>
+                  <tr key={r.key} className={i % 2 === 0 ? 'bg-panel' : 'bg-surface/40'}>
+                    <td className="px-4 py-2 text-ink-soft sticky left-0 bg-inherit">{r.label}</td>
                     {ACTIONS.map(a => {
                       const on = !!effective[r.key]?.[a]
                       const def = !!defaults[r.key]?.[a]
@@ -91,14 +91,14 @@ function PermGrid({
                               type="checkbox"
                               checked={on}
                               onChange={e => onToggle?.(r.key, a, e.target.checked)}
-                              className={cn('h-4 w-4 rounded border-slate-300 accent-orange-500 cursor-pointer',
+                              className={cn('h-4 w-4 rounded border-muted2 accent-[#C9F24A] cursor-pointer',
                                 overridden && 'ring-2 ring-amber-400 ring-offset-1')}
                               title={overridden ? `Overridden (default: ${def ? 'on' : 'off'})` : undefined}
                             />
                           ) : on ? (
-                            <Check className="h-4 w-4 text-green-500 mx-auto" />
+                            <Check className="h-4 w-4 text-success mx-auto" />
                           ) : (
-                            <span className="text-slate-300">·</span>
+                            <span className="text-faint">·</span>
                           )}
                         </td>
                       )
@@ -117,8 +117,8 @@ function PermGrid({
 function FragmentGroup({ group, children }: { group: string; children: React.ReactNode }) {
   return (
     <>
-      <tr className="bg-slate-100/70">
-        <td colSpan={ACTIONS.length + 1} className="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{group}</td>
+      <tr className="bg-muted/70">
+        <td colSpan={ACTIONS.length + 1} className="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-fg">{group}</td>
       </tr>
       {children}
     </>
@@ -133,13 +133,13 @@ function RoleDefaultsView() {
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-3">
-        <label className="text-sm font-medium text-slate-600">Showing defaults for</label>
+        <label className="text-sm font-medium text-muted-fg">Showing defaults for</label>
         <select value={role} onChange={e => setRole(e.target.value)}
-          className="rounded-md border border-slate-300 px-3 py-1.5 text-sm bg-white focus:border-orange-500 focus:outline-none">
+          className="rounded-md border border-muted2 px-3 py-1.5 text-sm bg-panel focus:border-accent focus:outline-none">
           {roles.map(r => <option key={r} value={r}>{ROLE_LABELS[r] ?? r}</option>)}
         </select>
       </div>
-      <p className="text-xs text-slate-500">Role defaults are fixed. To change what a specific person can do, use <strong>Per-User Overrides</strong>.</p>
+      <p className="text-xs text-muted-fg">Role defaults are fixed. To change what a specific person can do, use <strong>Per-User Overrides</strong>.</p>
       <PermGrid effective={defaults} defaults={defaults} editable={false} />
     </div>
   )
@@ -221,40 +221,40 @@ function UserOverridesView({ teammates }: { teammates: Teammate[] }) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-3">
-        <label className="text-sm font-medium text-slate-600">Select a user</label>
+        <label className="text-sm font-medium text-muted-fg">Select a user</label>
         <select value={selectedId} onChange={e => setSelectedId(e.target.value)}
-          className="rounded-md border border-slate-300 px-3 py-1.5 text-sm bg-white focus:border-orange-500 focus:outline-none min-w-[220px]">
+          className="rounded-md border border-muted2 px-3 py-1.5 text-sm bg-panel focus:border-accent focus:outline-none min-w-[220px]">
           <option value="">— Choose a team member —</option>
           {teammates.map(t => (
             <option key={t.id} value={t.id}>{t.full_name || t.email} ({ROLE_LABELS[t.role] ?? t.role})</option>
           ))}
         </select>
         {selected && (
-          <span className="text-xs text-slate-500">Base role: <strong>{ROLE_LABELS[selected.role] ?? selected.role}</strong></span>
+          <span className="text-xs text-muted-fg">Base role: <strong>{ROLE_LABELS[selected.role] ?? selected.role}</strong></span>
         )}
       </div>
 
       {!selectedId ? (
-        <p className="text-sm text-slate-400 py-8 text-center">Choose a team member to view and override their permissions.</p>
+        <p className="text-sm text-faint py-8 text-center">Choose a team member to view and override their permissions.</p>
       ) : loading ? (
-        <p className="text-sm text-slate-400 py-8 text-center flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</p>
+        <p className="text-sm text-faint py-8 text-center flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</p>
       ) : (
         <>
-          <p className="text-xs text-slate-500">
-            Checkboxes start at this user&apos;s role defaults. Any box you change is an <span className="text-amber-600 font-medium">override</span> (highlighted) and takes priority over the role.
+          <p className="text-xs text-muted-fg">
+            Checkboxes start at this user&apos;s role defaults. Any box you change is an <span className="text-warn font-medium">override</span> (highlighted) and takes priority over the role.
           </p>
           <PermGrid effective={effective} defaults={defaults} editable onToggle={toggle} />
           <div className="flex items-center justify-between gap-3">
             {msg ? (
-              <p className={cn('text-sm', msg.ok ? 'text-green-600' : 'text-red-600')}>{msg.text}</p>
+              <p className={cn('text-sm', msg.ok ? 'text-success' : 'text-danger')}>{msg.text}</p>
             ) : <span />}
             <div className="flex gap-2">
               <button onClick={resetToDefaults}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">
+                className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-2 text-sm font-medium text-muted-fg hover:bg-surface">
                 <RotateCcw className="h-3.5 w-3.5" /> Reset to role defaults
               </button>
               <button onClick={save} disabled={saving}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-orange-500 px-4 py-2 text-sm font-medium text-white hover:bg-orange-600 disabled:opacity-50">
+                className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-ink hover:bg-accent disabled:opacity-50">
                 {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} Save
               </button>
             </div>

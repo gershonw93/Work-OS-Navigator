@@ -40,12 +40,12 @@ export default function LoginPage() {
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-white">Sign in</h1>
-        <p className="mt-1 text-sm text-slate-400">Welcome back to WorkOS Navigator</p>
+        <p className="mt-1 text-sm text-faint">Welcome back to SyteNav</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
-          <Label htmlFor="email" className="text-slate-300">
+          <Label htmlFor="email" className="text-faint">
             Email address
           </Label>
           <Input
@@ -56,12 +56,12 @@ export default function LoginPage() {
             onChange={(e) => setEmail(e.target.value)}
             required
             autoComplete="email"
-            className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-500 focus:border-orange-500"
+            className="bg-slate-700 border-slate-600 text-white placeholder:text-muted-fg focus:border-accent"
           />
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="password" className="text-slate-300">
+          <Label htmlFor="password" className="text-faint">
             Password
           </Label>
           <Input
@@ -72,10 +72,10 @@ export default function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
             required
             autoComplete="current-password"
-            className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-500 focus:border-orange-500"
+            className="bg-slate-700 border-slate-600 text-white placeholder:text-muted-fg focus:border-accent"
           />
           <div className="flex justify-end">
-            <Link href="/forgot-password" className="text-sm text-orange-400 hover:text-orange-300">
+            <Link href="/forgot-password" className="text-sm text-accent-fg hover:text-accent">
               Forgot password?
             </Link>
           </div>
@@ -83,7 +83,7 @@ export default function LoginPage() {
 
         {error && (
           <div className="rounded-md bg-red-900/40 border border-red-700 px-4 py-2.5">
-            <p className="text-sm text-red-400">{error}</p>
+            <p className="text-sm text-danger">{error}</p>
           </div>
         )}
 
@@ -92,9 +92,9 @@ export default function LoginPage() {
         </Button>
       </form>
 
-      <p className="mt-6 text-center text-sm text-slate-400">
+      <p className="mt-6 text-center text-sm text-faint">
         Don&apos;t have an account?{' '}
-        <Link href="/signup" className="font-medium text-orange-400 hover:text-orange-300 transition-colors">
+        <Link href="/signup" className="font-medium text-accent-fg hover:text-accent transition-colors">
           Create account
         </Link>
       </p>

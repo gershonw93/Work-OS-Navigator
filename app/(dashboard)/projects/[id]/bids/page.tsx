@@ -377,8 +377,8 @@ export default function BidsPage({ params }: { params: { id: string } }) {
   })
 
   const invitationIcon = (status: string) => {
-    if (status === 'accepted') return <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-    if (status === 'declined') return <XCircle className="h-3.5 w-3.5 text-red-400" />
+    if (status === 'accepted') return <CheckCircle2 className="h-3.5 w-3.5 text-success" />
+    if (status === 'declined') return <XCircle className="h-3.5 w-3.5 text-danger" />
     return <Clock className="h-3.5 w-3.5 text-amber-400" />
   }
 
@@ -388,10 +388,10 @@ export default function BidsPage({ params }: { params: { id: string } }) {
       {/* Edit Package Modal */}
       {editingPkg && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-lg min-w-0">
-            <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-900">Edit Bid Package</h2>
-              <button onClick={() => setEditingPkg(null)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
+          <div className="bg-panel rounded-xl shadow-xl w-full max-w-full sm:max-w-lg min-w-0">
+            <div className="px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-ink">Edit Bid Package</h2>
+              <button onClick={() => setEditingPkg(null)} className="text-faint hover:text-muted-fg"><X className="h-5 w-5" /></button>
             </div>
             <form onSubmit={handleEditPkg}>
               <div className="px-4 sm:px-6 py-5 space-y-4">
@@ -415,11 +415,11 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                   <Label>Description</Label>
                   <textarea rows={3} value={editPkgDescription} onChange={e => setEditPkgDescription(e.target.value)}
                     placeholder="Describe the work included in this package..."
-                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none resize-none" />
+                    className="w-full rounded-md border border-muted2 px-3 py-2 text-sm focus:border-accent focus:outline-none resize-none" />
                 </div>
-                {editPkgError && <p className="text-sm text-red-600">{editPkgError}</p>}
+                {editPkgError && <p className="text-sm text-danger">{editPkgError}</p>}
               </div>
-              <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex flex-wrap gap-2 justify-end">
+              <div className="px-4 sm:px-6 py-4 border-t border-line-soft flex flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => setEditingPkg(null)}>Cancel</Button>
                 <Button type="submit" disabled={editPkgLoading}>{editPkgLoading ? 'Saving...' : 'Save Changes'}</Button>
               </div>
@@ -431,22 +431,22 @@ export default function BidsPage({ params }: { params: { id: string } }) {
       {/* Signature Modal */}
       {signBidId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-lg min-w-0">
-            <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div className="bg-panel rounded-xl shadow-xl w-full max-w-full sm:max-w-lg min-w-0">
+            <div className="px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-slate-900">Sign as GC</h2>
-                <p className="text-xs text-slate-500 mt-0.5">Your signature will be saved to this subcontract.</p>
+                <h2 className="text-lg font-semibold text-ink">Sign as GC</h2>
+                <p className="text-xs text-muted-fg mt-0.5">Your signature will be saved to this subcontract.</p>
               </div>
               <button
                 onClick={() => { setSignBidId(null); setSigningError(null) }}
-                className="text-slate-400 hover:text-slate-600"
+                className="text-faint hover:text-muted-fg"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
             <div className="px-4 sm:px-6 py-5">
               {signingError && (
-                <p className="mb-3 text-sm text-red-600">{signingError}</p>
+                <p className="mb-3 text-sm text-danger">{signingError}</p>
               )}
               <SignaturePad
                 onSign={(dataUrl, name) => signSubcontract(signBidId, dataUrl, name)}
@@ -460,11 +460,11 @@ export default function BidsPage({ params }: { params: { id: string } }) {
       {/* Post-Award Invite Prompt */}
       {awardInvitePrompt && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm">
+          <div className="bg-panel rounded-xl shadow-xl w-full max-w-sm">
             <div className="px-6 py-5 space-y-3">
-              <h2 className="text-base font-semibold text-slate-900">Invite to Work OS Navigator?</h2>
-              <p className="text-sm text-slate-600">
-                Invite <span className="font-medium text-slate-900">{awardInvitePrompt.company.name}</span> to Work OS Navigator so they can see their awarded jobs and submit bids online.
+              <h2 className="text-base font-semibold text-ink">Invite to SyteNav?</h2>
+              <p className="text-sm text-muted-fg">
+                Invite <span className="font-medium text-ink">{awardInvitePrompt.company.name}</span> to SyteNav so they can see their awarded jobs and submit bids online.
               </p>
             </div>
             <div className="px-6 pb-5 flex flex-wrap gap-2 justify-end">
@@ -486,20 +486,20 @@ export default function BidsPage({ params }: { params: { id: string } }) {
       {/* Request Revision Modal */}
       {revisionBid && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-md min-w-0">
-            <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div className="bg-panel rounded-xl shadow-xl w-full max-w-full sm:max-w-md min-w-0">
+            <div className="px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-slate-900">Request Revision</h2>
-                <p className="text-sm text-slate-500 mt-0.5">{revisionBid.companies?.name}</p>
+                <h2 className="text-lg font-semibold text-ink">Request Revision</h2>
+                <p className="text-sm text-muted-fg mt-0.5">{revisionBid.companies?.name}</p>
               </div>
-              <button onClick={() => { setRevisionBid(null); setRevisionNote(''); setRevisionError(null) }} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => { setRevisionBid(null); setRevisionNote(''); setRevisionError(null) }} className="text-faint hover:text-muted-fg">
                 <X className="h-5 w-5" />
               </button>
             </div>
             <form onSubmit={requestRevision}>
               <div className="px-4 sm:px-6 py-5 space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-slate-700">Note to Subcontractor</label>
+                  <label className="text-sm font-medium text-ink-soft">Note to Subcontractor</label>
                   <textarea
                     rows={4}
                     autoFocus
@@ -507,13 +507,13 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                     value={revisionNote}
                     onChange={e => setRevisionNote(e.target.value)}
                     required
-                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 resize-none"
+                    className="w-full rounded-md border border-muted2 px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent resize-none"
                   />
-                  <p className="text-xs text-slate-400">The sub will be notified and can resubmit their bid.</p>
+                  <p className="text-xs text-faint">The sub will be notified and can resubmit their bid.</p>
                 </div>
-                {revisionError && <p className="text-sm text-red-600">{revisionError}</p>}
+                {revisionError && <p className="text-sm text-danger">{revisionError}</p>}
               </div>
-              <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex flex-wrap gap-2 justify-end">
+              <div className="px-4 sm:px-6 py-4 border-t border-line-soft flex flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => { setRevisionBid(null); setRevisionNote('') }}>Cancel</Button>
                 <Button type="submit" variant="outline" disabled={revisionLoading || !revisionNote.trim()}>
                   <RotateCcw className="h-3.5 w-3.5" />
@@ -528,10 +528,10 @@ export default function BidsPage({ params }: { params: { id: string } }) {
       {/* Invite to Existing Package Modal */}
       {invitePkgId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-md min-w-0 max-h-[80vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-slate-100 px-4 sm:px-6 py-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-900">Invite Subcontractors</h2>
-              <button onClick={() => { setInvitePkgId(null); setInviteSelected([]); setInviteSearch('') }} className="text-slate-400 hover:text-slate-600">
+          <div className="bg-panel rounded-xl shadow-xl w-full max-w-full sm:max-w-md min-w-0 max-h-[80vh] overflow-y-auto">
+            <div className="sticky top-0 bg-panel border-b border-line-soft px-4 sm:px-6 py-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-ink">Invite Subcontractors</h2>
+              <button onClick={() => { setInvitePkgId(null); setInviteSelected([]); setInviteSearch('') }} className="text-faint hover:text-muted-fg">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -545,7 +545,7 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                     (c.name.toLowerCase().includes(inviteSearch.toLowerCase()) || (c.trade ?? '').toLowerCase().includes(inviteSearch.toLowerCase()))
                   )
                   return available.length === 0 ? (
-                    <p className="text-sm text-slate-400 text-center py-4">
+                    <p className="text-sm text-faint text-center py-4">
                       {allCompanies.length === 0 ? 'No companies in directory.' : 'All companies already invited or no matches.'}
                     </p>
                   ) : (
@@ -554,23 +554,23 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                         <button key={company.id} type="button"
                           onClick={() => setInviteSelected(prev => prev.includes(company.id) ? prev.filter(c => c !== company.id) : [...prev, company.id])}
                           className={cn('w-full flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors',
-                            inviteSelected.includes(company.id) ? 'border-orange-400 bg-orange-50' : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                            inviteSelected.includes(company.id) ? 'border-accent bg-accent-tint' : 'border-line hover:border-muted2 hover:bg-surface'
                           )}>
-                          <div className={cn('h-4 w-4 rounded border-2 flex items-center justify-center shrink-0', inviteSelected.includes(company.id) ? 'border-orange-500 bg-orange-500' : 'border-slate-300')}>
+                          <div className={cn('h-4 w-4 rounded border-2 flex items-center justify-center shrink-0', inviteSelected.includes(company.id) ? 'border-accent bg-accent' : 'border-muted2')}>
                             {inviteSelected.includes(company.id) && <svg className="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-slate-800 truncate">{company.name}</p>
-                            {company.trade && <p className="text-xs text-slate-400">{company.trade}</p>}
+                            <p className="text-sm font-medium text-ink-soft truncate">{company.name}</p>
+                            {company.trade && <p className="text-xs text-faint">{company.trade}</p>}
                           </div>
                         </button>
                       ))}
                     </div>
                   )
                 })()}
-                {inviteError && <p className="text-sm text-red-600">{inviteError}</p>}
+                {inviteError && <p className="text-sm text-danger">{inviteError}</p>}
               </div>
-              <div className="sticky bottom-0 bg-white border-t border-slate-100 px-4 sm:px-6 py-4 flex flex-wrap gap-2 justify-end">
+              <div className="sticky bottom-0 bg-panel border-t border-line-soft px-4 sm:px-6 py-4 flex flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => { setInvitePkgId(null); setInviteSelected([]) }}>Cancel</Button>
                 <Button type="submit" disabled={inviteLoading || inviteSelected.length === 0}>
                   {inviteLoading ? 'Sending...' : `Invite${inviteSelected.length > 0 ? ` ${inviteSelected.length}` : ''}`}
@@ -584,10 +584,10 @@ export default function BidsPage({ params }: { params: { id: string } }) {
       {/* New Package Modal */}
       {showNewPkg && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-2xl min-w-0 max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-slate-100 px-4 sm:px-6 py-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-900">New Bid Package</h2>
-              <button onClick={() => { setShowNewPkg(false); resetForm() }} className="text-slate-400 hover:text-slate-600">
+          <div className="bg-panel rounded-xl shadow-xl w-full max-w-full sm:max-w-2xl min-w-0 max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-panel border-b border-line-soft px-4 sm:px-6 py-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-ink">New Bid Package</h2>
+              <button onClick={() => { setShowNewPkg(false); resetForm() }} className="text-faint hover:text-muted-fg">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -619,13 +619,13 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                     value={description}
                     onChange={e => setDescription(e.target.value)}
                     required
-                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 resize-none"
+                    className="w-full rounded-md border border-muted2 px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent resize-none"
                   />
                 </div>
 
                 {/* Due Date */}
                 <div className="space-y-1.5 max-w-xs">
-                  <Label htmlFor="dueDate">Bid Due Date <span className="text-slate-400 font-normal">(optional)</span></Label>
+                  <Label htmlFor="dueDate">Bid Due Date <span className="text-faint font-normal">(optional)</span></Label>
                   <Input id="dueDate" type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
                 </div>
 
@@ -633,8 +633,8 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                 {allPlans.length > 0 && (
                   <div className="space-y-2">
                     <Label>
-                      <Paperclip className="inline h-3.5 w-3.5 mr-1 text-slate-400" />
-                      Attach Plans <span className="text-slate-400 font-normal">(optional)</span>
+                      <Paperclip className="inline h-3.5 w-3.5 mr-1 text-faint" />
+                      Attach Plans <span className="text-faint font-normal">(optional)</span>
                     </Label>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-36 overflow-y-auto p-1">
                       {allPlans.map(plan => (
@@ -645,13 +645,13 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                           className={cn(
                             'flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors',
                             selectedPlans.includes(plan.id)
-                              ? 'border-orange-400 bg-orange-50 text-orange-800'
-                              : 'border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                              ? 'border-accent bg-accent-tint text-accent-fg'
+                              : 'border-line text-ink-soft hover:border-muted2 hover:bg-surface'
                           )}
                         >
-                          <div className={cn('h-2 w-2 rounded-full shrink-0', selectedPlans.includes(plan.id) ? 'bg-orange-500' : 'bg-slate-300')} />
+                          <div className={cn('h-2 w-2 rounded-full shrink-0', selectedPlans.includes(plan.id) ? 'bg-accent' : 'bg-muted2')} />
                           <span className="truncate">{plan.name}</span>
-                          <span className="text-xs text-slate-400 shrink-0 capitalize">{plan.plan_type}</span>
+                          <span className="text-xs text-faint shrink-0 capitalize">{plan.plan_type}</span>
                         </button>
                       ))}
                     </div>
@@ -661,10 +661,10 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                 {/* Invite Subs */}
                 <div className="space-y-2">
                   <Label>
-                    <Users className="inline h-3.5 w-3.5 mr-1 text-slate-400" />
+                    <Users className="inline h-3.5 w-3.5 mr-1 text-faint" />
                     Invite Subcontractors
                     {selectedCompanies.length > 0 && (
-                      <span className="ml-2 text-xs font-normal text-orange-600">{selectedCompanies.length} selected</span>
+                      <span className="ml-2 text-xs font-normal text-accent-fg">{selectedCompanies.length} selected</span>
                     )}
                   </Label>
                   <Input
@@ -674,7 +674,7 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                     className="mb-2"
                   />
                   {filteredCompanies.length === 0 ? (
-                    <p className="text-sm text-slate-400 py-3 text-center">
+                    <p className="text-sm text-faint py-3 text-center">
                       {allCompanies.length === 0
                         ? 'No subcontractors in your directory yet. Add them first.'
                         : 'No matches found.'}
@@ -689,15 +689,15 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                           className={cn(
                             'w-full flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors',
                             selectedCompanies.includes(company.id)
-                              ? 'border-orange-400 bg-orange-50'
-                              : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                              ? 'border-accent bg-accent-tint'
+                              : 'border-line hover:border-muted2 hover:bg-surface'
                           )}
                         >
                           <div className={cn(
                             'h-4 w-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors',
                             selectedCompanies.includes(company.id)
-                              ? 'border-orange-500 bg-orange-500'
-                              : 'border-slate-300'
+                              ? 'border-accent bg-accent'
+                              : 'border-muted2'
                           )}>
                             {selectedCompanies.includes(company.id) && (
                               <svg className="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -706,8 +706,8 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-slate-800 truncate">{company.name}</p>
-                            {company.trade && <p className="text-xs text-slate-400">{company.trade}</p>}
+                            <p className="text-sm font-medium text-ink-soft truncate">{company.name}</p>
+                            {company.trade && <p className="text-xs text-faint">{company.trade}</p>}
                           </div>
                         </button>
                       ))}
@@ -715,10 +715,10 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                   )}
                 </div>
 
-                {pkgError && <p className="text-sm text-red-600">{pkgError}</p>}
+                {pkgError && <p className="text-sm text-danger">{pkgError}</p>}
               </div>
 
-              <div className="sticky bottom-0 bg-white border-t border-slate-100 px-4 sm:px-6 py-4 flex flex-wrap gap-2 justify-end">
+              <div className="sticky bottom-0 bg-panel border-t border-line-soft px-4 sm:px-6 py-4 flex flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => { setShowNewPkg(false); resetForm() }}>Cancel</Button>
                 <Button type="submit" disabled={pkgLoading}>
                   {pkgLoading ? 'Creating...' : `Create Package${selectedCompanies.length > 0 ? ` & Invite ${selectedCompanies.length}` : ''}`}
@@ -759,16 +759,16 @@ export default function BidsPage({ params }: { params: { id: string } }) {
         const sub = subForBid(bid.id)
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            <div className="bg-panel rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
               {/* Modal header */}
-              <div className="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex items-start justify-between gap-4">
+              <div className="sticky top-0 bg-panel border-b border-line-soft px-6 py-4 flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <h2 className="text-lg font-semibold text-slate-900">{bid.companies?.name}</h2>
-                  <p className="text-sm text-slate-500 mt-0.5">{pkg.scope}{pkg.trade ? ` · ${pkg.trade}` : ''}</p>
+                  <h2 className="text-lg font-semibold text-ink">{bid.companies?.name}</h2>
+                  <p className="text-sm text-muted-fg mt-0.5">{pkg.scope}{pkg.trade ? ` · ${pkg.trade}` : ''}</p>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
                   <Badge variant={getStatusVariant(bid.status)}>{bid.status}</Badge>
-                  <button onClick={() => { setSelectedBid(null); setSelectedBidPkg(null) }} className="text-slate-400 hover:text-slate-600">
+                  <button onClick={() => { setSelectedBid(null); setSelectedBidPkg(null) }} className="text-faint hover:text-muted-fg">
                     <X className="h-5 w-5" />
                   </button>
                 </div>
@@ -777,30 +777,30 @@ export default function BidsPage({ params }: { params: { id: string } }) {
               <div className="px-6 py-5 space-y-6">
                 {/* Key stats */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  <div className="rounded-lg bg-slate-50 px-4 py-3">
-                    <p className="text-xs text-slate-500 mb-1">Amount</p>
-                    <p className="text-lg font-bold text-slate-900">${Number(bid.amount).toLocaleString()}</p>
+                  <div className="rounded-lg bg-surface px-4 py-3">
+                    <p className="text-xs text-muted-fg mb-1">Amount</p>
+                    <p className="text-lg font-bold text-ink">${Number(bid.amount).toLocaleString()}</p>
                   </div>
-                  <div className="rounded-lg bg-slate-50 px-4 py-3">
-                    <p className="text-xs text-slate-500 mb-1">Duration</p>
-                    <p className="text-lg font-bold text-slate-900">{bid.duration_days ? `${bid.duration_days}d` : '—'}</p>
+                  <div className="rounded-lg bg-surface px-4 py-3">
+                    <p className="text-xs text-muted-fg mb-1">Duration</p>
+                    <p className="text-lg font-bold text-ink">{bid.duration_days ? `${bid.duration_days}d` : '—'}</p>
                   </div>
-                  <div className="rounded-lg bg-slate-50 px-4 py-3">
-                    <p className="text-xs text-slate-500 mb-1">Crew Size</p>
-                    <p className="text-lg font-bold text-slate-900">{bid.crew_size ?? '—'}</p>
+                  <div className="rounded-lg bg-surface px-4 py-3">
+                    <p className="text-xs text-muted-fg mb-1">Crew Size</p>
+                    <p className="text-lg font-bold text-ink">{bid.crew_size ?? '—'}</p>
                   </div>
-                  <div className="rounded-lg bg-slate-50 px-4 py-3">
-                    <p className="text-xs text-slate-500 mb-1">Start Date</p>
-                    <p className="text-base font-bold text-slate-900">{bid.earliest_start_date ? new Date(bid.earliest_start_date).toLocaleDateString() : '—'}</p>
+                  <div className="rounded-lg bg-surface px-4 py-3">
+                    <p className="text-xs text-muted-fg mb-1">Start Date</p>
+                    <p className="text-base font-bold text-ink">{bid.earliest_start_date ? new Date(bid.earliest_start_date).toLocaleDateString() : '—'}</p>
                   </div>
                 </div>
 
                 {/* Proposal */}
                 {bid.proposal_url && (
                   <div>
-                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Proposal Document</p>
+                    <p className="text-xs font-semibold text-faint uppercase tracking-wide mb-2">Proposal Document</p>
                     <a href={bid.proposal_url} target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-4 py-2.5 text-sm font-medium text-orange-700 hover:bg-orange-100 transition-colors">
+                      className="inline-flex items-center gap-2 rounded-lg border border-accent/40 bg-accent-tint px-4 py-2.5 text-sm font-medium text-accent-fg hover:bg-accent-tint transition-colors">
                       <FileText className="h-4 w-4" />
                       View Proposal
                     </a>
@@ -810,27 +810,27 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                 {/* Scope Breakdown */}
                 {scopeCats && scopeCats.length > 0 && (
                   <div className="space-y-2">
-                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Scope Breakdown</p>
+                    <p className="text-xs font-semibold text-faint uppercase tracking-wide">Scope Breakdown</p>
                     {scopeCats.map((cat: any) => (
-                      <div key={cat.id} className="rounded-lg border border-slate-200 overflow-hidden">
-                        <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 border-b border-slate-100">
-                          <span className="text-sm font-semibold text-slate-700">{cat.category || 'Uncategorized'}</span>
-                          <span className="text-sm font-semibold text-slate-600">
+                      <div key={cat.id} className="rounded-lg border border-line overflow-hidden">
+                        <div className="flex items-center justify-between px-4 py-2.5 bg-surface border-b border-line-soft">
+                          <span className="text-sm font-semibold text-ink-soft">{cat.category || 'Uncategorized'}</span>
+                          <span className="text-sm font-semibold text-muted-fg">
                             ${cat.items?.filter((i: any) => i.included && i.qty && i.unit_price)
                               .reduce((s: number, i: any) => s + i.qty * i.unit_price, 0)
                               .toLocaleString()}
                           </span>
                         </div>
-                        <div className="divide-y divide-slate-50">
+                        <div className="divide-y divide-line-soft">
                           {cat.items?.map((item: any) => {
                             const total = item.qty && item.unit_price ? item.qty * item.unit_price : null
                             return (
                               <div key={item.id} className={cn('grid grid-cols-[20px_1fr_auto_auto_auto] gap-3 items-center px-4 py-2 text-sm', !item.included && 'opacity-50')}>
-                                {item.included ? <Check className="h-3.5 w-3.5 text-green-500 shrink-0" /> : <Ban className="h-3.5 w-3.5 text-red-400 shrink-0" />}
-                                <span className={cn('text-slate-700', !item.included && 'line-through')}>{item.item}</span>
-                                <span className="text-slate-400 text-xs">{item.qty ? `×${item.qty}` : ''}</span>
-                                <span className="text-slate-400 text-xs">{item.unit_price ? `$${item.unit_price.toLocaleString()}` : ''}</span>
-                                <span className="text-slate-700 font-medium text-right">{total ? `$${total.toLocaleString()}` : '—'}</span>
+                                {item.included ? <Check className="h-3.5 w-3.5 text-success shrink-0" /> : <Ban className="h-3.5 w-3.5 text-danger shrink-0" />}
+                                <span className={cn('text-ink-soft', !item.included && 'line-through')}>{item.item}</span>
+                                <span className="text-faint text-xs">{item.qty ? `×${item.qty}` : ''}</span>
+                                <span className="text-faint text-xs">{item.unit_price ? `$${item.unit_price.toLocaleString()}` : ''}</span>
+                                <span className="text-ink-soft font-medium text-right">{total ? `$${total.toLocaleString()}` : '—'}</span>
                               </div>
                             )
                           })}
@@ -843,41 +843,41 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                 {/* Payment Terms */}
                 {bid.payment_terms && (
                   <div>
-                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Payment Terms</p>
-                    <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed bg-slate-50 rounded-lg px-4 py-3">{bid.payment_terms}</p>
+                    <p className="text-xs font-semibold text-faint uppercase tracking-wide mb-2">Payment Terms</p>
+                    <p className="text-sm text-ink-soft whitespace-pre-wrap leading-relaxed bg-surface rounded-lg px-4 py-3">{bid.payment_terms}</p>
                   </div>
                 )}
 
                 {/* Notes */}
                 {bid.notes && (
                   <div>
-                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Notes</p>
-                    <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed bg-slate-50 rounded-lg px-4 py-3">{bid.notes}</p>
+                    <p className="text-xs font-semibold text-faint uppercase tracking-wide mb-2">Notes</p>
+                    <p className="text-sm text-ink-soft whitespace-pre-wrap leading-relaxed bg-surface rounded-lg px-4 py-3">{bid.notes}</p>
                   </div>
                 )}
 
                 {!hasDetails && (
-                  <p className="text-sm text-slate-400 text-center py-4">No additional details provided with this bid.</p>
+                  <p className="text-sm text-faint text-center py-4">No additional details provided with this bid.</p>
                 )}
 
                 {/* Signatures */}
                 {bid.status === 'awarded' && sub && (
-                  <div className="rounded-lg border border-slate-200 px-5 py-4 space-y-3">
-                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Signatures</p>
+                  <div className="rounded-lg border border-line px-5 py-4 space-y-3">
+                    <p className="text-xs font-semibold text-faint uppercase tracking-wide">Signatures</p>
                     {sub.fully_executed_at && (
-                      <div className="rounded-md bg-green-50 border border-green-200 px-4 py-2.5 text-sm font-semibold text-green-700 flex items-center gap-2">
+                      <div className="rounded-md bg-success-tint border border-success/30 px-4 py-2.5 text-sm font-semibold text-success flex items-center gap-2">
                         <CheckCircle2 className="h-4 w-4" />
                         Fully Executed — {new Date(sub.fully_executed_at).toLocaleDateString()}
                       </div>
                     )}
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <p className="text-xs font-medium text-slate-500">GC Signature</p>
+                        <p className="text-xs font-medium text-muted-fg">GC Signature</p>
                         {sub.gc_signed_at ? (
-                          <div className="flex items-center gap-1.5 text-sm text-green-600">
+                          <div className="flex items-center gap-1.5 text-sm text-success">
                             <CheckCircle2 className="h-4 w-4 shrink-0" />
                             <span className="font-medium">{sub.gc_signed_by}</span>
-                            <span className="text-xs text-slate-400">{new Date(sub.gc_signed_at).toLocaleDateString()}</span>
+                            <span className="text-xs text-faint">{new Date(sub.gc_signed_at).toLocaleDateString()}</span>
                           </div>
                         ) : (
                           <Button size="sm" variant="outline" onClick={() => { setSignBidId(bid.id); setSelectedBid(null); setSelectedBidPkg(null) }}>
@@ -886,15 +886,15 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                         )}
                       </div>
                       <div className="space-y-2">
-                        <p className="text-xs font-medium text-slate-500">Sub Signature</p>
+                        <p className="text-xs font-medium text-muted-fg">Sub Signature</p>
                         {sub.sub_signed_at ? (
-                          <div className="flex items-center gap-1.5 text-sm text-green-600">
+                          <div className="flex items-center gap-1.5 text-sm text-success">
                             <CheckCircle2 className="h-4 w-4 shrink-0" />
                             <span className="font-medium">{sub.sub_signed_by}</span>
-                            <span className="text-xs text-slate-400">{new Date(sub.sub_signed_at).toLocaleDateString()}</span>
+                            <span className="text-xs text-faint">{new Date(sub.sub_signed_at).toLocaleDateString()}</span>
                           </div>
                         ) : (
-                          <span className="inline-flex items-center rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-xs px-3 py-1">Awaiting sub signature</span>
+                          <span className="inline-flex items-center rounded-full bg-warn-tint border border-warn/30 text-warn text-xs px-3 py-1">Awaiting sub signature</span>
                         )}
                       </div>
                     </div>
@@ -903,7 +903,7 @@ export default function BidsPage({ params }: { params: { id: string } }) {
               </div>
 
               {/* Modal footer actions */}
-              <div className="sticky bottom-0 bg-white border-t border-slate-100 px-6 py-4 flex flex-wrap gap-2 justify-between items-center">
+              <div className="sticky bottom-0 bg-panel border-t border-line-soft px-6 py-4 flex flex-wrap gap-2 justify-between items-center">
                 <Button variant="secondary" onClick={() => { setSelectedBid(null); setSelectedBidPkg(null) }}>Close</Button>
                 {pkg.status !== 'awarded' && bid.status !== 'rejected' && bid.status !== 'awarded' && (
                   <div className="flex gap-2">
@@ -918,7 +918,7 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                   </div>
                 )}
                 {bid.status === 'awarded' && (
-                  <span className="text-sm font-medium text-green-600 flex items-center gap-1.5">
+                  <span className="text-sm font-medium text-success flex items-center gap-1.5">
                     <CheckCircle2 className="h-4 w-4" />Awarded
                   </span>
                 )}
@@ -931,8 +931,8 @@ export default function BidsPage({ params }: { params: { id: string } }) {
       {/* Header */}
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Bids</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Manage bid packages, invitations, and received bids.</p>
+          <h1 className="text-2xl font-bold text-ink">Bids</h1>
+          <p className="text-sm text-muted-fg mt-0.5">Manage bid packages, invitations, and received bids.</p>
         </div>
         <Button onClick={() => setShowNewPkg(true)}>
           <Plus className="h-4 w-4" />
@@ -942,7 +942,7 @@ export default function BidsPage({ params }: { params: { id: string } }) {
 
       {/* Content */}
       {loading ? (
-        <div className="text-sm text-slate-400 py-12 text-center">Loading...</div>
+        <div className="text-sm text-faint py-12 text-center">Loading...</div>
       ) : packages.length === 0 ? (
         <EmptyState
           icon={Package}
@@ -963,10 +963,10 @@ export default function BidsPage({ params }: { params: { id: string } }) {
             const attachCount = pkg.bid_package_attachments?.length ?? 0
 
             return (
-              <div key={pkg.id} className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+              <div key={pkg.id} className="rounded-xl border border-line bg-panel overflow-hidden">
                 {/* Package header */}
                 <div
-                  className="w-full flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-4 sm:px-5 py-4 hover:bg-slate-50 transition-colors cursor-pointer"
+                  className="w-full flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-4 sm:px-5 py-4 hover:bg-surface transition-colors cursor-pointer"
                   onClick={() => setExpandedPkg(isExpanded ? null : pkg.id)}
                   role="button"
                   tabIndex={0}
@@ -974,15 +974,15 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2.5 flex-wrap">
-                      <span className="font-semibold text-slate-900">{pkg.scope}</span>
+                      <span className="font-semibold text-ink">{pkg.scope}</span>
                       {pkg.trade && (
-                        <span className="text-xs bg-slate-100 text-slate-600 rounded-full px-2 py-0.5">{pkg.trade}</span>
+                        <span className="text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{pkg.trade}</span>
                       )}
                       <Badge variant={getStatusVariant(pkg.status)}>{pkg.status}</Badge>
                     </div>
-                    <p className="text-sm text-slate-500 mt-0.5 truncate">{pkg.description}</p>
+                    <p className="text-sm text-muted-fg mt-0.5 truncate">{pkg.description}</p>
                   </div>
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:shrink-0 text-sm text-slate-500">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:shrink-0 text-sm text-muted-fg">
                     {attachCount > 0 && (
                       <span className="flex items-center gap-1">
                         <Paperclip className="h-3.5 w-3.5" />{attachCount}
@@ -994,13 +994,13 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                     <span>{pkgBids.length} {pkgBids.length === 1 ? 'bid' : 'bids'}</span>
                     {pkg.due_date && <span>Due {new Date(pkg.due_date).toLocaleDateString()}</span>}
                     {lowestBid && pkg.status !== 'awarded' && (
-                      <span className="text-green-600 font-medium">Low: ${Number(lowestBid.amount).toLocaleString()}</span>
+                      <span className="text-success font-medium">Low: ${Number(lowestBid.amount).toLocaleString()}</span>
                     )}
                     {pkgBids.length >= 2 && (
                       <button
                         type="button"
                         onClick={e => { e.stopPropagation(); setLevelingPkgId(pkg.id) }}
-                        className="inline-flex items-center gap-1.5 rounded-md border border-orange-300 bg-orange-50 px-2.5 py-1 text-xs font-medium text-orange-700 hover:bg-orange-100 transition-colors"
+                        className="inline-flex items-center gap-1.5 rounded-md border border-accent bg-accent-tint px-2.5 py-1 text-xs font-medium text-accent-fg hover:bg-accent-tint transition-colors"
                         title="Open bid leveling sheet"
                       >
                         <BarChart2 className="h-3.5 w-3.5" />
@@ -1008,11 +1008,11 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                       </button>
                     )}
                     <button type="button" onClick={e => { e.stopPropagation(); openEditPkg(pkg) }}
-                      className="p-1 text-slate-400 hover:text-slate-600" title="Edit package">
+                      className="p-1 text-faint hover:text-muted-fg" title="Edit package">
                       <Pencil className="h-4 w-4" />
                     </button>
                     <button type="button" onClick={e => { e.stopPropagation(); handleDeletePkg(pkg.id) }}
-                      className="p-1 text-red-400 hover:text-red-600" title="Delete package">
+                      className="p-1 text-danger hover:text-danger" title="Delete package">
                       <Trash2 className="h-4 w-4" />
                     </button>
                     {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -1021,14 +1021,14 @@ export default function BidsPage({ params }: { params: { id: string } }) {
 
                 {/* Expanded content */}
                 {isExpanded && (
-                  <div className="border-t border-slate-100">
+                  <div className="border-t border-line-soft">
                     {/* Attachments bar */}
                     {attachCount > 0 && (
-                      <div className="px-5 py-2.5 bg-slate-50 border-b border-slate-100 flex items-center gap-2 flex-wrap">
-                        <Paperclip className="h-3.5 w-3.5 text-slate-400" />
-                        <span className="text-xs text-slate-500 mr-1">Attached plans:</span>
+                      <div className="px-5 py-2.5 bg-surface border-b border-line-soft flex items-center gap-2 flex-wrap">
+                        <Paperclip className="h-3.5 w-3.5 text-faint" />
+                        <span className="text-xs text-muted-fg mr-1">Attached plans:</span>
                         {pkg.bid_package_attachments.map(a => (
-                          <span key={a.id} className="text-xs bg-white border border-slate-200 rounded-full px-2.5 py-0.5 text-slate-700">
+                          <span key={a.id} className="text-xs bg-panel border border-line rounded-full px-2.5 py-0.5 text-ink-soft">
                             {a.project_plans?.name}
                           </span>
                         ))}
@@ -1037,7 +1037,7 @@ export default function BidsPage({ params }: { params: { id: string } }) {
 
                     {/* Invite more button */}
                     {pkg.status !== 'awarded' && (
-                      <div className="px-5 py-2.5 bg-slate-50 border-b border-slate-100 flex justify-end">
+                      <div className="px-5 py-2.5 bg-surface border-b border-line-soft flex justify-end">
                         <Button size="sm" variant="outline" onClick={() => { setInvitePkgId(pkg.id); setInviteSelected([]) }}>
                           <Users className="h-3.5 w-3.5" />
                           Invite More Subs
@@ -1046,7 +1046,7 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                     )}
 
                     {/* Tabs */}
-                    <div className="flex border-b border-slate-100">
+                    <div className="flex border-b border-line-soft">
                       {(['invitations', 'bids'] as const).map(t => (
                         <button
                           key={t}
@@ -1054,8 +1054,8 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                           className={cn(
                             'px-5 py-2.5 text-sm font-medium transition-colors capitalize',
                             tab === t
-                              ? 'border-b-2 border-orange-500 text-orange-600'
-                              : 'text-slate-500 hover:text-slate-700'
+                              ? 'border-b-2 border-accent text-accent-fg'
+                              : 'text-muted-fg hover:text-ink-soft'
                           )}
                         >
                           {t === 'invitations' ? `Invitations (${invitedCount})` : `Bids (${pkgBids.length})`}
@@ -1067,17 +1067,17 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                     {tab === 'invitations' && (
                       <>
                         {invitedCount === 0 ? (
-                          <div className="px-5 py-8 text-center text-sm text-slate-400">No subcontractors invited yet.</div>
+                          <div className="px-5 py-8 text-center text-sm text-faint">No subcontractors invited yet.</div>
                         ) : (
                           <>
                           {/* Mobile invitation cards */}
-                          <div className="md:hidden divide-y divide-slate-100">
+                          <div className="md:hidden divide-y divide-line-soft">
                             {pkg.bid_invitations.map(inv => {
                               const hasBid = pkgBids.find(b => b.company_id === inv.company_id)
                               return (
                                 <div key={inv.id} className="px-4 py-3 space-y-1.5">
                                   <div className="flex items-start justify-between gap-2">
-                                    <p className="font-medium text-slate-800 text-sm">{inv.companies?.name}</p>
+                                    <p className="font-medium text-ink-soft text-sm">{inv.companies?.name}</p>
                                     {!hasBid && pkg.status !== 'awarded' && (
                                       <Button
                                         size="sm" variant="ghost"
@@ -1091,14 +1091,14 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                                     )}
                                   </div>
                                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-                                    <span className="flex items-center gap-1.5 text-slate-600">
+                                    <span className="flex items-center gap-1.5 text-muted-fg">
                                       {invitationIcon(inv.status)}
                                       <span className="capitalize">{inv.status}</span>
                                     </span>
                                     {hasBid ? (
-                                      <span className="text-green-600 font-medium">${Number(hasBid.amount).toLocaleString()}</span>
+                                      <span className="text-success font-medium">${Number(hasBid.amount).toLocaleString()}</span>
                                     ) : (
-                                      <span className="text-slate-400">No bid yet</span>
+                                      <span className="text-faint">No bid yet</span>
                                     )}
                                   </div>
                                 </div>
@@ -1108,31 +1108,31 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                           {/* Desktop invitation table */}
                           <div className="hidden md:block">
                           <table className="w-full text-sm">
-                            <thead className="bg-slate-50 border-b border-slate-100">
+                            <thead className="bg-surface border-b border-line-soft">
                               <tr>
-                                <th className="text-left px-5 py-3 font-medium text-slate-600">Subcontractor</th>
-                                <th className="text-left px-5 py-3 font-medium text-slate-600">Status</th>
-                                <th className="text-left px-5 py-3 font-medium text-slate-600">Bid Submitted</th>
+                                <th className="text-left px-5 py-3 font-medium text-muted-fg">Subcontractor</th>
+                                <th className="text-left px-5 py-3 font-medium text-muted-fg">Status</th>
+                                <th className="text-left px-5 py-3 font-medium text-muted-fg">Bid Submitted</th>
                               <th className="px-5 py-3" />
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-50">
+                            <tbody className="divide-y divide-line-soft">
                               {pkg.bid_invitations.map(inv => {
                                 const hasBid = pkgBids.find(b => b.company_id === inv.company_id)
                                 return (
-                                  <tr key={inv.id} className="hover:bg-slate-50">
-                                    <td className="px-5 py-3 font-medium text-slate-800">{inv.companies?.name}</td>
+                                  <tr key={inv.id} className="hover:bg-surface">
+                                    <td className="px-5 py-3 font-medium text-ink-soft">{inv.companies?.name}</td>
                                     <td className="px-5 py-3">
-                                      <span className="flex items-center gap-1.5 text-slate-600">
+                                      <span className="flex items-center gap-1.5 text-muted-fg">
                                         {invitationIcon(inv.status)}
                                         <span className="capitalize">{inv.status}</span>
                                       </span>
                                     </td>
                                     <td className="px-5 py-3">
                                       {hasBid ? (
-                                        <span className="text-green-600 font-medium">${Number(hasBid.amount).toLocaleString()}</span>
+                                        <span className="text-success font-medium">${Number(hasBid.amount).toLocaleString()}</span>
                                       ) : (
-                                        <span className="text-slate-400">—</span>
+                                        <span className="text-faint">—</span>
                                       )}
                                     </td>
                                     <td className="px-5 py-3 text-right">
@@ -1163,32 +1163,32 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                     {tab === 'bids' && (
                       <>
                         {pkgBids.length === 0 ? (
-                          <div className="px-5 py-8 text-center text-sm text-slate-400">No bids received yet.</div>
+                          <div className="px-5 py-8 text-center text-sm text-faint">No bids received yet.</div>
                         ) : (
                           <>
                           {/* Mobile bid cards */}
-                          <div className="md:hidden divide-y divide-slate-100">
+                          <div className="md:hidden divide-y divide-line-soft">
                             {pkgBids.map((bid, i) => (
                               <button
                                 key={bid.id}
                                 type="button"
-                                className={cn('w-full text-left px-4 py-3 space-y-1.5 hover:bg-slate-50 transition-colors', bid.status === 'awarded' && 'bg-green-50')}
+                                className={cn('w-full text-left px-4 py-3 space-y-1.5 hover:bg-surface transition-colors', bid.status === 'awarded' && 'bg-success-tint')}
                                 onClick={() => { setSelectedBid(bid); setSelectedBidPkg(pkg) }}
                               >
                                 <div className="flex items-start justify-between gap-2">
-                                  <div className="flex items-center gap-1.5 font-medium text-slate-800 min-w-0">
+                                  <div className="flex items-center gap-1.5 font-medium text-ink-soft min-w-0">
                                     <span className="truncate">{bid.companies?.name}</span>
                                     {i === 0 && pkg.status !== 'awarded' && pkgBids.length > 1 && (
-                                      <span className="text-xs text-green-600 font-normal shrink-0">low</span>
+                                      <span className="text-xs text-success font-normal shrink-0">low</span>
                                     )}
                                   </div>
                                   <Badge variant={getStatusVariant(bid.status)}>{bid.status}</Badge>
                                 </div>
-                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600">
-                                  <span className="font-semibold text-slate-900">${Number(bid.amount).toLocaleString()}</span>
+                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-fg">
+                                  <span className="font-semibold text-ink">${Number(bid.amount).toLocaleString()}</span>
                                   <span>{bid.duration_days ? `${bid.duration_days}d` : '—'}</span>
                                   <span>Crew: {bid.crew_size ?? '—'}</span>
-                                  <span className="text-xs text-slate-400 ml-auto">Tap to view →</span>
+                                  <span className="text-xs text-faint ml-auto">Tap to view →</span>
                                 </div>
                               </button>
                             ))}
@@ -1196,48 +1196,48 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                           {/* Desktop bid table */}
                           <div className="hidden md:block">
                           <table className="w-full text-sm">
-                            <thead className="bg-slate-50 border-b border-slate-100">
+                            <thead className="bg-surface border-b border-line-soft">
                               <tr>
-                                <th className="text-left px-4 py-3 font-medium text-slate-600">Sub</th>
-                                <th className="text-left px-4 py-3 font-medium text-slate-600">Amount</th>
-                                <th className="text-left px-4 py-3 font-medium text-slate-600">Duration</th>
-                                <th className="text-left px-4 py-3 font-medium text-slate-600">Start</th>
-                                <th className="text-left px-4 py-3 font-medium text-slate-600">Crew</th>
-                                <th className="text-left px-4 py-3 font-medium text-slate-600">Proposal</th>
-                                <th className="text-left px-4 py-3 font-medium text-slate-600">Status</th>
+                                <th className="text-left px-4 py-3 font-medium text-muted-fg">Sub</th>
+                                <th className="text-left px-4 py-3 font-medium text-muted-fg">Amount</th>
+                                <th className="text-left px-4 py-3 font-medium text-muted-fg">Duration</th>
+                                <th className="text-left px-4 py-3 font-medium text-muted-fg">Start</th>
+                                <th className="text-left px-4 py-3 font-medium text-muted-fg">Crew</th>
+                                <th className="text-left px-4 py-3 font-medium text-muted-fg">Proposal</th>
+                                <th className="text-left px-4 py-3 font-medium text-muted-fg">Status</th>
                                 <th className="px-4 py-3" />
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
+                            <tbody className="divide-y divide-line-soft">
                               {pkgBids.map((bid, i) => (
                                 <tr
                                   key={bid.id}
-                                  className={cn('hover:bg-slate-50 cursor-pointer transition-colors', bid.status === 'awarded' && 'bg-green-50 hover:bg-green-50/80')}
+                                  className={cn('hover:bg-surface cursor-pointer transition-colors', bid.status === 'awarded' && 'bg-success-tint hover:bg-success-tint/80')}
                                   onClick={() => { setSelectedBid(bid); setSelectedBidPkg(pkg) }}
                                 >
-                                  <td className="px-4 py-3 font-medium text-slate-800">
+                                  <td className="px-4 py-3 font-medium text-ink-soft">
                                     <div className="flex items-center gap-1.5">
                                       {bid.companies?.name}
                                       {i === 0 && pkg.status !== 'awarded' && pkgBids.length > 1 && (
-                                        <span className="text-xs text-green-600 font-normal">low</span>
+                                        <span className="text-xs text-success font-normal">low</span>
                                       )}
                                     </div>
                                   </td>
-                                  <td className="px-4 py-3 font-semibold text-slate-900">${Number(bid.amount).toLocaleString()}</td>
-                                  <td className="px-4 py-3 text-slate-600">{bid.duration_days ? `${bid.duration_days}d` : '—'}</td>
-                                  <td className="px-4 py-3 text-slate-600">{bid.earliest_start_date ? new Date(bid.earliest_start_date).toLocaleDateString() : '—'}</td>
-                                  <td className="px-4 py-3 text-slate-600">{bid.crew_size ?? '—'}</td>
+                                  <td className="px-4 py-3 font-semibold text-ink">${Number(bid.amount).toLocaleString()}</td>
+                                  <td className="px-4 py-3 text-muted-fg">{bid.duration_days ? `${bid.duration_days}d` : '—'}</td>
+                                  <td className="px-4 py-3 text-muted-fg">{bid.earliest_start_date ? new Date(bid.earliest_start_date).toLocaleDateString() : '—'}</td>
+                                  <td className="px-4 py-3 text-muted-fg">{bid.crew_size ?? '—'}</td>
                                   <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                                     {bid.proposal_url
-                                      ? <a href={bid.proposal_url} target="_blank" rel="noopener noreferrer" className="text-xs text-orange-600 hover:underline flex items-center gap-1"><FileText className="h-3 w-3" />View</a>
-                                      : <span className="text-slate-400 text-xs">—</span>}
+                                      ? <a href={bid.proposal_url} target="_blank" rel="noopener noreferrer" className="text-xs text-accent-fg hover:underline flex items-center gap-1"><FileText className="h-3 w-3" />View</a>
+                                      : <span className="text-faint text-xs">—</span>}
                                   </td>
                                   <td className="px-4 py-3">
                                     <Badge variant={getStatusVariant(bid.status)}>{bid.status}</Badge>
                                   </td>
-                                  <td className="px-4 py-3 text-right text-xs text-slate-400">
-                                    {bid.status === 'awarded' && <span className="font-medium text-green-600">Awarded ✓</span>}
-                                    {bid.status === 'revision_requested' && <span className="font-medium text-amber-600">Revision Requested</span>}
+                                  <td className="px-4 py-3 text-right text-xs text-faint">
+                                    {bid.status === 'awarded' && <span className="font-medium text-success">Awarded ✓</span>}
+                                    {bid.status === 'revision_requested' && <span className="font-medium text-warn">Revision Requested</span>}
                                     {bid.status === 'submitted' && <span>View →</span>}
                                   </td>
                                 </tr>

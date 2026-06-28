@@ -44,11 +44,11 @@ const DOC_LABELS: Record<DocType, string> = {
 }
 
 const STATUS_CONFIG: Record<DocStatus, { label: string; classes: string }> = {
-  missing:       { label: 'Missing',        classes: 'bg-red-100 text-red-700' },
-  pending:       { label: 'Pending',        classes: 'bg-amber-100 text-amber-700' },
-  approved:      { label: 'Approved',       classes: 'bg-green-100 text-green-700' },
-  expired:       { label: 'Expired',        classes: 'bg-red-100 text-red-700' },
-  expiring_soon: { label: 'Expiring Soon',  classes: 'bg-orange-100 text-orange-700' },
+  missing:       { label: 'Missing',        classes: 'bg-danger-tint text-danger' },
+  pending:       { label: 'Pending',        classes: 'bg-warn-tint text-warn' },
+  approved:      { label: 'Approved',       classes: 'bg-success-tint text-success' },
+  expired:       { label: 'Expired',        classes: 'bg-danger-tint text-danger' },
+  expiring_soon: { label: 'Expiring Soon',  classes: 'bg-accent-tint text-accent-fg' },
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -62,9 +62,9 @@ function worstStatus(statuses: DocStatus[]): DocStatus {
 }
 
 function cardChip(status: DocStatus) {
-  if (status === 'approved') return { label: 'All Good', classes: 'bg-green-100 text-green-700' }
-  if (status === 'expiring_soon') return { label: 'Expiring Soon', classes: 'bg-orange-100 text-orange-700' }
-  return { label: 'Action Required', classes: 'bg-red-100 text-red-700' }
+  if (status === 'approved') return { label: 'All Good', classes: 'bg-success-tint text-success' }
+  if (status === 'expiring_soon') return { label: 'Expiring Soon', classes: 'bg-accent-tint text-accent-fg' }
+  return { label: 'Action Required', classes: 'bg-danger-tint text-danger' }
 }
 
 function isExpiringSoon(expiry: string | null): boolean {
@@ -229,12 +229,12 @@ function UploadForm({
   }
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 mt-2 space-y-3">
+    <div className="rounded-xl border border-line bg-surface p-4 mt-2 space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-slate-800">
+        <p className="text-sm font-semibold text-ink-soft">
           {existingDoc ? 'Update' : 'Upload'} {DOC_LABELS[docType]} — {companyName}
         </p>
-        <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+        <button onClick={onClose} className="text-faint hover:text-muted-fg">
           <X className="h-4 w-4" />
         </button>
       </div>
@@ -253,7 +253,7 @@ function UploadForm({
                   'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
                   status === s
                     ? STATUS_CONFIG[s].classes + ' border-transparent'
-                    : 'border-slate-200 text-slate-500 hover:border-slate-300',
+                    : 'border-line text-muted-fg hover:border-muted2',
                 )}
               >
                 {STATUS_CONFIG[s].label}
@@ -264,7 +264,7 @@ function UploadForm({
 
         {/* Expiry date */}
         <div className="space-y-1">
-          <Label htmlFor="expiry" className="text-xs">Expiry Date <span className="text-slate-400 font-normal">(optional)</span></Label>
+          <Label htmlFor="expiry" className="text-xs">Expiry Date <span className="text-faint font-normal">(optional)</span></Label>
           <Input
             id="expiry"
             type="date"
@@ -276,8 +276,8 @@ function UploadForm({
 
         {/* Type-specific fields */}
         {docType === 'coi' && (
-          <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-3">
-            <p className="text-xs font-semibold text-slate-700">Coverage Details</p>
+          <div className="space-y-3 rounded-lg border border-line bg-panel p-3">
+            <p className="text-xs font-semibold text-ink-soft">Coverage Details</p>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
                 <Label className="text-xs">Insurer</Label>
@@ -292,35 +292,35 @@ function UploadForm({
               <div className="space-y-1">
                 <Label className="text-xs">GL Per Occurrence</Label>
                 <div className="relative">
-                  <span className="absolute left-2.5 top-1.5 text-slate-400 text-xs">$</span>
+                  <span className="absolute left-2.5 top-1.5 text-faint text-xs">$</span>
                   <Input className="h-8 text-xs pl-5" placeholder="1,000,000" value={glPerOccurrence} onChange={e => setGlPerOccurrence(e.target.value)} />
                 </div>
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">GL Aggregate</Label>
                 <div className="relative">
-                  <span className="absolute left-2.5 top-1.5 text-slate-400 text-xs">$</span>
+                  <span className="absolute left-2.5 top-1.5 text-faint text-xs">$</span>
                   <Input className="h-8 text-xs pl-5" placeholder="2,000,000" value={glAggregate} onChange={e => setGlAggregate(e.target.value)} />
                 </div>
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Auto Liability</Label>
                 <div className="relative">
-                  <span className="absolute left-2.5 top-1.5 text-slate-400 text-xs">$</span>
+                  <span className="absolute left-2.5 top-1.5 text-faint text-xs">$</span>
                   <Input className="h-8 text-xs pl-5" placeholder="1,000,000" value={autoLimit} onChange={e => setAutoLimit(e.target.value)} />
                 </div>
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Umbrella/Excess</Label>
                 <div className="relative">
-                  <span className="absolute left-2.5 top-1.5 text-slate-400 text-xs">$</span>
+                  <span className="absolute left-2.5 top-1.5 text-faint text-xs">$</span>
                   <Input className="h-8 text-xs pl-5" placeholder="2,000,000" value={umbrellaLimit} onChange={e => setUmbrellaLimit(e.target.value)} />
                 </div>
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">WC / EL Per Accident</Label>
                 <div className="relative">
-                  <span className="absolute left-2.5 top-1.5 text-slate-400 text-xs">$</span>
+                  <span className="absolute left-2.5 top-1.5 text-faint text-xs">$</span>
                   <Input className="h-8 text-xs pl-5" placeholder="1,000,000" value={wcElAccident} onChange={e => setWcElAccident(e.target.value)} />
                 </div>
               </div>
@@ -330,7 +330,7 @@ function UploadForm({
                   {([true, false] as const).map(v => (
                     <button key={String(v)} type="button" onClick={() => setAdditionalInsured(v)}
                       className={cn('rounded-full border px-3 py-0.5 text-xs font-medium transition-colors',
-                        additionalInsured === v ? 'bg-slate-800 text-white border-slate-800' : 'border-slate-200 text-slate-500')}>
+                        additionalInsured === v ? 'bg-slate-800 text-white border-slate-800' : 'border-line text-muted-fg')}>
                       {v ? 'Yes' : 'No'}
                     </button>
                   ))}
@@ -341,8 +341,8 @@ function UploadForm({
         )}
 
         {docType === 'license' && (
-          <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-3">
-            <p className="text-xs font-semibold text-slate-700">License Details</p>
+          <div className="space-y-3 rounded-lg border border-line bg-panel p-3">
+            <p className="text-xs font-semibold text-ink-soft">License Details</p>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
                 <Label className="text-xs">License Number</Label>
@@ -361,12 +361,12 @@ function UploadForm({
         )}
 
         {docType === 'w9' && (
-          <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-3">
-            <p className="text-xs font-semibold text-slate-700">W-9 Details</p>
+          <div className="space-y-3 rounded-lg border border-line bg-panel p-3">
+            <p className="text-xs font-semibold text-ink-soft">W-9 Details</p>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
                 <Label className="text-xs">Entity Type</Label>
-                <select className="h-8 w-full rounded-md border border-slate-300 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-orange-500"
+                <select className="h-8 w-full rounded-md border border-muted2 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-accent"
                   value={entityType} onChange={e => setEntityType(e.target.value)}>
                   <option value="">Select…</option>
                   <option value="individual">Individual / Sole Prop</option>
@@ -385,8 +385,8 @@ function UploadForm({
         )}
 
         {docType === 'workers_comp' && (
-          <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-3">
-            <p className="text-xs font-semibold text-slate-700">Workers' Comp Details</p>
+          <div className="space-y-3 rounded-lg border border-line bg-panel p-3">
+            <p className="text-xs font-semibold text-ink-soft">Workers' Comp Details</p>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
                 <Label className="text-xs">Carrier</Label>
@@ -400,7 +400,7 @@ function UploadForm({
             <div className="space-y-1">
               <Label className="text-xs">EL Per Accident</Label>
               <div className="relative">
-                <span className="absolute left-2.5 top-1.5 text-slate-400 text-xs">$</span>
+                <span className="absolute left-2.5 top-1.5 text-faint text-xs">$</span>
                 <Input className="h-8 text-xs pl-5" placeholder="1,000,000" value={wcElAccident} onChange={e => setWcElAccident(e.target.value)} />
               </div>
             </div>
@@ -408,16 +408,16 @@ function UploadForm({
         )}
 
         {/* AI Scan */}
-        <div className={cn('rounded-lg border p-3 space-y-2', scanned ? 'border-green-200 bg-green-50' : 'border-orange-200 bg-orange-50')}>
+        <div className={cn('rounded-lg border p-3 space-y-2', scanned ? 'border-success/30 bg-success-tint' : 'border-accent/40 bg-accent-tint')}>
           <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-slate-800">🤖 Scan with AI</span>
-            <span className="text-xs text-slate-500">— upload the document and Claude extracts expiry, status &amp; coverage</span>
+            <span className="text-sm font-semibold text-ink-soft">🤖 Scan with AI</span>
+            <span className="text-xs text-muted-fg">— upload the document and Claude extracts expiry, status &amp; coverage</span>
           </div>
           <label className={cn(
             'flex items-center justify-center gap-2 w-full rounded-lg border-2 border-dashed px-4 py-3 cursor-pointer transition-colors text-sm font-medium',
-            analyzing ? 'border-orange-300 bg-white text-orange-500' :
-            scanned ? 'border-green-300 bg-white text-green-700' :
-            'border-orange-300 bg-white text-orange-600 hover:bg-orange-50'
+            analyzing ? 'border-accent bg-panel text-accent-fg' :
+            scanned ? 'border-green-300 bg-panel text-success' :
+            'border-accent bg-panel text-accent-fg hover:bg-accent-tint'
           )}>
             {analyzing ? (
               <>
@@ -440,12 +440,12 @@ function UploadForm({
               }}
             />
           </label>
-          {analyzeError && <p className="text-xs text-red-600">{analyzeError}</p>}
+          {analyzeError && <p className="text-xs text-danger">{analyzeError}</p>}
         </div>
 
         {/* File URL */}
         <div className="space-y-1">
-          <Label htmlFor="file_url" className="text-xs">File URL <span className="text-slate-400 font-normal">(optional — paste a link to the stored doc)</span></Label>
+          <Label htmlFor="file_url" className="text-xs">File URL <span className="text-faint font-normal">(optional — paste a link to the stored doc)</span></Label>
           <Input
             id="file_url"
             type="url"
@@ -458,18 +458,18 @@ function UploadForm({
 
         {/* Notes */}
         <div className="space-y-1">
-          <Label htmlFor="notes" className="text-xs">Notes <span className="text-slate-400 font-normal">(optional)</span></Label>
+          <Label htmlFor="notes" className="text-xs">Notes <span className="text-faint font-normal">(optional)</span></Label>
           <textarea
             id="notes"
             rows={2}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Any notes about this document..."
-            className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 resize-none"
+            className="w-full rounded-md border border-muted2 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent resize-none"
           />
         </div>
 
-        {error && <p className="text-xs text-red-600">{error}</p>}
+        {error && <p className="text-xs text-danger">{error}</p>}
 
         <div className="flex gap-2 justify-end pt-1">
           <Button type="button" variant="secondary" onClick={onClose} className="h-7 text-xs px-3">
@@ -516,10 +516,10 @@ function SubCard({ sub, docs, projectId, token, onRefresh }: SubCardProps) {
   const chip = cardChip(worst)
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+    <div className="rounded-xl border border-line bg-panel overflow-hidden">
       {/* Card header */}
-      <div className="flex flex-wrap items-center justify-between gap-2 px-4 sm:px-5 py-4 border-b border-slate-100">
-        <h3 className="font-semibold text-slate-900">{companyName}</h3>
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 sm:px-5 py-4 border-b border-line-soft">
+        <h3 className="font-semibold text-ink">{companyName}</h3>
         <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-medium', chip.classes)}>
           {chip.label}
         </span>
@@ -527,44 +527,44 @@ function SubCard({ sub, docs, projectId, token, onRefresh }: SubCardProps) {
 
       {/* Doc table */}
       <table className="w-full text-sm">
-        <thead className="bg-slate-50 border-b border-slate-100">
+        <thead className="bg-surface border-b border-line-soft">
           <tr>
-            <th className="text-left px-5 py-2.5 font-medium text-slate-500 text-xs">Document</th>
-            <th className="text-left px-5 py-2.5 font-medium text-slate-500 text-xs">Status</th>
-            <th className="text-left px-5 py-2.5 font-medium text-slate-500 text-xs">Expires</th>
-            <th className="text-left px-5 py-2.5 font-medium text-slate-500 text-xs">File</th>
+            <th className="text-left px-5 py-2.5 font-medium text-muted-fg text-xs">Document</th>
+            <th className="text-left px-5 py-2.5 font-medium text-muted-fg text-xs">Status</th>
+            <th className="text-left px-5 py-2.5 font-medium text-muted-fg text-xs">Expires</th>
+            <th className="text-left px-5 py-2.5 font-medium text-muted-fg text-xs">File</th>
             <th className="px-5 py-2.5" />
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody className="divide-y divide-line-soft">
           {DOC_TYPES.map((type) => {
             const doc = getDoc(type)
             const status = resolveStatus(type)
             const cfg = STATUS_CONFIG[status]
             return (
               <tr key={type}>
-                <td className="px-5 py-3 text-slate-700 font-medium">{DOC_LABELS[type]}</td>
+                <td className="px-5 py-3 text-ink-soft font-medium">{DOC_LABELS[type]}</td>
                 <td className="px-5 py-3">
                   <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-medium', cfg.classes)}>
                     {status === 'expiring_soon' && <AlertTriangle className="inline h-3 w-3 mr-0.5 -mt-0.5" />}
                     {cfg.label}
                   </span>
                 </td>
-                <td className="px-5 py-3 text-xs text-slate-400">
+                <td className="px-5 py-3 text-xs text-faint">
                   {doc?.expiry_date
                     ? new Date(doc.expiry_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                     : '—'}
                 </td>
                 <td className="px-5 py-3">
                   {doc?.file_url
-                    ? <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-orange-600 hover:underline font-medium"><ExternalLink className="h-3 w-3" /> View</a>
-                    : <span className="text-xs text-slate-300">—</span>}
+                    ? <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-accent-fg hover:underline font-medium"><ExternalLink className="h-3 w-3" /> View</a>
+                    : <span className="text-xs text-faint">—</span>}
                 </td>
                 <td className="px-5 py-3 text-right">
                   <button
                     onClick={() => setOpenForm(openForm === type ? null : type)}
                     className={cn('flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ml-auto',
-                      openForm === type ? 'border-orange-400 bg-orange-50 text-orange-700' : 'border-slate-200 text-slate-500 hover:border-slate-300')}
+                      openForm === type ? 'border-accent bg-accent-tint text-accent-fg' : 'border-line text-muted-fg hover:border-muted2')}
                   >
                     {doc ? <><RefreshCw className="h-3 w-3" /> Update</> : <><Upload className="h-3 w-3" /> Upload</>}
                   </button>
@@ -652,19 +652,19 @@ export default function CompliancePage({ params }: { params: { id: string } }) {
     <div className="p-4 sm:p-6 space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Compliance</h1>
-        <p className="text-sm text-slate-500 mt-0.5">
+        <h1 className="text-2xl font-bold text-ink">Compliance</h1>
+        <p className="text-sm text-muted-fg mt-0.5">
           Track insurance, licenses, and required documents for each subcontractor.
         </p>
       </div>
 
       {loading ? (
-        <div className="text-sm text-slate-400 py-16 text-center">Loading...</div>
+        <div className="text-sm text-faint py-16 text-center">Loading...</div>
       ) : subs.length === 0 ? (
-        <div className="rounded-xl border-2 border-dashed border-slate-200 py-16 text-center">
-          <ShieldCheck className="h-8 w-8 text-slate-300 mx-auto mb-3" />
-          <p className="text-sm font-medium text-slate-500">No subcontractors yet</p>
-          <p className="text-xs text-slate-400 mt-1">
+        <div className="rounded-xl border-2 border-dashed border-line py-16 text-center">
+          <ShieldCheck className="h-8 w-8 text-faint mx-auto mb-3" />
+          <p className="text-sm font-medium text-muted-fg">No subcontractors yet</p>
+          <p className="text-xs text-faint mt-1">
             Once subcontracts are awarded you'll track COI, license, W-9, and workers' comp documents here.
           </p>
         </div>
@@ -676,25 +676,25 @@ export default function CompliancePage({ params }: { params: { id: string } }) {
               label="Total Subs"
               value={totalSubs}
               icon={ShieldCheck}
-              iconColor="text-slate-500"
+              iconColor="text-muted-fg"
             />
             <StatCard
               label="All Compliant"
               value={allCompliant}
               icon={CheckCircle2}
-              iconColor="text-green-500"
+              iconColor="text-success"
             />
             <StatCard
               label="Expiring Soon"
               value={expiringSoon}
               icon={AlertTriangle}
-              iconColor="text-orange-500"
+              iconColor="text-accent-fg"
             />
             <StatCard
               label="Missing Docs"
               value={missingDocs}
               icon={FileWarning}
-              iconColor="text-red-500"
+              iconColor="text-danger"
             />
           </div>
 

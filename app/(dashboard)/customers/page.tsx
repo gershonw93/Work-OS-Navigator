@@ -95,10 +95,10 @@ function AddProjectModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-          <h2 className="text-base font-semibold text-slate-900">Add Project for {customer.name}</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button>
+      <div className="w-full max-w-md rounded-xl bg-panel shadow-xl">
+        <div className="flex items-center justify-between border-b border-line px-6 py-4">
+          <h2 className="text-base font-semibold text-ink">Add Project for {customer.name}</h2>
+          <button onClick={onClose} className="text-faint hover:text-muted-fg text-xl leading-none">&times;</button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4 p-6">
           <div className="space-y-1.5">
@@ -122,7 +122,7 @@ function AddProjectModal({
             <Label htmlFor="ap-date">Start Date</Label>
             <Input id="ap-date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
           </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-danger">{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
             <Button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Add Project'}</Button>
@@ -172,10 +172,10 @@ function NewCustomerModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-sm rounded-xl bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-          <h2 className="text-base font-semibold text-slate-900">New Customer</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button>
+      <div className="w-full max-w-sm rounded-xl bg-panel shadow-xl">
+        <div className="flex items-center justify-between border-b border-line px-6 py-4">
+          <h2 className="text-base font-semibold text-ink">New Customer</h2>
+          <button onClick={onClose} className="text-faint hover:text-muted-fg text-xl leading-none">&times;</button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4 p-6">
           <div className="space-y-1.5">
@@ -194,7 +194,7 @@ function NewCustomerModal({
             <Label htmlFor="nc-phone">Phone</Label>
             <Input id="nc-phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
           </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-danger">{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
             <Button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Create Customer'}</Button>
@@ -280,14 +280,14 @@ function BulkCreateModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-lg rounded-xl bg-white shadow-xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 sticky top-0 bg-white z-10">
-          <h2 className="text-base font-semibold text-slate-900">Bulk Create Projects</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button>
+      <div className="w-full max-w-lg rounded-xl bg-panel shadow-xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between border-b border-line px-6 py-4 sticky top-0 bg-panel z-10">
+          <h2 className="text-base font-semibold text-ink">Bulk Create Projects</h2>
+          <button onClick={onClose} className="text-faint hover:text-muted-fg text-xl leading-none">&times;</button>
         </div>
         {successMsg ? (
           <div className="p-10 text-center">
-            <p className="text-lg font-semibold text-green-600">{successMsg}</p>
+            <p className="text-lg font-semibold text-success">{successMsg}</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4 p-6">
@@ -297,8 +297,8 @@ function BulkCreateModal({
               <div className="flex gap-4">
                 {(['unit', 'street'] as const).map((m) => (
                   <label key={m} className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="bulk-mode-list" value={m} checked={bulkMode === m} onChange={() => setBulkMode(m)} className="accent-orange-500" />
-                    <span className="text-sm font-medium text-slate-700">{m === 'unit' ? 'Unit Numbers' : 'Street Numbers'}</span>
+                    <input type="radio" name="bulk-mode-list" value={m} checked={bulkMode === m} onChange={() => setBulkMode(m)} className="accent-[#C9F24A]" />
+                    <span className="text-sm font-medium text-ink-soft">{m === 'unit' ? 'Unit Numbers' : 'Street Numbers'}</span>
                   </label>
                 ))}
               </div>
@@ -380,16 +380,16 @@ function BulkCreateModal({
             </div>
 
             {totalCount > 0 && (
-              <div className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-sm text-slate-600">
-                <p className="font-medium text-slate-800 mb-1">Preview ({totalCount} total):</p>
+              <div className="rounded-lg bg-surface border border-line px-4 py-3 text-sm text-muted-fg">
+                <p className="font-medium text-ink-soft mb-1">Preview ({totalCount} total):</p>
                 <ul className="space-y-0.5">
                   {previewLines.map((line, i) => <li key={i}>{line}</li>)}
-                  {totalCount > 5 && <li className="text-slate-400 italic">… and {totalCount - 5} more</li>}
+                  {totalCount > 5 && <li className="text-faint italic">… and {totalCount - 5} more</li>}
                 </ul>
               </div>
             )}
 
-            {error && <p className="text-sm text-red-600">{error}</p>}
+            {error && <p className="text-sm text-danger">{error}</p>}
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
               <Button type="submit" disabled={saving || totalCount === 0}>
@@ -425,19 +425,19 @@ function CustomerCard({
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-orange-500 text-white text-base font-bold">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-accent text-accent-ink text-base font-bold">
                 {getInitials(customer.name)}
               </div>
               <div className="min-w-0">
-                <CardTitle className="text-sm font-semibold text-slate-900 truncate">{customer.name}</CardTitle>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <CardTitle className="text-sm font-semibold text-ink truncate">{customer.name}</CardTitle>
+                <p className="text-xs text-muted-fg mt-0.5">
                   {(customer.projects ?? []).length} project{(customer.projects ?? []).length === 1 ? '' : 's'}
                 </p>
               </div>
             </div>
             <button
               onClick={() => setAddProjectOpen(true)}
-              className="shrink-0 rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-orange-500 transition-colors"
+              className="shrink-0 rounded-md p-1.5 text-faint hover:bg-muted hover:text-accent-fg transition-colors"
               title="Add Project"
             >
               <UserPlus className="h-4 w-4" />
@@ -462,24 +462,24 @@ function CustomerCard({
             </Button>
             <Link
               href={`/customers/${customer.id}`}
-              className="inline-flex items-center gap-1 rounded-md bg-orange-50 px-3 py-1.5 text-xs font-medium text-orange-600 hover:bg-orange-100 transition-colors"
+              className="inline-flex items-center gap-1 rounded-md bg-accent-tint px-3 py-1.5 text-xs font-medium text-accent-fg hover:bg-accent-tint transition-colors"
             >
               View →
             </Link>
           </div>
           {expanded && (
-            <ul className="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden">
+            <ul className="divide-y divide-line-soft border border-line rounded-lg overflow-hidden">
               {(customer.projects ?? []).map((p) => (
-                <li key={p.id} className="px-3 py-2.5 flex items-start justify-between gap-2 bg-white">
+                <li key={p.id} className="px-3 py-2.5 flex items-start justify-between gap-2 bg-panel">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-slate-900 truncate">{p.name}</p>
-                    {p.address && <p className="text-xs text-slate-500 truncate">{p.address}</p>}
-                    {p.start_date && <p className="text-xs text-slate-400">{p.start_date}</p>}
+                    <p className="text-sm font-medium text-ink truncate">{p.name}</p>
+                    {p.address && <p className="text-xs text-muted-fg truncate">{p.address}</p>}
+                    {p.start_date && <p className="text-xs text-faint">{p.start_date}</p>}
                     <Badge variant={getStatusVariant(p.status)} className="mt-1">{p.status}</Badge>
                   </div>
                   <Link
                     href={`/projects/${p.id}/plans`}
-                    className="shrink-0 flex items-center gap-1 text-xs font-medium text-orange-500 hover:text-orange-600"
+                    className="shrink-0 flex items-center gap-1 text-xs font-medium text-accent-fg hover:text-accent-fg"
                   >
                     Open <ExternalLink className="h-3 w-3" />
                   </Link>
@@ -563,7 +563,7 @@ export default function CustomersPage() {
       />
 
       {loading ? (
-        <div className="py-16 text-center text-sm text-slate-500">Loading…</div>
+        <div className="py-16 text-center text-sm text-muted-fg">Loading…</div>
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={UserPlus}

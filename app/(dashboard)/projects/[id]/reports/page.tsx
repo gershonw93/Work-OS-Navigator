@@ -50,35 +50,35 @@ interface Project {
 function SectionHeader({ icon: Icon, title }: { icon: React.ElementType; title: string }) {
   return (
     <div className="flex items-center gap-2 mb-4">
-      <Icon className="h-5 w-5 text-orange-500" />
-      <h2 className="text-base font-semibold text-slate-800">{title}</h2>
+      <Icon className="h-5 w-5 text-accent-fg" />
+      <h2 className="text-base font-semibold text-ink-soft">{title}</h2>
     </div>
   )
 }
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
-    active: 'bg-green-100 text-green-700',
-    approved: 'bg-green-100 text-green-700',
-    issued: 'bg-green-100 text-green-700',
-    paid: 'bg-green-100 text-green-700',
-    passed: 'bg-green-100 text-green-700',
-    planning: 'bg-blue-100 text-blue-700',
-    submitted: 'bg-blue-100 text-blue-700',
-    scheduled: 'bg-blue-100 text-blue-700',
-    pending: 'bg-yellow-100 text-yellow-700',
-    on_hold: 'bg-yellow-100 text-yellow-700',
-    expired: 'bg-red-100 text-red-600',
-    rejected: 'bg-red-100 text-red-600',
-    failed: 'bg-red-100 text-red-600',
-    missing: 'bg-red-100 text-red-600',
-    not_started: 'bg-slate-100 text-slate-500',
-    draft: 'bg-slate-100 text-slate-500',
-    closed: 'bg-slate-100 text-slate-500',
-    completed: 'bg-slate-100 text-slate-600',
-    cancelled: 'bg-red-100 text-red-600',
+    active: 'bg-success-tint text-success',
+    approved: 'bg-success-tint text-success',
+    issued: 'bg-success-tint text-success',
+    paid: 'bg-success-tint text-success',
+    passed: 'bg-success-tint text-success',
+    planning: 'bg-info-tint text-info',
+    submitted: 'bg-info-tint text-info',
+    scheduled: 'bg-info-tint text-info',
+    pending: 'bg-warn-tint text-warn',
+    on_hold: 'bg-warn-tint text-warn',
+    expired: 'bg-danger-tint text-danger',
+    rejected: 'bg-danger-tint text-danger',
+    failed: 'bg-danger-tint text-danger',
+    missing: 'bg-danger-tint text-danger',
+    not_started: 'bg-muted text-muted-fg',
+    draft: 'bg-muted text-muted-fg',
+    closed: 'bg-muted text-muted-fg',
+    completed: 'bg-muted text-muted-fg',
+    cancelled: 'bg-danger-tint text-danger',
   }
-  const cls = map[status] ?? 'bg-slate-100 text-slate-600'
+  const cls = map[status] ?? 'bg-muted text-muted-fg'
   return (
     <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize', cls)}>
       {status.replace(/_/g, ' ')}
@@ -184,12 +184,12 @@ export default function ReportsPage({ params }: { params: { id: string } }) {
       <div className="space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Reports</h1>
-            <p className="text-sm text-slate-500 mt-0.5">Project summary, payments, and compliance.</p>
+            <h1 className="text-2xl font-bold text-ink">Reports</h1>
+            <p className="text-sm text-muted-fg mt-0.5">Project summary, payments, and compliance.</p>
           </div>
           <button
             onClick={() => window.print()}
-            className="no-print inline-flex items-center gap-2 rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 transition-colors"
+            className="no-print inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-ink hover:bg-accent transition-colors"
           >
             <Printer className="h-4 w-4" />
             Print / Save PDF
@@ -197,58 +197,58 @@ export default function ReportsPage({ params }: { params: { id: string } }) {
         </div>
 
         {loading ? (
-          <div className="text-sm text-slate-400 py-16 text-center">Loading reports…</div>
+          <div className="text-sm text-faint py-16 text-center">Loading reports…</div>
         ) : (
           <div className="space-y-6">
 
             {/* Project Summary */}
-            <div className="print-card bg-white rounded-xl border border-slate-200 p-4 sm:p-6">
+            <div className="print-card bg-panel rounded-xl border border-line p-4 sm:p-6">
               <SectionHeader icon={FileText} title="Project Summary" />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                 <div>
-                  <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Project</p>
-                  <p className="text-sm font-semibold text-slate-800">{project?.name ?? '—'}</p>
-                  {project?.address && <p className="text-xs text-slate-500 mt-0.5">{project.address}</p>}
+                  <p className="text-xs text-faint uppercase tracking-wide mb-1">Project</p>
+                  <p className="text-sm font-semibold text-ink-soft">{project?.name ?? '—'}</p>
+                  {project?.address && <p className="text-xs text-muted-fg mt-0.5">{project.address}</p>}
                 </div>
                 <div>
-                  <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Client</p>
-                  <p className="text-sm font-semibold text-slate-800">{project?.client_name ?? '—'}</p>
+                  <p className="text-xs text-faint uppercase tracking-wide mb-1">Client</p>
+                  <p className="text-sm font-semibold text-ink-soft">{project?.client_name ?? '—'}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Status</p>
-                  {project?.status ? <StatusBadge status={project.status} /> : <span className="text-sm text-slate-400">—</span>}
+                  <p className="text-xs text-faint uppercase tracking-wide mb-1">Status</p>
+                  {project?.status ? <StatusBadge status={project.status} /> : <span className="text-sm text-faint">—</span>}
                 </div>
                 {project?.contract_value != null && (
                   <div>
-                    <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Contract Value</p>
-                    <p className="text-sm font-semibold text-slate-800">{fmt(project.contract_value)}</p>
+                    <p className="text-xs text-faint uppercase tracking-wide mb-1">Contract Value</p>
+                    <p className="text-sm font-semibold text-ink-soft">{fmt(project.contract_value)}</p>
                   </div>
                 )}
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 border-t border-slate-100 pt-4 mt-2">
-                <div className="rounded-lg bg-slate-50 border border-slate-100 p-3 text-center">
-                  <p className="text-xl font-bold text-green-600">{permitIssued}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">Permits Issued</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 border-t border-line-soft pt-4 mt-2">
+                <div className="rounded-lg bg-surface border border-line-soft p-3 text-center">
+                  <p className="text-xl font-bold text-success">{permitIssued}</p>
+                  <p className="text-xs text-muted-fg mt-0.5">Permits Issued</p>
                 </div>
-                <div className="rounded-lg bg-slate-50 border border-slate-100 p-3 text-center">
+                <div className="rounded-lg bg-surface border border-line-soft p-3 text-center">
                   <p className="text-xl font-bold text-yellow-600">{permitPending}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">Permits Pending</p>
+                  <p className="text-xs text-muted-fg mt-0.5">Permits Pending</p>
                 </div>
-                <div className="rounded-lg bg-slate-50 border border-slate-100 p-3 text-center">
-                  <p className="text-xl font-bold text-green-600">{inspPassed}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">Inspections Passed</p>
+                <div className="rounded-lg bg-surface border border-line-soft p-3 text-center">
+                  <p className="text-xl font-bold text-success">{inspPassed}</p>
+                  <p className="text-xs text-muted-fg mt-0.5">Inspections Passed</p>
                 </div>
-                <div className={cn('rounded-lg border p-3 text-center', inspFailed > 0 ? 'bg-red-50 border-red-100' : 'bg-slate-50 border-slate-100')}>
-                  <p className={cn('text-xl font-bold', inspFailed > 0 ? 'text-red-600' : 'text-slate-400')}>{inspFailed}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">Inspections Failed</p>
+                <div className={cn('rounded-lg border p-3 text-center', inspFailed > 0 ? 'bg-danger-tint border-red-100' : 'bg-surface border-line-soft')}>
+                  <p className={cn('text-xl font-bold', inspFailed > 0 ? 'text-danger' : 'text-faint')}>{inspFailed}</p>
+                  <p className="text-xs text-muted-fg mt-0.5">Inspections Failed</p>
                 </div>
               </div>
 
               <div className="flex justify-end mt-4 no-print">
                 <button
                   onClick={() => window.print()}
-                  className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 transition-colors"
+                  className="inline-flex items-center gap-1.5 text-xs text-muted-fg hover:text-ink-soft transition-colors"
                 >
                   <Printer className="h-3.5 w-3.5" />
                   Print this section
@@ -257,26 +257,26 @@ export default function ReportsPage({ params }: { params: { id: string } }) {
             </div>
 
             {/* Payment Report */}
-            <div className="print-card bg-white rounded-xl border border-slate-200 p-4 sm:p-6">
+            <div className="print-card bg-panel rounded-xl border border-line p-4 sm:p-6">
               <SectionHeader icon={DollarSign} title="Payment Report" />
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
-                <div className="rounded-lg bg-slate-50 border border-slate-100 p-3">
-                  <p className="text-xs text-slate-400 mb-1">Total Invoiced</p>
-                  <p className="text-lg font-bold text-slate-800">{fmt(totalInvoiced)}</p>
+                <div className="rounded-lg bg-surface border border-line-soft p-3">
+                  <p className="text-xs text-faint mb-1">Total Invoiced</p>
+                  <p className="text-lg font-bold text-ink-soft">{fmt(totalInvoiced)}</p>
                 </div>
-                <div className="rounded-lg bg-green-50 border border-green-100 p-3">
-                  <p className="text-xs text-slate-400 mb-1">Total Paid</p>
-                  <p className="text-lg font-bold text-green-700">{fmt(totalPaid)}</p>
+                <div className="rounded-lg bg-success-tint border border-green-100 p-3">
+                  <p className="text-xs text-faint mb-1">Total Paid</p>
+                  <p className="text-lg font-bold text-success">{fmt(totalPaid)}</p>
                 </div>
-                <div className={cn('rounded-lg border p-3', totalOutstanding > 0 ? 'bg-orange-50 border-orange-100' : 'bg-slate-50 border-slate-100')}>
-                  <p className="text-xs text-slate-400 mb-1">Outstanding</p>
-                  <p className={cn('text-lg font-bold', totalOutstanding > 0 ? 'text-orange-600' : 'text-slate-400')}>{fmt(totalOutstanding)}</p>
+                <div className={cn('rounded-lg border p-3', totalOutstanding > 0 ? 'bg-accent-tint border-accent/20' : 'bg-surface border-line-soft')}>
+                  <p className="text-xs text-faint mb-1">Outstanding</p>
+                  <p className={cn('text-lg font-bold', totalOutstanding > 0 ? 'text-accent-fg' : 'text-faint')}>{fmt(totalOutstanding)}</p>
                 </div>
               </div>
 
               {Object.keys(invoicesBySub).length === 0 ? (
-                <p className="text-sm text-slate-400">No invoices on record.</p>
+                <p className="text-sm text-faint">No invoices on record.</p>
               ) : (
                 <div className="space-y-4">
                   {Object.entries(invoicesBySub).map(([sub, invs]) => {
@@ -284,26 +284,26 @@ export default function ReportsPage({ params }: { params: { id: string } }) {
                     const subPaid = invs.filter(i => i.status === 'paid').reduce((s, i) => s + (i.amount ?? 0), 0)
                     const subOut = subTotal - subPaid
                     return (
-                      <div key={sub} className="border border-slate-100 rounded-lg overflow-hidden">
-                        <div className="bg-slate-50 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2">
-                          <span className="text-sm font-semibold text-slate-700">{sub}</span>
-                          <div className="flex gap-4 text-xs text-slate-500">
-                            <span>Total: <span className="font-semibold text-slate-700">{fmt(subTotal)}</span></span>
-                            <span>Paid: <span className="font-semibold text-green-700">{fmt(subPaid)}</span></span>
-                            {subOut > 0 && <span>Outstanding: <span className="font-semibold text-orange-600">{fmt(subOut)}</span></span>}
+                      <div key={sub} className="border border-line-soft rounded-lg overflow-hidden">
+                        <div className="bg-surface px-4 py-2.5 flex flex-wrap items-center justify-between gap-2">
+                          <span className="text-sm font-semibold text-ink-soft">{sub}</span>
+                          <div className="flex gap-4 text-xs text-muted-fg">
+                            <span>Total: <span className="font-semibold text-ink-soft">{fmt(subTotal)}</span></span>
+                            <span>Paid: <span className="font-semibold text-success">{fmt(subPaid)}</span></span>
+                            {subOut > 0 && <span>Outstanding: <span className="font-semibold text-accent-fg">{fmt(subOut)}</span></span>}
                           </div>
                         </div>
-                        <div className="divide-y divide-slate-50">
+                        <div className="divide-y divide-line-soft">
                           {invs.map(inv => (
                             <div key={inv.id} className="px-4 py-2.5 flex flex-wrap items-center justify-between gap-2">
-                              <span className="text-sm text-slate-600">
+                              <span className="text-sm text-muted-fg">
                                 {inv.invoice_number ? `Invoice #${inv.invoice_number}` : 'Invoice'}
-                                <span className="text-slate-400 ml-2 text-xs">
+                                <span className="text-faint ml-2 text-xs">
                                   {new Date(inv.created_at).toLocaleDateString()}
                                 </span>
                               </span>
                               <div className="flex items-center gap-3">
-                                <span className="text-sm font-medium text-slate-700">{fmt(inv.amount ?? 0)}</span>
+                                <span className="text-sm font-medium text-ink-soft">{fmt(inv.amount ?? 0)}</span>
                                 <StatusBadge status={inv.status} />
                               </div>
                             </div>
@@ -317,36 +317,36 @@ export default function ReportsPage({ params }: { params: { id: string } }) {
             </div>
 
             {/* Compliance Report */}
-            <div className="print-card bg-white rounded-xl border border-slate-200 p-4 sm:p-6">
+            <div className="print-card bg-panel rounded-xl border border-line p-4 sm:p-6">
               <SectionHeader icon={ShieldCheck} title="Compliance Report" />
 
               {Object.keys(complianceBySub).length === 0 ? (
-                <p className="text-sm text-slate-400">No compliance documents on record.</p>
+                <p className="text-sm text-faint">No compliance documents on record.</p>
               ) : (
                 <div className="space-y-4">
                   {Object.entries(complianceBySub).map(([sub, docs]) => {
                     const hasIssue = hasExpiredOrMissing(docs)
                     return (
-                      <div key={sub} className={cn('border rounded-lg overflow-hidden', hasIssue ? 'border-red-200' : 'border-slate-100')}>
-                        <div className={cn('px-4 py-2.5 flex flex-wrap items-center justify-between gap-2', hasIssue ? 'bg-red-50' : 'bg-slate-50')}>
-                          <span className="text-sm font-semibold text-slate-700">{sub}</span>
+                      <div key={sub} className={cn('border rounded-lg overflow-hidden', hasIssue ? 'border-danger/30' : 'border-line-soft')}>
+                        <div className={cn('px-4 py-2.5 flex flex-wrap items-center justify-between gap-2', hasIssue ? 'bg-danger-tint' : 'bg-surface')}>
+                          <span className="text-sm font-semibold text-ink-soft">{sub}</span>
                           {hasIssue && (
-                            <span className="text-xs font-medium text-red-600 bg-red-100 px-2 py-0.5 rounded-full">Action required</span>
+                            <span className="text-xs font-medium text-danger bg-danger-tint px-2 py-0.5 rounded-full">Action required</span>
                           )}
                         </div>
-                        <div className="divide-y divide-slate-50">
+                        <div className="divide-y divide-line-soft">
                           {docs.map(doc => {
                             const isExpired = doc.status === 'expired' || (doc.expiry_date && new Date(doc.expiry_date) < today)
                             const isMissing = doc.status === 'missing'
                             const rowBad = isExpired || isMissing
                             return (
-                              <div key={doc.id} className={cn('px-4 py-2.5 flex flex-wrap items-center justify-between gap-2', rowBad ? 'bg-red-50/50' : '')}>
+                              <div key={doc.id} className={cn('px-4 py-2.5 flex flex-wrap items-center justify-between gap-2', rowBad ? 'bg-danger-tint/50' : '')}>
                                 <div>
-                                  <span className={cn('text-sm font-medium capitalize', rowBad ? 'text-red-700' : 'text-slate-700')}>
+                                  <span className={cn('text-sm font-medium capitalize', rowBad ? 'text-danger' : 'text-ink-soft')}>
                                     {doc.doc_type.replace(/_/g, ' ')}
                                   </span>
                                   {doc.expiry_date && (
-                                    <span className={cn('ml-2 text-xs', rowBad ? 'text-red-500' : 'text-slate-400')}>
+                                    <span className={cn('ml-2 text-xs', rowBad ? 'text-danger' : 'text-faint')}>
                                       Expires {new Date(doc.expiry_date + 'T00:00:00').toLocaleDateString()}
                                     </span>
                                   )}

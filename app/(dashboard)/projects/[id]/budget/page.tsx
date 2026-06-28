@@ -123,26 +123,26 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   }
 
   const statCards = [
-    { label: 'Total Budget', value: totalBudgeted, color: 'text-slate-900', bg: 'bg-white', icon: DollarSign },
-    { label: 'Committed', value: totalCommitted, color: 'text-blue-700', bg: 'bg-blue-50', icon: TrendingUp },
-    { label: 'Actual Spent', value: totalActual, color: 'text-green-700', bg: 'bg-green-50', icon: CheckCircle2 },
+    { label: 'Total Budget', value: totalBudgeted, color: 'text-ink', bg: 'bg-panel', icon: DollarSign },
+    { label: 'Committed', value: totalCommitted, color: 'text-info', bg: 'bg-info-tint', icon: TrendingUp },
+    { label: 'Actual Spent', value: totalActual, color: 'text-success', bg: 'bg-success-tint', icon: CheckCircle2 },
     {
       label: overBudget ? 'Over Budget' : 'Remaining',
       value: Math.abs(remaining),
-      color: overBudget ? 'text-red-700' : 'text-amber-700',
-      bg: overBudget ? 'bg-red-50' : 'bg-amber-50',
+      color: overBudget ? 'text-danger' : 'text-warn',
+      bg: overBudget ? 'bg-danger-tint' : 'bg-warn-tint',
       icon: overBudget ? TrendingDown : Wallet,
     },
   ]
 
-  if (loading) return <div className="text-sm text-slate-400 py-12 text-center">Loading…</div>
+  if (loading) return <div className="text-sm text-faint py-12 text-center">Loading…</div>
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Budget</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Line-item cost breakdown — budgeted vs committed vs actual.</p>
+          <h1 className="text-2xl font-bold text-ink">Budget</h1>
+          <p className="text-sm text-muted-fg mt-0.5">Line-item cost breakdown — budgeted vs committed vs actual.</p>
         </div>
         <Button onClick={() => setAdding(v => !v)} className="gap-1.5">
           <Plus className="h-4 w-4" /> Add Line
@@ -154,10 +154,10 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
         {statCards.map(s => {
           const Icon = s.icon
           return (
-            <div key={s.label} className={cn('rounded-xl border border-slate-200 p-4', s.bg)}>
+            <div key={s.label} className={cn('rounded-xl border border-line p-4', s.bg)}>
               <div className="flex items-center gap-2 mb-2">
                 <Icon className={cn('h-4 w-4', s.color)} />
-                <p className="text-xs font-medium text-slate-500">{s.label}</p>
+                <p className="text-xs font-medium text-muted-fg">{s.label}</p>
               </div>
               <p className={cn('text-2xl font-bold', s.color)}>{money(s.value)}</p>
             </div>
@@ -167,45 +167,45 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
 
       {/* Spend progress */}
       {totalBudgeted > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <div className="bg-panel rounded-xl border border-line p-5">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-sm font-semibold text-slate-700">Budget Used</p>
-            <p className={cn('text-sm', overBudget ? 'text-red-600 font-semibold' : 'text-slate-500')}>
+            <p className="text-sm font-semibold text-ink-soft">Budget Used</p>
+            <p className={cn('text-sm', overBudget ? 'text-danger font-semibold' : 'text-muted-fg')}>
               {((totalActual / totalBudgeted) * 100).toFixed(1)}% spent
             </p>
           </div>
-          <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden flex">
-            <div className={cn('h-full transition-all', overBudget ? 'bg-red-500' : 'bg-green-500')}
+          <div className="h-3 w-full bg-muted rounded-full overflow-hidden flex">
+            <div className={cn('h-full transition-all', overBudget ? 'bg-danger-solid' : 'bg-success-solid')}
               style={{ width: `${Math.min((totalActual / totalBudgeted) * 100, 100)}%` }} />
             <div className="h-full bg-blue-300 transition-all"
               style={{ width: `${Math.min(Math.max((totalCommitted - totalActual) / totalBudgeted * 100, 0), 100 - Math.min((totalActual / totalBudgeted) * 100, 100))}%` }} />
           </div>
-          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-slate-500">
-            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-green-500" />Spent {money(totalActual)}</span>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-muted-fg">
+            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-success-solid" />Spent {money(totalActual)}</span>
             <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-blue-300" />Committed {money(totalCommitted)}</span>
-            {!overBudget && <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-slate-200" />Remaining {money(remaining)}</span>}
+            {!overBudget && <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-muted2" />Remaining {money(remaining)}</span>}
           </div>
         </div>
       )}
 
       {/* Add form */}
       {adding && (
-        <div className="bg-white rounded-xl border border-orange-200 p-4 sm:p-5 space-y-3">
-          <p className="text-sm font-semibold text-slate-700">New Budget Line</p>
+        <div className="bg-panel rounded-xl border border-accent/40 p-4 sm:p-5 space-y-3">
+          <p className="text-sm font-semibold text-ink-soft">New Budget Line</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <input className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Cost code (optional)"
+            <input className="rounded-lg border border-line px-3 py-2 text-sm" placeholder="Cost code (optional)"
               value={form.cost_code} onChange={e => setForm({ ...form, cost_code: e.target.value })} />
-            <select className="rounded-lg border border-slate-200 px-3 py-2 text-sm bg-white"
+            <select className="rounded-lg border border-line px-3 py-2 text-sm bg-panel"
               value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
               {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
-            <input className="rounded-lg border border-slate-200 px-3 py-2 text-sm col-span-2 sm:col-span-1" placeholder="Description *"
+            <input className="rounded-lg border border-line px-3 py-2 text-sm col-span-2 sm:col-span-1" placeholder="Description *"
               value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
-            <input type="number" className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Budgeted $"
+            <input type="number" className="rounded-lg border border-line px-3 py-2 text-sm" placeholder="Budgeted $"
               value={form.budgeted_amount} onChange={e => setForm({ ...form, budgeted_amount: e.target.value })} />
-            <input type="number" className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Committed $"
+            <input type="number" className="rounded-lg border border-line px-3 py-2 text-sm" placeholder="Committed $"
               value={form.committed_amount} onChange={e => setForm({ ...form, committed_amount: e.target.value })} />
-            <input type="number" className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Actual $"
+            <input type="number" className="rounded-lg border border-line px-3 py-2 text-sm" placeholder="Actual $"
               value={form.actual_amount} onChange={e => setForm({ ...form, actual_amount: e.target.value })} />
           </div>
           <div className="flex gap-2 justify-end">
@@ -217,14 +217,14 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
 
       {/* Budget table */}
       {items.length === 0 ? (
-        <div className="bg-white rounded-xl border border-slate-200 p-10 text-center">
-          <Wallet className="h-8 w-8 text-slate-300 mx-auto mb-3" />
-          <p className="text-sm text-slate-500">No budget lines yet. Add your first cost line to start tracking.</p>
+        <div className="bg-panel rounded-xl border border-line p-10 text-center">
+          <Wallet className="h-8 w-8 text-faint mx-auto mb-3" />
+          <p className="text-sm text-muted-fg">No budget lines yet. Add your first cost line to start tracking.</p>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="bg-panel rounded-xl border border-line overflow-hidden">
           {/* header row (desktop) */}
-          <div className="hidden md:grid grid-cols-[1fr_repeat(4,minmax(0,7rem))_3rem] gap-2 px-4 py-2.5 border-b border-slate-100 text-xs font-semibold text-slate-400 uppercase tracking-wide">
+          <div className="hidden md:grid grid-cols-[1fr_repeat(4,minmax(0,7rem))_3rem] gap-2 px-4 py-2.5 border-b border-line-soft text-xs font-semibold text-faint uppercase tracking-wide">
             <span>Line Item</span>
             <span className="text-right">Budgeted</span>
             <span className="text-right">Committed</span>
@@ -237,39 +237,39 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
             const gBudget = group.rows.reduce((s, i) => s + Number(i.budgeted_amount || 0), 0)
             return (
               <div key={group.category}>
-                <div className="bg-slate-50 px-4 py-2 flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wide text-slate-500">{group.category}</span>
-                  <span className="text-xs font-semibold text-slate-500">{money(gBudget)}</span>
+                <div className="bg-surface px-4 py-2 flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wide text-muted-fg">{group.category}</span>
+                  <span className="text-xs font-semibold text-muted-fg">{money(gBudget)}</span>
                 </div>
-                <div className="divide-y divide-slate-100">
+                <div className="divide-y divide-line-soft">
                   {group.rows.map(item => {
                     const variance = Number(item.budgeted_amount || 0) - Number(item.actual_amount || 0)
                     const over = variance < 0
                     if (editingId === item.id) {
                       return (
-                        <div key={item.id} className="px-4 py-3 bg-orange-50/40 space-y-2">
+                        <div key={item.id} className="px-4 py-3 bg-accent-tint/40 space-y-2">
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                            <input className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm" placeholder="Cost code"
+                            <input className="rounded-lg border border-line px-2.5 py-1.5 text-sm" placeholder="Cost code"
                               value={editForm.cost_code} onChange={e => setEditForm({ ...editForm, cost_code: e.target.value })} />
-                            <select className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm bg-white"
+                            <select className="rounded-lg border border-line px-2.5 py-1.5 text-sm bg-panel"
                               value={editForm.category} onChange={e => setEditForm({ ...editForm, category: e.target.value })}>
                               {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                             </select>
-                            <input className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm col-span-2 sm:col-span-1" placeholder="Description"
+                            <input className="rounded-lg border border-line px-2.5 py-1.5 text-sm col-span-2 sm:col-span-1" placeholder="Description"
                               value={editForm.description} onChange={e => setEditForm({ ...editForm, description: e.target.value })} />
-                            <input type="number" className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm" placeholder="Budgeted"
+                            <input type="number" className="rounded-lg border border-line px-2.5 py-1.5 text-sm" placeholder="Budgeted"
                               value={editForm.budgeted_amount} onChange={e => setEditForm({ ...editForm, budgeted_amount: e.target.value })} />
-                            <input type="number" className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm" placeholder="Committed"
+                            <input type="number" className="rounded-lg border border-line px-2.5 py-1.5 text-sm" placeholder="Committed"
                               value={editForm.committed_amount} onChange={e => setEditForm({ ...editForm, committed_amount: e.target.value })} />
-                            <input type="number" className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm" placeholder="Actual"
+                            <input type="number" className="rounded-lg border border-line px-2.5 py-1.5 text-sm" placeholder="Actual"
                               value={editForm.actual_amount} onChange={e => setEditForm({ ...editForm, actual_amount: e.target.value })} />
                           </div>
                           <div className="flex gap-2 justify-end">
-                            <button onClick={() => setEditingId(null)} className="inline-flex items-center gap-1 text-xs text-slate-500 px-2 py-1.5 rounded-lg hover:bg-slate-100">
+                            <button onClick={() => setEditingId(null)} className="inline-flex items-center gap-1 text-xs text-muted-fg px-2 py-1.5 rounded-lg hover:bg-muted">
                               <X className="h-3.5 w-3.5" /> Cancel
                             </button>
                             <button onClick={() => saveEdit(item.id)} disabled={saving}
-                              className="inline-flex items-center gap-1 text-xs text-white bg-orange-500 hover:bg-orange-600 px-2.5 py-1.5 rounded-lg">
+                              className="inline-flex items-center gap-1 text-xs text-accent-ink bg-accent hover:bg-accent px-2.5 py-1.5 rounded-lg">
                               <Check className="h-3.5 w-3.5" /> Save
                             </button>
                           </div>
@@ -277,37 +277,37 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                       )
                     }
                     return (
-                      <div key={item.id} className="group md:grid md:grid-cols-[1fr_repeat(4,minmax(0,7rem))_3rem] md:gap-2 md:items-center px-4 py-3 hover:bg-slate-50 transition-colors">
+                      <div key={item.id} className="group md:grid md:grid-cols-[1fr_repeat(4,minmax(0,7rem))_3rem] md:gap-2 md:items-center px-4 py-3 hover:bg-surface transition-colors">
                         <div className="min-w-0">
-                          <p className="text-sm font-medium text-slate-800 truncate">
-                            {item.cost_code && <span className="text-slate-400 font-normal mr-1.5">{item.cost_code}</span>}
+                          <p className="text-sm font-medium text-ink-soft truncate">
+                            {item.cost_code && <span className="text-faint font-normal mr-1.5">{item.cost_code}</span>}
                             {item.description}
                           </p>
-                          {item.notes && <p className="text-xs text-slate-400 truncate">{item.notes}</p>}
+                          {item.notes && <p className="text-xs text-faint truncate">{item.notes}</p>}
                         </div>
                         <div className="flex justify-between md:block md:text-right mt-2 md:mt-0 text-sm">
-                          <span className="md:hidden text-xs text-slate-400">Budgeted</span>
-                          <span className="text-slate-700">{money(item.budgeted_amount)}</span>
+                          <span className="md:hidden text-xs text-faint">Budgeted</span>
+                          <span className="text-ink-soft">{money(item.budgeted_amount)}</span>
                         </div>
                         <div className="flex justify-between md:block md:text-right text-sm">
-                          <span className="md:hidden text-xs text-slate-400">Committed</span>
-                          <span className="text-slate-600">{money(item.committed_amount)}</span>
+                          <span className="md:hidden text-xs text-faint">Committed</span>
+                          <span className="text-muted-fg">{money(item.committed_amount)}</span>
                         </div>
                         <div className="flex justify-between md:block md:text-right text-sm">
-                          <span className="md:hidden text-xs text-slate-400">Actual</span>
-                          <span className="text-slate-600">{money(item.actual_amount)}</span>
+                          <span className="md:hidden text-xs text-faint">Actual</span>
+                          <span className="text-muted-fg">{money(item.actual_amount)}</span>
                         </div>
                         <div className="flex justify-between md:block md:text-right text-sm font-medium">
-                          <span className="md:hidden text-xs text-slate-400">Variance</span>
-                          <span className={over ? 'text-red-600' : 'text-green-600'}>
+                          <span className="md:hidden text-xs text-faint">Variance</span>
+                          <span className={over ? 'text-danger' : 'text-success'}>
                             {over ? '-' : ''}{money(Math.abs(variance))}
                           </span>
                         </div>
                         <div className="flex justify-end gap-1 mt-2 md:mt-0 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => startEdit(item)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+                          <button onClick={() => startEdit(item)} className="p-1.5 rounded-lg text-faint hover:bg-muted hover:text-muted-fg">
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
-                          <button onClick={() => remove(item.id)} className="p-1.5 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600">
+                          <button onClick={() => remove(item.id)} className="p-1.5 rounded-lg text-faint hover:bg-danger-tint hover:text-danger">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
@@ -320,12 +320,12 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
           })}
 
           {/* totals footer */}
-          <div className="hidden md:grid grid-cols-[1fr_repeat(4,minmax(0,7rem))_3rem] gap-2 px-4 py-3 border-t-2 border-slate-200 bg-slate-50 text-sm font-bold text-slate-800">
+          <div className="hidden md:grid grid-cols-[1fr_repeat(4,minmax(0,7rem))_3rem] gap-2 px-4 py-3 border-t-2 border-line bg-surface text-sm font-bold text-ink-soft">
             <span>Total</span>
             <span className="text-right">{money(totalBudgeted)}</span>
             <span className="text-right">{money(totalCommitted)}</span>
             <span className="text-right">{money(totalActual)}</span>
-            <span className={cn('text-right', overBudget ? 'text-red-600' : 'text-green-600')}>
+            <span className={cn('text-right', overBudget ? 'text-danger' : 'text-success')}>
               {overBudget ? '-' : ''}{money(Math.abs(remaining))}
             </span>
             <span />

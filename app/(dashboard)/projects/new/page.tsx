@@ -131,7 +131,7 @@ export default function NewProjectPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="endDate">Target End Date <span className="text-slate-400 font-normal">(optional)</span></Label>
+                <Label htmlFor="endDate">Target End Date <span className="text-faint font-normal">(optional)</span></Label>
                 <Input
                   id="endDate"
                   type="date"
@@ -142,8 +142,8 @@ export default function NewProjectPage() {
             </div>
 
             {error && (
-              <div className="rounded-md bg-red-50 border border-red-200 px-4 py-2.5">
-                <p className="text-sm text-red-600">{error}</p>
+              <div className="rounded-md bg-danger-tint border border-danger/30 px-4 py-2.5">
+                <p className="text-sm text-danger">{error}</p>
               </div>
             )}
 

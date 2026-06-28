@@ -76,12 +76,12 @@ export default function SignupPage() {
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-white">Create account</h1>
-        <p className="mt-1 text-sm text-slate-400">Get started with WorkOS Navigator</p>
+        <p className="mt-1 text-sm text-faint">Get started with SyteNav</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
-          <Label htmlFor="fullName" className="text-slate-300">Full Name</Label>
+          <Label htmlFor="fullName" className="text-faint">Full Name</Label>
           <Input
             id="fullName"
             type="text"
@@ -89,12 +89,12 @@ export default function SignupPage() {
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
             required
-            className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-500 focus:border-orange-500"
+            className="bg-slate-700 border-slate-600 text-white placeholder:text-muted-fg focus:border-accent"
           />
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="companyName" className="text-slate-300">Company Name</Label>
+          <Label htmlFor="companyName" className="text-faint">Company Name</Label>
           <Input
             id="companyName"
             type="text"
@@ -102,17 +102,17 @@ export default function SignupPage() {
             value={companyName}
             onChange={(e) => setCompanyName(e.target.value)}
             required
-            className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-500 focus:border-orange-500"
+            className="bg-slate-700 border-slate-600 text-white placeholder:text-muted-fg focus:border-accent"
           />
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="companyType" className="text-slate-300">Company Type</Label>
+          <Label htmlFor="companyType" className="text-faint">Company Type</Label>
           <Select
             id="companyType"
             value={companyType}
             onChange={(e) => setCompanyType(e.target.value as 'gc' | 'subcontractor')}
-            className="bg-slate-700 border-slate-600 text-white focus:border-orange-500"
+            className="bg-slate-700 border-slate-600 text-white focus:border-accent"
           >
             <option value="gc">General Contractor</option>
             <option value="subcontractor">Subcontractor</option>
@@ -120,7 +120,7 @@ export default function SignupPage() {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="email" className="text-slate-300">Email address</Label>
+          <Label htmlFor="email" className="text-faint">Email address</Label>
           <Input
             id="email"
             type="email"
@@ -129,12 +129,12 @@ export default function SignupPage() {
             onChange={(e) => setEmail(e.target.value)}
             required
             autoComplete="email"
-            className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-500 focus:border-orange-500"
+            className="bg-slate-700 border-slate-600 text-white placeholder:text-muted-fg focus:border-accent"
           />
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="password" className="text-slate-300">Password</Label>
+          <Label htmlFor="password" className="text-faint">Password</Label>
           <Input
             id="password"
             type="password"
@@ -144,13 +144,13 @@ export default function SignupPage() {
             required
             minLength={6}
             autoComplete="new-password"
-            className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-500 focus:border-orange-500"
+            className="bg-slate-700 border-slate-600 text-white placeholder:text-muted-fg focus:border-accent"
           />
         </div>
 
         {error && (
           <div className="rounded-md bg-red-900/40 border border-red-700 px-4 py-2.5">
-            <p className="text-sm text-red-400">{error}</p>
+            <p className="text-sm text-danger">{error}</p>
           </div>
         )}
 
@@ -159,9 +159,9 @@ export default function SignupPage() {
         </Button>
       </form>
 
-      <p className="mt-6 text-center text-sm text-slate-400">
+      <p className="mt-6 text-center text-sm text-faint">
         Already have an account?{' '}
-        <Link href="/login" className="font-medium text-orange-400 hover:text-orange-300 transition-colors">
+        <Link href="/login" className="font-medium text-accent-fg hover:text-accent transition-colors">
           Sign in
         </Link>
       </p>

@@ -2,17 +2,61 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ───────────────────────────────────────────────────────────────
+   SyteNav — "Field" theme tokens.
+   One accent system, two surface modes. Values are space-separated
+   RGB triplets so Tailwind can apply opacity via rgb(var() / <alpha>).
+   ─────────────────────────────────────────────────────────────── */
 :root {
-  --brand-orange: #f97316;
-  --brand-orange-dark: #ea6a0a;
-  --brand-slate: #0f172a;
-  --background: #f8fafc;
-  --foreground: #0f172a;
-  --card: #ffffff;
-  --card-foreground: #0f172a;
-  --border: #e2e8f0;
-  --muted: #f1f5f9;
-  --muted-foreground: #64748b;
+  /* Light mode — "Paper" surfaces */
+  --surface: 244 244 241;     /* #F4F4F1 */
+  --panel: 255 255 255;       /* #FFFFFF */
+  --muted: 237 236 231;       /* #EDECE7 */
+  --muted2: 227 225 219;      /* #E3E1DB */
+  --line: 231 231 226;        /* #E7E7E2 */
+  --line-soft: 239 238 233;   /* #EFEEE9 */
+
+  --ink: 22 24 27;            /* #16181B */
+  --ink-soft: 58 63 70;       /* #3A3F46 */
+  --muted-fg: 106 110 116;    /* #6A6E74 */
+  --faint: 154 156 150;       /* #9A9C96 */
+
+  --accent: 201 242 74;       /* #C9F24A  (lime fill) */
+  --accent-fg: 95 122 18;     /* #5F7A12  (readable lime text on light) */
+  --accent-ink: 22 24 27;     /* text/icon ON a lime fill */
+  --accent-tint: 236 246 200; /* #ECF6C8 */
+
+  --success: 31 143 95;       --success-tint: 227 245 236; --success-solid: 31 143 95;
+  --danger: 194 52 28;        --danger-tint: 251 233 230;  --danger-solid: 229 73 42;
+  --warn: 181 116 0;          --warn-tint: 251 235 200;    --warn-solid: 232 149 0;
+  --info: 37 99 235;          --info-tint: 229 237 251;    --info-solid: 59 130 246;
+  --special: 124 58 237;      --special-tint: 239 231 251;
+}
+
+.dark {
+  /* Dark mode — "Pit" surfaces */
+  --surface: 15 17 19;        /* #0F1113 */
+  --panel: 31 34 39;          /* #1F2227 */
+  --muted: 42 46 52;          /* #2A2E34 */
+  --muted2: 58 63 70;         /* #3A3F46 */
+  --line: 42 46 52;           /* #2A2E34 */
+  --line-soft: 35 39 45;      /* #23272D */
+
+  --ink: 236 238 240;         /* #ECEEF0 */
+  --ink-soft: 194 199 206;    /* #C2C7CE */
+  --muted-fg: 154 160 168;    /* #9AA0A8 */
+  --faint: 110 116 124;       /* #6E747C */
+
+  --accent: 201 242 74;       /* #C9F24A */
+  --accent-fg: 201 242 74;    /* lime reads fine on dark */
+  --accent-ink: 15 17 19;     /* dark text ON a lime fill */
+  --accent-tint: 44 49 16;    /* #2C3110 */
+
+  --success: 95 216 155;      --success-tint: 20 50 38;  --success-solid: 43 165 107;
+  --danger: 255 122 92;       --danger-tint: 58 26 20;   --danger-solid: 229 73 42;
+  --warn: 255 176 46;         --warn-tint: 58 46 16;     --warn-solid: 255 176 46;
+  --info: 127 176 255;        --info-tint: 20 35 58;     --info-solid: 59 130 246;
+  --special: 196 162 245;     --special-tint: 38 26 58;
 }
 
 @layer base {
@@ -43,23 +87,23 @@
   }
 
   body {
-    background-color: #f8fafc;
-    color: #0f172a;
-    font-family: 'Inter', system-ui, sans-serif;
+    background-color: rgb(var(--surface));
+    color: rgb(var(--ink));
+    font-family: var(--font-archivo), 'Archivo', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   h1 {
-    @apply text-2xl font-bold text-slate-900 tracking-tight;
+    @apply text-2xl font-bold text-ink tracking-tight;
   }
 
   h2 {
-    @apply text-xl font-semibold text-slate-900;
+    @apply text-xl font-semibold text-ink;
   }
 
   h3 {
-    @apply text-lg font-semibold text-slate-800;
+    @apply text-lg font-semibold text-ink-soft;
   }
 }
 
@@ -71,5 +115,10 @@
 
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
+  }
+
+  /* Saira Condensed for big headers / numbers */
+  .font-display {
+    font-family: var(--font-saira), 'Saira Condensed', system-ui, sans-serif;
   }
 }

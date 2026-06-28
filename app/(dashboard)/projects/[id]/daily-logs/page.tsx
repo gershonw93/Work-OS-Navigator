@@ -367,20 +367,20 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
       {/* Edit log modal */}
       {showEditModal && editingLog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
-            <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-              <h2 className="font-semibold text-slate-900">Edit Daily Log</h2>
-              <button onClick={() => { setShowEditModal(false); setEditingLog(null) }} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
+          <div className="bg-panel rounded-xl shadow-xl w-full max-w-md">
+            <div className="px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between">
+              <h2 className="font-semibold text-ink">Edit Daily Log</h2>
+              <button onClick={() => { setShowEditModal(false); setEditingLog(null) }} className="text-faint hover:text-muted-fg"><X className="h-5 w-5" /></button>
             </div>
             <form onSubmit={handleEditSubmit}>
               <div className="px-4 sm:px-6 py-5 space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-slate-700">Date</label>
+                  <label className="text-sm font-medium text-ink-soft">Date</label>
                   <input type="date" value={editLogDate} onChange={e => setEditLogDate(e.target.value)} required
-                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none" />
+                    className="w-full rounded-md border border-muted2 px-3 py-2 text-sm focus:border-accent focus:outline-none" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-slate-700">Weather</label>
+                  <label className="text-sm font-medium text-ink-soft">Weather</label>
                   <div className="flex flex-wrap gap-2">
                     {WEATHER_OPTIONS.map(w => {
                       const Icon = w.icon
@@ -388,7 +388,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                       return (
                         <button key={w.value} type="button" onClick={() => setEditWeather(active ? '' : w.value)}
                           className={cn('flex flex-col items-center gap-1 rounded-lg border px-3 py-2 text-xs font-medium transition-colors',
-                            active ? 'border-orange-400 bg-orange-50 text-orange-700' : 'border-slate-200 text-slate-600 hover:border-slate-300')}>
+                            active ? 'border-accent bg-accent-tint text-accent-fg' : 'border-line text-muted-fg hover:border-muted2')}>
                           <Icon className="h-4 w-4" />
                           {w.label}
                         </button>
@@ -397,21 +397,21 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-slate-700">Temp (°F)</label>
+                  <label className="text-sm font-medium text-ink-soft">Temp (°F)</label>
                   <input type="number" value={editTempF} onChange={e => setEditTempF(e.target.value)} placeholder="e.g. 72"
-                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none" />
+                    className="w-full rounded-md border border-muted2 px-3 py-2 text-sm focus:border-accent focus:outline-none" />
                 </div>
                 {teamMembers.length > 0 && (
                   <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-slate-700">GC Crew on Site</label>
+                    <label className="text-sm font-medium text-ink-soft">GC Crew on Site</label>
                     <div className="flex flex-wrap gap-2">
                       {teamMembers.map(m => {
                         const active = editCrewOnSite.find(w => w.name === m.name)
                         return (
                           <button key={m.id} type="button" onClick={() => toggleEditCrew(m)}
                             className={cn('flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-                              active ? 'border-orange-400 bg-orange-50 text-orange-700' : 'border-slate-200 text-slate-600 hover:border-slate-300')}>
-                            <span className={cn('h-1.5 w-1.5 rounded-full', active ? 'bg-orange-500' : 'bg-slate-300')} />
+                              active ? 'border-accent bg-accent-tint text-accent-fg' : 'border-line text-muted-fg hover:border-muted2')}>
+                            <span className={cn('h-1.5 w-1.5 rounded-full', active ? 'bg-accent' : 'bg-muted2')} />
                             {m.name}
                           </button>
                         )
@@ -420,14 +420,14 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                   </div>
                 )}
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-slate-700">Notes</label>
+                  <label className="text-sm font-medium text-ink-soft">Notes</label>
                   <textarea rows={3} value={editNotes} onChange={e => setEditNotes(e.target.value)} placeholder="Any notes..."
-                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none resize-none" />
+                    className="w-full rounded-md border border-muted2 px-3 py-2 text-sm focus:border-accent focus:outline-none resize-none" />
                 </div>
 
                 {subcontracts.length > 0 && (
                   <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-slate-700">Subcontractors on Site</label>
+                    <label className="text-sm font-medium text-ink-soft">Subcontractors on Site</label>
                     <div className="flex flex-wrap gap-2">
                       {subcontracts.map(sub => {
                         const name = (sub.companies as any)?.name ?? sub.trade
@@ -435,9 +435,9 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                         return (
                           <button key={sub.id} type="button" onClick={() => toggleEditSub(sub)}
                             className={cn('flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-                              active ? 'border-orange-400 bg-orange-50 text-orange-700' : 'border-slate-200 text-slate-600 hover:border-slate-300')}>
-                            <span className={cn('h-1.5 w-1.5 rounded-full', active ? 'bg-orange-500' : 'bg-slate-300')} />
-                            {name} <span className="text-slate-400">({sub.trade})</span>
+                              active ? 'border-accent bg-accent-tint text-accent-fg' : 'border-line text-muted-fg hover:border-muted2')}>
+                            <span className={cn('h-1.5 w-1.5 rounded-full', active ? 'bg-accent' : 'bg-muted2')} />
+                            {name} <span className="text-faint">({sub.trade})</span>
                           </button>
                         )
                       })}
@@ -446,44 +446,44 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                 )}
 
                 <div className="space-y-1.5">
-                  <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                  <label className="flex items-center gap-2 text-sm font-medium text-ink-soft">
                     <input type="checkbox" checked={editHasIssues} onChange={e => setEditHasIssues(e.target.checked)}
-                      className="h-4 w-4 rounded border-slate-300 accent-orange-500" />
+                      className="h-4 w-4 rounded border-muted2 accent-[#C9F24A]" />
                     Issues / incidents on site
                   </label>
                   {editHasIssues && (
                     <textarea rows={2} value={editIssueDescription} onChange={e => setEditIssueDescription(e.target.value)} placeholder="Describe the issue..."
-                      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none resize-none" />
+                      className="w-full rounded-md border border-muted2 px-3 py-2 text-sm focus:border-accent focus:outline-none resize-none" />
                   )}
                 </div>
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-slate-700">Delays</label>
+                    <label className="text-sm font-medium text-ink-soft">Delays</label>
                     <button type="button" onClick={() => setEditDelays(prev => [...prev, { type: '', description: '' }])}
-                      className="text-xs font-medium text-orange-600 hover:text-orange-700">+ Add Delay</button>
+                      className="text-xs font-medium text-accent-fg hover:text-accent-fg">+ Add Delay</button>
                   </div>
                   {editDelays.map((delay, i) => (
                     <div key={i} className="flex flex-wrap sm:flex-nowrap gap-2 items-start">
                       <select value={delay.type} onChange={e => setEditDelays(prev => prev.map((d, j) => j === i ? { ...d, type: e.target.value } : d))}
-                        className="rounded-md border border-slate-300 px-2 py-2 text-sm bg-white focus:border-orange-500 focus:outline-none">
+                        className="rounded-md border border-muted2 px-2 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
                         <option value="">Type...</option>
                         {DELAY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                       </select>
                       <input value={delay.description} placeholder="Description"
                         onChange={e => setEditDelays(prev => prev.map((d, j) => j === i ? { ...d, description: e.target.value } : d))}
-                        className="flex-1 min-w-0 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none" />
+                        className="flex-1 min-w-0 rounded-md border border-muted2 px-3 py-2 text-sm focus:border-accent focus:outline-none" />
                       <button type="button" onClick={() => setEditDelays(prev => prev.filter((_, j) => j !== i))}
-                        className="text-slate-400 hover:text-red-500 p-2"><X className="h-4 w-4" /></button>
+                        className="text-faint hover:text-danger p-2"><X className="h-4 w-4" /></button>
                     </div>
                   ))}
                 </div>
               </div>
-              <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex flex-wrap gap-2 justify-end">
+              <div className="px-4 sm:px-6 py-4 border-t border-line-soft flex flex-wrap gap-2 justify-end">
                 <button type="button" onClick={() => { setShowEditModal(false); setEditingLog(null) }}
-                  className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+                  className="rounded-md border border-muted2 px-3 py-2 text-sm font-medium text-ink-soft hover:bg-surface">Cancel</button>
                 <button type="submit" disabled={editSubmitting}
-                  className="rounded-md bg-orange-500 hover:bg-orange-600 text-white px-3 py-2 text-sm font-medium disabled:opacity-60">
+                  className="rounded-md bg-accent hover:bg-accent text-accent-ink px-3 py-2 text-sm font-medium disabled:opacity-60">
                   {editSubmitting ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
@@ -495,19 +495,19 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
       {/* Create task modal */}
       {createTaskFromLog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
-            <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div className="bg-panel rounded-xl shadow-xl w-full max-w-md">
+            <div className="px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between">
               <div>
-                <h2 className="text-base font-semibold text-slate-900">Create Task from Issue</h2>
-                <p className="text-xs text-slate-500 mt-0.5">Log: {new Date(createTaskFromLog.log_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+                <h2 className="text-base font-semibold text-ink">Create Task from Issue</h2>
+                <p className="text-xs text-muted-fg mt-0.5">Log: {new Date(createTaskFromLog.log_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
               </div>
-              <button onClick={() => setCreateTaskFromLog(null)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
+              <button onClick={() => setCreateTaskFromLog(null)} className="text-faint hover:text-muted-fg"><X className="h-5 w-5" /></button>
             </div>
             <form onSubmit={handleCreateTask}>
               <div className="px-4 sm:px-6 py-5 space-y-4">
                 {createTaskFromLog.issue_description && (
-                  <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">
-                    <p className="font-medium text-xs text-amber-500 mb-0.5">Issue logged</p>
+                  <div className="rounded-lg bg-warn-tint border border-warn/30 px-3 py-2 text-sm text-warn">
+                    <p className="font-medium text-xs text-warn mb-0.5">Issue logged</p>
                     {createTaskFromLog.issue_description}
                   </div>
                 )}
@@ -516,10 +516,10 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                   <Input autoFocus value={taskTitle} onChange={e => setTaskTitle(e.target.value)} placeholder="e.g. Fix water intrusion on north wall" required />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Description <span className="text-slate-400 font-normal">(optional)</span></Label>
+                  <Label>Description <span className="text-faint font-normal">(optional)</span></Label>
                   <textarea rows={2} value={taskDescription} onChange={e => setTaskDescription(e.target.value)}
                     placeholder="Additional context..."
-                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none resize-none" />
+                    className="w-full rounded-md border border-muted2 px-3 py-2 text-sm focus:border-accent focus:outline-none resize-none" />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
@@ -528,45 +528,45 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                       {['low', 'medium', 'high', 'urgent'].map(p => (
                         <button key={p} type="button" onClick={() => setTaskPriority(p)}
                           className={cn('rounded-lg border px-2 py-1.5 text-xs font-medium capitalize transition-colors',
-                            taskPriority === p ? 'border-orange-400 bg-orange-50 text-orange-700' : 'border-slate-200 text-slate-600 hover:border-slate-300')}>
+                            taskPriority === p ? 'border-accent bg-accent-tint text-accent-fg' : 'border-line text-muted-fg hover:border-muted2')}>
                           {p}
                         </button>
                       ))}
                     </div>
                   </div>
                   <div className="space-y-1.5">
-                    <Label>Due Date <span className="text-slate-400 font-normal">(optional)</span></Label>
+                    <Label>Due Date <span className="text-faint font-normal">(optional)</span></Label>
                     <Input type="date" value={taskDueDate} onChange={e => setTaskDueDate(e.target.value)} />
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Assign To <span className="text-slate-400 font-normal">(optional)</span></Label>
+                  <Label>Assign To <span className="text-faint font-normal">(optional)</span></Label>
                   <div className="flex gap-2 mb-2">
                     {(['', 'member', 'sub'] as const).map(t => (
                       <button key={t} type="button" onClick={() => { setTaskAssigneeType(t); setTaskAssigneeId('') }}
                         className={cn('flex-1 rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors',
-                          taskAssigneeType === t ? 'border-orange-400 bg-orange-50 text-orange-700' : 'border-slate-200 text-slate-600 hover:border-slate-300')}>
+                          taskAssigneeType === t ? 'border-accent bg-accent-tint text-accent-fg' : 'border-line text-muted-fg hover:border-muted2')}>
                         {t === '' ? 'Unassigned' : t === 'member' ? 'GC Crew' : 'Subcontractor'}
                       </button>
                     ))}
                   </div>
                   {taskAssigneeType === 'member' && teamMembers.length > 0 && (
                     <select value={taskAssigneeId} onChange={e => setTaskAssigneeId(e.target.value)}
-                      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white focus:border-orange-500 focus:outline-none">
+                      className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
                       <option value="">Select crew member...</option>
                       {teamMembers.map(m => <option key={m.id} value={m.id}>{m.name} — {m.role}</option>)}
                     </select>
                   )}
                   {taskAssigneeType === 'sub' && subcontracts.length > 0 && (
                     <select value={taskAssigneeId} onChange={e => setTaskAssigneeId(e.target.value)}
-                      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white focus:border-orange-500 focus:outline-none">
+                      className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
                       <option value="">Select subcontractor...</option>
                       {subcontracts.map(s => <option key={s.id} value={s.id}>{(s.companies as any)?.name ?? s.trade} — {s.trade}</option>)}
                     </select>
                   )}
                 </div>
               </div>
-              <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex flex-wrap gap-2 justify-end">
+              <div className="px-4 sm:px-6 py-4 border-t border-line-soft flex flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => setCreateTaskFromLog(null)}>Cancel</Button>
                 <Button type="submit" disabled={creatingTask || !taskTitle.trim()}>
                   <CheckSquare className="h-3.5 w-3.5" />
@@ -581,8 +581,8 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
       {/* Header */}
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Daily Logs</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Field reports, site conditions, and crew activity.</p>
+          <h1 className="text-2xl font-bold text-ink">Daily Logs</h1>
+          <p className="text-sm text-muted-fg mt-0.5">Field reports, site conditions, and crew activity.</p>
         </div>
         <Button onClick={() => { resetForm(); setShowForm(true) }}>
           <Plus className="h-4 w-4" /> New Log
@@ -591,10 +591,10 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
 
       {/* New Log Form */}
       {showForm && (
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-            <h2 className="font-semibold text-slate-900">New Daily Log</h2>
-            <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
+        <div className="bg-panel rounded-xl border border-line overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-line-soft">
+            <h2 className="font-semibold text-ink">New Daily Log</h2>
+            <button onClick={() => setShowForm(false)} className="text-faint hover:text-muted-fg"><X className="h-5 w-5" /></button>
           </div>
           <form onSubmit={handleSubmit} className="px-5 py-5 space-y-6">
 
@@ -609,7 +609,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                   <Label>Weather</Label>
                   <div className="flex items-center gap-2">
                     {weatherChip && (
-                      <span className="text-xs font-medium bg-orange-50 text-orange-600 border border-orange-200 rounded-full px-2 py-0.5">
+                      <span className="text-xs font-medium bg-accent-tint text-accent-fg border border-accent/40 rounded-full px-2 py-0.5">
                         {weatherChip}
                       </span>
                     )}
@@ -617,7 +617,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                         type="button"
                         onClick={handleAutoFillWeather}
                         disabled={weatherLoading}
-                        className="text-xs border border-slate-300 rounded-md px-2 py-0.5 text-slate-600 hover:border-orange-400 hover:text-orange-600 transition-colors disabled:opacity-50"
+                        className="text-xs border border-muted2 rounded-md px-2 py-0.5 text-muted-fg hover:border-accent hover:text-accent-fg transition-colors disabled:opacity-50"
                       >
                         {weatherLoading ? 'Fetching...' : 'Auto-fill weather'}
                       </button>
@@ -630,7 +630,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                       <button key={w.value} type="button" onClick={() => setWeatherCondition(weatherCondition === w.value ? '' : w.value)}
                         title={w.label}
                         className={cn('flex-1 flex flex-col items-center gap-0.5 rounded-lg border py-2 text-xs transition-colors',
-                          weatherCondition === w.value ? 'border-orange-400 bg-orange-50 text-orange-600' : 'border-slate-200 text-slate-500 hover:border-slate-300')}>
+                          weatherCondition === w.value ? 'border-accent bg-accent-tint text-accent-fg' : 'border-line text-muted-fg hover:border-muted2')}>
                         <Icon className="h-4 w-4" />
                         <span className="hidden sm:block">{w.label}</span>
                       </button>
@@ -640,7 +640,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="temperature">
-                  <Thermometer className="inline h-3.5 w-3.5 mr-1 text-slate-400" />Temp (°F)
+                  <Thermometer className="inline h-3.5 w-3.5 mr-1 text-faint" />Temp (°F)
                 </Label>
                 <Input id="temperature" type="number" placeholder="e.g. 72" value={temperature} onChange={e => setTemperature(e.target.value)} />
               </div>
@@ -649,15 +649,15 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
             {/* Workers on site */}
             {teamMembers.length > 0 && (
               <div className="space-y-2">
-                <Label><Users className="inline h-3.5 w-3.5 mr-1 text-slate-400" />GC Crew on Site</Label>
+                <Label><Users className="inline h-3.5 w-3.5 mr-1 text-faint" />GC Crew on Site</Label>
                 <div className="flex flex-wrap gap-2">
                   {teamMembers.map(m => {
                     const active = workersOnSite.find(w => w.name === m.name)
                     return (
                       <button key={m.id} type="button" onClick={() => toggleWorkerOnSite(m)}
                         className={cn('flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-                          active ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:border-slate-300')}>
-                        <span className={cn('h-1.5 w-1.5 rounded-full', active ? 'bg-blue-500' : 'bg-slate-300')} />
+                          active ? 'border-blue-400 bg-info-tint text-info' : 'border-line text-muted-fg hover:border-muted2')}>
+                        <span className={cn('h-1.5 w-1.5 rounded-full', active ? 'bg-info-solid' : 'bg-muted2')} />
                         {m.name}
                       </button>
                     )
@@ -669,7 +669,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
             {/* Subs on site */}
             {subcontracts.length > 0 && (
               <div className="space-y-2">
-                <Label><Building2 className="inline h-3.5 w-3.5 mr-1 text-slate-400" />Subcontractors on Site</Label>
+                <Label><Building2 className="inline h-3.5 w-3.5 mr-1 text-faint" />Subcontractors on Site</Label>
                 <div className="flex flex-wrap gap-2">
                   {subcontracts.map(sub => {
                     const name = (sub.companies as any)?.name ?? sub.trade
@@ -677,10 +677,10 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                     return (
                       <button key={sub.id} type="button" onClick={() => toggleSubOnSite(sub)}
                         className={cn('flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-                          active ? 'border-orange-400 bg-orange-50 text-orange-700' : 'border-slate-200 text-slate-600 hover:border-slate-300')}>
-                        <span className={cn('h-1.5 w-1.5 rounded-full', active ? 'bg-orange-500' : 'bg-slate-300')} />
+                          active ? 'border-accent bg-accent-tint text-accent-fg' : 'border-line text-muted-fg hover:border-muted2')}>
+                        <span className={cn('h-1.5 w-1.5 rounded-full', active ? 'bg-accent' : 'bg-muted2')} />
                         {name}
-                        <span className="text-slate-400">({sub.trade})</span>
+                        <span className="text-faint">({sub.trade})</span>
                       </button>
                     )
                   })}
@@ -693,7 +693,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
               <Label htmlFor="notes">Log Notes</Label>
               <textarea id="notes" rows={3} placeholder="What happened on site today? Progress made, observations, anything notable..."
                 value={notes} onChange={e => setNotes(e.target.value)}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 resize-none" />
+                className="w-full rounded-md border border-muted2 px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent resize-none" />
             </div>
 
             {/* Issues */}
@@ -701,66 +701,66 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
               <div className="flex items-center gap-3">
                 <button type="button" onClick={() => setHasIssues(!hasIssues)}
                   className={cn('flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
-                    hasIssues ? 'border-red-400 bg-red-50 text-red-700' : 'border-slate-200 text-slate-600 hover:border-red-300 hover:text-red-500')}>
+                    hasIssues ? 'border-red-400 bg-danger-tint text-danger' : 'border-line text-muted-fg hover:border-danger/40 hover:text-danger')}>
                   <Flag className={cn('h-4 w-4', hasIssues ? 'fill-red-400' : '')} />
                   {hasIssues ? 'Issue Flagged' : 'Flag an Issue'}
                 </button>
-                <span className="text-xs text-slate-400">Flag this log if something needs attention</span>
+                <span className="text-xs text-faint">Flag this log if something needs attention</span>
               </div>
               {hasIssues && (
                 <textarea rows={2} placeholder="Describe the issue (e.g. water leak at north wall, missing materials, safety concern...)"
                   value={issueDescription} onChange={e => setIssueDescription(e.target.value)}
-                  className="w-full rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-300 resize-none" />
+                  className="w-full rounded-md border border-danger/30 bg-danger-tint px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-300 resize-none" />
               )}
             </div>
 
             {/* Delays */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label><Clock className="inline h-3.5 w-3.5 mr-1 text-slate-400" />Delays</Label>
-                <button type="button" onClick={addDelay} className="text-xs text-orange-500 hover:underline flex items-center gap-1">
+                <Label><Clock className="inline h-3.5 w-3.5 mr-1 text-faint" />Delays</Label>
+                <button type="button" onClick={addDelay} className="text-xs text-accent-fg hover:underline flex items-center gap-1">
                   <Plus className="h-3 w-3" /> Add Delay
                 </button>
               </div>
               {delays.map((delay, i) => (
                 <div key={i} className="flex flex-wrap sm:flex-nowrap gap-2 items-start">
                   <select value={delay.type} onChange={e => setDelays(prev => prev.map((d, j) => j === i ? { ...d, type: e.target.value } : d))}
-                    className="rounded-md border border-slate-300 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:border-orange-400 bg-white w-full sm:w-44 sm:shrink-0">
+                    className="rounded-md border border-muted2 px-2 py-1.5 text-sm text-ink-soft focus:outline-none focus:border-accent bg-panel w-full sm:w-44 sm:shrink-0">
                     <option value="">Select type</option>
                     {DELAY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
                   <input type="text" placeholder="Describe the delay..." value={delay.description}
                     onChange={e => setDelays(prev => prev.map((d, j) => j === i ? { ...d, description: e.target.value } : d))}
-                    className="flex-1 rounded-md border border-slate-300 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:border-orange-400" />
+                    className="flex-1 rounded-md border border-muted2 px-2 py-1.5 text-sm text-ink-soft focus:outline-none focus:border-accent" />
                   <button type="button" onClick={() => setDelays(prev => prev.filter((_, j) => j !== i))}
-                    className="text-slate-300 hover:text-red-400 mt-1.5"><X className="h-4 w-4" /></button>
+                    className="text-faint hover:text-danger mt-1.5"><X className="h-4 w-4" /></button>
                 </div>
               ))}
             </div>
 
             {/* Photos */}
             <div className="space-y-2">
-              <Label><Camera className="inline h-3.5 w-3.5 mr-1 text-slate-400" />Site Photos</Label>
+              <Label><Camera className="inline h-3.5 w-3.5 mr-1 text-faint" />Site Photos</Label>
               {photoPreviews.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   {photoPreviews.map((src, i) => (
                     <div key={i} className="relative group">
-                      <img src={src} alt="" className="h-20 w-20 object-cover rounded-lg border border-slate-200" />
+                      <img src={src} alt="" className="h-20 w-20 object-cover rounded-lg border border-line" />
                       <button type="button" onClick={() => removePhoto(i)}
-                        className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-danger-solid text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                         <X className="h-3 w-3" />
                       </button>
                     </div>
                   ))}
                 </div>
               )}
-              <label className="flex items-center gap-2 rounded-lg border-2 border-dashed border-slate-200 px-4 py-2.5 text-sm text-slate-400 hover:border-orange-300 hover:text-orange-500 transition-colors cursor-pointer">
+              <label className="flex items-center gap-2 rounded-lg border-2 border-dashed border-line px-4 py-2.5 text-sm text-faint hover:border-accent hover:text-accent-fg transition-colors cursor-pointer">
                 <Camera className="h-4 w-4" /> Add Photos
                 <input ref={photoInputRef} type="file" multiple accept="image/*" className="sr-only" onChange={e => addPhoto(e.target.files)} />
               </label>
             </div>
 
-            {error && <p className="text-sm text-red-600">{error}</p>}
+            {error && <p className="text-sm text-danger">{error}</p>}
 
             <div className="flex flex-wrap gap-2 justify-end">
               <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>Cancel</Button>
@@ -772,12 +772,12 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
 
       {/* Logs list */}
       {loading ? (
-        <div className="text-sm text-slate-400 py-12 text-center">Loading...</div>
+        <div className="text-sm text-faint py-12 text-center">Loading...</div>
       ) : logs.length === 0 && !showForm ? (
-        <div className="rounded-xl border-2 border-dashed border-slate-200 py-16 text-center">
-          <BookOpen className="h-8 w-8 text-slate-300 mx-auto mb-3" />
-          <p className="text-sm font-medium text-slate-500">No logs yet</p>
-          <p className="text-xs text-slate-400 mt-1">Submit your first daily log to track site activity.</p>
+        <div className="rounded-xl border-2 border-dashed border-line py-16 text-center">
+          <BookOpen className="h-8 w-8 text-faint mx-auto mb-3" />
+          <p className="text-sm font-medium text-muted-fg">No logs yet</p>
+          <p className="text-xs text-faint mt-1">Submit your first daily log to track site activity.</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -786,39 +786,39 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
             const dateLabel = new Date(log.log_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
 
             return (
-              <div key={log.id} className={cn('rounded-xl border bg-white overflow-hidden transition-colors',
-                log.has_issues ? 'border-red-200' : 'border-slate-200')}>
+              <div key={log.id} className={cn('rounded-xl border bg-panel overflow-hidden transition-colors',
+                log.has_issues ? 'border-danger/30' : 'border-line')}>
 
                 {/* Log row */}
-                <button className="w-full flex items-center gap-4 px-5 py-4 hover:bg-slate-50 transition-colors text-left"
+                <button className="w-full flex items-center gap-4 px-5 py-4 hover:bg-surface transition-colors text-left"
                   onClick={() => setExpandedLog(isExpanded ? null : log.id)}>
                   <div className="shrink-0">
                     {log.has_issues
-                      ? <AlertTriangle className="h-5 w-5 text-red-400" />
-                      : <div className="h-5 w-5 rounded-full bg-green-100 flex items-center justify-center">
-                          <div className="h-2 w-2 rounded-full bg-green-500" />
+                      ? <AlertTriangle className="h-5 w-5 text-danger" />
+                      : <div className="h-5 w-5 rounded-full bg-success-tint flex items-center justify-center">
+                          <div className="h-2 w-2 rounded-full bg-success-solid" />
                         </div>}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2.5 flex-wrap">
-                      <span className="font-semibold text-slate-900">{dateLabel}</span>
+                      <span className="font-semibold text-ink">{dateLabel}</span>
                       {(log.weather ?? log.weather_condition) && (
-                        <span className="flex items-center gap-1 text-xs text-slate-500">
+                        <span className="flex items-center gap-1 text-xs text-muted-fg">
                           {weatherIcon(log.weather ?? log.weather_condition)}
                           <span className="capitalize">{log.weather ?? log.weather_condition}</span>
                           {log.temperature && <span>· {log.temperature}°F</span>}
                         </span>
                       )}
                       {log.has_issues && (
-                        <span className="text-xs font-medium text-red-500 bg-red-50 border border-red-200 rounded-full px-2 py-0.5">Issue</span>
+                        <span className="text-xs font-medium text-danger bg-danger-tint border border-danger/30 rounded-full px-2 py-0.5">Issue</span>
                       )}
                       {log.delays?.length > 0 && (
-                        <span className="text-xs font-medium text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
+                        <span className="text-xs font-medium text-warn bg-warn-tint border border-warn/30 rounded-full px-2 py-0.5">
                           {log.delays.length} delay{log.delays.length !== 1 ? 's' : ''}
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-2 flex-wrap">
+                    <p className="text-xs text-faint mt-0.5 flex items-center gap-2 flex-wrap">
                       <span>{log.created_by_name}</span>
                       {log.workers_on_site?.length > 0 && (
                         <span>· {log.workers_on_site.length + (log.subs_on_site?.length ?? 0)} on site</span>
@@ -826,7 +826,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                       {(() => {
                         const photoCount = (log.daily_log_photos?.length ?? 0) || (log.photos?.length ?? 0)
                         return photoCount > 0 ? (
-                          <span className="inline-flex items-center gap-1 bg-slate-100 border border-slate-200 text-slate-600 rounded-full px-2 py-0.5 text-xs font-medium">
+                          <span className="inline-flex items-center gap-1 bg-muted border border-line text-muted-fg rounded-full px-2 py-0.5 text-xs font-medium">
                             <Camera className="h-3 w-3" />
                             {photoCount} photo{photoCount !== 1 ? 's' : ''}
                           </span>
@@ -834,13 +834,13 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                       })()}
                     </p>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0 text-slate-400">
+                  <div className="flex items-center gap-1 shrink-0 text-faint">
                     <button type="button" onClick={e => { e.stopPropagation(); openEditLog(log) }}
-                      className="p-1 text-slate-400 hover:text-slate-600" title="Edit log">
+                      className="p-1 text-faint hover:text-muted-fg" title="Edit log">
                       <Pencil className="h-4 w-4" />
                     </button>
                     <button type="button" onClick={e => { e.stopPropagation(); handleDeleteLog(log.id) }}
-                      className="p-1 text-red-400 hover:text-red-600" title="Delete log">
+                      className="p-1 text-danger hover:text-danger" title="Delete log">
                       <Trash2 className="h-4 w-4" />
                     </button>
                     {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -849,34 +849,34 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
 
                 {/* Expanded detail */}
                 {isExpanded && (
-                  <div className="border-t border-slate-100 px-5 py-5 space-y-5">
+                  <div className="border-t border-line-soft px-5 py-5 space-y-5">
 
                     {/* Top bar: weather + location */}
-                    <div className="flex flex-wrap gap-4 rounded-lg bg-slate-50 border border-slate-100 px-4 py-3 text-sm">
-                      <div className="flex items-center gap-1.5 text-slate-600">
+                    <div className="flex flex-wrap gap-4 rounded-lg bg-surface border border-line-soft px-4 py-3 text-sm">
+                      <div className="flex items-center gap-1.5 text-muted-fg">
                         {weatherIcon(log.weather ?? log.weather_condition)}
                         <span className="capitalize font-medium">{log.weather ?? log.weather_condition ?? 'No weather logged'}</span>
-                        {log.temperature && <span className="text-slate-400">· {log.temperature}°F</span>}
+                        {log.temperature && <span className="text-faint">· {log.temperature}°F</span>}
                       </div>
-                      <div className="text-slate-400">|</div>
-                      <div className="text-slate-500 text-xs">
-                        Logged by <span className="font-medium text-slate-700">{log.created_by_name}</span>
+                      <div className="text-faint">|</div>
+                      <div className="text-muted-fg text-xs">
+                        Logged by <span className="font-medium text-ink-soft">{log.created_by_name}</span>
                         {' '}on {new Date(log.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
                       </div>
                     </div>
 
                     {/* Issue banner */}
                     {log.has_issues && (
-                      <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 flex flex-col sm:flex-row items-start sm:justify-between gap-3 sm:gap-4">
+                      <div className="rounded-lg bg-danger-tint border border-danger/30 px-4 py-3 flex flex-col sm:flex-row items-start sm:justify-between gap-3 sm:gap-4">
                         <div className="flex items-start gap-2">
-                          <Flag className="h-4 w-4 text-red-500 shrink-0 mt-0.5 fill-red-400" />
+                          <Flag className="h-4 w-4 text-danger shrink-0 mt-0.5 fill-red-400" />
                           <div>
-                            <p className="text-sm font-semibold text-red-700">Issue Flagged</p>
-                            {log.issue_description && <p className="text-sm text-red-600 mt-0.5">{log.issue_description}</p>}
+                            <p className="text-sm font-semibold text-danger">Issue Flagged</p>
+                            {log.issue_description && <p className="text-sm text-danger mt-0.5">{log.issue_description}</p>}
                           </div>
                         </div>
                         <Button size="sm" variant="outline" onClick={() => { setCreateTaskFromLog(log); setTaskTitle(log.issue_description ?? '') }}
-                          className="shrink-0 border-red-300 text-red-600 hover:bg-red-50">
+                          className="shrink-0 border-danger/40 text-danger hover:bg-danger-tint">
                           <CheckSquare className="h-3.5 w-3.5" />
                           Create Task
                         </Button>
@@ -886,12 +886,12 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                     {/* Delays */}
                     {log.delays?.length > 0 && (
                       <div>
-                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Delays</p>
+                        <p className="text-xs font-semibold text-faint uppercase tracking-wide mb-2">Delays</p>
                         <div className="space-y-1.5">
                           {log.delays.map((d, i) => (
                             <div key={i} className="flex items-start gap-2 text-sm">
-                              <span className="rounded-full bg-amber-100 text-amber-700 text-xs font-medium px-2 py-0.5 shrink-0">{d.type}</span>
-                              <span className="text-slate-600">{d.description}</span>
+                              <span className="rounded-full bg-warn-tint text-warn text-xs font-medium px-2 py-0.5 shrink-0">{d.type}</span>
+                              <span className="text-muted-fg">{d.description}</span>
                             </div>
                           ))}
                         </div>
@@ -902,8 +902,8 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                       {/* Notes */}
                       {log.notes && (
                         <div>
-                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Log Notes</p>
-                          <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{log.notes}</p>
+                          <p className="text-xs font-semibold text-faint uppercase tracking-wide mb-1.5">Log Notes</p>
+                          <p className="text-sm text-ink-soft whitespace-pre-wrap leading-relaxed">{log.notes}</p>
                         </div>
                       )}
 
@@ -911,11 +911,11 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                       <div className="space-y-3">
                         {log.workers_on_site?.length > 0 && (
                           <div>
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">GC Crew on Site</p>
+                            <p className="text-xs font-semibold text-faint uppercase tracking-wide mb-1.5">GC Crew on Site</p>
                             <div className="flex flex-wrap gap-1.5">
                               {log.workers_on_site.map((w, i) => (
-                                <span key={i} className="text-xs bg-blue-50 border border-blue-100 text-blue-700 rounded-full px-2.5 py-0.5">
-                                  {w.name}{w.role && <span className="text-blue-400 ml-1">({w.role})</span>}
+                                <span key={i} className="text-xs bg-info-tint border border-blue-100 text-info rounded-full px-2.5 py-0.5">
+                                  {w.name}{w.role && <span className="text-info ml-1">({w.role})</span>}
                                 </span>
                               ))}
                             </div>
@@ -923,10 +923,10 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                         )}
                         {log.subs_on_site?.length > 0 && (
                           <div>
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Subs on Site</p>
+                            <p className="text-xs font-semibold text-faint uppercase tracking-wide mb-1.5">Subs on Site</p>
                             <div className="flex flex-wrap gap-1.5">
                               {log.subs_on_site.map((s, i) => (
-                                <span key={i} className="text-xs bg-orange-50 border border-orange-100 text-orange-700 rounded-full px-2.5 py-0.5">{s.name}</span>
+                                <span key={i} className="text-xs bg-accent-tint border border-accent/20 text-accent-fg rounded-full px-2.5 py-0.5">{s.name}</span>
                               ))}
                             </div>
                           </div>
@@ -946,12 +946,12 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                       if (photoItems.length === 0) return null
                       return (
                         <div>
-                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">
-                            Site Photos <span className="normal-case font-normal text-slate-400">({photoItems.length})</span>
+                          <p className="text-xs font-semibold text-faint uppercase tracking-wide mb-2">
+                            Site Photos <span className="normal-case font-normal text-faint">({photoItems.length})</span>
                           </p>
                           <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                             {photoItems.map((p, i) => (
-                              <a key={i} href={p.url} target="_blank" rel="noopener noreferrer" className="block aspect-square overflow-hidden rounded-lg border border-slate-200 hover:opacity-90 transition-opacity">
+                              <a key={i} href={p.url} target="_blank" rel="noopener noreferrer" className="block aspect-square overflow-hidden rounded-lg border border-line hover:opacity-90 transition-opacity">
                                 <img src={p.url} alt={p.caption || `Photo ${i + 1}`}
                                   className="h-full w-full object-cover" />
                               </a>

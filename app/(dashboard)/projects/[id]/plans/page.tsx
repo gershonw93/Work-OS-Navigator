@@ -195,16 +195,16 @@ export default function PlansPage({ params }: { params: { id: string } }) {
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between mb-6">
         <div className="flex items-center gap-3">
           {activeFolderId && (
-            <button onClick={() => setActiveFolderId(null)} className="text-slate-400 hover:text-slate-600">
+            <button onClick={() => setActiveFolderId(null)} className="text-faint hover:text-muted-fg">
               <ArrowLeft className="h-5 w-5" />
             </button>
           )}
           <div>
-            <div className="flex items-center gap-1.5 text-sm text-slate-500 mb-0.5">
-              <span className="cursor-pointer hover:text-slate-700" onClick={() => setActiveFolderId(null)}>Plans</span>
-              {activeFolder && <><ChevronRight className="h-3.5 w-3.5" /><span className="text-slate-700 font-medium">{activeFolder.name}</span></>}
+            <div className="flex items-center gap-1.5 text-sm text-muted-fg mb-0.5">
+              <span className="cursor-pointer hover:text-ink-soft" onClick={() => setActiveFolderId(null)}>Plans</span>
+              {activeFolder && <><ChevronRight className="h-3.5 w-3.5" /><span className="text-ink-soft font-medium">{activeFolder.name}</span></>}
             </div>
-            <h1 className="text-2xl font-bold text-slate-900">{activeFolder ? activeFolder.name : 'Plans'}</h1>
+            <h1 className="text-2xl font-bold text-ink">{activeFolder ? activeFolder.name : 'Plans'}</h1>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -214,7 +214,7 @@ export default function PlansPage({ params }: { params: { id: string } }) {
               New Folder
             </Button>
           )}
-          <label className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium cursor-pointer transition-colors">
+          <label className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent text-accent-ink text-sm font-medium cursor-pointer transition-colors">
             <Upload className="h-4 w-4" />
             Upload Plan
             <input ref={fileInputRef} type="file" className="sr-only" accept=".pdf,.dwg,.dxf,.png,.jpg,.jpeg,.svg" onChange={handleFileChange} />
@@ -225,17 +225,17 @@ export default function PlansPage({ params }: { params: { id: string } }) {
       {/* New Folder Modal */}
       {showNewFolder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 min-w-0 px-4 sm:px-6 py-6">
+          <div className="bg-panel rounded-xl shadow-xl w-full max-w-sm mx-4 min-w-0 px-4 sm:px-6 py-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-slate-900">New Folder</h2>
-              <button onClick={() => { setShowNewFolder(false); setFolderName(''); setFolderError(null) }} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
+              <h2 className="text-lg font-semibold text-ink">New Folder</h2>
+              <button onClick={() => { setShowNewFolder(false); setFolderName(''); setFolderError(null) }} className="text-faint hover:text-muted-fg"><X className="h-5 w-5" /></button>
             </div>
             <form onSubmit={createFolder} className="space-y-4">
               <div className="space-y-1.5">
                 <Label htmlFor="folderName">Folder Name</Label>
                 <Input id="folderName" placeholder="e.g. Architectural" value={folderName} onChange={e => setFolderName(e.target.value)} required autoFocus />
               </div>
-              {folderError && <p className="text-sm text-red-600">{folderError}</p>}
+              {folderError && <p className="text-sm text-danger">{folderError}</p>}
               <div className="flex flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => { setShowNewFolder(false); setFolderName('') }}>Cancel</Button>
                 <Button type="submit" disabled={folderLoading}>{folderLoading ? 'Creating...' : 'Create Folder'}</Button>
@@ -248,17 +248,17 @@ export default function PlansPage({ params }: { params: { id: string } }) {
       {/* Upload Modal */}
       {showUpload && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 min-w-0 px-4 sm:px-6 py-6">
+          <div className="bg-panel rounded-xl shadow-xl w-full max-w-md mx-4 min-w-0 px-4 sm:px-6 py-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-slate-900">Upload Plan</h2>
-              <button onClick={() => { setShowUpload(false); setUploadFile(null); setUploadError(null) }} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
+              <h2 className="text-lg font-semibold text-ink">Upload Plan</h2>
+              <button onClick={() => { setShowUpload(false); setUploadFile(null); setUploadError(null) }} className="text-faint hover:text-muted-fg"><X className="h-5 w-5" /></button>
             </div>
             <form onSubmit={handleUpload} className="space-y-4">
               {uploadFile && (
-                <div className="flex items-center gap-3 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2.5">
-                  <FileText className="h-5 w-5 text-slate-400 shrink-0" />
-                  <span className="text-sm text-slate-700 truncate min-w-0">{uploadFile.name}</span>
-                  <span className="text-xs text-slate-400 shrink-0 ml-auto">{(uploadFile.size / 1024 / 1024).toFixed(1)} MB</span>
+                <div className="flex items-center gap-3 rounded-lg bg-surface border border-line px-3 py-2.5">
+                  <FileText className="h-5 w-5 text-faint shrink-0" />
+                  <span className="text-sm text-ink-soft truncate min-w-0">{uploadFile.name}</span>
+                  <span className="text-xs text-faint shrink-0 ml-auto">{(uploadFile.size / 1024 / 1024).toFixed(1)} MB</span>
                 </div>
               )}
               <div className="space-y-1.5">
@@ -272,15 +272,15 @@ export default function PlansPage({ params }: { params: { id: string } }) {
                 </Select>
               </div>
               {activeFolder && (
-                <div className="flex items-center gap-2 text-sm text-slate-500">
+                <div className="flex items-center gap-2 text-sm text-muted-fg">
                   <Folder className="h-4 w-4" />
-                  Uploading into <span className="font-medium text-slate-700">{activeFolder.name}</span>
+                  Uploading into <span className="font-medium text-ink-soft">{activeFolder.name}</span>
                 </div>
               )}
-              {uploadError && <p className="text-sm text-red-600">{uploadError}</p>}
+              {uploadError && <p className="text-sm text-danger">{uploadError}</p>}
               {uploadProgress && (
-                <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-orange-500 rounded-full animate-pulse w-2/3" />
+                <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div className="h-full bg-accent rounded-full animate-pulse w-2/3" />
                 </div>
               )}
               <div className="flex flex-wrap gap-2 justify-end">
@@ -295,12 +295,12 @@ export default function PlansPage({ params }: { params: { id: string } }) {
       {/* Move to Folder Modal */}
       {movingPlan && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 px-6 py-6">
+          <div className="bg-panel rounded-xl shadow-xl w-full max-w-sm mx-4 px-6 py-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-slate-900">Move File</h2>
-              <button onClick={() => setMovingPlan(null)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
+              <h2 className="text-lg font-semibold text-ink">Move File</h2>
+              <button onClick={() => setMovingPlan(null)} className="text-faint hover:text-muted-fg"><X className="h-5 w-5" /></button>
             </div>
-            <p className="text-sm text-slate-500 mb-4 truncate">Moving: <span className="font-medium text-slate-700">{movingPlan.name}</span></p>
+            <p className="text-sm text-muted-fg mb-4 truncate">Moving: <span className="font-medium text-ink-soft">{movingPlan.name}</span></p>
             <form onSubmit={handleMove} className="space-y-4">
               <div className="space-y-1.5">
                 <Label htmlFor="moveFolder">Destination Folder</Label>
@@ -322,7 +322,7 @@ export default function PlansPage({ params }: { params: { id: string } }) {
 
       {/* Content */}
       {loading ? (
-        <div className="text-sm text-slate-400 py-12 text-center">Loading...</div>
+        <div className="text-sm text-faint py-12 text-center">Loading...</div>
       ) : visibleFolders.length === 0 && visiblePlans.length === 0 ? (
         <>
           <input ref={emptyFileInputRef} type="file" className="sr-only" accept=".pdf,.dwg,.dxf,.png,.jpg,.jpeg,.svg" onChange={handleFileChange} />
@@ -338,7 +338,7 @@ export default function PlansPage({ params }: { params: { id: string } }) {
           {/* Folders */}
           {visibleFolders.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Folders</p>
+              <p className="text-xs font-semibold text-faint uppercase tracking-wider mb-3">Folders</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                 {visibleFolders.map(folder => {
                   const count = plans.filter(p => p.folder_id === folder.id).length
@@ -346,15 +346,15 @@ export default function PlansPage({ params }: { params: { id: string } }) {
                     <div key={folder.id} className="relative group">
                       <button
                         onClick={() => setActiveFolderId(folder.id)}
-                        className="w-full flex flex-col items-center gap-2 rounded-xl border border-slate-200 bg-white p-4 hover:border-orange-300 hover:bg-orange-50 transition-colors"
+                        className="w-full flex flex-col items-center gap-2 rounded-xl border border-line bg-panel p-4 hover:border-accent hover:bg-accent-tint transition-colors"
                       >
-                        <Folder className="h-10 w-10 text-amber-400 group-hover:text-amber-500" />
-                        <span className="text-sm font-medium text-slate-700 text-center leading-tight">{folder.name}</span>
-                        <span className="text-xs text-slate-400">{count} {count === 1 ? 'file' : 'files'}</span>
+                        <Folder className="h-10 w-10 text-amber-400 group-hover:text-warn" />
+                        <span className="text-sm font-medium text-ink-soft text-center leading-tight">{folder.name}</span>
+                        <span className="text-xs text-faint">{count} {count === 1 ? 'file' : 'files'}</span>
                       </button>
                       <button
                         onClick={e => { e.stopPropagation(); handleDeleteFolder(folder.id) }}
-                        className="absolute top-1.5 right-1.5 p-1 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity bg-white rounded"
+                        className="absolute top-1.5 right-1.5 p-1 text-danger hover:text-danger opacity-0 group-hover:opacity-100 transition-opacity bg-panel rounded"
                         title="Delete folder"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -369,45 +369,45 @@ export default function PlansPage({ params }: { params: { id: string } }) {
           {/* Plans */}
           {visiblePlans.length > 0 && (
             <div>
-              {visibleFolders.length > 0 && <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Files</p>}
+              {visibleFolders.length > 0 && <p className="text-xs font-semibold text-faint uppercase tracking-wider mb-3">Files</p>}
               {/* Desktop table */}
-              <div className="hidden md:block rounded-lg border border-slate-200 overflow-hidden">
+              <div className="hidden md:block rounded-lg border border-line overflow-hidden">
                 <table className="w-full text-sm">
-                  <thead className="bg-slate-50 border-b border-slate-200">
+                  <thead className="bg-surface border-b border-line">
                     <tr>
-                      <th className="text-left px-4 py-3 font-medium text-slate-600">Name</th>
-                      <th className="text-left px-4 py-3 font-medium text-slate-600">Type</th>
-                      <th className="text-left px-4 py-3 font-medium text-slate-600">Uploaded</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-fg">Name</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-fg">Type</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-fg">Uploaded</th>
                       <th className="px-4 py-3" />
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-line-soft">
                     {visiblePlans.map(plan => (
-                      <tr key={plan.id} className="hover:bg-slate-50">
+                      <tr key={plan.id} className="hover:bg-surface">
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2.5">
-                            <FileText className="h-4 w-4 text-slate-400 shrink-0" />
-                            <span className="font-medium text-slate-800">{plan.name}</span>
+                            <FileText className="h-4 w-4 text-faint shrink-0" />
+                            <span className="font-medium text-ink-soft">{plan.name}</span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-slate-500">
+                        <td className="px-4 py-3 text-muted-fg">
                           <span className="capitalize">{plan.plan_type}</span>
                           {!activeFolderId && plan.folder_id && (
-                            <span className="ml-2 inline-flex items-center gap-0.5 text-xs text-slate-400">
+                            <span className="ml-2 inline-flex items-center gap-0.5 text-xs text-faint">
                               <Folder className="h-3 w-3" />{folders.find(f => f.id === plan.folder_id)?.name}
                             </span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-slate-500">{new Date(plan.created_at).toLocaleDateString()}</td>
+                        <td className="px-4 py-3 text-muted-fg">{new Date(plan.created_at).toLocaleDateString()}</td>
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-1">
                             <a href={plan.file_url} target="_blank" rel="noopener noreferrer">
                               <Button variant="ghost" size="sm">View</Button>
                             </a>
-                            <button onClick={() => openMove(plan)} className="p-1 text-slate-400 hover:text-orange-500" title="Move to folder">
+                            <button onClick={() => openMove(plan)} className="p-1 text-faint hover:text-accent-fg" title="Move to folder">
                               <FolderInput className="h-4 w-4" />
                             </button>
-                            <button onClick={() => handleDeletePlan(plan.id)} className="p-1 text-red-400 hover:text-red-600" title="Delete plan">
+                            <button onClick={() => handleDeletePlan(plan.id)} className="p-1 text-danger hover:text-danger" title="Delete plan">
                               <Trash2 className="h-4 w-4" />
                             </button>
                           </div>
@@ -419,13 +419,13 @@ export default function PlansPage({ params }: { params: { id: string } }) {
               </div>
 
               {/* Mobile card list */}
-              <div className="md:hidden rounded-lg border border-slate-200 overflow-hidden divide-y divide-slate-100 bg-white">
+              <div className="md:hidden rounded-lg border border-line overflow-hidden divide-y divide-line-soft bg-panel">
                 {visiblePlans.map(plan => (
                   <div key={plan.id} className="flex items-center gap-3 px-4 py-3">
-                    <FileText className="h-4 w-4 text-slate-400 shrink-0" />
+                    <FileText className="h-4 w-4 text-faint shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-800 truncate">{plan.name}</p>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-sm font-medium text-ink-soft truncate">{plan.name}</p>
+                      <p className="text-xs text-muted-fg">
                         <span className="capitalize">{plan.plan_type}</span> · {new Date(plan.created_at).toLocaleDateString()}
                       </p>
                     </div>
@@ -433,10 +433,10 @@ export default function PlansPage({ params }: { params: { id: string } }) {
                       <a href={plan.file_url} target="_blank" rel="noopener noreferrer">
                         <Button variant="ghost" size="sm">View</Button>
                       </a>
-                      <button onClick={() => openMove(plan)} className="p-1 text-slate-400 hover:text-orange-500" title="Move to folder">
+                      <button onClick={() => openMove(plan)} className="p-1 text-faint hover:text-accent-fg" title="Move to folder">
                         <FolderInput className="h-4 w-4" />
                       </button>
-                      <button onClick={() => handleDeletePlan(plan.id)} className="p-1 text-red-400 hover:text-red-600" title="Delete">
+                      <button onClick={() => handleDeletePlan(plan.id)} className="p-1 text-danger hover:text-danger" title="Delete">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>

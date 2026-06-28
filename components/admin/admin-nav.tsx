@@ -14,7 +14,7 @@ const TABS = [
 export function AdminNav() {
   const pathname = usePathname()
   return (
-    <nav className="flex flex-wrap gap-1 rounded-lg border border-slate-200 bg-white p-1">
+    <nav className="flex flex-wrap gap-1 rounded-lg border border-line bg-panel p-1">
       {TABS.map(t => {
         const active = t.href === '/admin' ? pathname === '/admin' : pathname.startsWith(t.href)
         return (
@@ -22,7 +22,7 @@ export function AdminNav() {
             key={t.href}
             href={t.href}
             className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-              active ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-100'
+              active ? 'bg-slate-800 text-white' : 'text-muted-fg hover:bg-muted'
             }`}
           >
             {t.label}
