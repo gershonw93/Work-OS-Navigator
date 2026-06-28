@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
-import { Plus, X, FileCheck, FileText, ChevronDown, ChevronUp, Phone, Building, ExternalLink, Sparkles, Loader2, AlertCircle, Trash2, Pencil } from 'lucide-react'
+import { Plus, X, FileCheck, FileText, ChevronDown, ChevronUp, Phone, Building, ExternalLink, Sparkles, Loader2, AlertCircle, Trash2, Pencil, Check, UserPlus } from 'lucide-react'
 import { ContactPicker } from '@/components/contact-picker'
 
 const PERMIT_TYPES = [
@@ -64,6 +64,47 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
   const [submitError, setSubmitError] = useState('')
   const [fetchError, setFetchError] = useState('')
   const [editingPermit, setEditingPermit] = useState<Permit | null>(null)
+
+  // After saving a permit, offer to save a newly-typed inspector to contacts.
+  const [contactPrompt, setContactPrompt] = useState<{ name: string; phone: string } | null>(null)
+  const [contactSaving, setContactSaving] = useState(false)
+  const [contactSaved, setContactSaved] = useState(false)
+
+  async function maybePromptInspectorContact(name: string, phone: string) {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    const token = await getToken()
+    // Check whether this inspector already exists in the directory
+    const res = await fetch('/api/directory', { headers: { Authorization: `Bearer ${token}` } })
+    if (res.ok) {
+      const json = await res.json()
+      const exists = (json.companies ?? []).some(
+        (c: any) => c.type === 'inspector' && c.name?.trim().toLowerCase() === trimmed.toLowerCase()
+      )
+      if (exists) return
+    }
+    setContactSaved(false)
+    setContactPrompt({ name: trimmed, phone: phone.trim() })
+  }
+
+  async function saveInspectorContact() {
+    if (!contactPrompt) return
+    setContactSaving(true)
+    const token = await getToken()
+    await fetch('/api/directory', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        name: contactPrompt.name,
+        type: 'inspector',
+        phone: contactPrompt.phone || null,
+        contact_email: `noemail+${Date.now()}@placeholder.com`,
+      }),
+    })
+    setContactSaving(false)
+    setContactSaved(true)
+    setTimeout(() => setContactPrompt(null), 1500)
+  }
 
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -175,7 +216,9 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
         return
       }
       setSubmitError('')
+      const insName = inspectorName, insPhone = inspectorPhone
       resetForm(); setShowForm(false); setSubmitting(false); fetchPermits()
+      maybePromptInspectorContact(insName, insPhone)
       return
     }
 
@@ -199,7 +242,9 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
       return
     }
     setSubmitError('')
+    const insName = inspectorName, insPhone = inspectorPhone
     resetForm(); setShowForm(false); setSubmitting(false); fetchPermits()
+    maybePromptInspectorContact(insName, insPhone)
   }
 
   async function updateStatus(permitId: string, newStatus: string) {
@@ -219,6 +264,37 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
 
   return (
     <div className="p-4 sm:p-6 space-y-5">
+      {/* Post-save: offer to save a newly-typed inspector to contacts */}
+      {contactPrompt && (
+        <div className="fixed bottom-4 right-4 z-[60] w-[calc(100%-2rem)] sm:w-96 rounded-xl border border-line bg-panel shadow-2xl p-4">
+          {contactSaved ? (
+            <p className="text-sm font-medium text-success flex items-center gap-2">
+              <Check className="h-4 w-4" /> Added {contactPrompt.name} to contacts
+            </p>
+          ) : (
+            <>
+              <div className="flex items-start gap-3">
+                <div className="h-9 w-9 rounded-lg bg-accent-tint flex items-center justify-center shrink-0">
+                  <UserPlus className="h-4 w-4 text-accent-fg" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-ink">Save inspector to contacts?</p>
+                  <p className="text-xs text-muted-fg mt-0.5 truncate">
+                    {contactPrompt.name}{contactPrompt.phone ? ` · ${contactPrompt.phone}` : ''}
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2 justify-end mt-3">
+                <Button variant="outline" size="sm" onClick={() => setContactPrompt(null)}>Not now</Button>
+                <Button size="sm" onClick={saveInspectorContact} disabled={contactSaving}>
+                  {contactSaving ? 'Saving…' : 'Add contact'}
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-panel rounded-xl shadow-xl w-full min-w-0 max-w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto">

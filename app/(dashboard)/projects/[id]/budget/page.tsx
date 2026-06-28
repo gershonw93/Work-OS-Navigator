@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
-import { Wallet, DollarSign, CheckCircle2, TrendingDown, TrendingUp, Plus, Trash2, Pencil, X, Check, Link as LinkIcon } from 'lucide-react'
+import { Wallet, DollarSign, CheckCircle2, TrendingDown, TrendingUp, Plus, Trash2, Pencil, X, Check, Link as LinkIcon, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
@@ -139,6 +139,11 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
     g.rows.push(item)
   }
 
+  // Subcontracts not yet linked to any budget line
+  const linkedSubIds = new Set(items.map(i => i.subcontract_id).filter(Boolean))
+  const unbudgetedSubs = subOptions.filter(s => !linkedSubIds.has(s.id))
+  const unbudgetedTotal = unbudgetedSubs.reduce((s, x) => s + Number(x.contract_amount || 0), 0)
+
   const statCards = [
     { label: 'Total Budget', value: totalBudgeted, color: 'text-ink', bg: 'bg-panel', icon: DollarSign },
     { label: 'Committed', value: totalCommitted, color: 'text-info', bg: 'bg-info-tint', icon: TrendingUp },
@@ -181,6 +186,25 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
           )
         })}
       </div>
+
+      {/* Unbudgeted subcontracts hint */}
+      {unbudgetedSubs.length > 0 && (
+        <div className="rounded-xl border border-warn/30 bg-warn-tint px-4 py-3 flex items-start gap-3">
+          <AlertTriangle className="h-4 w-4 text-warn shrink-0 mt-0.5" />
+          <div className="min-w-0 text-sm">
+            <p className="font-medium text-ink-soft">
+              {unbudgetedSubs.length} subcontract{unbudgetedSubs.length > 1 ? 's' : ''} not linked to a budget line
+              <span className="text-muted-fg font-normal"> · {money(unbudgetedTotal)} uncovered</span>
+            </p>
+            <p className="text-xs text-muted-fg mt-0.5">
+              {unbudgetedSubs.map(s => s.label).join(', ')}
+            </p>
+            <p className="text-xs text-muted-fg mt-1">
+              Add a budget line and link it to a subcontract to auto-track its committed &amp; actual costs.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Spend progress */}
       {totalBudgeted > 0 && (
