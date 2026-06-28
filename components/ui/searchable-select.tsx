@@ -192,7 +192,7 @@ export function SearchableSelect({
         style={style}
         onClick={e => { onClick?.(e); if (!disabled) setOpen(o => !o) }}
         onKeyDown={onKeyDown}
-        className={cn(triggerClasses, className)}
+        className={cn(className, triggerClasses)}
         aria-haspopup="listbox"
         aria-expanded={open}
       >
