@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Plus, X, CalendarDays, Pencil, Trash2, Building2, Flag } from 'lucide-react'
+import { Plus, X, CalendarDays, Pencil, Trash2, Building2, Flag, ChevronLeft, ChevronRight, GanttChartSquare, List, CalendarRange } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -74,10 +74,37 @@ function formatDateFull(d: string) {
   return new Date(d + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+// Local YYYY-MM-DD (avoids UTC offset bugs)
+function ymd(dt: Date) {
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
+}
+
+// 6-week grid (Sun→Sat) covering the given month
+function monthGrid(year: number, month: number): Date[][] {
+  const first = new Date(year, month, 1)
+  const start = new Date(year, month, 1 - first.getDay())
+  const weeks: Date[][] = []
+  const d = new Date(start)
+  for (let w = 0; w < 6; w++) {
+    const week: Date[] = []
+    for (let i = 0; i < 7; i++) {
+      week.push(new Date(d))
+      d.setDate(d.getDate() + 1)
+    }
+    weeks.push(week)
+  }
+  return weeks
+}
+
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
 export default function SchedulePage({ params }: { params: { id: string } }) {
   const supabase = createClient()
   const [items, setItems] = useState<ScheduleItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [view, setView] = useState<'calendar' | 'timeline' | 'list'>('calendar')
+  const [calCursor, setCalCursor] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1) })
+  const calInit = useState({ done: false })[0]
 
   const [showAdd, setShowAdd] = useState(false)
   const [addLabel, setAddLabel] = useState('')
@@ -148,6 +175,15 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
   }
 
   useEffect(() => { load(); loadUnscheduled() }, [params.id])
+
+  // Jump the calendar to the earliest scheduled item the first time data loads
+  useEffect(() => {
+    if (calInit.done || items.length === 0) return
+    const earliest = items.reduce((m, i) => (i.start_date < m ? i.start_date : m), items[0].start_date)
+    const d = new Date(earliest + 'T00:00:00')
+    setCalCursor(new Date(d.getFullYear(), d.getMonth(), 1))
+    calInit.done = true
+  }, [items, calInit])
 
   async function addItem(e: React.FormEvent) {
     e.preventDefault()
@@ -319,7 +355,22 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
           <h1 className="text-2xl font-bold text-ink">Schedule</h1>
           <p className="text-sm text-muted-fg mt-0.5">Auto-populated from awarded bids. Add milestones manually.</p>
         </div>
-        <Button onClick={() => setShowAdd(true)} className="self-start sm:self-auto"><Plus className="h-4 w-4" />Add Milestone</Button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <div className="inline-flex rounded-lg border border-line bg-panel p-0.5">
+            {([
+              { key: 'calendar', label: 'Calendar', icon: CalendarRange },
+              { key: 'timeline', label: 'Timeline', icon: GanttChartSquare },
+              { key: 'list', label: 'List', icon: List },
+            ] as const).map(v => (
+              <button key={v.key} onClick={() => setView(v.key)}
+                className={cn('flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors',
+                  view === v.key ? 'bg-accent text-accent-ink' : 'text-muted-fg hover:text-ink')}>
+                <v.icon className="h-3.5 w-3.5" /> <span className="hidden sm:inline">{v.label}</span>
+              </button>
+            ))}
+          </div>
+          <Button onClick={() => setShowAdd(true)}><Plus className="h-4 w-4" /><span className="hidden sm:inline">Add Milestone</span></Button>
+        </div>
       </div>
 
       {unscheduled.length > 0 && (
@@ -368,7 +419,73 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
       ) : (
         <div className="space-y-5">
 
+          {/* Calendar (month grid) */}
+          {view === 'calendar' && (() => {
+            const year = calCursor.getFullYear()
+            const month = calCursor.getMonth()
+            const weeks = monthGrid(year, month)
+            const todayStr = ymd(new Date())
+            return (
+              <div className="bg-panel rounded-xl border border-line overflow-hidden">
+                <div className="px-4 sm:px-5 py-3 border-b border-line-soft flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <CalendarRange className="h-4 w-4 text-faint" />
+                    <span className="text-sm font-semibold text-ink-soft">
+                      {calCursor.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => setCalCursor(new Date(year, month - 1, 1))}
+                      className="p-1.5 rounded-lg text-faint hover:bg-muted hover:text-ink"><ChevronLeft className="h-4 w-4" /></button>
+                    <button onClick={() => { const d = new Date(); setCalCursor(new Date(d.getFullYear(), d.getMonth(), 1)) }}
+                      className="px-2.5 py-1 rounded-lg text-xs font-medium text-muted-fg hover:bg-muted hover:text-ink">Today</button>
+                    <button onClick={() => setCalCursor(new Date(year, month + 1, 1))}
+                      className="p-1.5 rounded-lg text-faint hover:bg-muted hover:text-ink"><ChevronRight className="h-4 w-4" /></button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-7 border-b border-line-soft">
+                  {WEEKDAYS.map(d => (
+                    <div key={d} className="px-2 py-2 text-center text-[11px] font-semibold uppercase tracking-wide text-faint">
+                      <span className="sm:hidden">{d[0]}</span><span className="hidden sm:inline">{d}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-7">
+                  {weeks.flat().map((day, idx) => {
+                    const ds = ymd(day)
+                    const inMonth = day.getMonth() === month
+                    const isToday = ds === todayStr
+                    const dayItems = sorted.filter(it => it.start_date <= ds && it.end_date >= ds)
+                    return (
+                      <div key={idx}
+                        className={cn('min-h-[84px] sm:min-h-[104px] border-b border-r border-line-soft p-1.5 align-top',
+                          idx % 7 === 0 && 'border-l', !inMonth && 'bg-surface/60')}>
+                        <div className={cn('flex items-center justify-center h-6 w-6 rounded-full text-xs mb-1',
+                          isToday ? 'bg-accent text-accent-ink font-bold' : inMonth ? 'text-ink-soft' : 'text-faint')}>
+                          {day.getDate()}
+                        </div>
+                        <div className="space-y-1">
+                          {dayItems.slice(0, 3).map(it => (
+                            <button key={it.id} onClick={() => openEdit(it)}
+                              className={cn('w-full flex items-center gap-1 rounded px-1.5 py-0.5 text-left', lightColor(it))}>
+                              <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', barColor(it))} />
+                              <span className="text-[11px] font-medium truncate">{getLabel(it)}</span>
+                            </button>
+                          ))}
+                          {dayItems.length > 3 && (
+                            <p className="text-[10px] text-faint pl-1">+{dayItems.length - 3} more</p>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })()}
+
           {/* Gantt */}
+          {view === 'timeline' && (
           <div className="bg-panel rounded-xl border border-line overflow-hidden min-w-0">
             <div className="px-5 py-3 border-b border-line-soft flex items-center gap-2 flex-wrap">
               <CalendarDays className="h-4 w-4 text-faint" />
@@ -420,8 +537,10 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
               </div>
             </div>
           </div>
+          )}
 
           {/* List */}
+          {view === 'list' && (
           <div className="bg-panel rounded-xl border border-line overflow-hidden">
             <div className="px-5 py-3 border-b border-line-soft">
               <span className="text-sm font-semibold text-ink-soft">All Items</span>
@@ -499,6 +618,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
               </tbody>
             </table>
           </div>
+          )}
 
         </div>
       )}
