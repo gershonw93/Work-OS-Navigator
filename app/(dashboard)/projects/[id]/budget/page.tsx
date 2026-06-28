@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Wallet, DollarSign, CheckCircle2, TrendingDown, TrendingUp, Plus, Trash2, Pencil, X, Check } from 'lucide-react'
+import { Wallet, DollarSign, CheckCircle2, TrendingDown, TrendingUp, Plus, Trash2, Pencil, X, Check, Link as LinkIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
@@ -16,6 +16,15 @@ interface BudgetItem {
   actual_amount: number
   notes: string | null
   sort_order: number
+  subcontract_id: string | null
+  linked: boolean
+  linked_label: string | null
+}
+
+interface SubOption {
+  id: string
+  label: string
+  contract_amount: number
 }
 
 const CATEGORIES = [
@@ -30,11 +39,13 @@ const money = (n: number) => `$${Number(n || 0).toLocaleString(undefined, { maxi
 const blankForm = {
   cost_code: '', category: 'General', description: '',
   budgeted_amount: '', committed_amount: '', actual_amount: '', notes: '',
+  subcontract_id: '',
 }
 
 export default function BudgetPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
   const [items, setItems] = useState<BudgetItem[]>([])
+  const [subOptions, setSubOptions] = useState<SubOption[]>([])
   const [loading, setLoading] = useState(true)
   const [adding, setAdding] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -50,7 +61,11 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   async function load() {
     const token = await getToken()
     const res = await fetch(`/api/projects/${params.id}/budget`, { headers: { Authorization: `Bearer ${token}` } })
-    if (res.ok) setItems((await res.json()).items ?? [])
+    if (res.ok) {
+      const d = await res.json()
+      setItems(d.items ?? [])
+      setSubOptions(d.subcontracts ?? [])
+    }
     setLoading(false)
   }
 
@@ -83,6 +98,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       committed_amount: String(item.committed_amount ?? ''),
       actual_amount: String(item.actual_amount ?? ''),
       notes: item.notes ?? '',
+      subcontract_id: item.subcontract_id ?? '',
     })
   }
 
@@ -203,11 +219,36 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
               value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
             <input type="number" className="rounded-lg border border-line px-3 py-2 text-sm" placeholder="Budgeted $"
               value={form.budgeted_amount} onChange={e => setForm({ ...form, budgeted_amount: e.target.value })} />
-            <input type="number" className="rounded-lg border border-line px-3 py-2 text-sm" placeholder="Committed $"
-              value={form.committed_amount} onChange={e => setForm({ ...form, committed_amount: e.target.value })} />
-            <input type="number" className="rounded-lg border border-line px-3 py-2 text-sm" placeholder="Actual $"
-              value={form.actual_amount} onChange={e => setForm({ ...form, actual_amount: e.target.value })} />
+            {form.subcontract_id ? (
+              <>
+                <div className="rounded-lg border border-line bg-muted px-3 py-2 text-sm text-muted-fg flex items-center justify-between">
+                  <span className="text-xs">Committed</span>
+                  <span className="font-medium text-ink-soft">{money(subOptions.find(s => s.id === form.subcontract_id)?.contract_amount ?? 0)}</span>
+                </div>
+                <div className="rounded-lg border border-line bg-muted px-3 py-2 text-sm text-muted-fg flex items-center justify-between">
+                  <span className="text-xs">Actual</span>
+                  <span className="font-medium text-accent-fg">Auto</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <input type="number" className="rounded-lg border border-line px-3 py-2 text-sm" placeholder="Committed $"
+                  value={form.committed_amount} onChange={e => setForm({ ...form, committed_amount: e.target.value })} />
+                <input type="number" className="rounded-lg border border-line px-3 py-2 text-sm" placeholder="Actual $"
+                  value={form.actual_amount} onChange={e => setForm({ ...form, actual_amount: e.target.value })} />
+              </>
+            )}
           </div>
+          {subOptions.length > 0 && (
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <label className="text-xs font-medium text-muted-fg sm:w-44 shrink-0">Link to subcontract (auto-fills Committed &amp; Actual)</label>
+              <select className="flex-1 rounded-lg border border-line px-3 py-2 text-sm bg-panel"
+                value={form.subcontract_id} onChange={e => setForm({ ...form, subcontract_id: e.target.value })}>
+                <option value="">Not linked — enter manually</option>
+                {subOptions.map(s => <option key={s.id} value={s.id}>{s.label} · {money(s.contract_amount)}</option>)}
+              </select>
+            </div>
+          )}
           <div className="flex gap-2 justify-end">
             <Button variant="outline" onClick={() => { setAdding(false); setForm({ ...blankForm }) }}>Cancel</Button>
             <Button onClick={addLine} disabled={saving || !form.description.trim()}>{saving ? 'Saving…' : 'Add Line'}</Button>
@@ -259,11 +300,33 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                               value={editForm.description} onChange={e => setEditForm({ ...editForm, description: e.target.value })} />
                             <input type="number" className="rounded-lg border border-line px-2.5 py-1.5 text-sm" placeholder="Budgeted"
                               value={editForm.budgeted_amount} onChange={e => setEditForm({ ...editForm, budgeted_amount: e.target.value })} />
-                            <input type="number" className="rounded-lg border border-line px-2.5 py-1.5 text-sm" placeholder="Committed"
-                              value={editForm.committed_amount} onChange={e => setEditForm({ ...editForm, committed_amount: e.target.value })} />
-                            <input type="number" className="rounded-lg border border-line px-2.5 py-1.5 text-sm" placeholder="Actual"
-                              value={editForm.actual_amount} onChange={e => setEditForm({ ...editForm, actual_amount: e.target.value })} />
+                            {editForm.subcontract_id ? (
+                              <>
+                                <div className="rounded-lg border border-line bg-muted px-2.5 py-1.5 text-sm flex items-center justify-between">
+                                  <span className="text-xs text-muted-fg">Committed</span>
+                                  <span className="font-medium text-ink-soft">{money(subOptions.find(s => s.id === editForm.subcontract_id)?.contract_amount ?? 0)}</span>
+                                </div>
+                                <div className="rounded-lg border border-line bg-muted px-2.5 py-1.5 text-sm flex items-center justify-between">
+                                  <span className="text-xs text-muted-fg">Actual</span>
+                                  <span className="font-medium text-accent-fg">Auto</span>
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <input type="number" className="rounded-lg border border-line px-2.5 py-1.5 text-sm" placeholder="Committed"
+                                  value={editForm.committed_amount} onChange={e => setEditForm({ ...editForm, committed_amount: e.target.value })} />
+                                <input type="number" className="rounded-lg border border-line px-2.5 py-1.5 text-sm" placeholder="Actual"
+                                  value={editForm.actual_amount} onChange={e => setEditForm({ ...editForm, actual_amount: e.target.value })} />
+                              </>
+                            )}
                           </div>
+                          {subOptions.length > 0 && (
+                            <select className="w-full rounded-lg border border-line px-2.5 py-1.5 text-sm bg-panel"
+                              value={editForm.subcontract_id} onChange={e => setEditForm({ ...editForm, subcontract_id: e.target.value })}>
+                              <option value="">Not linked — enter manually</option>
+                              {subOptions.map(s => <option key={s.id} value={s.id}>{s.label} · {money(s.contract_amount)}</option>)}
+                            </select>
+                          )}
                           <div className="flex gap-2 justify-end">
                             <button onClick={() => setEditingId(null)} className="inline-flex items-center gap-1 text-xs text-muted-fg px-2 py-1.5 rounded-lg hover:bg-muted">
                               <X className="h-3.5 w-3.5" /> Cancel
@@ -283,7 +346,13 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                             {item.cost_code && <span className="text-faint font-normal mr-1.5">{item.cost_code}</span>}
                             {item.description}
                           </p>
-                          {item.notes && <p className="text-xs text-faint truncate">{item.notes}</p>}
+                          {item.linked ? (
+                            <p className="text-xs text-accent-fg truncate flex items-center gap-1">
+                              <LinkIcon className="h-3 w-3 shrink-0" /> Linked · {item.linked_label}
+                            </p>
+                          ) : item.notes ? (
+                            <p className="text-xs text-faint truncate">{item.notes}</p>
+                          ) : null}
                         </div>
                         <div className="flex justify-between md:block md:text-right mt-2 md:mt-0 text-sm">
                           <span className="md:hidden text-xs text-faint">Budgeted</span>
@@ -291,11 +360,11 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                         </div>
                         <div className="flex justify-between md:block md:text-right text-sm">
                           <span className="md:hidden text-xs text-faint">Committed</span>
-                          <span className="text-muted-fg">{money(item.committed_amount)}</span>
+                          <span className={item.linked ? 'text-ink-soft' : 'text-muted-fg'}>{money(item.committed_amount)}</span>
                         </div>
                         <div className="flex justify-between md:block md:text-right text-sm">
                           <span className="md:hidden text-xs text-faint">Actual</span>
-                          <span className="text-muted-fg">{money(item.actual_amount)}</span>
+                          <span className={item.linked ? 'text-ink-soft' : 'text-muted-fg'}>{money(item.actual_amount)}</span>
                         </div>
                         <div className="flex justify-between md:block md:text-right text-sm font-medium">
                           <span className="md:hidden text-xs text-faint">Variance</span>

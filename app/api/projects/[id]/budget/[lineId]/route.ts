@@ -16,7 +16,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
   const body = await request.json()
   const updates: Record<string, any> = { updated_at: new Date().toISOString() }
-  for (const key of ['cost_code', 'category', 'description', 'notes']) {
+  for (const key of ['cost_code', 'category', 'description', 'notes', 'subcontract_id']) {
     if (key in body) updates[key] = body[key] || null
   }
   for (const key of ['budgeted_amount', 'committed_amount', 'actual_amount', 'sort_order']) {
