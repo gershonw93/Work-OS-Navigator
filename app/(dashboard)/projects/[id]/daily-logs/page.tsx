@@ -7,11 +7,27 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
+import { SignaturePad } from '@/components/ui/signature-pad'
 import {
   Plus, X, ChevronDown, ChevronUp, BookOpen, AlertTriangle,
   CloudRain, Sun, Cloud, CloudSnow, Wind, Thermometer,
   Users, Building2, Camera, Clock, CheckSquare, Trash2, Flag, Pencil,
+  ShieldAlert, BadgeCheck, Paperclip, FileText, Download, Send, PenLine,
 } from 'lucide-react'
+
+const SURVEY_QUESTIONS = [
+  { key: 'accidents', label: 'Any accidents?' },
+  { key: 'scheduled_delays', label: 'Any scheduled delays?' },
+  { key: 'weather_delays', label: 'Any weather delays?' },
+  { key: 'visitors', label: 'Any visitors on site?' },
+  { key: 'areas_blocked', label: "Any areas that can't be worked on?" },
+  { key: 'equipment_rented', label: 'Any equipment rented on site?' },
+] as const
+
+type SurveyAnswer = { answer: 'na' | 'yes' | 'no'; description: string }
+function blankSurvey(): Record<string, SurveyAnswer> {
+  return Object.fromEntries(SURVEY_QUESTIONS.map(q => [q.key, { answer: 'na', description: '' }]))
+}
 
 const WEATHER_OPTIONS = [
   { value: 'sunny', label: 'Sunny', icon: Sun },
@@ -39,7 +55,15 @@ interface DailyLog {
   subs_on_site: { company_id: string; name: string }[]
   workers_on_site: { name: string; role: string }[]
   photos: { url: string; path: string; caption: string }[]
-  daily_log_photos?: { id: string; photo_url: string; created_at: string }[]
+  daily_log_photos?: { id: string; photo_url: string; caption: string | null; subcontract_id: string | null; created_at: string }[]
+  survey?: Record<string, SurveyAnswer> | null
+  safety_observation?: string | null
+  quality_observation?: string | null
+  signed_by_name?: string | null
+  signature_url?: string | null
+  signed_at?: string | null
+  daily_log_updates?: { id: string; body: string; created_by_name: string | null; created_at: string }[]
+  daily_log_attachments?: { id: string; file_url: string; file_name: string | null }[]
 }
 
 interface TeamMember { id: string; name: string; role: string }
@@ -72,6 +96,21 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
   const [workersOnSite, setWorkersOnSite] = useState<{ name: string; role: string }[]>([])
   const [photos, setPhotos] = useState<File[]>([])
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([])
+  const [photoSubs, setPhotoSubs] = useState<string[]>([]) // subcontract id per photo index
+
+  // New field-report model
+  const [survey, setSurvey] = useState<Record<string, SurveyAnswer>>(blankSurvey())
+  const [safetyObs, setSafetyObs] = useState('')
+  const [qualityObs, setQualityObs] = useState('')
+  const [attachments, setAttachments] = useState<File[]>([])
+  const [sigMode, setSigMode] = useState<'draw' | 'type'>('draw')
+  const [sigBlob, setSigBlob] = useState<Blob | null>(null)
+  const [sigName, setSigName] = useState('')
+  const attachInputRef = useRef<HTMLInputElement>(null)
+
+  // Add-update-through-the-day (per expanded log)
+  const [updateDraft, setUpdateDraft] = useState('')
+  const [updatePosting, setUpdatePosting] = useState(false)
 
   // Weather auto-fill
   const [weatherLoading, setWeatherLoading] = useState(false)
@@ -150,6 +189,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
     if (!files) return
     const newFiles = Array.from(files)
     setPhotos(prev => [...prev, ...newFiles])
+    setPhotoSubs(prev => [...prev, ...newFiles.map(() => '')])
     newFiles.forEach(f => {
       const reader = new FileReader()
       reader.onload = e => setPhotoPreviews(prev => [...prev, e.target?.result as string])
@@ -160,6 +200,33 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
   function removePhoto(idx: number) {
     setPhotos(prev => prev.filter((_, i) => i !== idx))
     setPhotoPreviews(prev => prev.filter((_, i) => i !== idx))
+    setPhotoSubs(prev => prev.filter((_, i) => i !== idx))
+  }
+
+  async function postUpdate(logId: string) {
+    if (!updateDraft.trim()) return
+    setUpdatePosting(true)
+    const token = await getToken()
+    const res = await fetch(`/api/projects/${params.id}/daily-logs/${logId}/updates`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ body: updateDraft }),
+    })
+    setUpdatePosting(false)
+    if (res.ok) { setUpdateDraft(''); fetchLogs() }
+  }
+
+  async function downloadPdf(logId: string) {
+    const token = await getToken()
+    const res = await fetch(`/api/projects/${params.id}/daily-logs/${logId}/pdf`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!res.ok) return
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = `daily-log.pdf`; a.click()
+    URL.revokeObjectURL(url)
   }
 
   function toggleSubOnSite(sub: SubContract) {
@@ -184,8 +251,10 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
     setWeatherCondition(''); setTemperature(''); setNotes('')
     setHasIssues(false); setIssueDescription('')
     setDelays([]); setSubsOnSite([]); setWorkersOnSite([])
-    setPhotos([]); setPhotoPreviews([]); setError(null)
+    setPhotos([]); setPhotoPreviews([]); setPhotoSubs([]); setError(null)
     setWeatherChip(null)
+    setSurvey(blankSurvey()); setSafetyObs(''); setQualityObs('')
+    setAttachments([]); setSigBlob(null); setSigName(''); setSigMode('draw')
   }
 
   async function handleAutoFillWeather() {
@@ -294,12 +363,19 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
     if (weatherCondition) form.append('weather_condition', weatherCondition)
     if (temperature) form.append('temperature', temperature)
     if (notes) form.append('notes', notes)
-    form.append('has_issues', String(hasIssues))
-    if (hasIssues && issueDescription) form.append('issue_description', issueDescription)
-    form.append('delays', JSON.stringify(delays.filter(d => d.type)))
+    if (safetyObs) form.append('safety_observation', safetyObs)
+    if (qualityObs) form.append('quality_observation', qualityObs)
+    form.append('survey', JSON.stringify(survey))
     form.append('subs_on_site', JSON.stringify(subsOnSite))
     form.append('workers_on_site', JSON.stringify(workersOnSite))
-    photos.forEach(f => form.append('photos', f))
+    photos.forEach((f, i) => {
+      form.append('photos', f)
+      if (photoSubs[i]) form.append(`subId_${f.name}`, photoSubs[i])
+    })
+    attachments.forEach(f => form.append('attachments', f))
+    // Signature
+    if (sigMode === 'draw' && sigBlob) form.append('signature', new File([sigBlob], 'signature.png', { type: 'image/png' }))
+    if (sigName.trim()) form.append('signed_by_name', sigName.trim())
 
     const res = await fetch(`/api/projects/${params.id}/daily-logs`, {
       method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form,
@@ -689,68 +765,100 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
               </div>
             )}
 
-            {/* Notes */}
+            {/* General notes */}
             <div className="space-y-1.5">
-              <Label htmlFor="notes">Log Notes</Label>
+              <Label htmlFor="notes">General Notes</Label>
               <textarea id="notes" rows={3} placeholder="What happened on site today? Progress made, observations, anything notable..."
                 value={notes} onChange={e => setNotes(e.target.value)}
                 className="w-full rounded-md border border-muted2 px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent resize-none" />
-            </div>
-
-            {/* Issues */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <button type="button" onClick={() => setHasIssues(!hasIssues)}
-                  className={cn('flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
-                    hasIssues ? 'border-red-400 bg-danger-tint text-danger' : 'border-line text-muted-fg hover:border-danger/40 hover:text-danger')}>
-                  <Flag className={cn('h-4 w-4', hasIssues ? 'fill-red-400' : '')} />
-                  {hasIssues ? 'Issue Flagged' : 'Flag an Issue'}
-                </button>
-                <span className="text-xs text-faint">Flag this log if something needs attention</span>
-              </div>
-              {hasIssues && (
-                <textarea rows={2} placeholder="Describe the issue (e.g. water leak at north wall, missing materials, safety concern...)"
-                  value={issueDescription} onChange={e => setIssueDescription(e.target.value)}
-                  className="w-full rounded-md border border-danger/30 bg-danger-tint px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-300 resize-none" />
-              )}
-            </div>
-
-            {/* Delays */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label><Clock className="inline h-3.5 w-3.5 mr-1 text-faint" />Delays</Label>
-                <button type="button" onClick={addDelay} className="text-xs text-accent-fg hover:underline flex items-center gap-1">
-                  <Plus className="h-3 w-3" /> Add Delay
-                </button>
-              </div>
-              {delays.map((delay, i) => (
-                <div key={i} className="flex flex-wrap sm:flex-nowrap gap-2 items-start">
-                  <SearchableSelect value={delay.type} onChange={e => setDelays(prev => prev.map((d, j) => j === i ? { ...d, type: e.target.value } : d))}
-                    className="rounded-md border border-muted2 px-2 py-1.5 text-sm text-ink-soft focus:outline-none focus:border-accent bg-panel w-full sm:w-44 sm:shrink-0">
-                    <option value="">Select type</option>
-                    {DELAY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                  </SearchableSelect>
-                  <input type="text" placeholder="Describe the delay..." value={delay.description}
-                    onChange={e => setDelays(prev => prev.map((d, j) => j === i ? { ...d, description: e.target.value } : d))}
-                    className="flex-1 rounded-md border border-muted2 px-2 py-1.5 text-sm text-ink-soft focus:outline-none focus:border-accent" />
-                  <button type="button" onClick={() => setDelays(prev => prev.filter((_, j) => j !== i))}
-                    className="text-faint hover:text-danger mt-1.5"><X className="h-4 w-4" /></button>
+              {/* General-notes attachments */}
+              {attachments.length > 0 && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {attachments.map((f, i) => (
+                    <span key={i} className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs text-ink-soft">
+                      <FileText className="h-3 w-3 text-faint" /> {f.name}
+                      <button type="button" onClick={() => setAttachments(prev => prev.filter((_, j) => j !== i))} className="text-faint hover:text-danger"><X className="h-3 w-3" /></button>
+                    </span>
+                  ))}
                 </div>
-              ))}
+              )}
+              <label className="inline-flex items-center gap-1.5 text-xs text-accent-fg hover:underline cursor-pointer w-fit">
+                <Paperclip className="h-3.5 w-3.5" /> Attach a file
+                <input ref={attachInputRef} type="file" multiple className="sr-only"
+                  onChange={e => { if (e.target.files) setAttachments(prev => [...prev, ...Array.from(e.target.files!)]) }} />
+              </label>
             </div>
 
-            {/* Photos */}
+            {/* Site Safety Observation */}
+            <div className="space-y-1.5">
+              <Label><ShieldAlert className="inline h-3.5 w-3.5 mr-1 text-warn" />Site Safety Observation</Label>
+              <textarea rows={2} placeholder="Hazards, near-misses, PPE, housekeeping, corrective actions taken…"
+                value={safetyObs} onChange={e => setSafetyObs(e.target.value)}
+                className="w-full rounded-md border border-muted2 px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent resize-none" />
+            </div>
+
+            {/* Quality Control Observation */}
+            <div className="space-y-1.5">
+              <Label><BadgeCheck className="inline h-3.5 w-3.5 mr-1 text-success" />Quality Control Observation</Label>
+              <textarea rows={2} placeholder="Workmanship, rework, deviations from spec, inspections passed/failed…"
+                value={qualityObs} onChange={e => setQualityObs(e.target.value)}
+                className="w-full rounded-md border border-muted2 px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent resize-none" />
+            </div>
+
+            {/* Daily survey */}
             <div className="space-y-2">
-              <Label><Camera className="inline h-3.5 w-3.5 mr-1 text-faint" />Site Photos</Label>
+              <Label><CheckSquare className="inline h-3.5 w-3.5 mr-1 text-faint" />Daily Survey</Label>
+              <div className="rounded-lg border border-line divide-y divide-line-soft">
+                {SURVEY_QUESTIONS.map(q => {
+                  const a = survey[q.key]
+                  return (
+                    <div key={q.key} className="p-3 space-y-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-sm text-ink-soft">{q.label}</span>
+                        <div className="inline-flex rounded-lg border border-line overflow-hidden">
+                          {(['na', 'yes', 'no'] as const).map(opt => (
+                            <button key={opt} type="button"
+                              onClick={() => setSurvey(prev => ({ ...prev, [q.key]: { ...prev[q.key], answer: opt } }))}
+                              className={cn('px-3 py-1 text-xs font-medium capitalize transition-colors',
+                                a.answer === opt
+                                  ? (opt === 'yes' ? 'bg-accent text-accent-ink' : opt === 'no' ? 'bg-muted2 text-ink' : 'bg-muted text-muted-fg')
+                                  : 'bg-panel text-muted-fg hover:bg-surface')}>
+                              {opt === 'na' ? 'N/A' : opt}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      {a.answer !== 'na' && (
+                        <input type="text" placeholder="Add a description…" value={a.description}
+                          onChange={e => setSurvey(prev => ({ ...prev, [q.key]: { ...prev[q.key], description: e.target.value } }))}
+                          className="w-full rounded-md border border-muted2 px-2.5 py-1.5 text-sm text-ink-soft focus:outline-none focus:border-accent" />
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Work log photos — taggable per sub */}
+            <div className="space-y-2">
+              <Label><Camera className="inline h-3.5 w-3.5 mr-1 text-faint" />Work Log Photos</Label>
               {photoPreviews.length > 0 && (
-                <div className="flex flex-wrap gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {photoPreviews.map((src, i) => (
-                    <div key={i} className="relative group">
-                      <img src={src} alt="" className="h-20 w-20 object-cover rounded-lg border border-line" />
-                      <button type="button" onClick={() => removePhoto(i)}
-                        className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-danger-solid text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <X className="h-3 w-3" />
-                      </button>
+                    <div key={i} className="space-y-1.5">
+                      <div className="relative group">
+                        <img src={src} alt="" className="h-24 w-full object-cover rounded-lg border border-line" />
+                        <button type="button" onClick={() => removePhoto(i)}
+                          className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-danger-solid text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                      <SearchableSelect value={photoSubs[i] ?? ''}
+                        onChange={e => setPhotoSubs(prev => prev.map((s, j) => j === i ? e.target.value : s))}
+                        className="text-xs">
+                        <option value="">No sub</option>
+                        {subcontracts.map(s => <option key={s.id} value={s.id}>{(s.companies as any)?.name ?? s.trade}</option>)}
+                      </SearchableSelect>
                     </div>
                   ))}
                 </div>
@@ -759,6 +867,24 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                 <Camera className="h-4 w-4" /> Add Photos
                 <input ref={photoInputRef} type="file" multiple accept="image/*" className="sr-only" onChange={e => addPhoto(e.target.files)} />
               </label>
+              <p className="text-xs text-faint">Tag each photo to the sub it belongs to.</p>
+            </div>
+
+            {/* Signature — site manager */}
+            <div className="space-y-2">
+              <Label><PenLine className="inline h-3.5 w-3.5 mr-1 text-faint" />Site Manager Signature</Label>
+              <div className="inline-flex rounded-lg border border-line p-0.5">
+                {(['draw', 'type'] as const).map(m => (
+                  <button key={m} type="button" onClick={() => setSigMode(m)}
+                    className={cn('px-3 py-1 rounded-md text-xs font-medium capitalize transition-colors',
+                      sigMode === m ? 'bg-accent text-accent-ink' : 'text-muted-fg hover:text-ink')}>
+                    {m === 'draw' ? 'Draw' : 'Type name'}
+                  </button>
+                ))}
+              </div>
+              {sigMode === 'draw'
+                ? <SignaturePad onChange={setSigBlob} />
+                : <Input placeholder="Type full name to sign" value={sigName} onChange={e => setSigName(e.target.value)} />}
             </div>
 
             {error && <p className="text-sm text-danger">{error}</p>}
@@ -866,35 +992,62 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                       </div>
                     </div>
 
-                    {/* Issue banner */}
-                    {log.has_issues && (
-                      <div className="rounded-lg bg-danger-tint border border-danger/30 px-4 py-3 flex flex-col sm:flex-row items-start sm:justify-between gap-3 sm:gap-4">
+                    {/* Export */}
+                    <div className="flex justify-end">
+                      <Button size="sm" variant="outline" onClick={() => downloadPdf(log.id)}>
+                        <Download className="h-3.5 w-3.5" /> Download PDF
+                      </Button>
+                    </div>
+
+                    {/* Safety observation */}
+                    {log.safety_observation && (
+                      <div className="rounded-lg bg-warn-tint border border-warn/30 px-4 py-3 flex flex-col sm:flex-row items-start sm:justify-between gap-3 sm:gap-4">
                         <div className="flex items-start gap-2">
-                          <Flag className="h-4 w-4 text-danger shrink-0 mt-0.5 fill-red-400" />
+                          <ShieldAlert className="h-4 w-4 text-warn shrink-0 mt-0.5" />
                           <div>
-                            <p className="text-sm font-semibold text-danger">Issue Flagged</p>
-                            {log.issue_description && <p className="text-sm text-danger mt-0.5">{log.issue_description}</p>}
+                            <p className="text-sm font-semibold text-warn">Site Safety Observation</p>
+                            <p className="text-sm text-ink-soft mt-0.5">{log.safety_observation}</p>
                           </div>
                         </div>
-                        <Button size="sm" variant="outline" onClick={() => { setCreateTaskFromLog(log); setTaskTitle(log.issue_description ?? '') }}
-                          className="shrink-0 border-danger/40 text-danger hover:bg-danger-tint">
-                          <CheckSquare className="h-3.5 w-3.5" />
-                          Create Task
+                        <Button size="sm" variant="outline" onClick={() => { setCreateTaskFromLog(log); setTaskTitle(log.safety_observation ?? '') }}
+                          className="shrink-0">
+                          <CheckSquare className="h-3.5 w-3.5" /> Create Task
                         </Button>
                       </div>
                     )}
 
-                    {/* Delays */}
-                    {log.delays?.length > 0 && (
+                    {/* Quality observation */}
+                    {log.quality_observation && (
+                      <div className="rounded-lg bg-success-tint border border-success/30 px-4 py-3 flex items-start gap-2">
+                        <BadgeCheck className="h-4 w-4 text-success shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-sm font-semibold text-success">Quality Control Observation</p>
+                          <p className="text-sm text-ink-soft mt-0.5">{log.quality_observation}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Daily survey */}
+                    {log.survey && Object.keys(log.survey).length > 0 && (
                       <div>
-                        <p className="text-xs font-semibold text-faint uppercase tracking-wide mb-2">Delays</p>
-                        <div className="space-y-1.5">
-                          {log.delays.map((d, i) => (
-                            <div key={i} className="flex items-start gap-2 text-sm">
-                              <span className="rounded-full bg-warn-tint text-warn text-xs font-medium px-2 py-0.5 shrink-0">{d.type}</span>
-                              <span className="text-muted-fg">{d.description}</span>
-                            </div>
-                          ))}
+                        <p className="text-xs font-semibold text-faint uppercase tracking-wide mb-2">Daily Survey</p>
+                        <div className="rounded-lg border border-line-soft divide-y divide-line-soft">
+                          {SURVEY_QUESTIONS.map(q => {
+                            const a = log.survey?.[q.key]
+                            if (!a) return null
+                            return (
+                              <div key={q.key} className="flex items-start justify-between gap-3 px-3 py-2 text-sm">
+                                <div className="min-w-0">
+                                  <span className="text-ink-soft">{q.label}</span>
+                                  {a.description && <p className="text-xs text-faint mt-0.5">{a.description}</p>}
+                                </div>
+                                <span className={cn('shrink-0 text-xs font-semibold rounded-full px-2 py-0.5',
+                                  a.answer === 'yes' ? 'bg-accent-tint text-accent-fg' : a.answer === 'no' ? 'bg-muted text-muted-fg' : 'bg-muted text-faint')}>
+                                  {a.answer === 'na' ? 'N/A' : a.answer.toUpperCase()}
+                                </span>
+                              </div>
+                            )
+                          })}
                         </div>
                       </div>
                     )}
@@ -961,6 +1114,67 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                         </div>
                       )
                     })()}
+
+                    {/* Attachments */}
+                    {(log.daily_log_attachments?.length ?? 0) > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold text-faint uppercase tracking-wide mb-2">Attachments</p>
+                        <div className="flex flex-wrap gap-2">
+                          {log.daily_log_attachments!.map(a => (
+                            <a key={a.id} href={a.file_url} target="_blank" rel="noreferrer"
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-xs text-ink-soft hover:bg-surface">
+                              <FileText className="h-3.5 w-3.5 text-faint" /> {a.file_name ?? 'File'}
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Updates through the day */}
+                    <div>
+                      <p className="text-xs font-semibold text-faint uppercase tracking-wide mb-2">Updates Through the Day</p>
+                      <div className="space-y-2">
+                        {(log.daily_log_updates ?? []).slice().sort((a, b) => a.created_at.localeCompare(b.created_at)).map(u => (
+                          <div key={u.id} className="flex gap-2.5 text-sm">
+                            <div className="mt-1 h-1.5 w-1.5 rounded-full bg-accent shrink-0" />
+                            <div className="min-w-0">
+                              <p className="text-ink-soft">{u.body}</p>
+                              <p className="text-xs text-faint">
+                                {new Date(u.created_at).toLocaleString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                                {u.created_by_name ? ` · ${u.created_by_name}` : ''}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                        {(log.daily_log_updates?.length ?? 0) === 0 && (
+                          <p className="text-xs text-faint">No updates yet. Add one as the day goes on.</p>
+                        )}
+                      </div>
+                      {expandedLog === log.id && (
+                        <div className="flex gap-2 mt-2">
+                          <input type="text" placeholder="Add an update…" value={updateDraft}
+                            onChange={e => setUpdateDraft(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); postUpdate(log.id) } }}
+                            className="flex-1 rounded-md border border-muted2 px-3 py-1.5 text-sm text-ink-soft focus:outline-none focus:border-accent" />
+                          <Button size="sm" onClick={() => postUpdate(log.id)} disabled={updatePosting || !updateDraft.trim()}>
+                            <Send className="h-3.5 w-3.5" /> Post
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Signature */}
+                    {(log.signature_url || log.signed_by_name) && (
+                      <div>
+                        <p className="text-xs font-semibold text-faint uppercase tracking-wide mb-2">Site Manager Signature</p>
+                        {log.signature_url && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={log.signature_url} alt="Signature" className="h-20 rounded-lg border border-line bg-panel p-1" />
+                        )}
+                        {log.signed_by_name && <p className="text-sm text-ink-soft mt-1">Signed by {log.signed_by_name}</p>}
+                        {log.signed_at && <p className="text-xs text-faint">{new Date(log.signed_at).toLocaleString('en-US')}</p>}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
