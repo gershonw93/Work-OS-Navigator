@@ -43,12 +43,12 @@ export async function GET(request: Request) {
     // Compliance docs with a file_url — own company + all subs
     subCompanyIds.length > 0
       ? db.from('compliance_documents')
-          .select('id, type, status, expiry_date, file_url, notes, company_id, companies(name)')
+          .select('id, type, status, expiry_date, file_url, notes, company_id, project_id, companies(name), projects(id, name)')
           .in('company_id', [company_id, ...subCompanyIds])
           .not('file_url', 'is', null)
           .order('type')
       : db.from('compliance_documents')
-          .select('id, type, status, expiry_date, file_url, notes, company_id, companies(name)')
+          .select('id, type, status, expiry_date, file_url, notes, company_id, project_id, companies(name), projects(id, name)')
           .eq('company_id', company_id)
           .not('file_url', 'is', null)
           .order('type'),
