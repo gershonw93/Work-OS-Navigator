@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { DollarSign, TrendingUp, Clock, CheckCircle2, ChevronDown, ChevronUp, Zap, Receipt } from 'lucide-react'
+import { DollarSign, TrendingUp, Clock, CheckCircle2, ChevronDown, ChevronUp, Zap, Receipt, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
@@ -154,6 +154,12 @@ export default function FinancialsPage({ params }: { params: { id: string } }) {
                           <span className="text-xs rounded-full bg-accent-tint text-accent-fg px-1.5 py-0.5 font-medium">
                             {readyToInvoice.length} ready to invoice
                           </span>
+                        )}
+                        {sub.proposal_url && (
+                          <a href={sub.proposal_url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
+                            className="text-xs text-accent-fg hover:underline inline-flex items-center gap-1">
+                            <FileText className="h-3 w-3" /> View quote
+                          </a>
                         )}
                       </div>
                       <div className="flex items-center gap-2 mt-1.5">
