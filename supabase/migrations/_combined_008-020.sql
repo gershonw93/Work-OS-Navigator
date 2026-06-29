@@ -172,3 +172,6 @@ CREATE INDEX IF NOT EXISTS idx_budget_template_items_template ON budget_template
 -- ─── 019: quote requirements + analysis ─────────────────────
 ALTER TABLE quote_comparisons ADD COLUMN IF NOT EXISTS requirements TEXT;
 ALTER TABLE quote_comparisons ADD COLUMN IF NOT EXISTS analysis JSONB;
+
+-- ─── 020: quote award → subcontract ─────────────────────────
+ALTER TABLE quote_comparisons ADD COLUMN IF NOT EXISTS awarded_subcontract_id UUID REFERENCES subcontracts (id) ON DELETE SET NULL;

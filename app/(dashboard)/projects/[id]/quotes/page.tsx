@@ -27,6 +27,7 @@ interface Comparison {
   title: string
   trade: string | null
   winning_quote_id: string | null
+  awarded_subcontract_id: string | null
   requirements: string | null
   analysis: Analysis | null
   quotes: Quote[]
@@ -129,6 +130,17 @@ export default function QuotesPage({ params }: { params: { id: string } }) {
       method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ title: title.trim() || 'Untitled comparison' }),
     })
+  }
+
+  async function award(compId: string, quoteId: string) {
+    if (!confirm('Award this quote? It creates a subcontract for this project — the amount flows into Financials, the vendor appears in Schedule & Compliance, and the budget can link to it.')) return
+    const token = await getToken()
+    const res = await fetch(`/api/projects/${params.id}/quotes/${compId}/award`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ quote_id: quoteId }),
+    })
+    if (res.ok) load()
+    else alert((await res.json().catch(() => ({}))).error ?? 'Could not award')
   }
 
   async function setWinner(compId: string, quoteId: string | null) {
@@ -329,15 +341,28 @@ export default function QuotesPage({ params }: { params: { id: string } }) {
                         </div>
                       )}
 
-                      <div className="mt-auto pt-2">
-                        {isWinner ? (
-                          <Button size="sm" variant="secondary" className="w-full" onClick={() => setWinner(comp.id, null)}>
-                            <Trophy className="h-3.5 w-3.5 text-accent-fg" /> Winner — clear
-                          </Button>
+                      <div className="mt-auto pt-2 space-y-1.5">
+                        {comp.awarded_subcontract_id && isWinner ? (
+                          <div className="rounded-lg bg-success-tint text-success text-xs font-medium px-2.5 py-2 text-center flex items-center justify-center gap-1.5">
+                            <Check className="h-3.5 w-3.5" /> Awarded — added to the project
+                          </div>
                         ) : (
-                          <Button size="sm" variant="outline" className="w-full" onClick={() => setWinner(comp.id, q.id)}>
-                            <Trophy className="h-3.5 w-3.5" /> Mark winner
-                          </Button>
+                          <>
+                            {isWinner ? (
+                              <Button size="sm" variant="secondary" className="w-full" onClick={() => setWinner(comp.id, null)}>
+                                <Trophy className="h-3.5 w-3.5 text-accent-fg" /> Winner — clear
+                              </Button>
+                            ) : (
+                              <Button size="sm" variant="outline" className="w-full" onClick={() => setWinner(comp.id, q.id)}>
+                                <Trophy className="h-3.5 w-3.5" /> Mark winner
+                              </Button>
+                            )}
+                            {!comp.awarded_subcontract_id && (
+                              <Button size="sm" className="w-full" disabled={q.total_amount == null} onClick={() => award(comp.id, q.id)}>
+                                Award to project
+                              </Button>
+                            )}
+                          </>
                         )}
                       </div>
                     </div>
