@@ -33,6 +33,8 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
   const [files, setFiles] = useState<File[]>([])
   const [creating, setCreating] = useState(false)
   const planRef = useRef<HTMLInputElement>(null)
+  const [savedPlans, setSavedPlans] = useState<{ id: string; name: string; file_url: string }[]>([])
+  const [selectedPlans, setSelectedPlans] = useState<Set<string>>(new Set())
 
   // invite inputs per request
   const [inviteSub, setInviteSub] = useState<Record<string, string>>({})
@@ -45,12 +47,14 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
 
   async function load() {
     const t = await token()
-    const [r, d] = await Promise.all([
+    const [r, d, p] = await Promise.all([
       fetch(`/api/projects/${params.id}/bid-requests`, { headers: { Authorization: `Bearer ${t}` } }),
       fetch('/api/directory', { headers: { Authorization: `Bearer ${t}` } }),
+      fetch(`/api/projects/${params.id}/plans`, { headers: { Authorization: `Bearer ${t}` } }),
     ])
     if (r.ok) setRequests((await r.json()).requests ?? [])
     if (d.ok) setSubs(((await d.json()).companies ?? []).filter((c: any) => c.type === 'subcontractor' || c.type === 'supplier').map((c: any) => ({ id: c.id, name: c.name, email: c.contact_email })))
+    if (p.ok) setSavedPlans(((await p.json()).plans ?? []).map((pl: any) => ({ id: pl.id, name: pl.name, file_url: pl.file_url })))
     setLoading(false)
   }
   useEffect(() => { setOrigin(window.location.origin); load() }, [params.id])
@@ -62,10 +66,12 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
     const form = new FormData()
     form.append('title', title); if (trade) form.append('trade', trade)
     if (description) form.append('description', description); if (dueDate) form.append('due_date', dueDate)
+    const chosen = savedPlans.filter(p => selectedPlans.has(p.id)).map(p => ({ file_url: p.file_url, file_name: p.name }))
+    if (chosen.length) form.append('existing_attachments', JSON.stringify(chosen))
     files.forEach(f => form.append('attachments', f))
     const res = await fetch(`/api/projects/${params.id}/bid-requests`, { method: 'POST', headers: { Authorization: `Bearer ${t}` }, body: form })
     setCreating(false)
-    if (res.ok) { setTitle(''); setTrade(''); setDescription(''); setDueDate(''); setFiles([]); setShowNew(false); load() }
+    if (res.ok) { setTitle(''); setTrade(''); setDescription(''); setDueDate(''); setFiles([]); setSelectedPlans(new Set()); setShowNew(false); load() }
     else alert((await res.json().catch(() => ({}))).error ?? 'Could not create')
   }
 
@@ -138,10 +144,33 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
               className="w-full rounded-md border border-muted2 px-3 py-2 text-sm focus:border-accent focus:outline-none resize-none" /></div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5"><Label>Due date</Label><Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>Plans &amp; documents</Label>
+            <div className="space-y-1.5"><Label>Upload new files <span className="text-faint font-normal">(optional)</span></Label>
               <Button type="button" variant="outline" onClick={() => planRef.current?.click()} className="w-full gap-1.5"><Paperclip className="h-4 w-4" /> {files.length ? `${files.length} file(s)` : 'Attach files'}</Button>
             </div>
           </div>
+
+          {/* Pick from saved project plans */}
+          <div className="space-y-1.5">
+            <Label>Attach saved plans <span className="text-faint font-normal">— from this project's Plans</span></Label>
+            {savedPlans.length === 0 ? (
+              <p className="text-xs text-faint">No saved plans on this project yet. Upload plans on the Plans tab, or attach files above.</p>
+            ) : (
+              <div className="rounded-lg border border-line max-h-40 overflow-y-auto divide-y divide-line-soft">
+                {savedPlans.map(pl => {
+                  const checked = selectedPlans.has(pl.id)
+                  return (
+                    <label key={pl.id} className="flex items-center gap-2.5 px-3 py-2 text-sm cursor-pointer hover:bg-surface">
+                      <input type="checkbox" className="accent-[#C9F24A]" checked={checked}
+                        onChange={() => setSelectedPlans(prev => { const n = new Set(prev); checked ? n.delete(pl.id) : n.add(pl.id); return n })} />
+                      <FileText className="h-3.5 w-3.5 text-faint shrink-0" />
+                      <span className="text-ink-soft truncate">{pl.name}</span>
+                    </label>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
           {files.length > 0 && <div className="flex flex-wrap gap-2">{files.map((f, i) => <span key={i} className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs text-ink-soft"><FileText className="h-3 w-3" />{f.name}<button onClick={() => setFiles(p => p.filter((_, j) => j !== i))}><X className="h-3 w-3 text-faint" /></button></span>)}</div>}
           <div className="flex gap-2 justify-end"><Button variant="secondary" onClick={() => setShowNew(false)}>Cancel</Button><Button onClick={createRequest} disabled={creating || !title.trim()}>{creating ? 'Creating…' : 'Create Request'}</Button></div>
         </div>

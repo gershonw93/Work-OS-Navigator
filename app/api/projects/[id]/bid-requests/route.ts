@@ -45,7 +45,17 @@ export async function POST(request: Request, { params }: { params: { id: string 
   }).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Plans / attachments
+  // Attach already-saved project plans (no re-upload)
+  const existingRaw = form.get('existing_attachments') as string | null
+  if (existingRaw) {
+    try {
+      const existing = JSON.parse(existingRaw) as { file_url: string; file_name?: string }[]
+      const rows = existing.filter(e => e.file_url).map(e => ({ bid_request_id: req.id, file_url: e.file_url, file_name: e.file_name ?? null }))
+      if (rows.length) await db.from('bid_request_attachments').insert(rows)
+    } catch { /* ignore malformed */ }
+  }
+
+  // Newly-uploaded plans / attachments
   const files = form.getAll('attachments') as File[]
   for (const file of files) {
     if (!file || file.size === 0) continue
