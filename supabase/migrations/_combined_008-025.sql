@@ -235,3 +235,10 @@ CREATE TABLE IF NOT EXISTS bid_submissions (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_bid_submissions_req ON bid_submissions (bid_request_id);
+
+-- ===== 025_link_comparison_to_request.sql =====
+-- Link a quote comparison back to the bid request it was pulled from,
+-- so the RFQ + comparison can live on one unified "Quotes" card.
+ALTER TABLE quote_comparisons
+  ADD COLUMN IF NOT EXISTS bid_request_id UUID REFERENCES bid_requests (id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_quote_comparisons_bid_request ON quote_comparisons (bid_request_id);

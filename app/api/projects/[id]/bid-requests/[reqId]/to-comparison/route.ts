@@ -49,10 +49,22 @@ export async function POST(request: Request, { params }: { params: { id: string;
   const subs = req.bid_submissions ?? []
   if (!subs.length) return NextResponse.json({ error: 'No submissions to compare yet.' }, { status: 400 })
 
-  const { data: comp, error: cErr } = await db.from('quote_comparisons').insert({
-    project_id: params.id, title: req.title, trade: req.trade, requirements: req.description, created_by: user.id,
-  }).select().single()
-  if (cErr) return NextResponse.json({ error: cErr.message }, { status: 500 })
+  // Reuse the comparison already linked to this request (re-pulling refreshes it) instead of duplicating.
+  const { data: existing } = await db.from('quote_comparisons')
+    .select('id').eq('bid_request_id', params.reqId).eq('project_id', params.id).maybeSingle()
+
+  let comp: { id: string }
+  if (existing) {
+    comp = existing
+    await db.from('quotes').delete().eq('comparison_id', existing.id)
+  } else {
+    const { data: created, error: cErr } = await db.from('quote_comparisons').insert({
+      project_id: params.id, title: req.title, trade: req.trade, requirements: req.description,
+      bid_request_id: params.reqId, created_by: user.id,
+    }).select('id').single()
+    if (cErr) return NextResponse.json({ error: cErr.message }, { status: 500 })
+    comp = created
+  }
 
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
   const rows = await Promise.all(subs.map(async (s: any) => {
