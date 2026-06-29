@@ -38,23 +38,25 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Paid totals per subcontract
-  const paidBySub = new Map<string, number>()
+  // Actual = billed & accepted invoices (approved / sent / paid), per subcontract.
+  // (Approving an invoice should move the line, not only marking it paid.)
+  const ACTUAL_STATUSES = new Set(['approved', 'sent', 'paid'])
+  const actualBySub = new Map<string, number>()
   for (const inv of invoices ?? []) {
-    if (inv.status === 'paid' && inv.subcontract_id) {
-      paidBySub.set(inv.subcontract_id, (paidBySub.get(inv.subcontract_id) ?? 0) + Number(inv.amount ?? 0))
+    if (ACTUAL_STATUSES.has(inv.status) && inv.subcontract_id) {
+      actualBySub.set(inv.subcontract_id, (actualBySub.get(inv.subcontract_id) ?? 0) + Number(inv.amount ?? 0))
     }
   }
   const subById = new Map((subcontracts ?? []).map((s: any) => [s.id, s]))
 
-  // For linked lines, derive committed (contract amount) and actual (paid invoices).
+  // For linked lines, derive committed (contract amount) and actual (billed invoices).
   const items = (data ?? []).map((line: any) => {
     if (line.subcontract_id && subById.has(line.subcontract_id)) {
       const sub: any = subById.get(line.subcontract_id)
       return {
         ...line,
         committed_amount: Number(sub.contract_amount ?? 0),
-        actual_amount: paidBySub.get(line.subcontract_id) ?? 0,
+        actual_amount: actualBySub.get(line.subcontract_id) ?? 0,
         linked: true,
         linked_label: sub.companies?.name ?? sub.trade ?? 'Subcontract',
       }
