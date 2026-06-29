@@ -501,6 +501,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                   {group.rows.map(item => {
                     const variance = Number(item.budgeted_amount || 0) - Number(item.actual_amount || 0)
                     const over = variance < 0
+                    const overCommitted = Number(item.budgeted_amount || 0) > 0 && Number(item.committed_amount || 0) > Number(item.budgeted_amount || 0)
                     if (editingId === item.id) {
                       return (
                         <div key={item.id} className="px-4 py-3 bg-accent-tint/40 space-y-2">
@@ -575,7 +576,13 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                         </div>
                         <div className="flex justify-between md:block md:text-right text-sm">
                           <span className="md:hidden text-xs text-faint">Committed</span>
-                          <span className={item.linked ? 'text-ink-soft' : 'text-muted-fg'}>{money(item.committed_amount)}</span>
+                          <span
+                            title={overCommitted ? `Committed ${money(item.committed_amount)} exceeds budget ${money(item.budgeted_amount)} by ${money(Number(item.committed_amount) - Number(item.budgeted_amount))}` : undefined}
+                            className={cn('inline-flex items-center gap-1 justify-end',
+                              overCommitted ? 'text-danger font-semibold' : (item.linked ? 'text-ink-soft' : 'text-muted-fg'))}>
+                            {overCommitted && <AlertTriangle className="h-3 w-3 shrink-0" />}
+                            {money(item.committed_amount)}
+                          </span>
                         </div>
                         <div className="flex justify-between md:block md:text-right text-sm">
                           <span className="md:hidden text-xs text-faint">Actual</span>
@@ -607,7 +614,10 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
           <div className="hidden md:grid grid-cols-[1fr_repeat(4,minmax(0,7rem))_3rem] gap-2 px-4 py-3 border-t-2 border-line bg-surface text-sm font-bold text-ink-soft">
             <span>Total</span>
             <span className="text-right">{money(totalBudgeted)}</span>
-            <span className="text-right">{money(totalCommitted)}</span>
+            <span className={cn('text-right', totalCommitted > totalBudgeted ? 'text-danger' : '')}
+              title={totalCommitted > totalBudgeted ? `Committed exceeds budget by ${money(totalCommitted - totalBudgeted)}` : undefined}>
+              {money(totalCommitted)}
+            </span>
             <span className="text-right">{money(totalActual)}</span>
             <span className={cn('text-right', overBudget ? 'text-danger' : 'text-success')}>
               {overBudget ? '-' : ''}{money(Math.abs(remaining))}
