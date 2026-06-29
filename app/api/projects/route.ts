@@ -64,7 +64,7 @@ export async function GET(request: Request) {
   // All company projects — either as GC or as standalone owner
   const { data } = await db
     .from('projects')
-    .select('id, name, status, start_date, type')
+    .select('id, name, status, start_date, type, customer_id')
     .or(`gc_company_id.eq.${profile.company_id},created_by_company_id.eq.${profile.company_id}`)
     .order('created_at', { ascending: false })
 
@@ -102,7 +102,7 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json()
-  const { name, address, client, type, start_date, end_date } = body
+  const { name, address, client, type, start_date, end_date, customer_id } = body
 
   const { data: project, error: insertError } = await admin
     .from('projects')
@@ -114,6 +114,7 @@ export async function POST(request: Request) {
       start_date,
       end_date: end_date || null,
       status: 'planning',
+      customer_id: customer_id || null,
       gc_company_id: profile.company_id,
       created_by_company_id: profile.company_id,
     })
