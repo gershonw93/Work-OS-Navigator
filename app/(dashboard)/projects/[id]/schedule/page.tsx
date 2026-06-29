@@ -18,6 +18,9 @@ const MILESTONE_COLORS = [
 
 const SUB_BAR = 'bg-accent'
 const SUB_LIGHT = 'bg-accent-tint text-accent-fg border-accent/40'
+// Supplier deliveries get their own (amber) treatment
+const DELIVERY_BAR = 'bg-warn-solid'
+const DELIVERY_LIGHT = 'bg-warn-tint text-warn border-warn/40'
 
 interface ScheduleItem {
   id: string
@@ -29,28 +32,36 @@ interface ScheduleItem {
   subcontracts: {
     scope: string
     trade: string | null
-    companies: { name: string } | null
+    companies: { name: string; type?: string } | null
   } | null
 }
 
+function isDelivery(item: ScheduleItem) {
+  return item.subcontracts?.companies?.type === 'supplier'
+}
+
 function getLabel(item: ScheduleItem) {
+  if (isDelivery(item)) return `Delivery — ${item.subcontracts?.companies?.name ?? item.subcontracts?.trade ?? 'Supplier'}`
   if (item.label) return item.label
   if (item.subcontracts) return item.subcontracts.scope
   return 'Untitled'
 }
 
 function getSubLabel(item: ScheduleItem) {
+  if (isDelivery(item)) return 'Material delivery'
   if (item.subcontracts?.companies?.name) return item.subcontracts.companies.name
   return null
 }
 
 function barColor(item: ScheduleItem) {
+  if (isDelivery(item)) return DELIVERY_BAR
   if (item.subcontract_id) return SUB_BAR
   const c = MILESTONE_COLORS.find(c => c.value === item.color)
   return c?.bg ?? 'bg-faint'
 }
 
 function lightColor(item: ScheduleItem) {
+  if (isDelivery(item)) return DELIVERY_LIGHT
   if (item.subcontract_id) return SUB_LIGHT
   const c = MILESTONE_COLORS.find(c => c.value === item.color)
   return c?.light ?? 'bg-muted text-ink-soft border-line'

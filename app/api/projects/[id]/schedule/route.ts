@@ -16,7 +16,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
   const { data: items } = await db
     .from('schedule_items')
-    .select('*, subcontracts(scope, trade, companies(name))')
+    .select('*, subcontracts(scope, trade, companies(name, type))')
     .eq('project_id', params.id)
     .order('start_date', { ascending: true })
 
