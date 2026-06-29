@@ -67,6 +67,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   const [form, setForm] = useState({ ...blankForm })
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState({ ...blankForm })
+  const [assigningSubId, setAssigningSubId] = useState<string | null>(null)
 
   // Templates
   const [showTemplate, setShowTemplate] = useState(false)
@@ -98,6 +99,26 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   }
 
   useEffect(() => { load() }, [params.id])
+
+  // One-click: create a budget line for an unassigned subcontract, linked to it
+  async function assignSubToBudget(sub: SubOption) {
+    setAssigningSubId(sub.id)
+    const token = await getToken()
+    // Map the sub's trade to a budget category if it matches one, else General
+    const category = CATEGORIES.find(c => c.toLowerCase() === (sub.label.split('·')[0] || '').trim().toLowerCase()) || 'General'
+    const res = await fetch(`/api/projects/${params.id}/budget`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        category,
+        description: sub.label,
+        budgeted_amount: sub.contract_amount,
+        subcontract_id: sub.id,
+      }),
+    })
+    setAssigningSubId(null)
+    if (res.ok) load()
+    else alert((await res.json().catch(() => ({}))).error ?? 'Could not assign')
+  }
 
   async function openTemplatePicker() {
     setShowTemplate(true)
@@ -387,12 +408,19 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
               {unbudgetedSubs.length} subcontract{unbudgetedSubs.length > 1 ? 's' : ''} not linked to a budget line
               <span className="text-muted-fg font-normal"> · {money(unbudgetedTotal)} uncovered</span>
             </p>
-            <p className="text-xs text-muted-fg mt-0.5">
-              {unbudgetedSubs.map(s => s.label).join(', ')}
+            <p className="text-xs text-muted-fg mt-1 mb-2">
+              Assign a subcontract to auto-create a linked budget line that tracks its committed &amp; actual costs.
             </p>
-            <p className="text-xs text-muted-fg mt-1">
-              Add a budget line and link it to a subcontract to auto-track its committed &amp; actual costs.
-            </p>
+            <div className="flex flex-col gap-1.5">
+              {unbudgetedSubs.map(s => (
+                <div key={s.id} className="flex items-center justify-between gap-3 rounded-lg bg-panel border border-warn/20 px-3 py-1.5">
+                  <span className="text-sm text-ink-soft truncate">{s.label} <span className="text-faint">· {money(s.contract_amount)}</span></span>
+                  <Button size="sm" disabled={assigningSubId === s.id} onClick={() => assignSubToBudget(s)} className="shrink-0">
+                    {assigningSubId === s.id ? 'Adding…' : <><Plus className="h-3.5 w-3.5" /> Assign</>}
+                  </Button>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
