@@ -42,7 +42,7 @@ export async function POST(request: Request, { params }: { params: { id: string;
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data: req } = await db.from('bid_requests')
-    .select('*, bid_submissions(*, bid_invites(vendor_name))')
+    .select('*, bid_submissions(*, bid_invites(vendor_name, vendor_email))')
     .eq('id', params.reqId).eq('project_id', params.id).single()
   if (!req) return NextResponse.json({ error: 'Bid request not found' }, { status: 404 })
 
@@ -69,12 +69,14 @@ export async function POST(request: Request, { params }: { params: { id: string;
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
   const rows = await Promise.all(subs.map(async (s: any) => {
     const parsed = s.file_url ? await extract(anthropic, s.file_url) : null
-    const fallbackName = s.submitted_by_name || s.bid_invites?.vendor_name || null
+    // Company name for the vendor; person name (typed at submission) for the contact.
+    const companyName = parsed?.vendor_name ?? s.bid_invites?.vendor_name ?? s.submitted_by_name ?? null
+    const contactName = parsed?.contact_name ?? s.submitted_by_name ?? null
     return {
       comparison_id: comp.id,
       file_url: s.file_url,
       file_name: s.file_name,
-      vendor_name: parsed?.vendor_name ?? fallbackName,
+      vendor_name: companyName,
       total_amount: typeof parsed?.total_amount === 'number' ? parsed.total_amount : (s.amount != null ? Number(s.amount) : null),
       valid_until: parsed?.valid_until ?? null,
       scope_summary: parsed?.scope_summary ?? s.notes ?? null,
@@ -84,7 +86,11 @@ export async function POST(request: Request, { params }: { params: { id: string;
         exclusions: parsed?.exclusions ?? [],
         payment_terms: parsed?.payment_terms ?? null,
         notes: parsed?.notes ?? s.notes ?? null,
-        contact: { name: parsed?.contact_name ?? null, email: parsed?.contact_email ?? null, phone: parsed?.contact_phone ?? null },
+        contact: {
+          name: contactName,
+          email: parsed?.contact_email ?? s.bid_invites?.vendor_email ?? null,
+          phone: parsed?.contact_phone ?? null,
+        },
       },
     }
   }))
