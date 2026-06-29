@@ -125,6 +125,7 @@ export function ComparisonBlock({ comp, projectId, onChanged }: { comp: Comparis
   }
 
   const quotes = comp.quotes ?? []
+  const awarded = !!comp.awarded_subcontract_id
   const totals = quotes.map(q => q.total_amount).filter((n): n is number => n != null)
   const lowest = totals.length ? Math.min(...totals) : null
   const highest = totals.length ? Math.max(...totals) : null
@@ -189,11 +190,17 @@ export function ComparisonBlock({ comp, projectId, onChanged }: { comp: Comparis
       <div className="px-4 py-3 border-b border-line-soft bg-surface/60 space-y-3">
         <div className="flex items-center justify-between gap-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-faint flex items-center gap-1"><ClipboardList className="h-3.5 w-3.5" /> Compare responses{lowest != null && highest != null && highest > lowest ? <span className="text-success ml-1">· spread {money(highest - lowest)}</span> : null}</p>
-          <input ref={fileRef} type="file" accept="application/pdf,image/*" multiple className="sr-only"
-            onChange={e => { if (e.target.files?.length) uploadQuotes(e.target.files); e.target.value = '' }} />
-          <Button size="sm" variant="outline" disabled={uploadingFor} onClick={() => fileRef.current?.click()}>
-            {uploadingFor ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Reading…</> : <><Upload className="h-3.5 w-3.5" /> Add quote</>}
-          </Button>
+          {awarded ? (
+            <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-success-tint text-success inline-flex items-center gap-1"><Check className="h-3 w-3" /> Awarded — locked</span>
+          ) : (
+            <>
+              <input ref={fileRef} type="file" accept="application/pdf,image/*" multiple className="sr-only"
+                onChange={e => { if (e.target.files?.length) uploadQuotes(e.target.files); e.target.value = '' }} />
+              <Button size="sm" variant="outline" disabled={uploadingFor} onClick={() => fileRef.current?.click()}>
+                {uploadingFor ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Reading…</> : <><Upload className="h-3.5 w-3.5" /> Add quote</>}
+              </Button>
+            </>
+          )}
         </div>
         <div>
           <textarea rows={2} defaultValue={comp.requirements ?? ''}
@@ -202,7 +209,7 @@ export function ComparisonBlock({ comp, projectId, onChanged }: { comp: Comparis
             className="w-full rounded-lg border border-line bg-panel px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-accent focus:outline-none resize-none" />
           <div className="flex items-center justify-between mt-2">
             <span className="text-xs text-faint">AI checks each quote against this and flags what's missing.</span>
-            <Button size="sm" disabled={analyzing || quotes.length === 0} onClick={analyze}>
+            <Button size="sm" disabled={analyzing || quotes.length === 0 || awarded} onClick={analyze}>
               {analyzing ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Analyzing…</> : <><Sparkles className="h-3.5 w-3.5" /> Analyze quotes</>}
             </Button>
           </div>
@@ -310,10 +317,14 @@ export function ComparisonBlock({ comp, projectId, onChanged }: { comp: Comparis
                   </div>
                 )}
                 <div className="mt-auto pt-2 space-y-1.5">
-                  {comp.awarded_subcontract_id && isWinner ? (
-                    <div className="rounded-lg bg-success-tint text-success text-xs font-medium px-2.5 py-2 text-center flex items-center justify-center gap-1.5">
-                      <Check className="h-3.5 w-3.5" /> Awarded — added to the project
-                    </div>
+                  {awarded ? (
+                    isWinner ? (
+                      <div className="rounded-lg bg-success-tint text-success text-xs font-medium px-2.5 py-2 text-center flex items-center justify-center gap-1.5">
+                        <Check className="h-3.5 w-3.5" /> Awarded — added to the project
+                      </div>
+                    ) : (
+                      <div className="rounded-lg bg-muted text-muted-fg text-xs font-medium px-2.5 py-2 text-center">Not selected</div>
+                    )
                   ) : (
                     <>
                       {isWinner ? (
