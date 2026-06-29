@@ -3,9 +3,11 @@
 import { useEffect, useState } from 'react'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
-import { Wallet, DollarSign, CheckCircle2, TrendingDown, TrendingUp, Plus, Trash2, Pencil, X, Check, Link as LinkIcon, AlertTriangle } from 'lucide-react'
+import { Wallet, DollarSign, CheckCircle2, TrendingDown, TrendingUp, Plus, Trash2, Pencil, X, Check, Link as LinkIcon, AlertTriangle, LayoutTemplate, Save, FileSpreadsheet, FolderInput } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 interface BudgetItem {
   id: string
@@ -54,6 +56,19 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState({ ...blankForm })
 
+  // Templates
+  const [showTemplate, setShowTemplate] = useState(false)
+  const [showSave, setShowSave] = useState(false)
+  const [templates, setTemplates] = useState<any[]>([])
+  const [otherProjects, setOtherProjects] = useState<{ id: string; name: string }[]>([])
+  const [copyAmounts, setCopyAmounts] = useState(false)
+  const [applying, setApplying] = useState(false)
+  const [tplName, setTplName] = useState('')
+  const [savingTpl, setSavingTpl] = useState(false)
+  const [importItems, setImportItems] = useState<{ description: string; default_amount: number | null }[] | null>(null)
+  const [importName, setImportName] = useState('')
+  const [importing, setImporting] = useState(false)
+
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
     return session?.access_token ?? ''
@@ -71,6 +86,73 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   }
 
   useEffect(() => { load() }, [params.id])
+
+  async function openTemplatePicker() {
+    setShowTemplate(true)
+    setCopyAmounts(false); setImportItems(null)
+    const token = await getToken()
+    const [tplRes, projRes] = await Promise.all([
+      fetch('/api/budget-templates', { headers: { Authorization: `Bearer ${token}` } }),
+      fetch('/api/projects', { headers: { Authorization: `Bearer ${token}` } }),
+    ])
+    if (tplRes.ok) setTemplates((await tplRes.json()).templates ?? [])
+    if (projRes.ok) {
+      const d = await projRes.json()
+      setOtherProjects((d.projects ?? []).filter((p: any) => p.id !== params.id).map((p: any) => ({ id: p.id, name: p.name })))
+    }
+  }
+
+  async function applyTemplate(body: any) {
+    setApplying(true)
+    const token = await getToken()
+    const res = await fetch(`/api/projects/${params.id}/budget/apply`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ ...body, copy_amounts: copyAmounts }),
+    })
+    setApplying(false)
+    if (res.ok) { setShowTemplate(false); load() }
+    else alert((await res.json().catch(() => ({}))).error ?? 'Could not apply')
+  }
+
+  async function importExcel(file: File) {
+    setImporting(true)
+    const token = await getToken()
+    const form = new FormData(); form.append('file', file)
+    const res = await fetch('/api/budget-templates/import', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form })
+    setImporting(false)
+    if (res.ok) { const d = await res.json(); setImportItems(d.items ?? []); setImportName(d.suggested_name ?? 'Imported template') }
+    else alert((await res.json().catch(() => ({}))).error ?? 'Could not read file')
+  }
+
+  async function saveImportedAsTemplateAndApply() {
+    if (!importItems?.length) return
+    setApplying(true)
+    const token = await getToken()
+    // Save as a reusable template
+    const createRes = await fetch('/api/budget-templates', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ name: importName || 'Imported template', source: 'excel', items: importItems.map(i => ({ description: i.description, default_amount: i.default_amount })) }),
+    })
+    if (createRes.ok) {
+      const { template } = await createRes.json()
+      await applyTemplate({ template_id: template.id })
+    } else { setApplying(false); alert('Could not save template') }
+  }
+
+  async function saveCurrentAsTemplate() {
+    if (!tplName.trim()) return
+    setSavingTpl(true)
+    const token = await getToken()
+    const res = await fetch('/api/budget-templates', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        name: tplName, source: 'job',
+        items: items.map(i => ({ category: i.category, cost_code: i.cost_code, description: i.description, default_amount: i.budgeted_amount })),
+      }),
+    })
+    setSavingTpl(false)
+    if (res.ok) { setShowSave(false); setTplName(''); alert('Saved as template') }
+  }
 
   async function addLine() {
     if (!form.description.trim()) return
@@ -166,10 +248,104 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
           <h1 className="text-2xl font-bold text-ink">Budget</h1>
           <p className="text-sm text-muted-fg mt-0.5">Line-item cost breakdown — budgeted vs committed vs actual.</p>
         </div>
-        <Button onClick={() => setAdding(v => !v)} className="gap-1.5">
-          <Plus className="h-4 w-4" /> Add Line
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" onClick={openTemplatePicker} className="gap-1.5"><LayoutTemplate className="h-4 w-4" /> Use Template</Button>
+          {items.length > 0 && <Button variant="outline" onClick={() => setShowSave(true)} className="gap-1.5"><Save className="h-4 w-4" /> Save as Template</Button>}
+          <Button onClick={() => setAdding(v => !v)} className="gap-1.5"><Plus className="h-4 w-4" /> Add Line</Button>
+        </div>
       </div>
+
+      {/* Use Template modal */}
+      {showTemplate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowTemplate(false)}>
+          <div className="bg-panel rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-line-soft flex items-center justify-between">
+              <h2 className="font-semibold text-ink">Start from a template</h2>
+              <button onClick={() => setShowTemplate(false)} className="text-faint hover:text-ink"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="p-5 space-y-5">
+              <label className="flex items-center gap-2 text-sm text-ink-soft">
+                <input type="checkbox" className="accent-[#C9F24A]" checked={copyAmounts} onChange={e => setCopyAmounts(e.target.checked)} />
+                Also copy amounts (default: bring line items in blank)
+              </label>
+
+              {/* Saved templates */}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-faint mb-2">Saved templates</p>
+                {templates.length === 0 ? <p className="text-xs text-faint">No templates yet.</p> : (
+                  <div className="space-y-1.5">
+                    {templates.map(t => (
+                      <div key={t.id} className="flex items-center justify-between gap-2 rounded-lg border border-line px-3 py-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-ink-soft truncate">{t.name}</p>
+                          <p className="text-xs text-faint">{(t.budget_template_items?.length ?? 0)} line items</p>
+                        </div>
+                        <Button size="sm" disabled={applying} onClick={() => applyTemplate({ template_id: t.id })}>Apply</Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* From another job */}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-faint mb-2"><FolderInput className="inline h-3.5 w-3.5 mr-1" />Copy from a similar job</p>
+                <div className="flex gap-2">
+                  <SearchableSelect className="flex-1" onChange={e => e.target.value && applyTemplate({ source_project_id: e.target.value })}>
+                    <option value="">Select a project…</option>
+                    {otherProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </SearchableSelect>
+                </div>
+              </div>
+
+              {/* Upload Excel */}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-faint mb-2"><FileSpreadsheet className="inline h-3.5 w-3.5 mr-1" />Upload a budget Excel</p>
+                {!importItems ? (
+                  <label className="flex items-center gap-2 rounded-lg border border-dashed border-muted2 px-3 py-2.5 text-sm text-muted-fg hover:bg-surface cursor-pointer w-fit">
+                    <FileSpreadsheet className="h-4 w-4" /> {importing ? 'Reading…' : 'Choose .xlsx / .csv'}
+                    <input type="file" accept=".xlsx,.xls,.csv" className="sr-only" onChange={e => { const f = e.target.files?.[0]; if (f) importExcel(f) }} />
+                  </label>
+                ) : (
+                  <div className="rounded-lg border border-line p-3 space-y-2">
+                    <p className="text-sm text-ink-soft">{importItems.length} line items found</p>
+                    <div className="max-h-32 overflow-y-auto text-xs text-faint space-y-0.5">
+                      {importItems.slice(0, 30).map((i, idx) => <div key={idx} className="flex justify-between gap-2"><span className="truncate">{i.description}</span><span>{i.default_amount != null ? money(i.default_amount) : ''}</span></div>)}
+                    </div>
+                    <div className="flex gap-2 justify-end">
+                      <Button size="sm" variant="outline" onClick={() => setImportItems(null)}>Choose another</Button>
+                      <Button size="sm" disabled={applying} onClick={saveImportedAsTemplateAndApply}>{applying ? 'Applying…' : 'Save template & apply'}</Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Save as template modal */}
+      {showSave && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowSave(false)}>
+          <div className="bg-panel rounded-xl shadow-xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-line-soft flex items-center justify-between">
+              <h2 className="font-semibold text-ink">Save as template</h2>
+              <button onClick={() => setShowSave(false)} className="text-faint hover:text-ink"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="p-5 space-y-3">
+              <div className="space-y-1.5">
+                <Label>Template name</Label>
+                <Input placeholder="e.g. New build — full custom" value={tplName} onChange={e => setTplName(e.target.value)} autoFocus />
+              </div>
+              <p className="text-xs text-faint">Saves these {items.length} line items (with amounts) as a reusable template for future jobs.</p>
+              <div className="flex gap-2 justify-end">
+                <Button variant="secondary" onClick={() => setShowSave(false)}>Cancel</Button>
+                <Button onClick={saveCurrentAsTemplate} disabled={savingTpl || !tplName.trim()}>{savingTpl ? 'Saving…' : 'Save'}</Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
