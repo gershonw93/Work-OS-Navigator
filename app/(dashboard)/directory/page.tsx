@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { Building2, Plus, X, Search, Phone, Mail, MapPin, Globe, BadgeCheck, Send, ExternalLink, Pencil, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -1024,19 +1025,29 @@ export default function DirectoryPage() {
                           <p className="text-sm text-faint">Not on any projects yet.</p>
                         </div>
                       ) : (
-                        profileData.subcontracts.map((sub: any) => (
-                          <div key={sub.id} className="rounded-lg border border-line bg-panel p-4 space-y-1">
-                            <div className="flex items-center justify-between gap-2">
-                              <p className="font-medium text-ink-soft">{sub.projects?.name ?? 'Unknown Project'}</p>
-                              <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium',
-                                sub.projects?.status === 'active' ? 'bg-success-tint text-success' : 'bg-muted text-muted-fg')}>
-                                {sub.projects?.status ?? ''}
-                              </span>
-                            </div>
-                            <p className="text-xs text-muted-fg">{sub.trade ?? ''}{sub.scope ? ` · ${sub.scope}` : ''}</p>
-                            {sub.contract_amount && <p className="text-sm font-semibold text-ink">${Number(sub.contract_amount).toLocaleString()}</p>}
-                          </div>
-                        ))
+                        profileData.subcontracts.map((sub: any) => {
+                          const pid = sub.projects?.id
+                          const inner = (
+                            <>
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="font-medium text-ink-soft">{sub.projects?.name ?? 'Unknown Project'}</p>
+                                <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium',
+                                  sub.projects?.status === 'active' ? 'bg-success-tint text-success' : 'bg-muted text-muted-fg')}>
+                                  {sub.projects?.status ?? ''}
+                                </span>
+                              </div>
+                              <p className="text-xs text-muted-fg">{sub.trade ?? ''}{sub.scope ? ` · ${sub.scope}` : ''}</p>
+                              {sub.contract_amount && <p className="text-sm font-semibold text-ink">${Number(sub.contract_amount).toLocaleString()}</p>}
+                            </>
+                          )
+                          return pid ? (
+                            <Link key={sub.id} href={`/projects/${pid}`} className="block rounded-lg border border-line bg-panel p-4 space-y-1 hover:border-accent hover:bg-surface transition-colors">
+                              {inner}
+                            </Link>
+                          ) : (
+                            <div key={sub.id} className="rounded-lg border border-line bg-panel p-4 space-y-1">{inner}</div>
+                          )
+                        })
                       )}
                     </div>
                   )}
