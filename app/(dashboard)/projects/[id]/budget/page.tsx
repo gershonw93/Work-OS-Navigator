@@ -31,10 +31,12 @@ interface SubOption {
 }
 
 const CATEGORIES = [
-  'General Conditions', 'Site Work', 'Concrete', 'Masonry', 'Metals',
-  'Wood & Plastics', 'Thermal & Moisture', 'Doors & Windows', 'Finishes',
-  'Specialties', 'Equipment', 'Furnishings', 'Mechanical/HVAC', 'Plumbing',
-  'Electrical', 'Permits & Fees', 'Contingency', 'General',
+  'General Conditions', 'Permits & Fees', 'Site Work', 'Excavation', 'Foundation',
+  'Concrete', 'Masonry', 'Metals', 'Lumber', 'Framing', 'Roofing', 'Siding',
+  'Windows & Doors', 'Insulation', 'Drywall', 'Flooring', 'Tile', 'Painting',
+  'Trim & Millwork', 'Cabinets & Countertops', 'Plumbing', 'HVAC', 'Electrical',
+  'Appliances', 'Landscaping', 'Concrete Flatwork', 'Cleanup', 'Equipment Rental',
+  'Contingency', 'General',
 ]
 
 const money = (n: number) => `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
@@ -444,7 +446,16 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
             <div className="flex flex-col sm:flex-row sm:items-center gap-2">
               <label className="text-xs font-medium text-muted-fg sm:w-44 shrink-0">Link to subcontract (auto-fills Committed &amp; Actual)</label>
               <SearchableSelect className="flex-1 rounded-lg border border-line px-3 py-2 text-sm bg-panel"
-                value={form.subcontract_id} onChange={e => setForm({ ...form, subcontract_id: e.target.value })}>
+                value={form.subcontract_id} onChange={e => {
+                  const sub = subOptions.find(s => s.id === e.target.value)
+                  setForm(f => ({
+                    ...f,
+                    subcontract_id: e.target.value,
+                    // auto-fill description & budget from the linked contract when blank
+                    description: f.description.trim() || (sub?.label ?? ''),
+                    budgeted_amount: f.budgeted_amount || (sub ? String(sub.contract_amount) : ''),
+                  }))
+                }}>
                 <option value="">Not linked — enter manually</option>
                 {subOptions.map(s => <option key={s.id} value={s.id}>{s.label} · {money(s.contract_amount)}</option>)}
               </SearchableSelect>
