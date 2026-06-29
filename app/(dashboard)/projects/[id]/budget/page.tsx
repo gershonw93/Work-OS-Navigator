@@ -263,7 +263,10 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
           <div className="bg-panel rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="px-5 py-4 border-b border-line-soft flex items-center justify-between">
               <h2 className="font-semibold text-ink">Start from a template</h2>
-              <button onClick={() => setShowTemplate(false)} className="text-faint hover:text-ink"><X className="h-5 w-5" /></button>
+              <div className="flex items-center gap-3">
+                <a href="/budget-templates" className="text-xs text-accent-fg hover:underline">Manage templates →</a>
+                <button onClick={() => setShowTemplate(false)} className="text-faint hover:text-ink"><X className="h-5 w-5" /></button>
+              </div>
             </div>
             <div className="p-5 space-y-5">
               <label className="flex items-center gap-2 text-sm text-ink-soft">
