@@ -1,14 +1,14 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { SearchableSelect } from '@/components/ui/searchable-select'
-import { Plus, X, FileText, Send, Link2, Copy, Trash2, Scale, Loader2, CheckCircle2, Mail, Paperclip } from 'lucide-react'
+import { Plus, X, FileText, Send, Link2, Copy, Trash2, Scale, Loader2, CheckCircle2, Mail, Paperclip, Upload, Trophy, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { ComparisonBlock, type Comparison } from '@/components/quotes/comparison-block'
 
 const money = (n: number | null) => n == null ? '—' : `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 const STATUS: Record<string, string> = {
@@ -18,12 +18,14 @@ const STATUS: Record<string, string> = {
 
 export default function RequestQuotesPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
-  const router = useRouter()
   const [requests, setRequests] = useState<any[]>([])
+  const [comparisons, setComparisons] = useState<Comparison[]>([])
   const [subs, setSubs] = useState<{ id: string; name: string; email?: string }[]>([])
   const [loading, setLoading] = useState(true)
   const [showNew, setShowNew] = useState(false)
   const [origin, setOrigin] = useState('')
+  const [newUploading, setNewUploading] = useState(false)
+  const newRef = useRef<HTMLInputElement | null>(null)
 
   // new request form
   const [title, setTitle] = useState('')
@@ -51,14 +53,16 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
 
   async function load() {
     const t = await token()
-    const [r, d, p] = await Promise.all([
+    const [r, d, p, c] = await Promise.all([
       fetch(`/api/projects/${params.id}/bid-requests`, { headers: { Authorization: `Bearer ${t}` } }),
       fetch('/api/directory', { headers: { Authorization: `Bearer ${t}` } }),
       fetch(`/api/projects/${params.id}/plans`, { headers: { Authorization: `Bearer ${t}` } }),
+      fetch(`/api/projects/${params.id}/quotes`, { headers: { Authorization: `Bearer ${t}` } }),
     ])
     if (r.ok) setRequests((await r.json()).requests ?? [])
     if (d.ok) setSubs(((await d.json()).companies ?? []).filter((c: any) => c.type === 'subcontractor' || c.type === 'supplier').map((c: any) => ({ id: c.id, name: c.name, email: c.contact_email })))
     if (p.ok) setSavedPlans(((await p.json()).plans ?? []).map((pl: any) => ({ id: pl.id, name: pl.name, file_url: pl.file_url })))
+    if (c.ok) setComparisons((await c.json()).comparisons ?? [])
     setLoading(false)
   }
   useEffect(() => { setOrigin(window.location.origin); load() }, [params.id])
@@ -139,9 +143,34 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
     const t = await token()
     const res = await fetch(`/api/projects/${params.id}/bid-requests/${reqId}/to-comparison`, { method: 'POST', headers: { Authorization: `Bearer ${t}` } })
     setPulling(null)
-    if (res.ok) router.push(`/projects/${params.id}/quotes`)
+    if (res.ok) load()
     else alert((await res.json().catch(() => ({}))).error ?? 'Could not pull to comparison')
   }
+
+  // Standalone comparison from manually-collected quote files (no RFQ)
+  async function uploadNewSet(fileList: FileList | File[]) {
+    const list = Array.from(fileList)
+    if (!list.length) return
+    setNewUploading(true)
+    try {
+      const t = await token()
+      const res = await fetch(`/api/projects/${params.id}/quotes`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+        body: JSON.stringify({ title: 'Untitled comparison' }),
+      })
+      if (!res.ok) throw new Error('Could not start a comparison')
+      const { comparison } = await res.json()
+      for (const f of list) {
+        const form = new FormData(); form.append('file', f)
+        await fetch(`/api/projects/${params.id}/quotes/${comparison.id}/upload`, { method: 'POST', headers: { Authorization: `Bearer ${t}` }, body: form })
+      }
+      load()
+    } catch (e: any) { alert(e?.message ?? 'Upload failed'); load() }
+    finally { setNewUploading(false) }
+  }
+
+  const compFor = (reqId: string) => comparisons.find(c => c.bid_request_id === reqId)
+  const standaloneComparisons = comparisons.filter(c => !c.bid_request_id)
 
   function linkFor(token: string) { return `${origin}/bid/${token}` }
   function copy(text: string, key: string) { navigator.clipboard?.writeText(text); setCopied(key); setTimeout(() => setCopied(null), 1500) }
@@ -156,12 +185,19 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
   return (
     <div className="space-y-6">
       <input ref={planRef} type="file" multiple className="sr-only" onChange={e => { if (e.target.files) setFiles(p => [...p, ...Array.from(e.target.files!)]) }} />
+      <input ref={newRef} type="file" accept="application/pdf,image/*" multiple className="sr-only"
+        onChange={e => { if (e.target.files?.length) uploadNewSet(e.target.files); e.target.value = '' }} />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Request Quotes</h1>
-          <p className="text-sm text-muted-fg mt-0.5">Send plans to subs for pricing. Each sub gets a private link — no account needed — and responses are tracked here.</p>
+          <h1 className="text-2xl font-bold text-ink">Quotes</h1>
+          <p className="text-sm text-muted-fg mt-0.5">Send plans to subs, track responses, then compare &amp; award — all in one place. Each sub gets a private link, no account needed.</p>
         </div>
-        <Button onClick={() => setShowNew(v => !v)} className="gap-1.5"><Plus className="h-4 w-4" /> New Request</Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" onClick={() => newRef.current?.click()} disabled={newUploading} className="gap-1.5">
+            {newUploading ? <><Loader2 className="h-4 w-4 animate-spin" /> Reading…</> : <><Upload className="h-4 w-4" /> Upload Quotes</>}
+          </Button>
+          <Button onClick={() => setShowNew(v => !v)} className="gap-1.5"><Plus className="h-4 w-4" /> New Request</Button>
+        </div>
       </div>
 
       {showNew && (
@@ -207,22 +243,40 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
         </div>
       )}
 
-      {requests.length === 0 ? (
-        <div className="bg-panel rounded-xl border border-line p-10 text-center"><Send className="h-8 w-8 text-faint mx-auto mb-3" /><p className="text-sm text-muted-fg">No bid requests yet. Create one, attach the plans, and invite your subs.</p></div>
+      {requests.length === 0 && standaloneComparisons.length === 0 ? (
+        <div className="bg-panel rounded-xl border border-line p-10 text-center"><Send className="h-8 w-8 text-faint mx-auto mb-3" /><p className="text-sm text-muted-fg">No quotes yet. Create a request to invite subs, or upload quotes you already have to compare them.</p></div>
       ) : requests.map(req => {
         const invites = req.bid_invites ?? []
         const submissions = req.bid_submissions ?? []
+        const comp = compFor(req.id)
+        const awarded = !!comp?.awarded_subcontract_id
+        const today = new Date(); today.setHours(0, 0, 0, 0)
+        const overdue = !awarded && !!req.due_date && new Date(req.due_date + 'T00:00:00') < today
+        const status = awarded
+          ? { label: 'Awarded', cls: 'bg-success-tint text-success' }
+          : overdue
+            ? { label: 'Overdue', cls: 'bg-danger-tint text-danger' }
+            : submissions.length > 0
+              ? { label: 'Responses in', cls: 'bg-info-tint text-info' }
+              : { label: 'Open', cls: 'bg-muted text-muted-fg' }
         return (
-          <div key={req.id} className="bg-panel rounded-xl border border-line overflow-hidden">
+          <div key={req.id} className={cn('bg-panel rounded-xl border overflow-hidden', awarded ? 'border-success/40' : overdue ? 'border-danger/40' : 'border-line')}>
             <div className="px-4 sm:px-5 py-3.5 border-b border-line-soft flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h2 className="text-sm font-semibold text-ink-soft">{req.title}</h2>
-                <p className="text-xs text-faint">{req.trade ? `${req.trade} · ` : ''}{invites.length} invited · {submissions.length} responded{req.due_date ? ` · due ${new Date(req.due_date + 'T00:00:00').toLocaleDateString()}` : ''}</p>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-sm font-semibold text-ink-soft">{req.title}</h2>
+                  <span className={cn('text-[10px] font-semibold rounded-full px-1.5 py-0.5 inline-flex items-center gap-1', status.cls)}>
+                    {status.label === 'Awarded' && <Trophy className="h-2.5 w-2.5" />}
+                    {status.label === 'Overdue' && <AlertTriangle className="h-2.5 w-2.5" />}
+                    {status.label}
+                  </span>
+                </div>
+                <p className={cn('text-xs', overdue ? 'text-danger' : 'text-faint')}>{req.trade ? `${req.trade} · ` : ''}{invites.length} invited · {submissions.length} responded{req.due_date ? ` · ${overdue ? 'was due' : 'due'} ${new Date(req.due_date + 'T00:00:00').toLocaleDateString()}` : ''}</p>
               </div>
               <div className="flex items-center gap-2">
-                {submissions.length > 0 && (
+                {submissions.length > 0 && !awarded && (
                   <Button size="sm" disabled={pulling === req.id} onClick={() => pullToComparison(req.id)}>
-                    {pulling === req.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Scale className="h-3.5 w-3.5" />} Compare quotes
+                    {pulling === req.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Scale className="h-3.5 w-3.5" />} {comp ? 'Refresh comparison' : 'Compare quotes'}
                   </Button>
                 )}
                 <button onClick={() => deleteRequest(req.id)} className="p-1.5 rounded-lg text-faint hover:bg-danger-tint hover:text-danger"><Trash2 className="h-4 w-4" /></button>
@@ -275,10 +329,27 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
                 )}
                 <Button size="sm" variant="outline" onClick={() => addInvite(req.id)}><Plus className="h-3.5 w-3.5" /> Invite</Button>
               </div>
+
+              {/* Inline comparison once quotes have been pulled */}
+              {comp && <ComparisonBlock comp={comp} projectId={params.id} onChanged={load} />}
             </div>
           </div>
         )
       })}
+
+      {/* Standalone comparisons (quotes uploaded manually, no RFQ) */}
+      {standaloneComparisons.map(comp => (
+        <div key={comp.id} className="bg-panel rounded-xl border border-line overflow-hidden">
+          <div className="px-4 sm:px-5 py-3.5 border-b border-line-soft flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Upload className="h-4 w-4 text-faint" />
+              <h2 className="text-sm font-semibold text-ink-soft">{comp.title}</h2>
+              {comp.awarded_subcontract_id && <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-success-tint text-success inline-flex items-center gap-1"><Trophy className="h-2.5 w-2.5" /> Awarded</span>}
+            </div>
+          </div>
+          <div className="p-4"><ComparisonBlock comp={comp} projectId={params.id} onChanged={load} /></div>
+        </div>
+      ))}
 
       {/* Add invited sub to the directory */}
       {pendingContact && (
