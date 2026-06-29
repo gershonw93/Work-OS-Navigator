@@ -44,6 +44,8 @@ export default function QuotesPage({ params }: { params: { id: string } }) {
   const [analyzingFor, setAnalyzingFor] = useState<string | null>(null)
   const newRef = useRef<HTMLInputElement | null>(null)
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({})
+  const [awardTarget, setAwardTarget] = useState<{ compId: string; quoteId: string; vendor: string } | null>(null)
+  const [awarding, setAwarding] = useState(false)
 
   async function saveRequirements(compId: string, requirements: string) {
     const token = await getToken()
@@ -132,13 +134,13 @@ export default function QuotesPage({ params }: { params: { id: string } }) {
     })
   }
 
-  async function award(compId: string, quoteId: string) {
-    if (!confirm('Award this quote? It creates a subcontract for this project — the amount flows into Financials, the vendor appears in Schedule & Compliance, and the budget can link to it.')) return
+  async function award(compId: string, quoteId: string, vendorType: 'subcontractor' | 'supplier') {
     const token = await getToken()
     const res = await fetch(`/api/projects/${params.id}/quotes/${compId}/award`, {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ quote_id: quoteId }),
+      body: JSON.stringify({ quote_id: quoteId, vendor_type: vendorType }),
     })
+    setAwardTarget(null)
     if (res.ok) load()
     else alert((await res.json().catch(() => ({}))).error ?? 'Could not award')
   }
@@ -171,6 +173,39 @@ export default function QuotesPage({ params }: { params: { id: string } }) {
     <div className="space-y-6">
       <input ref={newRef} type="file" accept="application/pdf,image/*" multiple className="sr-only"
         onChange={e => { if (e.target.files?.length) uploadNewSet(e.target.files); e.target.value = '' }} />
+
+      {/* Award modal — choose how the vendor is added */}
+      {awardTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !awarding && setAwardTarget(null)}>
+          <div className="bg-panel rounded-xl shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-line-soft">
+              <h2 className="font-semibold text-ink">Award to project</h2>
+            </div>
+            <div className="p-5 space-y-3">
+              <p className="text-sm text-muted-fg">
+                Adds <span className="font-medium text-ink-soft">{awardTarget.vendor}</span> to your Directory and creates a contract on this project —
+                the amount flows into <span className="text-ink-soft">Financials</span>, and the vendor appears in <span className="text-ink-soft">Schedule</span>, <span className="text-ink-soft">Compliance</span>, and is linkable in <span className="text-ink-soft">Budget</span>.
+              </p>
+              <p className="text-sm font-medium text-ink-soft">Add this vendor as a…</p>
+              <div className="grid grid-cols-2 gap-3">
+                <button disabled={awarding} onClick={async () => { setAwarding(true); await award(awardTarget.compId, awardTarget.quoteId, 'subcontractor'); setAwarding(false) }}
+                  className="rounded-lg border border-line p-3 text-left hover:border-accent hover:bg-surface transition-colors">
+                  <p className="text-sm font-semibold text-ink">Subcontractor</p>
+                  <p className="text-xs text-faint mt-0.5">Performs work / labor on site</p>
+                </button>
+                <button disabled={awarding} onClick={async () => { setAwarding(true); await award(awardTarget.compId, awardTarget.quoteId, 'supplier'); setAwarding(false) }}
+                  className="rounded-lg border border-line p-3 text-left hover:border-accent hover:bg-surface transition-colors">
+                  <p className="text-sm font-semibold text-ink">Supplier</p>
+                  <p className="text-xs text-faint mt-0.5">Provides materials (e.g. lumber)</p>
+                </button>
+              </div>
+              <div className="flex justify-end pt-1">
+                <Button variant="secondary" disabled={awarding} onClick={() => setAwardTarget(null)}>Cancel</Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -358,7 +393,7 @@ export default function QuotesPage({ params }: { params: { id: string } }) {
                               </Button>
                             )}
                             {!comp.awarded_subcontract_id && (
-                              <Button size="sm" className="w-full" disabled={q.total_amount == null} onClick={() => award(comp.id, q.id)}>
+                              <Button size="sm" className="w-full" disabled={q.total_amount == null} onClick={() => setAwardTarget({ compId: comp.id, quoteId: q.id, vendor: q.vendor_name ?? comp.title })}>
                                 Award to project
                               </Button>
                             )}

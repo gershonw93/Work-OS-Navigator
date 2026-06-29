@@ -175,3 +175,8 @@ ALTER TABLE quote_comparisons ADD COLUMN IF NOT EXISTS analysis JSONB;
 
 -- ─── 020: quote award → subcontract ─────────────────────────
 ALTER TABLE quote_comparisons ADD COLUMN IF NOT EXISTS awarded_subcontract_id UUID REFERENCES subcontracts (id) ON DELETE SET NULL;
+
+-- ─── 021: expand company types ──────────────────────────────
+ALTER TABLE companies DROP CONSTRAINT IF EXISTS companies_type_check;
+ALTER TABLE companies ADD CONSTRAINT companies_type_check
+  CHECK (type IN ('gc', 'subcontractor', 'supplier', 'inspector', 'worker', 'other'));

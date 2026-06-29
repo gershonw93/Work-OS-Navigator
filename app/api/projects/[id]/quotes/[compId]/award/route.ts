@@ -16,7 +16,8 @@ export async function POST(request: Request, { params }: { params: { id: string;
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { quote_id } = await request.json()
+  const { quote_id, vendor_type } = await request.json()
+  const companyType = vendor_type === 'supplier' ? 'supplier' : 'subcontractor'
 
   const { data: comp } = await db.from('quote_comparisons').select('*, quotes(*)').eq('id', params.compId).eq('project_id', params.id).single()
   if (!comp) return NextResponse.json({ error: 'Comparison not found' }, { status: 404 })
@@ -36,7 +37,7 @@ export async function POST(request: Request, { params }: { params: { id: string;
   const { data: existing } = await db
     .from('companies')
     .select('id')
-    .eq('type', 'subcontractor')
+    .in('type', ['subcontractor', 'supplier'])
     .ilike('name', vendorName)
     .limit(1)
     .maybeSingle()
@@ -46,7 +47,7 @@ export async function POST(request: Request, { params }: { params: { id: string;
       .from('companies')
       .insert({
         name: vendorName,
-        type: 'subcontractor',
+        type: companyType,
         trade,
         contact_email: `noemail+${Date.now()}@placeholder.com`,
         insurance_status: 'missing',
