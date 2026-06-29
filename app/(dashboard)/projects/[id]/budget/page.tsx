@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
-import { Wallet, DollarSign, CheckCircle2, TrendingDown, TrendingUp, Plus, Trash2, Pencil, X, Check, Link as LinkIcon, AlertTriangle, LayoutTemplate, Save, FileSpreadsheet, FolderInput } from 'lucide-react'
+import { Wallet, DollarSign, CheckCircle2, TrendingDown, TrendingUp, Plus, Trash2, Pencil, X, Check, Link as LinkIcon, AlertTriangle, LayoutTemplate, Save, FileSpreadsheet, FolderInput, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -68,6 +68,8 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState({ ...blankForm })
   const [assigningSubId, setAssigningSubId] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [sortBy, setSortBy] = useState('category')
 
   // Templates
   const [showTemplate, setShowTemplate] = useState(false)
@@ -246,12 +248,38 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   const remaining = totalBudgeted - totalActual
   const overBudget = remaining < 0
 
-  // Group by category, preserving order
+  // Search filter
+  const q = search.trim().toLowerCase()
+  const filtered = q
+    ? items.filter(i => [i.description, i.cost_code, i.category, i.linked_label, i.notes]
+        .some(v => (v ?? '').toLowerCase().includes(q)))
+    : items
+
+  // Sort within whatever grouping is applied
+  const variance = (i: BudgetItem) => Number(i.budgeted_amount || 0) - Number(i.actual_amount || 0)
+  const sortRows = (rows: BudgetItem[]) => {
+    const r = [...rows]
+    switch (sortBy) {
+      case 'description': r.sort((a, b) => a.description.localeCompare(b.description)); break
+      case 'budgeted': r.sort((a, b) => Number(b.budgeted_amount || 0) - Number(a.budgeted_amount || 0)); break
+      case 'committed': r.sort((a, b) => Number(b.committed_amount || 0) - Number(a.committed_amount || 0)); break
+      case 'actual': r.sort((a, b) => Number(b.actual_amount || 0) - Number(a.actual_amount || 0)); break
+      case 'variance': r.sort((a, b) => variance(a) - variance(b)); break
+    }
+    return r
+  }
+
+  // When sorting by a non-category key, show one flat list instead of category groups
+  const flatSort = sortBy !== 'category'
   const grouped: { category: string; rows: BudgetItem[] }[] = []
-  for (const item of items) {
-    let g = grouped.find(x => x.category === item.category)
-    if (!g) { g = { category: item.category, rows: [] }; grouped.push(g) }
-    g.rows.push(item)
+  if (flatSort) {
+    if (filtered.length) grouped.push({ category: 'All line items', rows: sortRows(filtered) })
+  } else {
+    for (const item of filtered) {
+      let g = grouped.find(x => x.category === item.category)
+      if (!g) { g = { category: item.category, rows: [] }; grouped.push(g) }
+      g.rows.push(item)
+    }
   }
 
   // Subcontracts not yet linked to any budget line
@@ -509,11 +537,37 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
         </div>
       )}
 
+      {/* Search + sort toolbar */}
+      {items.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 min-w-[180px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-faint" />
+            <Input className="pl-9" placeholder="Search line items…" value={search} onChange={e => setSearch(e.target.value)} />
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-medium text-muted-fg whitespace-nowrap">Sort by</span>
+            <SearchableSelect className="rounded-lg border border-line px-3 py-2 text-sm bg-panel" value={sortBy} onChange={e => setSortBy(e.target.value)}>
+              <option value="category">Category</option>
+              <option value="description">Description (A–Z)</option>
+              <option value="budgeted">Budgeted (high → low)</option>
+              <option value="committed">Committed (high → low)</option>
+              <option value="actual">Actual (high → low)</option>
+              <option value="variance">Variance (over first)</option>
+            </SearchableSelect>
+          </div>
+        </div>
+      )}
+
       {/* Budget table */}
       {items.length === 0 ? (
         <div className="bg-panel rounded-xl border border-line p-10 text-center">
           <Wallet className="h-8 w-8 text-faint mx-auto mb-3" />
           <p className="text-sm text-muted-fg">No budget lines yet. Add your first cost line to start tracking.</p>
+        </div>
+      ) : grouped.length === 0 ? (
+        <div className="bg-panel rounded-xl border border-line p-10 text-center">
+          <Search className="h-8 w-8 text-faint mx-auto mb-3" />
+          <p className="text-sm text-muted-fg">No line items match “{search}”.</p>
         </div>
       ) : (
         <div className="bg-panel rounded-xl border border-line overflow-hidden">
