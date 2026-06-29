@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, FolderKanban, Building2, CheckSquare,
-  Settings, LogOut, ClipboardList, Briefcase, FolderOpen, X, UsersRound,
+  Settings, LogOut, ClipboardList, Briefcase, FolderOpen, X, UsersRound, LayoutTemplate,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -21,6 +21,7 @@ const GC_NAV_ITEMS = [
   { label: 'Customers', href: '/customers', icon: UsersRound, resource: 'customers' },
   { label: 'Directory', href: '/directory', icon: Building2, resource: 'directory' },
   { label: 'Files', href: '/files', icon: FolderOpen, resource: 'files' },
+  { label: 'Budget Templates', href: '/budget-templates', icon: LayoutTemplate, resource: 'budget' },
   { label: 'Approvals', href: '/approvals', icon: CheckSquare, resource: 'approvals' },
   { label: 'Settings', href: '/settings', icon: Settings, resource: null },
 ]
