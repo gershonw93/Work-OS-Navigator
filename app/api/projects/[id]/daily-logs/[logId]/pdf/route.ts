@@ -27,13 +27,15 @@ export async function GET(request: Request, { params }: { params: { id: string; 
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const [{ data: log }, { data: project }] = await Promise.all([
+  const [{ data: log }, { data: project }, { data: projectSubs }] = await Promise.all([
     db.from('daily_logs')
       .select('*, daily_log_photos(*), daily_log_updates(*), daily_log_attachments(*)')
       .eq('id', params.logId).eq('project_id', params.id).single(),
     db.from('projects').select('name, address').eq('id', params.id).single(),
+    db.from('subcontracts').select('id, trade, companies(name)').eq('project_id', params.id),
   ])
   if (!log) return NextResponse.json({ error: 'Log not found' }, { status: 404 })
+  const subNameById = new Map((projectSubs ?? []).map((s: any) => [s.id, s.companies?.name ?? s.trade ?? 'Sub']))
 
   const pdf = await PDFDocument.create()
   const font = await pdf.embedFont(StandardFonts.Helvetica)
@@ -100,6 +102,51 @@ export async function GET(request: Request, { params }: { params: { id: string; 
     } catch { /* skip unreadable images */ }
   }
 
+  // Load + embed an image, return the pdf-lib image (or null)
+  async function loadImg(url: string) {
+    try {
+      const res = await fetch(url)
+      if (!res.ok) return null
+      const bytes = new Uint8Array(await res.arrayBuffer())
+      const ct = res.headers.get('content-type') || ''
+      return ct.includes('png') || url.toLowerCase().includes('.png') ? await pdf.embedPng(bytes) : await pdf.embedJpg(bytes)
+    } catch { return null }
+  }
+
+  // Grid of small thumbnails (6 per row) with a tag under each
+  async function photoGrid(items: { url: string; tag?: string | null }[]) {
+    const cols = 6
+    const gap = 8
+    const cellW = (width - margin * 2 - gap * (cols - 1)) / cols
+    const imgH = cellW * 0.75
+    const rowH = imgH + 14
+    for (let i = 0; i < items.length; i += cols) {
+      const row = items.slice(i, i + cols)
+      const imgs = await Promise.all(row.map(it => loadImg(it.url)))
+      ensure(rowH)
+      const top = y
+      row.forEach((it, c) => {
+        const x = margin + c * (cellW + gap)
+        const img = imgs[c]
+        if (img) {
+          const s = Math.min(cellW / img.width, imgH / img.height)
+          const w = img.width * s, h = img.height * s
+          page.drawImage(img, { x: x + (cellW - w) / 2, y: top - h, width: w, height: h })
+        } else {
+          page.drawRectangle({ x, y: top - imgH, width: cellW, height: imgH, color: rgb(0.93, 0.93, 0.92) })
+        }
+        if (it.tag) {
+          let t = it.tag
+          while (font.widthOfTextAtSize(t, 6) > cellW && t.length > 3) t = t.slice(0, -2)
+          page.drawText(t, { x, y: top - imgH - 9, size: 6, font, color: muted })
+        }
+      })
+      y = top - rowH
+    }
+    gap2(2)
+  }
+  function gap2(n: number) { y -= n }
+
   const dateStr = new Date(log.log_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
 
   // Header
@@ -153,11 +200,19 @@ export async function GET(request: Request, { params }: { params: { id: string; 
   const photos = log.daily_log_photos ?? []
   if (photos.length) {
     heading(`Photos (${photos.length})`)
+    // Group by subcontractor (then a General group for untagged)
+    const groups = new Map<string, any[]>()
     for (const p of photos) {
-      await drawImage(p.photo_url, width - margin * 2, 260)
-      const tag = [p.category, p.caption].filter(Boolean).join(' · ')
-      if (tag) text(tag, { size: 9, color: muted })
-      gap(4)
+      const key = p.subcontract_id ? (subNameById.get(p.subcontract_id) ?? 'Subcontractor') : 'General / Site'
+      if (!groups.has(key)) groups.set(key, [])
+      groups.get(key)!.push(p)
+    }
+    for (const [groupName, groupPhotos] of Array.from(groups.entries())) {
+      ensure(20)
+      text(groupName, { size: 10, f: bold, color: ink })
+      gap(2)
+      await photoGrid(groupPhotos.map((p: any) => ({ url: p.photo_url, tag: [p.category, p.caption].filter(Boolean).join(' · ') || null })))
+      gap(6)
     }
   }
 

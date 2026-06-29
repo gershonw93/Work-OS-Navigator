@@ -6,7 +6,7 @@ const admin = () => createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
-const ALLOWED_FIELDS = ['log_date', 'workers_onsite', 'notes', 'weather', 'temp_f', 'has_issues', 'issue_description', 'delays', 'subs_on_site'] as const
+const ALLOWED_FIELDS = ['log_date', 'workers_onsite', 'notes', 'weather', 'temp_f', 'subs_on_site', 'survey', 'safety_observation', 'quality_observation', 'signed_by_name'] as const
 
 export async function PATCH(
   request: Request,

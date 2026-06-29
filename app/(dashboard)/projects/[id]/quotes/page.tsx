@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { X, Upload, Trophy, Trash2, FileText, Loader2, Check, ExternalLink, Sparkles, AlertTriangle, ClipboardList } from 'lucide-react'
+import { X, Upload, Trophy, Trash2, FileText, Loader2, Check, ExternalLink, Sparkles, AlertTriangle, ClipboardList, ChevronRight, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
@@ -49,6 +49,8 @@ export default function QuotesPage({ params }: { params: { id: string } }) {
   const [awardType, setAwardType] = useState<'subcontractor' | 'supplier'>('subcontractor')
   const [awardBudget, setAwardBudget] = useState<'none' | 'new' | string>('new') // 'none' | 'new' | <budget_line_id>
   const [budgetLines, setBudgetLines] = useState<{ id: string; description: string; category: string; subcontract_id: string | null }[]>([])
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const toggleCollapse = (id: string) => setCollapsed(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
 
   async function openAward(compId: string, quoteId: string, vendor: string) {
     setAwardType('subcontractor'); setAwardBudget('new')
@@ -277,15 +279,26 @@ export default function QuotesPage({ params }: { params: { id: string } }) {
         const totals = quotes.map(q => q.total_amount).filter((n): n is number => n != null)
         const lowest = totals.length ? Math.min(...totals) : null
         const highest = totals.length ? Math.max(...totals) : null
+        const isCollapsed = collapsed.has(comp.id)
         return (
           <div key={comp.id} className="bg-panel rounded-xl border border-line overflow-hidden">
             <div className="px-4 sm:px-5 py-3.5 border-b border-line-soft flex flex-wrap items-center justify-between gap-2">
-              <input
-                defaultValue={comp.title}
-                onBlur={e => { if (e.target.value.trim() !== comp.title) renameComparison(comp.id, e.target.value) }}
-                className="text-sm font-semibold text-ink-soft bg-transparent border-b border-transparent hover:border-line focus:border-accent focus:outline-none min-w-0 flex-1 max-w-xs"
-                aria-label="Comparison name"
-              />
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <button onClick={() => toggleCollapse(comp.id)} className="p-1 -ml-1 rounded text-faint hover:text-ink shrink-0" aria-label={isCollapsed ? 'Expand' : 'Collapse'}>
+                  {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </button>
+                <input
+                  defaultValue={comp.title}
+                  onBlur={e => { if (e.target.value.trim() !== comp.title) renameComparison(comp.id, e.target.value) }}
+                  className="text-sm font-semibold text-ink-soft bg-transparent border-b border-transparent hover:border-line focus:border-accent focus:outline-none min-w-0 max-w-xs"
+                  aria-label="Comparison name"
+                />
+                {isCollapsed && (
+                  <span className="text-xs text-faint truncate">
+                    {quotes.length} quote{quotes.length !== 1 ? 's' : ''}{lowest != null ? ` · low ${money(lowest)}` : ''}{comp.awarded_subcontract_id ? ' · awarded' : ''}
+                  </span>
+                )}
+              </div>
               <div className="flex items-center gap-2">
                 {lowest != null && highest != null && highest > lowest && (
                   <span className="text-xs text-success font-medium">Spread {money(highest - lowest)}</span>
@@ -299,6 +312,7 @@ export default function QuotesPage({ params }: { params: { id: string } }) {
               </div>
             </div>
 
+            {!isCollapsed && (<>
             {/* Requirements + AI analysis */}
             <div className="px-4 sm:px-5 py-3 border-b border-line-soft bg-surface/60 space-y-3">
               <div>
@@ -457,6 +471,7 @@ export default function QuotesPage({ params }: { params: { id: string } }) {
                 })}
               </div>
             )}
+            </>)}
           </div>
         )
       })}
