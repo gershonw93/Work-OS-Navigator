@@ -14,16 +14,46 @@ import {
 
 const groups = [
   {
+    label: 'Overview',
+    color: 'text-info',
+    bg: 'bg-info-tint',
+    tabs: [
+      { label: 'Progress', slug: 'progress', icon: TrendingUp },
+      { label: 'Reports', slug: 'reports', icon: BarChart2 },
+    ],
+  },
+  {
     label: 'Field',
     color: 'text-info',
     bg: 'bg-info-tint',
     tabs: [
-      { label: 'Plans', slug: 'plans', icon: FileText },
       { label: 'Schedule', slug: 'schedule', icon: Calendar },
       { label: 'Tasks', slug: 'tasks', icon: CheckSquare },
-      { label: 'Progress', slug: 'progress', icon: TrendingUp },
       { label: 'Daily Logs', slug: 'daily-logs', icon: BookOpen },
       { label: 'Time Clock', slug: 'time', icon: Clock },
+    ],
+  },
+  {
+    label: 'Docs & Legal',
+    color: 'text-accent-fg',
+    bg: 'bg-accent-tint',
+    tabs: [
+      { label: 'Permits', slug: 'permits', icon: FileCheck },
+      { label: 'Inspections', slug: 'inspections', icon: ClipboardCheck },
+      { label: 'Submittals', slug: 'submittals', icon: Wrench },
+      { label: 'Compliance', slug: 'compliance', icon: Shield },
+    ],
+  },
+  {
+    label: 'Money',
+    color: 'text-success',
+    bg: 'bg-success-tint',
+    tabs: [
+      { label: 'Budget', slug: 'budget', icon: Wallet },
+      { label: 'Compare Quotes', slug: 'quotes', icon: Scale },
+      { label: 'Invoices', slug: 'invoices', icon: Receipt },
+      { label: 'Financials', slug: 'financials', icon: DollarSign },
+      { label: 'Change Orders', slug: 'change-orders', icon: GitPullRequest },
     ],
   },
   {
@@ -37,27 +67,11 @@ const groups = [
     ],
   },
   {
-    label: 'Money',
-    color: 'text-success',
-    bg: 'bg-success-tint',
+    label: 'Files',
+    color: 'text-muted-fg',
+    bg: 'bg-muted',
     tabs: [
-      { label: 'Invoices', slug: 'invoices', icon: Receipt },
-      { label: 'Budget', slug: 'budget', icon: Wallet },
-      { label: 'Compare Quotes', slug: 'quotes', icon: Scale },
-      { label: 'Financials', slug: 'financials', icon: DollarSign },
-      { label: 'Change Orders', slug: 'change-orders', icon: GitPullRequest },
-    ],
-  },
-  {
-    label: 'Compliance',
-    color: 'text-accent-fg',
-    bg: 'bg-accent-tint',
-    tabs: [
-      { label: 'Permits', slug: 'permits', icon: FileCheck },
-      { label: 'Inspections', slug: 'inspections', icon: ClipboardCheck },
-      { label: 'Submittals', slug: 'submittals', icon: Wrench },
-      { label: 'Compliance', slug: 'compliance', icon: Shield },
-      { label: 'Reports', slug: 'reports', icon: BarChart2 },
+      { label: 'Plans', slug: 'plans', icon: FileText },
     ],
   },
 ]
@@ -121,28 +135,53 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
           </button>
         </div>
 
-        {/* Desktop: underline tabs */}
-        <nav className="hidden sm:flex overflow-x-auto scrollbar-hide -mb-px px-4 sm:px-6" aria-label="Project tabs">
-          {visibleTabs.map((tab) => {
-            const href = `/projects/${projectId}/${tab.slug}`
-            const isActive = pathname.endsWith(`/${tab.slug}`)
+        {/* Desktop: row 1 = groups */}
+        <nav className="hidden sm:flex overflow-x-auto scrollbar-hide px-4 sm:px-6 gap-1" aria-label="Project sections">
+          {filteredGroups.map((g) => {
+            const isActiveGroup = g.label === activeGroup?.label
             return (
-              <Link
-                key={tab.slug}
-                href={href}
+              <button
+                key={g.label}
+                onClick={() => navigate(g.tabs[0].slug)}
                 className={cn(
-                  'flex shrink-0 items-center border-b-2 px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap',
-                  isActive
-                    ? 'border-accent text-accent-fg'
-                    : 'border-transparent text-muted-fg hover:border-muted2 hover:text-ink-soft'
+                  'flex shrink-0 items-center gap-1.5 rounded-t-lg px-3.5 py-2.5 text-sm font-semibold transition-colors whitespace-nowrap',
+                  isActiveGroup ? 'bg-surface text-ink' : 'text-muted-fg hover:text-ink-soft'
                 )}
               >
-                {tab.label}
-              </Link>
+                {g.label}
+              </button>
             )
           })}
         </nav>
       </div>
+
+      {/* Desktop: row 2 = sub-tabs of the active group */}
+      {activeGroup && activeGroup.tabs.length > 0 && (
+        <div className="hidden sm:block border-b border-line bg-surface">
+          <nav className="flex overflow-x-auto scrollbar-hide -mb-px px-4 sm:px-6" aria-label={`${activeGroup.label} pages`}>
+            {activeGroup.tabs.map((tab) => {
+              const href = `/projects/${projectId}/${tab.slug}`
+              const isActive = pathname.endsWith(`/${tab.slug}`)
+              const Icon = tab.icon
+              return (
+                <Link
+                  key={tab.slug}
+                  href={href}
+                  className={cn(
+                    'flex shrink-0 items-center gap-1.5 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors whitespace-nowrap',
+                    isActive
+                      ? 'border-accent text-accent-fg'
+                      : 'border-transparent text-muted-fg hover:border-muted2 hover:text-ink-soft'
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {tab.label}
+                </Link>
+              )
+            })}
+          </nav>
+        </div>
+      )}
 
       {/* Mobile bottom sheet */}
       {open && (
