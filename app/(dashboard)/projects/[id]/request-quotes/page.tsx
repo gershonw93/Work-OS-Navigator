@@ -44,8 +44,8 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
   const [inviteEmail, setInviteEmail] = useState<Record<string, string>>({})
   const [copied, setCopied] = useState<string | null>(null)
   const [pulling, setPulling] = useState<string | null>(null)
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
-  const toggleCollapse = (id: string) => setCollapsed(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const toggleCollapse = (id: string) => setExpanded(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
   // Add-to-directory after inviting a new (non-directory) sub
   const [pendingContact, setPendingContact] = useState<{ name: string; email: string } | null>(null)
   const [contactForm, setContactForm] = useState({ name: '', email: '', phone: '', trade: '', type: 'subcontractor' })
@@ -261,7 +261,7 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
             : submissions.length > 0
               ? { label: 'Responses in', cls: 'bg-info-tint text-info' }
               : { label: 'Open', cls: 'bg-muted text-muted-fg' }
-        const isCollapsed = collapsed.has(req.id)
+        const isCollapsed = !expanded.has(req.id)
         return (
           <div key={req.id} className={cn('bg-panel rounded-xl border overflow-hidden', awarded ? 'border-success/40' : overdue ? 'border-danger/40' : 'border-line')}>
             <div className="px-4 sm:px-5 py-3.5 border-b border-line-soft flex flex-wrap items-center justify-between gap-2">
@@ -347,7 +347,7 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
 
       {/* Standalone comparisons (quotes uploaded manually, no RFQ) */}
       {standaloneComparisons.map(comp => {
-        const isCollapsed = collapsed.has(comp.id)
+        const isCollapsed = !expanded.has(comp.id)
         return (
           <div key={comp.id} className="bg-panel rounded-xl border border-line overflow-hidden">
             <div className="px-4 sm:px-5 py-3.5 border-b border-line-soft flex items-center justify-between gap-2">
