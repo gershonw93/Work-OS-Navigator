@@ -34,6 +34,7 @@ export const RESOURCES: ResourceDef[] = [
   { key: 'tasks',          label: 'Tasks',          group: 'Field', slug: 'tasks' },
   { key: 'progress',       label: 'Progress',       group: 'Field', slug: 'progress' },
   { key: 'daily-logs',     label: 'Daily Logs',     group: 'Field', slug: 'daily-logs' },
+  { key: 'time',           label: 'Time Clock',     group: 'Field', slug: 'time' },
   // People
   { key: 'team',           label: 'Team',           group: 'People', slug: 'team' },
   { key: 'bids',           label: 'Bids',           group: 'People', slug: 'bids' },
@@ -86,7 +87,7 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
   manager: buildAllFull(), // alias of admin-level operational access
 
   project_manager: {
-    plans: FULL, schedule: FULL, tasks: FULL, progress: FULL, 'daily-logs': FULL,
+    plans: FULL, schedule: FULL, tasks: FULL, progress: FULL, 'daily-logs': FULL, time: FULL,
     team: VE, bids: FULL, rfis: FULL,
     invoices: VE, budget: FULL, financials: N, 'change-orders': FULL,
     permits: FULL, inspections: FULL, submittals: FULL, compliance: V, reports: N,
@@ -95,7 +96,7 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
   },
 
   office_staff: {
-    plans: V, schedule: V, tasks: V, progress: V, 'daily-logs': V,
+    plans: V, schedule: V, tasks: V, progress: V, 'daily-logs': V, time: VC,
     team: V, bids: V, rfis: V,
     invoices: FULL, budget: FULL, financials: V, 'change-orders': FULL,
     permits: VE, inspections: VE, submittals: VE, compliance: FULL, reports: V,
@@ -104,7 +105,7 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
   },
 
   field_supervisor: {
-    plans: V, schedule: V, tasks: VE, progress: VE, 'daily-logs': VCE,
+    plans: V, schedule: V, tasks: VE, progress: VE, 'daily-logs': VCE, time: VCE,
     team: V, bids: N, rfis: V,
     invoices: N, budget: N, financials: N, 'change-orders': N,
     permits: N, inspections: N, submittals: N, compliance: N, reports: N,
@@ -113,7 +114,7 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
   },
 
   worker: {
-    plans: V, schedule: N, tasks: VE, progress: V, 'daily-logs': VC,
+    plans: V, schedule: N, tasks: VE, progress: V, 'daily-logs': VC, time: VC,
     team: N, bids: N, rfis: N,
     invoices: N, budget: N, financials: N, 'change-orders': N,
     permits: N, inspections: N, submittals: N, compliance: N, reports: N,
@@ -122,7 +123,7 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
   },
 
   read_only: {
-    plans: V, schedule: V, tasks: V, progress: V, 'daily-logs': V,
+    plans: V, schedule: V, tasks: V, progress: V, 'daily-logs': V, time: VC,
     team: V, bids: N, rfis: V,
     invoices: N, budget: N, financials: N, 'change-orders': N,
     permits: N, inspections: N, submittals: N, compliance: N, reports: N,

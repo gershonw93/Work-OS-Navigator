@@ -9,7 +9,7 @@ import {
   FileText, Users, Calendar, CheckSquare, TrendingUp, BookOpen,
   MessageSquare, Receipt, DollarSign, GitPullRequest, Shield,
   ClipboardCheck, FileCheck, BarChart2, X, LayoutGrid,
-  Wrench, Wallet,
+  Wrench, Wallet, Clock,
 } from 'lucide-react'
 
 const groups = [
@@ -23,6 +23,7 @@ const groups = [
       { label: 'Tasks', slug: 'tasks', icon: CheckSquare },
       { label: 'Progress', slug: 'progress', icon: TrendingUp },
       { label: 'Daily Logs', slug: 'daily-logs', icon: BookOpen },
+      { label: 'Time Clock', slug: 'time', icon: Clock },
     ],
   },
   {

@@ -24,7 +24,7 @@ function getBreadcrumb(pathname: string): string {
     if (parts.length >= 4) {
       const sectionMap: Record<string, string> = {
         plans: 'Plans', bids: 'Bids', team: 'Team', schedule: 'Schedule',
-        tasks: 'Tasks', progress: 'Progress', 'daily-logs': 'Daily Logs',
+        tasks: 'Tasks', progress: 'Progress', 'daily-logs': 'Daily Logs', time: 'Time Clock',
         rfis: 'RFIs', invoices: 'Invoices', budget: 'Budget', financials: 'Financials',
         permits: 'Permits', inspections: 'Inspections', compliance: 'Compliance',
         submittals: 'Submittals',
