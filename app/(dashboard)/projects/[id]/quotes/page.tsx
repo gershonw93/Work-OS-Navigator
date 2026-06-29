@@ -15,7 +15,7 @@ interface Quote {
   total_amount: number | null
   valid_until: string | null
   scope_summary: string | null
-  data: { line_items?: any[]; inclusions?: string[]; exclusions?: string[]; payment_terms?: string | null; notes?: string | null; extract_error?: string | null } | null
+  data: { line_items?: any[]; inclusions?: string[]; exclusions?: string[]; payment_terms?: string | null; notes?: string | null; extract_error?: string | null; contact?: { name?: string | null; email?: string | null; phone?: string | null } | null } | null
 }
 interface Analysis {
   per_quote?: { quote_id: string; missing?: string[]; strengths?: string[]; concerns?: string[] }[]
@@ -312,6 +312,13 @@ export default function QuotesPage({ params }: { params: { id: string } }) {
                         {q.valid_until && <p className="text-xs text-faint">Valid until {new Date(q.valid_until + 'T00:00:00').toLocaleDateString()}</p>}
                       </div>
 
+                      {(q.data?.contact?.name || q.data?.contact?.email || q.data?.contact?.phone) && (
+                        <p className="text-xs text-muted-fg">
+                          {q.data?.contact?.name && <span className="font-medium text-ink-soft">{q.data.contact.name}</span>}
+                          {q.data?.contact?.phone && <span> · {q.data.contact.phone}</span>}
+                          {q.data?.contact?.email && <span> · {q.data.contact.email}</span>}
+                        </p>
+                      )}
                       {q.data?.extract_error && (
                         <div className="rounded-lg bg-danger-tint border border-danger/30 px-2.5 py-1.5 text-xs text-danger flex items-start gap-1.5">
                           <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />

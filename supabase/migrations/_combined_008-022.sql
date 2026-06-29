@@ -180,3 +180,6 @@ ALTER TABLE quote_comparisons ADD COLUMN IF NOT EXISTS awarded_subcontract_id UU
 ALTER TABLE companies DROP CONSTRAINT IF EXISTS companies_type_check;
 ALTER TABLE companies ADD CONSTRAINT companies_type_check
   CHECK (type IN ('gc', 'subcontractor', 'supplier', 'inspector', 'worker', 'other'));
+
+-- ─── 022: company contact name ──────────────────────────────
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS contact_name TEXT;

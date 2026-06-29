@@ -31,6 +31,7 @@ export async function POST(request: Request, { params }: { params: { id: string;
   const myCompanyId = (profile as any)?.company_id ?? null
   const vendorName = quote.vendor_name || comp.title || 'Vendor'
   const trade = comp.trade || comp.title || 'General'
+  const contact = (quote.data?.contact ?? {}) as { name?: string | null; email?: string | null; phone?: string | null }
 
   // Find an existing vendor company by name in this GC's directory, else create one
   let companyId: string | null = null
@@ -41,15 +42,24 @@ export async function POST(request: Request, { params }: { params: { id: string;
     .ilike('name', vendorName)
     .limit(1)
     .maybeSingle()
-  if (existing) companyId = existing.id
-  else {
+  if (existing) {
+    companyId = existing.id
+    // Backfill contact details from the quote if the company is missing them
+    const backfill: Record<string, any> = {}
+    if (contact.name) backfill.contact_name = contact.name
+    if (contact.email) backfill.contact_email = contact.email
+    if (contact.phone) backfill.phone = contact.phone
+    if (Object.keys(backfill).length) await db.from('companies').update(backfill).eq('id', existing.id)
+  } else {
     const { data: created, error: cErr } = await db
       .from('companies')
       .insert({
         name: vendorName,
         type: companyType,
         trade,
-        contact_email: `noemail+${Date.now()}@placeholder.com`,
+        contact_name: contact.name || null,
+        contact_email: contact.email || `noemail+${Date.now()}@placeholder.com`,
+        phone: contact.phone || null,
         insurance_status: 'missing',
         added_by_company_id: myCompanyId,
       })
