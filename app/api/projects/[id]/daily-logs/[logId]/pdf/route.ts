@@ -155,7 +155,8 @@ export async function GET(request: Request, { params }: { params: { id: string; 
     heading(`Photos (${photos.length})`)
     for (const p of photos) {
       await drawImage(p.photo_url, width - margin * 2, 260)
-      if (p.caption) text(p.caption, { size: 9, color: muted })
+      const tag = [p.category, p.caption].filter(Boolean).join(' · ')
+      if (tag) text(tag, { size: 9, color: muted })
       gap(4)
     }
   }

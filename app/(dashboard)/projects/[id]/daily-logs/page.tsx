@@ -24,6 +24,8 @@ const SURVEY_QUESTIONS = [
   { key: 'equipment_rented', label: 'Any equipment rented on site?' },
 ] as const
 
+const PHOTO_CATEGORIES = ['Work', 'Safety', 'Quality', 'General'] as const
+
 type SurveyAnswer = { answer: 'na' | 'yes' | 'no'; description: string }
 function blankSurvey(): Record<string, SurveyAnswer> {
   return Object.fromEntries(SURVEY_QUESTIONS.map(q => [q.key, { answer: 'na', description: '' }]))
@@ -55,7 +57,7 @@ interface DailyLog {
   subs_on_site: { company_id: string; name: string; workers?: number }[]
   workers_on_site: { name: string; role: string }[]
   photos: { url: string; path: string; caption: string }[]
-  daily_log_photos?: { id: string; photo_url: string; caption: string | null; subcontract_id: string | null; created_at: string }[]
+  daily_log_photos?: { id: string; photo_url: string; caption: string | null; subcontract_id: string | null; category: string | null; created_at: string }[]
   survey?: Record<string, SurveyAnswer> | null
   safety_observation?: string | null
   quality_observation?: string | null
@@ -97,6 +99,15 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
   const [photos, setPhotos] = useState<File[]>([])
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([])
   const [photoSubs, setPhotoSubs] = useState<string[]>([]) // subcontract id per photo index
+  const [photoCats, setPhotoCats] = useState<string[]>([]) // category per photo index
+
+  // Add-photos-to-existing-log (per expanded log)
+  const [moreFiles, setMoreFiles] = useState<File[]>([])
+  const [morePreviews, setMorePreviews] = useState<string[]>([])
+  const [moreSubs, setMoreSubs] = useState<string[]>([])
+  const [moreCats, setMoreCats] = useState<string[]>([])
+  const [photoUploading, setPhotoUploading] = useState(false)
+  const moreInputRef = useRef<HTMLInputElement>(null)
 
   // New field-report model
   const [survey, setSurvey] = useState<Record<string, SurveyAnswer>>(blankSurvey())
@@ -190,6 +201,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
     const newFiles = Array.from(files)
     setPhotos(prev => [...prev, ...newFiles])
     setPhotoSubs(prev => [...prev, ...newFiles.map(() => '')])
+    setPhotoCats(prev => [...prev, ...newFiles.map(() => '')])
     newFiles.forEach(f => {
       const reader = new FileReader()
       reader.onload = e => setPhotoPreviews(prev => [...prev, e.target?.result as string])
@@ -201,6 +213,44 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
     setPhotos(prev => prev.filter((_, i) => i !== idx))
     setPhotoPreviews(prev => prev.filter((_, i) => i !== idx))
     setPhotoSubs(prev => prev.filter((_, i) => i !== idx))
+    setPhotoCats(prev => prev.filter((_, i) => i !== idx))
+  }
+
+  function addMorePhotos(files: FileList | null) {
+    if (!files) return
+    const arr = Array.from(files)
+    setMoreFiles(prev => [...prev, ...arr])
+    setMoreSubs(prev => [...prev, ...arr.map(() => '')])
+    setMoreCats(prev => [...prev, ...arr.map(() => '')])
+    arr.forEach(f => {
+      const reader = new FileReader()
+      reader.onload = e => setMorePreviews(prev => [...prev, e.target?.result as string])
+      reader.readAsDataURL(f)
+    })
+  }
+
+  function clearMorePhotos() {
+    setMoreFiles([]); setMorePreviews([]); setMoreSubs([]); setMoreCats([])
+  }
+
+  async function uploadMorePhotos(logId: string) {
+    if (moreFiles.length === 0) return
+    setPhotoUploading(true)
+    const token = await getToken()
+    const form = new FormData()
+    moreFiles.forEach((f, i) => {
+      form.append('photos', f)
+      if (moreSubs[i]) form.append(`subId_${f.name}`, moreSubs[i])
+      if (moreCats[i]) form.append(`cat_${f.name}`, moreCats[i])
+    })
+    try {
+      const res = await fetch(`/api/projects/${params.id}/daily-logs/${logId}/photos`, {
+        method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form,
+      })
+      if (res.ok) { clearMorePhotos(); fetchLogs() }
+    } finally {
+      setPhotoUploading(false)
+    }
   }
 
   async function postUpdate(logId: string) {
@@ -255,7 +305,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
     setWeatherCondition(''); setTemperature(''); setNotes('')
     setHasIssues(false); setIssueDescription('')
     setDelays([]); setSubsOnSite([]); setWorkersOnSite([])
-    setPhotos([]); setPhotoPreviews([]); setPhotoSubs([]); setError(null)
+    setPhotos([]); setPhotoPreviews([]); setPhotoSubs([]); setPhotoCats([]); setError(null)
     setWeatherChip(null)
     setSurvey(blankSurvey()); setSafetyObs(''); setQualityObs('')
     setAttachments([]); setSigBlob(null); setSigName(''); setSigMode('draw')
@@ -375,6 +425,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
     photos.forEach((f, i) => {
       form.append('photos', f)
       if (photoSubs[i]) form.append(`subId_${f.name}`, photoSubs[i])
+      if (photoCats[i]) form.append(`cat_${f.name}`, photoCats[i])
     })
     attachments.forEach(f => form.append('attachments', f))
     // Signature
@@ -887,6 +938,12 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                         <option value="">No sub</option>
                         {subcontracts.map(s => <option key={s.id} value={s.id}>{(s.companies as any)?.name ?? s.trade}</option>)}
                       </SearchableSelect>
+                      <SearchableSelect value={photoCats[i] ?? ''}
+                        onChange={e => setPhotoCats(prev => prev.map((c, j) => j === i ? e.target.value : c))}
+                        className="text-xs">
+                        <option value="">Tag part…</option>
+                        {PHOTO_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                      </SearchableSelect>
                     </div>
                   ))}
                 </div>
@@ -1122,25 +1179,78 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                     {(() => {
                       const dbPhotos = log.daily_log_photos ?? []
                       const legacyPhotos = log.photos ?? []
-                      // Prefer daily_log_photos if populated, else fall back to legacy photos JSONB
-                      const photoItems: { url: string; caption?: string }[] =
-                        dbPhotos.length > 0
-                          ? dbPhotos.map(p => ({ url: p.photo_url }))
-                          : legacyPhotos.map(p => ({ url: p.url, caption: p.caption }))
-                      if (photoItems.length === 0) return null
+                      const subName = (id: string | null) => {
+                        if (!id) return null
+                        const s = subcontracts.find(x => x.id === id)
+                        return s ? ((s.companies as any)?.name ?? s.trade) : null
+                      }
+                      type PItem = { url: string; caption?: string | null; sub?: string | null; category?: string | null }
+                      const photoItems: PItem[] = dbPhotos.length > 0
+                        ? dbPhotos.map(p => ({ url: p.photo_url, caption: p.caption, sub: subName(p.subcontract_id), category: p.category }))
+                        : legacyPhotos.map(p => ({ url: p.url, caption: p.caption }))
                       return (
                         <div>
                           <p className="text-xs font-semibold text-faint uppercase tracking-wide mb-2">
-                            Site Photos <span className="normal-case font-normal text-faint">({photoItems.length})</span>
+                            Work Log Photos <span className="normal-case font-normal text-faint">({photoItems.length})</span>
                           </p>
-                          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                            {photoItems.map((p, i) => (
-                              <a key={i} href={p.url} target="_blank" rel="noopener noreferrer" className="block aspect-square overflow-hidden rounded-lg border border-line hover:opacity-90 transition-opacity">
-                                <img src={p.url} alt={p.caption || `Photo ${i + 1}`}
-                                  className="h-full w-full object-cover" />
-                              </a>
-                            ))}
-                          </div>
+                          {photoItems.length > 0 && (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
+                              {photoItems.map((p, i) => (
+                                <a key={i} href={p.url} target="_blank" rel="noopener noreferrer" className="block group">
+                                  <div className="aspect-square overflow-hidden rounded-lg border border-line">
+                                    <img src={p.url} alt={p.caption || `Photo ${i + 1}`} className="h-full w-full object-cover group-hover:opacity-90 transition-opacity" />
+                                  </div>
+                                  {(p.sub || p.category || p.caption) && (
+                                    <div className="flex flex-wrap items-center gap-1 mt-1">
+                                      {p.category && <span className="text-[10px] font-medium rounded-full bg-info-tint text-info px-1.5 py-0.5">{p.category}</span>}
+                                      {p.sub && <span className="text-[10px] font-medium rounded-full bg-accent-tint text-accent-fg px-1.5 py-0.5">{p.sub}</span>}
+                                      {p.caption && <span className="text-[10px] text-faint truncate">{p.caption}</span>}
+                                    </div>
+                                  )}
+                                </a>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Add photos to this log (throughout the day) */}
+                          {expandedLog === log.id && (
+                            <div className="rounded-lg border border-dashed border-line p-3 space-y-3">
+                              {morePreviews.length > 0 && (
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                  {morePreviews.map((src, i) => (
+                                    <div key={i} className="space-y-1.5">
+                                      <div className="relative group">
+                                        <img src={src} alt="" className="h-24 w-full object-cover rounded-lg border border-line" />
+                                        <button type="button" onClick={() => {
+                                          setMoreFiles(p => p.filter((_, j) => j !== i)); setMorePreviews(p => p.filter((_, j) => j !== i))
+                                          setMoreSubs(p => p.filter((_, j) => j !== i)); setMoreCats(p => p.filter((_, j) => j !== i))
+                                        }} className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-danger-solid text-white flex items-center justify-center opacity-0 group-hover:opacity-100"><X className="h-3 w-3" /></button>
+                                      </div>
+                                      <SearchableSelect value={moreSubs[i] ?? ''} onChange={e => setMoreSubs(p => p.map((s, j) => j === i ? e.target.value : s))} className="text-xs">
+                                        <option value="">No sub</option>
+                                        {subcontracts.map(s => <option key={s.id} value={s.id}>{(s.companies as any)?.name ?? s.trade}</option>)}
+                                      </SearchableSelect>
+                                      <SearchableSelect value={moreCats[i] ?? ''} onChange={e => setMoreCats(p => p.map((c, j) => j === i ? e.target.value : c))} className="text-xs">
+                                        <option value="">Tag part…</option>
+                                        {PHOTO_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                                      </SearchableSelect>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              <div className="flex flex-wrap items-center gap-2">
+                                <label className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs text-muted-fg hover:bg-surface cursor-pointer">
+                                  <Camera className="h-3.5 w-3.5" /> Add photos
+                                  <input ref={moreInputRef} type="file" multiple accept="image/*" className="sr-only" onChange={e => addMorePhotos(e.target.files)} />
+                                </label>
+                                {moreFiles.length > 0 && (
+                                  <Button size="sm" onClick={() => uploadMorePhotos(log.id)} disabled={photoUploading}>
+                                    {photoUploading ? 'Uploading…' : `Upload ${moreFiles.length} photo${moreFiles.length !== 1 ? 's' : ''}`}
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )
                     })()}

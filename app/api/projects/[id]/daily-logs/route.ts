@@ -80,8 +80,8 @@ export async function POST(request: Request, { params }: { params: { id: string 
     return signed?.signedUrl ?? null
   }
 
-  // Work-log photos (each may carry a caption + subcontract)
-  const photos: { url: string; caption: string; subcontract_id: string | null }[] = []
+  // Work-log photos (each may carry a caption + subcontract + category)
+  const photos: { url: string; caption: string; subcontract_id: string | null; category: string | null }[] = []
   const photoFiles = formData.getAll('photos') as File[]
   for (const file of photoFiles) {
     if (!file || file.size === 0) continue
@@ -90,6 +90,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
       url,
       caption: (formData.get(`caption_${file.name}`) as string) ?? '',
       subcontract_id: (formData.get(`subId_${file.name}`) as string) || null,
+      category: (formData.get(`cat_${file.name}`) as string) || null,
     })
   }
 
@@ -127,7 +128,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   if (photos.length > 0) {
     await db.from('daily_log_photos').insert(
-      photos.map(p => ({ daily_log_id: log.id, photo_url: p.url, caption: p.caption || null, subcontract_id: p.subcontract_id }))
+      photos.map(p => ({ daily_log_id: log.id, photo_url: p.url, caption: p.caption || null, subcontract_id: p.subcontract_id, category: p.category }))
     )
   }
   if (attachments.length > 0) {
