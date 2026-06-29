@@ -18,7 +18,7 @@ export async function PATCH(
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { name, address, client, type, status, start_date, end_date } = body
+  const { name, address, client, type, status, start_date, end_date, customer_id } = body
 
   const updates: Record<string, unknown> = {}
   if (name !== undefined) updates.name = name
@@ -28,6 +28,7 @@ export async function PATCH(
   if (status !== undefined) updates.status = status
   if (start_date !== undefined) updates.start_date = start_date
   if (end_date !== undefined) updates.end_date = end_date
+  if (customer_id !== undefined) updates.customer_id = customer_id || null
 
   const { data, error } = await db
     .from('projects')
