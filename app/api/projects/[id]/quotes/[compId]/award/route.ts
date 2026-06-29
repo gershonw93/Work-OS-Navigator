@@ -1,0 +1,85 @@
+import { createClient } from '@supabase/supabase-js'
+import { NextResponse } from 'next/server'
+import { logActivity } from '@/lib/log-activity'
+
+const admin = () => createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+)
+
+// Award a winning quote: create (or reuse) a vendor company and a subcontract,
+// so it flows into Financials, Schedule, Budget, and Compliance.
+export async function POST(request: Request, { params }: { params: { id: string; compId: string } }) {
+  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const db = admin()
+  const { data: { user } } = await db.auth.getUser(token)
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { quote_id } = await request.json()
+
+  const { data: comp } = await db.from('quote_comparisons').select('*, quotes(*)').eq('id', params.compId).eq('project_id', params.id).single()
+  if (!comp) return NextResponse.json({ error: 'Comparison not found' }, { status: 404 })
+  if (comp.awarded_subcontract_id) return NextResponse.json({ error: 'This comparison has already been awarded.' }, { status: 409 })
+
+  const quote = (comp.quotes ?? []).find((q: any) => q.id === quote_id)
+  if (!quote) return NextResponse.json({ error: 'Quote not found' }, { status: 404 })
+  if (quote.total_amount == null) return NextResponse.json({ error: 'This quote has no total amount — set one before awarding.' }, { status: 400 })
+
+  const { data: profile } = await db.from('profiles').select('full_name, company_id').eq('id', user.id).single()
+  const myCompanyId = (profile as any)?.company_id ?? null
+  const vendorName = quote.vendor_name || comp.title || 'Vendor'
+  const trade = comp.trade || comp.title || 'General'
+
+  // Find an existing vendor company by name in this GC's directory, else create one
+  let companyId: string | null = null
+  const { data: existing } = await db
+    .from('companies')
+    .select('id')
+    .eq('type', 'subcontractor')
+    .ilike('name', vendorName)
+    .limit(1)
+    .maybeSingle()
+  if (existing) companyId = existing.id
+  else {
+    const { data: created, error: cErr } = await db
+      .from('companies')
+      .insert({
+        name: vendorName,
+        type: 'subcontractor',
+        trade,
+        contact_email: `noemail+${Date.now()}@placeholder.com`,
+        insurance_status: 'missing',
+        added_by_company_id: myCompanyId,
+      })
+      .select('id')
+      .single()
+    if (cErr) return NextResponse.json({ error: `Could not create vendor: ${cErr.message}` }, { status: 500 })
+    companyId = created.id
+  }
+
+  // Create the subcontract
+  const { data: sub, error: sErr } = await db
+    .from('subcontracts')
+    .insert({
+      project_id: params.id,
+      company_id: companyId,
+      scope: comp.title || trade,
+      trade,
+      contract_amount: Number(quote.total_amount),
+      status: 'active',
+      added_manually: true,
+      proposal_url: quote.file_url ?? null,
+    })
+    .select()
+    .single()
+  if (sErr) return NextResponse.json({ error: `Could not create subcontract: ${sErr.message}` }, { status: 500 })
+
+  await db.from('quote_comparisons').update({ winning_quote_id: quote.id, awarded_subcontract_id: sub.id }).eq('id', params.compId)
+
+  await logActivity(db, params.id, (profile as any)?.full_name ?? 'GC', 'quote_awarded',
+    `Awarded "${comp.title}" to ${vendorName} for $${Number(quote.total_amount).toLocaleString()} (from quote comparison)`,
+    { comparison_id: params.compId, quote_id: quote.id, subcontract_id: sub.id })
+
+  return NextResponse.json({ subcontract: sub })
+}
