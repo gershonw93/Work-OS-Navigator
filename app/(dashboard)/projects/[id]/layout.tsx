@@ -48,6 +48,7 @@ export default async function ProjectLayout({ children, params }: ProjectLayoutP
               name: project?.name, address: project?.address, client: project?.client,
               type: project?.type, status: project?.status,
               start_date: project?.start_date, end_date: project?.end_date,
+              customer_id: project?.customer_id,
             }} />
           </div>
         </div>

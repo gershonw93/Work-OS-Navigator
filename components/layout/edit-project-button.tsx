@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -19,6 +19,7 @@ interface Props {
     status?: string | null
     start_date?: string | null
     end_date?: string | null
+    customer_id?: string | null
   }
 }
 
@@ -31,21 +32,33 @@ export function EditProjectButton({ projectId, project }: Props) {
 
   const [name, setName] = useState(project.name ?? '')
   const [address, setAddress] = useState(project.address ?? '')
-  const [client, setClient] = useState(project.client ?? '')
+  const [customers, setCustomers] = useState<{ id: string; name: string }[]>([])
+  const [customerId, setCustomerId] = useState(project.customer_id ?? '')
   const [type, setType] = useState(project.type ?? 'residential')
   const [status, setStatus] = useState(project.status ?? 'planning')
   const [startDate, setStartDate] = useState((project.start_date ?? '').slice(0, 10))
   const [endDate, setEndDate] = useState((project.end_date ?? '').slice(0, 10))
 
+  useEffect(() => {
+    if (!open) return
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/customers', { headers: { Authorization: `Bearer ${session?.access_token ?? ''}` } })
+      if (res.ok) setCustomers(((await res.json()).customers ?? []).map((c: any) => ({ id: c.id, name: c.name })))
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
   async function save(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true); setError('')
     const { data: { session } } = await supabase.auth.getSession()
+    const client = customers.find(c => c.id === customerId)?.name ?? project.client ?? null
     const res = await fetch(`/api/projects/${projectId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
       body: JSON.stringify({
-        name, address, client, type, status,
+        name, address, customer_id: customerId || null, client, type, status,
         start_date: startDate || null, end_date: endDate || null,
       }),
     })
@@ -83,7 +96,10 @@ export function EditProjectButton({ projectId, project }: Props) {
               </div>
               <div className="space-y-1.5">
                 <Label>Owner / Client</Label>
-                <Input value={client} onChange={e => setClient(e.target.value)} placeholder="Owner or client name" />
+                <Select value={customerId} onChange={e => setCustomerId(e.target.value)}>
+                  <option value="">— No customer —</option>
+                  {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </Select>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
