@@ -136,11 +136,11 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
   const [editNotes, setEditNotes] = useState('')
   const [editWeather, setEditWeather] = useState('')
   const [editTempF, setEditTempF] = useState('')
-  const [editSubsOnSite, setEditSubsOnSite] = useState<{ id: string; company_id: string; name: string }[]>([])
+  const [editSubsOnSite, setEditSubsOnSite] = useState<{ id: string; company_id: string; name: string; workers: number }[]>([])
   const [editCrewOnSite, setEditCrewOnSite] = useState<{ name: string; role: string }[]>([])
-  const [editDelays, setEditDelays] = useState<{ type: string; description: string }[]>([])
-  const [editHasIssues, setEditHasIssues] = useState(false)
-  const [editIssueDescription, setEditIssueDescription] = useState('')
+  const [editSafety, setEditSafety] = useState('')
+  const [editQuality, setEditQuality] = useState('')
+  const [editSurvey, setEditSurvey] = useState<Record<string, SurveyAnswer>>(blankSurvey())
   const [editSubmitting, setEditSubmitting] = useState(false)
 
   // Create task from issue
@@ -231,6 +231,23 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
 
   function clearMorePhotos() {
     setMoreFiles([]); setMorePreviews([]); setMoreSubs([]); setMoreCats([])
+  }
+
+  async function tagPhoto(logId: string, photoId: string, patch: { subcontract_id?: string | null; category?: string | null }) {
+    const token = await getToken()
+    await fetch(`/api/projects/${params.id}/daily-logs/${logId}/photos/${photoId}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(patch),
+    })
+    fetchLogs()
+  }
+
+  async function deletePhoto(logId: string, photoId: string) {
+    const token = await getToken()
+    await fetch(`/api/projects/${params.id}/daily-logs/${logId}/photos/${photoId}`, {
+      method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
+    })
+    fetchLogs()
   }
 
   async function uploadMorePhotos(logId: string) {
@@ -349,11 +366,11 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
     setEditNotes(log.notes ?? '')
     setEditWeather((log.weather ?? log.weather_condition) ?? '')
     setEditTempF(log.temp_f != null ? String(log.temp_f) : (log.temperature ?? ''))
-    setEditSubsOnSite((log.subs_on_site ?? []).map(s => ({ id: (s as any).id ?? s.company_id, company_id: s.company_id, name: s.name })))
+    setEditSubsOnSite((log.subs_on_site ?? []).map(s => ({ id: (s as any).id ?? s.company_id, company_id: s.company_id, name: s.name, workers: (s as any).workers ?? 0 })))
     setEditCrewOnSite((log.workers_on_site ?? []).map(w => ({ name: w.name, role: w.role })))
-    setEditDelays(Array.isArray(log.delays) ? log.delays : [])
-    setEditHasIssues(!!log.has_issues)
-    setEditIssueDescription(log.issue_description ?? '')
+    setEditSafety(log.safety_observation ?? '')
+    setEditQuality(log.quality_observation ?? '')
+    setEditSurvey({ ...blankSurvey(), ...(log.survey ?? {}) })
     setShowEditModal(true)
   }
 
@@ -361,7 +378,10 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
     const name = (sub.companies as any)?.name ?? sub.trade
     const exists = editSubsOnSite.find(s => s.id === sub.id)
     if (exists) setEditSubsOnSite(prev => prev.filter(s => s.id !== sub.id))
-    else setEditSubsOnSite(prev => [...prev, { id: sub.id, company_id: sub.company_id ?? sub.id, name }])
+    else setEditSubsOnSite(prev => [...prev, { id: sub.id, company_id: sub.company_id ?? sub.id, name, workers: 0 }])
+  }
+  function setEditSubWorkers(id: string, workers: number) {
+    setEditSubsOnSite(prev => prev.map(s => s.id === id ? { ...s, workers: Math.max(0, workers || 0) } : s))
   }
 
   function toggleEditCrew(m: TeamMember) {
@@ -375,16 +395,17 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
     if (!editingLog) return
     setEditSubmitting(true)
     const token = await getToken()
+    const subWorkerTotal = editSubsOnSite.reduce((t, s) => t + (s.workers || 0), 0)
     const body: Record<string, unknown> = {
       log_date: editLogDate,
       notes: editNotes || null,
       weather: editWeather || null,
-      workers_onsite: editCrewOnSite.length,
+      workers_onsite: editCrewOnSite.length + subWorkerTotal,
       temp_f: editTempF !== '' ? Number(editTempF) : null,
-      has_issues: editHasIssues,
-      issue_description: editHasIssues ? (editIssueDescription || null) : null,
-      subs_on_site: editSubsOnSite.map(s => ({ company_id: s.company_id, name: s.name })),
-      delays: editDelays.filter(d => d.type || d.description),
+      safety_observation: editSafety || null,
+      quality_observation: editQuality || null,
+      survey: editSurvey,
+      subs_on_site: editSubsOnSite.map(s => ({ id: s.id, company_id: s.company_id, name: s.name, workers: s.workers || 0 })),
     }
     await fetch(`/api/projects/${params.id}/daily-logs/${editingLog.id}`, {
       method: 'PATCH',
@@ -578,41 +599,68 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                         )
                       })}
                     </div>
+                    {editSubsOnSite.length > 0 && (
+                      <div className="rounded-lg border border-line-soft divide-y divide-line-soft mt-1">
+                        {editSubsOnSite.map(s => (
+                          <div key={s.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                            <span className="text-sm text-ink-soft truncate">{s.name}</span>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <label className="text-xs text-faint">Workers</label>
+                              <input type="number" min={0} value={s.workers || ''} placeholder="0"
+                                onChange={e => setEditSubWorkers(s.id, parseInt(e.target.value, 10))}
+                                className="w-20 rounded-md border border-muted2 px-2 py-1 text-sm focus:outline-none focus:border-accent" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
+                {/* Site Safety Observation */}
                 <div className="space-y-1.5">
-                  <label className="flex items-center gap-2 text-sm font-medium text-ink-soft">
-                    <input type="checkbox" checked={editHasIssues} onChange={e => setEditHasIssues(e.target.checked)}
-                      className="h-4 w-4 rounded border-muted2 accent-[#C9F24A]" />
-                    Issues / incidents on site
-                  </label>
-                  {editHasIssues && (
-                    <textarea rows={2} value={editIssueDescription} onChange={e => setEditIssueDescription(e.target.value)} placeholder="Describe the issue..."
-                      className="w-full rounded-md border border-muted2 px-3 py-2 text-sm focus:border-accent focus:outline-none resize-none" />
-                  )}
+                  <label className="text-sm font-medium text-ink-soft flex items-center gap-1"><ShieldAlert className="h-3.5 w-3.5 text-warn" /> Site Safety Observation</label>
+                  <textarea rows={2} value={editSafety} onChange={e => setEditSafety(e.target.value)} placeholder="Hazards, near-misses, PPE, corrective actions…"
+                    className="w-full rounded-md border border-muted2 px-3 py-2 text-sm focus:border-accent focus:outline-none resize-none" />
                 </div>
 
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-ink-soft">Delays</label>
-                    <button type="button" onClick={() => setEditDelays(prev => [...prev, { type: '', description: '' }])}
-                      className="text-xs font-medium text-accent-fg hover:text-accent-fg">+ Add Delay</button>
+                {/* Quality Control Observation */}
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-ink-soft flex items-center gap-1"><BadgeCheck className="h-3.5 w-3.5 text-success" /> Quality Control Observation</label>
+                  <textarea rows={2} value={editQuality} onChange={e => setEditQuality(e.target.value)} placeholder="Workmanship, rework, deviations, inspections…"
+                    className="w-full rounded-md border border-muted2 px-3 py-2 text-sm focus:border-accent focus:outline-none resize-none" />
+                </div>
+
+                {/* Daily survey */}
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-ink-soft">Daily Survey</label>
+                  <div className="rounded-lg border border-line divide-y divide-line-soft">
+                    {SURVEY_QUESTIONS.map(q => {
+                      const a = editSurvey[q.key]
+                      return (
+                        <div key={q.key} className="p-3 space-y-2">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="text-sm text-ink-soft">{q.label}</span>
+                            <div className="inline-flex rounded-lg border border-line overflow-hidden">
+                              {(['na', 'yes', 'no'] as const).map(opt => (
+                                <button key={opt} type="button"
+                                  onClick={() => setEditSurvey(prev => ({ ...prev, [q.key]: { ...prev[q.key], answer: opt } }))}
+                                  className={cn('px-3 py-1 text-xs font-medium capitalize transition-colors',
+                                    a.answer === opt ? (opt === 'yes' ? 'bg-accent text-accent-ink' : opt === 'no' ? 'bg-muted2 text-ink' : 'bg-muted text-muted-fg') : 'bg-panel text-muted-fg hover:bg-surface')}>
+                                  {opt === 'na' ? 'N/A' : opt}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          {a.answer !== 'na' && (
+                            <input type="text" placeholder="Add a description…" value={a.description}
+                              onChange={e => setEditSurvey(prev => ({ ...prev, [q.key]: { ...prev[q.key], description: e.target.value } }))}
+                              className="w-full rounded-md border border-muted2 px-2.5 py-1.5 text-sm focus:outline-none focus:border-accent" />
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
-                  {editDelays.map((delay, i) => (
-                    <div key={i} className="flex flex-wrap sm:flex-nowrap gap-2 items-start">
-                      <SearchableSelect value={delay.type} onChange={e => setEditDelays(prev => prev.map((d, j) => j === i ? { ...d, type: e.target.value } : d))}
-                        className="rounded-md border border-muted2 px-2 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
-                        <option value="">Type...</option>
-                        {DELAY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                      </SearchableSelect>
-                      <input value={delay.description} placeholder="Description"
-                        onChange={e => setEditDelays(prev => prev.map((d, j) => j === i ? { ...d, description: e.target.value } : d))}
-                        className="flex-1 min-w-0 rounded-md border border-muted2 px-3 py-2 text-sm focus:border-accent focus:outline-none" />
-                      <button type="button" onClick={() => setEditDelays(prev => prev.filter((_, j) => j !== i))}
-                        className="text-faint hover:text-danger p-2"><X className="h-4 w-4" /></button>
-                    </div>
-                  ))}
                 </div>
               </div>
               <div className="px-4 sm:px-6 py-4 border-t border-line-soft flex flex-wrap gap-2 justify-end">
@@ -1184,29 +1232,44 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                         const s = subcontracts.find(x => x.id === id)
                         return s ? ((s.companies as any)?.name ?? s.trade) : null
                       }
-                      type PItem = { url: string; caption?: string | null; sub?: string | null; category?: string | null }
-                      const photoItems: PItem[] = dbPhotos.length > 0
-                        ? dbPhotos.map(p => ({ url: p.photo_url, caption: p.caption, sub: subName(p.subcontract_id), category: p.category }))
-                        : legacyPhotos.map(p => ({ url: p.url, caption: p.caption }))
+                      const total = dbPhotos.length || legacyPhotos.length
                       return (
                         <div>
                           <p className="text-xs font-semibold text-faint uppercase tracking-wide mb-2">
-                            Work Log Photos <span className="normal-case font-normal text-faint">({photoItems.length})</span>
+                            Work Log Photos <span className="normal-case font-normal text-faint">({total})</span>
                           </p>
-                          {photoItems.length > 0 && (
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
-                              {photoItems.map((p, i) => (
-                                <a key={i} href={p.url} target="_blank" rel="noopener noreferrer" className="block group">
-                                  <div className="aspect-square overflow-hidden rounded-lg border border-line">
-                                    <img src={p.url} alt={p.caption || `Photo ${i + 1}`} className="h-full w-full object-cover group-hover:opacity-90 transition-opacity" />
+                          {dbPhotos.length > 0 && (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
+                              {dbPhotos.map(p => (
+                                <div key={p.id} className="space-y-1">
+                                  <div className="relative group">
+                                    <a href={p.photo_url} target="_blank" rel="noopener noreferrer">
+                                      <div className="aspect-square overflow-hidden rounded-lg border border-line">
+                                        <img src={p.photo_url} alt={p.caption || 'Photo'} className="h-full w-full object-cover group-hover:opacity-90 transition-opacity" />
+                                      </div>
+                                    </a>
+                                    <button onClick={() => deletePhoto(log.id, p.id)} className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-danger-solid text-white flex items-center justify-center opacity-0 group-hover:opacity-100"><X className="h-3 w-3" /></button>
                                   </div>
-                                  {(p.sub || p.category || p.caption) && (
-                                    <div className="flex flex-wrap items-center gap-1 mt-1">
-                                      {p.category && <span className="text-[10px] font-medium rounded-full bg-info-tint text-info px-1.5 py-0.5">{p.category}</span>}
-                                      {p.sub && <span className="text-[10px] font-medium rounded-full bg-accent-tint text-accent-fg px-1.5 py-0.5">{p.sub}</span>}
-                                      {p.caption && <span className="text-[10px] text-faint truncate">{p.caption}</span>}
-                                    </div>
-                                  )}
+                                  {/* Tag later: sub + category */}
+                                  <div className="grid grid-cols-2 gap-1">
+                                    <SearchableSelect value={p.subcontract_id ?? ''} onChange={e => tagPhoto(log.id, p.id, { subcontract_id: e.target.value || null })} className="text-xs h-8">
+                                      <option value="">No sub</option>
+                                      {subcontracts.map(s => <option key={s.id} value={s.id}>{(s.companies as any)?.name ?? s.trade}</option>)}
+                                    </SearchableSelect>
+                                    <SearchableSelect value={p.category ?? ''} onChange={e => tagPhoto(log.id, p.id, { category: e.target.value || null })} className="text-xs h-8">
+                                      <option value="">Tag part…</option>
+                                      {PHOTO_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                                    </SearchableSelect>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {dbPhotos.length === 0 && legacyPhotos.length > 0 && (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
+                              {legacyPhotos.map((p, i) => (
+                                <a key={i} href={p.url} target="_blank" rel="noopener noreferrer" className="block aspect-square overflow-hidden rounded-lg border border-line">
+                                  <img src={p.url} alt={p.caption || `Photo ${i + 1}`} className="h-full w-full object-cover" />
                                 </a>
                               ))}
                             </div>
