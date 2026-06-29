@@ -2,11 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Scale, Plus, X, Upload, Trophy, Trash2, FileText, Loader2, Check, ExternalLink, Sparkles, AlertTriangle, ClipboardList } from 'lucide-react'
+import { X, Upload, Trophy, Trash2, FileText, Loader2, Check, ExternalLink, Sparkles, AlertTriangle, ClipboardList } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 
 interface Quote {
   id: string
@@ -40,13 +38,10 @@ export default function QuotesPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
   const [comparisons, setComparisons] = useState<Comparison[]>([])
   const [loading, setLoading] = useState(true)
-  const [showNew, setShowNew] = useState(false)
-  const [newTitle, setNewTitle] = useState('')
-  const [newTrade, setNewTrade] = useState('')
-  const [creating, setCreating] = useState(false)
+  const [newUploading, setNewUploading] = useState(false)
   const [uploadingFor, setUploadingFor] = useState<string | null>(null)
-  const [reqDraft, setReqDraft] = useState<Record<string, string>>({})
   const [analyzingFor, setAnalyzingFor] = useState<string | null>(null)
+  const newRef = useRef<HTMLInputElement | null>(null)
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
   async function saveRequirements(compId: string, requirements: string) {
@@ -83,32 +78,57 @@ export default function QuotesPage({ params }: { params: { id: string } }) {
   }
   useEffect(() => { load() }, [params.id])
 
-  async function createComparison() {
-    if (!newTitle.trim()) return
-    setCreating(true)
-    const token = await getToken()
-    const res = await fetch(`/api/projects/${params.id}/quotes`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ title: newTitle, trade: newTrade }),
-    })
-    setCreating(false)
-    if (res.ok) { setNewTitle(''); setNewTrade(''); setShowNew(false); load() }
-  }
-
-  async function uploadQuote(compId: string, file: File) {
-    setUploadingFor(compId)
+  async function uploadOne(compId: string, file: File) {
     const token = await getToken()
     const form = new FormData()
     form.append('file', file)
+    const res = await fetch(`/api/projects/${params.id}/quotes/${compId}/upload`, {
+      method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form,
+    })
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? 'Upload failed')
+  }
+
+  // Add one or more files (each file = a quote) to an existing comparison
+  async function uploadQuotes(compId: string, files: FileList | File[]) {
+    setUploadingFor(compId)
     try {
-      const res = await fetch(`/api/projects/${params.id}/quotes/${compId}/upload`, {
-        method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form,
-      })
-      if (res.ok) load()
-      else alert((await res.json().catch(() => ({}))).error ?? 'Upload failed')
+      for (const f of Array.from(files)) await uploadOne(compId, f)
+      load()
+    } catch (e: any) {
+      alert(e?.message ?? 'Upload failed'); load()
     } finally {
       setUploadingFor(null)
     }
+  }
+
+  // Just upload files — auto-creates a comparison, each file becomes a quote
+  async function uploadNewSet(files: FileList | File[]) {
+    const list = Array.from(files)
+    if (list.length === 0) return
+    setNewUploading(true)
+    try {
+      const token = await getToken()
+      const res = await fetch(`/api/projects/${params.id}/quotes`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ title: 'Untitled comparison' }),
+      })
+      if (!res.ok) throw new Error('Could not start a comparison')
+      const { comparison } = await res.json()
+      for (const f of list) await uploadOne(comparison.id, f)
+      load()
+    } catch (e: any) {
+      alert(e?.message ?? 'Upload failed'); load()
+    } finally {
+      setNewUploading(false)
+    }
+  }
+
+  async function renameComparison(compId: string, title: string) {
+    const token = await getToken()
+    await fetch(`/api/projects/${params.id}/quotes/${compId}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ title: title.trim() || 'Untitled comparison' }),
+    })
   }
 
   async function setWinner(compId: string, quoteId: string | null) {
@@ -137,38 +157,29 @@ export default function QuotesPage({ params }: { params: { id: string } }) {
 
   return (
     <div className="space-y-6">
+      <input ref={newRef} type="file" accept="application/pdf,image/*" multiple className="sr-only"
+        onChange={e => { if (e.target.files?.length) uploadNewSet(e.target.files); e.target.value = '' }} />
+
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-ink">Compare Quotes</h1>
-          <p className="text-sm text-muted-fg mt-0.5">Upload quotes for a scope and compare them side-by-side. AI reads each quote.</p>
+          <p className="text-sm text-muted-fg mt-0.5">Upload quote files — each file is a quote. AI reads them and compares.</p>
         </div>
-        <Button onClick={() => setShowNew(v => !v)} className="gap-1.5"><Plus className="h-4 w-4" /> New Comparison</Button>
+        <Button onClick={() => newRef.current?.click()} disabled={newUploading} className="gap-1.5">
+          {newUploading ? <><Loader2 className="h-4 w-4 animate-spin" /> Reading…</> : <><Upload className="h-4 w-4" /> Upload Quotes</>}
+        </Button>
       </div>
 
-      {showNew && (
-        <div className="bg-panel rounded-xl border border-accent/40 p-4 sm:p-5 space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Title <span className="text-danger">*</span></Label>
-              <Input placeholder="e.g. Electrical rough-in" value={newTitle} onChange={e => setNewTitle(e.target.value)} autoFocus />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Trade <span className="text-faint font-normal">(optional)</span></Label>
-              <Input placeholder="e.g. Electrical" value={newTrade} onChange={e => setNewTrade(e.target.value)} />
-            </div>
-          </div>
-          <div className="flex gap-2 justify-end">
-            <Button variant="secondary" onClick={() => setShowNew(false)}>Cancel</Button>
-            <Button onClick={createComparison} disabled={creating || !newTitle.trim()}>{creating ? 'Creating…' : 'Create'}</Button>
-          </div>
-        </div>
-      )}
-
       {comparisons.length === 0 ? (
-        <div className="bg-panel rounded-xl border border-line p-10 text-center">
-          <Scale className="h-8 w-8 text-faint mx-auto mb-3" />
-          <p className="text-sm text-muted-fg">No comparisons yet. Create one, then upload 2+ quotes to compare.</p>
-        </div>
+        <button
+          onClick={() => newRef.current?.click()}
+          disabled={newUploading}
+          className="w-full bg-panel rounded-xl border-2 border-dashed border-line p-10 text-center hover:border-accent hover:bg-surface transition-colors"
+        >
+          {newUploading ? <Loader2 className="h-8 w-8 text-accent-fg mx-auto mb-3 animate-spin" /> : <Upload className="h-8 w-8 text-faint mx-auto mb-3" />}
+          <p className="text-sm font-medium text-ink-soft">{newUploading ? 'Reading your quotes…' : 'Upload quote files'}</p>
+          <p className="text-xs text-faint mt-1">Select one or more PDFs/photos — each file becomes a quote. AI reads and compares them.</p>
+        </button>
       ) : comparisons.map(comp => {
         const quotes = comp.quotes ?? []
         const totals = quotes.map(q => q.total_amount).filter((n): n is number => n != null)
@@ -177,18 +188,20 @@ export default function QuotesPage({ params }: { params: { id: string } }) {
         return (
           <div key={comp.id} className="bg-panel rounded-xl border border-line overflow-hidden">
             <div className="px-4 sm:px-5 py-3.5 border-b border-line-soft flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h2 className="text-sm font-semibold text-ink-soft">{comp.title}</h2>
-                {comp.trade && <p className="text-xs text-faint">{comp.trade}</p>}
-              </div>
+              <input
+                defaultValue={comp.title}
+                onBlur={e => { if (e.target.value.trim() !== comp.title) renameComparison(comp.id, e.target.value) }}
+                className="text-sm font-semibold text-ink-soft bg-transparent border-b border-transparent hover:border-line focus:border-accent focus:outline-none min-w-0 flex-1 max-w-xs"
+                aria-label="Comparison name"
+              />
               <div className="flex items-center gap-2">
                 {lowest != null && highest != null && highest > lowest && (
                   <span className="text-xs text-success font-medium">Spread {money(highest - lowest)}</span>
                 )}
-                <input ref={el => { fileRefs.current[comp.id] = el }} type="file" accept="application/pdf,image/*" className="sr-only"
-                  onChange={e => { const f = e.target.files?.[0]; if (f) uploadQuote(comp.id, f); e.target.value = '' }} />
+                <input ref={el => { fileRefs.current[comp.id] = el }} type="file" accept="application/pdf,image/*" multiple className="sr-only"
+                  onChange={e => { if (e.target.files?.length) uploadQuotes(comp.id, e.target.files); e.target.value = '' }} />
                 <Button size="sm" variant="outline" disabled={uploadingFor === comp.id} onClick={() => fileRefs.current[comp.id]?.click()}>
-                  {uploadingFor === comp.id ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Reading…</> : <><Upload className="h-3.5 w-3.5" /> Add quote</>}
+                  {uploadingFor === comp.id ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Reading…</> : <><Upload className="h-3.5 w-3.5" /> Add quotes</>}
                 </Button>
                 <button onClick={() => deleteComparison(comp.id)} className="p-1.5 rounded-lg text-faint hover:bg-danger-tint hover:text-danger"><Trash2 className="h-4 w-4" /></button>
               </div>
@@ -201,7 +214,6 @@ export default function QuotesPage({ params }: { params: { id: string } }) {
                 <textarea
                   rows={2}
                   defaultValue={comp.requirements ?? ''}
-                  onChange={e => setReqDraft(p => ({ ...p, [comp.id]: e.target.value }))}
                   onBlur={e => { if ((e.target.value ?? '') !== (comp.requirements ?? '')) saveRequirements(comp.id, e.target.value) }}
                   placeholder="e.g. 200A panel upgrade, all permits included, EV-charger rough-in, finish within 3 weeks…"
                   className="w-full rounded-lg border border-line bg-panel px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-accent focus:outline-none resize-none"
