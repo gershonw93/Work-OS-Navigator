@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Clock, MapPin, AlertTriangle, Camera, LogIn, LogOut, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { CameraCapture } from '@/components/ui/camera-capture'
 
 interface TimeEntry {
   id: string
@@ -40,7 +41,7 @@ export default function TimeClockPage({ params }: { params: { id: string } }) {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ kind: 'ok' | 'warn' | 'error'; text: string } | null>(null)
-  const fileRef = useRef<HTMLInputElement>(null)
+  const [cameraOpen, setCameraOpen] = useState(false)
 
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -72,17 +73,15 @@ export default function TimeClockPage({ params }: { params: { id: string } }) {
     })
   }
 
-  // Step 1: tapping the button opens the camera
+  // Step 1: tapping the button opens the LIVE camera (no upload allowed)
   function startPunch() {
     setMsg(null)
-    fileRef.current?.click()
+    setCameraOpen(true)
   }
 
-  // Step 2: once a selfie is captured, grab GPS and submit
-  async function onSelfie(e: React.ChangeEvent<HTMLInputElement>) {
-    const selfie = e.target.files?.[0]
-    e.target.value = ''
-    if (!selfie) return
+  // Step 2: once a live selfie is captured, grab GPS and submit
+  async function onSelfie(selfie: Blob) {
+    setCameraOpen(false)
     setBusy(true)
     setMsg(null)
     try {
@@ -90,7 +89,7 @@ export default function TimeClockPage({ params }: { params: { id: string } }) {
       const action = myOpen ? 'out' : 'in'
       const form = new FormData()
       form.append('action', action)
-      form.append('selfie', selfie)
+      form.append('selfie', new File([selfie], 'selfie.jpg', { type: 'image/jpeg' }))
       if (pos) { form.append('lat', String(pos.lat)); form.append('lng', String(pos.lng)) }
       const token = await getToken()
       const res = await fetch(`/api/projects/${params.id}/time/punch`, {
@@ -115,7 +114,7 @@ export default function TimeClockPage({ params }: { params: { id: string } }) {
 
   return (
     <div className="space-y-6">
-      <input ref={fileRef} type="file" accept="image/*" capture="user" className="sr-only" onChange={onSelfie} />
+      {cameraOpen && <CameraCapture facing="user" onCapture={onSelfie} onClose={() => setCameraOpen(false)} />}
 
       <div>
         <h1 className="text-2xl font-bold text-ink">Time Clock</h1>
@@ -149,7 +148,7 @@ export default function TimeClockPage({ params }: { params: { id: string } }) {
               : <><LogIn className="h-5 w-5" /> Clock In</>}
         </button>
         <p className="text-xs text-faint mt-3 flex items-center justify-center gap-3">
-          <span className="inline-flex items-center gap-1"><Camera className="h-3.5 w-3.5" /> Selfie required</span>
+          <span className="inline-flex items-center gap-1"><Camera className="h-3.5 w-3.5" /> Live selfie required</span>
           <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> Location checked</span>
         </p>
 
