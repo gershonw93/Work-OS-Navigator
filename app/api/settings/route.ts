@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { hashKey } from '@/lib/delete-key'
 
 const admin = () =>
   createClient(
@@ -134,10 +135,17 @@ export async function GET(request: Request) {
   const { data: company } = profile.company_id
     ? await db
         .from('companies')
-        .select('id, name, type, contact_email, phone, address, license_number')
+        .select('id, name, type, contact_email, phone, address, license_number, delete_protection_enabled, delete_key_hash')
         .eq('id', profile.company_id)
         .single()
     : { data: null }
+
+  // Never leak the hash — expose only whether protection is on and a key is set.
+  const deleteProtection = {
+    enabled: !!(company as any)?.delete_protection_enabled,
+    keySet: !!(company as any)?.delete_key_hash,
+  }
+  if (company) { delete (company as any).delete_key_hash; delete (company as any).delete_protection_enabled }
 
   // Include ALL company members (including self) so the list is never empty
   const { data: allMembers } = profile.company_id
@@ -172,6 +180,7 @@ export async function GET(request: Request) {
     company: company ?? null,
     teammates: teammates ?? [],
     pendingInvites,
+    deleteProtection,
   })
 }
 
@@ -180,9 +189,27 @@ export async function PATCH(request: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { full_name, phone, company, notifications } = body
+  const { full_name, phone, company, notifications, delete_protection } = body
 
   const db = admin()
+
+  // Delete-protection: company-wide secret key. Admin/manager only.
+  if (delete_protection && typeof delete_protection === 'object') {
+    const { data: prof } = await db.from('profiles').select('company_id, role').eq('id', user.id).single()
+    if (!prof?.company_id || !['admin', 'manager'].includes(prof.role ?? '')) {
+      return NextResponse.json({ error: 'Only an admin can change delete protection.' }, { status: 403 })
+    }
+    const updates: Record<string, unknown> = {}
+    if (typeof delete_protection.enabled === 'boolean') updates.delete_protection_enabled = delete_protection.enabled
+    if (typeof delete_protection.key === 'string') {
+      const k = delete_protection.key.trim()
+      updates.delete_key_hash = k ? hashKey(k) : null
+    }
+    if (Object.keys(updates).length) {
+      const { error } = await db.from('companies').update(updates).eq('id', prof.company_id)
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+  }
 
   // Update profile fields
   if (full_name !== undefined || phone !== undefined) {

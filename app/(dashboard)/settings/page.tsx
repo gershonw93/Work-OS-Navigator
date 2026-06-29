@@ -6,10 +6,11 @@ import { createClient } from '@/lib/supabase/client'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { cn } from '@/lib/utils'
 import { Label } from '@/components/ui/label'
 import {
   User, Building2, Users, Shield, Bell, CreditCard, AlertTriangle,
-  Check, X, SlidersHorizontal, Plug, Palette, Camera, RefreshCw, Ban,
+  Check, X, SlidersHorizontal, Plug, Palette, Camera, RefreshCw, Ban, Lock,
 } from 'lucide-react'
 import { PermissionsPanel } from '@/components/settings/permissions-panel'
 
@@ -70,6 +71,7 @@ const TABS: { id: string; label: string; icon: React.ElementType; danger?: boole
   { id: 'permissions',   label: 'Permissions',    icon: Shield },
   { id: 'notifications', label: 'Notifications',  icon: Bell },
   { id: 'preferences',   label: 'Preferences',    icon: SlidersHorizontal },
+  { id: 'security',      label: 'Security',       icon: Lock },
   { id: 'billing',       label: 'Billing',        icon: CreditCard },
   { id: 'danger',        label: 'Danger Zone',    icon: AlertTriangle, danger: true },
 ]
@@ -175,6 +177,13 @@ export default function SettingsPage() {
   const [companySaving, setCompanySaving] = useState(false)
   const [companyMsg, setCompanyMsg] = useState<{ ok: boolean; text: string } | null>(null)
 
+  // Delete protection (secret key)
+  const [dpEnabled, setDpEnabled] = useState(false)
+  const [dpKeySet, setDpKeySet] = useState(false)
+  const [dpKey, setDpKey] = useState('')
+  const [dpSaving, setDpSaving] = useState(false)
+  const [dpMsg, setDpMsg] = useState<{ ok: boolean; text: string } | null>(null)
+
   // Team
   const [teammates, setTeammates] = useState<Teammate[]>([])
   const [pendingRoles, setPendingRoles] = useState<Record<string, string>>({})
@@ -270,6 +279,8 @@ export default function SettingsPage() {
           setAddress(c.address ?? '')
           setLicenseNumber(c.license_number ?? '')
         }
+
+        if (data.deleteProtection) { setDpEnabled(!!data.deleteProtection.enabled); setDpKeySet(!!data.deleteProtection.keySet) }
 
         if (data.pendingInvites) setPendingInvites(data.pendingInvites)
       } else {
@@ -404,6 +415,33 @@ export default function SettingsPage() {
       setCompanyMsg({ ok: false, text: 'Network error.' })
     } finally {
       setCompanySaving(false)
+    }
+  }
+
+  // ── Delete protection ──────────────────────────────────────────────────────
+
+  async function saveDeleteProtection() {
+    setDpSaving(true); setDpMsg(null)
+    try {
+      // Requiring protection with no key yet (and none on file) is invalid.
+      if (dpEnabled && !dpKeySet && !dpKey.trim()) {
+        setDpMsg({ ok: false, text: 'Set a key before turning protection on.' }); setDpSaving(false); return
+      }
+      const headers = await authHeaders()
+      const payload: any = { enabled: dpEnabled }
+      if (dpKey.trim()) payload.key = dpKey.trim()
+      const res = await fetch('/api/settings', { method: 'PATCH', headers, body: JSON.stringify({ delete_protection: payload }) })
+      if (res.ok) {
+        if (dpKey.trim()) setDpKeySet(true)
+        setDpKey('')
+        setDpMsg({ ok: true, text: 'Delete protection saved.' })
+      } else {
+        setDpMsg({ ok: false, text: (await res.json().catch(() => ({}))).error ?? 'Failed to save.' })
+      }
+    } catch {
+      setDpMsg({ ok: false, text: 'Network error.' })
+    } finally {
+      setDpSaving(false)
     }
   }
 
@@ -564,7 +602,7 @@ export default function SettingsPage() {
               const isRestricted = ['field_supervisor', 'worker', 'member', 'read_only'].includes(userRole)
               // Restricted users: only Profile and Notifications
               if (isRestricted) return id === 'profile' || id === 'notifications'
-              if (id === 'team' || id === 'permissions' || id === 'billing' || id === 'danger') return isAdmin
+              if (id === 'team' || id === 'permissions' || id === 'billing' || id === 'danger' || id === 'security') return isAdmin
               if (id === 'company') return isManager
               return true
             }).map(({ id, label, icon: Icon, danger }) => {
@@ -1220,6 +1258,45 @@ export default function SettingsPage() {
                 <Button onClick={savePreferences}>Save Preferences</Button>
                 {prefSaved && <span className="text-sm text-success">Saved!</span>}
               </div>
+            </div>
+          )}
+
+          {/* ══════════════════════════════════════ TAB: SECURITY */}
+          {activeTab === 'security' && (
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><Lock className="h-4 w-4 text-accent-fg" /> Delete protection</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-muted-fg">
+                    When on, deleting important records (quotes, invoices, budget lines, quote requests, and uploaded files)
+                    asks for a secret key first — a safeguard against accidental or unauthorized deletions.
+                  </p>
+
+                  <label className="flex items-center justify-between gap-4 rounded-lg border border-line px-4 py-3">
+                    <span>
+                      <span className="block text-sm font-medium text-ink-soft">Require the secret key to delete</span>
+                      <span className="block text-xs text-faint mt-0.5">{dpKeySet ? 'A key is set.' : 'No key set yet — enter one below.'}</span>
+                    </span>
+                    <button type="button" role="switch" aria-checked={dpEnabled} onClick={() => setDpEnabled(v => !v)}
+                      className={cn('relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors', dpEnabled ? 'bg-accent' : 'bg-muted2')}>
+                      <span className={cn('inline-block h-5 w-5 transform rounded-full bg-white transition-transform', dpEnabled ? 'translate-x-5' : 'translate-x-0.5')} />
+                    </button>
+                  </label>
+
+                  <div className="space-y-1.5">
+                    <Label>{dpKeySet ? 'Change the secret key' : 'Set a secret key'}</Label>
+                    <Input type="password" value={dpKey} onChange={e => setDpKey(e.target.value)} placeholder={dpKeySet ? 'Leave blank to keep the current key' : 'Choose a key…'} />
+                    <p className="text-xs text-faint">Share this only with people allowed to delete financial records. It's stored hashed — we can't recover it, only replace it.</p>
+                  </div>
+
+                  {dpMsg && <p className={cn('text-sm', dpMsg.ok ? 'text-success' : 'text-danger')}>{dpMsg.text}</p>}
+                  <div className="flex justify-end">
+                    <Button onClick={saveDeleteProtection} disabled={dpSaving}>{dpSaving ? 'Saving…' : 'Save'}</Button>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           )}
 

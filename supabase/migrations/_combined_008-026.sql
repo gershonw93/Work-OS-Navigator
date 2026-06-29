@@ -242,3 +242,10 @@ CREATE INDEX IF NOT EXISTS idx_bid_submissions_req ON bid_submissions (bid_reque
 ALTER TABLE quote_comparisons
   ADD COLUMN IF NOT EXISTS bid_request_id UUID REFERENCES bid_requests (id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS idx_quote_comparisons_bid_request ON quote_comparisons (bid_request_id);
+
+-- ===== 026_delete_protection.sql =====
+-- Company-wide "secret delete key": when enabled, deleting important records
+-- (money + files) requires entering the key. Toggleable per company.
+ALTER TABLE companies
+  ADD COLUMN IF NOT EXISTS delete_protection_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS delete_key_hash TEXT;

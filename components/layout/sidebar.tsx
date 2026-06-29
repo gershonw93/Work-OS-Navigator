@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, FolderKanban, Building2, CheckSquare,
   Settings, LogOut, ClipboardList, Briefcase, FolderOpen, X, UsersRound, LayoutTemplate,
+  CalendarDays, DollarSign,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -26,6 +27,12 @@ const GC_NAV_ITEMS = [
   { label: 'Settings', href: '/settings', icon: Settings, resource: null },
 ]
 
+// Admin/owner-only cross-project ("master") views.
+const MASTER_NAV_ITEMS = [
+  { label: 'Master Calendar', href: '/master-calendar', icon: CalendarDays },
+  { label: 'Master Money', href: '/master-money', icon: DollarSign },
+]
+
 const SUB_NAV = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { label: 'My Jobs', href: '/my-jobs', icon: Briefcase },
@@ -44,7 +51,7 @@ export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
-  const { can, loading: permsLoading } = usePermissions()
+  const { can, realRole, loading: permsLoading } = usePermissions()
   const [isSubcontractor, setIsSubcontractor] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -74,6 +81,7 @@ export function Sidebar() {
   }, [])
 
   // Build nav from permissions (Settings always available)
+  const isAdmin = realRole === 'admin' || realRole === 'manager'
   const navItems = isSubcontractor
     ? SUB_NAV
     : GC_NAV_ITEMS.filter(item => item.resource === null || (!permsLoading && can(item.resource, 'view')))
@@ -116,6 +124,27 @@ export function Sidebar() {
             </Link>
           )
         })}
+
+        {/* Master (admin-only, cross-project) */}
+        {!isSubcontractor && isAdmin && (
+          <div className="pt-3 mt-2 border-t border-line">
+            <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-faint">Master</p>
+            {MASTER_NAV_ITEMS.map(item => {
+              const Icon = item.icon
+              const isActive = pathname.startsWith(item.href)
+              return (
+                <Link key={item.href} href={item.href}
+                  className={cn(
+                    'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                    isActive ? 'bg-accent text-accent-ink' : 'text-muted-fg hover:bg-muted hover:text-ink'
+                  )}>
+                  <Icon className="h-4 w-4 shrink-0" />
+                  {item.label}
+                </Link>
+              )
+            })}
+          </div>
+        )}
       </nav>
 
       {/* Bottom */}

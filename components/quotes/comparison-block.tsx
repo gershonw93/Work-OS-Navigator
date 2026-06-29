@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { X, Upload, Trophy, Trash2, FileText, Loader2, Check, ExternalLink, Sparkles, AlertTriangle, ClipboardList } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { useDeleteGuard } from '@/components/ui/delete-guard'
 
 export interface Quote {
   id: string
@@ -40,6 +41,7 @@ const money = (n: number | null) => n == null ? '—' : `$${Number(n).toLocaleSt
 // Used standalone and embedded inside a Request Quotes card.
 export function ComparisonBlock({ comp, projectId, onChanged }: { comp: Comparison; projectId: string; onChanged: () => void }) {
   const supabase = createClient()
+  const guardDelete = useDeleteGuard()
   const [uploadingFor, setUploadingFor] = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
   const fileRef = useRef<HTMLInputElement | null>(null)
@@ -118,10 +120,12 @@ export function ComparisonBlock({ comp, projectId, onChanged }: { comp: Comparis
     onChanged()
   }
 
-  async function deleteQuote(quoteId: string) {
-    const token = await getToken()
-    await fetch(`/api/projects/${projectId}/quotes/${comp.id}/${quoteId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
-    onChanged()
+  function deleteQuote(quoteId: string, vendor: string | null) {
+    guardDelete(async () => {
+      const token = await getToken()
+      await fetch(`/api/projects/${projectId}/quotes/${comp.id}/${quoteId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+      onChanged()
+    }, { label: `the quote from ${vendor ?? 'this vendor'}`, protected: true })
   }
 
   const quotes = comp.quotes ?? []
@@ -240,7 +244,7 @@ export function ComparisonBlock({ comp, projectId, onChanged }: { comp: Comparis
                       </a>
                     )}
                   </div>
-                  <button onClick={() => deleteQuote(q.id)} className="p-1 rounded text-faint hover:text-danger shrink-0"><X className="h-3.5 w-3.5" /></button>
+                  <button onClick={() => deleteQuote(q.id, q.vendor_name)} className="p-1 rounded text-faint hover:text-danger shrink-0"><X className="h-3.5 w-3.5" /></button>
                 </div>
                 <div>
                   <div className="flex items-baseline gap-2">
