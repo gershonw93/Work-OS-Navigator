@@ -19,7 +19,10 @@ const PROMPT = `This is a contractor/vendor price quote (bid/estimate/proposal).
   "inclusions": ["notable things explicitly included"],
   "exclusions": ["notable things explicitly excluded / not included"],
   "payment_terms": "string or null",
-  "notes": "any other notable terms (lead time, warranty, etc.) or null"
+  "notes": "any other notable terms (lead time, warranty, etc.) or null",
+  "contact_name": "the named person / rep on the quote (estimator, salesperson, owner) or null",
+  "contact_email": "their email or null",
+  "contact_phone": "their phone or null"
 }
 Return ONLY the JSON object, no other text.`
 
@@ -101,6 +104,11 @@ export async function POST(request: Request, { params }: { params: { id: string;
         exclusions: parsed.exclusions ?? [],
         payment_terms: parsed.payment_terms ?? null,
         notes: parsed.notes ?? null,
+        contact: {
+          name: parsed.contact_name ?? null,
+          email: parsed.contact_email ?? null,
+          phone: parsed.contact_phone ?? null,
+        },
         extract_error: extractError,
       },
     })
