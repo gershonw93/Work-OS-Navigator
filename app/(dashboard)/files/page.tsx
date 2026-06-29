@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -516,6 +517,12 @@ export default function FilesPage() {
                           </div>
                           <span className={cn('text-xs font-medium', statusColor)}>{resolvedStatus}</span>
                         </div>
+                        {doc.projects?.name && (
+                          <Link href={`/projects/${doc.project_id}/compliance`}
+                            className="inline-flex items-center gap-1 text-xs font-medium text-accent-fg hover:underline w-fit">
+                            <FolderOpen className="h-3 w-3" /> {doc.projects.name}
+                          </Link>
+                        )}
                         {doc.expiry_date && (
                           <p className="text-xs text-faint">Exp {new Date(doc.expiry_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
                         )}
