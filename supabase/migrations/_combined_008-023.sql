@@ -183,3 +183,19 @@ ALTER TABLE companies ADD CONSTRAINT companies_type_check
 
 -- ─── 022: company contact name ──────────────────────────────
 ALTER TABLE companies ADD COLUMN IF NOT EXISTS contact_name TEXT;
+
+-- ─── 023: invoices schema alignment ─────────────────────────
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES companies (id) ON DELETE SET NULL;
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS company_name TEXT;
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS invoice_number TEXT;
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS due_date DATE;
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS approved_by_name TEXT;
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS sent_at TIMESTAMPTZ;
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS lien_waiver_url TEXT;
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS lien_waiver_type TEXT;
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS lien_waiver_uploaded_at TIMESTAMPTZ;
+ALTER TABLE invoices ALTER COLUMN subcontract_id DROP NOT NULL;
+ALTER TABLE invoices DROP CONSTRAINT IF EXISTS invoices_status_check;
+ALTER TABLE invoices ADD CONSTRAINT invoices_status_check
+  CHECK (status IN ('draft', 'pending_approval', 'submitted', 'approved', 'sent', 'rejected', 'paid'));
