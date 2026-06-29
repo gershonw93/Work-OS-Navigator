@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { SearchableSelect } from '@/components/ui/searchable-select'
-import { Plus, X, FileText, Send, Link2, Copy, Trash2, Scale, Loader2, CheckCircle2, Mail, Paperclip, Upload, Trophy, AlertTriangle } from 'lucide-react'
+import { Plus, X, FileText, Send, Link2, Copy, Trash2, Scale, Loader2, CheckCircle2, Mail, Paperclip, Upload, Trophy, AlertTriangle, ChevronRight, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ComparisonBlock, type Comparison } from '@/components/quotes/comparison-block'
 
@@ -44,6 +44,8 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
   const [inviteEmail, setInviteEmail] = useState<Record<string, string>>({})
   const [copied, setCopied] = useState<string | null>(null)
   const [pulling, setPulling] = useState<string | null>(null)
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const toggleCollapse = (id: string) => setCollapsed(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
   // Add-to-directory after inviting a new (non-directory) sub
   const [pendingContact, setPendingContact] = useState<{ name: string; email: string } | null>(null)
   const [contactForm, setContactForm] = useState({ name: '', email: '', phone: '', trade: '', type: 'subcontractor' })
@@ -259,19 +261,25 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
             : submissions.length > 0
               ? { label: 'Responses in', cls: 'bg-info-tint text-info' }
               : { label: 'Open', cls: 'bg-muted text-muted-fg' }
+        const isCollapsed = collapsed.has(req.id)
         return (
           <div key={req.id} className={cn('bg-panel rounded-xl border overflow-hidden', awarded ? 'border-success/40' : overdue ? 'border-danger/40' : 'border-line')}>
             <div className="px-4 sm:px-5 py-3.5 border-b border-line-soft flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-sm font-semibold text-ink-soft">{req.title}</h2>
-                  <span className={cn('text-[10px] font-semibold rounded-full px-1.5 py-0.5 inline-flex items-center gap-1', status.cls)}>
-                    {status.label === 'Awarded' && <Trophy className="h-2.5 w-2.5" />}
-                    {status.label === 'Overdue' && <AlertTriangle className="h-2.5 w-2.5" />}
-                    {status.label}
-                  </span>
+              <div className="flex items-start gap-2 min-w-0">
+                <button onClick={() => toggleCollapse(req.id)} className="p-1 -ml-1 mt-0.5 rounded text-faint hover:text-ink shrink-0" aria-label={isCollapsed ? 'Expand' : 'Collapse'}>
+                  {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </button>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-sm font-semibold text-ink-soft">{req.title}</h2>
+                    <span className={cn('text-[10px] font-semibold rounded-full px-1.5 py-0.5 inline-flex items-center gap-1', status.cls)}>
+                      {status.label === 'Awarded' && <Trophy className="h-2.5 w-2.5" />}
+                      {status.label === 'Overdue' && <AlertTriangle className="h-2.5 w-2.5" />}
+                      {status.label}
+                    </span>
+                  </div>
+                  <p className={cn('text-xs', overdue ? 'text-danger' : 'text-faint')}>{req.trade ? `${req.trade} · ` : ''}{invites.length} invited · {submissions.length} responded{req.due_date ? ` · ${overdue ? 'was due' : 'due'} ${new Date(req.due_date + 'T00:00:00').toLocaleDateString()}` : ''}</p>
                 </div>
-                <p className={cn('text-xs', overdue ? 'text-danger' : 'text-faint')}>{req.trade ? `${req.trade} · ` : ''}{invites.length} invited · {submissions.length} responded{req.due_date ? ` · ${overdue ? 'was due' : 'due'} ${new Date(req.due_date + 'T00:00:00').toLocaleDateString()}` : ''}</p>
               </div>
               <div className="flex items-center gap-2">
                 {submissions.length > 0 && !awarded && (
@@ -283,7 +291,7 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
               </div>
             </div>
 
-            <div className="p-4 space-y-3">
+            {!isCollapsed && <div className="p-4 space-y-3">
               {(req.bid_request_attachments?.length ?? 0) > 0 && (
                 <div className="flex flex-wrap gap-2">
                   {req.bid_request_attachments.map((a: any) => <a key={a.id} href={a.file_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-xs text-accent-fg hover:bg-surface"><FileText className="h-3.5 w-3.5" />{a.file_name ?? 'Plan'}</a>)}
@@ -332,24 +340,30 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
 
               {/* Inline comparison once quotes have been pulled */}
               {comp && <ComparisonBlock comp={comp} projectId={params.id} onChanged={load} />}
-            </div>
+            </div>}
           </div>
         )
       })}
 
       {/* Standalone comparisons (quotes uploaded manually, no RFQ) */}
-      {standaloneComparisons.map(comp => (
-        <div key={comp.id} className="bg-panel rounded-xl border border-line overflow-hidden">
-          <div className="px-4 sm:px-5 py-3.5 border-b border-line-soft flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <Upload className="h-4 w-4 text-faint" />
-              <h2 className="text-sm font-semibold text-ink-soft">{comp.title}</h2>
-              {comp.awarded_subcontract_id && <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-success-tint text-success inline-flex items-center gap-1"><Trophy className="h-2.5 w-2.5" /> Awarded</span>}
+      {standaloneComparisons.map(comp => {
+        const isCollapsed = collapsed.has(comp.id)
+        return (
+          <div key={comp.id} className="bg-panel rounded-xl border border-line overflow-hidden">
+            <div className="px-4 sm:px-5 py-3.5 border-b border-line-soft flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <button onClick={() => toggleCollapse(comp.id)} className="p-1 -ml-1 rounded text-faint hover:text-ink shrink-0" aria-label={isCollapsed ? 'Expand' : 'Collapse'}>
+                  {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </button>
+                <Upload className="h-4 w-4 text-faint shrink-0" />
+                <h2 className="text-sm font-semibold text-ink-soft truncate">{comp.title}</h2>
+                {comp.awarded_subcontract_id && <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-success-tint text-success inline-flex items-center gap-1 shrink-0"><Trophy className="h-2.5 w-2.5" /> Awarded</span>}
+              </div>
             </div>
+            {!isCollapsed && <div className="p-4"><ComparisonBlock comp={comp} projectId={params.id} onChanged={load} /></div>}
           </div>
-          <div className="p-4"><ComparisonBlock comp={comp} projectId={params.id} onChanged={load} /></div>
-        </div>
-      ))}
+        )
+      })}
 
       {/* Add invited sub to the directory */}
       {pendingContact && (
