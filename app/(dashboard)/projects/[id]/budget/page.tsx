@@ -539,7 +539,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                   {group.rows.map(item => {
                     const variance = Number(item.budgeted_amount || 0) - Number(item.actual_amount || 0)
                     const over = variance < 0
-                    const overCommitted = Number(item.budgeted_amount || 0) > 0 && Number(item.committed_amount || 0) > Number(item.budgeted_amount || 0)
+                    const overCommitted = Number(item.budgeted_amount || 0) > 0 && (Number(item.committed_amount || 0) - Number(item.budgeted_amount || 0)) >= 1
                     if (editingId === item.id) {
                       return (
                         <div key={item.id} className="px-4 py-3 bg-accent-tint/40 space-y-2">
@@ -670,8 +670,8 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
           <div className="hidden md:grid grid-cols-[1fr_repeat(4,minmax(0,7rem))_3rem] gap-2 px-4 py-3 border-t-2 border-line bg-surface text-sm font-bold text-ink-soft">
             <span>Total</span>
             <span className="text-right">{money(totalBudgeted)}</span>
-            <span className={cn('text-right', totalCommitted > totalBudgeted ? 'text-danger' : '')}
-              title={totalCommitted > totalBudgeted ? `Committed exceeds budget by ${money(totalCommitted - totalBudgeted)}` : undefined}>
+            <span className={cn('text-right', (totalCommitted - totalBudgeted) >= 1 ? 'text-danger' : '')}
+              title={(totalCommitted - totalBudgeted) >= 1 ? `Committed exceeds budget by ${money(totalCommitted - totalBudgeted)}` : undefined}>
               {money(totalCommitted)}
             </span>
             <span className="text-right">{money(totalActual)}</span>
