@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 import { Plus, X, Receipt, CheckCircle2, Clock, Send, DollarSign, ChevronDown, ChevronUp, Printer, Upload, AlertTriangle, Pencil, Trash2 } from 'lucide-react'
 import Link from 'next/link'
+import { useDeleteGuard } from '@/components/ui/delete-guard'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   pending_approval: { label: 'Pending Approval', color: 'bg-warn-tint border-warn/30 text-warn' },
@@ -30,6 +31,7 @@ interface Invoice {
 
 export default function InvoicesPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
+  const guardDelete = useDeleteGuard()
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [subcontracts, setSubcontracts] = useState<Subcontract[]>([])
   const [paymentItems, setPaymentItems] = useState<PaymentItem[]>([])
@@ -174,14 +176,15 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
     fetchData()
   }
 
-  async function handleDeleteInvoice(invoice: Invoice) {
-    if (!window.confirm('Delete this invoice?')) return
-    const token = await getToken()
-    await fetch(`/api/projects/${params.id}/invoices/${invoice.id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    fetchData()
+  function handleDeleteInvoice(invoice: Invoice) {
+    guardDelete(async () => {
+      const token = await getToken()
+      await fetch(`/api/projects/${params.id}/invoices/${invoice.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      fetchData()
+    }, { label: 'this invoice', protected: true })
   }
 
   async function handleLienWaiverUpload(invoice: Invoice, waiverType: 'conditional' | 'unconditional', file: File) {

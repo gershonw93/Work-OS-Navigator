@@ -9,6 +9,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select'
 import { Plus, X, FileText, Send, Link2, Copy, Trash2, Scale, Loader2, CheckCircle2, Mail, Paperclip, Upload, Trophy, AlertTriangle, ChevronRight, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ComparisonBlock, type Comparison } from '@/components/quotes/comparison-block'
+import { useDeleteGuard } from '@/components/ui/delete-guard'
 
 const money = (n: number | null) => n == null ? '—' : `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 const STATUS: Record<string, string> = {
@@ -18,6 +19,7 @@ const STATUS: Record<string, string> = {
 
 export default function RequestQuotesPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
+  const guardDelete = useDeleteGuard()
   const [requests, setRequests] = useState<any[]>([])
   const [comparisons, setComparisons] = useState<Comparison[]>([])
   const [subs, setSubs] = useState<{ id: string; name: string; email?: string }[]>([])
@@ -133,11 +135,12 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
     load()
   }
 
-  async function deleteRequest(reqId: string) {
-    if (!confirm('Delete this request and its invites?')) return
-    const t = await token()
-    await fetch(`/api/projects/${params.id}/bid-requests/${reqId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${t}` } })
-    load()
+  function deleteRequest(reqId: string) {
+    guardDelete(async () => {
+      const t = await token()
+      await fetch(`/api/projects/${params.id}/bid-requests/${reqId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${t}` } })
+      load()
+    }, { label: 'this quote request and its invites', protected: true })
   }
 
   async function pullToComparison(reqId: string) {

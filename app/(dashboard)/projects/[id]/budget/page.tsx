@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { useDeleteGuard } from '@/components/ui/delete-guard'
 
 interface BudgetItem {
   id: string
@@ -59,6 +60,7 @@ const blankForm = {
 
 export default function BudgetPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
+  const guardDelete = useDeleteGuard()
   const [items, setItems] = useState<BudgetItem[]>([])
   const [subOptions, setSubOptions] = useState<SubOption[]>([])
   const [loading, setLoading] = useState(true)
@@ -232,14 +234,15 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
     if (res.ok) { setEditingId(null); load() }
   }
 
-  async function remove(id: string) {
-    if (!confirm('Delete this budget line?')) return
-    const token = await getToken()
-    await fetch(`/api/projects/${params.id}/budget/${id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    load()
+  function remove(id: string) {
+    guardDelete(async () => {
+      const token = await getToken()
+      await fetch(`/api/projects/${params.id}/budget/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      load()
+    }, { label: 'this budget line', protected: true })
   }
 
   const totalBudgeted = items.reduce((s, i) => s + Number(i.budgeted_amount || 0), 0)

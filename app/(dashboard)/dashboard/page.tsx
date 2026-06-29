@@ -226,6 +226,26 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* Master views — admin only, cross-project */}
+      {activityIsAdmin && !isSub && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Link href="/master-calendar" className="group rounded-xl border border-line bg-panel p-4 hover:border-accent hover:bg-surface transition-colors flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-accent-tint flex items-center justify-center shrink-0"><CalendarCheck className="h-5 w-5 text-accent-fg" /></div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-ink-soft">Master Calendar</p>
+              <p className="text-xs text-faint">All projects' schedules &amp; due dates in one view</p>
+            </div>
+          </Link>
+          <Link href="/master-money" className="group rounded-xl border border-line bg-panel p-4 hover:border-accent hover:bg-surface transition-colors flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-success-tint flex items-center justify-center shrink-0"><DollarSign className="h-5 w-5 text-success" /></div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-ink-soft">Master Money</p>
+              <p className="text-xs text-faint">Budget, commitments &amp; billing across every project</p>
+            </div>
+          </Link>
+        </div>
+      )}
+
       {/* Projects + Activity side by side */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
 
