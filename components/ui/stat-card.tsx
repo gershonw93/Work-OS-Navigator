@@ -17,20 +17,20 @@ export function StatCard({
   delta,
   deltaPositive,
   icon: Icon,
-  iconColor = 'text-orange-500',
+  iconColor = 'text-accent-fg',
   className,
 }: StatCardProps) {
   return (
-    <div className={cn('rounded-lg border border-slate-200 bg-white p-6', className)}>
+    <div className={cn('rounded-lg border border-line bg-panel p-6', className)}>
       <div className="flex items-start justify-between">
         <div className="space-y-1">
-          <p className="text-sm text-slate-500 font-medium">{label}</p>
-          <p className="text-3xl font-bold text-slate-900">{value}</p>
+          <p className="text-sm text-muted-fg font-medium">{label}</p>
+          <p className="text-3xl font-bold text-ink">{value}</p>
           {delta && (
             <p
               className={cn(
                 'text-xs font-medium',
-                deltaPositive ? 'text-green-600' : 'text-red-500'
+                deltaPositive ? 'text-success' : 'text-danger'
               )}
             >
               {deltaPositive ? '↑' : '↓'} {delta}
@@ -38,7 +38,7 @@ export function StatCard({
           )}
         </div>
         {Icon && (
-          <div className={cn('rounded-lg bg-slate-50 p-2.5', iconColor)}>
+          <div className={cn('rounded-lg bg-surface p-2.5', iconColor)}>
             <Icon className="h-5 w-5" />
           </div>
         )}

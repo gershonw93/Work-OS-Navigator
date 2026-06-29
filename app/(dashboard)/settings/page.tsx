@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -82,10 +83,10 @@ const ROLES = [
 ]
 
 const ROLE_COLORS: Record<string, string> = {
-  admin:            'bg-purple-100 text-purple-800',
-  project_manager:  'bg-blue-100 text-blue-800',
-  field_supervisor: 'bg-orange-100 text-orange-800',
-  office_staff:     'bg-slate-100 text-slate-700',
+  admin:            'bg-special-tint text-special',
+  project_manager:  'bg-info-tint text-info',
+  field_supervisor: 'bg-accent-tint text-accent-fg',
+  office_staff:     'bg-muted text-ink-soft',
   read_only:        'bg-gray-100 text-gray-600',
 }
 
@@ -541,7 +542,7 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64 text-slate-400 text-sm">
+      <div className="flex items-center justify-center h-64 text-faint text-sm">
         Loading settings…
       </div>
     )
@@ -549,7 +550,7 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold text-slate-900 mb-6">Settings</h1>
+      <h1 className="text-2xl font-bold text-ink mb-6">Settings</h1>
 
       <div className="flex gap-6">
         {/* ── Left Sidebar ─────────────────────────────────────────────── */}
@@ -574,10 +575,10 @@ export default function SettingsPage() {
                     onClick={() => setActiveTab(id)}
                     className={[
                       'w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium transition-colors',
-                      active && !danger ? 'rounded-r-lg border-l-4 border-orange-500 bg-orange-50 text-orange-600 pl-2' : '',
-                      active && danger  ? 'rounded-r-lg border-l-4 border-red-500 bg-red-50 text-red-600 pl-2' : '',
-                      !active && !danger ? 'rounded-lg text-slate-600 hover:bg-slate-50' : '',
-                      !active && danger  ? 'rounded-lg text-red-500 hover:bg-red-50' : '',
+                      active && !danger ? 'rounded-r-lg border-l-4 border-accent bg-accent-tint text-accent-fg pl-2' : '',
+                      active && danger  ? 'rounded-r-lg border-l-4 border-danger bg-danger-tint text-danger pl-2' : '',
+                      !active && !danger ? 'rounded-lg text-muted-fg hover:bg-surface' : '',
+                      !active && danger  ? 'rounded-lg text-danger hover:bg-danger-tint' : '',
                     ].join(' ')}
                   >
                     <Icon className="h-5 w-5 shrink-0" />
@@ -617,7 +618,7 @@ export default function SettingsPage() {
                         value={profile?.email ?? ''}
                         readOnly
                         disabled
-                        className="mt-1 bg-slate-50 cursor-not-allowed"
+                        className="mt-1 bg-surface cursor-not-allowed"
                       />
                     </div>
                     <div>
@@ -642,7 +643,7 @@ export default function SettingsPage() {
                       {profileSaving ? 'Saving…' : 'Save Profile'}
                     </Button>
                     {profileMsg && (
-                      <span className={`text-sm ${profileMsg.ok ? 'text-green-600' : 'text-red-600'}`}>
+                      <span className={`text-sm ${profileMsg.ok ? 'text-success' : 'text-danger'}`}>
                         {profileMsg.text}
                       </span>
                     )}
@@ -694,7 +695,7 @@ export default function SettingsPage() {
                         </Button>
                       </div>
                       {pwMsg && (
-                        <p className={`text-sm ${pwMsg.ok ? 'text-green-600' : 'text-red-600'}`}>
+                        <p className={`text-sm ${pwMsg.ok ? 'text-success' : 'text-danger'}`}>
                           {pwMsg.text}
                         </p>
                       )}
@@ -713,7 +714,7 @@ export default function SettingsPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 {!company ? (
-                  <p className="text-slate-500 text-sm">No company linked to your account.</p>
+                  <p className="text-muted-fg text-sm">No company linked to your account.</p>
                 ) : (
                   <>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -728,11 +729,11 @@ export default function SettingsPage() {
                       </div>
                       <div>
                         <Label htmlFor="companyType">Company Type</Label>
-                        <select
+                        <SearchableSelect
                           id="companyType"
                           value={companyType}
                           onChange={(e) => setCompanyType(e.target.value)}
-                          className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                          className="mt-1 block w-full rounded-md border border-muted2 bg-panel px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent"
                         >
                           <option value="">Select type…</option>
                           <option value="general_contractor">General Contractor</option>
@@ -741,7 +742,7 @@ export default function SettingsPage() {
                           <option value="architect">Architect / Designer</option>
                           <option value="engineer">Engineer</option>
                           <option value="other">Other</option>
-                        </select>
+                        </SearchableSelect>
                       </div>
                       <div>
                         <Label htmlFor="contactEmail">Contact Email</Label>
@@ -786,7 +787,7 @@ export default function SettingsPage() {
                         {companySaving ? 'Saving…' : 'Save Company'}
                       </Button>
                       {companyMsg && (
-                        <span className={`text-sm ${companyMsg.ok ? 'text-green-600' : 'text-red-600'}`}>
+                        <span className={`text-sm ${companyMsg.ok ? 'text-success' : 'text-danger'}`}>
                           {companyMsg.text}
                         </span>
                       )}
@@ -801,7 +802,7 @@ export default function SettingsPage() {
           {activeTab === 'team' && (
             <>
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-slate-900">Team Members</h2>
+                <h2 className="text-lg font-semibold text-ink">Team Members</h2>
                 {userRole === 'admin' && (
                   <Button onClick={() => { setShowInvite(true); setInviteMsg(null) }}>
                     + Invite User
@@ -812,55 +813,55 @@ export default function SettingsPage() {
               <Card>
                 <CardContent className="p-0">
                   {teammates.length === 0 ? (
-                    <p className="text-slate-500 text-sm p-6">No team members yet.</p>
+                    <p className="text-muted-fg text-sm p-6">No team members yet.</p>
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead>
-                          <tr className="border-b border-slate-100 bg-slate-50">
-                            <th className="text-left px-4 py-3 font-medium text-slate-600">Member</th>
-                            <th className="text-left px-4 py-3 font-medium text-slate-600">Email</th>
-                            <th className="text-left px-4 py-3 font-medium text-slate-600">Role</th>
-                            <th className="text-left px-4 py-3 font-medium text-slate-600">Status</th>
-                            <th className="text-left px-4 py-3 font-medium text-slate-600">Actions</th>
+                          <tr className="border-b border-line-soft bg-surface">
+                            <th className="text-left px-4 py-3 font-medium text-muted-fg">Member</th>
+                            <th className="text-left px-4 py-3 font-medium text-muted-fg">Email</th>
+                            <th className="text-left px-4 py-3 font-medium text-muted-fg">Role</th>
+                            <th className="text-left px-4 py-3 font-medium text-muted-fg">Status</th>
+                            <th className="text-left px-4 py-3 font-medium text-muted-fg">Actions</th>
                           </tr>
                         </thead>
                         <tbody>
                           {teammates.map((t) => {
                             const isSelf = t.id === profile?.id
                             return (
-                            <tr key={t.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50">
+                            <tr key={t.id} className="border-b border-line-soft last:border-0 hover:bg-surface/50">
                               <td className="px-4 py-3">
                                 <div className="flex items-center gap-3">
-                                  <div className="h-8 w-8 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center text-xs font-bold shrink-0">
+                                  <div className="h-8 w-8 rounded-full bg-accent-tint text-accent-fg flex items-center justify-center text-xs font-bold shrink-0">
                                     {initials(t.full_name ?? t.email ?? '?')}
                                   </div>
                                   <div>
-                                    <span className="font-medium text-slate-800">{t.full_name || '—'}</span>
-                                    {isSelf && <span className="ml-2 text-xs text-slate-400">(you)</span>}
+                                    <span className="font-medium text-ink-soft">{t.full_name || '—'}</span>
+                                    {isSelf && <span className="ml-2 text-xs text-faint">(you)</span>}
                                   </div>
                                 </div>
                               </td>
-                              <td className="px-4 py-3 text-slate-600">{t.email}</td>
+                              <td className="px-4 py-3 text-muted-fg">{t.email}</td>
                               <td className="px-4 py-3">
                                 {userRole === 'admin' && !isSelf ? (
                                   <div className="flex items-center gap-2">
-                                    <select
+                                    <SearchableSelect
                                       value={pendingRoles[t.id] ?? t.role}
                                       onChange={(e) => setPendingRoles(prev => ({ ...prev, [t.id]: e.target.value }))}
-                                      className="rounded border border-slate-200 px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-orange-400"
+                                      className="rounded border border-line px-2 py-1 text-xs bg-panel focus:outline-none focus:ring-1 focus:ring-accent"
                                     >
                                       {ROLES.map((r) => (
                                         <option key={r.value} value={r.value}>{r.label}</option>
                                       ))}
-                                    </select>
+                                    </SearchableSelect>
                                     {pendingRoles[t.id] && pendingRoles[t.id] !== t.role && (
                                       <button
                                         onClick={() => {
                                           changeRole(t.id, pendingRoles[t.id])
                                           setPendingRoles(prev => { const n = { ...prev }; delete n[t.id]; return n })
                                         }}
-                                        className="rounded bg-orange-500 px-2 py-1 text-xs font-medium text-white hover:bg-orange-600"
+                                        className="rounded bg-accent px-2 py-1 text-xs font-medium text-accent-ink hover:bg-accent"
                                       >
                                         Save
                                       </button>
@@ -873,8 +874,8 @@ export default function SettingsPage() {
                               <td className="px-4 py-3">
                                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
                                   ${t.status === 'pending'
-                                    ? 'bg-yellow-100 text-yellow-700'
-                                    : 'bg-green-100 text-green-700'
+                                    ? 'bg-warn-tint text-warn'
+                                    : 'bg-success-tint text-success'
                                   }`}>
                                   {t.status === 'pending' ? 'Pending' : 'Active'}
                                 </span>
@@ -883,7 +884,7 @@ export default function SettingsPage() {
                                 {userRole === 'admin' && !isSelf && (
                                   <button
                                     onClick={() => removeMember(t.id, t.full_name ?? t.email)}
-                                    className="text-xs text-red-500 hover:text-red-700 hover:underline"
+                                    className="text-xs text-danger hover:text-danger hover:underline"
                                   >
                                     Remove
                                   </button>
@@ -907,34 +908,34 @@ export default function SettingsPage() {
                   <CardContent className="p-0">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="border-b border-slate-100 bg-slate-50">
-                          <th className="text-left px-4 py-3 font-medium text-slate-600">Email</th>
-                          <th className="text-left px-4 py-3 font-medium text-slate-600">Role</th>
-                          <th className="text-left px-4 py-3 font-medium text-slate-600">Sent</th>
-                          <th className="text-left px-4 py-3 font-medium text-slate-600">Actions</th>
+                        <tr className="border-b border-line-soft bg-surface">
+                          <th className="text-left px-4 py-3 font-medium text-muted-fg">Email</th>
+                          <th className="text-left px-4 py-3 font-medium text-muted-fg">Role</th>
+                          <th className="text-left px-4 py-3 font-medium text-muted-fg">Sent</th>
+                          <th className="text-left px-4 py-3 font-medium text-muted-fg">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
                         {pendingInvites.map((inv) => (
-                          <tr key={inv.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50">
-                            <td className="px-4 py-3 text-slate-700">{inv.email}</td>
+                          <tr key={inv.id} className="border-b border-line-soft last:border-0 hover:bg-surface/50">
+                            <td className="px-4 py-3 text-ink-soft">{inv.email}</td>
                             <td className="px-4 py-3"><RoleBadge role={inv.role} /></td>
-                            <td className="px-4 py-3 text-slate-500 text-xs">{new Date(inv.created_at).toLocaleDateString()}</td>
+                            <td className="px-4 py-3 text-muted-fg text-xs">{new Date(inv.created_at).toLocaleDateString()}</td>
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-3">
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-warn-tint text-warn">
                                   Pending
                                 </span>
                                 <button
                                   onClick={() => resendInvite(inv.email, inv.role)}
-                                  className="text-xs text-blue-500 hover:text-blue-700 hover:underline flex items-center gap-1"
+                                  className="text-xs text-info hover:text-info hover:underline flex items-center gap-1"
                                 >
                                   <RefreshCw className="h-3 w-3" />
                                   Resend
                                 </button>
                                 <button
                                   onClick={() => cancelInvite(inv.id)}
-                                  className="text-xs text-red-500 hover:text-red-700 hover:underline flex items-center gap-1"
+                                  className="text-xs text-danger hover:text-danger hover:underline flex items-center gap-1"
                                 >
                                   <Ban className="h-3 w-3" />
                                   Cancel
@@ -951,7 +952,7 @@ export default function SettingsPage() {
 
               {/* Inline message for resend/cancel feedback */}
               {inviteMsg && !showInvite && (
-                <p className={`mt-3 text-sm ${inviteMsg.ok ? 'text-green-600' : 'text-red-600'}`}>
+                <p className={`mt-3 text-sm ${inviteMsg.ok ? 'text-success' : 'text-danger'}`}>
                   {inviteMsg.text}
                 </p>
               )}
@@ -959,12 +960,12 @@ export default function SettingsPage() {
               {/* Invite Modal */}
               {showInvite && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-                  <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+                  <div className="bg-panel rounded-xl shadow-xl w-full max-w-md p-6">
                     <div className="flex items-center justify-between mb-5">
-                      <h3 className="text-lg font-semibold text-slate-900">Invite Team Member</h3>
+                      <h3 className="text-lg font-semibold text-ink">Invite Team Member</h3>
                       <button
                         onClick={() => setShowInvite(false)}
-                        className="text-slate-400 hover:text-slate-600"
+                        className="text-faint hover:text-muted-fg"
                       >
                         <X className="h-5 w-5" />
                       </button>
@@ -994,25 +995,25 @@ export default function SettingsPage() {
                       </div>
                       <div>
                         <Label htmlFor="inviteRole">Role</Label>
-                        <select
+                        <SearchableSelect
                           id="inviteRole"
                           value={inviteRole}
                           onChange={(e) => setInviteRole(e.target.value)}
-                          className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                          className="mt-1 block w-full rounded-md border border-muted2 bg-panel px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent"
                         >
                           {ROLES.map((r) => (
                             <option key={r.value} value={r.value}>{r.label}</option>
                           ))}
-                        </select>
+                        </SearchableSelect>
                         {inviteRole && (
-                          <p className="mt-1.5 text-xs text-slate-500">
+                          <p className="mt-1.5 text-xs text-muted-fg">
                             {ROLES.find((r) => r.value === inviteRole)?.desc}
                           </p>
                         )}
                       </div>
 
                       {inviteMsg && (
-                        <p className={`text-sm ${inviteMsg.ok ? 'text-green-600' : 'text-red-600'}`}>
+                        <p className={`text-sm ${inviteMsg.ok ? 'text-success' : 'text-danger'}`}>
                           {inviteMsg.text}
                         </p>
                       )}
@@ -1058,18 +1059,18 @@ export default function SettingsPage() {
                 {NOTIF_ITEMS.map(({ key, label }) => (
                   <div
                     key={key}
-                    className="flex items-center justify-between py-3 border-b border-slate-100 last:border-0"
+                    className="flex items-center justify-between py-3 border-b border-line-soft last:border-0"
                   >
-                    <span className="text-sm text-slate-700">{label}</span>
+                    <span className="text-sm text-ink-soft">{label}</span>
                     <button
                       onClick={() => toggleNotif(key, !notifState[key])}
-                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2
-                        ${notifState[key] ? 'bg-orange-500' : 'bg-slate-200'}`}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2
+                        ${notifState[key] ? 'bg-accent' : 'bg-muted2'}`}
                       role="switch"
                       aria-checked={notifState[key]}
                     >
                       <span
-                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition-transform
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-panel shadow ring-0 transition-transform
                           ${notifState[key] ? 'translate-x-5' : 'translate-x-0'}`}
                       />
                     </button>
@@ -1091,31 +1092,31 @@ export default function SettingsPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="pref-type">Default Project Type</Label>
-                      <select
+                      <SearchableSelect
                         id="pref-type"
                         value={prefDefaultType}
                         onChange={(e) => setPrefDefaultType(e.target.value)}
-                        className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        className="mt-1 block w-full rounded-md border border-muted2 bg-panel px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent"
                       >
                         <option value="residential">Residential</option>
                         <option value="commercial">Commercial</option>
                         <option value="renovation">Renovation</option>
                         <option value="mixed_use">Mixed Use</option>
-                      </select>
+                      </SearchableSelect>
                     </div>
                     <div>
                       <Label htmlFor="pref-offset">Default Start Date Offset</Label>
-                      <select
+                      <SearchableSelect
                         id="pref-offset"
                         value={prefStartOffset}
                         onChange={(e) => setPrefStartOffset(e.target.value)}
-                        className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        className="mt-1 block w-full rounded-md border border-muted2 bg-panel px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent"
                       >
                         <option value="today">Today</option>
                         <option value="1week">1 week out</option>
                         <option value="2weeks">2 weeks out</option>
                         <option value="1month">1 month out</option>
-                      </select>
+                      </SearchableSelect>
                     </div>
                   </div>
                 </CardContent>
@@ -1129,33 +1130,33 @@ export default function SettingsPage() {
                 <CardContent className="space-y-5">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-slate-700">Enable Bulk Creation</p>
-                      <p className="text-xs text-slate-500 mt-0.5">Show bulk creation options in the UI</p>
+                      <p className="text-sm font-medium text-ink-soft">Enable Bulk Creation</p>
+                      <p className="text-xs text-muted-fg mt-0.5">Show bulk creation options in the UI</p>
                     </div>
                     <button
                       type="button"
                       onClick={() => setPrefEnableBulk((v) => !v)}
-                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${prefEnableBulk ? 'bg-orange-500' : 'bg-slate-200'}`}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 ${prefEnableBulk ? 'bg-accent' : 'bg-muted2'}`}
                       role="switch"
                       aria-checked={prefEnableBulk}
                     >
-                      <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition-transform ${prefEnableBulk ? 'translate-x-5' : 'translate-x-0'}`} />
+                      <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-panel shadow ring-0 transition-transform ${prefEnableBulk ? 'translate-x-5' : 'translate-x-0'}`} />
                     </button>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="pref-naming">Default Naming Pattern</Label>
-                      <select
+                      <SearchableSelect
                         id="pref-naming"
                         value={prefNamingPattern}
                         onChange={(e) => setPrefNamingPattern(e.target.value)}
-                        className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        className="mt-1 block w-full rounded-md border border-muted2 bg-panel px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent"
                       >
                         <option value="prefix_number">Prefix + Number (e.g. House 1)</option>
                         <option value="prefix_address">Prefix + Address (e.g. House - 95 Main St)</option>
                         <option value="address_only">Address Only</option>
-                      </select>
+                      </SearchableSelect>
                     </div>
                   </div>
 
@@ -1170,7 +1171,7 @@ export default function SettingsPage() {
                       onChange={(e) => setPrefMaxUnits(Math.min(100, Math.max(1, Number(e.target.value))))}
                       className="mt-1 max-w-[120px]"
                     />
-                    <p className="text-xs text-slate-500 mt-1">Maximum is 100</p>
+                    <p className="text-xs text-muted-fg mt-1">Maximum is 100</p>
                   </div>
                 </CardContent>
               </Card>
@@ -1183,33 +1184,33 @@ export default function SettingsPage() {
                 <CardContent className="space-y-5">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-slate-700">Require Customer on Every Project</p>
-                      <p className="text-xs text-slate-500 mt-0.5">Projects must be linked to a customer record</p>
+                      <p className="text-sm font-medium text-ink-soft">Require Customer on Every Project</p>
+                      <p className="text-xs text-muted-fg mt-0.5">Projects must be linked to a customer record</p>
                     </div>
                     <button
                       type="button"
                       onClick={() => setPrefRequireCustomer((v) => !v)}
-                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${prefRequireCustomer ? 'bg-orange-500' : 'bg-slate-200'}`}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 ${prefRequireCustomer ? 'bg-accent' : 'bg-muted2'}`}
                       role="switch"
                       aria-checked={prefRequireCustomer}
                     >
-                      <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition-transform ${prefRequireCustomer ? 'translate-x-5' : 'translate-x-0'}`} />
+                      <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-panel shadow ring-0 transition-transform ${prefRequireCustomer ? 'translate-x-5' : 'translate-x-0'}`} />
                     </button>
                   </div>
 
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-slate-700">Show Customer Column in Project List</p>
-                      <p className="text-xs text-slate-500 mt-0.5">Display the customer column in project tables</p>
+                      <p className="text-sm font-medium text-ink-soft">Show Customer Column in Project List</p>
+                      <p className="text-xs text-muted-fg mt-0.5">Display the customer column in project tables</p>
                     </div>
                     <button
                       type="button"
                       onClick={() => setPrefShowCustomerCol((v) => !v)}
-                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${prefShowCustomerCol ? 'bg-orange-500' : 'bg-slate-200'}`}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 ${prefShowCustomerCol ? 'bg-accent' : 'bg-muted2'}`}
                       role="switch"
                       aria-checked={prefShowCustomerCol}
                     >
-                      <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition-transform ${prefShowCustomerCol ? 'translate-x-5' : 'translate-x-0'}`} />
+                      <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-panel shadow ring-0 transition-transform ${prefShowCustomerCol ? 'translate-x-5' : 'translate-x-0'}`} />
                     </button>
                   </div>
                 </CardContent>
@@ -1217,7 +1218,7 @@ export default function SettingsPage() {
 
               <div className="flex items-center gap-3">
                 <Button onClick={savePreferences}>Save Preferences</Button>
-                {prefSaved && <span className="text-sm text-green-600">Saved!</span>}
+                {prefSaved && <span className="text-sm text-success">Saved!</span>}
               </div>
             </div>
           )}
@@ -1233,8 +1234,8 @@ export default function SettingsPage() {
                 <CardContent>
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-lg font-semibold text-slate-900">Starter Plan</p>
-                      <p className="text-sm text-slate-500 mt-0.5">Free during beta</p>
+                      <p className="text-lg font-semibold text-ink">Starter Plan</p>
+                      <p className="text-sm text-muted-fg mt-0.5">Free during beta</p>
                     </div>
                     <Button disabled className="opacity-60 cursor-not-allowed">
                       Upgrade (Coming Soon)
@@ -1255,13 +1256,13 @@ export default function SettingsPage() {
                     { label: 'Storage',      used: 0,                max: 5,  unit: ' GB' },
                   ].map(({ label, used, max, unit }) => (
                     <div key={label}>
-                      <div className="flex justify-between text-sm text-slate-600 mb-1">
+                      <div className="flex justify-between text-sm text-muted-fg mb-1">
                         <span>{label}</span>
                         <span>{used} / {max}{unit}</span>
                       </div>
-                      <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-orange-400 rounded-full transition-all"
+                          className="h-full bg-accent rounded-full transition-all"
                           style={{ width: `${Math.min((used / max) * 100, 100)}%` }}
                         />
                       </div>
@@ -1272,7 +1273,7 @@ export default function SettingsPage() {
 
               {/* Plans comparison */}
               <div>
-                <h3 className="text-base font-semibold text-slate-900 mb-3">Available Plans</h3>
+                <h3 className="text-base font-semibold text-ink mb-3">Available Plans</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   {[
                     {
@@ -1296,21 +1297,21 @@ export default function SettingsPage() {
                   ].map((plan) => (
                     <div
                       key={plan.name}
-                      className={`rounded-xl border p-5 ${plan.current ? 'border-orange-400 bg-orange-50' : 'border-slate-200 bg-white'}`}
+                      className={`rounded-xl border p-5 ${plan.current ? 'border-accent bg-accent-tint' : 'border-line bg-panel'}`}
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <p className="font-semibold text-slate-900">{plan.name}</p>
+                        <p className="font-semibold text-ink">{plan.name}</p>
                         {plan.current && (
-                          <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-medium">
+                          <span className="text-xs bg-accent-tint text-accent-fg px-2 py-0.5 rounded-full font-medium">
                             Current
                           </span>
                         )}
                       </div>
-                      <p className="text-lg font-bold text-slate-900 mb-3">{plan.price}</p>
+                      <p className="text-lg font-bold text-ink mb-3">{plan.price}</p>
                       <ul className="space-y-1.5">
                         {plan.features.map((f) => (
-                          <li key={f} className="flex items-center gap-2 text-sm text-slate-600">
-                            <Check className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                          <li key={f} className="flex items-center gap-2 text-sm text-muted-fg">
+                            <Check className="h-3.5 w-3.5 text-success shrink-0" />
                             {f}
                           </li>
                         ))}
@@ -1333,17 +1334,17 @@ export default function SettingsPage() {
 
           {/* ══════════════════════════════════════ TAB: DANGER ZONE */}
           {activeTab === 'danger' && (
-            <Card className="border-red-200">
+            <Card className="border-danger/30">
               <CardHeader>
-                <CardTitle className="text-red-600 flex items-center gap-2">
+                <CardTitle className="text-danger flex items-center gap-2">
                   <AlertTriangle className="h-5 w-5" />
                   Danger Zone
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="border border-red-200 rounded-lg p-5 bg-red-50">
-                  <p className="font-medium text-slate-900 mb-1">Delete Company Account</p>
-                  <p className="text-sm text-slate-600 mb-4">
+                <div className="border border-danger/30 rounded-lg p-5 bg-danger-tint">
+                  <p className="font-medium text-ink mb-1">Delete Company Account</p>
+                  <p className="text-sm text-muted-fg mb-4">
                     This will permanently delete your company account, all projects, and all associated
                     data. This action cannot be undone.
                   </p>
@@ -1351,7 +1352,7 @@ export default function SettingsPage() {
                   {dangerStep === 'idle' && (
                     <Button
                       variant="outline"
-                      className="border-red-400 text-red-600 hover:bg-red-100"
+                      className="border-red-400 text-danger hover:bg-danger-tint"
                       onClick={() => setDangerStep('confirm')}
                     >
                       Delete Company Account
@@ -1360,7 +1361,7 @@ export default function SettingsPage() {
 
                   {(dangerStep === 'confirm' || dangerStep === 'deleting') && (
                     <div className="space-y-3 max-w-sm">
-                      <p className="text-sm font-medium text-slate-700">
+                      <p className="text-sm font-medium text-ink-soft">
                         Type <strong>{companyName || 'your company name'}</strong> to confirm:
                       </p>
                       <Input
@@ -1397,7 +1398,7 @@ export default function SettingsPage() {
                               setDangerMsg({ ok: false, text: 'Network error.' })
                             }
                           }}
-                          className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-red-700 transition-colors"
+                          className="px-4 py-2 rounded-lg bg-danger-solid text-white text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-red-700 transition-colors"
                         >
                           {dangerStep === 'deleting' ? 'Deleting…' : 'Confirm Delete'}
                         </button>
@@ -1409,7 +1410,7 @@ export default function SettingsPage() {
                         </Button>
                       </div>
                       {dangerMsg && (
-                        <p className={`text-sm ${dangerMsg.ok ? 'text-green-600' : 'text-red-600'}`}>
+                        <p className={`text-sm ${dangerMsg.ok ? 'text-success' : 'text-danger'}`}>
                           {dangerMsg.text}
                         </p>
                       )}
@@ -1417,7 +1418,7 @@ export default function SettingsPage() {
                   )}
 
                   {dangerStep === 'done' && (
-                    <p className="text-sm text-green-700 font-medium">
+                    <p className="text-sm text-success font-medium">
                       Account deleted. Signing you out…
                     </p>
                   )}

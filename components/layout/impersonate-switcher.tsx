@@ -134,42 +134,42 @@ export function ImpersonateSwitcher() {
       <button
         onClick={() => setOpen(true)}
         title="Log in as another account"
-        className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+        className="flex items-center gap-1.5 rounded-lg border border-line bg-panel px-2 py-1 text-xs font-medium text-muted-fg hover:bg-surface"
       >
-        <UserCog className="h-3.5 w-3.5 text-slate-400" />
+        <UserCog className="h-3.5 w-3.5 text-faint" />
         <span className="hidden sm:inline">Log in as</span>
       </button>
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 pt-24" onClick={() => setOpen(false)}>
-          <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-              <h2 className="text-sm font-semibold text-slate-800">Log in as another account</h2>
-              <button onClick={() => setOpen(false)} className="text-slate-400 hover:text-slate-600">
+          <div className="w-full max-w-lg rounded-xl bg-panel shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-line-soft px-4 py-3">
+              <h2 className="text-sm font-semibold text-ink-soft">Log in as another account</h2>
+              <button onClick={() => setOpen(false)} className="text-faint hover:text-muted-fg">
                 <X className="h-4 w-4" />
               </button>
             </div>
             <div className="p-4">
               <div className="relative">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-faint" />
                 <input
                   autoFocus
                   value={q}
                   onChange={e => setQ(e.target.value)}
                   placeholder="Search by name or email…"
-                  className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm focus:border-slate-400 focus:outline-none"
+                  className="w-full rounded-lg border border-line py-2 pl-9 pr-3 text-sm focus:border-accent focus:outline-none"
                 />
               </div>
               <div className="mt-3 max-h-80 overflow-y-auto">
-                {loading && <p className="py-6 text-center text-sm text-slate-400">Searching…</p>}
+                {loading && <p className="py-6 text-center text-sm text-faint">Searching…</p>}
                 {!loading && users.length === 0 && (
-                  <p className="py-6 text-center text-sm text-slate-400">No accounts found.</p>
+                  <p className="py-6 text-center text-sm text-faint">No accounts found.</p>
                 )}
                 {!loading && users.map(u => (
-                  <div key={u.id} className="flex items-center justify-between gap-3 rounded-lg px-2 py-2 hover:bg-slate-50">
+                  <div key={u.id} className="flex items-center justify-between gap-3 rounded-lg px-2 py-2 hover:bg-surface">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-slate-800">{u.full_name || u.email}</p>
-                      <p className="truncate text-xs text-slate-500">
+                      <p className="truncate text-sm font-medium text-ink-soft">{u.full_name || u.email}</p>
+                      <p className="truncate text-xs text-muted-fg">
                         {u.email}{u.company_name ? ` · ${u.company_name}` : ''}{u.role ? ` · ${u.role}` : ''}
                       </p>
                     </div>
@@ -223,7 +223,7 @@ export function ImpersonationBanner() {
       </span>
       <button
         onClick={() => exitImpersonation()}
-        className="inline-flex items-center gap-1 rounded-md bg-white/20 px-2 py-0.5 text-xs font-semibold hover:bg-white/30 transition-colors"
+        className="inline-flex items-center gap-1 rounded-md bg-panel/20 px-2 py-0.5 text-xs font-semibold hover:bg-panel/30 transition-colors"
       >
         <LogOut className="h-3 w-3" /> Exit & return to my account
       </button>

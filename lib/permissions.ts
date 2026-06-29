@@ -34,12 +34,15 @@ export const RESOURCES: ResourceDef[] = [
   { key: 'tasks',          label: 'Tasks',          group: 'Field', slug: 'tasks' },
   { key: 'progress',       label: 'Progress',       group: 'Field', slug: 'progress' },
   { key: 'daily-logs',     label: 'Daily Logs',     group: 'Field', slug: 'daily-logs' },
+  { key: 'time',           label: 'Time Clock',     group: 'Field', slug: 'time' },
   // People
   { key: 'team',           label: 'Team',           group: 'People', slug: 'team' },
   { key: 'bids',           label: 'Bids',           group: 'People', slug: 'bids' },
   { key: 'rfis',           label: 'RFIs',           group: 'People', slug: 'rfis' },
   // Money
   { key: 'invoices',       label: 'Invoices',       group: 'Money', slug: 'invoices' },
+  { key: 'budget',         label: 'Budget',         group: 'Money', slug: 'budget' },
+  { key: 'quotes',         label: 'Compare Quotes', group: 'Money', slug: 'quotes' },
   { key: 'financials',     label: 'Financials',     group: 'Money', slug: 'financials' },
   { key: 'change-orders',  label: 'Change Orders',  group: 'Money', slug: 'change-orders' },
   // Compliance
@@ -85,45 +88,45 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
   manager: buildAllFull(), // alias of admin-level operational access
 
   project_manager: {
-    plans: FULL, schedule: FULL, tasks: FULL, progress: FULL, 'daily-logs': FULL,
+    plans: FULL, schedule: FULL, tasks: FULL, progress: FULL, 'daily-logs': FULL, time: FULL,
     team: VE, bids: FULL, rfis: FULL,
-    invoices: VE, financials: N, 'change-orders': FULL,
+    invoices: VE, budget: FULL, quotes: FULL, financials: N, 'change-orders': FULL,
     permits: FULL, inspections: FULL, submittals: FULL, compliance: V, reports: N,
     dashboard: V, projects: VCE, customers: VE, directory: V, files: FULL, approvals: VE,
     settings_company: N, settings_team: N, settings_billing: N,
   },
 
   office_staff: {
-    plans: V, schedule: V, tasks: V, progress: V, 'daily-logs': V,
+    plans: V, schedule: V, tasks: V, progress: V, 'daily-logs': V, time: VC,
     team: V, bids: V, rfis: V,
-    invoices: FULL, financials: V, 'change-orders': FULL,
+    invoices: FULL, budget: FULL, quotes: FULL, financials: V, 'change-orders': FULL,
     permits: VE, inspections: VE, submittals: VE, compliance: FULL, reports: V,
     dashboard: V, projects: V, customers: VE, directory: V, files: FULL, approvals: VE,
     settings_company: N, settings_team: N, settings_billing: N,
   },
 
   field_supervisor: {
-    plans: V, schedule: V, tasks: VE, progress: VE, 'daily-logs': VCE,
+    plans: V, schedule: V, tasks: VE, progress: VE, 'daily-logs': VCE, time: VCE,
     team: V, bids: N, rfis: V,
-    invoices: N, financials: N, 'change-orders': N,
+    invoices: N, budget: N, quotes: N, financials: N, 'change-orders': N,
     permits: N, inspections: N, submittals: N, compliance: N, reports: N,
     dashboard: V, projects: V, customers: N, directory: V, files: V, approvals: V,
     settings_company: N, settings_team: N, settings_billing: N,
   },
 
   worker: {
-    plans: V, schedule: N, tasks: VE, progress: V, 'daily-logs': VC,
+    plans: V, schedule: N, tasks: VE, progress: V, 'daily-logs': VC, time: VC,
     team: N, bids: N, rfis: N,
-    invoices: N, financials: N, 'change-orders': N,
+    invoices: N, budget: N, quotes: N, financials: N, 'change-orders': N,
     permits: N, inspections: N, submittals: N, compliance: N, reports: N,
     dashboard: V, projects: V, customers: N, directory: N, files: V, approvals: V,
     settings_company: N, settings_team: N, settings_billing: N,
   },
 
   read_only: {
-    plans: V, schedule: V, tasks: V, progress: V, 'daily-logs': V,
+    plans: V, schedule: V, tasks: V, progress: V, 'daily-logs': V, time: VC,
     team: V, bids: N, rfis: V,
-    invoices: N, financials: N, 'change-orders': N,
+    invoices: N, budget: N, quotes: N, financials: N, 'change-orders': N,
     permits: N, inspections: N, submittals: N, compliance: N, reports: N,
     dashboard: V, projects: V, customers: N, directory: V, files: V, approvals: V,
     settings_company: N, settings_team: N, settings_billing: N,

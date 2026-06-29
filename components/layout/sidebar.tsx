@@ -4,11 +4,13 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, FolderKanban, Building2, CheckSquare,
-  Settings, LogOut, HardHat, ClipboardList, Briefcase, FolderOpen, X, UsersRound,
+  Settings, LogOut, ClipboardList, Briefcase, FolderOpen, X, UsersRound,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { usePermissions } from '@/lib/use-permissions'
+import { SyteNavLogo } from '@/components/ui/logo'
+import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { useEffect, useState } from 'react'
 
 // GC nav items mapped to permission resource keys. Settings has no resource —
@@ -27,6 +29,7 @@ const SUB_NAV = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { label: 'My Jobs', href: '/my-jobs', icon: Briefcase },
   { label: 'My Bids', href: '/my-bids', icon: ClipboardList },
+  { label: 'Projects', href: '/projects', icon: FolderKanban },
   { label: 'Directory', href: '/directory', icon: Building2 },
   { label: 'Files', href: '/files', icon: FolderOpen },
   { label: 'Approvals', href: '/approvals', icon: CheckSquare },
@@ -83,19 +86,11 @@ export function Sidebar() {
   const navContent = (
     <>
       {/* Logo */}
-      <div className="flex h-16 items-center justify-between gap-2 px-5 border-b border-slate-800 shrink-0">
-        <div className="flex items-center gap-2">
-          <div className="flex items-center justify-center w-8 h-8 rounded-md bg-orange-500">
-            <HardHat className="h-5 w-5 text-white" />
-          </div>
-          <div className="flex items-baseline gap-0.5">
-            <span className="text-lg font-bold text-orange-400 leading-none">WorkOS</span>
-            <span className="text-lg font-medium text-white leading-none">Navigator</span>
-          </div>
-        </div>
+      <div className="flex h-16 items-center justify-between gap-2 px-5 border-b border-line shrink-0">
+        <SyteNavLogo size={26} />
         {/* Close button — mobile only */}
         <button
-          className="sm:hidden text-slate-400 hover:text-white p-1"
+          className="sm:hidden text-faint hover:text-ink p-1"
           onClick={() => setMobileOpen(false)}
         >
           <X className="h-5 w-5" />
@@ -113,7 +108,7 @@ export function Sidebar() {
             <Link key={item.href} href={item.href}
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                isActive ? 'bg-orange-500 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                isActive ? 'bg-accent text-accent-ink' : 'text-muted-fg hover:bg-muted hover:text-ink'
               )}>
               <Icon className="h-4 w-4 shrink-0" />
               {item.label}
@@ -123,9 +118,13 @@ export function Sidebar() {
       </nav>
 
       {/* Bottom */}
-      <div className="border-t border-slate-800 p-3 shrink-0">
+      <div className="border-t border-line p-3 shrink-0 space-y-1">
+        <div className="flex items-center justify-between rounded-lg px-3 py-1.5 text-sm font-medium text-muted-fg">
+          <span>Appearance</span>
+          <ThemeToggle />
+        </div>
         <button onClick={handleLogout}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-white transition-colors">
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-fg hover:bg-muted hover:text-ink transition-colors">
           <LogOut className="h-4 w-4 shrink-0" />
           Sign Out
         </button>
@@ -136,7 +135,7 @@ export function Sidebar() {
   return (
     <>
       {/* Desktop sidebar — hidden on mobile */}
-      <aside className="hidden sm:flex fixed inset-y-0 left-0 z-30 w-60 flex-col bg-slate-900 text-white">
+      <aside className="hidden sm:flex fixed inset-y-0 left-0 z-30 w-60 flex-col bg-panel text-ink border-r border-line">
         {navContent}
       </aside>
 
@@ -150,7 +149,7 @@ export function Sidebar() {
 
       {/* Mobile drawer */}
       <aside className={cn(
-        'sm:hidden fixed inset-y-0 left-0 z-50 w-72 flex flex-col bg-slate-900 text-white transition-transform duration-300 ease-in-out',
+        'sm:hidden fixed inset-y-0 left-0 z-50 w-72 flex flex-col bg-panel text-ink border-r border-line transition-transform duration-300 ease-in-out',
         mobileOpen ? 'translate-x-0' : '-translate-x-full'
       )}>
         {navContent}

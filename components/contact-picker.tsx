@@ -121,7 +121,7 @@ export function ContactPicker({
           type="text"
           value={query}
           placeholder={placeholder}
-          className="w-full rounded-md border border-slate-300 px-3 py-2 pr-8 text-sm focus:border-orange-500 focus:outline-none bg-white"
+          className="w-full rounded-md border border-muted2 px-3 py-2 pr-8 text-sm focus:border-accent focus:outline-none bg-panel"
           onChange={e => {
             setQuery(e.target.value)
             onChange(e.target.value)
@@ -129,13 +129,13 @@ export function ContactPicker({
           }}
           onFocus={() => setOpen(true)}
         />
-        <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+        <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-faint" />
       </div>
 
       {open && (
-        <div className="absolute z-50 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg max-h-56 overflow-y-auto">
+        <div className="absolute z-50 mt-1 w-full rounded-lg border border-line bg-panel shadow-lg max-h-56 overflow-y-auto">
           {filtered.length === 0 && !showQuickAdd && (
-            <p className="px-3 py-2 text-xs text-slate-400">
+            <p className="px-3 py-2 text-xs text-faint">
               {query.length > 0 ? `No matches for "${query}"` : 'Start typing to search…'}
             </p>
           )}
@@ -143,65 +143,65 @@ export function ContactPicker({
             <button
               key={c.id}
               type="button"
-              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-orange-50 text-left text-sm transition-colors"
+              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-accent-tint text-left text-sm transition-colors"
               onClick={() => select(c)}
             >
-              <Check className={cn('h-3.5 w-3.5 shrink-0', query === c.name ? 'text-orange-500' : 'text-transparent')} />
+              <Check className={cn('h-3.5 w-3.5 shrink-0', query === c.name ? 'text-accent-fg' : 'text-transparent')} />
               <div className="flex-1 min-w-0">
-                <span className="font-medium text-slate-800">{c.name}</span>
-                {c.trade && <span className="ml-1.5 text-xs text-slate-400">{c.trade}</span>}
+                <span className="font-medium text-ink-soft">{c.name}</span>
+                {c.trade && <span className="ml-1.5 text-xs text-faint">{c.trade}</span>}
               </div>
-              {c.phone && <span className="text-xs text-slate-400 shrink-0">{c.phone}</span>}
+              {c.phone && <span className="text-xs text-faint shrink-0">{c.phone}</span>}
             </button>
           ))}
 
           {!showQuickAdd ? (
             <button
               type="button"
-              className="w-full flex items-center gap-2 px-3 py-2.5 border-t border-slate-100 hover:bg-slate-50 text-sm text-orange-600 font-medium transition-colors"
+              className="w-full flex items-center gap-2 px-3 py-2.5 border-t border-line-soft hover:bg-surface text-sm text-accent-fg font-medium transition-colors"
               onClick={() => { setShowQuickAdd(true); setQuickName(query) }}
             >
               <UserPlus className="h-3.5 w-3.5" />
               Quick add{query ? ` "${query}"` : ''}…
             </button>
           ) : (
-            <div className="border-t border-slate-100 px-3 py-3 space-y-2">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Quick Add</p>
+            <div className="border-t border-line-soft px-3 py-3 space-y-2">
+              <p className="text-xs font-semibold text-muted-fg uppercase tracking-wide">Quick Add</p>
               <input
                 autoFocus
                 type="text"
                 placeholder="Full name *"
                 value={quickName}
                 onChange={e => setQuickName(e.target.value)}
-                className="w-full rounded border border-slate-200 px-2 py-1.5 text-sm focus:border-orange-400 focus:outline-none"
+                className="w-full rounded border border-line px-2 py-1.5 text-sm focus:border-accent focus:outline-none"
               />
               <input
                 type="tel"
                 placeholder="Phone (optional)"
                 value={quickPhone}
                 onChange={e => setQuickPhone(e.target.value)}
-                className="w-full rounded border border-slate-200 px-2 py-1.5 text-sm focus:border-orange-400 focus:outline-none"
+                className="w-full rounded border border-line px-2 py-1.5 text-sm focus:border-accent focus:outline-none"
               />
               <input
                 type="email"
                 placeholder="Email (optional)"
                 value={quickEmail}
                 onChange={e => setQuickEmail(e.target.value)}
-                className="w-full rounded border border-slate-200 px-2 py-1.5 text-sm focus:border-orange-400 focus:outline-none"
+                className="w-full rounded border border-line px-2 py-1.5 text-sm focus:border-accent focus:outline-none"
               />
               <div className="flex gap-2 pt-1">
                 <button
                   type="button"
                   onClick={handleQuickAdd}
                   disabled={saving || !quickName.trim()}
-                  className="flex-1 rounded bg-orange-500 text-white text-xs font-semibold py-1.5 hover:bg-orange-600 disabled:opacity-50 transition-colors"
+                  className="flex-1 rounded bg-accent text-accent-ink text-xs font-semibold py-1.5 hover:bg-accent disabled:opacity-50 transition-colors"
                 >
                   {saving ? 'Saving…' : 'Add & Select'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowQuickAdd(false)}
-                  className="rounded border border-slate-200 text-xs text-slate-600 px-3 py-1.5 hover:bg-slate-50"
+                  className="rounded border border-line text-xs text-muted-fg px-3 py-1.5 hover:bg-surface"
                 >
                   Cancel
                 </button>

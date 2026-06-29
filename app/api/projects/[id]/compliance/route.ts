@@ -68,23 +68,32 @@ export async function POST(
     return NextResponse.json({ error: 'company_id and type are required' }, { status: 400 })
   }
 
-  // Upsert on company_id + type (+ project_id)
-  const { data: doc, error } = await db
+  const row: Record<string, unknown> = {
+    company_id,
+    project_id: params.id,
+    type,
+    status: status ?? 'pending',
+    expiry_date: expiry_date ?? null,
+    notes: notes ?? null,
+    file_url: file_url ?? null,
+  }
+
+  let { data: doc, error } = await db
     .from('compliance_documents')
-    .upsert(
-      {
-        company_id,
-        project_id: params.id,
-        type,
-        status: status ?? 'pending',
-        expiry_date: expiry_date ?? null,
-        notes: notes ?? null,
-        file_url: file_url ?? null,
-      },
-      { onConflict: 'company_id,type,project_id' },
-    )
+    .upsert(row, { onConflict: 'company_id,type,project_id' })
     .select()
     .single()
+
+  // Retry without notes if migration hasn't run yet
+  if (error && (error as any).code === '42703') {
+    delete row.notes
+    const retry = await db
+      .from('compliance_documents')
+      .upsert(row, { onConflict: 'company_id,type,project_id' })
+      .select()
+      .single()
+    doc = retry.data; error = retry.error
+  }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ doc }, { status: 201 })

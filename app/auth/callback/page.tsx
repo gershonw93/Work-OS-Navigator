@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { HardHat } from 'lucide-react'
 
 export default function AuthCallbackPage() {
   const router = useRouter()
@@ -75,29 +74,31 @@ export default function AuthCallbackPage() {
   }, [router])
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-900 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-[#0F1113] px-4">
       <div className="text-center space-y-4">
-        <div className="flex items-center justify-center gap-2 mb-6">
-          <div className="flex items-center justify-center w-10 h-10 rounded-md bg-orange-500">
-            <HardHat className="h-6 w-6 text-white" />
-          </div>
-          <span className="text-2xl font-bold text-orange-400">WorkOS</span>
-          <span className="text-2xl font-medium text-white">Navigator</span>
+        <div className="flex items-center justify-center gap-2.5 mb-6">
+          <svg width="40" height="40" viewBox="0 0 48 48" aria-hidden>
+            <rect width="48" height="48" rx="12" fill="#1F2227" />
+            <path d="M14 13 L37 22 L26 26 L22 37 Z" fill="#C9F24A" />
+          </svg>
+          <span className="font-display font-bold uppercase tracking-tight text-3xl text-[#ECEEF0]">
+            SYTE<span className="text-[#C9F24A]">NAV</span>
+          </span>
         </div>
 
         {error ? (
           <div className="bg-red-900/40 border border-red-700 rounded-lg px-6 py-4 max-w-sm">
-            <p className="text-red-400 text-sm">{error}</p>
-            <a href="/login" className="mt-3 inline-block text-sm text-orange-400 hover:text-orange-300 underline">
+            <p className="text-danger text-sm">{error}</p>
+            <a href="/login" className="mt-3 inline-block text-sm text-accent-fg hover:text-accent underline">
               Back to login
             </a>
           </div>
         ) : (
           <div className="space-y-3">
             <div className="flex items-center justify-center">
-              <div className="h-8 w-8 rounded-full border-2 border-orange-500 border-t-transparent animate-spin" />
+              <div className="h-8 w-8 rounded-full border-2 border-accent border-t-transparent animate-spin" />
             </div>
-            <p className="text-slate-300 text-sm">{message}</p>
+            <p className="text-faint text-sm">{message}</p>
           </div>
         )}
       </div>

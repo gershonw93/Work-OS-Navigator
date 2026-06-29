@@ -60,6 +60,7 @@ export async function POST(request: Request) {
     start_date: start_date || null,
     description: description || null,
     status: 'active',
+    gc_company_id: profile.company_id,
     created_by_company_id: profile.company_id,
   }).select().single()
 

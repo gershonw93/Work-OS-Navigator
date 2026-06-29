@@ -30,10 +30,10 @@ function relativeTime(dateStr: string): string {
 
 function TypeIcon({ type }: { type: string }) {
   const cls = 'h-4 w-4 shrink-0'
-  if (type === 'rfi') return <FileText className={cn(cls, 'text-blue-500')} />
-  if (type === 'bid' || type === 'new_bid') return <HardHat className={cn(cls, 'text-orange-500')} />
-  if (type.startsWith('invoice')) return <DollarSign className={cn(cls, 'text-green-500')} />
-  return <Info className={cn(cls, 'text-slate-400')} />
+  if (type === 'rfi') return <FileText className={cn(cls, 'text-info')} />
+  if (type === 'bid' || type === 'new_bid') return <HardHat className={cn(cls, 'text-accent-fg')} />
+  if (type.startsWith('invoice')) return <DollarSign className={cn(cls, 'text-success')} />
+  return <Info className={cn(cls, 'text-faint')} />
 }
 
 export function NotificationBell() {
@@ -109,26 +109,26 @@ export function NotificationBell() {
           setOpen(o => !o)
           if (!open) fetchNotifications()
         }}
-        className="relative p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+        className="relative p-2 rounded-lg text-muted-fg hover:bg-muted hover:text-ink-soft transition-colors"
         aria-label="Notifications"
       >
         <Bell className="h-5 w-5" />
         {unread > 0 && (
-          <span className="absolute top-1 right-1 h-4 w-4 rounded-full bg-orange-500 text-white text-[10px] font-bold flex items-center justify-center leading-none">
+          <span className="absolute top-1 right-1 h-4 w-4 rounded-full bg-accent text-accent-ink text-[10px] font-bold flex items-center justify-center leading-none">
             {unread > 9 ? '9+' : unread}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white rounded-xl shadow-xl border border-slate-200 z-50 overflow-hidden">
+        <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-panel rounded-xl shadow-xl border border-line z-50 overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
-            <h3 className="font-semibold text-slate-900">Notifications</h3>
+          <div className="flex items-center justify-between px-4 py-3 border-b border-line-soft">
+            <h3 className="font-semibold text-ink">Notifications</h3>
             {unread > 0 && (
               <button
                 onClick={markAllRead}
-                className="flex items-center gap-1 text-xs text-orange-600 hover:text-orange-700 font-medium transition-colors"
+                className="flex items-center gap-1 text-xs text-accent-fg hover:text-accent-fg font-medium transition-colors"
               >
                 <CheckCheck className="h-3.5 w-3.5" />
                 Mark all read
@@ -139,7 +139,7 @@ export function NotificationBell() {
           {/* List */}
           <div className="max-h-96 overflow-y-auto">
             {notifications.length === 0 ? (
-              <div className="px-4 py-10 text-center text-sm text-slate-400">
+              <div className="px-4 py-10 text-center text-sm text-faint">
                 All caught up
               </div>
             ) : (
@@ -148,26 +148,26 @@ export function NotificationBell() {
                   key={n.id}
                   onClick={() => handleItemClick(n)}
                   className={cn(
-                    'w-full text-left flex gap-3 px-4 py-3 border-b border-slate-50 last:border-0 hover:bg-slate-50 transition-colors',
-                    !n.read && 'bg-orange-50',
+                    'w-full text-left flex gap-3 px-4 py-3 border-b border-slate-50 last:border-0 hover:bg-surface transition-colors',
+                    !n.read && 'bg-accent-tint',
                   )}
                 >
                   <div className="mt-0.5">
                     <TypeIcon type={n.type} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className={cn('text-sm leading-snug', !n.read ? 'font-semibold text-slate-900' : 'font-medium text-slate-700')}>
+                    <p className={cn('text-sm leading-snug', !n.read ? 'font-semibold text-ink' : 'font-medium text-ink-soft')}>
                       {n.title}
                     </p>
                     {n.message && (
-                      <p className="text-sm text-slate-500 mt-0.5 leading-snug line-clamp-2">
+                      <p className="text-sm text-muted-fg mt-0.5 leading-snug line-clamp-2">
                         {n.message}
                       </p>
                     )}
-                    <p className="text-xs text-slate-400 mt-1">{relativeTime(n.created_at)}</p>
+                    <p className="text-xs text-faint mt-1">{relativeTime(n.created_at)}</p>
                   </div>
                   {!n.read && (
-                    <span className="mt-1.5 h-2 w-2 rounded-full bg-orange-500 shrink-0" />
+                    <span className="mt-1.5 h-2 w-2 rounded-full bg-accent shrink-0" />
                   )}
                 </button>
               ))

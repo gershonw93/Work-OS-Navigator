@@ -72,7 +72,7 @@ export function TeamQuickView({ projectId }: { projectId: string }) {
     <div className="relative" ref={wrapperRef}>
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1 hover:border-orange-300 hover:bg-orange-50 transition-colors"
+        className="flex items-center gap-2 rounded-full border border-line bg-panel px-2 py-1 hover:border-accent hover:bg-accent-tint transition-colors"
       >
         <div className="flex -space-x-2">
           {preview.map((a) => (
@@ -80,7 +80,7 @@ export function TeamQuickView({ projectId }: { projectId: string }) {
               key={a.key}
               className={cn(
                 'flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-semibold ring-2 ring-white',
-                a.type === 'member' ? 'bg-orange-100 text-orange-700' : 'bg-slate-200 text-slate-600',
+                a.type === 'member' ? 'bg-accent-tint text-accent-fg' : 'bg-muted2 text-muted-fg',
               )}
               title={a.label}
             >
@@ -88,12 +88,12 @@ export function TeamQuickView({ projectId }: { projectId: string }) {
             </span>
           ))}
           {extra > 0 && (
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-[10px] font-semibold text-slate-500 ring-2 ring-white">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-[10px] font-semibold text-muted-fg ring-2 ring-white">
               +{extra}
             </span>
           )}
         </div>
-        <span className="hidden sm:flex items-center gap-1 text-sm font-medium text-slate-600">
+        <span className="hidden sm:flex items-center gap-1 text-sm font-medium text-muted-fg">
           <Users className="h-4 w-4" />
           Team
           <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', open && 'rotate-180')} />
@@ -101,36 +101,36 @@ export function TeamQuickView({ projectId }: { projectId: string }) {
       </button>
 
       {open && (
-        <div className="absolute right-0 z-50 mt-2 w-80 max-h-[70vh] overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl">
+        <div className="absolute right-0 z-50 mt-2 w-80 max-h-[70vh] overflow-y-auto rounded-xl border border-line bg-panel shadow-xl">
           {members.length > 0 && (
             <div className="p-3">
-              <p className="px-1 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-400 flex items-center gap-1.5">
+              <p className="px-1 pb-2 text-xs font-semibold uppercase tracking-wide text-faint flex items-center gap-1.5">
                 <HardHat className="h-3.5 w-3.5" /> My Team
               </p>
               <ul className="space-y-1">
                 {members.map((m) => (
-                  <li key={m.id} className="rounded-lg px-2 py-2 hover:bg-slate-50">
+                  <li key={m.id} className="rounded-lg px-2 py-2 hover:bg-surface">
                     <div className="flex items-center gap-2">
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-100 text-xs font-semibold text-orange-700">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-tint text-xs font-semibold text-accent-fg">
                         {initials(m.name)}
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-slate-900">{m.name}</p>
-                        {m.role && <p className="truncate text-xs text-slate-500">{m.role}</p>}
+                        <p className="truncate text-sm font-medium text-ink">{m.name}</p>
+                        {m.role && <p className="truncate text-xs text-muted-fg">{m.role}</p>}
                       </div>
                     </div>
                     <div className="mt-1.5 flex flex-wrap gap-2 pl-10">
                       {m.phone && (
-                        <a href={`tel:${m.phone}`} className="inline-flex items-center gap-1 rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-100">
+                        <a href={`tel:${m.phone}`} className="inline-flex items-center gap-1 rounded-md bg-success-tint px-2 py-1 text-xs font-medium text-success hover:bg-success-tint">
                           <Phone className="h-3 w-3" /> {m.phone}
                         </a>
                       )}
                       {m.email && (
-                        <a href={`mailto:${m.email}`} className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100">
+                        <a href={`mailto:${m.email}`} className="inline-flex items-center gap-1 rounded-md bg-info-tint px-2 py-1 text-xs font-medium text-info hover:bg-info-tint">
                           <Mail className="h-3 w-3" /> Email
                         </a>
                       )}
-                      {!m.phone && !m.email && <span className="text-xs text-slate-400">No contact info</span>}
+                      {!m.phone && !m.email && <span className="text-xs text-faint">No contact info</span>}
                     </div>
                   </li>
                 ))}
@@ -139,8 +139,8 @@ export function TeamQuickView({ projectId }: { projectId: string }) {
           )}
 
           {subs.length > 0 && (
-            <div className="border-t border-slate-100 p-3">
-              <p className="px-1 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-400 flex items-center gap-1.5">
+            <div className="border-t border-line-soft p-3">
+              <p className="px-1 pb-2 text-xs font-semibold uppercase tracking-wide text-faint flex items-center gap-1.5">
                 <Building2 className="h-3.5 w-3.5" /> Subcontractors
               </p>
               <ul className="space-y-1">
@@ -149,28 +149,28 @@ export function TeamQuickView({ projectId }: { projectId: string }) {
                   const phone = s.companies?.phone
                   const email = s.companies?.contact_email
                   return (
-                    <li key={s.id} className="rounded-lg px-2 py-2 hover:bg-slate-50">
+                    <li key={s.id} className="rounded-lg px-2 py-2 hover:bg-surface">
                       <div className="flex items-center gap-2">
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-600">
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted2 text-xs font-semibold text-muted-fg">
                           {initials(name)}
                         </span>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-slate-900">{name}</p>
-                          <p className="truncate text-xs text-slate-500">{s.trade ?? s.scope}</p>
+                          <p className="truncate text-sm font-medium text-ink">{name}</p>
+                          <p className="truncate text-xs text-muted-fg">{s.trade ?? s.scope}</p>
                         </div>
                       </div>
                       <div className="mt-1.5 flex flex-wrap gap-2 pl-10">
                         {phone && (
-                          <a href={`tel:${phone}`} className="inline-flex items-center gap-1 rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-100">
+                          <a href={`tel:${phone}`} className="inline-flex items-center gap-1 rounded-md bg-success-tint px-2 py-1 text-xs font-medium text-success hover:bg-success-tint">
                             <Phone className="h-3 w-3" /> {phone}
                           </a>
                         )}
                         {email && !email.includes('placeholder.com') && (
-                          <a href={`mailto:${email}`} className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100">
+                          <a href={`mailto:${email}`} className="inline-flex items-center gap-1 rounded-md bg-info-tint px-2 py-1 text-xs font-medium text-info hover:bg-info-tint">
                             <Mail className="h-3 w-3" /> Email
                           </a>
                         )}
-                        {!phone && (!email || email.includes('placeholder.com')) && <span className="text-xs text-slate-400">No contact info</span>}
+                        {!phone && (!email || email.includes('placeholder.com')) && <span className="text-xs text-faint">No contact info</span>}
                       </div>
                     </li>
                   )

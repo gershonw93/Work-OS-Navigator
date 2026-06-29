@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Building2, Plus, X, Search, Phone, Mail, MapPin, Globe, BadgeCheck, Send } from 'lucide-react'
+import { Building2, Plus, X, Search, Phone, Mail, MapPin, Globe, BadgeCheck, Send, ExternalLink, Pencil, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -43,12 +43,12 @@ const TYPE_LABELS: Record<ContactType, string> = {
 }
 
 const TYPE_BADGE_CLASSES: Record<ContactType, string> = {
-  gc: 'bg-blue-100 text-blue-800',
-  subcontractor: 'bg-orange-100 text-orange-800',
-  inspector: 'bg-purple-100 text-purple-800',
-  supplier: 'bg-green-100 text-green-800',
-  worker: 'bg-slate-100 text-slate-600',
-  other: 'bg-slate-100 text-slate-600',
+  gc: 'bg-info-tint text-info',
+  subcontractor: 'bg-accent-tint text-accent-fg',
+  inspector: 'bg-special-tint text-special',
+  supplier: 'bg-success-tint text-success',
+  worker: 'bg-muted text-muted-fg',
+  other: 'bg-muted text-muted-fg',
 }
 
 const TABS: { key: 'all' | ContactType; label: string }[] = [
@@ -97,6 +97,19 @@ export default function DirectoryPage() {
   const [showAdd, setShowAdd] = useState(false)
   const [addLoading, setAddLoading] = useState(false)
   const [addError, setAddError] = useState<string | null>(null)
+
+  // Profile drawer state
+  const [profileCompanyId, setProfileCompanyId] = useState<string | null>(null)
+  const [profileData, setProfileData] = useState<any>(null)
+  const [profileLoading, setProfileLoading] = useState(false)
+  const [profileTab, setProfileTab] = useState<'overview' | 'documents' | 'payments' | 'projects'>('overview')
+  const [editingCompany, setEditingCompany] = useState<Company | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editEmail, setEditEmail] = useState('')
+  const [editPhone, setEditPhone] = useState('')
+  const [editAddress, setEditAddress] = useState('')
+  const [editTrade, setEditTrade] = useState('')
+  const [editSaving, setEditSaving] = useState(false)
 
   // Invite state
   const [inviteCompany, setInviteCompany] = useState<Company | null>(null)
@@ -208,11 +221,63 @@ export default function DirectoryPage() {
     return (
       <span className={cn(
         'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-        TYPE_BADGE_CLASSES[type] ?? 'bg-slate-100 text-slate-600'
+        TYPE_BADGE_CLASSES[type] ?? 'bg-muted text-muted-fg'
       )}>
         {TYPE_LABELS[type] ?? type}
       </span>
     )
+  }
+
+  async function openProfile(companyId: string) {
+    setProfileCompanyId(companyId)
+    setProfileData(null)
+    setProfileLoading(true)
+    setProfileTab('overview')
+    const token = await getToken()
+    const res = await fetch(`/api/directory/${companyId}/profile`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (res.ok) setProfileData(await res.json())
+    setProfileLoading(false)
+  }
+
+  function openEditCompany(company: any) {
+    if (!company) return
+    setEditingCompany(company)
+    setEditName(company.name ?? '')
+    setEditEmail(company.contact_email ?? '')
+    setEditPhone(company.phone ?? '')
+    setEditAddress(company.address ?? '')
+    setEditTrade(company.trade ?? '')
+  }
+
+  async function saveEditCompany(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editingCompany) return
+    setEditSaving(true)
+    const token = await getToken()
+    const res = await fetch(`/api/directory/${editingCompany.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ name: editName, contact_email: editEmail, phone: editPhone, address: editAddress, trade: editTrade }),
+    })
+    setEditSaving(false)
+    if (!res.ok) { alert('Could not save changes.'); return }
+    setEditingCompany(null)
+    fetchData()
+    if (profileCompanyId) openProfile(profileCompanyId)
+  }
+
+  async function deleteCompany(company: any) {
+    if (!company) return
+    if (!confirm(`Delete ${company.name}? This cannot be undone.`)) return
+    const token = await getToken()
+    const res = await fetch(`/api/directory/${company.id}`, {
+      method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!res.ok) { alert('Could not delete.'); return }
+    setProfileCompanyId(null)
+    fetchData()
   }
 
   function openInvite(company: Company) {
@@ -261,10 +326,10 @@ export default function DirectoryPage() {
       {/* ── Add Contact Modal ── */}
       {showAdd && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-900">Add Contact</h2>
-              <button onClick={() => { setShowAdd(false); resetForm() }} className="text-slate-400 hover:text-slate-600">
+          <div className="bg-panel rounded-xl shadow-xl w-full max-w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-panel border-b border-line-soft px-6 py-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-ink">Add Contact</h2>
+              <button onClick={() => { setShowAdd(false); resetForm() }} className="text-faint hover:text-muted-fg">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -319,7 +384,7 @@ export default function DirectoryPage() {
 
                   {/* Phone */}
                   <div className="space-y-1.5">
-                    <Label htmlFor="form-phone">Phone <span className="text-slate-400 font-normal">(optional)</span></Label>
+                    <Label htmlFor="form-phone">Phone <span className="text-faint font-normal">(optional)</span></Label>
                     <Input
                       id="form-phone"
                       placeholder="(555) 000-0000"
@@ -330,7 +395,7 @@ export default function DirectoryPage() {
 
                   {/* Address */}
                   <div className="space-y-1.5">
-                    <Label htmlFor="form-address">Address <span className="text-slate-400 font-normal">(optional)</span></Label>
+                    <Label htmlFor="form-address">Address <span className="text-faint font-normal">(optional)</span></Label>
                     <Input
                       id="form-address"
                       placeholder="123 Main St, City, State"
@@ -343,7 +408,7 @@ export default function DirectoryPage() {
                   {isSubOrGC && (
                     <>
                       <div className="space-y-1.5">
-                        <Label htmlFor="form-trade">Trade <span className="text-slate-400 font-normal">(optional)</span></Label>
+                        <Label htmlFor="form-trade">Trade <span className="text-faint font-normal">(optional)</span></Label>
                         <Select
                           id="form-trade"
                           value={formTrade}
@@ -354,7 +419,7 @@ export default function DirectoryPage() {
                         </Select>
                       </div>
                       <div className="space-y-1.5">
-                        <Label htmlFor="form-license">License # <span className="text-slate-400 font-normal">(optional)</span></Label>
+                        <Label htmlFor="form-license">License # <span className="text-faint font-normal">(optional)</span></Label>
                         <Input
                           id="form-license"
                           placeholder="e.g. LIC-123456"
@@ -380,7 +445,7 @@ export default function DirectoryPage() {
                         </Select>
                       </div>
                       <div className="space-y-1.5">
-                        <Label htmlFor="form-jurisdiction">Jurisdiction <span className="text-slate-400 font-normal">(optional)</span></Label>
+                        <Label htmlFor="form-jurisdiction">Jurisdiction <span className="text-faint font-normal">(optional)</span></Label>
                         <Input
                           id="form-jurisdiction"
                           placeholder="e.g. City of Austin"
@@ -389,7 +454,7 @@ export default function DirectoryPage() {
                         />
                       </div>
                       <div className="space-y-1.5 sm:col-span-2">
-                        <Label htmlFor="form-cert">Certification # <span className="text-slate-400 font-normal">(optional)</span></Label>
+                        <Label htmlFor="form-cert">Certification # <span className="text-faint font-normal">(optional)</span></Label>
                         <Input
                           id="form-cert"
                           placeholder="e.g. CERT-78901"
@@ -398,14 +463,14 @@ export default function DirectoryPage() {
                         />
                       </div>
                       <div className="space-y-1.5 sm:col-span-2">
-                        <Label htmlFor="form-notes">Notes <span className="text-slate-400 font-normal">(optional)</span></Label>
+                        <Label htmlFor="form-notes">Notes <span className="text-faint font-normal">(optional)</span></Label>
                         <textarea
                           id="form-notes"
                           rows={3}
                           placeholder="Any additional notes about this inspector..."
                           value={formNotes}
                           onChange={e => setFormNotes(e.target.value)}
-                          className="flex w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 resize-none"
+                          className="flex w-full rounded-md border border-muted2 bg-panel px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent resize-none"
                         />
                       </div>
                     </>
@@ -415,7 +480,7 @@ export default function DirectoryPage() {
                   {isSupplier && (
                     <>
                       <div className="space-y-1.5">
-                        <Label htmlFor="form-category">Category <span className="text-slate-400 font-normal">(optional)</span></Label>
+                        <Label htmlFor="form-category">Category <span className="text-faint font-normal">(optional)</span></Label>
                         <Select
                           id="form-category"
                           value={formTrade}
@@ -426,7 +491,7 @@ export default function DirectoryPage() {
                         </Select>
                       </div>
                       <div className="space-y-1.5">
-                        <Label htmlFor="form-website">Website <span className="text-slate-400 font-normal">(optional)</span></Label>
+                        <Label htmlFor="form-website">Website <span className="text-faint font-normal">(optional)</span></Label>
                         <Input
                           id="form-website"
                           type="url"
@@ -439,10 +504,10 @@ export default function DirectoryPage() {
                   )}
                 </div>
 
-                {addError && <p className="text-sm text-red-600">{addError}</p>}
+                {addError && <p className="text-sm text-danger">{addError}</p>}
               </div>
 
-              <div className="sticky bottom-0 bg-white border-t border-slate-100 px-6 py-4 flex gap-2 justify-end">
+              <div className="sticky bottom-0 bg-panel border-t border-line-soft px-6 py-4 flex gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => { setShowAdd(false); resetForm() }}>
                   Cancel
                 </Button>
@@ -458,17 +523,17 @@ export default function DirectoryPage() {
       {/* ── Invite Modal ── */}
       {inviteCompany && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-              <h2 className="text-base font-semibold text-slate-900">Invite to Platform</h2>
-              <button onClick={() => setInviteCompany(null)} className="text-slate-400 hover:text-slate-600">
+          <div className="bg-panel rounded-xl shadow-xl w-full max-w-sm">
+            <div className="px-6 py-4 border-b border-line-soft flex items-center justify-between">
+              <h2 className="text-base font-semibold text-ink">Invite to Platform</h2>
+              <button onClick={() => setInviteCompany(null)} className="text-faint hover:text-muted-fg">
                 <X className="h-4 w-4" />
               </button>
             </div>
             <form onSubmit={handleInvite}>
               <div className="px-6 py-5 space-y-4">
-                <p className="text-sm text-slate-600">
-                  Send <span className="font-medium text-slate-900">{inviteCompany.name}</span> an invite so they can log in and view their jobs on Work OS Navigator.
+                <p className="text-sm text-muted-fg">
+                  Send <span className="font-medium text-ink">{inviteCompany.name}</span> an invite so they can log in and view their jobs on SyteNav.
                 </p>
                 <div className="space-y-1.5">
                   <Label htmlFor="invite-email">Email address</Label>
@@ -481,9 +546,9 @@ export default function DirectoryPage() {
                     autoFocus
                   />
                 </div>
-                {inviteError && <p className="text-sm text-red-600">{inviteError}</p>}
+                {inviteError && <p className="text-sm text-danger">{inviteError}</p>}
               </div>
-              <div className="px-6 py-4 border-t border-slate-100 flex gap-2 justify-end">
+              <div className="px-6 py-4 border-t border-line-soft flex gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => setInviteCompany(null)}>Cancel</Button>
                 <Button type="submit" disabled={inviteLoading}>
                   <Send className="h-3.5 w-3.5" />
@@ -498,8 +563,8 @@ export default function DirectoryPage() {
       {/* ── Header ── */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Contacts Directory</h1>
-          <p className="text-sm text-slate-500 mt-0.5">GCs, subs, inspectors, suppliers, and workers.</p>
+          <h1 className="text-2xl font-bold text-ink">Contacts Directory</h1>
+          <p className="text-sm text-muted-fg mt-0.5">GCs, subs, inspectors, suppliers, and workers.</p>
         </div>
         <Button onClick={() => setShowAdd(true)} className="self-start sm:self-auto">
           <Plus className="h-4 w-4" />
@@ -508,7 +573,7 @@ export default function DirectoryPage() {
       </div>
 
       {/* ── Tabs ── */}
-      <div className="flex gap-0 border-b border-slate-200 mb-5 overflow-x-auto">
+      <div className="flex gap-0 border-b border-line mb-5 overflow-x-auto">
         {TABS.map(tab => {
           const count = counts[tab.key] ?? 0
           const active = activeTab === tab.key
@@ -519,15 +584,15 @@ export default function DirectoryPage() {
               className={cn(
                 'shrink-0 whitespace-nowrap flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors',
                 active
-                  ? 'border-orange-500 text-orange-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                  ? 'border-accent text-accent-fg'
+                  : 'border-transparent text-muted-fg hover:text-ink-soft hover:border-muted2'
               )}
             >
               {tab.label}
               {count > 0 && (
                 <span className={cn(
                   'inline-flex items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-medium min-w-[1.25rem]',
-                  active ? 'bg-orange-100 text-orange-700' : 'bg-slate-100 text-slate-500'
+                  active ? 'bg-accent-tint text-accent-fg' : 'bg-muted text-muted-fg'
                 )}>
                   {count}
                 </span>
@@ -539,7 +604,7 @@ export default function DirectoryPage() {
 
       {/* ── Search ── */}
       <div className="relative mb-5 max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-faint" />
         <Input
           placeholder="Search by name, email, or phone..."
           value={search}
@@ -550,7 +615,7 @@ export default function DirectoryPage() {
 
       {/* ── Content ── */}
       {loading ? (
-        <div className="text-sm text-slate-400 py-12 text-center">Loading...</div>
+        <div className="text-sm text-faint py-12 text-center">Loading...</div>
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={Building2}
@@ -570,22 +635,23 @@ export default function DirectoryPage() {
             return (
               <div
                 key={company.id}
-                className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col gap-3 hover:border-slate-300 transition-colors"
+                onClick={() => openProfile(company.id)}
+                className="bg-panel rounded-xl border border-line p-4 flex flex-col gap-3 hover:border-muted2 hover:shadow-md transition-shadow cursor-pointer"
               >
                 {/* Card header */}
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
                     {company.has_account && (
-                      <span title="On Platform" className="shrink-0 h-2 w-2 rounded-full bg-green-500" />
+                      <span title="On Platform" className="shrink-0 h-2 w-2 rounded-full bg-success-solid" />
                     )}
-                    <span className="font-semibold text-slate-900 truncate">{company.name}</span>
+                    <span className="font-semibold text-ink truncate">{company.name}</span>
                   </div>
                   <TypeBadge type={type} />
                 </div>
 
                 {/* Inspector specialty badge */}
                 {type === 'inspector' && extra.specialty && (
-                  <span className="inline-flex items-center gap-1 self-start rounded-full px-2.5 py-0.5 text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200">
+                  <span className="inline-flex items-center gap-1 self-start rounded-full px-2.5 py-0.5 text-xs font-medium bg-special-tint text-special border border-special/30">
                     <BadgeCheck className="h-3 w-3" />
                     {extra.specialty}
                   </span>
@@ -593,20 +659,20 @@ export default function DirectoryPage() {
 
                 {/* Trade / category */}
                 {company.trade && (
-                  <p className="text-xs text-slate-500">{company.trade}</p>
+                  <p className="text-xs text-muted-fg">{company.trade}</p>
                 )}
 
                 {/* Inspector extra fields */}
                 {type === 'inspector' && (extra.jurisdiction || extra.certification_number) && (
                   <div className="space-y-0.5">
                     {extra.jurisdiction && (
-                      <p className="text-xs text-slate-500">
-                        <span className="font-medium text-slate-700">Jurisdiction:</span> {extra.jurisdiction}
+                      <p className="text-xs text-muted-fg">
+                        <span className="font-medium text-ink-soft">Jurisdiction:</span> {extra.jurisdiction}
                       </p>
                     )}
                     {extra.certification_number && (
-                      <p className="text-xs font-mono text-slate-500">
-                        <span className="font-sans font-medium text-slate-700">Cert #:</span> {extra.certification_number}
+                      <p className="text-xs font-mono text-muted-fg">
+                        <span className="font-sans font-medium text-ink-soft">Cert #:</span> {extra.certification_number}
                       </p>
                     )}
                   </div>
@@ -618,7 +684,7 @@ export default function DirectoryPage() {
                     href={extra.website}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-xs text-orange-600 hover:underline truncate"
+                    className="inline-flex items-center gap-1 text-xs text-accent-fg hover:underline truncate"
                   >
                     <Globe className="h-3 w-3 shrink-0" />
                     {extra.website.replace(/^https?:\/\//, '')}
@@ -628,26 +694,23 @@ export default function DirectoryPage() {
                 {/* Contact row */}
                 <div className="mt-auto space-y-1">
                   {company.contact_email && (
-                    <a
-                      href={`mailto:${company.contact_email}`}
-                      className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-orange-600 truncate"
-                    >
-                      <Mail className="h-3 w-3 shrink-0 text-slate-400" />
+                    <div className="flex items-center gap-1.5 text-xs text-muted-fg truncate">
+                      <Mail className="h-3 w-3 shrink-0 text-faint" />
                       {company.contact_email}
-                    </a>
+                    </div>
                   )}
                   {company.phone && (
                     <a
                       href={`tel:${company.phone}`}
-                      className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-orange-600"
+                      className="flex items-center gap-1.5 text-xs text-muted-fg hover:text-accent-fg"
                     >
-                      <Phone className="h-3 w-3 shrink-0 text-slate-400" />
+                      <Phone className="h-3 w-3 shrink-0 text-faint" />
                       {company.phone}
                     </a>
                   )}
                   {company.address && (
-                    <p className="flex items-start gap-1.5 text-xs text-slate-500">
-                      <MapPin className="h-3 w-3 shrink-0 text-slate-400 mt-0.5" />
+                    <p className="flex items-start gap-1.5 text-xs text-muted-fg">
+                      <MapPin className="h-3 w-3 shrink-0 text-faint mt-0.5" />
                       {company.address}
                     </p>
                   )}
@@ -655,21 +718,21 @@ export default function DirectoryPage() {
 
                 {/* On-platform indicator / Invite button */}
                 {company.has_account ? (
-                  <div className="flex items-center gap-1 pt-1 border-t border-slate-100">
-                    <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-                    <span className="text-xs text-green-700 font-medium">On Platform</span>
+                  <div className="flex items-center gap-1 pt-1 border-t border-line-soft">
+                    <span className="h-1.5 w-1.5 rounded-full bg-success-solid" />
+                    <span className="text-xs text-success font-medium">On Platform</span>
                   </div>
                 ) : (
-                  <div className="pt-1 border-t border-slate-100">
+                  <div className="pt-1 border-t border-line-soft">
                     {invitedIds.includes(company.id) ? (
-                      <span className="text-xs text-green-600 font-medium flex items-center gap-1">
-                        <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                      <span className="text-xs text-success font-medium flex items-center gap-1">
+                        <span className="h-1.5 w-1.5 rounded-full bg-success-solid" />
                         Invited ✓
                       </span>
                     ) : (
                       <button
-                        onClick={() => openInvite(company)}
-                        className="text-xs font-medium text-orange-600 border border-orange-300 rounded-md px-2 py-1 hover:bg-orange-50 transition-colors"
+                        onClick={e => { e.stopPropagation(); openInvite(company) }}
+                        className="text-xs font-medium text-accent-fg border border-accent rounded-md px-2 py-1 hover:bg-accent-tint transition-colors"
                       >
                         Invite to Platform
                       </button>
@@ -679,6 +742,308 @@ export default function DirectoryPage() {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {editingCompany && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setEditingCompany(null)} />
+          <div className="relative w-full max-w-md bg-panel rounded-2xl shadow-2xl overflow-hidden">
+            <div className="px-6 py-5 border-b border-line-soft flex items-center justify-between">
+              <h2 className="text-lg font-bold text-ink">Edit {editingCompany.name}</h2>
+              <button onClick={() => setEditingCompany(null)} className="text-faint hover:text-muted-fg"><X className="h-5 w-5" /></button>
+            </div>
+            <form onSubmit={saveEditCompany}>
+              <div className="px-6 py-5 space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-fg">Name</label>
+                  <input className="w-full rounded-lg border border-muted2 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" value={editName} onChange={e => setEditName(e.target.value)} required />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-fg">Email</label>
+                  <input type="email" className="w-full rounded-lg border border-muted2 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" value={editEmail} onChange={e => setEditEmail(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-fg">Phone</label>
+                  <input className="w-full rounded-lg border border-muted2 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" value={editPhone} onChange={e => setEditPhone(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-fg">Trade</label>
+                  <input className="w-full rounded-lg border border-muted2 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" value={editTrade} onChange={e => setEditTrade(e.target.value)} placeholder="e.g. Flooring, Electrical" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-fg">Address</label>
+                  <input className="w-full rounded-lg border border-muted2 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" value={editAddress} onChange={e => setEditAddress(e.target.value)} />
+                </div>
+              </div>
+              <div className="px-6 py-4 border-t border-line-soft flex justify-end gap-2">
+                <button type="button" onClick={() => setEditingCompany(null)} className="rounded-lg border border-line px-4 py-2 text-sm font-medium text-muted-fg hover:bg-surface">Cancel</button>
+                <button type="submit" disabled={editSaving} className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-ink hover:bg-accent disabled:opacity-50">{editSaving ? 'Saving…' : 'Save Changes'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Profile Modal */}
+      {profileCompanyId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8">
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setProfileCompanyId(null)} />
+          {/* Panel */}
+          <div className="relative w-full max-w-2xl bg-panel shadow-2xl rounded-2xl flex flex-col max-h-[85vh] overflow-hidden">
+            {/* Header */}
+            <div className="px-8 pt-8 pb-6 border-b border-line-soft flex items-start justify-between shrink-0">
+              <div className="flex items-center gap-4">
+                <div className="h-14 w-14 rounded-2xl bg-accent-tint flex items-center justify-center shrink-0">
+                  <Building2 className="h-7 w-7 text-accent-fg" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-ink">{profileData?.company?.name ?? '…'}</h2>
+                  <p className="text-sm text-faint mt-0.5">{[profileData?.company?.trade, profileData?.company?.type ? TYPE_LABELS[profileData.company.type as ContactType] : null].filter(Boolean).join(' · ')}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 mt-1">
+                <button onClick={() => openEditCompany(profileData?.company)} className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-muted-fg hover:border-muted2 hover:text-ink-soft transition-colors">
+                  <Pencil className="h-3.5 w-3.5" /> Edit
+                </button>
+                <button onClick={() => deleteCompany(profileData?.company)} className="flex items-center gap-1.5 rounded-lg border border-danger/30 px-3 py-1.5 text-xs font-medium text-danger hover:bg-danger-tint transition-colors">
+                  <Trash2 className="h-3.5 w-3.5" /> Delete
+                </button>
+                <button onClick={() => setProfileCompanyId(null)} className="text-faint hover:text-muted-fg ml-2"><X className="h-5 w-5" /></button>
+              </div>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex border-b border-line-soft shrink-0 px-8">
+              {[
+                { key: 'overview', label: 'Overview' },
+                { key: 'documents', label: 'Documents' },
+                { key: 'payments', label: 'Payments' },
+                { key: 'projects', label: 'Projects' },
+              ].map(t => (
+                <button key={t.key} onClick={() => setProfileTab(t.key as any)}
+                  className={cn('px-5 py-3.5 text-sm font-medium border-b-2 transition-colors',
+                    profileTab === t.key ? 'border-accent text-accent-fg' : 'border-transparent text-muted-fg hover:text-ink-soft')}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto px-8 py-6 space-y-4">
+              {profileLoading ? (
+                <p className="text-sm text-faint text-center py-12">Loading…</p>
+              ) : !profileData ? (
+                <p className="text-sm text-faint text-center py-12">Could not load profile.</p>
+              ) : (
+                <>
+                  {/* OVERVIEW TAB */}
+                  {profileTab === 'overview' && (
+                    <div className="space-y-4">
+                      <div className="rounded-xl border border-line divide-y divide-line-soft">
+                        {profileData.company?.contact_email && (
+                          <div className="flex items-center gap-3 px-4 py-3">
+                            <Mail className="h-4 w-4 text-faint shrink-0" />
+                            <span className="text-sm text-ink-soft select-all">{profileData.company.contact_email}</span>
+                          </div>
+                        )}
+                        {profileData.company?.phone && (
+                          <div className="flex items-center gap-3 px-4 py-3">
+                            <Phone className="h-4 w-4 text-faint shrink-0" />
+                            <span className="text-sm text-ink-soft">{profileData.company.phone}</span>
+                          </div>
+                        )}
+                        {profileData.company?.address && (
+                          <div className="flex items-center gap-3 px-4 py-3">
+                            <MapPin className="h-4 w-4 text-faint shrink-0" />
+                            <span className="text-sm text-ink-soft">{profileData.company.address}</span>
+                          </div>
+                        )}
+                        {profileData.company?.license_number && (
+                          <div className="flex items-center gap-3 px-4 py-3">
+                            <BadgeCheck className="h-4 w-4 text-faint shrink-0" />
+                            <span className="text-sm text-ink-soft">License: {profileData.company.license_number}</span>
+                          </div>
+                        )}
+                      </div>
+                      {/* Quick stats */}
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="rounded-lg border border-line p-3 text-center">
+                          <p className="text-xl font-bold text-ink">{profileData.subcontracts?.length ?? 0}</p>
+                          <p className="text-xs text-faint mt-0.5">Projects</p>
+                        </div>
+                        <div className="rounded-lg border border-line p-3 text-center">
+                          <p className="text-xl font-bold text-ink">
+                            {profileData.subcontracts?.reduce((s: number, sub: any) => s + (Number(sub.contract_amount) || 0), 0) > 0
+                              ? '$' + (profileData.subcontracts.reduce((s: number, sub: any) => s + (Number(sub.contract_amount) || 0), 0) / 1000).toFixed(0) + 'k'
+                              : '—'}
+                          </p>
+                          <p className="text-xs text-faint mt-0.5">Contracted</p>
+                        </div>
+                        <div className="rounded-lg border border-line p-3 text-center">
+                          <p className="text-xl font-bold text-ink">{profileData.invoices?.length ?? 0}</p>
+                          <p className="text-xs text-faint mt-0.5">Invoices</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* DOCUMENTS TAB */}
+                  {profileTab === 'documents' && (
+                    <div>
+                      {profileData.complianceDocs?.length === 0 ? (
+                        <div className="text-center py-10">
+                          <p className="text-sm text-faint">No compliance documents on file.</p>
+                          <p className="text-xs text-faint mt-1">Upload them from a project's Compliance tab.</p>
+                        </div>
+                      ) : (
+                        <div className="rounded-xl border border-line overflow-hidden">
+                          <table className="w-full text-sm">
+                            <thead className="bg-surface border-b border-line-soft">
+                              <tr>
+                                <th className="text-left px-4 py-3 font-medium text-muted-fg">Document</th>
+                                <th className="text-left px-4 py-3 font-medium text-muted-fg">Status</th>
+                                <th className="text-left px-4 py-3 font-medium text-muted-fg">Expires</th>
+                                <th className="text-left px-4 py-3 font-medium text-muted-fg">Uploaded</th>
+                                <th className="px-4 py-3" />
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-line-soft">
+                              {profileData.complianceDocs.map((doc: any) => {
+                                const isExpired = doc.expiry_date && new Date(doc.expiry_date + 'T00:00:00') < new Date()
+                                const resolvedStatus = (doc.status === 'expired' && doc.expiry_date && !isExpired) ? 'approved' : doc.status
+                                const statusColors: Record<string, string> = {
+                                  approved: 'bg-success-tint text-success',
+                                  pending: 'bg-warn-tint text-warn',
+                                  expired: 'bg-danger-tint text-danger',
+                                  missing: 'bg-danger-tint text-danger',
+                                  expiring_soon: 'bg-accent-tint text-accent-fg',
+                                }
+                                const typeLabels: Record<string, string> = { coi: 'COI', license: 'License', w9: 'W-9', workers_comp: "Workers' Comp", other: 'Other' }
+                                return (
+                                  <tr key={doc.id} className="hover:bg-surface">
+                                    <td className="px-4 py-3 font-medium text-ink-soft">{typeLabels[doc.type] ?? doc.type}</td>
+                                    <td className="px-4 py-3">
+                                      <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-medium', statusColors[resolvedStatus] ?? 'bg-muted text-muted-fg')}>
+                                        {resolvedStatus.replace('_', ' ')}
+                                      </span>
+                                    </td>
+                                    <td className="px-4 py-3 text-muted-fg text-xs">
+                                      {doc.expiry_date ? new Date(doc.expiry_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                                    </td>
+                                    <td className="px-4 py-3 text-faint text-xs">
+                                      {doc.created_at ? new Date(doc.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                                    </td>
+                                    <td className="px-4 py-3 text-right">
+                                      {doc.file_url ? (
+                                        <a href={doc.file_url} target="_blank" rel="noopener noreferrer"
+                                          className="inline-flex items-center gap-1 text-xs text-accent-fg hover:underline font-medium">
+                                          <ExternalLink className="h-3 w-3" /> View
+                                        </a>
+                                      ) : <span className="text-xs text-faint">No file</span>}
+                                    </td>
+                                  </tr>
+                                )
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* PAYMENTS TAB */}
+                  {profileTab === 'payments' && (
+                    <div className="space-y-4">
+                      {/* Invoices */}
+                      {profileData.invoices?.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold text-muted-fg uppercase tracking-wide mb-2">Invoices</p>
+                          <div className="space-y-2">
+                            {profileData.invoices.map((inv: any) => (
+                              <div key={inv.id} className="rounded-lg border border-line bg-panel p-3 flex items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="text-sm font-medium text-ink-soft truncate">{inv.invoice_number ?? `Invoice`}</p>
+                                  <p className="text-xs text-faint">{inv.projects?.name ?? ''}{inv.due_date ? ` · Due ${new Date(inv.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}</p>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <p className="text-sm font-semibold text-ink">${Number(inv.amount).toLocaleString()}</p>
+                                  <span className={cn('text-xs font-medium px-2 py-0.5 rounded-full',
+                                    inv.status === 'paid' ? 'bg-success-tint text-success' :
+                                    inv.status === 'overdue' ? 'bg-danger-tint text-danger' :
+                                    'bg-warn-tint text-warn')}>
+                                    {inv.status}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {/* Payment schedule */}
+                      {profileData.payments?.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold text-muted-fg uppercase tracking-wide mb-2">Contract Milestones</p>
+                          <div className="space-y-2">
+                            {profileData.payments.map((p: any) => (
+                              <div key={p.id} className="rounded-lg border border-line bg-panel p-3 flex items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="text-sm font-medium text-ink-soft">{p.label}</p>
+                                  <p className="text-xs text-faint">{p.subcontracts?.projects?.name ?? ''}</p>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  {p.amount && <p className="text-sm font-semibold text-ink">${Number(p.amount).toLocaleString()}</p>}
+                                  {p.percentage && <p className="text-xs text-faint">{p.percentage}%</p>}
+                                  <span className={cn('text-xs font-medium px-2 py-0.5 rounded-full',
+                                    p.status === 'paid' ? 'bg-success-tint text-success' :
+                                    p.status === 'invoiced' ? 'bg-info-tint text-info' :
+                                    'bg-muted text-muted-fg')}>
+                                    {p.status}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {profileData.invoices?.length === 0 && profileData.payments?.length === 0 && (
+                        <div className="text-center py-10">
+                          <p className="text-sm text-faint">No invoices or payment milestones yet.</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* PROJECTS TAB */}
+                  {profileTab === 'projects' && (
+                    <div className="space-y-3">
+                      {profileData.subcontracts?.length === 0 ? (
+                        <div className="text-center py-10">
+                          <p className="text-sm text-faint">Not on any projects yet.</p>
+                        </div>
+                      ) : (
+                        profileData.subcontracts.map((sub: any) => (
+                          <div key={sub.id} className="rounded-lg border border-line bg-panel p-4 space-y-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="font-medium text-ink-soft">{sub.projects?.name ?? 'Unknown Project'}</p>
+                              <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium',
+                                sub.projects?.status === 'active' ? 'bg-success-tint text-success' : 'bg-muted text-muted-fg')}>
+                                {sub.projects?.status ?? ''}
+                              </span>
+                            </div>
+                            <p className="text-xs text-muted-fg">{sub.trade ?? ''}{sub.scope ? ` · ${sub.scope}` : ''}</p>
+                            {sub.contract_amount && <p className="text-sm font-semibold text-ink">${Number(sub.contract_amount).toLocaleString()}</p>}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

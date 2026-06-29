@@ -1,24 +1,29 @@
-import { cn } from '@/lib/utils'
+'use client'
+
 import { SelectHTMLAttributes, forwardRef } from 'react'
+import { SearchableSelect } from './searchable-select'
 
 interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {}
 
+/**
+ * Backwards-compatible wrapper: keeps the <Select><option/></Select> API but
+ * renders a searchable, alphabetically-sorted combobox under the hood.
+ */
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
-  ({ className, children, ...props }, ref) => {
+  ({ className, children, value, defaultValue, onChange, disabled, required, name, id }, _ref) => {
     return (
-      <select
-        className={cn(
-          'flex h-9 w-full rounded-md border border-slate-300 bg-white px-3 py-1 text-sm text-slate-900',
-          'focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500',
-          'disabled:cursor-not-allowed disabled:opacity-50',
-          'transition-colors',
-          className
-        )}
-        ref={ref}
-        {...props}
+      <SearchableSelect
+        className={className}
+        value={value as string | undefined}
+        defaultValue={defaultValue as string | undefined}
+        onChange={onChange as any}
+        disabled={disabled}
+        required={required}
+        name={name}
+        id={id}
       >
         {children}
-      </select>
+      </SearchableSelect>
     )
   }
 )

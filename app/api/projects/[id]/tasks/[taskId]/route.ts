@@ -29,6 +29,9 @@ export async function PATCH(
   if (body.description !== undefined) updates.description = body.description
   if (body.due_date !== undefined) updates.due_date = body.due_date
   if (body.priority !== undefined) updates.priority = body.priority
+  if (body.image_url !== undefined) updates.image_url = body.image_url
+  if (body.follow_up_date !== undefined) updates.follow_up_date = body.follow_up_date
+  if (body.follow_up_note !== undefined) updates.follow_up_note = body.follow_up_note
 
   // Capture the previous state so we can describe the change in history
   const { data: prev } = await db

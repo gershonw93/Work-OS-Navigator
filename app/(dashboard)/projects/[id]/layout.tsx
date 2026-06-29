@@ -22,15 +22,15 @@ export default async function ProjectLayout({ children, params }: ProjectLayoutP
   return (
     <div className="flex flex-col min-h-full">
       {/* Project header */}
-      <div className="border-b border-slate-200 bg-white px-4 sm:px-6 py-4">
+      <div className="border-b border-line bg-panel px-4 sm:px-6 py-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
             <div>
-              <h1 className="text-xl font-bold text-slate-900">
+              <h1 className="text-xl font-bold text-ink">
                 {project?.name ?? 'Project'}
               </h1>
               {project?.address && (
-                <p className="text-sm text-slate-500 mt-0.5">{project.address}</p>
+                <p className="text-sm text-muted-fg mt-0.5">{project.address}</p>
               )}
             </div>
             {project?.status && (

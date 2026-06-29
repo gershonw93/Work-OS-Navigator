@@ -123,29 +123,29 @@ export function BidLevelingModal({
   })
 
   function cellHighlight(colIdx: number, minIdx: number | null, maxIdx: number | null) {
-    if (colIdx === minIdx) return 'bg-green-50 text-green-700 font-semibold'
-    if (colIdx === maxIdx) return 'bg-amber-50 text-amber-700'
+    if (colIdx === minIdx) return 'bg-success-tint text-success font-semibold'
+    if (colIdx === maxIdx) return 'bg-warn-tint text-warn'
     return ''
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-2 sm:p-4 overflow-y-auto">
-      <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-6xl min-w-0 my-4">
+      <div className="relative bg-panel rounded-xl shadow-2xl w-full max-w-6xl min-w-0 my-4">
 
         {/* Header */}
-        <div className="sticky top-0 bg-white rounded-t-xl border-b border-slate-200 px-5 py-4 flex items-start justify-between gap-4 z-10">
+        <div className="sticky top-0 bg-panel rounded-t-xl border-b border-line px-5 py-4 flex items-start justify-between gap-4 z-10">
           <div>
             <div className="flex items-center gap-2.5 flex-wrap">
-              <h2 className="text-lg font-bold text-slate-900">Bid Leveling Sheet</h2>
+              <h2 className="text-lg font-bold text-ink">Bid Leveling Sheet</h2>
               {packageTrade && (
-                <span className="text-xs bg-slate-100 text-slate-600 rounded-full px-2.5 py-0.5">{packageTrade}</span>
+                <span className="text-xs bg-muted text-muted-fg rounded-full px-2.5 py-0.5">{packageTrade}</span>
               )}
             </div>
-            <p className="text-sm text-slate-500 mt-0.5">{packageName}</p>
+            <p className="text-sm text-muted-fg mt-0.5">{packageName}</p>
           </div>
           <button
             onClick={onClose}
-            className="shrink-0 rounded-md p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+            className="shrink-0 rounded-md p-1.5 text-faint hover:text-muted-fg hover:bg-muted transition-colors"
             aria-label="Close"
           >
             <X className="h-5 w-5" />
@@ -160,7 +160,7 @@ export function BidLevelingModal({
             <thead>
               <tr>
                 {/* Row label column */}
-                <th className="text-left px-5 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wide bg-slate-50 border-b border-slate-200 w-44 sticky left-0 z-10">
+                <th className="text-left px-5 py-4 text-xs font-semibold text-faint uppercase tracking-wide bg-surface border-b border-line w-44 sticky left-0 z-10">
                   Category
                 </th>
                 {sorted.map((bid, i) => {
@@ -169,21 +169,21 @@ export function BidLevelingModal({
                     <th
                       key={bid.id}
                       className={cn(
-                        'px-4 py-4 text-center border-b border-slate-200 min-w-[180px]',
-                        isLowest ? 'bg-green-50' : 'bg-slate-50'
+                        'px-4 py-4 text-center border-b border-line min-w-[180px]',
+                        isLowest ? 'bg-success-tint' : 'bg-surface'
                       )}
                     >
                       <div className="flex flex-col items-center gap-1.5">
                         {/* Recommended badge on lowest */}
                         {isLowest && sorted.length > 1 && (
-                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-700 bg-green-100 rounded-full px-2.5 py-0.5">
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-success bg-success-tint rounded-full px-2.5 py-0.5">
                             ★ Recommended
                           </span>
                         )}
-                        <span className="font-semibold text-slate-900 text-sm leading-tight">
+                        <span className="font-semibold text-ink text-sm leading-tight">
                           {bid.companies?.name}
                         </span>
-                        <span className={cn('text-xl font-bold', isLowest ? 'text-green-700' : 'text-slate-900')}>
+                        <span className={cn('text-xl font-bold', isLowest ? 'text-success' : 'text-ink')}>
                           {fmt(bid.amount)}
                         </span>
                         {packageStatus !== 'awarded' && bid.status !== 'awarded' && bid.status !== 'rejected' && (
@@ -198,7 +198,7 @@ export function BidLevelingModal({
                           </Button>
                         )}
                         {bid.status === 'awarded' && (
-                          <span className="text-xs font-medium text-green-600 bg-green-50 rounded-full px-2.5 py-0.5 border border-green-200">
+                          <span className="text-xs font-medium text-success bg-success-tint rounded-full px-2.5 py-0.5 border border-success/30">
                             Awarded ✓
                           </span>
                         )}
@@ -209,11 +209,11 @@ export function BidLevelingModal({
               </tr>
             </thead>
 
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-line-soft">
 
               {/* Total Bid Amount */}
-              <tr className="hover:bg-slate-50/50">
-                <td className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide bg-white sticky left-0 border-r border-slate-100">
+              <tr className="hover:bg-surface/50">
+                <td className="px-5 py-3 text-xs font-semibold text-muted-fg uppercase tracking-wide bg-panel sticky left-0 border-r border-line-soft">
                   Total Amount
                 </td>
                 {sorted.map((bid, i) => (
@@ -227,8 +227,8 @@ export function BidLevelingModal({
               </tr>
 
               {/* Duration */}
-              <tr className="hover:bg-slate-50/50">
-                <td className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide bg-white sticky left-0 border-r border-slate-100">
+              <tr className="hover:bg-surface/50">
+                <td className="px-5 py-3 text-xs font-semibold text-muted-fg uppercase tracking-wide bg-panel sticky left-0 border-r border-line-soft">
                   Duration (days)
                 </td>
                 {sorted.map((bid, i) => (
@@ -236,28 +236,28 @@ export function BidLevelingModal({
                     key={bid.id}
                     className={cn('px-4 py-3 text-center', cellHighlight(i, durationMM.minIdx, durationMM.maxIdx))}
                   >
-                    {bid.duration_days != null ? bid.duration_days : <span className="text-slate-300">—</span>}
+                    {bid.duration_days != null ? bid.duration_days : <span className="text-faint">—</span>}
                   </td>
                 ))}
               </tr>
 
               {/* Start Date */}
-              <tr className="hover:bg-slate-50/50">
-                <td className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide bg-white sticky left-0 border-r border-slate-100">
+              <tr className="hover:bg-surface/50">
+                <td className="px-5 py-3 text-xs font-semibold text-muted-fg uppercase tracking-wide bg-panel sticky left-0 border-r border-line-soft">
                   Start Date
                 </td>
                 {sorted.map(bid => (
-                  <td key={bid.id} className="px-4 py-3 text-center text-slate-700">
+                  <td key={bid.id} className="px-4 py-3 text-center text-ink-soft">
                     {bid.earliest_start_date
                       ? new Date(bid.earliest_start_date).toLocaleDateString()
-                      : <span className="text-slate-300">—</span>}
+                      : <span className="text-faint">—</span>}
                   </td>
                 ))}
               </tr>
 
               {/* Crew Size */}
-              <tr className="hover:bg-slate-50/50">
-                <td className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide bg-white sticky left-0 border-r border-slate-100">
+              <tr className="hover:bg-surface/50">
+                <td className="px-5 py-3 text-xs font-semibold text-muted-fg uppercase tracking-wide bg-panel sticky left-0 border-r border-line-soft">
                   Crew Size
                 </td>
                 {sorted.map((bid, i) => (
@@ -265,19 +265,19 @@ export function BidLevelingModal({
                     key={bid.id}
                     className={cn('px-4 py-3 text-center', cellHighlight(i, crewMM.minIdx, crewMM.maxIdx))}
                   >
-                    {bid.crew_size != null ? bid.crew_size : <span className="text-slate-300">—</span>}
+                    {bid.crew_size != null ? bid.crew_size : <span className="text-faint">—</span>}
                   </td>
                 ))}
               </tr>
 
               {/* Payment Terms */}
-              <tr className="hover:bg-slate-50/50">
-                <td className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide bg-white sticky left-0 border-r border-slate-100">
+              <tr className="hover:bg-surface/50">
+                <td className="px-5 py-3 text-xs font-semibold text-muted-fg uppercase tracking-wide bg-panel sticky left-0 border-r border-line-soft">
                   Payment Terms
                 </td>
                 {sorted.map(bid => (
-                  <td key={bid.id} className="px-4 py-3 text-center text-slate-700 text-xs leading-relaxed">
-                    {bid.payment_terms ?? <span className="text-slate-300">—</span>}
+                  <td key={bid.id} className="px-4 py-3 text-center text-ink-soft text-xs leading-relaxed">
+                    {bid.payment_terms ?? <span className="text-faint">—</span>}
                   </td>
                 ))}
               </tr>
@@ -287,7 +287,7 @@ export function BidLevelingModal({
                 <tr>
                   <td
                     colSpan={sorted.length + 1}
-                    className="px-5 py-2 text-xs font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border-y border-slate-200"
+                    className="px-5 py-2 text-xs font-bold text-faint uppercase tracking-widest bg-surface border-y border-line"
                   >
                     Scope Line Items
                   </td>
@@ -298,8 +298,8 @@ export function BidLevelingModal({
               {lineItemLabels.map((label, rowIdx) => {
                 const mm = lineItemMMs[rowIdx]
                 return (
-                  <tr key={label} className="hover:bg-slate-50/50">
-                    <td className="px-5 py-3 text-sm text-slate-700 bg-white sticky left-0 border-r border-slate-100 leading-snug">
+                  <tr key={label} className="hover:bg-surface/50">
+                    <td className="px-5 py-3 text-sm text-ink-soft bg-panel sticky left-0 border-r border-line-soft leading-snug">
                       {label}
                     </td>
                     {sorted.map((bid, colIdx) => {
@@ -320,14 +320,14 @@ export function BidLevelingModal({
                           key={bid.id}
                           className={cn(
                             'px-4 py-3 text-center',
-                            excluded ? 'text-slate-300 line-through' : cellHighlight(colIdx, mm.minIdx, mm.maxIdx)
+                            excluded ? 'text-faint line-through' : cellHighlight(colIdx, mm.minIdx, mm.maxIdx)
                           )}
                         >
                           {excluded
                             ? 'Excl.'
                             : val != null
                               ? fmt(val)
-                              : <span className="text-slate-300">—</span>}
+                              : <span className="text-faint">—</span>}
                         </td>
                       )
                     })}
@@ -339,20 +339,20 @@ export function BidLevelingModal({
               <tr>
                 <td
                   colSpan={sorted.length + 1}
-                  className="px-5 py-2 text-xs font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border-y border-slate-200"
+                  className="px-5 py-2 text-xs font-bold text-faint uppercase tracking-widest bg-surface border-y border-line"
                 >
                   Notes
                 </td>
               </tr>
               <tr>
-                <td className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide bg-white sticky left-0 border-r border-slate-100">
+                <td className="px-5 py-3 text-xs font-semibold text-muted-fg uppercase tracking-wide bg-panel sticky left-0 border-r border-line-soft">
                   Bid Notes
                 </td>
                 {sorted.map(bid => (
-                  <td key={bid.id} className="px-4 py-3 text-center text-slate-700 text-xs leading-relaxed align-top">
+                  <td key={bid.id} className="px-4 py-3 text-center text-ink-soft text-xs leading-relaxed align-top">
                     {bid.notes
                       ? <span className="whitespace-pre-wrap">{bid.notes}</span>
-                      : <span className="text-slate-300">—</span>}
+                      : <span className="text-faint">—</span>}
                   </td>
                 ))}
               </tr>
@@ -362,10 +362,10 @@ export function BidLevelingModal({
         </div>
 
         {/* Footer */}
-        <div className="border-t border-slate-200 px-5 py-4 flex items-center justify-between gap-4">
-          <p className="text-xs text-slate-400">
-            <span className="inline-block w-3 h-3 rounded-sm bg-green-100 border border-green-300 mr-1 align-middle" />Lowest value
-            <span className="inline-block w-3 h-3 rounded-sm bg-amber-100 border border-amber-300 ml-3 mr-1 align-middle" />Highest value
+        <div className="border-t border-line px-5 py-4 flex items-center justify-between gap-4">
+          <p className="text-xs text-faint">
+            <span className="inline-block w-3 h-3 rounded-sm bg-success-tint border border-green-300 mr-1 align-middle" />Lowest value
+            <span className="inline-block w-3 h-3 rounded-sm bg-warn-tint border border-warn/40 ml-3 mr-1 align-middle" />Highest value
           </p>
           <Button variant="secondary" onClick={onClose}>
             Close

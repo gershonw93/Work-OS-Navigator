@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { Eye, X, User } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { usePermissions, VIEW_AS_KEY, VIEW_AS_USER_KEY, getViewAs, getViewAsUser } from '@/lib/use-permissions'
@@ -70,35 +71,35 @@ export function ViewAsSwitcher() {
   const previewing = currentRole !== '' || currentUser !== ''
 
   return (
-    <div className={`flex items-center gap-1.5 rounded-lg border px-2 py-1 ${previewing ? 'border-amber-300 bg-amber-50' : 'border-slate-200 bg-white'}`}>
-      <Eye className={`h-3.5 w-3.5 shrink-0 ${previewing ? 'text-amber-600' : 'text-slate-400'}`} />
-      <span className={`text-xs font-medium hidden sm:inline ${previewing ? 'text-amber-700' : 'text-slate-500'}`}>View as</span>
+    <div className={`flex items-center gap-1.5 rounded-lg border px-2 py-1 ${previewing ? 'border-warn/40 bg-warn-tint' : 'border-line bg-panel'}`}>
+      <Eye className={`h-3.5 w-3.5 shrink-0 ${previewing ? 'text-warn' : 'text-faint'}`} />
+      <span className={`text-xs font-medium hidden sm:inline ${previewing ? 'text-warn' : 'text-muted-fg'}`}>View as</span>
 
       {/* Tab buttons */}
-      <div className="flex rounded overflow-hidden border border-slate-200 text-[10px] font-semibold">
+      <div className="flex rounded overflow-hidden border border-line text-[10px] font-semibold">
         <button
           onClick={() => setTab('role')}
-          className={`px-1.5 py-0.5 ${tab === 'role' ? 'bg-slate-700 text-white' : 'bg-white text-slate-500 hover:bg-slate-50'}`}
+          className={`px-1.5 py-0.5 ${tab === 'role' ? 'bg-slate-700 text-white' : 'bg-panel text-muted-fg hover:bg-surface'}`}
         >Role</button>
         <button
           onClick={() => setTab('user')}
-          className={`px-1.5 py-0.5 ${tab === 'user' ? 'bg-slate-700 text-white' : 'bg-white text-slate-500 hover:bg-slate-50'}`}
+          className={`px-1.5 py-0.5 ${tab === 'user' ? 'bg-slate-700 text-white' : 'bg-panel text-muted-fg hover:bg-surface'}`}
         ><User className="h-3 w-3 inline" /></button>
       </div>
 
       {tab === 'role' ? (
-        <select
+        <SearchableSelect
           value={currentRole}
           onChange={e => { setCurrentRole(e.target.value); setViewAs(e.target.value) }}
-          className={`text-xs font-medium bg-transparent focus:outline-none cursor-pointer ${previewing ? 'text-amber-700' : 'text-slate-600'}`}
+          className={`text-xs font-medium bg-transparent focus:outline-none cursor-pointer ${previewing ? 'text-warn' : 'text-muted-fg'}`}
         >
           {PREVIEW_ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
-        </select>
+        </SearchableSelect>
       ) : (
-        <select
+        <SearchableSelect
           value={currentUser}
           onChange={e => { setCurrentUser(e.target.value); setViewAsUser(e.target.value) }}
-          className={`text-xs font-medium bg-transparent focus:outline-none cursor-pointer max-w-[130px] ${previewing ? 'text-amber-700' : 'text-slate-600'}`}
+          className={`text-xs font-medium bg-transparent focus:outline-none cursor-pointer max-w-[130px] ${previewing ? 'text-warn' : 'text-muted-fg'}`}
         >
           <option value="">— pick user —</option>
           {teammates.map(t => (
@@ -106,7 +107,7 @@ export function ViewAsSwitcher() {
               {t.full_name || t.email || t.id.slice(0, 8)}
             </option>
           ))}
-        </select>
+        </SearchableSelect>
       )}
     </div>
   )
@@ -120,14 +121,14 @@ export function ViewAsBanner() {
   const label = previewingUser ? previewingUser : roleLabel(role)
 
   return (
-    <div className="flex items-center justify-center gap-3 bg-amber-500 px-4 py-1.5 text-white text-sm font-medium">
+    <div className="flex items-center justify-center gap-3 bg-warn-solid px-4 py-1.5 text-white text-sm font-medium">
       <Eye className="h-4 w-4 shrink-0" />
       <span>
         Viewing as <strong>{label}</strong> — this is a preview, not your real account.
       </span>
       <button
         onClick={clearAllPreviews}
-        className="inline-flex items-center gap-1 rounded-md bg-white/20 px-2 py-0.5 text-xs font-semibold hover:bg-white/30 transition-colors"
+        className="inline-flex items-center gap-1 rounded-md bg-panel/20 px-2 py-0.5 text-xs font-semibold hover:bg-panel/30 transition-colors"
       >
         <X className="h-3 w-3" /> Exit preview
       </button>

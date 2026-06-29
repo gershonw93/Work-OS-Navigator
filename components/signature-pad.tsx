@@ -127,7 +127,7 @@ export function SignaturePad({ onSign, onCancel }: SignaturePadProps) {
   return (
     <div className="space-y-4">
       {/* Tabs */}
-      <div className="flex border-b border-slate-200">
+      <div className="flex border-b border-line">
         {(['type', 'draw'] as const).map(t => (
           <button
             key={t}
@@ -135,8 +135,8 @@ export function SignaturePad({ onSign, onCancel }: SignaturePadProps) {
             className={cn(
               'px-5 py-2.5 text-sm font-medium transition-colors capitalize',
               tab === t
-                ? 'border-b-2 border-orange-500 text-orange-600'
-                : 'text-slate-500 hover:text-slate-700'
+                ? 'border-b-2 border-accent text-accent-fg'
+                : 'text-muted-fg hover:text-ink-soft'
             )}
           >
             {t === 'type' ? 'Type' : 'Draw'}
@@ -148,27 +148,27 @@ export function SignaturePad({ onSign, onCancel }: SignaturePadProps) {
       {tab === 'type' && (
         <div className="space-y-3 px-1">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-slate-700">Your full name</label>
+            <label className="text-sm font-medium text-ink-soft">Your full name</label>
             <input
               autoFocus
               type="text"
               placeholder="e.g. Jane Smith"
               value={typedName}
               onChange={e => setTypedName(e.target.value)}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+              className="w-full rounded-md border border-muted2 px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
             />
           </div>
           {/* Signature preview */}
-          <div className="rounded-lg border border-slate-200 bg-slate-50 min-h-[80px] flex items-center justify-center px-4 py-3">
+          <div className="rounded-lg border border-line bg-surface min-h-[80px] flex items-center justify-center px-4 py-3">
             {typedName.trim() ? (
               <span
-                className="text-slate-800 text-4xl leading-none select-none"
+                className="text-ink-soft text-4xl leading-none select-none"
                 style={{ fontFamily: 'cursive' }}
               >
                 {typedName}
               </span>
             ) : (
-              <span className="text-slate-300 text-sm">Your signature will appear here</span>
+              <span className="text-faint text-sm">Your signature will appear here</span>
             )}
           </div>
         </div>
@@ -177,8 +177,8 @@ export function SignaturePad({ onSign, onCancel }: SignaturePadProps) {
       {/* Draw tab */}
       {tab === 'draw' && (
         <div className="space-y-2 px-1">
-          <p className="text-xs text-slate-500">Draw your signature below using mouse or touch.</p>
-          <div className="rounded-lg border-2 border-slate-300 bg-white overflow-hidden touch-none">
+          <p className="text-xs text-muted-fg">Draw your signature below using mouse or touch.</p>
+          <div className="rounded-lg border-2 border-muted2 bg-panel overflow-hidden touch-none">
             <canvas
               ref={canvasRef}
               width={600}

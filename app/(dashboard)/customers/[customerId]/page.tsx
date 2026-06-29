@@ -51,11 +51,11 @@ function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void 
     <button
       type="button"
       onClick={() => onChange(!on)}
-      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${on ? 'bg-orange-500' : 'bg-slate-200'}`}
+      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 ${on ? 'bg-accent' : 'bg-muted2'}`}
       role="switch"
       aria-checked={on}
     >
-      <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition-transform ${on ? 'translate-x-5' : 'translate-x-0'}`} />
+      <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-panel shadow ring-0 transition-transform ${on ? 'translate-x-5' : 'translate-x-0'}`} />
     </button>
   )
 }
@@ -103,10 +103,10 @@ function EditCustomerModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-          <h2 className="text-base font-semibold text-slate-900">Edit Customer</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button>
+      <div className="w-full max-w-md rounded-xl bg-panel shadow-xl">
+        <div className="flex items-center justify-between border-b border-line px-6 py-4">
+          <h2 className="text-base font-semibold text-ink">Edit Customer</h2>
+          <button onClick={onClose} className="text-faint hover:text-muted-fg text-xl leading-none">&times;</button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4 p-6">
           <div className="space-y-1.5">
@@ -138,10 +138,10 @@ function EditCustomerModal({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
-              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
+              className="w-full rounded-md border border-muted2 bg-panel px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent resize-none"
             />
           </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-danger">{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
             <Button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save Changes'}</Button>
@@ -194,10 +194,10 @@ function AddProjectModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-          <h2 className="text-base font-semibold text-slate-900">Add Project</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button>
+      <div className="w-full max-w-md rounded-xl bg-panel shadow-xl">
+        <div className="flex items-center justify-between border-b border-line px-6 py-4">
+          <h2 className="text-base font-semibold text-ink">Add Project</h2>
+          <button onClick={onClose} className="text-faint hover:text-muted-fg text-xl leading-none">&times;</button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4 p-6">
           <div className="space-y-1.5">
@@ -223,7 +223,7 @@ function AddProjectModal({
               <Input id="ap-date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
             </div>
           </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-danger">{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
             <Button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Add Project'}</Button>
@@ -332,14 +332,14 @@ function BulkAddModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-lg rounded-xl bg-white shadow-xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 sticky top-0 bg-white z-10">
-          <h2 className="text-base font-semibold text-slate-900">Bulk Add Projects</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button>
+      <div className="w-full max-w-lg rounded-xl bg-panel shadow-xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between border-b border-line px-6 py-4 sticky top-0 bg-panel z-10">
+          <h2 className="text-base font-semibold text-ink">Bulk Add Projects</h2>
+          <button onClick={onClose} className="text-faint hover:text-muted-fg text-xl leading-none">&times;</button>
         </div>
         {successMsg ? (
           <div className="p-10 text-center">
-            <p className="text-lg font-semibold text-green-600">{successMsg}</p>
+            <p className="text-lg font-semibold text-success">{successMsg}</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4 p-6">
@@ -355,9 +355,9 @@ function BulkAddModal({
                       value={m}
                       checked={bulkMode === m}
                       onChange={() => setBulkMode(m)}
-                      className="accent-orange-500"
+                      className="accent-[#C9F24A]"
                     />
-                    <span className="text-sm font-medium text-slate-700">
+                    <span className="text-sm font-medium text-ink-soft">
                       {m === 'unit' ? 'Unit Numbers' : 'Street Numbers'}
                     </span>
                   </label>
@@ -368,7 +368,7 @@ function BulkAddModal({
             {/* Customer (pre-filled read-only) */}
             <div className="space-y-1.5">
               <Label>Customer</Label>
-              <Input value={customer.name} readOnly disabled className="bg-slate-50 cursor-not-allowed" />
+              <Input value={customer.name} readOnly disabled className="bg-surface cursor-not-allowed" />
             </div>
 
             {bulkMode === 'unit' ? (
@@ -445,20 +445,20 @@ function BulkAddModal({
 
             {/* Preview */}
             {totalCount > 0 && (
-              <div className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-sm text-slate-600">
-                <p className="font-medium text-slate-800 mb-1">Preview ({totalCount} total):</p>
+              <div className="rounded-lg bg-surface border border-line px-4 py-3 text-sm text-muted-fg">
+                <p className="font-medium text-ink-soft mb-1">Preview ({totalCount} total):</p>
                 <ul className="space-y-0.5">
                   {previewLines.map((line, i) => (
-                    <li key={i} className="text-slate-600">{line}</li>
+                    <li key={i} className="text-muted-fg">{line}</li>
                   ))}
                   {totalCount > 5 && (
-                    <li className="text-slate-400 italic">… and {totalCount - 5} more</li>
+                    <li className="text-faint italic">… and {totalCount - 5} more</li>
                   )}
                 </ul>
               </div>
             )}
 
-            {error && <p className="text-sm text-red-600">{error}</p>}
+            {error && <p className="text-sm text-danger">{error}</p>}
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
               <Button type="submit" disabled={saving || totalCount === 0}>
@@ -478,8 +478,8 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
   return (
     <Card>
       <CardContent className="pt-5 pb-4 px-5">
-        <p className="text-2xl font-bold text-slate-900">{value}</p>
-        <p className="text-xs text-slate-500 mt-0.5">{label}</p>
+        <p className="text-2xl font-bold text-ink">{value}</p>
+        <p className="text-xs text-muted-fg mt-0.5">{label}</p>
       </CardContent>
     </Card>
   )
@@ -541,13 +541,13 @@ export default function CustomerDetailPage() {
   }
 
   if (loading) {
-    return <div className="flex items-center justify-center h-64 text-slate-400 text-sm">Loading…</div>
+    return <div className="flex items-center justify-center h-64 text-faint text-sm">Loading…</div>
   }
 
   if (!customer) {
     return (
       <div className="p-6">
-        <p className="text-slate-500">Customer not found.</p>
+        <p className="text-muted-fg">Customer not found.</p>
         <Button variant="secondary" onClick={() => router.push('/customers')} className="mt-4">
           ← Back to Customers
         </Button>
@@ -569,7 +569,7 @@ export default function CustomerDetailPage() {
       {/* Back */}
       <Link
         href="/customers"
-        className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-orange-500 transition-colors"
+        className="inline-flex items-center gap-1.5 text-sm text-muted-fg hover:text-accent-fg transition-colors"
       >
         <ArrowLeft className="h-4 w-4" />
         Customers
@@ -578,19 +578,19 @@ export default function CustomerDetailPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">{customer.name}</h1>
-          <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-slate-600">
+          <h1 className="text-2xl font-bold text-ink">{customer.name}</h1>
+          <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-muted-fg">
             {customer.contact_name && (
               <span>{customer.contact_name}</span>
             )}
             {customer.email && (
-              <a href={`mailto:${customer.email}`} className="flex items-center gap-1 text-orange-500 hover:text-orange-600">
+              <a href={`mailto:${customer.email}`} className="flex items-center gap-1 text-accent-fg hover:text-accent-fg">
                 <Mail className="h-3.5 w-3.5" />
                 {customer.email}
               </a>
             )}
             {customer.phone && (
-              <a href={`tel:${customer.phone}`} className="flex items-center gap-1 text-orange-500 hover:text-orange-600">
+              <a href={`tel:${customer.phone}`} className="flex items-center gap-1 text-accent-fg hover:text-accent-fg">
                 <Phone className="h-3.5 w-3.5" />
                 {customer.phone}
               </a>
@@ -610,14 +610,14 @@ export default function CustomerDetailPage() {
         <StatCard label="Completed" value={completedProjects} />
         <Card>
           <CardContent className="pt-5 pb-4 px-5">
-            <p className="text-2xl font-bold text-slate-400">—</p>
-            <p className="text-xs text-slate-500 mt-0.5">View Financials</p>
+            <p className="text-2xl font-bold text-faint">—</p>
+            <p className="text-xs text-muted-fg mt-0.5">View Financials</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-slate-200">
+      <div className="border-b border-line">
         <div className="flex gap-0">
           {(['projects', 'documents', 'notes'] as const).map((tab) => (
             <button
@@ -626,8 +626,8 @@ export default function CustomerDetailPage() {
               className={[
                 'px-4 py-2.5 text-sm font-medium capitalize border-b-2 transition-colors',
                 activeTab === tab
-                  ? 'border-orange-500 text-orange-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-700',
+                  ? 'border-accent text-accent-fg'
+                  : 'border-transparent text-muted-fg hover:text-ink-soft',
               ].join(' ')}
             >
               {tab}
@@ -649,8 +649,8 @@ export default function CustomerDetailPage() {
                   className={[
                     'px-3 py-1 rounded-full text-xs font-medium transition-colors',
                     statusFilter === f
-                      ? 'bg-orange-500 text-white'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+                      ? 'bg-accent text-accent-ink'
+                      : 'bg-muted text-muted-fg hover:bg-muted2',
                   ].join(' ')}
                 >
                   {f}
@@ -668,18 +668,18 @@ export default function CustomerDetailPage() {
           </div>
 
           {filteredProjects.length === 0 ? (
-            <div className="py-12 text-center text-sm text-slate-400">No projects match this filter.</div>
+            <div className="py-12 text-center text-sm text-faint">No projects match this filter.</div>
           ) : (
-            <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden">
+            <div className="divide-y divide-line-soft border border-line rounded-xl overflow-hidden">
               {filteredProjects.map((p) => (
-                <div key={p.id} className="flex items-center justify-between gap-3 px-4 py-3 bg-white hover:bg-slate-50">
+                <div key={p.id} className="flex items-center justify-between gap-3 px-4 py-3 bg-panel hover:bg-surface">
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-slate-900 truncate">{p.name}</p>
+                    <p className="text-sm font-medium text-ink truncate">{p.name}</p>
                     <div className="flex flex-wrap items-center gap-2 mt-0.5">
-                      {p.address && <p className="text-xs text-slate-500 truncate">{p.address}</p>}
-                      {p.start_date && <p className="text-xs text-slate-400">{p.start_date}</p>}
+                      {p.address && <p className="text-xs text-muted-fg truncate">{p.address}</p>}
+                      {p.start_date && <p className="text-xs text-faint">{p.start_date}</p>}
                       {p.type && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 capitalize">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-fg capitalize">
                           {p.type.replace('_', ' ')}
                         </span>
                       )}
@@ -689,7 +689,7 @@ export default function CustomerDetailPage() {
                     <Badge variant={getStatusVariant(p.status)}>{p.status}</Badge>
                     <Link
                       href={`/projects/${p.id}/plans`}
-                      className="flex items-center gap-1 text-xs font-medium text-orange-500 hover:text-orange-600"
+                      className="flex items-center gap-1 text-xs font-medium text-accent-fg hover:text-accent-fg"
                     >
                       Open <ExternalLink className="h-3 w-3" />
                     </Link>
@@ -704,21 +704,21 @@ export default function CustomerDetailPage() {
       {/* Tab: Documents */}
       {activeTab === 'documents' && (
         <div className="space-y-4">
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted-fg">
             Documents are managed per project. Click any project to view its documents.
           </p>
-          <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden">
+          <div className="divide-y divide-line-soft border border-line rounded-xl overflow-hidden">
             {projects.length === 0 ? (
-              <p className="px-4 py-6 text-sm text-slate-400 text-center">No projects yet.</p>
+              <p className="px-4 py-6 text-sm text-faint text-center">No projects yet.</p>
             ) : (
               projects.map((p) => (
                 <Link
                   key={p.id}
                   href={`/projects/${p.id}/plans`}
-                  className="flex items-center justify-between px-4 py-3 bg-white hover:bg-slate-50 transition-colors"
+                  className="flex items-center justify-between px-4 py-3 bg-panel hover:bg-surface transition-colors"
                 >
-                  <span className="text-sm font-medium text-slate-800">{p.name}</span>
-                  <ExternalLink className="h-4 w-4 text-slate-400" />
+                  <span className="text-sm font-medium text-ink-soft">{p.name}</span>
+                  <ExternalLink className="h-4 w-4 text-faint" />
                 </Link>
               ))
             )}
@@ -734,13 +734,13 @@ export default function CustomerDetailPage() {
             onChange={(e) => setNotesText(e.target.value)}
             rows={8}
             placeholder="Add notes about this customer…"
-            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
+            className="w-full rounded-md border border-muted2 bg-panel px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent resize-none"
           />
           <div className="flex items-center gap-3">
             <Button onClick={saveNotes} disabled={notesSaving}>
               {notesSaving ? 'Saving…' : 'Save Notes'}
             </Button>
-            {notesSaved && <span className="text-sm text-green-600">Saved!</span>}
+            {notesSaved && <span className="text-sm text-success">Saved!</span>}
           </div>
         </div>
       )}

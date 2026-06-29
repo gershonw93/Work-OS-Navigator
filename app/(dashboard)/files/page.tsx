@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -25,13 +26,13 @@ const CATEGORY_ICONS: Record<string, any> = {
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
-  'Insurance': 'bg-blue-50 border-blue-200 text-blue-700',
-  'License': 'bg-green-50 border-green-200 text-green-700',
-  'W-9': 'bg-purple-50 border-purple-200 text-purple-700',
-  'Site Plans': 'bg-amber-50 border-amber-200 text-amber-700',
-  'ID/Legal': 'bg-rose-50 border-rose-200 text-rose-700',
+  'Insurance': 'bg-info-tint border-info/30 text-info',
+  'License': 'bg-success-tint border-success/30 text-success',
+  'W-9': 'bg-special-tint border-special/30 text-special',
+  'Site Plans': 'bg-warn-tint border-warn/30 text-warn',
+  'ID/Legal': 'bg-danger-tint border-rose-200 text-rose-700',
   'Permits': 'bg-teal-50 border-teal-200 text-teal-700',
-  'Other': 'bg-slate-50 border-slate-200 text-slate-600',
+  'Other': 'bg-surface border-line text-muted-fg',
 }
 
 interface CompanyFile {
@@ -73,6 +74,7 @@ export default function FilesPage() {
   const [tab, setTab] = useState<'files' | 'packets'>('files')
   const [files, setFiles] = useState<CompanyFile[]>([])
   const [packets, setPackets] = useState<Packet[]>([])
+  const [complianceDocs, setComplianceDocs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string>('All')
@@ -114,6 +116,7 @@ export default function FilesPage() {
     if (res.ok) {
       setFiles(json.files ?? [])
       setPackets(json.packets ?? [])
+      setComplianceDocs(json.complianceDocs ?? [])
       setFetchError('')
     } else {
       setFetchError(json.error ?? `Error ${res.status}`)
@@ -293,28 +296,27 @@ export default function FilesPage() {
       {/* Upload modal */}
       {showUpload && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-md">
-            <div className="border-b border-slate-100 px-6 py-4 flex items-center justify-between">
-              <h2 className="font-semibold text-slate-900">Upload File</h2>
-              <button onClick={() => { setShowUpload(false); resetUpload() }} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
+          <div className="bg-panel rounded-xl shadow-xl w-full max-w-full sm:max-w-md">
+            <div className="border-b border-line-soft px-6 py-4 flex items-center justify-between">
+              <h2 className="font-semibold text-ink">Upload File</h2>
+              <button onClick={() => { setShowUpload(false); resetUpload() }} className="text-faint hover:text-muted-fg"><X className="h-5 w-5" /></button>
             </div>
             <form onSubmit={handleUpload}>
               <div className="px-6 py-5 space-y-4">
                 <div className="space-y-1.5">
                   <Label>File</Label>
-                  <div onClick={() => fileRef.current?.click()}
-                    className={cn('flex items-center gap-2 rounded-lg border-2 border-dashed px-4 py-3.5 text-sm cursor-pointer transition-colors',
-                      uploadFile ? 'border-green-300 bg-green-50 text-green-700' : 'border-orange-200 bg-orange-50/40 text-orange-500 hover:border-orange-400')}>
+                  <label className={cn('flex items-center gap-2 rounded-lg border-2 border-dashed px-4 py-3.5 text-sm cursor-pointer transition-colors',
+                      uploadFile ? 'border-green-300 bg-success-tint text-success' : 'border-accent/40 bg-accent-tint/40 text-accent-fg hover:border-accent')}>
                     {uploadFile
                       ? <><FileText className="h-4 w-4" /><span className="truncate">{uploadFile.name}</span><span className="ml-auto text-xs">{formatSize(uploadFile.size)}</span></>
                       : <><Upload className="h-4 w-4" /><span className="font-medium">Choose a file to upload</span></>}
-                  </div>
-                  <input ref={fileRef} type="file" className="hidden"
-                    onChange={e => {
-                      const f = e.target.files?.[0] ?? null
-                      setUploadFile(f)
-                      if (f && !uploadName) setUploadName(f.name.replace(/\.[^.]+$/, ''))
-                    }} />
+                    <input ref={fileRef} type="file" className="sr-only"
+                      onChange={e => {
+                        const f = e.target.files?.[0] ?? null
+                        setUploadFile(f)
+                        if (f && !uploadName) setUploadName(f.name.replace(/\.[^.]+$/, ''))
+                      }} />
+                  </label>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Name</Label>
@@ -322,14 +324,14 @@ export default function FilesPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>Category</Label>
-                  <select value={uploadCategory} onChange={e => setUploadCategory(e.target.value)}
-                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white focus:border-orange-500 focus:outline-none">
+                  <SearchableSelect value={uploadCategory} onChange={e => setUploadCategory(e.target.value)}
+                    className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
                     {CATEGORIES.map(c => <option key={c}>{c}</option>)}
-                  </select>
+                  </SearchableSelect>
                 </div>
               </div>
-              <div className="border-t border-slate-100 px-6 py-4 space-y-2">
-                {uploadError && <p className="text-xs text-red-600 flex items-center gap-1"><AlertCircle className="h-3 w-3 shrink-0" />{uploadError}</p>}
+              <div className="border-t border-line-soft px-6 py-4 space-y-2">
+                {uploadError && <p className="text-xs text-danger flex items-center gap-1"><AlertCircle className="h-3 w-3 shrink-0" />{uploadError}</p>}
                 <div className="flex gap-2 justify-end">
                   <Button type="button" variant="secondary" onClick={() => { setShowUpload(false); resetUpload() }}>Cancel</Button>
                   <Button type="submit" disabled={uploading}>
@@ -345,10 +347,10 @@ export default function FilesPage() {
       {/* Edit file modal */}
       {editingFile && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-md">
-            <div className="border-b border-slate-100 px-6 py-4 flex items-center justify-between">
-              <h2 className="font-semibold text-slate-900">Edit File</h2>
-              <button onClick={() => setEditingFile(null)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
+          <div className="bg-panel rounded-xl shadow-xl w-full max-w-full sm:max-w-md">
+            <div className="border-b border-line-soft px-6 py-4 flex items-center justify-between">
+              <h2 className="font-semibold text-ink">Edit File</h2>
+              <button onClick={() => setEditingFile(null)} className="text-faint hover:text-muted-fg"><X className="h-5 w-5" /></button>
             </div>
             <form onSubmit={saveEditFile}>
               <div className="px-6 py-5 space-y-4">
@@ -358,14 +360,14 @@ export default function FilesPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>Category</Label>
-                  <select value={editCategory} onChange={e => setEditCategory(e.target.value)}
-                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white focus:border-orange-500 focus:outline-none">
+                  <SearchableSelect value={editCategory} onChange={e => setEditCategory(e.target.value)}
+                    className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
                     {CATEGORIES.map(c => <option key={c}>{c}</option>)}
-                  </select>
+                  </SearchableSelect>
                 </div>
               </div>
-              <div className="border-t border-slate-100 px-6 py-4 space-y-2">
-                {editFileError && <p className="text-xs text-red-600 flex items-center gap-1"><AlertCircle className="h-3 w-3 shrink-0" />{editFileError}</p>}
+              <div className="border-t border-line-soft px-6 py-4 space-y-2">
+                {editFileError && <p className="text-xs text-danger flex items-center gap-1"><AlertCircle className="h-3 w-3 shrink-0" />{editFileError}</p>}
                 <div className="flex gap-2 justify-end">
                   <Button type="button" variant="secondary" onClick={() => setEditingFile(null)}>Cancel</Button>
                   <Button type="submit" disabled={savingFile}>{savingFile ? 'Saving...' : 'Save'}</Button>
@@ -379,10 +381,10 @@ export default function FilesPage() {
       {/* Packet modal */}
       {showPacketForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between">
-              <h2 className="font-semibold text-slate-900">{editingPacket ? 'Edit Packet' : 'New Packet'}</h2>
-              <button onClick={() => setShowPacketForm(false)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
+          <div className="bg-panel rounded-xl shadow-xl w-full max-w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-panel border-b border-line-soft px-6 py-4 flex items-center justify-between">
+              <h2 className="font-semibold text-ink">{editingPacket ? 'Edit Packet' : 'New Packet'}</h2>
+              <button onClick={() => setShowPacketForm(false)} className="text-faint hover:text-muted-fg"><X className="h-5 w-5" /></button>
             </div>
             <form onSubmit={savePacket}>
               <div className="px-6 py-5 space-y-4">
@@ -393,31 +395,30 @@ export default function FilesPage() {
                 <div className="space-y-1.5">
                   <Label>Description</Label>
                   <textarea rows={2} placeholder="What this packet is for..." value={packetDescription} onChange={e => setPacketDescription(e.target.value)}
-                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none resize-none" />
+                    className="w-full rounded-md border border-muted2 px-3 py-2 text-sm focus:border-accent focus:outline-none resize-none" />
                 </div>
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <Label>Files in this packet ({packetFileIds.length} selected)</Label>
-                    <button type="button" onClick={() => packetFileRef.current?.click()} disabled={packetUploading}
-                      className="inline-flex items-center gap-1 text-xs font-medium text-orange-600 hover:text-orange-700 disabled:opacity-50">
+                    <label className={cn('inline-flex items-center gap-1 text-xs font-medium text-accent-fg hover:text-accent-fg', packetUploading && 'opacity-50 pointer-events-none')}>
                       {packetUploading ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading...</> : <><Upload className="h-3.5 w-3.5" /> Upload new file</>}
-                    </button>
-                    <input ref={packetFileRef} type="file" className="hidden"
-                      onChange={e => { const f = e.target.files?.[0]; if (f) uploadIntoPacket(f); e.target.value = '' }} />
+                      <input ref={packetFileRef} type="file" className="sr-only"
+                        onChange={e => { const f = e.target.files?.[0]; if (f) uploadIntoPacket(f); e.target.value = '' }} />
+                    </label>
                   </div>
                   {files.length === 0 ? (
-                    <p className="text-sm text-slate-400 py-3">No files yet — use “Upload new file” above to add one to this packet.</p>
+                    <p className="text-sm text-faint py-3">No files yet — use “Upload new file” above to add one to this packet.</p>
                   ) : (
-                    <div className="rounded-lg border border-slate-200 divide-y divide-slate-100 max-h-64 overflow-y-auto">
+                    <div className="rounded-lg border border-line divide-y divide-line-soft max-h-64 overflow-y-auto">
                       {files.map(file => {
                         const checked = packetFileIds.includes(file.id)
                         return (
-                          <label key={file.id} className={cn('flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-slate-50 transition-colors', checked && 'bg-orange-50/50')}>
+                          <label key={file.id} className={cn('flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-surface transition-colors', checked && 'bg-accent-tint/50')}>
                             <input type="checkbox" checked={checked} onChange={() => togglePacketFile(file.id)}
-                              className="h-4 w-4 rounded border-slate-300 text-orange-500 focus:ring-orange-500 accent-orange-500" />
+                              className="h-4 w-4 rounded border-muted2 text-accent-fg focus:ring-accent accent-[#C9F24A]" />
                             <div className="min-w-0 flex-1">
-                              <p className="text-sm font-medium text-slate-700 truncate">{file.name}</p>
-                              <p className="text-xs text-slate-400">{file.category}</p>
+                              <p className="text-sm font-medium text-ink-soft truncate">{file.name}</p>
+                              <p className="text-xs text-faint">{file.category}</p>
                             </div>
                           </label>
                         )
@@ -426,8 +427,8 @@ export default function FilesPage() {
                   )}
                 </div>
               </div>
-              <div className="sticky bottom-0 bg-white border-t border-slate-100 px-6 py-4 space-y-2">
-                {packetError && <p className="text-xs text-red-600 flex items-center gap-1"><AlertCircle className="h-3 w-3 shrink-0" />{packetError}</p>}
+              <div className="sticky bottom-0 bg-panel border-t border-line-soft px-6 py-4 space-y-2">
+                {packetError && <p className="text-xs text-danger flex items-center gap-1"><AlertCircle className="h-3 w-3 shrink-0" />{packetError}</p>}
                 <div className="flex gap-2 justify-end">
                   <Button type="button" variant="secondary" onClick={() => setShowPacketForm(false)}>Cancel</Button>
                   <Button type="submit" disabled={savingPacket}>{savingPacket ? 'Saving...' : editingPacket ? 'Save Changes' : 'Create Packet'}</Button>
@@ -441,8 +442,8 @@ export default function FilesPage() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Files</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Company documents and ready-to-go submission packets.</p>
+          <h1 className="text-2xl font-bold text-ink">Files</h1>
+          <p className="text-sm text-muted-fg mt-0.5">Company documents and ready-to-go submission packets.</p>
         </div>
         {tab === 'files'
           ? <Button onClick={() => setShowUpload(true)} className="self-start sm:self-auto"><Plus className="h-4 w-4" /> Upload File</Button>
@@ -450,26 +451,26 @@ export default function FilesPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-slate-200">
+      <div className="flex gap-1 border-b border-line">
         {([['files', 'All Files', FolderOpen], ['packets', 'Packets', Package]] as const).map(([key, label, Icon]) => (
           <button key={key} onClick={() => setTab(key)}
             className={cn('flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors',
-              tab === key ? 'border-orange-500 text-orange-600' : 'border-transparent text-slate-500 hover:text-slate-700')}>
+              tab === key ? 'border-accent text-accent-fg' : 'border-transparent text-muted-fg hover:text-ink-soft')}>
             <Icon className="h-4 w-4" />{label}
-            <span className="text-xs text-slate-400 ml-0.5">{key === 'files' ? files.length : packets.length}</span>
+            <span className="text-xs text-faint ml-0.5">{key === 'files' ? files.length : packets.length}</span>
           </button>
         ))}
       </div>
 
       {fetchError && (
-        <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 flex items-center gap-2">
+        <div className="rounded-lg bg-danger-tint border border-danger/30 px-4 py-3 text-sm text-danger flex items-center gap-2">
           <AlertCircle className="h-4 w-4 shrink-0" />
           <span>Something went wrong: <strong>{fetchError}</strong></span>
         </div>
       )}
 
       {loading ? (
-        <div className="text-sm text-slate-400 py-12 text-center">Loading...</div>
+        <div className="text-sm text-faint py-12 text-center">Loading...</div>
       ) : tab === 'files' ? (
         <>
           {/* Category filter chips */}
@@ -478,33 +479,78 @@ export default function FilesPage() {
               <button key={c} onClick={() => setCategoryFilter(c)}
                 className={cn('rounded-full border px-3 py-1 text-xs font-medium transition-colors',
                   categoryFilter === c
-                    ? 'bg-orange-500 border-orange-500 text-white'
-                    : 'bg-white border-slate-200 text-slate-600 hover:border-orange-300')}>
+                    ? 'bg-accent border-accent text-accent-ink'
+                    : 'bg-panel border-line text-muted-fg hover:border-accent')}>
                 {c}
               </button>
             ))}
           </div>
 
-          {visibleFiles.length === 0 ? (
-            <div className="rounded-xl border-2 border-dashed border-slate-200 py-16 text-center">
-              <FolderOpen className="h-8 w-8 text-slate-300 mx-auto mb-3" />
-              <p className="text-sm font-medium text-slate-500">
+          {/* Compliance docs pulled from projects */}
+          {complianceDocs.length > 0 && (categoryFilter === 'All' || ['Insurance', 'License', 'W-9'].includes(categoryFilter)) && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-fg uppercase tracking-wide">From Compliance</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {complianceDocs
+                  .filter(d => {
+                    if (categoryFilter === 'All') return true
+                    if (categoryFilter === 'Insurance') return d.type === 'coi' || d.type === 'workers_comp'
+                    if (categoryFilter === 'License') return d.type === 'license'
+                    if (categoryFilter === 'W-9') return d.type === 'w9'
+                    return false
+                  })
+                  .map((doc: any) => {
+                    const typeLabel: Record<string, string> = { coi: 'COI', license: 'License', w9: 'W-9', workers_comp: "Workers' Comp", other: 'Other' }
+                    const isExpired = doc.expiry_date && new Date(doc.expiry_date + 'T00:00:00') < new Date()
+                    const resolvedStatus = (doc.status === 'expired' && doc.expiry_date && !isExpired) ? 'approved' : doc.status
+                    const statusColor = resolvedStatus === 'approved' ? 'text-success' : resolvedStatus === 'expired' ? 'text-danger' : 'text-warn'
+                    return (
+                      <div key={doc.id} className="rounded-xl border border-line bg-panel p-4 flex flex-col gap-2">
+                        <div className="flex items-start gap-3">
+                          <div className="rounded-lg bg-info-tint border border-blue-100 p-2 shrink-0">
+                            <ShieldCheck className="h-5 w-5 text-info" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-ink-soft truncate">{typeLabel[doc.type] ?? doc.type}</p>
+                            <p className="text-xs text-faint truncate">{doc.companies?.name ?? ''}</p>
+                          </div>
+                          <span className={cn('text-xs font-medium', statusColor)}>{resolvedStatus}</span>
+                        </div>
+                        {doc.expiry_date && (
+                          <p className="text-xs text-faint">Exp {new Date(doc.expiry_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                        )}
+                        {doc.notes && <p className="text-xs text-muted-fg line-clamp-2">{doc.notes}</p>}
+                        <a href={doc.file_url} target="_blank" rel="noopener noreferrer"
+                          className="mt-auto inline-flex items-center gap-1 text-xs font-medium text-accent-fg hover:underline">
+                          <ExternalLink className="h-3 w-3" /> View Document
+                        </a>
+                      </div>
+                    )
+                  })}
+              </div>
+            </div>
+          )}
+
+          {visibleFiles.length === 0 && complianceDocs.length === 0 ? (
+            <div className="rounded-xl border-2 border-dashed border-line py-16 text-center">
+              <FolderOpen className="h-8 w-8 text-faint mx-auto mb-3" />
+              <p className="text-sm font-medium text-muted-fg">
                 {files.length === 0 ? 'No files yet. Upload your first document.' : 'No files in this category.'}
               </p>
             </div>
-          ) : (
+          ) : visibleFiles.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {visibleFiles.map(file => {
                 const TypeIcon = fileTypeIcon(file.file_type)
                 return (
-                  <div key={file.id} className="rounded-xl border border-slate-200 bg-white p-4 flex flex-col gap-3">
+                  <div key={file.id} className="rounded-xl border border-line bg-panel p-4 flex flex-col gap-3">
                     <div className="flex items-start gap-3">
-                      <div className="rounded-lg bg-slate-50 border border-slate-100 p-2 shrink-0">
-                        <TypeIcon className="h-5 w-5 text-slate-500" />
+                      <div className="rounded-lg bg-surface border border-line-soft p-2 shrink-0">
+                        <TypeIcon className="h-5 w-5 text-muted-fg" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-slate-900 text-sm truncate" title={file.name}>{file.name}</p>
-                        <p className="text-xs text-slate-400 mt-0.5">
+                        <p className="font-semibold text-ink text-sm truncate" title={file.name}>{file.name}</p>
+                        <p className="text-xs text-faint mt-0.5">
                           {new Date(file.created_at).toLocaleDateString()}
                           {file.size_bytes ? ` · ${formatSize(file.size_bytes)}` : ''}
                         </p>
@@ -516,15 +562,15 @@ export default function FilesPage() {
                       </span>
                       <div className="flex items-center gap-1">
                         <a href={file.file_url} target="_blank" rel="noopener noreferrer"
-                          className="p-1.5 rounded-md text-slate-400 hover:text-orange-500 hover:bg-orange-50 transition-colors" title="Open">
+                          className="p-1.5 rounded-md text-faint hover:text-accent-fg hover:bg-accent-tint transition-colors" title="Open">
                           <ExternalLink className="h-4 w-4" />
                         </a>
                         <button onClick={() => openEditFile(file)}
-                          className="p-1.5 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors" title="Edit">
+                          className="p-1.5 rounded-md text-faint hover:text-muted-fg hover:bg-surface transition-colors" title="Edit">
                           <Pencil className="h-4 w-4" />
                         </button>
                         <button onClick={() => deleteFile(file)}
-                          className="p-1.5 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors" title="Delete">
+                          className="p-1.5 rounded-md text-faint hover:text-danger hover:bg-danger-tint transition-colors" title="Delete">
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
@@ -533,55 +579,55 @@ export default function FilesPage() {
                 )
               })}
             </div>
-          )}
+          ) : null}
         </>
       ) : (
         <>
           {packets.length === 0 ? (
-            <div className="rounded-xl border-2 border-dashed border-slate-200 py-16 text-center">
-              <Package className="h-8 w-8 text-slate-300 mx-auto mb-3" />
-              <p className="text-sm font-medium text-slate-500">No packets yet</p>
-              <p className="text-xs text-slate-400 mt-1">Bundle files into a packet — e.g. everything you need for a permit submission.</p>
+            <div className="rounded-xl border-2 border-dashed border-line py-16 text-center">
+              <Package className="h-8 w-8 text-faint mx-auto mb-3" />
+              <p className="text-sm font-medium text-muted-fg">No packets yet</p>
+              <p className="text-xs text-faint mt-1">Bundle files into a packet — e.g. everything you need for a permit submission.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {packets.map(packet => {
                 const included = packetFiles(packet)
                 return (
-                  <div key={packet.id} className="rounded-xl border border-slate-200 bg-white p-4 flex flex-col gap-3">
+                  <div key={packet.id} className="rounded-xl border border-line bg-panel p-4 flex flex-col gap-3">
                     <div className="flex items-start gap-3">
-                      <div className="rounded-lg bg-orange-50 border border-orange-100 p-2 shrink-0">
-                        <Package className="h-5 w-5 text-orange-500" />
+                      <div className="rounded-lg bg-accent-tint border border-accent/20 p-2 shrink-0">
+                        <Package className="h-5 w-5 text-accent-fg" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-slate-900 text-sm truncate" title={packet.name}>{packet.name}</p>
-                        <p className="text-xs text-slate-400 mt-0.5">{included.length} file{included.length === 1 ? '' : 's'}</p>
+                        <p className="font-semibold text-ink text-sm truncate" title={packet.name}>{packet.name}</p>
+                        <p className="text-xs text-faint mt-0.5">{included.length} file{included.length === 1 ? '' : 's'}</p>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
                         <button onClick={() => openEditPacket(packet)}
-                          className="p-1.5 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors" title="Edit packet">
+                          className="p-1.5 rounded-md text-faint hover:text-muted-fg hover:bg-surface transition-colors" title="Edit packet">
                           <Pencil className="h-4 w-4" />
                         </button>
                         <button onClick={() => deletePacket(packet)}
-                          className="p-1.5 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors" title="Delete packet">
+                          className="p-1.5 rounded-md text-faint hover:text-danger hover:bg-danger-tint transition-colors" title="Delete packet">
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
                     </div>
-                    {packet.description && <p className="text-xs text-slate-500">{packet.description}</p>}
+                    {packet.description && <p className="text-xs text-muted-fg">{packet.description}</p>}
                     {included.length > 0 ? (
-                      <div className="rounded-lg border border-slate-100 divide-y divide-slate-50">
+                      <div className="rounded-lg border border-line-soft divide-y divide-line-soft">
                         {included.map(file => (
                           <a key={file.id} href={file.file_url} target="_blank" rel="noopener noreferrer"
-                            className="flex items-center gap-2 px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 hover:text-orange-600 transition-colors group">
-                            <FileText className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                            className="flex items-center gap-2 px-3 py-2 text-xs text-muted-fg hover:bg-surface hover:text-accent-fg transition-colors group">
+                            <FileText className="h-3.5 w-3.5 text-faint shrink-0" />
                             <span className="truncate flex-1">{file.name}</span>
-                            <ExternalLink className="h-3 w-3 text-slate-300 group-hover:text-orange-400 shrink-0" />
+                            <ExternalLink className="h-3 w-3 text-faint group-hover:text-accent-fg shrink-0" />
                           </a>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-xs text-slate-400">No files in this packet yet.</p>
+                      <p className="text-xs text-faint">No files in this packet yet.</p>
                     )}
                     <div className="flex gap-2">
                       <Button size="sm" variant="outline" onClick={() => openEditPacket(packet)} className="flex-1">

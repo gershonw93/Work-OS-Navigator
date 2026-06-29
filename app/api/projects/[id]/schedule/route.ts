@@ -37,16 +37,31 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { label, start_date, end_date, color } = await request.json()
-  if (!label || !start_date || !end_date) {
-    return NextResponse.json({ error: 'label, start_date, and end_date are required' }, { status: 400 })
+  const { label, start_date, end_date, color, subcontract_id } = await request.json()
+  if (!start_date || !end_date) {
+    return NextResponse.json({ error: 'start_date and end_date are required' }, { status: 400 })
+  }
+  if (!label && !subcontract_id) {
+    return NextResponse.json({ error: 'label or subcontract_id required' }, { status: 400 })
   }
 
-  const { data, error } = await db
-    .from('schedule_items')
-    .insert({ project_id: params.id, label, start_date, end_date, color: color ?? null, subcontract_id: null })
-    .select()
-    .single()
+  const row: Record<string, unknown> = {
+    project_id: params.id,
+    start_date,
+    end_date,
+    subcontract_id: subcontract_id ?? null,
+    label: label ?? null,
+    color: color ?? null,
+  }
+
+  let { data, error } = await db.from('schedule_items').insert(row).select().single()
+
+  // If label/color columns don't exist yet (migration pending), retry without them
+  if (error && (error as any).code === '42703') {
+    delete row.label; delete row.color
+    const retry = await db.from('schedule_items').insert(row).select().single()
+    data = retry.data; error = retry.error
+  }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ item: data })
