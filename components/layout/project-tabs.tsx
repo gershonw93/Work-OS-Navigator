@@ -14,21 +14,14 @@ import {
 
 const groups = [
   {
-    label: 'Overview',
-    color: 'text-info',
-    bg: 'bg-info-tint',
-    tabs: [
-      { label: 'Progress', slug: 'progress', icon: TrendingUp },
-      { label: 'Reports', slug: 'reports', icon: BarChart2 },
-    ],
-  },
-  {
     label: 'Field',
     color: 'text-info',
     bg: 'bg-info-tint',
     tabs: [
+      { label: 'Plans', slug: 'plans', icon: FileText },
       { label: 'Schedule', slug: 'schedule', icon: Calendar },
       { label: 'Tasks', slug: 'tasks', icon: CheckSquare },
+      { label: 'Progress', slug: 'progress', icon: TrendingUp },
       { label: 'Daily Logs', slug: 'daily-logs', icon: BookOpen },
       { label: 'Time Clock', slug: 'time', icon: Clock },
     ],
@@ -54,6 +47,7 @@ const groups = [
       { label: 'Invoices', slug: 'invoices', icon: Receipt },
       { label: 'Financials', slug: 'financials', icon: DollarSign },
       { label: 'Change Orders', slug: 'change-orders', icon: GitPullRequest },
+      { label: 'Reports', slug: 'reports', icon: BarChart2 },
     ],
   },
   {
@@ -64,14 +58,6 @@ const groups = [
       { label: 'Team', slug: 'team', icon: Users },
       { label: 'Bids', slug: 'bids', icon: GitPullRequest },
       { label: 'RFIs', slug: 'rfis', icon: MessageSquare },
-    ],
-  },
-  {
-    label: 'Files',
-    color: 'text-muted-fg',
-    bg: 'bg-muted',
-    tabs: [
-      { label: 'Plans', slug: 'plans', icon: FileText },
     ],
   },
 ]
