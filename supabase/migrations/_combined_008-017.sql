@@ -141,3 +141,6 @@ CREATE TABLE IF NOT EXISTS quotes (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_quotes_comparison ON quotes (comparison_id);
+
+-- ─── 017: compliance expiry reminders ───────────────────────
+ALTER TABLE compliance_documents ADD COLUMN IF NOT EXISTS reminder_sent_at TIMESTAMPTZ;

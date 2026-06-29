@@ -699,6 +699,45 @@ export default function CompliancePage({ params }: { params: { id: string } }) {
             />
           </div>
 
+          {/* Expiring / expired alerts */}
+          {(() => {
+            const companyName = (cid: string) => subs.find(s => s.companies?.id === cid)?.companies?.name ?? 'Unknown'
+            const now = Date.now()
+            const flagged = docs
+              .filter(d => d.expiry_date)
+              .map(d => {
+                const days = Math.ceil((new Date(d.expiry_date + 'T00:00:00').getTime() - now) / 86400000)
+                return { d, days }
+              })
+              .filter(({ days }) => days <= 30)
+              .sort((a, b) => a.days - b.days)
+            if (flagged.length === 0) return null
+            return (
+              <div className="rounded-xl border border-warn/30 bg-warn-tint px-4 py-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-warn" />
+                  <span className="text-sm font-semibold text-warn">
+                    {flagged.length} document{flagged.length !== 1 ? 's' : ''} need attention
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  {flagged.map(({ d, days }) => (
+                    <div key={d.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 text-sm">
+                      <span className="text-ink-soft">
+                        <span className="font-medium">{companyName(d.company_id)}</span>
+                        <span className="text-muted-fg"> · {DOC_LABELS[d.type] ?? d.type}</span>
+                      </span>
+                      <span className={cn('text-xs font-medium', days < 0 ? 'text-danger' : 'text-warn')}>
+                        {days < 0 ? `Expired ${Math.abs(days)} day${Math.abs(days) !== 1 ? 's' : ''} ago` : days === 0 ? 'Expires today' : `Expires in ${days} day${days !== 1 ? 's' : ''}`}
+                        {d.expiry_date && <span className="text-faint"> · {new Date(d.expiry_date + 'T00:00:00').toLocaleDateString()}</span>}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
+
           {/* Per-sub cards */}
           <div className="space-y-4">
             {subs.map((sub) => (
