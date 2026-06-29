@@ -50,9 +50,12 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
   // Form
   const [subId, setSubId] = useState('')
   const [scheduleItemId, setScheduleItemId] = useState('')
+  const [billMode, setBillMode] = useState<'schedule' | 'percent' | 'fixed'>('fixed')
+  const [percent, setPercent] = useState('')
   const [amount, setAmount] = useState('')
   const [description, setDescription] = useState('')
   const [dueDate, setDueDate] = useState('')
+  const [createError, setCreateError] = useState('')
 
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -61,18 +64,21 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
 
   async function fetchData() {
     const token = await getToken()
-    const [invRes, subRes] = await Promise.all([
+    const [invRes, finRes] = await Promise.all([
       fetch(`/api/projects/${params.id}/invoices`, { headers: { Authorization: `Bearer ${token}` } }),
-      fetch(`/api/projects/${params.id}/tasks`, { headers: { Authorization: `Bearer ${token}` } }),
+      fetch(`/api/projects/${params.id}/financials`, { headers: { Authorization: `Bearer ${token}` } }),
     ])
     if (invRes.ok) {
       const d = await invRes.json()
       setInvoices(d.invoices)
     }
-    if (subRes.ok) {
-      const d = await subRes.json()
-      setSubcontracts(d.subcontracts ?? [])
-      setPaymentItems(d.paymentItems ?? [])
+    if (finRes.ok) {
+      const d = await finRes.json()
+      setSubcontracts((d.subcontracts ?? []).map((s: any) => ({
+        id: s.id, trade: s.trade, contract_amount: Number(s.contract_amount) || 0,
+        company_id: s.companies?.id ?? s.company_id, companies: s.companies,
+      })))
+      setPaymentItems(d.payment_schedule_items ?? [])
     }
     setLoading(false)
   }
@@ -88,26 +94,47 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
     }
   }, [scheduleItemId])
 
+  // Amount actually billed, based on the chosen mode
+  const billedAmount = (() => {
+    const sub = subcontracts.find(s => s.id === subId)
+    if (billMode === 'percent') return sub ? Math.round((Number(percent) || 0) / 100 * sub.contract_amount * 100) / 100 : 0
+    return parseFloat(amount) || 0
+  })()
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
+    setCreateError('')
+    const sub = subcontracts.find(s => s.id === subId)
+    if (!sub) { setCreateError('Select a subcontractor'); return }
+    if (!(billedAmount > 0)) { setCreateError('Enter an amount or percent'); return }
     setSubmitting(true)
     const token = await getToken()
-    const sub = subcontracts.find(s => s.id === subId)
-    await fetch(`/api/projects/${params.id}/invoices`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({
-        subcontract_id: subId || null,
-        payment_schedule_item_id: scheduleItemId || null,
-        company_id: sub?.company_id,
-        company_name: (sub?.companies as any)?.name ?? sub?.trade,
-        amount: parseFloat(amount),
-        description: description || null,
-        due_date: dueDate || null,
-      }),
-    })
-    setSubId(''); setScheduleItemId(''); setAmount(''); setDescription(''); setDueDate('')
-    setShowForm(false); setSubmitting(false); fetchData()
+    try {
+      const res = await fetch(`/api/projects/${params.id}/invoices`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          subcontract_id: subId || null,
+          payment_schedule_item_id: billMode === 'schedule' ? (scheduleItemId || null) : null,
+          company_id: sub?.company_id,
+          company_name: (sub?.companies as any)?.name ?? sub?.trade,
+          amount: billedAmount,
+          description: description || (billMode === 'percent' ? `${percent}% of contract` : null),
+          due_date: dueDate || null,
+        }),
+      })
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}))
+        setCreateError(j.error || `Could not create invoice (${res.status}). If this persists, run the invoices migration (023).`)
+        setSubmitting(false)
+        return
+      }
+      setSubId(''); setScheduleItemId(''); setAmount(''); setPercent(''); setDescription(''); setDueDate('')
+      setShowForm(false); setSubmitting(false); fetchData()
+    } catch (err: any) {
+      setCreateError(err?.message ? `Failed: ${err.message}` : 'Failed — check your connection.')
+      setSubmitting(false)
+    }
   }
 
   async function updateStatus(invoice: Invoice, newStatus: string) {
@@ -392,26 +419,55 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
                   </SearchableSelect>
                 </div>
 
-                {subId && subPaymentItems.length > 0 && (
+                {/* Bill by */}
+                <div className="space-y-1.5">
+                  <Label>Bill by</Label>
+                  <div className="inline-flex rounded-lg border border-line p-0.5">
+                    {([['fixed', 'Fixed amount'], ['percent', '% of contract'], ['schedule', 'Scheduled item']] as const).map(([m, label]) => (
+                      <button key={m} type="button" onClick={() => setBillMode(m)}
+                        className={cn('px-3 py-1.5 rounded-md text-xs font-medium transition-colors',
+                          billMode === m ? 'bg-accent text-accent-ink' : 'text-muted-fg hover:text-ink')}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {billMode === 'schedule' && (
                   <div className="space-y-1.5">
-                    <Label>Payment Schedule Item <span className="text-faint font-normal">(optional)</span></Label>
-                    <SearchableSelect value={scheduleItemId} onChange={e => setScheduleItemId(e.target.value)}
-                      className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
-                      <option value="">Select milestone...</option>
-                      {subPaymentItems.map(p => (
-                        <option key={p.id} value={p.id}>{p.label}{p.amount ? ` — $${Number(p.amount).toLocaleString()}` : p.percentage ? ` — ${p.percentage}%` : ''}</option>
-                      ))}
-                    </SearchableSelect>
+                    <Label>Payment Schedule Item</Label>
+                    {subPaymentItems.length === 0
+                      ? <p className="text-xs text-faint">No payment schedule for this sub. Use Fixed or %.</p>
+                      : <SearchableSelect value={scheduleItemId} onChange={e => setScheduleItemId(e.target.value)}
+                          className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
+                          <option value="">Select milestone...</option>
+                          {subPaymentItems.map(p => (
+                            <option key={p.id} value={p.id}>{p.label}{p.amount ? ` — $${Number(p.amount).toLocaleString()}` : p.percentage ? ` — ${p.percentage}%` : ''}</option>
+                          ))}
+                        </SearchableSelect>}
                   </div>
                 )}
 
-                <div className="space-y-1.5">
-                  <Label>Amount</Label>
-                  <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-faint" />
-                    <Input type="number" step="0.01" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} required className="pl-8" />
+                {billMode === 'percent' ? (
+                  <div className="space-y-1.5">
+                    <Label>Percent of contract</Label>
+                    <div className="relative">
+                      <Input type="number" step="0.01" placeholder="e.g. 40" value={percent} onChange={e => setPercent(e.target.value)} className="pr-7" />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-faint text-sm">%</span>
+                    </div>
+                    {(() => { const sub = subcontracts.find(s => s.id === subId); return sub
+                      ? <p className="text-xs text-muted-fg">= <span className="font-semibold text-ink-soft">${billedAmount.toLocaleString()}</span> of ${sub.contract_amount.toLocaleString()} contract</p>
+                      : <p className="text-xs text-faint">Select a subcontractor to compute the amount.</p> })()}
                   </div>
-                </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <Label>Amount</Label>
+                    <div className="relative">
+                      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-faint" />
+                      <Input type="number" step="0.01" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} className="pl-8" />
+                    </div>
+                  </div>
+                )}
 
                 <div className="space-y-1.5">
                   <Label>Description</Label>
@@ -423,9 +479,12 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
                   <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
                 </div>
               </div>
-              <div className="px-4 sm:px-6 py-4 border-t border-line-soft flex flex-wrap gap-2 justify-end">
-                <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>Cancel</Button>
-                <Button type="submit" disabled={submitting}>{submitting ? 'Creating...' : 'Create Invoice'}</Button>
+              <div className="px-4 sm:px-6 py-4 border-t border-line-soft space-y-2">
+                {createError && <p className="text-sm text-danger">{createError}</p>}
+                <div className="flex flex-wrap gap-2 justify-end">
+                  <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>Cancel</Button>
+                  <Button type="submit" disabled={submitting}>{submitting ? 'Creating...' : 'Create Invoice'}</Button>
+                </div>
               </div>
             </form>
           </div>
