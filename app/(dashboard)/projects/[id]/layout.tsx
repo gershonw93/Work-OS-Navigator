@@ -5,6 +5,7 @@ import { Badge, getStatusVariant } from '@/components/ui/badge'
 import { ProjectActivityButton } from '@/components/layout/project-activity-button'
 import { SharePortalButton } from '@/components/layout/share-portal-button'
 import { TeamQuickView } from '@/components/layout/team-quick-view'
+import { EditProjectButton } from '@/components/layout/edit-project-button'
 
 interface ProjectLayoutProps {
   children: ReactNode
@@ -43,6 +44,11 @@ export default async function ProjectLayout({ children, params }: ProjectLayoutP
             <TeamQuickView projectId={params.id} />
             <SharePortalButton projectId={params.id} />
             <ProjectActivityButton projectId={params.id} />
+            <EditProjectButton projectId={params.id} project={{
+              name: project?.name, address: project?.address, client: project?.client,
+              type: project?.type, status: project?.status,
+              start_date: project?.start_date, end_date: project?.end_date,
+            }} />
           </div>
         </div>
       </div>
