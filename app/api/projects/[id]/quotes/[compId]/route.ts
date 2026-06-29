@@ -19,6 +19,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   if ('winning_quote_id' in body) updates.winning_quote_id = body.winning_quote_id || null
   if ('title' in body) updates.title = body.title
   if ('trade' in body) updates.trade = body.trade || null
+  if ('requirements' in body) updates.requirements = body.requirements || null
 
   const { data, error } = await db
     .from('quote_comparisons')

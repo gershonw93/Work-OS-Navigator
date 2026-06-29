@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Scale, Plus, X, Upload, Trophy, Trash2, FileText, Loader2, Check, ExternalLink } from 'lucide-react'
+import { Scale, Plus, X, Upload, Trophy, Trash2, FileText, Loader2, Check, ExternalLink, Sparkles, AlertTriangle, ClipboardList } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -19,11 +19,18 @@ interface Quote {
   scope_summary: string | null
   data: { line_items?: any[]; inclusions?: string[]; exclusions?: string[]; payment_terms?: string | null; notes?: string | null } | null
 }
+interface Analysis {
+  per_quote?: { quote_id: string; missing?: string[]; strengths?: string[]; concerns?: string[] }[]
+  recommendation?: string
+  recommended_quote_id?: string | null
+}
 interface Comparison {
   id: string
   title: string
   trade: string | null
   winning_quote_id: string | null
+  requirements: string | null
+  analysis: Analysis | null
   quotes: Quote[]
 }
 
@@ -38,7 +45,30 @@ export default function QuotesPage({ params }: { params: { id: string } }) {
   const [newTrade, setNewTrade] = useState('')
   const [creating, setCreating] = useState(false)
   const [uploadingFor, setUploadingFor] = useState<string | null>(null)
+  const [reqDraft, setReqDraft] = useState<Record<string, string>>({})
+  const [analyzingFor, setAnalyzingFor] = useState<string | null>(null)
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({})
+
+  async function saveRequirements(compId: string, requirements: string) {
+    const token = await getToken()
+    await fetch(`/api/projects/${params.id}/quotes/${compId}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ requirements }),
+    })
+    load()
+  }
+
+  async function analyze(compId: string) {
+    setAnalyzingFor(compId)
+    const token = await getToken()
+    try {
+      const res = await fetch(`/api/projects/${params.id}/quotes/${compId}/analyze`, {
+        method: 'POST', headers: { Authorization: `Bearer ${token}` },
+      })
+      if (res.ok) load()
+      else alert((await res.json().catch(() => ({}))).error ?? 'Analysis failed')
+    } finally { setAnalyzingFor(null) }
+  }
 
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -164,6 +194,33 @@ export default function QuotesPage({ params }: { params: { id: string } }) {
               </div>
             </div>
 
+            {/* Requirements + AI analysis */}
+            <div className="px-4 sm:px-5 py-3 border-b border-line-soft bg-surface/60 space-y-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-faint mb-1.5 flex items-center gap-1"><ClipboardList className="h-3.5 w-3.5" /> What you need (requirements)</p>
+                <textarea
+                  rows={2}
+                  defaultValue={comp.requirements ?? ''}
+                  onChange={e => setReqDraft(p => ({ ...p, [comp.id]: e.target.value }))}
+                  onBlur={e => { if ((e.target.value ?? '') !== (comp.requirements ?? '')) saveRequirements(comp.id, e.target.value) }}
+                  placeholder="e.g. 200A panel upgrade, all permits included, EV-charger rough-in, finish within 3 weeks…"
+                  className="w-full rounded-lg border border-line bg-panel px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-accent focus:outline-none resize-none"
+                />
+                <div className="flex items-center justify-between mt-2">
+                  <span className="text-xs text-faint">AI checks each quote against this and flags what's missing.</span>
+                  <Button size="sm" disabled={analyzingFor === comp.id || quotes.length === 0} onClick={() => analyze(comp.id)}>
+                    {analyzingFor === comp.id ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Analyzing…</> : <><Sparkles className="h-3.5 w-3.5" /> Analyze quotes</>}
+                  </Button>
+                </div>
+              </div>
+              {comp.analysis?.recommendation && (
+                <div className="rounded-lg bg-accent-tint/50 border border-accent/30 px-3 py-2.5">
+                  <p className="text-xs font-semibold text-accent-fg mb-0.5 flex items-center gap-1"><Sparkles className="h-3.5 w-3.5" /> Recommendation</p>
+                  <p className="text-sm text-ink-soft">{comp.analysis.recommendation}</p>
+                </div>
+              )}
+            </div>
+
             {quotes.length === 0 ? (
               <div className="p-8 text-center text-sm text-faint">
                 {uploadingFor === comp.id ? 'Reading quote…' : 'Upload your first quote (PDF or photo).'}
@@ -197,6 +254,35 @@ export default function QuotesPage({ params }: { params: { id: string } }) {
                       </div>
 
                       {q.scope_summary && <p className="text-xs text-muted-fg">{q.scope_summary}</p>}
+
+                      {(() => {
+                        const ga = comp.analysis?.per_quote?.find(p => p.quote_id === q.id)
+                        const isRec = comp.analysis?.recommended_quote_id === q.id
+                        if (!ga && !isRec) return null
+                        return (
+                          <div className="rounded-lg bg-surface border border-line-soft p-2 space-y-1.5">
+                            {isRec && <span className="inline-flex items-center gap-1 text-[10px] font-semibold rounded-full bg-accent-tint text-accent-fg px-1.5 py-0.5"><Sparkles className="h-2.5 w-2.5" /> AI pick</span>}
+                            {(ga?.missing?.length ?? 0) > 0 && (
+                              <div>
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-danger mb-0.5">Missing</p>
+                                <ul className="text-xs text-muted-fg space-y-0.5">{ga!.missing!.slice(0, 6).map((x, i) => <li key={i} className="flex gap-1"><AlertTriangle className="h-3 w-3 text-danger shrink-0 mt-0.5" />{x}</li>)}</ul>
+                              </div>
+                            )}
+                            {(ga?.concerns?.length ?? 0) > 0 && (
+                              <div>
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-warn mb-0.5">Concerns</p>
+                                <ul className="text-xs text-muted-fg space-y-0.5">{ga!.concerns!.slice(0, 4).map((x, i) => <li key={i} className="flex gap-1"><AlertTriangle className="h-3 w-3 text-warn shrink-0 mt-0.5" />{x}</li>)}</ul>
+                              </div>
+                            )}
+                            {(ga?.strengths?.length ?? 0) > 0 && (
+                              <div>
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-success mb-0.5">Strengths</p>
+                                <ul className="text-xs text-muted-fg space-y-0.5">{ga!.strengths!.slice(0, 4).map((x, i) => <li key={i} className="flex gap-1"><Check className="h-3 w-3 text-success shrink-0 mt-0.5" />{x}</li>)}</ul>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })()}
 
                       {(q.data?.line_items?.length ?? 0) > 0 && (
                         <div className="border-t border-line-soft pt-2">
