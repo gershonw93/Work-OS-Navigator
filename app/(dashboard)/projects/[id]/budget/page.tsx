@@ -41,6 +41,16 @@ const CATEGORIES = [
 
 const money = (n: number) => `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 
+// Small labeled wrapper for compact inline form fields
+function Field({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
+  return (
+    <div className={cn('space-y-0.5', className)}>
+      <span className="block text-[10px] font-semibold uppercase tracking-wide text-faint">{label}</span>
+      {children}
+    </div>
+  )
+}
+
 const blankForm = {
   cost_code: '', category: 'General', description: '',
   budgeted_amount: '', committed_amount: '', actual_amount: '', notes: '',
@@ -506,42 +516,60 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                       return (
                         <div key={item.id} className="px-4 py-3 bg-accent-tint/40 space-y-2">
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                            <input className="rounded-lg border border-line px-2.5 py-1.5 text-sm" placeholder="Cost code"
-                              value={editForm.cost_code} onChange={e => setEditForm({ ...editForm, cost_code: e.target.value })} />
-                            <SearchableSelect className="rounded-lg border border-line px-2.5 py-1.5 text-sm bg-panel"
-                              value={editForm.category} onChange={e => setEditForm({ ...editForm, category: e.target.value })}>
-                              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                            </SearchableSelect>
-                            <input className="rounded-lg border border-line px-2.5 py-1.5 text-sm col-span-2 sm:col-span-1" placeholder="Description"
-                              value={editForm.description} onChange={e => setEditForm({ ...editForm, description: e.target.value })} />
-                            <input type="number" className="rounded-lg border border-line px-2.5 py-1.5 text-sm" placeholder="Budgeted"
-                              value={editForm.budgeted_amount} onChange={e => setEditForm({ ...editForm, budgeted_amount: e.target.value })} />
+                            <Field label="Cost code">
+                              <input className="w-full rounded-lg border border-line px-2.5 py-1.5 text-sm" placeholder="optional"
+                                value={editForm.cost_code} onChange={e => setEditForm({ ...editForm, cost_code: e.target.value })} />
+                            </Field>
+                            <Field label="Category">
+                              <SearchableSelect className="rounded-lg border border-line px-2.5 py-1.5 text-sm bg-panel"
+                                value={editForm.category} onChange={e => setEditForm({ ...editForm, category: e.target.value })}>
+                                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                              </SearchableSelect>
+                            </Field>
+                            <Field label="Description" className="col-span-2 sm:col-span-1">
+                              <input className="w-full rounded-lg border border-line px-2.5 py-1.5 text-sm" placeholder="What this covers"
+                                value={editForm.description} onChange={e => setEditForm({ ...editForm, description: e.target.value })} />
+                            </Field>
+                            <Field label="Budgeted ($)">
+                              <input type="number" className="w-full rounded-lg border border-line px-2.5 py-1.5 text-sm" placeholder="0"
+                                value={editForm.budgeted_amount} onChange={e => setEditForm({ ...editForm, budgeted_amount: e.target.value })} />
+                            </Field>
                             {editForm.subcontract_id ? (
                               <>
-                                <div className="rounded-lg border border-line bg-muted px-2.5 py-1.5 text-sm flex items-center justify-between">
-                                  <span className="text-xs text-muted-fg">Committed</span>
-                                  <span className="font-medium text-ink-soft">{money(subOptions.find(s => s.id === editForm.subcontract_id)?.contract_amount ?? 0)}</span>
-                                </div>
-                                <div className="rounded-lg border border-line bg-muted px-2.5 py-1.5 text-sm flex items-center justify-between">
-                                  <span className="text-xs text-muted-fg">Actual</span>
-                                  <span className="font-medium text-accent-fg">Auto</span>
-                                </div>
+                                <Field label="Committed ($)">
+                                  <div className="rounded-lg border border-line bg-muted px-2.5 py-1.5 text-sm flex items-center justify-between">
+                                    <span className="text-xs text-faint">auto</span>
+                                    <span className="font-medium text-ink-soft">{money(subOptions.find(s => s.id === editForm.subcontract_id)?.contract_amount ?? 0)}</span>
+                                  </div>
+                                </Field>
+                                <Field label="Actual ($)">
+                                  <div className="rounded-lg border border-line bg-muted px-2.5 py-1.5 text-sm flex items-center justify-between">
+                                    <span className="text-xs text-faint">from invoices</span>
+                                    <span className="font-medium text-accent-fg">Auto</span>
+                                  </div>
+                                </Field>
                               </>
                             ) : (
                               <>
-                                <input type="number" className="rounded-lg border border-line px-2.5 py-1.5 text-sm" placeholder="Committed"
-                                  value={editForm.committed_amount} onChange={e => setEditForm({ ...editForm, committed_amount: e.target.value })} />
-                                <input type="number" className="rounded-lg border border-line px-2.5 py-1.5 text-sm" placeholder="Actual"
-                                  value={editForm.actual_amount} onChange={e => setEditForm({ ...editForm, actual_amount: e.target.value })} />
+                                <Field label="Committed ($)">
+                                  <input type="number" className="w-full rounded-lg border border-line px-2.5 py-1.5 text-sm" placeholder="0"
+                                    value={editForm.committed_amount} onChange={e => setEditForm({ ...editForm, committed_amount: e.target.value })} />
+                                </Field>
+                                <Field label="Actual ($)">
+                                  <input type="number" className="w-full rounded-lg border border-line px-2.5 py-1.5 text-sm" placeholder="0"
+                                    value={editForm.actual_amount} onChange={e => setEditForm({ ...editForm, actual_amount: e.target.value })} />
+                                </Field>
                               </>
                             )}
                           </div>
                           {subOptions.length > 0 && (
-                            <SearchableSelect className="w-full rounded-lg border border-line px-2.5 py-1.5 text-sm bg-panel"
-                              value={editForm.subcontract_id} onChange={e => setEditForm({ ...editForm, subcontract_id: e.target.value })}>
-                              <option value="">Not linked — enter manually</option>
-                              {subOptions.map(s => <option key={s.id} value={s.id}>{s.label} · {money(s.contract_amount)}</option>)}
-                            </SearchableSelect>
+                            <Field label="Link to subcontract (auto-fills Committed & Actual)">
+                              <SearchableSelect className="w-full rounded-lg border border-line px-2.5 py-1.5 text-sm bg-panel"
+                                value={editForm.subcontract_id} onChange={e => setEditForm({ ...editForm, subcontract_id: e.target.value })}>
+                                <option value="">Not linked — enter manually</option>
+                                {subOptions.map(s => <option key={s.id} value={s.id}>{s.label} · {money(s.contract_amount)}</option>)}
+                              </SearchableSelect>
+                            </Field>
                           )}
                           <div className="flex gap-2 justify-end">
                             <button onClick={() => setEditingId(null)} className="inline-flex items-center gap-1 text-xs text-muted-fg px-2 py-1.5 rounded-lg hover:bg-muted">
