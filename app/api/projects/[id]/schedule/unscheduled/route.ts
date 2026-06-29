@@ -25,7 +25,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
   // Fetch subs for this project, excluding already-scheduled ones
   let query = db
     .from('subcontracts')
-    .select('id, scope, trade, companies(id, name)')
+    .select('id, scope, trade, companies(id, name, type)')
     .eq('project_id', params.id)
 
   if (scheduledIds.length > 0) {

@@ -120,7 +120,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
   const [editColor, setEditColor] = useState('blue')
   const [editSaving, setEditSaving] = useState(false)
 
-  const [unscheduled, setUnscheduled] = useState<{ id: string; scope: string; trade: string | null; companies: { id: string; name: string } | null }[]>([])
+  const [unscheduled, setUnscheduled] = useState<{ id: string; scope: string; trade: string | null; companies: { id: string; name: string; type?: string } | null }[]>([])
   const [schedulingSubId, setSchedulingSubId] = useState<string | null>(null)
   const [schedStart, setSchedStart] = useState('')
   const [schedEnd, setSchedEnd] = useState('')
@@ -162,7 +162,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     const res = await fetch(`/api/projects/${params.id}/schedule`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ subcontract_id: schedulingSubId, start_date: schedStart, end_date: schedEnd }),
+      body: JSON.stringify({ subcontract_id: schedulingSubId, start_date: schedStart, end_date: schedEnd || schedStart }),
     })
     setSchedSaving(false)
     if (!res.ok) {
@@ -378,31 +378,36 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
           <div className="flex items-center gap-2">
             <Building2 className="h-4 w-4 text-warn" />
             <span className="text-sm font-semibold text-warn">
-              {unscheduled.length} subcontractor{unscheduled.length > 1 ? 's' : ''} not yet scheduled
+              {unscheduled.length} vendor{unscheduled.length > 1 ? 's' : ''} not yet scheduled
             </span>
           </div>
           <div className="space-y-2">
-            {unscheduled.map(sub => (
+            {unscheduled.map(sub => {
+              const isSupplier = sub.companies?.type === 'supplier'
+              return (
               <div key={sub.id} className="flex flex-wrap items-center gap-3 bg-panel rounded-lg border border-amber-100 px-3 py-2">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-ink-soft">{sub.companies?.name ?? 'Unknown'}</p>
-                  <p className="text-xs text-faint truncate">{sub.trade ? `${sub.trade} · ` : ''}{sub.scope}</p>
+                  <p className="text-xs text-faint truncate">
+                    {isSupplier ? 'Supplier · schedule delivery' : (sub.trade ? `${sub.trade} · ` : '') + sub.scope}
+                  </p>
                 </div>
                 {schedulingSubId === sub.id ? (
                   <form onSubmit={scheduleSubcontract} className="flex items-center gap-2 flex-wrap">
                     <Input type="date" className="w-36 h-8 text-xs" value={schedStart} onChange={e => setSchedStart(e.target.value)} required />
-                    <span className="text-faint text-xs">to</span>
-                    <Input type="date" className="w-36 h-8 text-xs" value={schedEnd} onChange={e => setSchedEnd(e.target.value)} required />
+                    {!isSupplier && <><span className="text-faint text-xs">to</span>
+                    <Input type="date" className="w-36 h-8 text-xs" value={schedEnd} onChange={e => setSchedEnd(e.target.value)} required /></>}
                     <Button size="sm" type="submit" disabled={schedSaving} className="h-8">{schedSaving ? 'Saving…' : 'Add'}</Button>
                     <button type="button" onClick={() => setSchedulingSubId(null)} className="text-faint hover:text-muted-fg"><X className="h-4 w-4" /></button>
                   </form>
                 ) : (
-                  <Button size="sm" variant="secondary" className="h-8 shrink-0" onClick={() => { setSchedulingSubId(sub.id); setSchedStart(''); setSchedEnd('') }}>
-                    <CalendarDays className="h-3.5 w-3.5" /> Set Dates
+                  <Button size="sm" variant="secondary" className="h-8 shrink-0"
+                    onClick={() => { setSchedulingSubId(sub.id); setSchedStart(''); setSchedEnd('') }}>
+                    <CalendarDays className="h-3.5 w-3.5" /> {isSupplier ? 'Set Delivery' : 'Set Dates'}
                   </Button>
                 )}
               </div>
-            ))}
+            )})}
           </div>
         </div>
       )}

@@ -46,6 +46,17 @@ export default function QuotesPage({ params }: { params: { id: string } }) {
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const [awardTarget, setAwardTarget] = useState<{ compId: string; quoteId: string; vendor: string } | null>(null)
   const [awarding, setAwarding] = useState(false)
+  const [awardType, setAwardType] = useState<'subcontractor' | 'supplier'>('subcontractor')
+  const [awardBudget, setAwardBudget] = useState<'none' | 'new' | string>('new') // 'none' | 'new' | <budget_line_id>
+  const [budgetLines, setBudgetLines] = useState<{ id: string; description: string; category: string; subcontract_id: string | null }[]>([])
+
+  async function openAward(compId: string, quoteId: string, vendor: string) {
+    setAwardType('subcontractor'); setAwardBudget('new')
+    setAwardTarget({ compId, quoteId, vendor })
+    const token = await getToken()
+    const res = await fetch(`/api/projects/${params.id}/budget`, { headers: { Authorization: `Bearer ${token}` } })
+    if (res.ok) setBudgetLines(((await res.json()).items ?? []).filter((l: any) => !l.subcontract_id))
+  }
 
   async function saveRequirements(compId: string, requirements: string) {
     const token = await getToken()
@@ -134,12 +145,18 @@ export default function QuotesPage({ params }: { params: { id: string } }) {
     })
   }
 
-  async function award(compId: string, quoteId: string, vendorType: 'subcontractor' | 'supplier') {
+  async function award() {
+    if (!awardTarget) return
+    setAwarding(true)
     const token = await getToken()
-    const res = await fetch(`/api/projects/${params.id}/quotes/${compId}/award`, {
+    const body: any = { quote_id: awardTarget.quoteId, vendor_type: awardType }
+    if (awardBudget === 'new') body.create_budget_line = true
+    else if (awardBudget !== 'none') body.budget_line_id = awardBudget
+    const res = await fetch(`/api/projects/${params.id}/quotes/${awardTarget.compId}/award`, {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ quote_id: quoteId, vendor_type: vendorType }),
+      body: JSON.stringify(body),
     })
+    setAwarding(false)
     setAwardTarget(null)
     if (res.ok) load()
     else alert((await res.json().catch(() => ({}))).error ?? 'Could not award')
@@ -181,26 +198,54 @@ export default function QuotesPage({ params }: { params: { id: string } }) {
             <div className="px-5 py-4 border-b border-line-soft">
               <h2 className="font-semibold text-ink">Award to project</h2>
             </div>
-            <div className="p-5 space-y-3">
+            <div className="p-5 space-y-4">
               <p className="text-sm text-muted-fg">
-                Adds <span className="font-medium text-ink-soft">{awardTarget.vendor}</span> to your Directory and creates a contract on this project —
-                the amount flows into <span className="text-ink-soft">Financials</span>, and the vendor appears in <span className="text-ink-soft">Schedule</span>, <span className="text-ink-soft">Compliance</span>, and is linkable in <span className="text-ink-soft">Budget</span>.
+                Adds <span className="font-medium text-ink-soft">{awardTarget.vendor}</span> to your Directory and creates a contract — the amount flows into Financials, Schedule, and Compliance.
               </p>
-              <p className="text-sm font-medium text-ink-soft">Add this vendor as a…</p>
-              <div className="grid grid-cols-2 gap-3">
-                <button disabled={awarding} onClick={async () => { setAwarding(true); await award(awardTarget.compId, awardTarget.quoteId, 'subcontractor'); setAwarding(false) }}
-                  className="rounded-lg border border-line p-3 text-left hover:border-accent hover:bg-surface transition-colors">
-                  <p className="text-sm font-semibold text-ink">Subcontractor</p>
-                  <p className="text-xs text-faint mt-0.5">Performs work / labor on site</p>
-                </button>
-                <button disabled={awarding} onClick={async () => { setAwarding(true); await award(awardTarget.compId, awardTarget.quoteId, 'supplier'); setAwarding(false) }}
-                  className="rounded-lg border border-line p-3 text-left hover:border-accent hover:bg-surface transition-colors">
-                  <p className="text-sm font-semibold text-ink">Supplier</p>
-                  <p className="text-xs text-faint mt-0.5">Provides materials (e.g. lumber)</p>
-                </button>
+
+              {/* Vendor type */}
+              <div>
+                <p className="text-sm font-medium text-ink-soft mb-1.5">This vendor is a…</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {(['subcontractor', 'supplier'] as const).map(t => (
+                    <button key={t} onClick={() => setAwardType(t)}
+                      className={cn('rounded-lg border p-2.5 text-left transition-colors', awardType === t ? 'border-accent bg-accent-tint/40' : 'border-line hover:bg-surface')}>
+                      <p className="text-sm font-semibold text-ink capitalize">{t}</p>
+                      <p className="text-xs text-faint mt-0.5">{t === 'supplier' ? 'Materials (e.g. lumber)' : 'Work / labor on site'}</p>
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="flex justify-end pt-1">
+
+              {/* Budget */}
+              <div>
+                <p className="text-sm font-medium text-ink-soft mb-1.5">Budget</p>
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-2 text-sm text-ink-soft">
+                    <input type="radio" className="accent-[#C9F24A]" checked={awardBudget === 'new'} onChange={() => setAwardBudget('new')} />
+                    Create a new budget line for this contract
+                  </label>
+                  {budgetLines.length > 0 && (
+                    <label className="flex items-center gap-2 text-sm text-ink-soft">
+                      <input type="radio" className="accent-[#C9F24A]" checked={awardBudget !== 'new' && awardBudget !== 'none'} onChange={() => setAwardBudget(budgetLines[0].id)} />
+                      Link to an existing budget line:
+                      <select disabled={awardBudget === 'new' || awardBudget === 'none'} value={awardBudget === 'new' || awardBudget === 'none' ? '' : awardBudget}
+                        onChange={e => setAwardBudget(e.target.value)}
+                        className="flex-1 min-w-0 rounded-md border border-line bg-panel px-2 py-1 text-sm disabled:opacity-50">
+                        {budgetLines.map(l => <option key={l.id} value={l.id}>{l.category} · {l.description}</option>)}
+                      </select>
+                    </label>
+                  )}
+                  <label className="flex items-center gap-2 text-sm text-muted-fg">
+                    <input type="radio" className="accent-[#C9F24A]" checked={awardBudget === 'none'} onChange={() => setAwardBudget('none')} />
+                    Don't add to the budget
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-1">
                 <Button variant="secondary" disabled={awarding} onClick={() => setAwardTarget(null)}>Cancel</Button>
+                <Button disabled={awarding} onClick={award}>{awarding ? 'Awarding…' : 'Award'}</Button>
               </div>
             </div>
           </div>
@@ -400,7 +445,7 @@ export default function QuotesPage({ params }: { params: { id: string } }) {
                               </Button>
                             )}
                             {!comp.awarded_subcontract_id && (
-                              <Button size="sm" className="w-full" disabled={q.total_amount == null} onClick={() => setAwardTarget({ compId: comp.id, quoteId: q.id, vendor: q.vendor_name ?? comp.title })}>
+                              <Button size="sm" className="w-full" disabled={q.total_amount == null} onClick={() => openAward(comp.id, q.id, q.vendor_name ?? comp.title)}>
                                 Award to project
                               </Button>
                             )}
