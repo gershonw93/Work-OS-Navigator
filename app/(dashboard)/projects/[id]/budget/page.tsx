@@ -470,7 +470,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                   }))
                 }}>
                 <option value="">Not linked — enter manually</option>
-                {subOptions.map(s => <option key={s.id} value={s.id}>{s.label} · {money(s.contract_amount)}</option>)}
+                {subOptions.filter(s => !linkedSubIds.has(s.id)).map(s => <option key={s.id} value={s.id}>{s.label} · {money(s.contract_amount)}</option>)}
               </SearchableSelect>
             </div>
           )}
@@ -567,7 +567,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                               <SearchableSelect className="w-full rounded-lg border border-line px-2.5 py-1.5 text-sm bg-panel"
                                 value={editForm.subcontract_id} onChange={e => setEditForm({ ...editForm, subcontract_id: e.target.value })}>
                                 <option value="">Not linked — enter manually</option>
-                                {subOptions.map(s => <option key={s.id} value={s.id}>{s.label} · {money(s.contract_amount)}</option>)}
+                                {subOptions.filter(s => !linkedSubIds.has(s.id) || s.id === item.subcontract_id).map(s => <option key={s.id} value={s.id}>{s.label} · {money(s.contract_amount)}</option>)}
                               </SearchableSelect>
                             </Field>
                           )}
@@ -618,8 +618,8 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                         </div>
                         <div className="flex justify-between md:block md:text-right text-sm font-medium">
                           <span className="md:hidden text-xs text-faint">Variance</span>
-                          <span className={over ? 'text-danger' : 'text-success'}>
-                            {over ? '-' : ''}{money(Math.abs(variance))}
+                          <span className={variance === 0 ? 'text-faint' : over ? 'text-danger' : 'text-success'}>
+                            {variance === 0 ? '—' : `${over ? '-' : ''}${money(Math.abs(variance))}`}
                           </span>
                         </div>
                         <div className="flex justify-end gap-1 mt-2 md:mt-0 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
