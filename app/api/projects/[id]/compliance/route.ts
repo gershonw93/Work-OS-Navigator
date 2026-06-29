@@ -20,7 +20,7 @@ export async function GET(
 
   const { data: subcontracts, error: subError } = await db
     .from('subcontracts')
-    .select('*, companies(id, name)')
+    .select('*, companies(id, name, type)')
     .eq('project_id', params.id)
 
   if (subError) return NextResponse.json({ error: subError.message }, { status: 500 })

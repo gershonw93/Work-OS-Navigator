@@ -13,7 +13,7 @@ import { ShieldCheck, Upload, RefreshCw, X, AlertTriangle, CheckCircle2, FileWar
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type DocType = 'coi' | 'license' | 'w9' | 'workers_comp' | 'other'
-type DocStatus = 'missing' | 'pending' | 'approved' | 'expired' | 'expiring_soon'
+type DocStatus = 'missing' | 'pending' | 'approved' | 'expired' | 'expiring_soon' | 'optional'
 
 interface ComplianceDoc {
   id: string
@@ -29,12 +29,22 @@ interface ComplianceDoc {
 
 interface Sub {
   id: string
-  companies: { id: string; name: string } | null
+  companies: { id: string; name: string; type?: string } | null
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const DOC_TYPES: DocType[] = ['coi', 'license', 'w9', 'workers_comp', 'other']
+
+// Which docs each vendor type needs. Suppliers (materials) usually only need a W-9.
+function docTypesFor(companyType?: string): DocType[] {
+  if (companyType === 'supplier') return ['w9', 'coi', 'other']
+  return DOC_TYPES
+}
+function requiredDocsFor(companyType?: string): DocType[] {
+  if (companyType === 'supplier') return ['w9']                 // COI/Other optional
+  return ['coi', 'license', 'w9', 'workers_comp']               // Other optional
+}
 
 const DOC_LABELS: Record<DocType, string> = {
   coi: 'COI',
@@ -50,6 +60,7 @@ const STATUS_CONFIG: Record<DocStatus, { label: string; classes: string }> = {
   approved:      { label: 'Approved',       classes: 'bg-success-tint text-success' },
   expired:       { label: 'Expired',        classes: 'bg-danger-tint text-danger' },
   expiring_soon: { label: 'Expiring Soon',  classes: 'bg-accent-tint text-accent-fg' },
+  optional:      { label: '—',              classes: 'bg-transparent text-faint' },
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -499,6 +510,9 @@ function SubCard({ sub, docs, projectId, token, onRefresh }: SubCardProps) {
   const [openForm, setOpenForm] = useState<DocType | null>(null)
   const companyId = sub.companies?.id ?? ''
   const companyName = sub.companies?.name ?? 'Unknown'
+  const companyType = sub.companies?.type
+  const visibleDocs = docTypesFor(companyType)
+  const requiredDocs = requiredDocsFor(companyType)
 
   function getDoc(type: DocType): ComplianceDoc | null {
     return docs.find((d) => d.company_id === companyId && d.type === type) ?? null
@@ -506,13 +520,14 @@ function SubCard({ sub, docs, projectId, token, onRefresh }: SubCardProps) {
 
   function resolveStatus(type: DocType): DocStatus {
     const doc = getDoc(type)
-    if (!doc) return 'missing'
+    if (!doc) return requiredDocs.includes(type) ? 'missing' : 'optional'
     if (doc.status === 'expired' && doc.expiry_date && new Date(doc.expiry_date + 'T00:00:00') > new Date()) return isExpiringSoon(doc.expiry_date) ? 'expiring_soon' : 'approved'
     if (doc.status === 'approved' && isExpiringSoon(doc.expiry_date)) return 'expiring_soon'
     return doc.status
   }
 
-  const allStatuses = DOC_TYPES.map(resolveStatus)
+  // Only required docs drive the card's overall status
+  const allStatuses = requiredDocs.map(resolveStatus)
   const worst = worstStatus(allStatuses)
   const chip = cardChip(worst)
 
@@ -538,7 +553,7 @@ function SubCard({ sub, docs, projectId, token, onRefresh }: SubCardProps) {
           </tr>
         </thead>
         <tbody className="divide-y divide-line-soft">
-          {DOC_TYPES.map((type) => {
+          {visibleDocs.map((type) => {
             const doc = getDoc(type)
             const status = resolveStatus(type)
             const cfg = STATUS_CONFIG[status]
@@ -636,17 +651,18 @@ export default function CompliancePage({ params }: { params: { id: string } }) {
   }
 
   const totalSubs = subs.length
+  const reqFor = (s: Sub) => requiredDocsFor(s.companies?.type)
   const allCompliant = subs.filter((s) => {
     const id = s.companies?.id ?? ''
-    return DOC_TYPES.every((t) => resolveStatus(id, t) === 'approved')
+    return reqFor(s).every((t) => resolveStatus(id, t) === 'approved')
   }).length
   const expiringSoon = subs.filter((s) => {
     const id = s.companies?.id ?? ''
-    return DOC_TYPES.some((t) => resolveStatus(id, t) === 'expiring_soon')
+    return reqFor(s).some((t) => resolveStatus(id, t) === 'expiring_soon')
   }).length
   const missingDocs = subs.filter((s) => {
     const id = s.companies?.id ?? ''
-    return DOC_TYPES.some((t) => resolveStatus(id, t) === 'missing')
+    return reqFor(s).some((t) => resolveStatus(id, t) === 'missing')
   }).length
 
   return (
