@@ -42,6 +42,10 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
   const [inviteEmail, setInviteEmail] = useState<Record<string, string>>({})
   const [copied, setCopied] = useState<string | null>(null)
   const [pulling, setPulling] = useState<string | null>(null)
+  // Add-to-directory after inviting a new (non-directory) sub
+  const [pendingContact, setPendingContact] = useState<{ name: string; email: string } | null>(null)
+  const [contactForm, setContactForm] = useState({ name: '', email: '', phone: '', trade: '', type: 'subcontractor' })
+  const [contactSaving, setContactSaving] = useState(false)
 
   async function token() { const { data: { session } } = await supabase.auth.getSession(); return session?.access_token ?? '' }
 
@@ -86,8 +90,35 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
       body: JSON.stringify({ invitees: [{ company_id: subId || null, name, email }] }),
     })
-    if (res.ok) { setInviteSub(p => ({ ...p, [reqId]: '' })); setInviteName(p => ({ ...p, [reqId]: '' })); setInviteEmail(p => ({ ...p, [reqId]: '' })); load() }
+    if (res.ok) {
+      const wasCustom = !subId   // typed name/email, not picked from directory
+      setInviteSub(p => ({ ...p, [reqId]: '' })); setInviteName(p => ({ ...p, [reqId]: '' })); setInviteEmail(p => ({ ...p, [reqId]: '' }))
+      load()
+      if (wasCustom && (name || email)) {
+        setPendingContact({ name: name || '', email: email || '' })
+        setContactForm({ name: name || '', email: email || '', phone: '', trade: '', type: 'subcontractor' })
+      }
+    }
     else alert((await res.json().catch(() => ({}))).error ?? 'Could not invite')
+  }
+
+  async function saveContact() {
+    if (!contactForm.name.trim()) return
+    setContactSaving(true)
+    const t = await token()
+    const res = await fetch('/api/directory', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+      body: JSON.stringify({
+        name: contactForm.name.trim(),
+        type: contactForm.type,
+        trade: contactForm.trade || null,
+        phone: contactForm.phone || null,
+        contact_email: contactForm.email.trim() || `noemail+${Date.now()}@placeholder.com`,
+      }),
+    })
+    setContactSaving(false)
+    if (res.ok) { setPendingContact(null); setContactForm({ name: '', email: '', phone: '', trade: '', type: 'subcontractor' }); load() }
+    else alert((await res.json().catch(() => ({}))).error ?? 'Could not add contact')
   }
 
   async function removeInvite(reqId: string, inviteId: string) {
@@ -216,6 +247,7 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
                       <div className="flex-1 min-w-0">
                         <span className="text-sm font-medium text-ink-soft">{inv.vendor_name ?? inv.vendor_email ?? 'Vendor'}</span>
                         {sub && <span className="text-xs text-success ml-2">{money(sub.amount)}{sub.file_name ? ' · file' : ''}</span>}
+                        {sub?.created_at && <span className="block text-[11px] text-faint mt-0.5">Submitted {new Date(sub.created_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</span>}
                       </div>
                       <span className={cn('text-[10px] font-medium rounded-full px-1.5 py-0.5 capitalize', STATUS[inv.status] ?? 'bg-muted text-muted-fg')}>{inv.status}</span>
                       <button onClick={() => copy(linkFor(inv.token), `l${inv.id}`)} title="Copy link" className="inline-flex items-center gap-1 text-xs text-muted-fg hover:text-ink">{copied === `l${inv.id}` ? <CheckCircle2 className="h-3.5 w-3.5 text-success" /> : <Link2 className="h-3.5 w-3.5" />} Link</button>
@@ -247,6 +279,38 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
           </div>
         )
       })}
+
+      {/* Add invited sub to the directory */}
+      {pendingContact && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setPendingContact(null)}>
+          <div className="w-full max-w-md rounded-xl bg-panel border border-line shadow-xl p-5 space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <h3 className="text-base font-semibold text-ink">Add this sub to your directory?</h3>
+                <p className="text-xs text-muted-fg mt-0.5">Invite sent. Save their details so you can reuse them next time.</p>
+              </div>
+              <button onClick={() => setPendingContact(null)} className="p-1 rounded-lg text-faint hover:bg-surface"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5 sm:col-span-2"><Label>Name <span className="text-danger">*</span></Label><Input value={contactForm.name} onChange={e => setContactForm(p => ({ ...p, name: e.target.value }))} placeholder="Company / contact name" /></div>
+              <div className="space-y-1.5"><Label>Email</Label><Input type="email" value={contactForm.email} onChange={e => setContactForm(p => ({ ...p, email: e.target.value }))} placeholder="optional" /></div>
+              <div className="space-y-1.5"><Label>Phone</Label><Input value={contactForm.phone} onChange={e => setContactForm(p => ({ ...p, phone: e.target.value }))} placeholder="optional" /></div>
+              <div className="space-y-1.5"><Label>Trade</Label><Input value={contactForm.trade} onChange={e => setContactForm(p => ({ ...p, trade: e.target.value }))} placeholder="e.g. Electrical" /></div>
+              <div className="space-y-1.5"><Label>Type</Label>
+                <select value={contactForm.type} onChange={e => setContactForm(p => ({ ...p, type: e.target.value }))} className="w-full rounded-md border border-muted2 bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none">
+                  <option value="subcontractor">Subcontractor</option>
+                  <option value="supplier">Supplier</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end pt-1">
+              <Button variant="secondary" onClick={() => setPendingContact(null)}>Not now</Button>
+              <Button onClick={saveContact} disabled={contactSaving || !contactForm.name.trim()}>{contactSaving ? 'Saving…' : 'Add to directory'}</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
