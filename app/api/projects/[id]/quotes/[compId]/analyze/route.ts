@@ -55,11 +55,14 @@ Compare each quote against the requirements and against the other quotes. Be spe
   try {
     const message = await anthropic.messages.create({
       model: 'claude-opus-4-8',
-      max_tokens: 2048,
+      max_tokens: 4096,
       messages: [{ role: 'user', content: prompt }],
     })
-    const text = message.content[0].type === 'text' ? message.content[0].text : ''
-    analysis = JSON.parse(text.replace(/^```json\s*/i, '').replace(/\s*```$/, '').trim())
+    const raw = message.content.map(b => (b.type === 'text' ? b.text : '')).join('').trim()
+    let jsonStr = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```$/i, '').trim()
+    const first = jsonStr.indexOf('{'); const last = jsonStr.lastIndexOf('}')
+    if (first >= 0 && last > first) jsonStr = jsonStr.slice(first, last + 1)
+    analysis = JSON.parse(jsonStr)
   } catch {
     return NextResponse.json({ error: 'Could not analyze the quotes. Try again.' }, { status: 422 })
   }

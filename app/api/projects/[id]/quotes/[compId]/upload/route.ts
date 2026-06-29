@@ -60,16 +60,29 @@ export async function POST(request: Request, { params }: { params: { id: string;
     : [{ type: 'image', source: { type: 'base64', media_type: file.type as any, data: base64 } }, { type: 'text', text: PROMPT }]
 
   let parsed: any = {}
+  let extractError: string | null = null
   try {
     const message = await anthropic.messages.create({
       model: 'claude-opus-4-8',
-      max_tokens: 2048,
+      max_tokens: 8192,
       messages: [{ role: 'user', content }],
     })
-    const text = message.content[0].type === 'text' ? message.content[0].text : ''
-    parsed = JSON.parse(text.replace(/^```json\s*/i, '').replace(/\s*```$/, '').trim())
-  } catch {
-    parsed = {} // fall back to an empty extraction; the file is still saved
+    const raw = message.content.map(b => (b.type === 'text' ? b.text : '')).join('').trim()
+    // Robustly pull the JSON object even if the model wrapped it in prose/fences
+    let jsonStr = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```$/i, '').trim()
+    const first = jsonStr.indexOf('{')
+    const last = jsonStr.lastIndexOf('}')
+    if (first >= 0 && last > first) jsonStr = jsonStr.slice(first, last + 1)
+    parsed = JSON.parse(jsonStr)
+  } catch (e: any) {
+    extractError = e?.message ? `Could not read this file automatically (${e.message})` : 'Could not read this file automatically'
+    console.error('[quotes/upload] extract failed:', e)
+  }
+
+  const num = (v: any) => {
+    if (typeof v === 'number' && isFinite(v)) return v
+    if (typeof v === 'string') { const n = Number(v.replace(/[^0-9.\-]/g, '')); return isFinite(n) && v.trim() ? n : null }
+    return null
   }
 
   const { data, error } = await db
@@ -79,7 +92,7 @@ export async function POST(request: Request, { params }: { params: { id: string;
       file_url,
       file_name: file.name,
       vendor_name: parsed.vendor_name ?? null,
-      total_amount: typeof parsed.total_amount === 'number' ? parsed.total_amount : null,
+      total_amount: num(parsed.total_amount),
       valid_until: parsed.valid_until ?? null,
       scope_summary: parsed.scope_summary ?? null,
       data: {
@@ -88,6 +101,7 @@ export async function POST(request: Request, { params }: { params: { id: string;
         exclusions: parsed.exclusions ?? [],
         payment_terms: parsed.payment_terms ?? null,
         notes: parsed.notes ?? null,
+        extract_error: extractError,
       },
     })
     .select()
