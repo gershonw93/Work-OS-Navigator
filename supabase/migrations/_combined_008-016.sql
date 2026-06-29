@@ -115,3 +115,29 @@ ALTER TABLE time_entries ADD COLUMN IF NOT EXISTS approval_status TEXT NOT NULL 
 ALTER TABLE time_entries ADD COLUMN IF NOT EXISTS reviewed_by UUID REFERENCES profiles (id) ON DELETE SET NULL;
 ALTER TABLE time_entries ADD COLUMN IF NOT EXISTS reviewed_by_name TEXT;
 ALTER TABLE time_entries ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;
+
+-- ─── 016: quote comparisons ─────────────────────────────────
+CREATE TABLE IF NOT EXISTS quote_comparisons (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  project_id UUID NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  trade TEXT,
+  winning_quote_id UUID,
+  created_by UUID REFERENCES profiles (id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_quote_comparisons_project ON quote_comparisons (project_id);
+
+CREATE TABLE IF NOT EXISTS quotes (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  comparison_id UUID NOT NULL REFERENCES quote_comparisons (id) ON DELETE CASCADE,
+  file_url TEXT,
+  file_name TEXT,
+  vendor_name TEXT,
+  total_amount NUMERIC(14, 2),
+  valid_until DATE,
+  scope_summary TEXT,
+  data JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_quotes_comparison ON quotes (comparison_id);
