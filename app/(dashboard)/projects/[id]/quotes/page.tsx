@@ -15,7 +15,7 @@ interface Quote {
   total_amount: number | null
   valid_until: string | null
   scope_summary: string | null
-  data: { line_items?: any[]; inclusions?: string[]; exclusions?: string[]; payment_terms?: string | null; notes?: string | null } | null
+  data: { line_items?: any[]; inclusions?: string[]; exclusions?: string[]; payment_terms?: string | null; notes?: string | null; extract_error?: string | null } | null
 }
 interface Analysis {
   per_quote?: { quote_id: string; missing?: string[]; strengths?: string[]; concerns?: string[] }[]
@@ -265,6 +265,12 @@ export default function QuotesPage({ params }: { params: { id: string } }) {
                         {q.valid_until && <p className="text-xs text-faint">Valid until {new Date(q.valid_until + 'T00:00:00').toLocaleDateString()}</p>}
                       </div>
 
+                      {q.data?.extract_error && (
+                        <div className="rounded-lg bg-danger-tint border border-danger/30 px-2.5 py-1.5 text-xs text-danger flex items-start gap-1.5">
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                          <span>Couldn't read this file automatically. Open it to view, or delete and re-upload.</span>
+                        </div>
+                      )}
                       {q.scope_summary && <p className="text-xs text-muted-fg">{q.scope_summary}</p>}
 
                       {(() => {
