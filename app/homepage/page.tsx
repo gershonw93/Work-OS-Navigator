@@ -8,7 +8,8 @@ import { BrowserMock } from '@/components/marketing/browser-mock'
 import { DashboardMock } from '@/components/marketing/dashboard-mock'
 import { ScrollHero } from '@/components/marketing/scroll-hero'
 import { FeatureWall } from '@/components/marketing/feature-wall'
-import { DarkShowcase } from '@/components/marketing/dark-showcase'
+import { UploadAISection } from '@/components/marketing/upload-ai-section'
+import { TeamSection } from '@/components/marketing/team-section'
 
 export const metadata: Metadata = { title: 'SyteNav — Construction management built for the field' }
 
@@ -87,8 +88,11 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Dark mode showcase */}
-      <DarkShowcase />
+      {/* Easy upload + AI scans everything (dark-colored band) */}
+      <UploadAISection />
+
+      {/* Team & management */}
+      <TeamSection />
 
       {/* The full feature wall */}
       <FeatureWall />
