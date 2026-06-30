@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
+import { useViewerContext } from '@/lib/use-viewer-context'
+import { QuoteLineItems } from '@/components/projects/quote-line-items'
 
 interface BudgetItem {
   id: string
@@ -61,6 +63,7 @@ const blankForm = {
 export default function BudgetPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
   const guardDelete = useDeleteGuard()
+  const vc = useViewerContext(params.id)
   const [items, setItems] = useState<BudgetItem[]>([])
   const [subOptions, setSubOptions] = useState<SubOption[]>([])
   const [loading, setLoading] = useState(true)
@@ -304,6 +307,11 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   ]
 
   if (loading) return <div className="text-sm text-faint py-12 text-center">Loading…</div>
+
+  // Sub's own job → budget IS the quote line items (no committed/actual rollup).
+  if (!vc.loading && vc.companyType === 'subcontractor' && vc.owns) {
+    return <QuoteLineItems projectId={params.id} mode="budget" />
+  }
 
   return (
     <div className="space-y-6">
