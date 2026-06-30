@@ -249,7 +249,6 @@ CREATE INDEX IF NOT EXISTS idx_quote_comparisons_bid_request ON quote_comparison
 ALTER TABLE companies
   ADD COLUMN IF NOT EXISTS delete_protection_enabled BOOLEAN NOT NULL DEFAULT FALSE,
   ADD COLUMN IF NOT EXISTS delete_key_hash TEXT;
-<<<<<<<< HEAD:supabase/migrations/_combined_008-027.sql
 
 -- ===== 027_client_payments.sql =====
 -- Cost-plus / escrow money model:
@@ -271,5 +270,3 @@ CREATE INDEX IF NOT EXISTS idx_client_payments_project ON client_payments (proje
 
 ALTER TABLE projects
   ADD COLUMN IF NOT EXISTS contractor_fee_pct NUMERIC(6, 4) NOT NULL DEFAULT 0;
-========
->>>>>>>> origin/main:supabase/migrations/_combined_008-026.sql
