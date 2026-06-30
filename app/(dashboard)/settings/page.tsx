@@ -33,6 +33,7 @@ interface Company {
   phone: string
   address: string
   license_number: string
+  default_payment_terms?: string
 }
 
 interface Teammate {
@@ -174,6 +175,7 @@ export default function SettingsPage() {
   const [companyPhone, setCompanyPhone] = useState('')
   const [address, setAddress] = useState('')
   const [licenseNumber, setLicenseNumber] = useState('')
+  const [defaultPaymentTerms, setDefaultPaymentTerms] = useState('')
   const [companySaving, setCompanySaving] = useState(false)
   const [companyMsg, setCompanyMsg] = useState<{ ok: boolean; text: string } | null>(null)
 
@@ -278,6 +280,7 @@ export default function SettingsPage() {
           setCompanyPhone(c.phone ?? '')
           setAddress(c.address ?? '')
           setLicenseNumber(c.license_number ?? '')
+          setDefaultPaymentTerms(c.default_payment_terms ?? '')
         }
 
         if (data.deleteProtection) { setDpEnabled(!!data.deleteProtection.enabled); setDpKeySet(!!data.deleteProtection.keySet) }
@@ -407,6 +410,7 @@ export default function SettingsPage() {
             phone: companyPhone,
             address,
             license_number: licenseNumber,
+            default_payment_terms: defaultPaymentTerms,
           },
         }),
       })
@@ -819,6 +823,18 @@ export default function SettingsPage() {
                           className="mt-1"
                         />
                       </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="defaultPaymentTerms">Default payment terms</Label>
+                      <textarea
+                        id="defaultPaymentTerms"
+                        rows={2}
+                        value={defaultPaymentTerms}
+                        onChange={(e) => setDefaultPaymentTerms(e.target.value)}
+                        placeholder="e.g. 50% deposit, 40% at rough-in, 10% on completion"
+                        className="mt-1 w-full rounded-md border border-muted2 px-3 py-2 text-sm focus:border-accent focus:outline-none resize-none"
+                      />
+                      <p className="text-xs text-faint mt-1">Auto-fills on new quotes when the quote doesn't specify terms.</p>
                     </div>
                     <div className="flex items-center gap-3 pt-2">
                       <Button onClick={saveCompany} disabled={companySaving}>

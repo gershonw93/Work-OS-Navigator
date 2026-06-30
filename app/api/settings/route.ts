@@ -135,7 +135,7 @@ export async function GET(request: Request) {
   const { data: company } = profile.company_id
     ? await db
         .from('companies')
-        .select('id, name, type, contact_email, phone, address, license_number, delete_protection_enabled, delete_key_hash')
+        .select('id, name, type, contact_email, phone, address, license_number, default_payment_terms, delete_protection_enabled, delete_key_hash')
         .eq('id', profile.company_id)
         .single()
     : { data: null }
@@ -232,7 +232,7 @@ export async function PATCH(request: Request) {
 
     if (profile?.company_id) {
       const companyUpdates: Record<string, unknown> = {}
-      const allowed = ['name', 'type', 'contact_email', 'phone', 'address', 'license_number']
+      const allowed = ['name', 'type', 'contact_email', 'phone', 'address', 'license_number', 'default_payment_terms']
       for (const key of allowed) {
         if (company[key] !== undefined) companyUpdates[key] = company[key]
       }

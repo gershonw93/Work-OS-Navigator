@@ -6,8 +6,8 @@ import { Button } from '@/components/ui/button'
 import { Upload, FileText, Loader2, Sparkles, CheckCircle2, ExternalLink, Rocket } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-interface Line { id: string; description: string; budgeted_amount: number; progress_pct: number }
-interface QProject { status: string; quote_file_url: string | null; quote_file_name: string | null; quote_total: number | null }
+interface Line { id: string; description: string; budgeted_amount: number; progress_pct: number; quantity: number | null; unit_price: number | null }
+interface QProject { status: string; quote_file_url: string | null; quote_file_name: string | null; quote_total: number | null; payment_terms: string | null }
 
 const money = (n: number | null) => n == null ? '—' : `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 
@@ -19,16 +19,35 @@ export default function QuotePage({ params }: { params: { id: string } }) {
   const [uploading, setUploading] = useState(false)
   const [converting, setConverting] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+  const [defaultTerms, setDefaultTerms] = useState<string | null>(null)
+  const [terms, setTerms] = useState('')
+  const [termsSaving, setTermsSaving] = useState(false)
+  const [termsSaved, setTermsSaved] = useState(false)
 
   async function token() { const { data: { session } } = await supabase.auth.getSession(); return session?.access_token ?? '' }
 
   async function load() {
     const t = await token()
     const res = await fetch(`/api/projects/${params.id}/quote`, { headers: { Authorization: `Bearer ${t}` } })
-    if (res.ok) { const d = await res.json(); setProject(d.project); setLines(d.line_items ?? []) }
+    if (res.ok) {
+      const d = await res.json()
+      setProject(d.project); setLines(d.line_items ?? []); setDefaultTerms(d.default_payment_terms ?? null)
+      setTerms(d.project?.payment_terms ?? d.default_payment_terms ?? '')
+    }
     setLoading(false)
   }
   useEffect(() => { load() }, [params.id])
+
+  async function saveTerms() {
+    setTermsSaving(true)
+    const t = await token()
+    await fetch(`/api/projects/${params.id}/quote`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+      body: JSON.stringify({ payment_terms: terms }),
+    })
+    setTermsSaving(false); setTermsSaved(true); setTimeout(() => setTermsSaved(false), 1500)
+    setProject(p => p ? { ...p, payment_terms: terms } : p)
+  }
 
   async function upload(file: File) {
     setUploading(true)
@@ -104,13 +123,44 @@ export default function QuotePage({ params }: { params: { id: string } }) {
           <div className="divide-y divide-line-soft">
             {lines.map(l => (
               <div key={l.id} className="px-4 py-2.5 flex items-center justify-between gap-3">
-                <span className="text-sm text-ink-soft truncate">{l.description}</span>
+                <div className="min-w-0">
+                  <span className="text-sm text-ink-soft block truncate">{l.description}</span>
+                  {(l.quantity != null || l.unit_price != null) && (
+                    <span className="text-xs text-faint">
+                      {l.quantity != null ? `${l.quantity}` : ''}{l.quantity != null && l.unit_price != null ? ' × ' : ''}{l.unit_price != null ? money(l.unit_price) : ''}
+                    </span>
+                  )}
+                </div>
                 <span className="text-sm font-medium text-ink shrink-0">{money(l.budgeted_amount)}</span>
               </div>
             ))}
           </div>
           <div className="px-4 py-3 border-t-2 border-line bg-surface flex items-center justify-between text-sm font-bold text-ink-soft">
             <span>Total</span><span>{money(total)}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Payment terms — asked for when missing */}
+      {(project?.quote_file_url || lines.length > 0) && (
+        <div className={cn('rounded-xl border p-4', !project?.payment_terms ? 'border-warn/40 bg-warn-tint/30' : 'border-line bg-panel')}>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm font-semibold text-ink-soft">Payment terms</p>
+            {!project?.payment_terms && <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-warn-tint text-warn">Please set</span>}
+          </div>
+          {!project?.payment_terms && (
+            <p className="text-xs text-muted-fg mb-2">
+              We couldn't find payment terms on the quote. {defaultTerms ? 'Your default is filled in below — adjust if needed.' : 'Add them here (e.g. 50% deposit, 40% on rough-in, 10% on completion).'}
+            </p>
+          )}
+          <textarea rows={2} value={terms} onChange={e => setTerms(e.target.value)}
+            placeholder="e.g. 50% deposit, 40% at rough-in, 10% on completion"
+            className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-accent focus:outline-none resize-none" />
+          <div className="flex items-center justify-between mt-2">
+            <span className="text-xs text-faint">Set a default in Settings → Company so it auto-fills next time.</span>
+            <Button size="sm" disabled={termsSaving} onClick={saveTerms}>
+              {termsSaved ? <><CheckCircle2 className="h-3.5 w-3.5" /> Saved</> : termsSaving ? 'Saving…' : 'Save terms'}
+            </Button>
           </div>
         </div>
       )}

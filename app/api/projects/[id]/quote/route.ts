@@ -16,9 +16,9 @@ async function authUser(request: Request) {
   return user
 }
 
-const PROMPT = `This is a contractor's price quote/estimate. Extract its line items and total. Return ONLY JSON (use null when not found):
-{"total_amount":number or null,"line_items":[{"description":"string","amount":number|null}]}
-Combine obvious sub-totals into their line. Return ONLY the JSON.`
+const PROMPT = `This is a contractor's price quote/estimate. Extract its line items, total, and payment terms. Return ONLY JSON (use null when not found):
+{"total_amount":number or null,"payment_terms":"string describing deposit/progress/final terms, or null","line_items":[{"description":"string","quantity":number|null,"unit_price":number|null,"amount":number|null}]}
+For each line: quantity = qty/units if shown, unit_price = price per unit if shown, amount = the line total. Return ONLY the JSON.`
 
 async function scan(anthropic: Anthropic, url: string) {
   try {
@@ -45,11 +45,13 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const user = await authUser(request)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()
+  const { data: profile } = await db.from('profiles').select('companies(default_payment_terms)').eq('id', user.id).single()
+  const defaultTerms = (profile?.companies as any)?.default_payment_terms ?? null
   const [{ data: project }, { data: lines }] = await Promise.all([
-    db.from('projects').select('status, quote_file_url, quote_file_name, quote_total').eq('id', params.id).single(),
-    db.from('budget_line_items').select('id, description, budgeted_amount, progress_pct, sort_order').eq('project_id', params.id).order('sort_order', { ascending: true }),
+    db.from('projects').select('status, quote_file_url, quote_file_name, quote_total, payment_terms').eq('id', params.id).single(),
+    db.from('budget_line_items').select('id, description, budgeted_amount, progress_pct, sort_order, quantity, unit_price').eq('project_id', params.id).order('sort_order', { ascending: true }),
   ])
-  return NextResponse.json({ project: project ?? null, line_items: lines ?? [] })
+  return NextResponse.json({ project: project ?? null, line_items: lines ?? [], default_payment_terms: defaultTerms })
 }
 
 // POST — upload a quote file, AI-scan it into line items.
@@ -74,12 +76,19 @@ export async function POST(request: Request, { params }: { params: { id: string 
   if (fileUrl && process.env.ANTHROPIC_API_KEY) {
     parsed = await scan(new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }), fileUrl)
   }
-  const items: { description: string; amount: number | null }[] = Array.isArray(parsed?.line_items) ? parsed.line_items : []
+  const items: any[] = Array.isArray(parsed?.line_items) ? parsed.line_items : []
+  const lineAmount = (it: any) => typeof it.amount === 'number' ? it.amount
+    : (Number(it.quantity) || 0) * (Number(it.unit_price) || 0)
   const total = typeof parsed?.total_amount === 'number'
     ? parsed.total_amount
-    : items.reduce((s, i) => s + (Number(i.amount) || 0), 0)
+    : items.reduce((s, i) => s + (lineAmount(i) || 0), 0)
 
-  await db.from('projects').update({ quote_file_url: fileUrl, quote_file_name: file.name, quote_total: total || null }).eq('id', params.id)
+  // Payment terms: from the quote if found, else fall back to the company default.
+  const { data: profile } = await db.from('profiles').select('companies(default_payment_terms)').eq('id', user.id).single()
+  const defaultTerms = (profile?.companies as any)?.default_payment_terms ?? null
+  const paymentTerms = (typeof parsed?.payment_terms === 'string' && parsed.payment_terms.trim()) ? parsed.payment_terms.trim() : defaultTerms
+
+  await db.from('projects').update({ quote_file_url: fileUrl, quote_file_name: file.name, quote_total: total || null, payment_terms: paymentTerms }).eq('id', params.id)
 
   // Replace existing quote-derived line items with the freshly scanned ones.
   if (items.length) {
@@ -88,13 +97,15 @@ export async function POST(request: Request, { params }: { params: { id: string 
       project_id: params.id,
       category: 'Quote',
       description: it.description || `Line ${idx + 1}`,
-      budgeted_amount: Number(it.amount) || 0,
+      quantity: it.quantity != null ? Number(it.quantity) : null,
+      unit_price: it.unit_price != null ? Number(it.unit_price) : null,
+      budgeted_amount: Number(lineAmount(it)) || 0,
       committed_amount: 0, actual_amount: 0, progress_pct: 0, sort_order: idx,
     }))
     await db.from('budget_line_items').insert(rows)
   }
 
-  return NextResponse.json({ file_url: fileUrl, file_name: file.name, total, line_items: items, scanned: !!parsed })
+  return NextResponse.json({ file_url: fileUrl, file_name: file.name, total, payment_terms: paymentTerms, line_items: items, scanned: !!parsed })
 }
 
 // PATCH — convert Quote/Pending → Active (or update a line item's progress %).
@@ -108,6 +119,10 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     const { error } = await db.from('projects').update({ status: 'active' }).eq('id', params.id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true, status: 'active' })
+  }
+  if (body.payment_terms !== undefined) {
+    await db.from('projects').update({ payment_terms: body.payment_terms || null }).eq('id', params.id)
+    return NextResponse.json({ ok: true })
   }
   if (body.line_item_id && body.progress_pct !== undefined) {
     const pct = Math.max(0, Math.min(Number(body.progress_pct) || 0, 100))
