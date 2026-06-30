@@ -2,9 +2,10 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import { usePermissions } from '@/lib/use-permissions'
+import { createClient } from '@/lib/supabase/client'
 import {
   FileText, Users, Calendar, CheckSquare, TrendingUp, BookOpen,
   MessageSquare, Receipt, DollarSign, GitPullRequest, Shield,
@@ -65,6 +66,13 @@ const groups = [
 
 const allTabs = groups.flatMap(g => g.tabs)
 
+// When a subcontractor opens a GC-owned project they were awarded, restrict to
+// their own lane (plans/schedule to do the work + their field items) — never the
+// GC's private money/people tabs.
+const SUB_AWARDED_ALLOWED = new Set(['plans', 'schedule', 'tasks', 'progress', 'daily-logs', 'time', 'rfis', 'compliance'])
+// On a sub's OWN job they get the full set except submittals (a sub→GC artifact).
+const SUB_OWN_HIDDEN = new Set(['submittals'])
+
 interface ProjectTabsProps {
   projectId: string
 }
@@ -74,14 +82,46 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const { can, loading } = usePermissions()
+  const [ctx, setCtx] = useState<{ companyType: string; owns: boolean } | null>(null)
 
-  // While permissions load, show nothing (avoids flashing tabs the user can't see)
-  const filteredGroups = loading
+  useEffect(() => {
+    let active = true
+    ;(async () => {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      const res = await fetch(`/api/projects/${projectId}/viewer-context`, { headers: { Authorization: `Bearer ${session.access_token}` } })
+      if (res.ok && active) setCtx(await res.json())
+    })()
+    return () => { active = false }
+  }, [projectId])
+
+  const isSub = ctx?.companyType === 'subcontractor'
+  // Subcontractor visibility rules layered on top of role permissions.
+  const subAllows = (slug: string) => {
+    if (!isSub) return true
+    return ctx?.owns ? !SUB_OWN_HIDDEN.has(slug) : SUB_AWARDED_ALLOWED.has(slug)
+  }
+
+  // Wait for both permissions and viewer-context before deciding (avoids flashing
+  // tabs a sub shouldn't see). ctx === null means still loading.
+  const ready = !loading && ctx !== null
+  const filteredGroups = !ready
     ? []
     : groups
-        .map(g => ({ ...g, tabs: g.tabs.filter(t => can(t.slug, 'view')) }))
+        .map(g => ({ ...g, tabs: g.tabs.filter(t => can(t.slug, 'view') && subAllows(t.slug)) }))
         .filter(g => g.tabs.length > 0)
   const visibleTabs = filteredGroups.flatMap(g => g.tabs)
+
+  // Block direct-URL access to a tab a sub isn't allowed to see on this project.
+  useEffect(() => {
+    if (!ready || !isSub) return
+    const current = allTabs.find(t => pathname.includes(`/${t.slug}`))
+    if (current && !subAllows(current.slug)) {
+      const fallback = visibleTabs[0]?.slug ?? 'plans'
+      router.replace(`/projects/${projectId}/${fallback}`)
+    }
+  }, [ready, isSub, pathname])
 
   const activeTab = visibleTabs.find(t => pathname.includes(`/${t.slug}`))
   const activeGroup = filteredGroups.find(g => g.tabs.some(t => t.slug === activeTab?.slug))
