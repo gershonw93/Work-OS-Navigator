@@ -4,6 +4,25 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { ArrowRight, Sparkles, ChevronDown } from 'lucide-react'
 import { ProjectsMock } from './projects-mock'
+import { BrowserMock } from './browser-mock'
+
+// Plain hero for phones — the scroll-zoom effect doesn't work well on mobile.
+function StaticHero() {
+  return (
+    <section className="px-4 pt-10 pb-12 text-center">
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-panel px-3 py-1 text-xs font-medium text-muted-fg mb-4">
+        <Sparkles className="h-3.5 w-3.5 text-accent-fg" /> AI-powered jobsite management
+      </span>
+      <h1 className="text-3xl font-extrabold tracking-tight text-ink leading-tight">From the quote to the final invoice — one place to run the build.</h1>
+      <p className="mt-4 text-base text-muted-fg">Quotes, budgets, schedules, daily logs, invoices, and compliance — for GCs and subs alike.</p>
+      <div className="mt-6 flex flex-col gap-2.5">
+        <Link href="/signup" className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent text-accent-ink font-bold px-6 py-3 hover:bg-accent/90">Start free <ArrowRight className="h-4 w-4" /></Link>
+        <Link href="/homepage/features" className="inline-flex items-center justify-center gap-2 rounded-xl border border-line text-ink-soft font-semibold px-6 py-3">See features</Link>
+      </div>
+      <div className="mt-8"><BrowserMock url="app.sytenav.com/projects"><div className="h-[360px] overflow-hidden"><ProjectsMock /></div></BrowserMock></div>
+    </section>
+  )
+}
 
 const clamp = (n: number, a: number, b: number) => Math.min(Math.max(n, a), b)
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t
@@ -39,7 +58,12 @@ export function ScrollHero() {
   const hintOpacity = 1 - clamp(p / 0.12, 0, 1)
 
   return (
-    <div ref={ref} className="relative h-[340vh]">
+    <>
+      {/* Mobile: plain hero */}
+      <div className="md:hidden"><StaticHero /></div>
+
+      {/* Desktop: scroll-driven zoom-out */}
+      <div ref={ref} className="relative h-[340vh] hidden md:block">
       <div className="sticky top-0 h-screen overflow-hidden flex items-center justify-center bg-surface">
         {/* App zooming out into a monitor */}
         <div className="will-change-transform" style={{ transform: `scale(${scale})`, opacity: appOpacity }}>
@@ -78,6 +102,7 @@ export function ScrollHero() {
           <ChevronDown className="h-4 w-4 animate-bounce" />
         </div>
       </div>
-    </div>
+      </div>
+    </>
   )
 }
