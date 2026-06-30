@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { FileText, ExternalLink, TrendingUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-interface Line { id: string; description: string; budgeted_amount: number; progress_pct: number; quantity: number | null; unit_price: number | null }
+interface Line { id: string; description: string; budgeted_amount: number; progress_pct: number; quantity: number | null; unit_price: number | null; section: string | null }
 interface QProject { status: string; quote_file_url: string | null; quote_file_name: string | null; quote_total: number | null }
 
 const money = (n: number) => `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
@@ -43,6 +43,14 @@ export function QuoteLineItems({ projectId, mode }: { projectId: string; mode: '
   const total = project?.quote_total ?? lines.reduce((s, l) => s + Number(l.budgeted_amount || 0), 0)
   const earned = lines.reduce((s, l) => s + Number(l.budgeted_amount || 0) * (Number(l.progress_pct || 0) / 100), 0)
   const overallPct = total > 0 ? Math.round((earned / total) * 100) : 0
+
+  const sections: { name: string; rows: Line[] }[] = []
+  for (const l of lines) {
+    const name = l.section ?? ''
+    let g = sections.find(s => s.name === name)
+    if (!g) { g = { name, rows: [] }; sections.push(g) }
+    g.rows.push(l)
+  }
 
   if (lines.length === 0) {
     return (
@@ -83,32 +91,39 @@ export function QuoteLineItems({ projectId, mode }: { projectId: string; mode: '
         </div>
       </div>
 
-      {/* Lines */}
-      <div className="bg-panel rounded-xl border border-line overflow-hidden divide-y divide-line-soft">
-        {lines.map(l => (
-          <div key={l.id} className="px-4 py-3">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <span className="text-sm text-ink-soft block truncate">{l.description}</span>
-                {(l.quantity != null || l.unit_price != null) && (
-                  <span className="text-xs text-faint">{l.quantity != null ? l.quantity : ''}{l.quantity != null && l.unit_price != null ? ' × ' : ''}{l.unit_price != null ? money(l.unit_price) : ''}</span>
-                )}
-              </div>
-              <span className="text-sm font-medium text-ink shrink-0">{money(l.budgeted_amount)}</span>
+      {/* Lines — grouped by section */}
+      <div className="bg-panel rounded-xl border border-line overflow-hidden">
+        {sections.map(sec => (
+          <div key={sec.name}>
+            {sec.name && <div className="bg-surface px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-muted-fg border-b border-line-soft">{sec.name}</div>}
+            <div className="divide-y divide-line-soft">
+              {sec.rows.map(l => (
+                <div key={l.id} className="px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <span className="text-sm text-ink-soft block truncate">{l.description}</span>
+                      {(l.quantity != null || l.unit_price != null) && (
+                        <span className="text-xs text-faint">{l.quantity != null ? l.quantity : ''}{l.quantity != null && l.unit_price != null ? ' × ' : ''}{l.unit_price != null ? money(l.unit_price) : ''}</span>
+                      )}
+                    </div>
+                    <span className="text-sm font-medium text-ink shrink-0">{money(l.budgeted_amount)}</span>
+                  </div>
+                  {mode === 'progress' && (
+                    <div className="flex items-center gap-3 mt-2">
+                      <input type="range" min={0} max={100} step={5} value={l.progress_pct}
+                        onChange={e => setPct(l.id, Number(e.target.value))} className="flex-1 accent-[#C9F24A]" />
+                      <span className="text-xs font-semibold text-ink-soft w-10 text-right">{l.progress_pct}%</span>
+                    </div>
+                  )}
+                  {mode === 'budget' && l.progress_pct > 0 && (
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <div className="h-1.5 flex-1 bg-muted rounded-full overflow-hidden"><div className="h-full bg-success-solid" style={{ width: `${l.progress_pct}%` }} /></div>
+                      <span className="text-[11px] text-faint w-20 text-right">{l.progress_pct}% · {money(Number(l.budgeted_amount) * l.progress_pct / 100)}</span>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
-            {mode === 'progress' && (
-              <div className="flex items-center gap-3 mt-2">
-                <input type="range" min={0} max={100} step={5} value={l.progress_pct}
-                  onChange={e => setPct(l.id, Number(e.target.value))} className="flex-1 accent-[#C9F24A]" />
-                <span className="text-xs font-semibold text-ink-soft w-10 text-right">{l.progress_pct}%</span>
-              </div>
-            )}
-            {mode === 'budget' && l.progress_pct > 0 && (
-              <div className="mt-1.5 flex items-center gap-2">
-                <div className="h-1.5 flex-1 bg-muted rounded-full overflow-hidden"><div className="h-full bg-success-solid" style={{ width: `${l.progress_pct}%` }} /></div>
-                <span className="text-[11px] text-faint w-20 text-right">{l.progress_pct}% · {money(Number(l.budgeted_amount) * l.progress_pct / 100)}</span>
-              </div>
-            )}
           </div>
         ))}
       </div>
