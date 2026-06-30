@@ -45,6 +45,7 @@ const groups = [
       { label: 'Budget', slug: 'budget', icon: Wallet },
       { label: 'Quotes', slug: 'request-quotes', icon: Send },
       { label: 'Invoices', slug: 'invoices', icon: Receipt },
+      { label: 'Payments', slug: 'payments', icon: Wallet },
       { label: 'Financials', slug: 'financials', icon: DollarSign },
       { label: 'Change Orders', slug: 'change-orders', icon: GitPullRequest },
       { label: 'Reports', slug: 'reports', icon: BarChart2 },

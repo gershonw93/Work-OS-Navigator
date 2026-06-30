@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 interface Row {
   project_id: string; project_name: string; status: string
   budgeted: number; committed: number; billed: number; paid: number; outstanding: number
+  received: number; escrow: number
 }
 const money = (n: number) => `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 
@@ -36,13 +37,14 @@ export default function MasterMoneyPage() {
   const t = rows.reduce((a, r) => ({
     budgeted: a.budgeted + r.budgeted, committed: a.committed + r.committed,
     billed: a.billed + r.billed, paid: a.paid + r.paid, outstanding: a.outstanding + r.outstanding,
-  }), { budgeted: 0, committed: 0, billed: 0, paid: 0, outstanding: 0 })
+    received: a.received + r.received, escrow: a.escrow + r.escrow,
+  }), { budgeted: 0, committed: 0, billed: 0, paid: 0, outstanding: 0, received: 0, escrow: 0 })
 
   const cards = [
-    { label: 'Total Budget', value: t.budgeted, icon: DollarSign, color: 'text-ink', bg: 'bg-panel' },
+    { label: 'Client Received', value: t.received, icon: DollarSign, color: 'text-success', bg: 'bg-success-tint' },
     { label: 'Committed', value: t.committed, icon: TrendingUp, color: 'text-info', bg: 'bg-info-tint' },
-    { label: 'Paid', value: t.paid, icon: CheckCircle2, color: 'text-success', bg: 'bg-success-tint' },
-    { label: 'Outstanding', value: t.outstanding, icon: Clock, color: 'text-warn', bg: 'bg-warn-tint' },
+    { label: 'Paid Out', value: t.paid, icon: CheckCircle2, color: 'text-ink', bg: 'bg-panel' },
+    { label: 'Escrow Balance', value: t.escrow, icon: Clock, color: t.escrow < 0 ? 'text-danger' : 'text-accent-fg', bg: t.escrow < 0 ? 'bg-danger-tint' : 'bg-accent-tint/50' },
   ]
 
   return (
@@ -65,31 +67,33 @@ export default function MasterMoneyPage() {
         <div className="bg-panel rounded-xl border border-line p-10 text-center text-sm text-muted-fg">No projects yet.</div>
       ) : (
         <div className="bg-panel rounded-xl border border-line overflow-hidden">
-          <div className="hidden md:grid grid-cols-[1fr_repeat(5,minmax(0,7rem))_2rem] gap-2 px-4 py-2.5 border-b border-line-soft text-xs font-semibold text-faint uppercase tracking-wide">
-            <span>Project</span><span className="text-right">Budgeted</span><span className="text-right">Committed</span><span className="text-right">Billed</span><span className="text-right">Paid</span><span className="text-right">Outstanding</span><span />
+          <div className="hidden md:grid grid-cols-[1fr_repeat(6,minmax(0,6.5rem))_2rem] gap-2 px-4 py-2.5 border-b border-line-soft text-xs font-semibold text-faint uppercase tracking-wide">
+            <span>Project</span><span className="text-right">Received</span><span className="text-right">Budgeted</span><span className="text-right">Committed</span><span className="text-right">Paid Out</span><span className="text-right">Outstanding</span><span className="text-right">Escrow</span><span />
           </div>
           <div className="divide-y divide-line-soft">
             {rows.map(r => (
-              <Link key={r.project_id} href={`/projects/${r.project_id}/financials`}
-                className="group md:grid md:grid-cols-[1fr_repeat(5,minmax(0,7rem))_2rem] md:gap-2 md:items-center px-4 py-3 hover:bg-surface transition-colors block">
+              <Link key={r.project_id} href={`/projects/${r.project_id}/payments`}
+                className="group md:grid md:grid-cols-[1fr_repeat(6,minmax(0,6.5rem))_2rem] md:gap-2 md:items-center px-4 py-3 hover:bg-surface transition-colors block">
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-ink-soft truncate">{r.project_name}</p>
                   <p className="text-xs text-faint capitalize">{r.status}</p>
                 </div>
+                <Cell label="Received" v={money(r.received)} cls="text-success" />
                 <Cell label="Budgeted" v={money(r.budgeted)} />
                 <Cell label="Committed" v={money(r.committed)} />
-                <Cell label="Billed" v={money(r.billed)} />
-                <Cell label="Paid" v={money(r.paid)} cls="text-success" />
+                <Cell label="Paid Out" v={money(r.paid)} />
                 <Cell label="Outstanding" v={money(r.outstanding)} cls={r.outstanding > 0 ? 'text-warn' : 'text-faint'} />
+                <Cell label="Escrow" v={money(r.escrow)} cls={r.escrow < 0 ? 'text-danger font-semibold' : 'text-accent-fg'} />
                 <ChevronRight className="hidden md:block h-4 w-4 text-faint opacity-0 group-hover:opacity-100 ml-auto" />
               </Link>
             ))}
           </div>
-          <div className="hidden md:grid grid-cols-[1fr_repeat(5,minmax(0,7rem))_2rem] gap-2 px-4 py-3 border-t-2 border-line bg-surface text-sm font-bold text-ink-soft">
+          <div className="hidden md:grid grid-cols-[1fr_repeat(6,minmax(0,6.5rem))_2rem] gap-2 px-4 py-3 border-t-2 border-line bg-surface text-sm font-bold text-ink-soft">
             <span>Total</span>
-            <span className="text-right">{money(t.budgeted)}</span><span className="text-right">{money(t.committed)}</span>
-            <span className="text-right">{money(t.billed)}</span><span className="text-right text-success">{money(t.paid)}</span>
-            <span className="text-right text-warn">{money(t.outstanding)}</span><span />
+            <span className="text-right text-success">{money(t.received)}</span><span className="text-right">{money(t.budgeted)}</span>
+            <span className="text-right">{money(t.committed)}</span><span className="text-right">{money(t.paid)}</span>
+            <span className="text-right text-warn">{money(t.outstanding)}</span>
+            <span className={cn('text-right', t.escrow < 0 ? 'text-danger' : 'text-accent-fg')}>{money(t.escrow)}</span><span />
           </div>
         </div>
       )}
