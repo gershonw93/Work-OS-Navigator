@@ -5,7 +5,8 @@ import { BrowserMock } from '@/components/marketing/browser-mock'
 import { DashboardMock } from '@/components/marketing/dashboard-mock'
 import { ProjectsMock } from '@/components/marketing/projects-mock'
 import { FeatureWall } from '@/components/marketing/feature-wall'
-import { DarkShowcase } from '@/components/marketing/dark-showcase'
+import { UploadAISection } from '@/components/marketing/upload-ai-section'
+import { TeamSection } from '@/components/marketing/team-section'
 
 export const metadata: Metadata = { title: 'Features — SyteNav' }
 
@@ -19,11 +20,14 @@ export default function FeaturesPage() {
         <div className="mt-10 max-w-5xl mx-auto"><BrowserMock url="app.sytenav.com/projects"><div className="h-[460px] overflow-hidden"><ProjectsMock /></div></BrowserMock></div>
       </section>
 
+      {/* Easy upload + AI scans everything (dark-colored band) */}
+      <UploadAISection />
+
       {/* The full feature wall */}
       <FeatureWall />
 
-      {/* Dark mode showcase */}
-      <DarkShowcase />
+      {/* Team & management */}
+      <TeamSection />
 
       <section className="bg-panel border-y border-line">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-14 grid lg:grid-cols-2 gap-10 items-center">
