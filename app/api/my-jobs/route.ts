@@ -61,7 +61,7 @@ export async function POST(request: Request) {
     start_date: start_date || null,
     description: description || null,
     customer_id: customer_id || null,
-    status: 'active',
+    status: 'planning', // Quote / Pending until the quote is approved & converted
     gc_company_id: profile.company_id,
     created_by_company_id: profile.company_id,
   }).select().single()
