@@ -27,7 +27,7 @@ export async function GET(request: Request) {
   // Own jobs: projects created by this company (not through bidding)
   const { data: ownProjects } = await db
     .from('projects')
-    .select('id, name, address, type, status, start_date')
+    .select('id, name, address, type, status, start_date, customer_id, customers(name)')
     .eq('created_by_company_id', profile.company_id)
     .order('created_at', { ascending: false })
 
@@ -51,7 +51,8 @@ export async function POST(request: Request) {
   if (!profile?.company_id) return NextResponse.json({ error: 'No company found' }, { status: 400 })
 
   const body = await request.json()
-  const { name, address, type, start_date, description } = body
+  const { name, address, type, start_date, description, customer_id } = body
+  if (!name) return NextResponse.json({ error: 'Project name is required' }, { status: 400 })
 
   const { data: project, error } = await db.from('projects').insert({
     name,
@@ -59,6 +60,7 @@ export async function POST(request: Request) {
     type: type || 'other',
     start_date: start_date || null,
     description: description || null,
+    customer_id: customer_id || null,
     status: 'active',
     gc_company_id: profile.company_id,
     created_by_company_id: profile.company_id,
