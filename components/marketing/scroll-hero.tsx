@@ -51,11 +51,11 @@ export function ScrollHero() {
     return () => { window.removeEventListener('scroll', onScroll); window.removeEventListener('resize', onScroll); cancelAnimationFrame(raf) }
   }, [])
 
-  const zoom = clamp(p / 0.6, 0, 1)             // 0 → fills screen, 1 → full monitor visible
+  const zoom = clamp(p / 0.5, 0, 1)             // 0 → fills screen, 1 → full monitor visible
   const scale = lerp(1.4, 0.8, zoom)
-  const appOpacity = 1 - clamp((p - 0.7) / 0.18, 0, 1)
-  const textProg = clamp((p - 0.72) / 0.24, 0, 1)
-  const hintOpacity = 1 - clamp(p / 0.12, 0, 1)
+  const appOpacity = 1 - clamp((p - 0.52) / 0.22, 0, 1)   // app fades out 0.52 → 0.74
+  const textProg = clamp((p - 0.56) / 0.22, 0, 1)         // headline fades in 0.56 → 0.78
+  const hintOpacity = 1 - clamp(p / 0.1, 0, 1)
 
   return (
     <>
@@ -63,7 +63,7 @@ export function ScrollHero() {
       <div className="md:hidden"><StaticHero /></div>
 
       {/* Desktop: scroll-driven zoom-out */}
-      <div ref={ref} className="relative h-[240vh] hidden md:block">
+      <div ref={ref} className="relative h-[180vh] hidden md:block">
       <div className="sticky top-0 h-screen overflow-hidden flex items-center justify-center bg-surface">
         {/* App zooming out into a monitor */}
         <div className="will-change-transform" style={{ transform: `scale(${scale})`, opacity: appOpacity }}>
