@@ -62,7 +62,7 @@ export function QuoteLineItems({ projectId, mode }: { projectId: string; mode: '
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-3xl">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-ink">{mode === 'budget' ? 'Line Items' : 'Progress'}</h1>
@@ -98,29 +98,25 @@ export function QuoteLineItems({ projectId, mode }: { projectId: string; mode: '
             {sec.name && <div className="bg-surface px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-muted-fg border-b border-line-soft">{sec.name}</div>}
             <div className="divide-y divide-line-soft">
               {sec.rows.map(l => (
-                <div key={l.id} className="px-4 py-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <span className="text-sm text-ink-soft block truncate">{l.description}</span>
-                      {(l.quantity != null || l.unit_price != null) && (
-                        <span className="text-xs text-faint">{l.quantity != null ? l.quantity : ''}{l.quantity != null && l.unit_price != null ? ' × ' : ''}{l.unit_price != null ? money(l.unit_price) : ''}</span>
-                      )}
-                    </div>
-                    <span className="text-sm font-medium text-ink shrink-0">{money(l.budgeted_amount)}</span>
+                <div key={l.id} className="px-4 py-2.5 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <span className="text-sm text-ink-soft block truncate">{l.description}</span>
+                    {(l.quantity != null || l.unit_price != null) && (
+                      <span className="text-xs text-faint">{l.quantity != null ? l.quantity : ''}{l.quantity != null && l.unit_price != null ? ' × ' : ''}{l.unit_price != null ? money(l.unit_price) : ''}</span>
+                    )}
                   </div>
-                  {mode === 'progress' && (
-                    <div className="flex items-center gap-3 mt-2">
-                      <input type="range" min={0} max={100} step={5} value={l.progress_pct}
-                        onChange={e => setPct(l.id, Number(e.target.value))} className="flex-1 accent-[#C9F24A]" />
-                      <span className="text-xs font-semibold text-ink-soft w-10 text-right">{l.progress_pct}%</span>
-                    </div>
-                  )}
-                  {mode === 'budget' && l.progress_pct > 0 && (
-                    <div className="mt-1.5 flex items-center gap-2">
-                      <div className="h-1.5 flex-1 bg-muted rounded-full overflow-hidden"><div className="h-full bg-success-solid" style={{ width: `${l.progress_pct}%` }} /></div>
-                      <span className="text-[11px] text-faint w-20 text-right">{l.progress_pct}% · {money(Number(l.budgeted_amount) * l.progress_pct / 100)}</span>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className="text-sm font-medium text-ink w-16 sm:w-20 text-right">{money(l.budgeted_amount)}</span>
+                    {mode === 'progress' ? (
+                      <select value={l.progress_pct} onChange={e => setPct(l.id, Number(e.target.value))}
+                        className={cn('rounded-md border text-xs font-semibold px-1.5 py-1 focus:outline-none focus:border-accent',
+                          l.progress_pct >= 100 ? 'border-success/40 bg-success-tint text-success' : l.progress_pct > 0 ? 'border-line bg-panel text-ink-soft' : 'border-line bg-panel text-muted-fg')}>
+                        {[0, 10, 20, 25, 30, 40, 50, 60, 70, 75, 80, 90, 100].map(p => <option key={p} value={p}>{p}%</option>)}
+                      </select>
+                    ) : (
+                      l.progress_pct > 0 && <span className="text-xs text-success w-9 text-right">{l.progress_pct}%</span>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
