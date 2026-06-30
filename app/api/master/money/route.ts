@@ -24,17 +24,18 @@ export async function GET(request: Request) {
 
   const { data: projects } = await db
     .from('projects')
-    .select('id, name, status')
+    .select('id, name, status, contractor_fee_pct')
     .or(`gc_company_id.eq.${profile.company_id},created_by_company_id.eq.${profile.company_id}`)
     .order('created_at', { ascending: false })
 
   const ids = (projects ?? []).map(p => p.id)
   if (!ids.length) return NextResponse.json({ rows: [] })
 
-  const [{ data: budgetLines }, { data: subs }, { data: invoices }] = await Promise.all([
+  const [{ data: budgetLines }, { data: subs }, { data: invoices }, { data: clientPayments }] = await Promise.all([
     db.from('budget_line_items').select('project_id, budgeted_amount').in('project_id', ids),
     db.from('subcontracts').select('project_id, contract_amount').in('project_id', ids),
     db.from('invoices').select('project_id, amount, status').in('project_id', ids),
+    db.from('client_payments').select('project_id, amount').in('project_id', ids),
   ])
 
   const sumBy = (rows: any[] | null, key: string, val: (r: any) => number) => {
@@ -46,12 +47,16 @@ export async function GET(request: Request) {
   const committed = sumBy(subs, 'project_id', r => Number(r.contract_amount ?? 0))
   const billed = sumBy((invoices ?? []).filter(i => ACTUAL.has(i.status)), 'project_id', r => Number(r.amount ?? 0))
   const paid = sumBy((invoices ?? []).filter(i => i.status === 'paid'), 'project_id', r => Number(r.amount ?? 0))
+  const received = sumBy(clientPayments, 'project_id', r => Number(r.amount ?? 0))
 
   const rows = (projects ?? []).map(p => {
     const b = budgeted.get(p.id) ?? 0, c = committed.get(p.id) ?? 0, bi = billed.get(p.id) ?? 0, pd = paid.get(p.id) ?? 0
+    const rec = received.get(p.id) ?? 0
+    const fee = bi * Number(p.contractor_fee_pct ?? 0)
     return {
       project_id: p.id, project_name: p.name, status: p.status,
       budgeted: b, committed: c, billed: bi, paid: pd, outstanding: Math.max(bi - pd, 0),
+      received: rec, escrow: rec - pd - fee,
     }
   })
 

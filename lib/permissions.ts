@@ -41,6 +41,7 @@ export const RESOURCES: ResourceDef[] = [
   { key: 'rfis',           label: 'RFIs',           group: 'People', slug: 'rfis' },
   // Money
   { key: 'invoices',       label: 'Invoices',       group: 'Money', slug: 'invoices' },
+  { key: 'payments',       label: 'Payments & Escrow', group: 'Money', slug: 'payments' },
   { key: 'budget',         label: 'Budget',         group: 'Money', slug: 'budget' },
   { key: 'request-quotes', label: 'Request Quotes', group: 'Money', slug: 'request-quotes' },
   { key: 'quotes',         label: 'Compare Quotes', group: 'Money', slug: 'quotes' },
@@ -91,7 +92,7 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
   project_manager: {
     plans: FULL, schedule: FULL, tasks: FULL, progress: FULL, 'daily-logs': FULL, time: FULL,
     team: VE, bids: FULL, rfis: FULL,
-    invoices: VE, budget: FULL, quotes: FULL, 'request-quotes': FULL, financials: N, 'change-orders': FULL,
+    invoices: VE, payments: VE, budget: FULL, quotes: FULL, 'request-quotes': FULL, financials: N, 'change-orders': FULL,
     permits: FULL, inspections: FULL, submittals: FULL, compliance: V, reports: N,
     dashboard: V, projects: VCE, customers: VE, directory: V, files: FULL, approvals: VE,
     settings_company: N, settings_team: N, settings_billing: N,
@@ -100,7 +101,7 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
   office_staff: {
     plans: V, schedule: V, tasks: V, progress: V, 'daily-logs': V, time: VC,
     team: V, bids: V, rfis: V,
-    invoices: FULL, budget: FULL, quotes: FULL, 'request-quotes': FULL, financials: V, 'change-orders': FULL,
+    invoices: FULL, payments: FULL, budget: FULL, quotes: FULL, 'request-quotes': FULL, financials: V, 'change-orders': FULL,
     permits: VE, inspections: VE, submittals: VE, compliance: FULL, reports: V,
     dashboard: V, projects: V, customers: VE, directory: V, files: FULL, approvals: VE,
     settings_company: N, settings_team: N, settings_billing: N,
@@ -109,7 +110,7 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
   field_supervisor: {
     plans: V, schedule: V, tasks: VE, progress: VE, 'daily-logs': VCE, time: VCE,
     team: V, bids: N, rfis: V,
-    invoices: N, budget: N, quotes: N, 'request-quotes': N, financials: N, 'change-orders': N,
+    invoices: N, payments: N, budget: N, quotes: N, 'request-quotes': N, financials: N, 'change-orders': N,
     permits: N, inspections: N, submittals: N, compliance: N, reports: N,
     dashboard: V, projects: V, customers: N, directory: V, files: V, approvals: V,
     settings_company: N, settings_team: N, settings_billing: N,
@@ -118,7 +119,7 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
   worker: {
     plans: V, schedule: N, tasks: VE, progress: V, 'daily-logs': VC, time: VC,
     team: N, bids: N, rfis: N,
-    invoices: N, budget: N, quotes: N, 'request-quotes': N, financials: N, 'change-orders': N,
+    invoices: N, payments: N, budget: N, quotes: N, 'request-quotes': N, financials: N, 'change-orders': N,
     permits: N, inspections: N, submittals: N, compliance: N, reports: N,
     dashboard: V, projects: V, customers: N, directory: N, files: V, approvals: V,
     settings_company: N, settings_team: N, settings_billing: N,
@@ -127,7 +128,7 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
   read_only: {
     plans: V, schedule: V, tasks: V, progress: V, 'daily-logs': V, time: VC,
     team: V, bids: N, rfis: V,
-    invoices: N, budget: N, quotes: N, 'request-quotes': N, financials: N, 'change-orders': N,
+    invoices: N, payments: N, budget: N, quotes: N, 'request-quotes': N, financials: N, 'change-orders': N,
     permits: N, inspections: N, submittals: N, compliance: N, reports: N,
     dashboard: V, projects: V, customers: N, directory: V, files: V, approvals: V,
     settings_company: N, settings_team: N, settings_billing: N,
