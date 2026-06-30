@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
-import { Briefcase, Plus, X, MapPin, ChevronRight, Award, FolderOpen, Calendar } from 'lucide-react'
+import { Briefcase, Plus, X, MapPin, ChevronRight, Award, FolderOpen, Calendar, User } from 'lucide-react'
 import Link from 'next/link'
 
 const PROJECT_TYPES = ['residential', 'commercial', 'industrial', 'renovation', 'other']
@@ -19,7 +19,9 @@ interface AwardedJob {
 
 interface OwnProject {
   id: string; name: string; address: string | null; type: string; status: string; start_date: string | null
+  customer_id?: string | null; customers?: { name: string } | null
 }
+interface Customer { id: string; name: string }
 
 export default function MyJobsPage() {
   const supabase = createClient()
@@ -36,6 +38,8 @@ export default function MyJobsPage() {
   const [type, setType] = useState('residential')
   const [startDate, setStartDate] = useState('')
   const [description, setDescription] = useState('')
+  const [customerId, setCustomerId] = useState('')
+  const [customers, setCustomers] = useState<Customer[]>([])
 
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -53,19 +57,26 @@ export default function MyJobsPage() {
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [])
+  async function loadCustomers() {
+    const token = await getToken()
+    const res = await fetch('/api/customers', { headers: { Authorization: `Bearer ${token}` } })
+    if (res.ok) setCustomers((await res.json()).customers ?? [])
+  }
+  useEffect(() => { load(); loadCustomers() }, [])
 
   async function createProject(e: React.FormEvent) {
     e.preventDefault()
     setCreating(true)
     const token = await getToken()
-    await fetch('/api/my-jobs', {
+    const res = await fetch('/api/my-jobs', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ name, address: address || null, type, start_date: startDate || null, description: description || null }),
+      body: JSON.stringify({ name, address: address || null, type, start_date: startDate || null, description: description || null, customer_id: customerId || null }),
     })
-    setName(''); setAddress(''); setType('residential'); setStartDate(''); setDescription('')
-    setShowForm(false); setCreating(false)
+    setCreating(false)
+    if (!res.ok) { alert((await res.json().catch(() => ({}))).error ?? 'Could not create project'); return }
+    setName(''); setAddress(''); setType('residential'); setStartDate(''); setDescription(''); setCustomerId('')
+    setShowForm(false)
     load()
   }
 
@@ -103,6 +114,15 @@ export default function MyJobsPage() {
                     <Label>Start Date <span className="text-faint font-normal">(optional)</span></Label>
                     <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
                   </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Customer <span className="text-faint font-normal">(optional)</span></Label>
+                  <SearchableSelect value={customerId} onChange={e => setCustomerId(e.target.value)}
+                    className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
+                    <option value="">No customer / add later</option>
+                    {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </SearchableSelect>
+                  {customers.length === 0 && <p className="text-xs text-faint">No customers yet — add them in the Customers tab.</p>}
                 </div>
                 <div className="space-y-1.5">
                   <Label>Notes <span className="text-faint font-normal">(optional)</span></Label>
@@ -226,6 +246,7 @@ export default function MyJobsPage() {
                     </span>
                   </div>
                   <div className="flex items-center gap-3 mt-0.5 text-xs text-faint">
+                    {proj.customers?.name && <span className="flex items-center gap-1"><User className="h-3 w-3" />{proj.customers.name}</span>}
                     {proj.address && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{proj.address}</span>}
                     {proj.start_date && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{new Date(proj.start_date).toLocaleDateString()}</span>}
                   </div>
