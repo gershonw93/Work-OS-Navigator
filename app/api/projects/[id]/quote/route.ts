@@ -75,8 +75,15 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const defaultTerms = (profile?.companies as any)?.default_payment_terms ?? null
   const [{ data: project }, { data: lines }] = await Promise.all([
     db.from('projects').select('status, quote_file_url, quote_file_name, quote_total, payment_terms, payment_stages').eq('id', params.id).single(),
-    db.from('budget_line_items').select('id, description, budgeted_amount, progress_pct, sort_order, quantity, unit_price, section').eq('project_id', params.id).order('sort_order', { ascending: true }),
+    db.from('budget_line_items').select('id, description, budgeted_amount, progress_pct, progress_status, progress_note, sort_order, quantity, unit_price, section').eq('project_id', params.id).order('sort_order', { ascending: true }),
   ])
+  // Attach any task linked to each line (two-way link).
+  const lineIds = (lines ?? []).map((l: any) => l.id)
+  if (lineIds.length) {
+    const { data: tasks } = await db.from('project_tasks').select('id, title, status, budget_line_item_id').in('budget_line_item_id', lineIds)
+    const byLine = new Map((tasks ?? []).map((t: any) => [t.budget_line_item_id, t]))
+    for (const l of lines ?? []) (l as any).task = byLine.get((l as any).id) ?? null
+  }
   // Backfill structured stages from the raw terms text for quotes scanned before stages existed.
   if (project && !(project as any).payment_stages && (project as any).payment_terms) {
     ;(project as any).payment_stages = parseTerms((project as any).payment_terms)
@@ -159,9 +166,32 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     await db.from('projects').update({ payment_terms: body.payment_terms || null }).eq('id', params.id)
     return NextResponse.json({ ok: true })
   }
-  if (body.line_item_id && body.progress_pct !== undefined) {
-    const pct = Math.max(0, Math.min(Number(body.progress_pct) || 0, 100))
-    await db.from('budget_line_items').update({ progress_pct: pct }).eq('id', body.line_item_id).eq('project_id', params.id)
+  // Create a task from a progress line, linked both ways.
+  if (body.action === 'create_task' && body.line_item_id) {
+    const { data: line } = await db.from('budget_line_items').select('description').eq('id', body.line_item_id).eq('project_id', params.id).single()
+    const { data: task, error } = await db.from('project_tasks').insert({
+      project_id: params.id,
+      title: line?.description || 'Task',
+      status: 'open',
+      budget_line_item_id: body.line_item_id,
+    }).select('id, title, status, budget_line_item_id').single()
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true, task })
+  }
+
+  // Update a line's status / progress / note.
+  if (body.line_item_id) {
+    const updates: Record<string, unknown> = {}
+    if (body.progress_status !== undefined) {
+      updates.progress_status = body.progress_status
+      // keep the % in sync so Budget bars + overall % reflect the status
+      updates.progress_pct = body.progress_status === 'done' ? 100 : body.progress_status === 'working' ? 50 : 0
+    }
+    if (body.progress_pct !== undefined) updates.progress_pct = Math.max(0, Math.min(Number(body.progress_pct) || 0, 100))
+    if (body.progress_note !== undefined) updates.progress_note = body.progress_note || null
+    if (Object.keys(updates).length) {
+      await db.from('budget_line_items').update(updates).eq('id', body.line_item_id).eq('project_id', params.id)
+    }
     return NextResponse.json({ ok: true })
   }
   return NextResponse.json({ error: 'Nothing to do' }, { status: 400 })

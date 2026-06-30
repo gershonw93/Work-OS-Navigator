@@ -1,14 +1,24 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { FileText, ExternalLink, TrendingUp } from 'lucide-react'
+import { FileText, ExternalLink, TrendingUp, StickyNote, ListChecks, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-interface Line { id: string; description: string; budgeted_amount: number; progress_pct: number; quantity: number | null; unit_price: number | null; section: string | null }
+interface LineTask { id: string; title: string; status: string }
+interface Line {
+  id: string; description: string; budgeted_amount: number; progress_pct: number; progress_status: string
+  progress_note: string | null; quantity: number | null; unit_price: number | null; section: string | null; task: LineTask | null
+}
 interface QProject { status: string; quote_file_url: string | null; quote_file_name: string | null; quote_total: number | null }
 
 const money = (n: number) => `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+const STATUSES = [
+  { key: 'not_started', label: 'Not started' },
+  { key: 'working', label: 'Working on it' },
+  { key: 'done', label: 'Done' },
+]
 
 // Sub's own-job line items, sourced from their uploaded quote.
 //  mode 'budget'   — what they quoted (amounts + earned-to-date)
@@ -29,13 +39,34 @@ export function QuoteLineItems({ projectId, mode }: { projectId: string; mode: '
   }
   useEffect(() => { load() }, [projectId])
 
-  async function setPct(id: string, pct: number) {
-    setLines(ls => ls.map(l => l.id === id ? { ...l, progress_pct: pct } : l))
+  const [noteOpen, setNoteOpen] = useState<string | null>(null)
+
+  async function patchLine(id: string, body: Record<string, unknown>) {
     const t = await token()
     await fetch(`/api/projects/${projectId}/quote`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
-      body: JSON.stringify({ line_item_id: id, progress_pct: pct }),
+      body: JSON.stringify({ line_item_id: id, ...body }),
     })
+  }
+
+  function setStatus(id: string, status: string) {
+    const pct = status === 'done' ? 100 : status === 'working' ? 50 : 0
+    setLines(ls => ls.map(l => l.id === id ? { ...l, progress_status: status, progress_pct: pct } : l))
+    patchLine(id, { progress_status: status })
+  }
+
+  function setNote(id: string, note: string) {
+    setLines(ls => ls.map(l => l.id === id ? { ...l, progress_note: note } : l))
+  }
+  function saveNote(id: string, note: string) { patchLine(id, { progress_note: note }) }
+
+  async function createTask(id: string) {
+    const t = await token()
+    const res = await fetch(`/api/projects/${projectId}/quote`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+      body: JSON.stringify({ action: 'create_task', line_item_id: id }),
+    })
+    if (res.ok) { const d = await res.json(); setLines(ls => ls.map(l => l.id === id ? { ...l, task: d.task } : l)) }
   }
 
   if (loading) return <div className="text-sm text-faint py-12 text-center">Loading…</div>
@@ -98,25 +129,56 @@ export function QuoteLineItems({ projectId, mode }: { projectId: string; mode: '
             {sec.name && <div className="bg-surface px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-muted-fg border-b border-line-soft">{sec.name}</div>}
             <div className="divide-y divide-line-soft">
               {sec.rows.map(l => (
-                <div key={l.id} className="px-4 py-2.5 flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <span className="text-sm text-ink-soft block truncate">{l.description}</span>
-                    {(l.quantity != null || l.unit_price != null) && (
-                      <span className="text-xs text-faint">{l.quantity != null ? l.quantity : ''}{l.quantity != null && l.unit_price != null ? ' × ' : ''}{l.unit_price != null ? money(l.unit_price) : ''}</span>
+                <div key={l.id} className="px-4 py-2.5">
+                  <div className="flex items-center justify-between gap-3">
+                    {/* Checkbox = Done, for the quick "mark complete" path */}
+                    {mode === 'progress' && (
+                      <input type="checkbox" checked={l.progress_status === 'done'}
+                        onChange={e => setStatus(l.id, e.target.checked ? 'done' : 'not_started')}
+                        className="h-4 w-4 accent-[#C9F24A] shrink-0" />
                     )}
+                    <div className="min-w-0 flex-1">
+                      <span className={cn('text-sm block truncate', l.progress_status === 'done' ? 'text-faint line-through' : 'text-ink-soft')}>{l.description}</span>
+                      {(l.quantity != null || l.unit_price != null) && (
+                        <span className="text-xs text-faint">{l.quantity != null ? l.quantity : ''}{l.quantity != null && l.unit_price != null ? ' × ' : ''}{l.unit_price != null ? money(l.unit_price) : ''}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-sm font-medium text-ink w-16 sm:w-20 text-right">{money(l.budgeted_amount)}</span>
+                      {mode === 'progress' ? (
+                        <select value={l.progress_status} onChange={e => setStatus(l.id, e.target.value)}
+                          className={cn('rounded-md border text-xs font-semibold px-1.5 py-1 focus:outline-none focus:border-accent',
+                            l.progress_status === 'done' ? 'border-success/40 bg-success-tint text-success' : l.progress_status === 'working' ? 'border-warn/40 bg-warn-tint text-warn' : 'border-line bg-panel text-muted-fg')}>
+                          {STATUSES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+                        </select>
+                      ) : (
+                        l.progress_pct > 0 && <span className="text-xs text-success w-9 text-right">{l.progress_pct}%</span>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className="text-sm font-medium text-ink w-16 sm:w-20 text-right">{money(l.budgeted_amount)}</span>
-                    {mode === 'progress' ? (
-                      <select value={l.progress_pct} onChange={e => setPct(l.id, Number(e.target.value))}
-                        className={cn('rounded-md border text-xs font-semibold px-1.5 py-1 focus:outline-none focus:border-accent',
-                          l.progress_pct >= 100 ? 'border-success/40 bg-success-tint text-success' : l.progress_pct > 0 ? 'border-line bg-panel text-ink-soft' : 'border-line bg-panel text-muted-fg')}>
-                        {[0, 10, 20, 25, 30, 40, 50, 60, 70, 75, 80, 90, 100].map(p => <option key={p} value={p}>{p}%</option>)}
-                      </select>
-                    ) : (
-                      l.progress_pct > 0 && <span className="text-xs text-success w-9 text-right">{l.progress_pct}%</span>
-                    )}
-                  </div>
+
+                  {/* Progress-only: note + task actions */}
+                  {mode === 'progress' && (
+                    <div className="flex items-center gap-3 mt-1.5 pl-7">
+                      <button onClick={() => setNoteOpen(noteOpen === l.id ? null : l.id)} className="inline-flex items-center gap-1 text-xs text-muted-fg hover:text-ink">
+                        <StickyNote className="h-3.5 w-3.5" /> {l.progress_note ? 'Note' : 'Add note'}
+                      </button>
+                      {l.task ? (
+                        <Link href={`/projects/${projectId}/tasks`} className="inline-flex items-center gap-1 text-xs text-accent-fg hover:underline">
+                          <ListChecks className="h-3.5 w-3.5" /> Task{l.task.status === 'completed' ? ' · done' : ''}
+                        </Link>
+                      ) : (
+                        <button onClick={() => createTask(l.id)} className="inline-flex items-center gap-1 text-xs text-muted-fg hover:text-ink">
+                          <ListChecks className="h-3.5 w-3.5" /> Create task
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  {mode === 'progress' && (noteOpen === l.id || l.progress_note) && (
+                    <textarea rows={2} value={l.progress_note ?? ''} onChange={e => setNote(l.id, e.target.value)} onBlur={e => saveNote(l.id, e.target.value)}
+                      placeholder="Add a note for this line…"
+                      className="mt-1.5 ml-7 w-[calc(100%-1.75rem)] rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-ink placeholder:text-faint focus:border-accent focus:outline-none resize-none" />
+                  )}
                 </div>
               ))}
             </div>

@@ -5,7 +5,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select'
 import {
   Plus, X, CheckSquare, Circle, Clock, AlertCircle, Trash2,
   Building2, UserCircle2, Receipt, LayoutGrid, List, Users, Pencil,
-  ChevronDown, MessageSquare, Loader2, ImagePlus, CalendarClock,
+  ChevronDown, MessageSquare, Loader2, ImagePlus, CalendarClock, FileText,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -39,6 +39,7 @@ interface Task {
   assigned_to_company_id: string | null; assigned_to_name: string | null
   created_by: string; completed_at: string | null; created_at: string
   image_url: string | null; follow_up_date: string | null; follow_up_note: string | null
+  budget_line_item_id: string | null
 }
 interface Member { id: string; name: string; role: string }
 interface Sub { id: string; scope: string; trade: string | null; companies: { id: string; name: string } | null }
@@ -675,6 +676,11 @@ export default function TasksPage({ params }: { params: { id: string } }) {
                 {task.title}
               </span>
               <PriorityBadge priority={task.priority} />
+              {task.budget_line_item_id && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-medium rounded-full bg-accent-tint text-accent-fg px-1.5 py-0.5" title="Created from a Quote progress line">
+                  <FileText className="h-2.5 w-2.5" /> Quote line
+                </span>
+              )}
               {isOverdue(task) && (
                 <span className="flex items-center gap-1 text-xs font-medium text-danger">
                   <AlertCircle className="h-3 w-3" /> Overdue
