@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { CheckSquare, Circle, Clock, Building2, UserCircle2, TrendingUp } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
+import { useViewerContext } from '@/lib/use-viewer-context'
+import { QuoteLineItems } from '@/components/projects/quote-line-items'
 
 interface Task {
   id: string
@@ -36,6 +38,7 @@ function groupByAssignee(tasks: Task[]) {
 
 export default function ProgressPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
+  const vc = useViewerContext(params.id)
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -63,6 +66,11 @@ export default function ProgressPage({ params }: { params: { id: string } }) {
   const pct = total === 0 ? 0 : Math.round((completed / total) * 100)
 
   const groups = groupByAssignee(tasks)
+
+  // Sub's own job → quote-line-item progress instead of the GC task rollup.
+  if (!vc.loading && vc.companyType === 'subcontractor' && vc.owns) {
+    return <div className="p-4 sm:p-6"><QuoteLineItems projectId={params.id} mode="progress" /></div>
+  }
 
   return (
     <div className="space-y-6">
