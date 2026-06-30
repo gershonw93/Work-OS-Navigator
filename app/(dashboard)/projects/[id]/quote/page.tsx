@@ -88,7 +88,7 @@ export default function QuotePage({ params }: { params: { id: string } }) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-3xl">
       <input ref={fileRef} type="file" accept="application/pdf,image/*" className="sr-only"
         onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = '' }} />
 
