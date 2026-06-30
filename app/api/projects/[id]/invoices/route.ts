@@ -34,7 +34,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { subcontract_id, payment_schedule_item_id, company_id, company_name, amount, description, due_date } = await request.json()
+  const { subcontract_id, payment_schedule_item_id, company_id, company_name, amount, description, due_date, client_paid, escrow_paid } = await request.json()
 
   // Count existing invoices for this project to generate invoice number
   const { count } = await db
@@ -55,6 +55,8 @@ export async function POST(request: Request, { params }: { params: { id: string 
       amount,
       description: description || null,
       due_date: due_date || null,
+      client_paid: Number(client_paid) || 0,
+      escrow_paid: Number(escrow_paid) || 0,
       invoice_number,
       status: 'pending_approval',
     })

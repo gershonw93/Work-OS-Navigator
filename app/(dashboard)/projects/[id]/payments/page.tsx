@@ -15,7 +15,9 @@ interface Payment {
 }
 interface Summary {
   received: number; feeEarned: number; availableAfterFee: number
-  vendorBilled: number; vendorPaid: number; outstandingToVendors: number; escrowBalance: number
+  vendorBilled: number; vendorPaid: number; escrowPaid: number; clientPaidDirect: number
+  outstandingToVendors: number; escrowBalance: number
+  projectedCost: number; invoicedAlready: number; projectedGoingForward: number
 }
 const money = (n: number) => `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 const blank = { paid_date: '', amount: '', method: 'Check', memo: '', retainer: false, qb_entered: false }
@@ -125,7 +127,8 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
 
       {/* Secondary stats + fee setting */}
       <div className="bg-panel rounded-xl border border-line p-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-        <Stat label="Available after fee" value={money(s?.availableAfterFee ?? 0)} />
+        <Stat label="Paid from escrow" value={money(s?.escrowPaid ?? 0)} />
+        <Stat label="Client paid direct" value={money(s?.clientPaidDirect ?? 0)} />
         <Stat label="Vendor billed" value={money(s?.vendorBilled ?? 0)} />
         <Stat label="Outstanding to vendors" value={money(s?.outstandingToVendors ?? 0)} cls={(s?.outstandingToVendors ?? 0) > 0 ? 'text-warn' : ''} />
         <div>
@@ -143,6 +146,17 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
             </button>
           )}
         </div>
+      </div>
+
+      {/* Projections */}
+      <div className="bg-panel rounded-xl border border-line p-4">
+        <p className="text-xs font-semibold uppercase tracking-wide text-faint mb-3">Projections</p>
+        <div className="grid grid-cols-3 gap-4">
+          <Stat label="Projected job cost" value={money(s?.projectedCost ?? 0)} />
+          <Stat label="Invoiced already" value={money(s?.invoicedAlready ?? 0)} />
+          <Stat label="Projected going forward" value={money(s?.projectedGoingForward ?? 0)} cls="text-accent-fg" />
+        </div>
+        <p className="text-xs text-faint mt-2">Projected cost = Budget × (1 + {(feePct * 100).toFixed(feePct * 100 % 1 ? 1 : 0)}% fee). Set budget lines on the Budget tab.</p>
       </div>
 
       {/* Add form */}

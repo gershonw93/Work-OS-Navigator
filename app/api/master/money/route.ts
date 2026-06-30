@@ -34,7 +34,7 @@ export async function GET(request: Request) {
   const [{ data: budgetLines }, { data: subs }, { data: invoices }, { data: clientPayments }] = await Promise.all([
     db.from('budget_line_items').select('project_id, budgeted_amount').in('project_id', ids),
     db.from('subcontracts').select('project_id, contract_amount').in('project_id', ids),
-    db.from('invoices').select('project_id, amount, status').in('project_id', ids),
+    db.from('invoices').select('project_id, amount, status, client_paid, escrow_paid').in('project_id', ids),
     db.from('client_payments').select('project_id, amount').in('project_id', ids),
   ])
 
@@ -46,7 +46,11 @@ export async function GET(request: Request) {
   const budgeted = sumBy(budgetLines, 'project_id', r => Number(r.budgeted_amount ?? 0))
   const committed = sumBy(subs, 'project_id', r => Number(r.contract_amount ?? 0))
   const billed = sumBy((invoices ?? []).filter(i => ACTUAL.has(i.status)), 'project_id', r => Number(r.amount ?? 0))
-  const paid = sumBy((invoices ?? []).filter(i => i.status === 'paid'), 'project_id', r => Number(r.amount ?? 0))
+  // Total paid (escrow + client-direct) and escrow-only disbursements, honoring the split.
+  const paidVal = (r: any) => (Number(r.client_paid || 0) || Number(r.escrow_paid || 0)) ? Number(r.client_paid || 0) + Number(r.escrow_paid || 0) : (r.status === 'paid' ? Number(r.amount || 0) : 0)
+  const escrowVal = (r: any) => (Number(r.client_paid || 0) || Number(r.escrow_paid || 0)) ? Number(r.escrow_paid || 0) : (r.status === 'paid' ? Number(r.amount || 0) : 0)
+  const paid = sumBy(invoices, 'project_id', paidVal)
+  const escrowPaid = sumBy(invoices, 'project_id', escrowVal)
   const received = sumBy(clientPayments, 'project_id', r => Number(r.amount ?? 0))
 
   const rows = (projects ?? []).map(p => {
@@ -56,7 +60,7 @@ export async function GET(request: Request) {
     return {
       project_id: p.id, project_name: p.name, status: p.status,
       budgeted: b, committed: c, billed: bi, paid: pd, outstanding: Math.max(bi - pd, 0),
-      received: rec, escrow: rec - pd - fee,
+      received: rec, escrow: rec - (escrowPaid.get(p.id) ?? 0) - fee,
     }
   })
 

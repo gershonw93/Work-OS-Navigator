@@ -23,28 +23,48 @@ export async function GET(request: Request, { params }: { params: { id: string }
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()
 
-  const [{ data: project }, { data: payments }, { data: invoices }] = await Promise.all([
+  const [{ data: project }, { data: payments }, { data: invoices }, { data: budgetLines }] = await Promise.all([
     db.from('projects').select('contractor_fee_pct').eq('id', params.id).single(),
     db.from('client_payments').select('*').eq('project_id', params.id).order('paid_date', { ascending: true }),
-    db.from('invoices').select('amount, status').eq('project_id', params.id),
+    db.from('invoices').select('amount, status, client_paid, escrow_paid').eq('project_id', params.id),
+    db.from('budget_line_items').select('budgeted_amount').eq('project_id', params.id),
   ])
 
   const feePct = Number(project?.contractor_fee_pct ?? 0)
   const received = (payments ?? []).reduce((s, p) => s + Number(p.amount || 0), 0)
-  const vendorBilled = (invoices ?? []).filter(i => VENDOR_BILLED.has(i.status)).reduce((s, i) => s + Number(i.amount || 0), 0)
-  const vendorPaid = (invoices ?? []).filter(i => i.status === 'paid').reduce((s, i) => s + Number(i.amount || 0), 0)
+  const inv = invoices ?? []
+  const vendorBilled = inv.filter(i => VENDOR_BILLED.has(i.status)).reduce((s, i) => s + Number(i.amount || 0), 0)
 
-  // Contractor management fee earned = vendor cost × fee%. Escrow holds client cash
-  // minus what's been disbursed to vendors and minus the fee taken.
+  // Payment-source split. Prefer the explicit split; for legacy 'paid' invoices
+  // with no split entered, treat the full amount as an escrow disbursement.
+  let escrowPaid = 0, clientPaidDirect = 0
+  for (const i of inv) {
+    const cp = Number(i.client_paid || 0), ep = Number(i.escrow_paid || 0)
+    if (cp || ep) { escrowPaid += ep; clientPaidDirect += cp }
+    else if (i.status === 'paid') { escrowPaid += Number(i.amount || 0) }
+  }
+  const vendorPaid = escrowPaid + clientPaidDirect
+
+  // Fee earned = vendor cost × fee%. Escrow holds client cash minus escrow
+  // disbursements minus the fee taken (client-direct payments don't touch escrow).
   const feeEarned = vendorBilled * feePct
-  const escrowBalance = received - vendorPaid - feeEarned
+  const escrowBalance = received - escrowPaid - feeEarned
   const availableAfterFee = received - feeEarned
   const outstandingToVendors = Math.max(vendorBilled - vendorPaid, 0)
+
+  // Forward projections: budget × (1 + fee) is the projected job cost.
+  const budgetTotal = (budgetLines ?? []).reduce((s, b) => s + Number(b.budgeted_amount || 0), 0)
+  const projectedCost = budgetTotal * (1 + feePct)
+  const projectedGoingForward = Math.max(projectedCost - vendorBilled, 0)
 
   return NextResponse.json({
     fee_pct: feePct,
     payments: payments ?? [],
-    summary: { received, feeEarned, availableAfterFee, vendorBilled, vendorPaid, outstandingToVendors, escrowBalance },
+    summary: {
+      received, feeEarned, availableAfterFee, vendorBilled, vendorPaid, escrowPaid, clientPaidDirect,
+      outstandingToVendors, escrowBalance,
+      projectedCost, invoicedAlready: vendorBilled, projectedGoingForward,
+    },
   })
 }
 
