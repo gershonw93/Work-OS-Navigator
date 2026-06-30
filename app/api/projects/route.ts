@@ -20,8 +20,18 @@ export async function GET(request: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const db = admin()
-  const { data: profile } = await db.from('profiles').select('company_id, role').eq('id', user.id).single()
+  const { data: profile } = await db.from('profiles').select('company_id, role, companies(type)').eq('id', user.id).single()
   if (!profile) return NextResponse.json({ projects: [] })
+
+  // Subcontractors: "Projects" lists the jobs they created/own. (Awarded GC
+  // jobs live under My Jobs, since those projects are owned by the GC.)
+  if ((profile.companies as any)?.type === 'subcontractor' && profile.company_id) {
+    const { data: ownProjects } = await db.from('projects')
+      .select('id, name, status, start_date, end_date, address, client, type, created_at')
+      .or(`created_by_company_id.eq.${profile.company_id},gc_company_id.eq.${profile.company_id}`)
+      .order('created_at', { ascending: false })
+    return NextResponse.json({ projects: ownProjects ?? [] })
+  }
 
   // Restricted roles only see projects they are explicitly assigned to
   if (profile.role && RESTRICTED_ROLES.includes(profile.role)) {
