@@ -51,8 +51,8 @@ export function ScrollHero() {
     return () => { window.removeEventListener('scroll', onScroll); window.removeEventListener('resize', onScroll); cancelAnimationFrame(raf) }
   }, [])
 
-  const zoom = clamp(p / 0.55, 0, 1)            // 0 → fills screen, 1 → full monitor visible
-  const scale = lerp(2.15, 0.82, zoom)
+  const zoom = clamp(p / 0.6, 0, 1)             // 0 → fills screen, 1 → full monitor visible
+  const scale = lerp(1.4, 0.8, zoom)
   const appOpacity = 1 - clamp((p - 0.7) / 0.18, 0, 1)
   const textProg = clamp((p - 0.72) / 0.24, 0, 1)
   const hintOpacity = 1 - clamp(p / 0.12, 0, 1)
@@ -63,14 +63,14 @@ export function ScrollHero() {
       <div className="md:hidden"><StaticHero /></div>
 
       {/* Desktop: scroll-driven zoom-out */}
-      <div ref={ref} className="relative h-[340vh] hidden md:block">
+      <div ref={ref} className="relative h-[240vh] hidden md:block">
       <div className="sticky top-0 h-screen overflow-hidden flex items-center justify-center bg-surface">
         {/* App zooming out into a monitor */}
         <div className="will-change-transform" style={{ transform: `scale(${scale})`, opacity: appOpacity }}>
-          <div className="mx-auto w-[880px] max-w-[88vw]">
+          <div className="mx-auto w-[1000px] max-w-[72vw]">
             {/* Monitor screen + bezel */}
             <div className="rounded-2xl border-[12px] border-[#202126] bg-[#202126] shadow-2xl overflow-hidden">
-              <div className="h-[480px] max-h-[58vh] overflow-hidden rounded-lg bg-surface"><ProjectsMock /></div>
+              <div className="h-[60vh] overflow-hidden rounded-lg bg-surface"><ProjectsMock /></div>
             </div>
             {/* Stand */}
             <div className="mx-auto h-5 w-24 bg-[#202126]/80" />
