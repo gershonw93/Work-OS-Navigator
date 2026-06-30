@@ -51,6 +51,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
+  // Logged-out visitors landing on the root see the marketing homepage.
+  if (!user && isRoot) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/homepage'
+    return NextResponse.redirect(url)
+  }
+
   if (user && (isAuthRoute || isRoot)) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
