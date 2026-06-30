@@ -7,6 +7,8 @@ import {
 import { BrowserMock } from '@/components/marketing/browser-mock'
 import { DashboardMock } from '@/components/marketing/dashboard-mock'
 import { ScrollHero } from '@/components/marketing/scroll-hero'
+import { FeatureWall } from '@/components/marketing/feature-wall'
+import { DarkShowcase } from '@/components/marketing/dark-showcase'
 
 export const metadata: Metadata = { title: 'SyteNav — Construction management built for the field' }
 
@@ -84,6 +86,12 @@ export default function HomePage() {
           <BrowserMock url="app.sytenav.com/dashboard"><DashboardMock /></BrowserMock>
         </div>
       </section>
+
+      {/* Dark mode showcase */}
+      <DarkShowcase />
+
+      {/* The full feature wall */}
+      <FeatureWall />
 
       {/* Who it's for */}
       <section className="max-w-6xl mx-auto px-4 sm:px-6 py-16">
