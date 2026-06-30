@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { FileText, ExternalLink, TrendingUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-interface Line { id: string; description: string; budgeted_amount: number; progress_pct: number }
+interface Line { id: string; description: string; budgeted_amount: number; progress_pct: number; quantity: number | null; unit_price: number | null }
 interface QProject { status: string; quote_file_url: string | null; quote_file_name: string | null; quote_total: number | null }
 
 const money = (n: number) => `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
@@ -88,7 +88,12 @@ export function QuoteLineItems({ projectId, mode }: { projectId: string; mode: '
         {lines.map(l => (
           <div key={l.id} className="px-4 py-3">
             <div className="flex items-center justify-between gap-3">
-              <span className="text-sm text-ink-soft truncate">{l.description}</span>
+              <div className="min-w-0">
+                <span className="text-sm text-ink-soft block truncate">{l.description}</span>
+                {(l.quantity != null || l.unit_price != null) && (
+                  <span className="text-xs text-faint">{l.quantity != null ? l.quantity : ''}{l.quantity != null && l.unit_price != null ? ' × ' : ''}{l.unit_price != null ? money(l.unit_price) : ''}</span>
+                )}
+              </div>
               <span className="text-sm font-medium text-ink shrink-0">{money(l.budgeted_amount)}</span>
             </div>
             {mode === 'progress' && (
