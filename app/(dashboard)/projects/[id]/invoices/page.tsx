@@ -23,6 +23,7 @@ interface PaymentItem { id: string; subcontract_id: string; label: string; amoun
 interface Invoice {
   id: string; invoice_number: string; company_name: string; company_id: string
   amount: number; description: string | null; status: string
+  client_paid?: number; escrow_paid?: number
   approved_by_name: string | null; approved_at: string | null; sent_at: string | null
   due_date: string | null; created_at: string; subcontract_id: string | null
   payment_schedule_item_id: string | null; subcontracts?: { trade: string; contract_amount: number }
@@ -45,6 +46,8 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
   const [editInvoiceNumber, setEditInvoiceNumber] = useState('')
   const [editAmount, setEditAmount] = useState('')
   const [editNotes, setEditNotes] = useState('')
+  const [editClientPaid, setEditClientPaid] = useState('')
+  const [editEscrowPaid, setEditEscrowPaid] = useState('')
   const [editSaving, setEditSaving] = useState(false)
   const conditionalInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const unconditionalInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
@@ -155,6 +158,8 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
     setEditInvoiceNumber(invoice.invoice_number)
     setEditAmount(String(invoice.amount))
     setEditNotes(invoice.description ?? '')
+    setEditClientPaid(invoice.client_paid ? String(invoice.client_paid) : '')
+    setEditEscrowPaid(invoice.escrow_paid ? String(invoice.escrow_paid) : '')
   }
 
   async function handleEditInvoice(e: React.FormEvent) {
@@ -169,6 +174,8 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
         invoice_number: editInvoiceNumber,
         amount: parseFloat(editAmount),
         description: editNotes || null,
+        client_paid: parseFloat(editClientPaid) || 0,
+        escrow_paid: parseFloat(editEscrowPaid) || 0,
       }),
     })
     setEditSaving(false)
@@ -387,6 +394,32 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
                   <label className="text-sm font-medium text-ink-soft">Notes</label>
                   <input value={editNotes} onChange={e => setEditNotes(e.target.value)} placeholder="Description or notes..."
                     className="w-full rounded-md border border-muted2 px-3 py-2 text-sm focus:border-accent focus:outline-none" />
+                </div>
+                <div className="rounded-lg border border-line-soft bg-surface/60 p-3 space-y-2.5">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-faint">How was it paid?</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="text-xs text-ink-soft">Paid from escrow</label>
+                      <div className="relative">
+                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-faint" />
+                        <input type="number" step="0.01" value={editEscrowPaid} onChange={e => setEditEscrowPaid(e.target.value)} placeholder="0.00"
+                          className="w-full rounded-md border border-muted2 pl-8 pr-3 py-2 text-sm focus:border-accent focus:outline-none" />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs text-ink-soft">Client paid vendor directly</label>
+                      <div className="relative">
+                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-faint" />
+                        <input type="number" step="0.01" value={editClientPaid} onChange={e => setEditClientPaid(e.target.value)} placeholder="0.00"
+                          className="w-full rounded-md border border-muted2 pl-8 pr-3 py-2 text-sm focus:border-accent focus:outline-none" />
+                      </div>
+                    </div>
+                  </div>
+                  {(() => {
+                    const amt = parseFloat(editAmount) || 0
+                    const out = amt - (parseFloat(editEscrowPaid) || 0) - (parseFloat(editClientPaid) || 0)
+                    return <p className="text-xs text-muted-fg">Outstanding to vendor: <span className={out > 0 ? 'font-semibold text-warn' : 'font-semibold text-success'}>${Math.max(out, 0).toLocaleString()}</span></p>
+                  })()}
                 </div>
               </div>
               <div className="px-6 py-4 border-t border-line-soft flex gap-2 justify-end">
