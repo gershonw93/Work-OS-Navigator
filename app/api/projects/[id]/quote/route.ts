@@ -43,6 +43,29 @@ async function scan(anthropic: Anthropic, url: string) {
   } catch { return null }
 }
 
+// Parse a free-text payment-terms paragraph into ordered stages, so quotes
+// scanned before structured stages existed still render as a schedule.
+function parseTerms(text: string | null): any[] | null {
+  if (!text || !text.trim()) return null
+  const head = text.split(/invoices?\s+due|net\s+\d|change orders?/i)[0] || text
+  const segs = head.split(/;|\.\s+(?=[0-9])|\n/).map(s => s.trim()).filter(Boolean)
+  const stages: any[] = []
+  for (const seg of segs) {
+    const pct = seg.match(/(\d+(?:\.\d+)?)\s*%/)
+    const amt = seg.match(/\$\s*([\d,]+(?:\.\d{1,2})?)/)
+    if (!pct && !amt) continue
+    let label = seg.replace(/\$\s*[\d,]+(?:\.\d{1,2})?/g, '').replace(/^\s*\d+(?:\.\d+)?\s*%\s*/, '').replace(/[()]/g, '').trim()
+    label = label.replace(/^(of\s+|due\s+)/i, '').trim() || 'Payment'
+    stages.push({
+      label: label.charAt(0).toUpperCase() + label.slice(1),
+      percent: pct ? Number(pct[1]) : null,
+      amount: amt ? Number(amt[1].replace(/,/g, '')) : null,
+      trigger: null,
+    })
+  }
+  return stages.length ? stages : null
+}
+
 // GET — quote file + status + line items for this project.
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   const user = await authUser(request)
@@ -54,6 +77,10 @@ export async function GET(request: Request, { params }: { params: { id: string }
     db.from('projects').select('status, quote_file_url, quote_file_name, quote_total, payment_terms, payment_stages').eq('id', params.id).single(),
     db.from('budget_line_items').select('id, description, budgeted_amount, progress_pct, sort_order, quantity, unit_price, section').eq('project_id', params.id).order('sort_order', { ascending: true }),
   ])
+  // Backfill structured stages from the raw terms text for quotes scanned before stages existed.
+  if (project && !(project as any).payment_stages && (project as any).payment_terms) {
+    ;(project as any).payment_stages = parseTerms((project as any).payment_terms)
+  }
   return NextResponse.json({ project: project ?? null, line_items: lines ?? [], default_payment_terms: defaultTerms })
 }
 
