@@ -43,6 +43,7 @@ const groups = [
     color: 'text-success',
     bg: 'bg-success-tint',
     tabs: [
+      { label: 'Quote', slug: 'quote', icon: FileText },
       { label: 'Budget', slug: 'budget', icon: Wallet },
       { label: 'Quotes', slug: 'request-quotes', icon: Send },
       { label: 'Invoices', slug: 'invoices', icon: Receipt },
@@ -102,6 +103,11 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
     if (!isSub) return true
     return ctx?.owns ? !SUB_OWN_HIDDEN.has(slug) : SUB_AWARDED_ALLOWED.has(slug)
   }
+  // The "Quote" tab is the sub's own-job starting point — only there.
+  const tabAllowed = (slug: string) => {
+    if (slug === 'quote') return isSub && !!ctx?.owns
+    return can(slug, 'view') && subAllows(slug)
+  }
 
   // Wait for both permissions and viewer-context before deciding (avoids flashing
   // tabs a sub shouldn't see). ctx === null means still loading.
@@ -109,7 +115,7 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
   const filteredGroups = !ready
     ? []
     : groups
-        .map(g => ({ ...g, tabs: g.tabs.filter(t => can(t.slug, 'view') && subAllows(t.slug)) }))
+        .map(g => ({ ...g, tabs: g.tabs.filter(t => tabAllowed(t.slug)) }))
         .filter(g => g.tabs.length > 0)
   const visibleTabs = filteredGroups.flatMap(g => g.tabs)
 
