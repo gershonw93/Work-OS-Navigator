@@ -311,3 +311,8 @@ ALTER TABLE projects
   ADD COLUMN IF NOT EXISTS payment_terms TEXT;
 ALTER TABLE companies
   ADD COLUMN IF NOT EXISTS default_payment_terms TEXT;
+
+-- ===== 032_quote_sections_stages.sql =====
+-- Group quote line items by section, and store payment terms as structured stages.
+ALTER TABLE budget_line_items ADD COLUMN IF NOT EXISTS section TEXT;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS payment_stages JSONB;

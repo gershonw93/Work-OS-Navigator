@@ -16,9 +16,12 @@ async function authUser(request: Request) {
   return user
 }
 
-const PROMPT = `This is a contractor's price quote/estimate. Extract its line items, total, and payment terms. Return ONLY JSON (use null when not found):
-{"total_amount":number or null,"payment_terms":"string describing deposit/progress/final terms, or null","line_items":[{"description":"string","quantity":number|null,"unit_price":number|null,"amount":number|null}]}
-For each line: quantity = qty/units if shown, unit_price = price per unit if shown, amount = the line total. Return ONLY the JSON.`
+const PROMPT = `This is a contractor's price quote/estimate. Extract it faithfully. Return ONLY JSON (use null when not found):
+{"total_amount":number or null,
+ "payment_terms":"the raw payment-terms paragraph, or null",
+ "payment_stages":[{"label":"e.g. Deposit/mobilization","percent":number|null,"amount":number|null,"trigger":"when it's due, or null"}],
+ "line_items":[{"section":"the section/group heading this line sits under (e.g. Rough-in, Trim, Cleanup), or null","description":"string","quantity":number|null,"unit_price":number|null,"amount":number|null}]}
+For each line: quantity = qty/units if shown, unit_price = price per unit, amount = line total. Preserve the section a line appears under. Break the payment terms into ordered stages. Return ONLY the JSON.`
 
 async function scan(anthropic: Anthropic, url: string) {
   try {
@@ -48,8 +51,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const { data: profile } = await db.from('profiles').select('companies(default_payment_terms)').eq('id', user.id).single()
   const defaultTerms = (profile?.companies as any)?.default_payment_terms ?? null
   const [{ data: project }, { data: lines }] = await Promise.all([
-    db.from('projects').select('status, quote_file_url, quote_file_name, quote_total, payment_terms').eq('id', params.id).single(),
-    db.from('budget_line_items').select('id, description, budgeted_amount, progress_pct, sort_order, quantity, unit_price').eq('project_id', params.id).order('sort_order', { ascending: true }),
+    db.from('projects').select('status, quote_file_url, quote_file_name, quote_total, payment_terms, payment_stages').eq('id', params.id).single(),
+    db.from('budget_line_items').select('id, description, budgeted_amount, progress_pct, sort_order, quantity, unit_price, section').eq('project_id', params.id).order('sort_order', { ascending: true }),
   ])
   return NextResponse.json({ project: project ?? null, line_items: lines ?? [], default_payment_terms: defaultTerms })
 }
@@ -87,8 +90,12 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const { data: profile } = await db.from('profiles').select('companies(default_payment_terms)').eq('id', user.id).single()
   const defaultTerms = (profile?.companies as any)?.default_payment_terms ?? null
   const paymentTerms = (typeof parsed?.payment_terms === 'string' && parsed.payment_terms.trim()) ? parsed.payment_terms.trim() : defaultTerms
+  const stages = Array.isArray(parsed?.payment_stages) && parsed.payment_stages.length ? parsed.payment_stages : null
 
-  await db.from('projects').update({ quote_file_url: fileUrl, quote_file_name: file.name, quote_total: total || null, payment_terms: paymentTerms }).eq('id', params.id)
+  await db.from('projects').update({
+    quote_file_url: fileUrl, quote_file_name: file.name, quote_total: total || null,
+    payment_terms: paymentTerms, payment_stages: stages,
+  }).eq('id', params.id)
 
   // Replace existing quote-derived line items with the freshly scanned ones.
   if (items.length) {
@@ -96,6 +103,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     const rows = items.map((it, idx) => ({
       project_id: params.id,
       category: 'Quote',
+      section: (typeof it.section === 'string' && it.section.trim()) ? it.section.trim() : null,
       description: it.description || `Line ${idx + 1}`,
       quantity: it.quantity != null ? Number(it.quantity) : null,
       unit_price: it.unit_price != null ? Number(it.unit_price) : null,
@@ -105,7 +113,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     await db.from('budget_line_items').insert(rows)
   }
 
-  return NextResponse.json({ file_url: fileUrl, file_name: file.name, total, payment_terms: paymentTerms, line_items: items, scanned: !!parsed })
+  return NextResponse.json({ file_url: fileUrl, file_name: file.name, total, payment_terms: paymentTerms, payment_stages: stages, line_items: items, scanned: !!parsed })
 }
 
 // PATCH — convert Quote/Pending → Active (or update a line item's progress %).

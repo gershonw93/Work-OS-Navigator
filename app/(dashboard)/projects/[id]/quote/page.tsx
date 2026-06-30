@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button'
 import { Upload, FileText, Loader2, Sparkles, CheckCircle2, ExternalLink, Rocket } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-interface Line { id: string; description: string; budgeted_amount: number; progress_pct: number; quantity: number | null; unit_price: number | null }
-interface QProject { status: string; quote_file_url: string | null; quote_file_name: string | null; quote_total: number | null; payment_terms: string | null }
+interface Line { id: string; description: string; budgeted_amount: number; progress_pct: number; quantity: number | null; unit_price: number | null; section: string | null }
+interface Stage { label: string; percent: number | null; amount: number | null; trigger?: string | null }
+interface QProject { status: string; quote_file_url: string | null; quote_file_name: string | null; quote_total: number | null; payment_terms: string | null; payment_stages: Stage[] | null }
 
 const money = (n: number | null) => n == null ? '—' : `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 
@@ -75,6 +76,16 @@ export default function QuotePage({ params }: { params: { id: string } }) {
 
   const isPending = project?.status === 'planning'
   const total = project?.quote_total ?? lines.reduce((s, l) => s + Number(l.budgeted_amount || 0), 0)
+  const stages = project?.payment_stages ?? null
+
+  // Group line items by section, preserving order.
+  const sections: { name: string; rows: Line[] }[] = []
+  for (const l of lines) {
+    const name = l.section ?? ''
+    let g = sections.find(s => s.name === name)
+    if (!g) { g = { name, rows: [] }; sections.push(g) }
+    g.rows.push(l)
+  }
 
   return (
     <div className="space-y-6">
@@ -113,56 +124,91 @@ export default function QuotePage({ params }: { params: { id: string } }) {
         </button>
       )}
 
-      {/* Line items */}
+      {/* Line items — grouped by section, with Qty / Unit / Amount columns */}
       {lines.length > 0 && (
         <div className="bg-panel rounded-xl border border-line overflow-hidden">
           <div className="px-4 py-2.5 border-b border-line-soft flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-wide text-faint">Line items ({lines.length})</p>
             <p className="text-xs text-faint">From your quote · also feeds Budget &amp; Progress</p>
           </div>
-          <div className="divide-y divide-line-soft">
-            {lines.map(l => (
-              <div key={l.id} className="px-4 py-2.5 flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <span className="text-sm text-ink-soft block truncate">{l.description}</span>
-                  {(l.quantity != null || l.unit_price != null) && (
-                    <span className="text-xs text-faint">
-                      {l.quantity != null ? `${l.quantity}` : ''}{l.quantity != null && l.unit_price != null ? ' × ' : ''}{l.unit_price != null ? money(l.unit_price) : ''}
-                    </span>
-                  )}
-                </div>
-                <span className="text-sm font-medium text-ink shrink-0">{money(l.budgeted_amount)}</span>
-              </div>
-            ))}
+          {/* Column header */}
+          <div className="hidden sm:grid grid-cols-[1fr_4rem_6rem_6rem] gap-3 px-4 py-2 border-b border-line-soft text-[10px] font-semibold uppercase tracking-wide text-faint">
+            <span>Description</span><span className="text-right">Qty</span><span className="text-right">Unit</span><span className="text-right">Amount</span>
           </div>
-          <div className="px-4 py-3 border-t-2 border-line bg-surface flex items-center justify-between text-sm font-bold text-ink-soft">
-            <span>Total</span><span>{money(total)}</span>
+          {sections.map(sec => (
+            <div key={sec.name}>
+              {sec.name && <div className="bg-surface px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-muted-fg">{sec.name}</div>}
+              <div className="divide-y divide-line-soft">
+                {sec.rows.map(l => (
+                  <div key={l.id} className="px-4 py-2.5">
+                    <div className="flex items-center justify-between gap-3 sm:grid sm:grid-cols-[1fr_4rem_6rem_6rem] sm:gap-3">
+                      <span className="text-sm text-ink-soft min-w-0">{l.description}</span>
+                      <span className="hidden sm:block text-sm text-muted-fg text-right">{l.quantity != null ? l.quantity : '—'}</span>
+                      <span className="hidden sm:block text-sm text-muted-fg text-right">{l.unit_price != null ? money(l.unit_price) : '—'}</span>
+                      <span className="text-sm font-medium text-ink text-right shrink-0">{money(l.budgeted_amount)}</span>
+                    </div>
+                    {l.quantity != null && (
+                      <p className="sm:hidden text-xs text-faint mt-0.5">{l.quantity} × {l.unit_price != null ? money(l.unit_price) : '—'}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+          <div className="grid grid-cols-[1fr_4rem_6rem_6rem] gap-3 px-4 py-3 border-t-2 border-line bg-surface text-sm font-bold text-ink-soft">
+            <span>Total</span><span /><span /><span className="text-right">{money(total)}</span>
           </div>
         </div>
       )}
 
-      {/* Payment terms — asked for when missing */}
+      {/* Payment terms — structured stages from the quote */}
       {(project?.quote_file_url || lines.length > 0) && (
-        <div className={cn('rounded-xl border p-4', !project?.payment_terms ? 'border-warn/40 bg-warn-tint/30' : 'border-line bg-panel')}>
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm font-semibold text-ink-soft">Payment terms</p>
-            {!project?.payment_terms && <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-warn-tint text-warn">Please set</span>}
+        stages && stages.length > 0 ? (
+          <div className="bg-panel rounded-xl border border-line overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-line-soft flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-wide text-faint">Payment schedule ({stages.length})</p>
+              {total > 0 && <p className="text-xs text-faint">of {money(total)}</p>}
+            </div>
+            <div className="divide-y divide-line-soft">
+              {stages.map((st, i) => {
+                const amt = st.amount ?? (st.percent != null && total ? Math.round(total * st.percent / 100) : null)
+                return (
+                  <div key={i} className="px-4 py-2.5 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm text-ink-soft">{st.label}</p>
+                      {st.trigger && <p className="text-xs text-faint">{st.trigger}</p>}
+                    </div>
+                    <div className="text-right shrink-0">
+                      {st.percent != null && <span className="text-xs text-muted-fg mr-2">{st.percent}%</span>}
+                      <span className="text-sm font-medium text-ink">{money(amt)}</span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
-          {!project?.payment_terms && (
-            <p className="text-xs text-muted-fg mb-2">
-              We couldn't find payment terms on the quote. {defaultTerms ? 'Your default is filled in below — adjust if needed.' : 'Add them here (e.g. 50% deposit, 40% on rough-in, 10% on completion).'}
-            </p>
-          )}
-          <textarea rows={2} value={terms} onChange={e => setTerms(e.target.value)}
-            placeholder="e.g. 50% deposit, 40% at rough-in, 10% on completion"
-            className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-accent focus:outline-none resize-none" />
-          <div className="flex items-center justify-between mt-2">
-            <span className="text-xs text-faint">Set a default in Settings → Company so it auto-fills next time.</span>
-            <Button size="sm" disabled={termsSaving} onClick={saveTerms}>
-              {termsSaved ? <><CheckCircle2 className="h-3.5 w-3.5" /> Saved</> : termsSaving ? 'Saving…' : 'Save terms'}
-            </Button>
+        ) : (
+          <div className={cn('rounded-xl border p-4', !project?.payment_terms ? 'border-warn/40 bg-warn-tint/30' : 'border-line bg-panel')}>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-semibold text-ink-soft">Payment terms</p>
+              {!project?.payment_terms && <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-warn-tint text-warn">Please set</span>}
+            </div>
+            {!project?.payment_terms && (
+              <p className="text-xs text-muted-fg mb-2">
+                We couldn't find payment terms on the quote. {defaultTerms ? 'Your default is filled in below — adjust if needed.' : 'Add them here (e.g. 50% deposit, 40% on rough-in, 10% on completion).'}
+              </p>
+            )}
+            <textarea rows={3} value={terms} onChange={e => setTerms(e.target.value)}
+              placeholder="e.g. 50% deposit, 40% at rough-in, 10% on completion"
+              className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-accent focus:outline-none resize-none" />
+            <div className="flex items-center justify-between mt-2">
+              <span className="text-xs text-faint">Set a default in Settings → Company so it auto-fills next time.</span>
+              <Button size="sm" disabled={termsSaving} onClick={saveTerms}>
+                {termsSaved ? <><CheckCircle2 className="h-3.5 w-3.5" /> Saved</> : termsSaving ? 'Saving…' : 'Save terms'}
+              </Button>
+            </div>
           </div>
-        </div>
+        )
       )}
 
       {/* Convert */}
