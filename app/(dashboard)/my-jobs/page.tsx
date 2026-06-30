@@ -125,9 +125,7 @@ export default function MyJobsPage() {
           <h1 className="text-2xl font-bold text-ink">My Jobs</h1>
           <p className="text-sm text-muted-fg mt-0.5">Projects you're working on — awarded and your own.</p>
         </div>
-        {activeTab === 'own' && (
-          <Button onClick={() => setShowForm(true)} className="self-start sm:self-auto"><Plus className="h-4 w-4" /> New Project</Button>
-        )}
+        <Button onClick={() => { setActiveTab('own'); setShowForm(true) }} className="self-start sm:self-auto"><Plus className="h-4 w-4" /> New Project</Button>
       </div>
 
       {/* Tabs */}

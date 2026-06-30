@@ -125,8 +125,8 @@ export function Sidebar() {
           )
         })}
 
-        {/* Master (admin-only, cross-project) */}
-        {!isSubcontractor && isAdmin && (
+        {/* Master (admin-only, cross-project — works for GC and sub on their own jobs) */}
+        {isAdmin && (
           <div className="pt-3 mt-2 border-t border-line">
             <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-faint">Master</p>
             {MASTER_NAV_ITEMS.map(item => {
