@@ -19,6 +19,7 @@ const groups = [
     color: 'text-info',
     bg: 'bg-info-tint',
     tabs: [
+      { label: 'Quote', slug: 'quote', icon: ClipboardCheck },
       { label: 'Plans', slug: 'plans', icon: FileText },
       { label: 'Schedule', slug: 'schedule', icon: Calendar },
       { label: 'Tasks', slug: 'tasks', icon: CheckSquare },
@@ -43,7 +44,6 @@ const groups = [
     color: 'text-success',
     bg: 'bg-success-tint',
     tabs: [
-      { label: 'Quote', slug: 'quote', icon: FileText },
       { label: 'Budget', slug: 'budget', icon: Wallet },
       { label: 'Quotes', slug: 'request-quotes', icon: Send },
       { label: 'Invoices', slug: 'invoices', icon: Receipt },
@@ -71,8 +71,9 @@ const allTabs = groups.flatMap(g => g.tabs)
 // their own lane (plans/schedule to do the work + their field items) — never the
 // GC's private money/people tabs.
 const SUB_AWARDED_ALLOWED = new Set(['plans', 'schedule', 'tasks', 'progress', 'daily-logs', 'time', 'rfis', 'compliance'])
-// On a sub's OWN job they get the full set except submittals (a sub→GC artifact).
-const SUB_OWN_HIDDEN = new Set(['submittals'])
+// On a sub's OWN job they get the full set except: submittals (a sub→GC
+// artifact) and the RFQ/compare-quotes tabs (their own quote lives on "Quote").
+const SUB_OWN_HIDDEN = new Set(['submittals', 'request-quotes', 'quotes'])
 
 interface ProjectTabsProps {
   projectId: string
