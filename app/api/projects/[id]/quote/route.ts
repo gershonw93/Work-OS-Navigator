@@ -171,8 +171,12 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     const { data: line } = await db.from('budget_line_items').select('description').eq('id', body.line_item_id).eq('project_id', params.id).single()
     const { data: task, error } = await db.from('project_tasks').insert({
       project_id: params.id,
-      title: line?.description || 'Task',
+      title: (body.title && String(body.title).trim()) || line?.description || 'Task',
       status: 'open',
+      priority: body.priority || 'medium',
+      due_date: body.due_date || null,
+      assigned_to_member_id: body.assigned_to_member_id || null,
+      assigned_to_name: body.assigned_to_name || null,
       budget_line_item_id: body.line_item_id,
     }).select('id, title, status, budget_line_item_id').single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -190,7 +194,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     if (body.progress_pct !== undefined) updates.progress_pct = Math.max(0, Math.min(Number(body.progress_pct) || 0, 100))
     if (body.progress_note !== undefined) updates.progress_note = body.progress_note || null
     if (Object.keys(updates).length) {
-      await db.from('budget_line_items').update(updates).eq('id', body.line_item_id).eq('project_id', params.id)
+      const { error } = await db.from('budget_line_items').update(updates).eq('id', body.line_item_id).eq('project_id', params.id)
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     }
     return NextResponse.json({ ok: true })
   }
