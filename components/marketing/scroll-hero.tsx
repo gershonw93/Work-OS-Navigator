@@ -51,10 +51,10 @@ export function ScrollHero() {
     return () => { window.removeEventListener('scroll', onScroll); window.removeEventListener('resize', onScroll); cancelAnimationFrame(raf) }
   }, [])
 
-  const zoom = clamp(p / 0.5, 0, 1)             // 0 → fills screen, 1 → full monitor visible
-  const scale = lerp(1.4, 0.8, zoom)
-  const appOpacity = 1 - clamp((p - 0.52) / 0.22, 0, 1)   // app fades out 0.52 → 0.74
-  const textProg = clamp((p - 0.56) / 0.22, 0, 1)         // headline fades in 0.56 → 0.78
+  const zoom = clamp(p / 0.5, 0, 1)             // gentle zoom so the monitor keeps filling the view
+  const scale = lerp(1.12, 0.96, zoom)
+  const appOpacity = 1 - clamp((p - 0.5) / 0.22, 0, 1)    // app fades out 0.5 → 0.72
+  const textProg = clamp((p - 0.54) / 0.22, 0, 1)         // headline fades in 0.54 → 0.76
   const hintOpacity = 1 - clamp(p / 0.1, 0, 1)
 
   return (
@@ -63,18 +63,18 @@ export function ScrollHero() {
       <div className="md:hidden"><StaticHero /></div>
 
       {/* Desktop: scroll-driven zoom-out */}
-      <div ref={ref} className="relative h-[180vh] hidden md:block">
+      <div ref={ref} className="relative h-[160vh] hidden md:block">
       <div className="sticky top-0 h-screen overflow-hidden flex items-center justify-center bg-surface">
-        {/* App zooming out into a monitor */}
+        {/* App zooming out into a monitor — sized to fill the viewport */}
         <div className="will-change-transform" style={{ transform: `scale(${scale})`, opacity: appOpacity }}>
-          <div className="mx-auto w-[1000px] max-w-[72vw]">
+          <div className="mx-auto w-[1180px] max-w-[82vw]">
             {/* Monitor screen + bezel */}
-            <div className="rounded-2xl border-[12px] border-[#202126] bg-[#202126] shadow-2xl overflow-hidden">
-              <div className="h-[60vh] overflow-hidden rounded-lg bg-surface"><ProjectsMock /></div>
+            <div className="rounded-2xl border-[10px] border-[#202126] bg-[#202126] shadow-2xl overflow-hidden">
+              <div className="h-[78vh] overflow-hidden rounded-lg bg-surface"><ProjectsMock /></div>
             </div>
             {/* Stand */}
-            <div className="mx-auto h-5 w-24 bg-[#202126]/80" />
-            <div className="mx-auto h-2 w-48 rounded-full bg-[#202126]/50" />
+            <div className="mx-auto h-4 w-24 bg-[#202126]/80" />
+            <div className="mx-auto h-1.5 w-48 rounded-full bg-[#202126]/50" />
           </div>
         </div>
 
