@@ -91,10 +91,12 @@ export function ScrollHero() {
     }
   }, [])
 
-  const zoom = clamp(p / 0.45, 0, 1)
+  // Everything finishes by p ≈ 0.72, then the finished headline stays pinned
+  // for the rest of the track, so the animation never bleeds into the un-pin.
+  const zoom = clamp(p / 0.35, 0, 1)
   const scale = lerp(1.14, 0.94, zoom)
-  const appOpacity = 1 - clamp((p - 0.42) / 0.22, 0, 1) // app fades 0.42 → 0.64
-  const textProg = clamp((p - 0.5) / 0.4, 0, 1)         // headline fades in through the end
+  const appOpacity = 1 - clamp((p - 0.32) / 0.18, 0, 1) // app fades 0.32 → 0.50
+  const textProg = clamp((p - 0.44) / 0.28, 0, 1)       // headline in 0.44 → 0.72
   const hintOpacity = 1 - clamp(p / 0.08, 0, 1)
 
   // Reduced motion: skip the scroll choreography entirely, show a static hero.
@@ -111,8 +113,9 @@ export function ScrollHero() {
       {/* Mobile: plain hero */}
       <div className="md:hidden"><StaticHero /></div>
 
-      {/* Desktop: scroll-driven settle + cross-fade. Short track, no dead space. */}
-      <div ref={ref} className="relative hidden md:block h-[135vh]">
+      {/* Desktop: scroll-driven settle + cross-fade. The track is long enough
+          that the cross-fade completes and holds before the section un-pins. */}
+      <div ref={ref} className="relative hidden md:block h-[175vh]">
         <div className="sticky top-0 h-screen overflow-hidden flex items-center justify-center bg-surface">
           {/* App settling into a monitor */}
           <div className="will-change-transform" style={{ transform: `scale(${scale})`, opacity: appOpacity }} aria-hidden={appOpacity < 0.05}>
