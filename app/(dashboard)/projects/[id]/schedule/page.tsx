@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
+import { useViewerContext } from '@/lib/use-viewer-context'
+import { SubSchedule } from '@/components/projects/sub-schedule'
 
 const MILESTONE_COLORS = [
   { label: 'Blue',   value: 'blue',   bg: 'bg-info-solid',   light: 'bg-info-tint text-info border-info/30' },
@@ -111,6 +113,7 @@ const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 export default function SchedulePage({ params }: { params: { id: string } }) {
   const supabase = createClient()
+  const vc = useViewerContext(params.id)
   const [items, setItems] = useState<ScheduleItem[]>([])
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState<'calendar' | 'timeline' | 'list'>('calendar')
@@ -262,6 +265,11 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     const days = daysBetween(clampedStart.toISOString().split('T')[0], clampedEnd.toISOString().split('T')[0]) + 1
     months.push({ label: cursor.toLocaleDateString(undefined, { month: 'short', year: 'numeric' }), startDay, days })
     cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1)
+  }
+
+  // Sub's own job → simple job-planning schedule (when, how long, crew) with overlap warnings.
+  if (!vc.loading && vc.companyType === 'subcontractor' && vc.owns) {
+    return <SubSchedule projectId={params.id} />
   }
 
   return (
