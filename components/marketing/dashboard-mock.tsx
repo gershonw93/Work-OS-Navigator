@@ -1,7 +1,7 @@
 import { LayoutDashboard, FolderKanban, Wallet, Receipt, CheckSquare, FileText, CalendarDays, DollarSign, TrendingUp, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-// A believable faux product UI to place inside a BrowserMock — used as the
+// A believable faux product UI to place inside a BrowserMock, used as the
 // "screenshot" on the marketing site (no real data needed).
 export function DashboardMock() {
   const nav = [

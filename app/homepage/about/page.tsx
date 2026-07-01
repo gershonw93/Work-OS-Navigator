@@ -2,12 +2,12 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 import { ArrowRight, Hammer, MapPin, Clock, Users } from 'lucide-react'
 
-export const metadata: Metadata = { title: 'About — SyteNav' }
+export const metadata: Metadata = { title: 'About, SyteNav' }
 
 const FACTS = [
   { icon: Users, k: 'Who', v: 'A team of builders and engineers who got tired of running jobs out of spreadsheets and group texts.' },
   { icon: Hammer, k: 'What', v: 'SyteNav brings the quote, the budget, the schedule, the field, and the invoices into one place.' },
-  { icon: MapPin, k: 'Where', v: 'Headquartered in New Jersey, used by contractors across the country — on the jobsite and in the office.' },
+  { icon: MapPin, k: 'Where', v: 'Headquartered in New Jersey, used by contractors across the country, on the jobsite and in the office.' },
   { icon: Clock, k: 'When', v: 'Founded in 2024. Today 2,400+ contractors run their jobs on SyteNav.' },
 ]
 
@@ -23,9 +23,9 @@ export default function AboutPage() {
     <>
       <section className="max-w-3xl mx-auto px-4 sm:px-6 pt-16 pb-10 text-center">
         <p className="text-xs font-semibold uppercase tracking-wide text-accent-fg mb-2">About</p>
-        <h1 className="text-4xl sm:text-5xl font-extrabold text-ink leading-tight">We build software the way you build — to last.</h1>
+        <h1 className="text-4xl sm:text-5xl font-extrabold text-ink leading-tight">We build software the way you build, to last.</h1>
         <p className="mt-5 text-lg text-muted-fg">
-          Construction runs on coordination, and most of it still happens in spreadsheets, texts, and a filing cabinet. SyteNav puts the whole job — from the first quote to the final payment — in one place the office and the field actually share.
+          Construction runs on coordination, and most of it still happens in spreadsheets, texts, and a filing cabinet. SyteNav puts the whole job, from the first quote to the final payment, in one place the office and the field actually share.
         </p>
       </section>
 

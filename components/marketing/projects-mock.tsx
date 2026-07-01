@@ -1,6 +1,6 @@
 import { Search, Plus, FolderKanban, MapPin } from 'lucide-react'
 
-// A busy "Projects" page mock — used as the screen content in the scroll hero.
+// A busy "Projects" page mock, used as the screen content in the scroll hero.
 const PROJECTS = [
   ['Maple Street Residences', 'Brooklyn, NY', 'Active', 74, '$1.2M'],
   ['Linden Ave Remodel', 'Linden, NJ', 'Active', 38, '$420K'],

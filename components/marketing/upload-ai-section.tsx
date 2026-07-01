@@ -10,14 +10,14 @@ export function UploadAISection() {
             <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-panel px-3 py-1 text-xs font-medium text-muted-fg mb-4">
               <Sparkles className="h-3.5 w-3.5 text-accent-fg" /> AI document scanning
             </span>
-            <h2 className="text-3xl sm:text-4xl font-bold text-ink leading-tight">Snap it, upload it — AI does the data entry</h2>
-            <p className="mt-3 text-muted-fg">Take a photo on the jobsite or drop in a PDF. SyteNav reads quotes, invoices, permits, and plans into clean, structured data — line items, quantities, totals, and payment terms. No typing.</p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-ink leading-tight">Snap it, upload it, AI does the data entry</h2>
+            <p className="mt-3 text-muted-fg">Take a photo on the jobsite or drop in a PDF. SyteNav reads quotes, invoices, permits, and plans into clean, structured data, line items, quantities, totals, and payment terms. No typing.</p>
             <ul className="mt-5 space-y-2.5">
               {[
-                'Any document — quotes, invoices, permits, plans',
+                'Any document, quotes, invoices, permits, plans',
                 'Reads sections, line items, quantities & payment terms',
                 'Works from your phone, right on the jobsite',
-                'PDF or photo — upload in seconds',
+                'PDF or photo, upload in seconds',
               ].map(t => (
                 <li key={t} className="flex items-start gap-2 text-sm text-ink-soft"><Check className="h-4 w-4 text-success mt-0.5 shrink-0" /> {t}</li>
               ))}
