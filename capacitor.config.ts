@@ -11,11 +11,11 @@ const config = {
   // Required by Capacitor even in remote mode; not used for content.
   webDir: 'public',
   server: {
-    // Point at your production deployment (use your custom domain once you have one).
-    url: 'https://work-os-navigator.vercel.app',
+    // Production domain the native shell loads.
+    url: 'https://sytenav.com',
     cleartext: false,
-    // Only the app's own origin loads in the shell; external links open in the system browser.
-    allowNavigation: ['work-os-navigator.vercel.app', '*.supabase.co'],
+    // Only the app's own origin (+ Supabase for auth) loads in the shell; other links open in the system browser.
+    allowNavigation: ['sytenav.com', 'www.sytenav.com', '*.supabase.co'],
   },
   plugins: {
     SplashScreen: {
