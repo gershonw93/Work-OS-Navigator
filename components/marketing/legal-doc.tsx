@@ -2,7 +2,7 @@ import Link from 'next/link'
 
 export interface LegalSection { h: string; body?: string[]; list?: string[] }
 
-// Shared renderer for legal pages — consistent, readable, theme-aware.
+// Shared renderer for legal pages, consistent, readable, theme-aware.
 export function LegalDoc({ title, updated, intro, sections }: { title: string; updated: string; intro?: string; sections: LegalSection[] }) {
   return (
     <article className="max-w-3xl mx-auto px-4 sm:px-6 py-14 sm:py-16">

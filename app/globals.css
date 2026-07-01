@@ -108,6 +108,19 @@
 }
 
 @layer utilities {
+  /* Marketing stat marquee, a slow horizontal loop. Content is duplicated
+     once, so -50% lines the copy up seamlessly. */
+  @keyframes mk-marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+  .animate-marquee {
+    animation: mk-marquee 40s linear infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .animate-marquee { animation: none; }
+  }
+
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;

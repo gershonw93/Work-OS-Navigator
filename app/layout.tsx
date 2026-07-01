@@ -28,7 +28,7 @@ const siteUrl =
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
 
 const description =
-  'Construction project management built for the field — permits, daily logs, RFIs, invoices, and compliance.'
+  'Construction management built for the field. AI quote scanning, budgets, payments and escrow, invoices, scheduling, daily logs, and compliance for GCs and subs.'
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

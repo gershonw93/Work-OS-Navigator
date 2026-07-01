@@ -1,7 +1,13 @@
 import type { Metadata } from 'next'
 import { LegalDoc } from '@/components/marketing/legal-doc'
+import { marketingMeta } from '@/components/marketing/meta'
 
-export const metadata: Metadata = { title: 'Acceptable Use Policy, SyteNav' }
+export const metadata: Metadata = marketingMeta({
+  title: 'Acceptable Use Policy · SyteNav',
+  description:
+    'Activities that are prohibited when using SyteNav. Part of our Terms of Service.',
+  path: '/homepage/acceptable-use',
+})
 
 export default function AcceptableUsePage() {
   return (
