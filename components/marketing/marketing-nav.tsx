@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils'
 const LINKS = [
   { href: '/homepage/features', label: 'Features' },
   { href: '/homepage/ai', label: 'AI' },
+  { href: '/homepage/mobile', label: 'On the go' },
   { href: '/homepage/pricing', label: 'Pricing' },
 ]
 
@@ -64,6 +65,7 @@ export function MarketingNav() {
         <nav className="hidden md:flex items-center gap-7" aria-label="Main">
           <Link href="/homepage/features" className={linkCls('/homepage/features')}>Features</Link>
           <Link href="/homepage/ai" className={linkCls('/homepage/ai')}>AI</Link>
+          <Link href="/homepage/mobile" className={linkCls('/homepage/mobile')}>On the go</Link>
 
           {/* Audience dropdown */}
           <div className="relative" ref={dropRef} onMouseEnter={() => setDrop(true)} onMouseLeave={() => setDrop(false)}>

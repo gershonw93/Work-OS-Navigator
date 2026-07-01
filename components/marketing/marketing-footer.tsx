@@ -8,6 +8,7 @@ const COLUMNS: { title: string; links: [string, string][] }[] = [
     links: [
       ['Features', '/homepage/features'],
       ['AI document scanning', '/homepage/ai'],
+      ['Mobile & on the go', '/homepage/mobile'],
       ['Pricing', '/homepage/pricing'],
       ['Security', '/homepage/security'],
     ],

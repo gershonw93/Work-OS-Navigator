@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { marketingMeta } from '@/components/marketing/meta'
 import { QuoteScanMock } from '@/components/marketing/quote-scan-mock'
+import { BlueprintGrid } from '@/components/marketing/blueprint'
 import { CompareMock } from '@/components/marketing/compare-mock'
 import { Reveal } from '@/components/marketing/reveal'
 import { CountUp } from '@/components/marketing/count-up'
@@ -62,7 +63,9 @@ export default function AiPage() {
   return (
     <>
       {/* Hero: before / after */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-16 sm:pb-24">
+      <section className="relative overflow-hidden">
+        <BlueprintGrid />
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-16 sm:pb-24">
         <div className="text-center max-w-3xl mx-auto">
           <Eyebrow className="justify-center">SyteNav AI</Eyebrow>
           <h1 className="mt-3 text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-ink leading-[1.04]">
@@ -108,6 +111,7 @@ export default function AiPage() {
             </div>
           </div>
         </Reveal>
+        </div>
       </section>
 
       {/* Scan numbers strip */}

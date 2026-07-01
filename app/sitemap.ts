@@ -8,6 +8,7 @@ const PAGES: { path: string; priority: number; changeFrequency: MetadataRoute.Si
   { path: '/homepage', priority: 1, changeFrequency: 'weekly' },
   { path: '/homepage/features', priority: 0.9, changeFrequency: 'weekly' },
   { path: '/homepage/ai', priority: 0.9, changeFrequency: 'weekly' },
+  { path: '/homepage/mobile', priority: 0.8, changeFrequency: 'weekly' },
   { path: '/homepage/contractors', priority: 0.9, changeFrequency: 'weekly' },
   { path: '/homepage/subcontractors', priority: 0.9, changeFrequency: 'weekly' },
   { path: '/homepage/why', priority: 0.8, changeFrequency: 'monthly' },

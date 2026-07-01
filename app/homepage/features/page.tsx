@@ -14,6 +14,7 @@ import { QuoteScanMock } from '@/components/marketing/quote-scan-mock'
 import { MoneyMock } from '@/components/marketing/money-mock'
 import { ScheduleMock } from '@/components/marketing/schedule-mock'
 import { SideNav } from '@/components/marketing/side-nav'
+import { BlueprintGrid } from '@/components/marketing/blueprint'
 import { Reveal } from '@/components/marketing/reveal'
 import { Eyebrow } from '@/components/marketing/section'
 import { CtaBand } from '@/components/marketing/cta-band'
@@ -122,7 +123,9 @@ export default function FeaturesPage() {
   return (
     <>
       {/* Hero */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-14 sm:pb-20 text-center">
+      <section className="relative overflow-hidden">
+        <BlueprintGrid />
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-14 sm:pb-20 text-center">
         <Eyebrow className="justify-center">Features</Eyebrow>
         <h1 className="mt-3 text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-ink max-w-4xl mx-auto leading-[1.04]">
           Everything it takes to run the job. Nothing you have to duct-tape on.
@@ -137,6 +140,7 @@ export default function FeaturesPage() {
           <Link href="/homepage/ai" className="inline-flex items-center gap-2 rounded-xl border border-line text-ink-soft font-semibold px-6 py-3 hover:bg-panel transition-colors">
             See the AI
           </Link>
+        </div>
         </div>
       </section>
 
