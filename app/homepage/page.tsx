@@ -65,9 +65,12 @@ export default function HomePage() {
 
       {/* Everything below overlaps the hero's empty tail on desktop, so the
           page flows straight from the settled headline into the marquee with
-          no dead scroll. Disabled under reduced motion, where the hero is a
-          normal content-sized section. */}
-      <div className="relative z-10 motion-safe:md:-mt-[18vh] bg-surface">
+          no dead scroll. The pull-up adapts to viewport height: the headline
+          block is ~500px tall and centered, so the blank below it is about
+          50vh - 250px; 340px keeps ~90px of breathing room. Clamped to never
+          push content down, and disabled under reduced motion, where the hero
+          is a normal content-sized section. */}
+      <div className="relative z-10 motion-safe:md:mt-[min(0px,calc(340px_-_50vh))] bg-surface">
 
       {/* Proof-point marquee */}
       <StatMarquee />

@@ -117,11 +117,14 @@ export function ScrollHero() {
           that the cross-fade completes and holds before the section un-pins. */}
       <div ref={ref} className="relative hidden md:block h-[175vh]">
         <div className="sticky top-0 h-screen overflow-hidden flex items-center justify-center bg-surface">
-          {/* App settling into a monitor */}
+          {/* App settling into a monitor. Wide enough to feel screen-filling on
+              large displays; the mock overfills the screen and clips, so the
+              monitor never shows empty glass. */}
           <div className="will-change-transform" style={{ transform: `scale(${scale})`, opacity: appOpacity }} aria-hidden={appOpacity < 0.05}>
-            <div className="mx-auto w-[1180px] max-w-[84vw]">
+            <div className="mx-auto w-[1500px] max-w-[90vw]">
               <div className="rounded-2xl border-[10px] border-[#202126] bg-[#202126] shadow-2xl shadow-black/30 overflow-hidden">
-                <div className="h-[76vh] overflow-hidden rounded-lg bg-surface"><ProjectsMock /></div>
+                {/* Capped so the mock always overfills the glass, even on tall displays */}
+                <div className="h-[76vh] max-h-[940px] overflow-hidden rounded-lg bg-surface"><ProjectsMock /></div>
               </div>
               <div className="mx-auto h-5 w-28 bg-[#202126]/85" />
               <div className="mx-auto h-2 w-56 rounded-full bg-[#202126]/50" />
