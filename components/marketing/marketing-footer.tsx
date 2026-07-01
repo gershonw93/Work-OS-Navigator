@@ -7,7 +7,7 @@ export function MarketingFooter() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
         <div className="space-y-3">
           <SyteNavLogo size={24} />
-          <p className="text-sm text-muted-fg max-w-xs">Construction management built for the field — from the quote to the final invoice.</p>
+          <p className="text-sm text-muted-fg max-w-xs">Construction management built for the field, from the quote to the final invoice.</p>
         </div>
         <FooterCol title="Product" links={[['Features', '/homepage/features'], ['What’s new', '/homepage/features'], ['Log in', '/login'], ['Start free', '/signup']]} />
         <FooterCol title="Company" links={[['About', '/homepage/about'], ['Contact', '/homepage/contact']]} />

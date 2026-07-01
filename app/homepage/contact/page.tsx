@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { Mail, MapPin, MessageSquare } from 'lucide-react'
 
-export const metadata: Metadata = { title: 'Contact — SyteNav' }
+export const metadata: Metadata = { title: 'Contact, SyteNav' }
 
 export default function ContactPage() {
   return (
@@ -9,7 +9,7 @@ export default function ContactPage() {
       <div>
         <p className="text-xs font-semibold uppercase tracking-wide text-accent-fg mb-2">Contact</p>
         <h1 className="text-4xl font-extrabold text-ink leading-tight">Let’s talk about your jobs</h1>
-        <p className="mt-4 text-muted-fg">Questions, a demo, or help getting set up — we’re quick to respond.</p>
+        <p className="mt-4 text-muted-fg">Questions, a demo, or help getting set up, we’re quick to respond.</p>
         <div className="mt-8 space-y-4">
           <a href="mailto:hello@sytenav.com" className="flex items-center gap-3 text-ink-soft hover:text-ink"><span className="h-9 w-9 rounded-lg bg-accent-tint flex items-center justify-center"><Mail className="h-4 w-4 text-accent-fg" /></span> hello@sytenav.com</a>
           <p className="flex items-center gap-3 text-ink-soft"><span className="h-9 w-9 rounded-lg bg-accent-tint flex items-center justify-center"><MessageSquare className="h-4 w-4 text-accent-fg" /></span> Mon–Fri, 8am–6pm ET</p>
