@@ -1,7 +1,13 @@
 import type { Metadata } from 'next'
 import { LegalDoc } from '@/components/marketing/legal-doc'
+import { marketingMeta } from '@/components/marketing/meta'
 
-export const metadata: Metadata = { title: 'Terms of Service, SyteNav' }
+export const metadata: Metadata = marketingMeta({
+  title: 'Terms of Service · SyteNav',
+  description:
+    'The terms that govern your use of SyteNav, including accounts, billing, your data, and acceptable use.',
+  path: '/homepage/terms',
+})
 
 export default function TermsPage() {
   return (

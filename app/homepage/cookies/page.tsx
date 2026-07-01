@@ -1,7 +1,13 @@
 import type { Metadata } from 'next'
 import { LegalDoc } from '@/components/marketing/legal-doc'
+import { marketingMeta } from '@/components/marketing/meta'
 
-export const metadata: Metadata = { title: 'Cookie Policy, SyteNav' }
+export const metadata: Metadata = marketingMeta({
+  title: 'Cookie Policy · SyteNav',
+  description:
+    'How SyteNav uses cookies and similar technologies for sign-in, preferences, and analytics.',
+  path: '/homepage/cookies',
+})
 
 export default function CookiesPage() {
   return (

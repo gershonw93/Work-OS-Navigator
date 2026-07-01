@@ -1,7 +1,13 @@
 import type { Metadata } from 'next'
 import { LegalDoc } from '@/components/marketing/legal-doc'
+import { marketingMeta } from '@/components/marketing/meta'
 
-export const metadata: Metadata = { title: 'Privacy Policy, SyteNav' }
+export const metadata: Metadata = marketingMeta({
+  title: 'Privacy Policy · SyteNav',
+  description:
+    'How SyteNav collects, uses, and protects your information, including project data and documents processed by AI.',
+  path: '/homepage/privacy',
+})
 
 export default function PrivacyPage() {
   return (
