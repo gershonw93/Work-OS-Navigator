@@ -63,6 +63,12 @@ export default function HomePage() {
       {/* Signature scroll hero */}
       <ScrollHero />
 
+      {/* Everything below overlaps the hero's empty tail on desktop, so the
+          page flows straight from the settled headline into the marquee with
+          no dead scroll. Disabled under reduced motion, where the hero is a
+          normal content-sized section. */}
+      <div className="relative z-10 motion-safe:md:-mt-[18vh] bg-surface">
+
       {/* Proof-point marquee */}
       <StatMarquee />
 
@@ -263,6 +269,7 @@ export default function HomePage() {
       </section>
 
       <CtaBand />
+      </div>
     </>
   )
 }
