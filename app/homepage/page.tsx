@@ -1,8 +1,7 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import {
-  ArrowRight, FileText, CalendarDays, CheckSquare, Receipt, DollarSign, ShieldCheck,
-  Hammer, Building2, HardHat, Quote as QuoteIcon, Star,
+  ArrowRight, CheckSquare, Hammer, Building2, HardHat, Quote as QuoteIcon, Star,
 } from 'lucide-react'
 import { BrowserMock } from '@/components/marketing/browser-mock'
 import { DashboardMock } from '@/components/marketing/dashboard-mock'
@@ -18,15 +17,6 @@ const STATS = [
   { value: '$1.9B', label: 'in contracts tracked' },
   { value: '48,000+', label: 'jobs managed' },
   { value: '120k+', label: 'daily logs filed' },
-]
-
-const FEATURES = [
-  { icon: FileText, title: 'Quotes that become jobs', body: 'Upload a quote, AI reads it into line items, sections, and a payment schedule. Approve it and convert it to an active job in one click.' },
-  { icon: DollarSign, title: 'Money that adds up', body: 'Budgets, client payments, escrow balance, and your contractor fee, the whole cash picture per job and rolled up across every project.' },
-  { icon: CalendarDays, title: 'Schedule & daily logs', body: 'Field-ready scheduling and daily logs with photos, weather, and crew, captured from the jobsite on any phone.' },
-  { icon: CheckSquare, title: 'Tasks & progress', body: 'Track progress by line item, spin a task off any line, and assign it to your crew with priority and due dates.' },
-  { icon: Receipt, title: 'Invoices & approvals', body: 'Send invoices, route approvals, and track what’s billed, paid, and outstanding, no spreadsheets.' },
-  { icon: ShieldCheck, title: 'Permits & compliance', body: 'Keep permits, inspections, and insurance docs in one place, with reminders before anything expires.' },
 ]
 
 const AUDIENCE = [
@@ -48,24 +38,6 @@ export default function HomePage() {
             <div key={s.label}>
               <p className="text-3xl sm:text-4xl font-extrabold text-ink">{s.value}</p>
               <p className="text-sm text-muted-fg mt-1">{s.label}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Features */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 py-16">
-        <div className="text-center max-w-2xl mx-auto mb-12">
-          <p className="text-xs font-semibold uppercase tracking-wide text-accent-fg mb-2">What you get</p>
-          <h2 className="text-3xl sm:text-4xl font-bold text-ink">Everything the office and the field need, together</h2>
-          <p className="mt-3 text-muted-fg">Stop stitching together spreadsheets, texts, and three other apps.</p>
-        </div>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {FEATURES.map(f => (
-            <div key={f.title} className="rounded-2xl border border-line bg-panel p-6">
-              <div className="h-10 w-10 rounded-xl bg-accent-tint flex items-center justify-center mb-4"><f.icon className="h-5 w-5 text-accent-fg" /></div>
-              <h3 className="font-bold text-ink">{f.title}</h3>
-              <p className="text-sm text-muted-fg mt-1.5 leading-relaxed">{f.body}</p>
             </div>
           ))}
         </div>
@@ -103,12 +75,12 @@ export default function HomePage() {
           <p className="text-xs font-semibold uppercase tracking-wide text-accent-fg mb-2">Who it’s for</p>
           <h2 className="text-3xl sm:text-4xl font-bold text-ink">Built for everyone on the project</h2>
         </div>
-        <div className="grid md:grid-cols-3 gap-5">
+        <div className="grid md:grid-cols-3 gap-8 text-center">
           {AUDIENCE.map(a => (
-            <div key={a.title} className="rounded-2xl border border-line bg-panel p-6">
-              <a.icon className="h-7 w-7 text-accent-fg mb-3" />
+            <div key={a.title} className="flex flex-col items-center">
+              <div className="h-12 w-12 rounded-full bg-accent-tint flex items-center justify-center mb-3"><a.icon className="h-6 w-6 text-accent-fg" /></div>
               <h3 className="font-bold text-ink">{a.title}</h3>
-              <p className="text-sm text-muted-fg mt-1.5">{a.body}</p>
+              <p className="text-sm text-muted-fg mt-1.5 max-w-xs">{a.body}</p>
             </div>
           ))}
         </div>
@@ -126,9 +98,9 @@ export default function HomePage() {
             { q: 'Uploading a quote and watching it turn into the whole job tracker is wild.', n: 'Dani R.', r: 'Electrical sub · Brooklyn, NY' },
             { q: 'I finally know my escrow balance and fee on every job without doing math.', n: 'Sal P.', r: 'Remodeler · Linden, NJ' },
           ].map(t => (
-            <figure key={t.n} className="rounded-2xl border border-line bg-panel p-6">
-              <QuoteIcon className="h-6 w-6 text-accent-fg mb-3" />
-              <blockquote className="text-sm text-ink-soft leading-relaxed">“{t.q}”</blockquote>
+            <figure key={t.n} className="text-center px-2">
+              <QuoteIcon className="h-6 w-6 text-accent-fg mx-auto mb-3" />
+              <blockquote className="text-base text-ink-soft leading-relaxed">“{t.q}”</blockquote>
               <figcaption className="mt-4 text-sm"><span className="font-semibold text-ink">{t.n}</span> <span className="text-faint">· {t.r}</span></figcaption>
             </figure>
           ))}
