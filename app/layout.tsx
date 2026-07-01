@@ -23,9 +23,15 @@ const spaceMono = Space_Mono({
   variable: '--font-space-mono',
 })
 
+// Prefer the stable production domain over the per-deployment VERCEL_URL so
+// og:image and canonical URLs stay valid when link previews are cached.
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL ||
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : 'http://localhost:3000')
 
 const description =
   'Construction management built for the field. AI quote scanning, budgets, payments and escrow, invoices, scheduling, daily logs, and compliance for GCs and subs.'
