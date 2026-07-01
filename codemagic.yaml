@@ -1,0 +1,74 @@
+# Mac-free cloud builds for the SyteNav Capacitor app (Codemagic).
+# EAS Build is for Expo/React Native and does NOT apply to Capacitor — use this instead.
+#
+# Setup: connect this repo in Codemagic, add the referenced env var groups
+# (app_store_credentials / google_play_credentials + code signing), then run a workflow.
+# Docs: https://docs.codemagic.io/yaml-quick-start/building-a-capacitor-app/
+
+workflows:
+  ios-capacitor:
+    name: SyteNav iOS
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      app_store_connect: SyteNav ASC   # create this API-key integration in Codemagic
+    environment:
+      node: 20
+      xcode: latest
+      cocoapods: default
+      groups:
+        - app_store_credentials
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.sytenav.app
+    scripts:
+      - name: Install dependencies
+        script: npm ci
+      - name: Add iOS platform if missing
+        script: |
+          npx cap add ios || true
+          npx cap sync ios
+      - name: Set up signing
+        script: xcode-project use-profiles
+      - name: Build ipa
+        script: |
+          xcode-project build-ipa \
+            --project "ios/App/App.xcodeproj" \
+            --scheme "App"
+    artifacts:
+      - build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+
+  android-capacitor:
+    name: SyteNav Android
+    instance_type: linux_x2
+    max_build_duration: 45
+    environment:
+      node: 20
+      groups:
+        - google_play_credentials   # holds CM_KEYSTORE, CM_KEYSTORE_PASSWORD, etc.
+      vars:
+        PACKAGE_NAME: com.sytenav.app
+    scripts:
+      - name: Install dependencies
+        script: npm ci
+      - name: Add Android platform if missing
+        script: |
+          npx cap add android || true
+          npx cap sync android
+      - name: Set up keystore
+        script: |
+          echo $CM_KEYSTORE | base64 --decode > android/app/release.keystore
+      - name: Build AAB
+        script: |
+          cd android
+          ./gradlew bundleRelease
+    artifacts:
+      - android/app/build/outputs/**/*.aab
+    publishing:
+      google_play:
+        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        track: internal
