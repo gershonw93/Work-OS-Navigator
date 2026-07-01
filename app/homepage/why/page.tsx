@@ -8,6 +8,7 @@ import { marketingMeta } from '@/components/marketing/meta'
 import { Reveal } from '@/components/marketing/reveal'
 import { SectionHead, Eyebrow } from '@/components/marketing/section'
 import { CtaBand } from '@/components/marketing/cta-band'
+import { BlueprintGrid } from '@/components/marketing/blueprint'
 
 export const metadata: Metadata = marketingMeta({
   title: 'Why SyteNav · Replace the spreadsheet stack',
@@ -106,7 +107,9 @@ export default function WhyPage() {
   return (
     <>
       {/* Hero */}
-      <section className="max-w-4xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-14 sm:pb-20 text-center">
+      <section className="relative overflow-hidden">
+        <BlueprintGrid />
+        <div className="relative max-w-4xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-14 sm:pb-20 text-center">
         <Eyebrow className="justify-center">Why SyteNav</Eyebrow>
         <h1 className="mt-3 text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-ink leading-[1.04]">
           You already have a system. It&apos;s just five systems.
@@ -114,6 +117,7 @@ export default function WhyPage() {
         <p className="mt-6 text-lg text-muted-fg leading-relaxed max-w-2xl mx-auto">
           A spreadsheet for the money. A group text for the field. A PM tool the crew won&apos;t open. An invoicing app that can&apos;t see the job. And a filing cabinet, digital or otherwise, for everything that falls between them. Each one works. Together, they leak time, money, and facts.
         </p>
+        </div>
       </section>
 
       {/* Replacement comparisons */}

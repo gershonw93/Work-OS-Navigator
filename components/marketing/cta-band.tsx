@@ -12,6 +12,8 @@ export function CtaBand({
   return (
     <section aria-label="Get started" className="max-w-6xl mx-auto px-4 sm:px-6 pb-20 sm:pb-28">
       <div className="relative overflow-hidden rounded-3xl bg-accent text-accent-ink px-6 sm:px-14 py-16 sm:py-20 text-center">
+        {/* Blueprint grid texture, decorative only */}
+        <span aria-hidden className="absolute inset-0 bp-grid" />
         {/* Oversized ghost wordmark for texture, decorative only */}
         <span aria-hidden className="pointer-events-none select-none absolute -bottom-8 left-1/2 -translate-x-1/2 font-display font-bold uppercase text-[26vw] sm:text-[13rem] leading-none text-accent-ink/[0.06] whitespace-nowrap">
           SYTENAV

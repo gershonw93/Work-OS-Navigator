@@ -113,6 +113,15 @@
 }
 
 @layer utilities {
+  /* Faint blueprint-paper grid for marketing surfaces. Token-driven so it
+     reads in both themes; keep it behind content and very quiet. */
+  .bp-grid {
+    background-image:
+      linear-gradient(to right, rgb(var(--ink) / 0.055) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(var(--ink) / 0.055) 1px, transparent 1px);
+    background-size: 44px 44px;
+  }
+
   /* Marketing stat marquee, a slow horizontal loop. Content is duplicated
      once, so -50% lines the copy up seamlessly. */
   @keyframes mk-marquee {

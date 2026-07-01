@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ArrowRight, Sparkles, ChevronDown } from 'lucide-react'
 import { ProjectsMock } from './projects-mock'
 import { BrowserMock } from './browser-mock'
+import { BlueprintGrid } from './blueprint'
 
 const HEADLINE = 'Run the whole build from one place.'
 const SUB =
@@ -117,6 +118,8 @@ export function ScrollHero() {
           that the cross-fade completes and holds before the section un-pins. */}
       <div ref={ref} className="relative hidden md:block h-[175vh]">
         <div className="sticky top-0 h-screen overflow-hidden flex items-center justify-center bg-surface">
+          {/* Blueprint paper behind the whole choreography */}
+          <BlueprintGrid />
           {/* App settling into a monitor. Wide enough to feel screen-filling on
               large displays; the mock overfills the screen and clips, so the
               monitor never shows empty glass. */}
