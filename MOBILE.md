@@ -16,9 +16,9 @@ the cloud via Codemagic — no Mac needed).
 - **Codemagic** account (free tier ok) for Mac-free iOS builds — https://codemagic.io
 
 Decide your identifiers first (used everywhere):
-- Bundle ID / package name: `com.sytenav.app` (change in `capacitor.config.ts`, `codemagic.yaml`)
+- Bundle ID / package name: `com.sytenav.app` (set in `capacitor.config.ts` + `codemagic.yaml`)
 - App name: `SyteNav`
-- Production URL: set `server.url` to your custom domain when you have one.
+- Production URL: `https://sytenav.com` (set as `server.url` in `capacitor.config.ts`)
 
 ---
 
@@ -37,18 +37,19 @@ npx cap sync
 ---
 
 ## 2. Supabase auth inside the native shell (important)
-Because the shell loads the hosted site, email/password login already works. For
-**OAuth / magic links**, redirects must return to the app via a deep link, not Safari.
+Auth is **email + magic link only (no OAuth)**. Email/password login already works in
+the shell. For the **magic-link** flow, the link must return to the app via a deep link,
+not Safari/Chrome.
 
 1. Add a custom scheme. In `ios/App/App/Info.plist` add a `CFBundleURLSchemes` entry
    `sytenav`; in `android/app/src/main/AndroidManifest.xml` add an intent-filter for
    scheme `sytenav`.
 2. In Supabase → Authentication → URL Configuration, add redirect URLs:
-   `sytenav://auth/callback` (and keep your web `https://.../auth/callback`).
-3. In the web app, when running inside Capacitor, pass `redirectTo: 'sytenav://auth/callback'`
-   to `signInWithOAuth` / `signInWithOtp`, and listen with `@capacitor/app`'s
-   `appUrlOpen` to hand the code to `supabase.auth.exchangeCodeForSession`.
-   (Ping me and I'll add this shim to the web app once the platforms exist.)
+   `sytenav://auth/callback` (and keep the web `https://sytenav.com/auth/callback`).
+3. In the web app, when running inside Capacitor, pass `emailRedirectTo: 'sytenav://auth/callback'`
+   to `signInWithOtp`, and listen with `@capacitor/app`'s `appUrlOpen` to hand the code to
+   `supabase.auth.exchangeCodeForSession`.
+   (Ping me and I'll add this magic-link shim to the web app once the platforms exist.)
 
 ---
 
@@ -84,7 +85,7 @@ This generates every required iOS/Android icon + splash size.
 
 ## 6. Store submission checklist
 - App name, subtitle, description, keywords, screenshots (see `store/listing.md`)
-- Privacy policy URL: **https://your-domain/homepage/privacy** (already built)
+- Privacy policy URL: **https://sytenav.com/homepage/privacy** (already built)
 - App privacy "nutrition label" (data collected via Supabase auth: name, email, usage)
 - Support URL: `/homepage/contact`
 - Age rating, category (Business / Productivity)

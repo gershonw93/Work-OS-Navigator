@@ -36,10 +36,10 @@ construction,contractor,subcontractor,invoices,quotes,estimate,punch list,daily 
 Primary: Business • Secondary: Productivity
 
 ## Support & policy URLs
-- Support: https://your-domain/homepage/contact
-- Marketing: https://your-domain/homepage
-- Privacy: https://your-domain/homepage/privacy
-- Terms: https://your-domain/homepage/terms
+- Support: https://sytenav.com/homepage/contact
+- Marketing: https://sytenav.com/homepage
+- Privacy: https://sytenav.com/homepage/privacy
+- Terms: https://sytenav.com/homepage/terms
 
 ## App privacy (data collected)
 - Contact info: name, email (account/auth via Supabase)
