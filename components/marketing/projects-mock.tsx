@@ -12,6 +12,12 @@ const PROJECTS = [
   { name: 'Summit Office Fit-out', loc: 'Summit, NJ', status: 'Active', pct: 67, val: '$640K', due: 'RFI open', crew: ['K', 'J', 'A'] },
   { name: 'Garden State Plaza Unit 4', loc: 'Paramus, NJ', status: 'Planning', pct: 5, val: '$1.7M', due: 'RFQ sent', crew: ['G', 'M'] },
   { name: 'Riverside Kitchen Reno', loc: 'Hoboken, NJ', status: 'Active', pct: 83, val: '$190K', due: 'Final invoice', crew: ['D'] },
+  { name: 'Bergen Point Warehouse', loc: 'Bayonne, NJ', status: 'Active', pct: 44, val: '$2.9M', due: 'Steel Tue', crew: ['M', 'T'] },
+  { name: 'Palisade Ave Brownstone', loc: 'Weehawken, NJ', status: 'Active', pct: 61, val: '$530K', due: 'Rough-in', crew: ['K', 'D'] },
+  { name: 'Montclair Dental Fit-out', loc: 'Montclair, NJ', status: 'Planning', pct: 8, val: '$760K', due: '2 bids in', crew: ['G', 'A'] },
+  { name: 'Fort Lee High-Rise 12B', loc: 'Fort Lee, NJ', status: 'Active', pct: 29, val: '$1.1M', due: 'Submittal due', crew: ['J', 'R'] },
+  { name: 'Morristown Cafe Build-out', loc: 'Morristown, NJ', status: 'On hold', pct: 15, val: '$280K', due: 'CO pending', crew: ['S'] },
+  { name: 'Hackensack Medical Suite', loc: 'Hackensack, NJ', status: 'Active', pct: 72, val: '$940K', due: 'Trim-out', crew: ['A', 'K', 'T'] },
 ]
 
 const STATUS: Record<string, string> = {
@@ -57,8 +63,9 @@ export function ProjectsMock() {
         </span>
       </div>
 
-      {/* Grid */}
-      <div className="p-4 grid grid-cols-2 lg:grid-cols-3 gap-3 flex-1 content-start">
+      {/* Grid. Rows stretch to fill tall screens (no empty glass at the bottom
+          of the hero monitor) and clip on short ones, like a real app. */}
+      <div className="p-4 grid grid-cols-2 lg:grid-cols-3 gap-3 flex-1 auto-rows-[minmax(9rem,1fr)] overflow-hidden">
         {PROJECTS.map(p => (
           <div key={p.name} className="rounded-lg border border-line bg-panel p-3">
             <div className="flex items-start justify-between gap-2 mb-1.5">
