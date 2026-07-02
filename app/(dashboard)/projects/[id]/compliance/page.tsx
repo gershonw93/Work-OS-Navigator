@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -635,6 +635,7 @@ interface SubCardProps {
 
 function SubCard({ sub, docs, requests, projectId, token, onRefresh }: SubCardProps) {
   const [openForm, setOpenForm] = useState<DocType | null>(null)
+  const [expandedType, setExpandedType] = useState<DocType | null>(null)
   const companyId = sub.companies?.id ?? ''
   const companyName = sub.companies?.name ?? 'Unknown'
   const companyType = sub.companies?.type
@@ -703,9 +704,17 @@ function SubCard({ sub, docs, requests, projectId, token, onRefresh }: SubCardPr
             const doc = getDoc(type)
             const status = resolveStatus(type)
             const cfg = STATUS_CONFIG[status]
+            const canExpand = !!doc && !!(doc.notes || doc.file_url)
+            const isExpanded = expandedType === type
             return (
-              <tr key={type}>
-                <td className="px-5 py-3 text-ink-soft font-medium">{DOC_LABELS[type]}</td>
+              <React.Fragment key={type}>
+              <tr className={canExpand ? 'cursor-pointer hover:bg-surface/60' : ''} onClick={canExpand ? () => setExpandedType(isExpanded ? null : type) : undefined}>
+                <td className="px-5 py-3 text-ink-soft font-medium">
+                  <span className="inline-flex items-center gap-1.5">
+                    {canExpand && (isExpanded ? <ChevronUp className="h-3.5 w-3.5 text-faint" /> : <ChevronDown className="h-3.5 w-3.5 text-faint" />)}
+                    {DOC_LABELS[type]}
+                  </span>
+                </td>
                 <td className="px-5 py-3">
                   <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-medium', cfg.classes)}>
                     {status === 'expiring_soon' && <AlertTriangle className="inline h-3 w-3 mr-0.5 -mt-0.5" />}
@@ -719,12 +728,12 @@ function SubCard({ sub, docs, requests, projectId, token, onRefresh }: SubCardPr
                 </td>
                 <td className="px-5 py-3">
                   {doc?.file_url
-                    ? <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-accent-fg hover:underline font-medium"><ExternalLink className="h-3 w-3" /> View</a>
+                    ? <a href={doc.file_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1 text-xs text-accent-fg hover:underline font-medium"><ExternalLink className="h-3 w-3" /> View</a>
                     : <span className="text-xs text-faint">—</span>}
                 </td>
                 <td className="px-5 py-3 text-right">
                   <button
-                    onClick={() => setOpenForm(openForm === type ? null : type)}
+                    onClick={(e) => { e.stopPropagation(); setOpenForm(openForm === type ? null : type) }}
                     className={cn('flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ml-auto',
                       openForm === type ? 'border-accent bg-accent-tint text-accent-fg' : 'border-line text-muted-fg hover:border-muted2')}
                   >
@@ -732,6 +741,24 @@ function SubCard({ sub, docs, requests, projectId, token, onRefresh }: SubCardPr
                   </button>
                 </td>
               </tr>
+              {isExpanded && doc && (
+                <tr className="bg-surface/40">
+                  <td colSpan={5} className="px-5 py-3">
+                    <div className="rounded-lg border border-line-soft bg-panel p-3 space-y-1.5">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Details on file</p>
+                      {doc.notes
+                        ? <p className="text-xs text-ink-soft whitespace-pre-wrap">{doc.notes}</p>
+                        : <p className="text-xs text-faint">No extracted details — open the file to review, or hit Update to add them.</p>}
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-xs text-muted-fg">
+                        <span>Status: <span className="text-ink-soft font-medium">{STATUS_CONFIG[status].label}</span></span>
+                        {doc.expiry_date && <span>Expires: <span className="text-ink-soft font-medium">{new Date(doc.expiry_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span></span>}
+                        {doc.file_url && <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="text-accent-fg hover:underline inline-flex items-center gap-1"><ExternalLink className="h-3 w-3" /> Open document</a>}
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              )}
+              </React.Fragment>
             )
           })}
         </tbody>
