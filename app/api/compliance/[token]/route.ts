@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { extractComplianceFields, buildComplianceSummary } from '@/lib/compliance-extract'
 
 export const runtime = 'nodejs'
 
@@ -53,7 +54,7 @@ export async function POST(request: Request, { params }: { params: { token: stri
   for (const type of req.doc_types ?? []) {
     const file = form.get(`file_${type}`) as File | null
     if (!file || file.size === 0) continue
-    const expiry = (form.get(`expiry_${type}`) as string) || null
+    let expiry = (form.get(`expiry_${type}`) as string) || null
 
     const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
     const path = `compliance/${req.company_id}/${type}-${Date.now()}-${safe}`
@@ -61,19 +62,54 @@ export async function POST(request: Request, { params }: { params: { token: stri
     if (upErr) return NextResponse.json({ error: `Upload failed: ${upErr.message}` }, { status: 500 })
     const { data: signed } = await db.storage.from('submittals').createSignedUrl(path, 60 * 60 * 24 * 365 * 10)
 
-    await db.from('compliance_documents').upsert({
+    // Scan the document with AI so the contractor sees extracted details, not
+    // just a bare "pending". Never let a scan failure block the upload.
+    let notes: string | null = null
+    try {
+      const fields = await extractComplianceFields(file)
+      if (!expiry && fields.expiry_date) expiry = fields.expiry_date
+      const summary = buildComplianceSummary(type, fields)
+      notes = [summary, fields.notes].filter(Boolean).join('\n') || null
+    } catch { /* unreadable file — store it anyway, contractor reviews manually */ }
+
+    const row: Record<string, unknown> = {
       company_id: req.company_id,
       project_id: req.project_id,
       type,
       status: 'pending',
       expiry_date: expiry,
+      notes,
       file_url: signed?.signedUrl ?? null,
-    }, { onConflict: 'company_id,type,project_id' })
+    }
+    let { error: docErr } = await db.from('compliance_documents').upsert(row, { onConflict: 'company_id,type,project_id' })
+    if (docErr && (docErr as any).code === '42703') { // notes column missing on older DBs
+      delete row.notes
+      docErr = (await db.from('compliance_documents').upsert(row, { onConflict: 'company_id,type,project_id' })).error
+    }
+    if (docErr) return NextResponse.json({ error: docErr.message }, { status: 500 })
     uploadedTypes.push(type)
   }
 
   if (uploadedTypes.length === 0) return NextResponse.json({ error: 'Attach at least one document.' }, { status: 400 })
 
-  await db.from('compliance_requests').update({ status: 'submitted', submitted_at: new Date().toISOString() }).eq('id', req.id)
-  return NextResponse.json({ ok: true, uploaded: uploadedTypes })
+  // Which of the requested docs now have a file? Only fully close the request
+  // when every requested doc is in — otherwise keep it open so the sub can
+  // return via the same link and finish the rest.
+  const { data: onFile } = await db
+    .from('compliance_documents')
+    .select('type')
+    .eq('company_id', req.company_id)
+    .or(`project_id.eq.${req.project_id},project_id.is.null`)
+    .not('file_url', 'is', null)
+  const haveTypes = new Set((onFile ?? []).map((d: any) => d.type))
+  const remaining = (req.doc_types ?? []).filter((t: string) => !haveTypes.has(t))
+  const complete = remaining.length === 0
+
+  await db.from('compliance_requests')
+    .update(complete
+      ? { status: 'submitted', submitted_at: new Date().toISOString() }
+      : { status: 'viewed' })
+    .eq('id', req.id)
+
+  return NextResponse.json({ ok: true, uploaded: uploadedTypes, remaining, complete })
 }

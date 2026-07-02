@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ShieldCheck, Upload, CheckCircle2, Loader2, AlertTriangle } from 'lucide-react'
 import { SyteNavLogo } from '@/components/ui/logo'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
+import { cn } from '@/lib/utils'
 
 interface DocReq { type: string; label: string; uploaded: boolean }
 interface Data {
@@ -22,7 +23,7 @@ export default function CompliancePortal({ params }: { params: { token: string }
   const [files, setFiles] = useState<Record<string, File>>({})
   const [expiry, setExpiry] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
-  const [done, setDone] = useState(false)
+  const [justSent, setJustSent] = useState<string[]>([])
   const refs = useRef<Record<string, HTMLInputElement | null>>({})
 
   async function load() {
@@ -44,8 +45,14 @@ export default function CompliancePortal({ params }: { params: { token: string }
     }
     const res = await fetch(`/api/compliance/${params.token}`, { method: 'POST', body: form })
     setSubmitting(false)
-    if (res.ok) setDone(true)
-    else setError((await res.json().catch(() => ({}))).error ?? 'Could not submit. Try again.')
+    if (res.ok) {
+      const d = await res.json()
+      setJustSent(d.uploaded ?? Object.keys(files))
+      setFiles({}); setExpiry({})
+      await load()   // refresh so uploaded docs show as "on file" and remaining stay open
+    } else {
+      setError((await res.json().catch(() => ({}))).error ?? 'Could not submit. Try again.')
+    }
   }
 
   const Shell = ({ children }: { children: React.ReactNode }) => (
@@ -72,6 +79,9 @@ export default function CompliancePortal({ params }: { params: { token: string }
   if (error && !data) return <Shell><div className="rounded-xl bg-panel border border-line p-8 text-center text-ink"><AlertTriangle className="h-8 w-8 text-warn mx-auto mb-3" />{error}</div></Shell>
   if (!data) return null
 
+  const remainingDocs = data.docs.filter((d) => !d.uploaded)
+  const allDone = remainingDocs.length === 0
+
   return (
     <Shell>
       <div className="rounded-2xl bg-panel border border-line overflow-hidden text-ink">
@@ -84,11 +94,26 @@ export default function CompliancePortal({ params }: { params: { token: string }
         </div>
 
         <div className="px-5 py-5 space-y-5">
-          {done ? (
+          {/* Progress banner after any upload */}
+          {justSent.length > 0 && (
+            <div className={cn('rounded-xl border px-4 py-3', allDone ? 'bg-success-tint border-success/30' : 'bg-info-tint border-info/30')}>
+              <p className="text-sm font-semibold text-ink inline-flex items-center gap-1.5">
+                <CheckCircle2 className={cn('h-4 w-4', allDone ? 'text-success' : 'text-info')} />
+                Received {justSent.map((t) => data.docs.find((d) => d.type === t)?.label ?? t).join(', ')}
+              </p>
+              {!allDone && (
+                <p className="text-sm text-muted-fg mt-1">
+                  Still needed: <span className="font-medium text-ink-soft">{remainingDocs.map((d) => d.label).join(', ')}</span>. You can upload the rest below now, or come back to this same link later.
+                </p>
+              )}
+            </div>
+          )}
+
+          {allDone ? (
             <div className="rounded-xl bg-success-tint border border-success/30 px-4 py-6 text-center">
               <CheckCircle2 className="h-8 w-8 text-success mx-auto mb-2" />
-              <p className="font-semibold text-ink">Documents submitted — thank you!</p>
-              <p className="text-sm text-muted-fg mt-1">The contractor has received your files.</p>
+              <p className="font-semibold text-ink">All documents received — thank you!</p>
+              <p className="text-sm text-muted-fg mt-1">The contractor has everything they requested.</p>
             </div>
           ) : (
             <form onSubmit={submit} className="space-y-4">
