@@ -1,9 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { FolderKanban, AlertCircle, ShieldAlert, MessageSquare, Package, CheckSquare, DollarSign, Briefcase, FileText, Receipt, Activity, FileUp, ClipboardList, CalendarCheck, ScrollText, UploadCloud, UserPlus } from 'lucide-react'
+import { FolderKanban, AlertCircle, ShieldAlert, MessageSquare, Package, CheckSquare, DollarSign, Briefcase, FileText, Receipt, Activity, FileUp, ClipboardList, CalendarCheck, ScrollText, UploadCloud, UserPlus, Clock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { StatCard } from '@/components/ui/stat-card'
+import { AdminOverview, type OverviewData } from '@/components/dashboard/admin-overview'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge, getStatusVariant } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -97,6 +98,11 @@ function timeAgo(dateStr: string) {
   return new Date(dateStr).toLocaleDateString()
 }
 
+function greeting() {
+  const h = new Date().getHours()
+  return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'
+}
+
 export default function DashboardPage() {
   const supabase = createClient()
   const [newBidNotifications, setNewBidNotifications] = useState<Notification[]>([])
@@ -104,6 +110,8 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null)
   const [activity, setActivity] = useState<ActivityItem[]>([])
   const [activityIsAdmin, setActivityIsAdmin] = useState(false)
+  const [overview, setOverview] = useState<OverviewData | null>(null)
+  const [firstName, setFirstName] = useState('')
   const [loading, setLoading] = useState(true)
 
   async function getToken() {
@@ -115,12 +123,20 @@ export default function DashboardPage() {
     async function load() {
       const token = await getToken()
 
-      const [notifRes, projRes, statsRes, activityRes] = await Promise.all([
+      const [notifRes, projRes, statsRes, activityRes, overviewRes, userRes] = await Promise.all([
         fetch('/api/notifications', { headers: { Authorization: `Bearer ${token}` } }),
         fetch('/api/projects', { headers: { Authorization: `Bearer ${token}` } }),
         fetch('/api/dashboard/stats', { headers: { Authorization: `Bearer ${token}` } }),
         fetch('/api/dashboard/activity', { headers: { Authorization: `Bearer ${token}` } }),
+        fetch('/api/dashboard/overview', { headers: { Authorization: `Bearer ${token}` } }),
+        supabase.auth.getUser(),
       ])
+
+      // Admin-only overview (403 for other roles → keep the standard layout)
+      if (overviewRes.ok) setOverview(await overviewRes.json())
+      const meta = userRes.data.user?.user_metadata
+      const full = (meta?.full_name as string) || userRes.data.user?.email || ''
+      setFirstName(full.split(/[\s@]/)[0] ?? '')
 
       if (notifRes.ok) {
         const data = await notifRes.json()
@@ -197,11 +213,13 @@ export default function DashboardPage() {
 
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-ink">Dashboard</h1>
+        <h1 className="text-2xl font-bold text-ink">
+          {overview && firstName ? `${greeting()}, ${firstName}` : 'Dashboard'}
+        </h1>
         <p className="text-sm text-muted-fg mt-0.5">
           {isSub
             ? "Welcome back. Here's a summary of your active jobs and financials."
-            : "Welcome back. Here's what's happening across your projects."}
+            : "Here's what's happening across your jobs."}
         </p>
       </div>
 
@@ -215,6 +233,50 @@ export default function DashboardPage() {
           <StatCard label="Expiring Docs" value={v((stats as SubStats).expiringCompliance)} icon={ShieldAlert} iconColor="text-danger" />
           <StatCard label="Contract Value" value={money((stats as SubStats).totalContractValue)} icon={DollarSign} iconColor="text-muted-fg" />
         </div>
+      ) : overview ? (
+        <>
+          {/* Admin tiles */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { label: 'Active Projects', value: v((stats as GcStats | null)?.activeProjects), icon: FolderKanban, cls: 'text-accent-fg' },
+              { label: 'Under Contract', value: money((stats as GcStats | null)?.totalContractValue), icon: DollarSign, cls: 'text-success' },
+              { label: 'Open Tasks', value: v((stats as GcStats | null)?.openTasks), icon: CheckSquare, cls: 'text-info' },
+              { label: 'Due This Week', value: loading ? '—' : String(overview.dueThisWeek), icon: Clock, cls: 'text-warn' },
+            ].map(t => (
+              <div key={t.label} className="rounded-xl border border-line bg-panel px-4 py-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <t.icon className={`h-4 w-4 ${t.cls}`} />
+                  <span className={`text-xs font-semibold ${t.cls}`}>{t.label}</span>
+                </div>
+                <p className={`text-2xl font-extrabold ${t.cls}`}>{t.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Needs-attention strip (only when something needs it) */}
+          {((stats as GcStats | null)?.pendingApprovals || (stats as GcStats | null)?.openRfis || (stats as GcStats | null)?.expiringCompliance) ? (
+            <div className="flex flex-wrap gap-2">
+              {((stats as GcStats)?.pendingApprovals ?? 0) > 0 && (
+                <Link href="/approvals" className="inline-flex items-center gap-1.5 rounded-full bg-warn-tint text-warn text-xs font-medium px-3 py-1.5 hover:opacity-80">
+                  <AlertCircle className="h-3.5 w-3.5" /> {(stats as GcStats).pendingApprovals} pending approval{(stats as GcStats).pendingApprovals !== 1 ? 's' : ''}
+                </Link>
+              )}
+              {((stats as GcStats)?.openRfis ?? 0) > 0 && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-info-tint text-info text-xs font-medium px-3 py-1.5">
+                  <MessageSquare className="h-3.5 w-3.5" /> {(stats as GcStats).openRfis} open RFI{(stats as GcStats).openRfis !== 1 ? 's' : ''}
+                </span>
+              )}
+              {((stats as GcStats)?.expiringCompliance ?? 0) > 0 && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-danger-tint text-danger text-xs font-medium px-3 py-1.5">
+                  <ShieldAlert className="h-3.5 w-3.5" /> {(stats as GcStats).expiringCompliance} compliance doc{(stats as GcStats).expiringCompliance !== 1 ? 's' : ''} expiring
+                </span>
+              )}
+            </div>
+          ) : null}
+
+          {/* Cash chart + this week + recent projects */}
+          <AdminOverview data={overview} />
+        </>
       ) : (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
           <StatCard label="Projects" value={v((stats as GcStats | null)?.activeProjects)} icon={FolderKanban} iconColor="text-accent-fg" />
@@ -226,8 +288,8 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Master views — admin only, cross-project */}
-      {activityIsAdmin && !isSub && (
+      {/* Master views — admin quick links (hidden when the overview layout covers it) */}
+      {activityIsAdmin && !isSub && !overview && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Link href="/master-calendar" className="group rounded-xl border border-line bg-panel p-4 hover:border-accent hover:bg-surface transition-colors flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-accent-tint flex items-center justify-center shrink-0"><CalendarCheck className="h-5 w-5 text-accent-fg" /></div>
@@ -246,11 +308,11 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Projects + Activity side by side */}
+      {/* Projects + Activity side by side (overview layout already shows recent projects) */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
 
         {/* Recent Projects */}
-        <div className="lg:col-span-3">
+        <div className={overview ? 'hidden' : 'lg:col-span-3'}>
           <Card>
             <CardHeader>
               <CardTitle>{isSub ? 'Recent Jobs' : 'Recent Projects'}</CardTitle>
@@ -311,7 +373,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Recent Activity */}
-        <div className="lg:col-span-2">
+        <div className={overview ? 'lg:col-span-5' : 'lg:col-span-2'}>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-3">
               <CardTitle>Recent Activity</CardTitle>
