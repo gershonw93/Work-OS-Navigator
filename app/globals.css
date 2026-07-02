@@ -31,6 +31,10 @@
   --warn: 181 116 0;          --warn-tint: 251 235 200;    --warn-solid: 232 149 0;
   --info: 37 99 235;          --info-tint: 229 237 251;    --info-solid: 59 130 246;
   --special: 124 58 237;      --special-tint: 239 231 251;
+
+  /* Chart series (validated for contrast + CVD on this surface) */
+  --chart-in: 95 122 18;      /* #5F7A12 cash in */
+  --chart-out: 37 99 235;     /* #2563EB cash out */
 }
 
 .dark {
@@ -57,6 +61,10 @@
   --warn: 255 176 46;         --warn-tint: 58 46 16;     --warn-solid: 255 176 46;
   --info: 127 176 255;        --info-tint: 20 35 58;     --info-solid: 59 130 246;
   --special: 196 162 245;     --special-tint: 38 26 58;
+
+  /* Chart series (validated for contrast + CVD on this surface) */
+  --chart-in: 130 160 44;     /* #82A02C cash in */
+  --chart-out: 78 130 222;    /* #4E82DE cash out */
 }
 
 @layer base {
