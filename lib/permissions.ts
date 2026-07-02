@@ -59,6 +59,7 @@ export const RESOURCES: ResourceDef[] = [
   { key: 'customers',      label: 'Customers',      group: 'Workspace' },
   { key: 'directory',      label: 'Directory',      group: 'Workspace' },
   { key: 'files',          label: 'Files',          group: 'Workspace' },
+  { key: 'equipment',      label: 'Equipment',      group: 'Workspace' },
   { key: 'approvals',      label: 'Approvals',      group: 'Workspace' },
   // Settings
   { key: 'settings_company', label: 'Company Settings', group: 'Settings' },
@@ -94,7 +95,7 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
     team: VE, bids: FULL, rfis: FULL,
     invoices: VE, payments: VE, budget: FULL, quotes: FULL, 'request-quotes': FULL, financials: N, 'change-orders': FULL,
     permits: FULL, inspections: FULL, submittals: FULL, compliance: V, reports: N,
-    dashboard: V, projects: VCE, customers: VE, directory: V, files: FULL, approvals: VE,
+    dashboard: V, projects: VCE, customers: VE, directory: V, files: FULL, equipment: FULL, approvals: VE,
     settings_company: N, settings_team: N, settings_billing: N,
   },
 
@@ -103,7 +104,7 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
     team: V, bids: V, rfis: V,
     invoices: FULL, payments: FULL, budget: FULL, quotes: FULL, 'request-quotes': FULL, financials: V, 'change-orders': FULL,
     permits: VE, inspections: VE, submittals: VE, compliance: FULL, reports: V,
-    dashboard: V, projects: V, customers: VE, directory: V, files: FULL, approvals: VE,
+    dashboard: V, projects: V, customers: VE, directory: V, files: FULL, equipment: FULL, approvals: VE,
     settings_company: N, settings_team: N, settings_billing: N,
   },
 
@@ -112,7 +113,7 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
     team: V, bids: N, rfis: V,
     invoices: N, payments: N, budget: N, quotes: N, 'request-quotes': N, financials: N, 'change-orders': N,
     permits: N, inspections: N, submittals: N, compliance: N, reports: N,
-    dashboard: V, projects: V, customers: N, directory: V, files: V, approvals: V,
+    dashboard: V, projects: V, customers: N, directory: V, files: V, equipment: VCE, approvals: V,
     settings_company: N, settings_team: N, settings_billing: N,
   },
 
@@ -121,7 +122,7 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
     team: N, bids: N, rfis: N,
     invoices: N, payments: N, budget: N, quotes: N, 'request-quotes': N, financials: N, 'change-orders': N,
     permits: N, inspections: N, submittals: N, compliance: N, reports: N,
-    dashboard: V, projects: V, customers: N, directory: N, files: V, approvals: V,
+    dashboard: V, projects: V, customers: N, directory: N, files: V, equipment: VC, approvals: V,
     settings_company: N, settings_team: N, settings_billing: N,
   },
 
@@ -130,7 +131,7 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
     team: V, bids: N, rfis: V,
     invoices: N, payments: N, budget: N, quotes: N, 'request-quotes': N, financials: N, 'change-orders': N,
     permits: N, inspections: N, submittals: N, compliance: N, reports: N,
-    dashboard: V, projects: V, customers: N, directory: V, files: V, approvals: V,
+    dashboard: V, projects: V, customers: N, directory: V, files: V, equipment: V, approvals: V,
     settings_company: N, settings_team: N, settings_billing: N,
   },
 }
