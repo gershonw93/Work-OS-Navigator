@@ -12,6 +12,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { cn } from '@/lib/utils'
 import {
   Plus, Wrench, Search, MapPin, User, LogOut, LogIn, X, Package,
+  ChevronDown, ChevronRight, History,
 } from 'lucide-react'
 
 type Current = {
@@ -32,6 +33,15 @@ type Equipment = {
 }
 type ProjectOpt = { id: string; name: string }
 type Teammate = { id: string; full_name: string | null }
+type Assignment = {
+  id: string
+  holder_name: string | null
+  project_id: string | null
+  projects: { name: string } | null
+  checked_out_at: string
+  checked_in_at: string | null
+  note: string | null
+}
 
 const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'danger' | 'muted'> = {
   available: 'success',
@@ -55,10 +65,57 @@ function timeAgo(iso: string) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
+function fmtDate(iso: string) {
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
 async function authHeaders() {
   const supabase = createClient()
   const { data: { session } } = await supabase.auth.getSession()
   return { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` }
+}
+
+// ── History panel — the checkout timeline for one item ───────────────────────
+function HistoryPanel({ equipmentId }: { equipmentId: string }) {
+  const [history, setHistory] = useState<Assignment[] | null>(null)
+
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      const res = await fetch(`/api/equipment/${equipmentId}/assignment`, { headers: await authHeaders() })
+      const d = res.ok ? await res.json() : { history: [] }
+      if (alive) setHistory(d.history ?? [])
+    })()
+    return () => { alive = false }
+  }, [equipmentId])
+
+  if (history === null) return <p className="px-4 py-4 text-sm text-muted-fg">Loading history…</p>
+  if (history.length === 0) return <p className="px-4 py-4 text-sm text-muted-fg">No checkout history yet.</p>
+
+  return (
+    <ol className="space-y-3 px-4 py-4">
+      {history.map((a) => {
+        const location = a.project_id ? (a.projects?.name ?? 'Project') : 'Shop / Yard'
+        const open = !a.checked_in_at
+        return (
+          <li key={a.id} className="flex gap-3">
+            <div className={cn('mt-1 h-2 w-2 shrink-0 rounded-full', open ? 'bg-warn' : 'bg-line')} />
+            <div className="min-w-0 text-sm">
+              <p className="font-medium text-ink">
+                {a.holder_name || 'Someone'}
+                <span className="font-normal text-muted-fg"> · {location}</span>
+              </p>
+              <p className="text-xs text-muted-fg">
+                Out {fmtDate(a.checked_out_at)}
+                {open ? ' · still out' : ` · back ${fmtDate(a.checked_in_at!)}`}
+              </p>
+              {a.note && <p className="mt-0.5 text-xs italic text-faint">“{a.note}”</p>}
+            </div>
+          </li>
+        )
+      })}
+    </ol>
+  )
 }
 
 // ── Check-out modal — pick who + where, then Confirm (the 3rd click) ──────────
@@ -205,6 +262,7 @@ export default function EquipmentPage() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [checkoutItem, setCheckoutItem] = useState<Equipment | null>(null)
   const [showAdd, setShowAdd] = useState(false)
+  const [expanded, setExpanded] = useState<string | null>(null)
   const busy = useRef<Set<string>>(new Set())
 
   async function load() {
@@ -291,8 +349,10 @@ export default function EquipmentPage() {
         <div className="space-y-2">
           {filtered.map((e) => {
             const out = e.status === 'checked_out'
+            const isOpen = expanded === e.id
             return (
-              <div key={e.id} className="flex flex-col gap-3 rounded-xl border border-line bg-panel px-4 py-3 sm:flex-row sm:items-center">
+              <div key={e.id} className="overflow-hidden rounded-xl border border-line bg-panel">
+              <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center">
                 <div className="flex min-w-0 flex-1 items-center gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-ink-soft">
                     <Wrench className="h-5 w-5" />
@@ -321,7 +381,7 @@ export default function EquipmentPage() {
                 </div>
 
                 {/* Action */}
-                <div className="shrink-0">
+                <div className="flex shrink-0 items-center gap-2">
                   {out ? (
                     <Button variant="outline" size="sm" onClick={() => checkIn(e)}>
                       <LogIn className="mr-1.5 h-4 w-4" />Check in
@@ -333,7 +393,24 @@ export default function EquipmentPage() {
                   ) : (
                     <Button variant="ghost" size="sm" disabled>Unavailable</Button>
                   )}
+                  <button
+                    onClick={() => setExpanded(isOpen ? null : e.id)}
+                    aria-label={isOpen ? 'Hide history' : 'Show history'}
+                    aria-expanded={isOpen}
+                    className="flex items-center gap-1 rounded-lg border border-line px-2.5 py-1.5 text-xs font-medium text-muted-fg hover:bg-surface hover:text-ink transition-colors"
+                  >
+                    <History className="h-3.5 w-3.5" />
+                    {isOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                  </button>
                 </div>
+              </div>
+
+              {/* Expandable checkout history */}
+              {isOpen && (
+                <div className="border-t border-line-soft bg-surface">
+                  <HistoryPanel key={`${e.id}-${e.status}`} equipmentId={e.id} />
+                </div>
+              )}
               </div>
             )
           })}
