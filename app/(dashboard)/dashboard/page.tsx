@@ -184,6 +184,32 @@ export default function DashboardPage() {
     : n && n >= 1000 ? `$${(n / 1000).toFixed(0)}K` : `$${(n ?? 0).toLocaleString()}`
   const isSub = stats?.isSub === true
 
+  // While the first load is in flight we don't yet know which layout applies
+  // (admin overview vs. sub vs. standard GC). Render a neutral skeleton instead
+  // of committing to a layout and then swapping it out — that flash looked broken.
+  if (loading) {
+    return (
+      <div className="p-4 sm:p-6 space-y-5 animate-pulse">
+        <div className="space-y-2">
+          <div className="h-7 w-56 rounded-md bg-muted" />
+          <div className="h-4 w-72 rounded bg-muted/70" />
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="rounded-xl border border-line bg-panel px-4 py-4">
+              <div className="h-4 w-24 rounded bg-muted mb-3" />
+              <div className="h-7 w-16 rounded bg-muted" />
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <div className="lg:col-span-2 h-64 rounded-xl border border-line bg-panel" />
+          <div className="h-64 rounded-xl border border-line bg-panel" />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="p-4 sm:p-6 space-y-5">
 
