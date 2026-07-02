@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
@@ -176,6 +176,10 @@ export default function SettingsPage() {
   const [address, setAddress] = useState('')
   const [licenseNumber, setLicenseNumber] = useState('')
   const [defaultPaymentTerms, setDefaultPaymentTerms] = useState('')
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  const [logoUploading, setLogoUploading] = useState(false)
+  const [logoMsg, setLogoMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const logoInputRef = useRef<HTMLInputElement>(null)
   const [companySaving, setCompanySaving] = useState(false)
   const [companyMsg, setCompanyMsg] = useState<{ ok: boolean; text: string } | null>(null)
 
@@ -281,6 +285,7 @@ export default function SettingsPage() {
           setAddress(c.address ?? '')
           setLicenseNumber(c.license_number ?? '')
           setDefaultPaymentTerms(c.default_payment_terms ?? '')
+          setLogoUrl(c.logo_url ?? null)
         }
 
         if (data.deleteProtection) { setDpEnabled(!!data.deleteProtection.enabled); setDpKeySet(!!data.deleteProtection.keySet) }
@@ -420,6 +425,30 @@ export default function SettingsPage() {
     } finally {
       setCompanySaving(false)
     }
+  }
+
+  // ── Company logo ───────────────────────────────────────────────────────────
+
+  async function uploadLogo(file: File) {
+    setLogoUploading(true); setLogoMsg(null)
+    try {
+      const supabase = createClient()
+      const { data } = await supabase.auth.getSession()
+      const form = new FormData(); form.append('file', file)
+      const res = await fetch('/api/settings/logo', {
+        method: 'POST', headers: { Authorization: `Bearer ${data?.session?.access_token ?? ''}` }, body: form,
+      })
+      const d = await res.json().catch(() => ({}))
+      if (res.ok) { setLogoUrl(d.logo_url); setLogoMsg({ ok: true, text: 'Logo saved.' }) }
+      else setLogoMsg({ ok: false, text: d.error ?? 'Upload failed.' })
+    } catch { setLogoMsg({ ok: false, text: 'Network error.' }) }
+    finally { setLogoUploading(false) }
+  }
+
+  async function removeLogo() {
+    const headers = await authHeaders()
+    const res = await fetch('/api/settings/logo', { method: 'DELETE', headers })
+    if (res.ok) { setLogoUrl(null); setLogoMsg({ ok: true, text: 'Logo removed.' }) }
   }
 
   // ── Delete protection ──────────────────────────────────────────────────────
@@ -759,6 +788,34 @@ export default function SettingsPage() {
                   <p className="text-muted-fg text-sm">No company linked to your account.</p>
                 ) : (
                   <>
+                    {/* Company logo — stamped on PDFs (daily logs, invoices, reports) */}
+                    <div className="flex items-center gap-4">
+                      <div className="h-16 w-16 rounded-xl border border-line bg-surface flex items-center justify-center overflow-hidden shrink-0">
+                        {logoUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={logoUrl} alt="Company logo" className="h-full w-full object-contain" />
+                        ) : (
+                          <Camera className="h-5 w-5 text-faint" />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-ink-soft">Company logo</p>
+                        <p className="text-xs text-faint">PNG or JPG, up to 2MB. Appears on downloaded PDFs: daily logs, invoices, and reports.</p>
+                        <div className="flex items-center gap-3 mt-1.5">
+                          <input ref={logoInputRef} type="file" accept="image/png,image/jpeg" className="sr-only"
+                            onChange={e => { const f = e.target.files?.[0]; if (f) uploadLogo(f); e.target.value = '' }} />
+                          <button type="button" onClick={() => logoInputRef.current?.click()} disabled={logoUploading}
+                            className="text-sm font-medium text-accent-fg hover:underline disabled:opacity-50">
+                            {logoUploading ? 'Uploading…' : logoUrl ? 'Replace' : 'Upload logo'}
+                          </button>
+                          {logoUrl && !logoUploading && (
+                            <button type="button" onClick={removeLogo} className="text-sm text-muted-fg hover:text-danger">Remove</button>
+                          )}
+                          {logoMsg && <span className={`text-xs ${logoMsg.ok ? 'text-success' : 'text-danger'}`}>{logoMsg.text}</span>}
+                        </div>
+                      </div>
+                    </div>
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <Label htmlFor="companyName">Company Name</Label>

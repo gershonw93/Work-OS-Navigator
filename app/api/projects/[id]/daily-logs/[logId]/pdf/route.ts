@@ -31,7 +31,7 @@ export async function GET(request: Request, { params }: { params: { id: string; 
     db.from('daily_logs')
       .select('*, daily_log_photos(*), daily_log_updates(*), daily_log_attachments(*)')
       .eq('id', params.logId).eq('project_id', params.id).single(),
-    db.from('projects').select('name, address').eq('id', params.id).single(),
+    db.from('projects').select('name, address, gc_company_id').eq('id', params.id).single(),
     db.from('subcontracts').select('id, trade, companies(name)').eq('project_id', params.id),
   ])
   if (!log) return NextResponse.json({ error: 'Log not found' }, { status: 404 })
@@ -149,7 +149,25 @@ export async function GET(request: Request, { params }: { params: { id: string; 
 
   const dateStr = new Date(log.log_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
 
-  // Header
+  // Header — company logo top-right when the company has one uploaded
+  if (project?.gc_company_id) {
+    try {
+      const { data: co } = await db.from('companies').select('logo_url').eq('id', project.gc_company_id).single()
+      if (co?.logo_url) {
+        const res = await fetch(co.logo_url)
+        if (res.ok) {
+          const bytes = new Uint8Array(await res.arrayBuffer())
+          const ct = res.headers.get('content-type') || ''
+          const img = ct.includes('png') || co.logo_url.toLowerCase().includes('.png')
+            ? await pdf.embedPng(bytes) : await pdf.embedJpg(bytes)
+          const maxH = 40, maxW = 140
+          const scale = Math.min(maxH / img.height, maxW / img.width, 1)
+          const w = img.width * scale, h = img.height * scale
+          page.drawImage(img, { x: width - margin - w, y: y - h + 16, width: w, height: h })
+        }
+      }
+    } catch { /* logo is decorative — never block the PDF */ }
+  }
   page.drawText('Daily Log', { x: margin, y, size: 22, font: bold, color: ink }); y -= 26
   text(project?.name ?? 'Project', { size: 12, f: bold })
   if (project?.address) text(project.address, { size: 10, color: muted })

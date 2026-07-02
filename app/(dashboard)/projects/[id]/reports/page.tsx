@@ -97,6 +97,7 @@ export default function ReportsPage({ params }: { params: { id: string } }) {
   const [compliance, setCompliance] = useState<ComplianceDoc[]>([])
   const [permits, setPermits] = useState<Permit[]>([])
   const [inspections, setInspections] = useState<Inspection[]>([])
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -104,6 +105,10 @@ export default function ReportsPage({ params }: { params: { id: string } }) {
       const { data: { session } } = await supabase.auth.getSession()
       const token = session?.access_token ?? ''
       const headers = { Authorization: `Bearer ${token}` }
+
+      // Company logo for the printed header (best-effort, never blocks the page)
+      supabase.from('projects').select('companies(logo_url)').eq('id', params.id).single()
+        .then(({ data }) => setLogoUrl((data as any)?.companies?.logo_url ?? null))
 
       const [projRes, invRes, compRes, permRes, inspRes] = await Promise.all([
         fetch(`/api/projects/${params.id}`, { headers }),
@@ -183,9 +188,15 @@ export default function ReportsPage({ params }: { params: { id: string } }) {
 
       <div className="space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <h1 className="text-2xl font-bold text-ink">Reports</h1>
-            <p className="text-sm text-muted-fg mt-0.5">Project summary, payments, and compliance.</p>
+          <div className="flex items-center gap-4">
+            {logoUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={logoUrl} alt="Company logo" className="h-12 w-auto max-w-[140px] object-contain" />
+            )}
+            <div>
+              <h1 className="text-2xl font-bold text-ink">Reports</h1>
+              <p className="text-sm text-muted-fg mt-0.5">Project summary, payments, and compliance.</p>
+            </div>
           </div>
           <button
             onClick={() => window.print()}

@@ -17,9 +17,10 @@ export async function GET(request: Request) {
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: profile } = await db.from('profiles').select('company_id, role').eq('id', user.id).single()
+  const { data: profile } = await db.from('profiles').select('company_id, role, full_name').eq('id', user.id).single()
   if (!profile?.company_id) return NextResponse.json({ error: 'No company' }, { status: 403 })
   if (!['admin', 'manager'].includes(profile.role ?? '')) return NextResponse.json({ error: 'Admin only' }, { status: 403 })
+  const firstName = (profile.full_name ?? '').trim().split(/\s+/)[0] || null
 
   const { data: projects } = await db
     .from('projects')
@@ -27,7 +28,7 @@ export async function GET(request: Request) {
     .or(`gc_company_id.eq.${profile.company_id},created_by_company_id.eq.${profile.company_id}`)
     .order('created_at', { ascending: false })
   const ids = (projects ?? []).map(p => p.id)
-  if (!ids.length) return NextResponse.json({ months: [], week: [], recent: [], dueThisWeek: 0 })
+  if (!ids.length) return NextResponse.json({ months: [], week: [], recent: [], dueThisWeek: 0, first_name: firstName })
 
   const now = new Date()
   const windowStart = new Date(now.getFullYear(), now.getMonth() - 7, 1) // last 8 months
@@ -99,5 +100,5 @@ export async function GET(request: Request) {
     return { id: p.id, name: p.name, status: p.status, pct: s && s.total > 0 ? Math.round((s.done / s.total) * 100) : 0 }
   })
 
-  return NextResponse.json({ months, week, recent, dueThisWeek })
+  return NextResponse.json({ months, week, recent, dueThisWeek, first_name: firstName })
 }
