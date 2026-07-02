@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { StatCard } from '@/components/ui/stat-card'
 import { cn } from '@/lib/utils'
-import { ShieldCheck, Upload, RefreshCw, X, AlertTriangle, CheckCircle2, FileWarning, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react'
+import { ShieldCheck, Upload, RefreshCw, X, AlertTriangle, CheckCircle2, FileWarning, ExternalLink, ChevronDown, ChevronUp, Mail, Copy, Link2, Send } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -29,7 +29,17 @@ interface ComplianceDoc {
 
 interface Sub {
   id: string
-  companies: { id: string; name: string; type?: string } | null
+  companies: { id: string; name: string; type?: string; contact_email?: string | null } | null
+}
+
+interface DocRequest {
+  id: string
+  company_id: string
+  token: string
+  doc_types: DocType[]
+  status: string
+  created_at: string
+  submitted_at: string | null
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -496,17 +506,134 @@ function UploadForm({
   )
 }
 
+// ─── Request docs via email (one-time link) ─────────────────────────────────
+
+interface RequestDocsBarProps {
+  projectId: string
+  companyId: string
+  companyName: string
+  contactEmail?: string | null
+  missingTypes: DocType[]
+  allTypes: DocType[]
+  pendingRequest: DocRequest | null
+  token: string
+  onRefresh: () => void
+}
+
+function RequestDocsBar({ projectId, companyId, companyName, contactEmail, missingTypes, allTypes, pendingRequest, token, onRefresh }: RequestDocsBarProps) {
+  const [open, setOpen] = useState(false)
+  const [selected, setSelected] = useState<DocType[]>(missingTypes.length ? missingTypes : allTypes)
+  const [creating, setCreating] = useState(false)
+  const [link, setLink] = useState('')
+  const [email, setEmail] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  const origin = typeof window !== 'undefined' ? window.location.origin : ''
+  const existingLink = pendingRequest ? `${origin}/compliance/${pendingRequest.token}` : ''
+  const activeLink = link || existingLink
+
+  function toggle(t: DocType) {
+    setSelected((prev) => prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t])
+  }
+
+  async function createLink() {
+    if (selected.length === 0) return
+    setCreating(true)
+    const res = await fetch(`/api/projects/${projectId}/compliance/request`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ company_id: companyId, doc_types: selected }),
+    })
+    setCreating(false)
+    if (res.ok) {
+      const d = await res.json()
+      setLink(`${origin}/compliance/${d.request.token}`)
+      setEmail(d.contact_email ?? contactEmail ?? null)
+      onRefresh()
+    } else {
+      alert((await res.json().catch(() => ({}))).error ?? 'Could not create link')
+    }
+  }
+
+  function copyLink() {
+    navigator.clipboard?.writeText(activeLink)
+    setCopied(true); setTimeout(() => setCopied(false), 1500)
+  }
+
+  function mailtoHref() {
+    const to = email ?? contactEmail ?? ''
+    const subject = `Compliance documents needed — ${companyName}`
+    const list = selected.map((t) => DOC_LABELS[t]).join(', ')
+    const body = `Hi,\n\nPlease upload your compliance documents (${list}) using this secure link (no account needed):\n${activeLink}\n\nThank you.`
+    return `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+  }
+
+  return (
+    <div className="border-b border-line-soft bg-surface/50 px-4 sm:px-5 py-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-xs text-muted-fg">
+          {pendingRequest && pendingRequest.status !== 'submitted' ? (
+            <span className="inline-flex items-center gap-1 text-warn"><Send className="h-3.5 w-3.5" /> Docs requested {pendingRequest.status === 'viewed' ? '· viewed' : '· awaiting upload'}</span>
+          ) : (
+            <span className="inline-flex items-center gap-1"><Mail className="h-3.5 w-3.5" /> Ask this vendor to upload their docs</span>
+          )}
+        </div>
+        <Button size="sm" variant="outline" className="h-7 text-xs px-3" onClick={() => setOpen((o) => !o)}>
+          <Link2 className="h-3.5 w-3.5" /> {open ? 'Close' : 'Request via email'}
+        </Button>
+      </div>
+
+      {open && (
+        <div className="mt-3 space-y-3 rounded-lg border border-line bg-panel p-3">
+          <div>
+            <p className="text-xs font-semibold text-ink-soft mb-1.5">Which documents?</p>
+            <div className="flex flex-wrap gap-1.5">
+              {allTypes.map((t) => (
+                <button key={t} type="button" onClick={() => toggle(t)}
+                  className={cn('rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
+                    selected.includes(t) ? 'border-accent bg-accent-tint text-accent-fg' : 'border-line text-muted-fg hover:border-muted2')}>
+                  {DOC_LABELS[t]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {!activeLink ? (
+            <Button size="sm" className="h-7 text-xs px-3" disabled={creating || selected.length === 0} onClick={createLink}>
+              {creating ? 'Creating…' : 'Create secure link'}
+            </Button>
+          ) : (
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5">
+                <input readOnly value={activeLink} className="flex-1 min-w-0 rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-ink-soft" />
+                <button onClick={copyLink} className="inline-flex items-center gap-1 rounded-md border border-line px-2 py-1.5 text-xs text-muted-fg hover:bg-surface">
+                  {copied ? <><CheckCircle2 className="h-3.5 w-3.5 text-success" /> Copied</> : <><Copy className="h-3.5 w-3.5" /> Copy</>}
+                </button>
+              </div>
+              <a href={mailtoHref()} className="inline-flex items-center gap-1.5 rounded-md bg-accent text-accent-ink px-3 py-1.5 text-xs font-semibold hover:bg-accent/90">
+                <Mail className="h-3.5 w-3.5" /> {(email ?? contactEmail) ? `Email ${email ?? contactEmail}` : 'Compose email'}
+              </a>
+              <p className="text-xs text-faint">The vendor uploads their files, they land here as pending for review.</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Sub Card ─────────────────────────────────────────────────────────────────
 
 interface SubCardProps {
   sub: Sub
   docs: ComplianceDoc[]
+  requests: DocRequest[]
   projectId: string
   token: string
   onRefresh: () => void
 }
 
-function SubCard({ sub, docs, projectId, token, onRefresh }: SubCardProps) {
+function SubCard({ sub, docs, requests, projectId, token, onRefresh }: SubCardProps) {
   const [openForm, setOpenForm] = useState<DocType | null>(null)
   const companyId = sub.companies?.id ?? ''
   const companyName = sub.companies?.name ?? 'Unknown'
@@ -531,6 +658,12 @@ function SubCard({ sub, docs, projectId, token, onRefresh }: SubCardProps) {
   const worst = worstStatus(allStatuses)
   const chip = cardChip(worst)
 
+  // Docs still missing/expired — the sensible default to request from the vendor
+  const missingTypes = visibleDocs.filter((t) => ['missing', 'expired', 'expiring_soon'].includes(resolveStatus(t)))
+  const pendingRequest = requests
+    .filter((r) => r.company_id === companyId)
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))[0] ?? null
+
   return (
     <div className="rounded-xl border border-line bg-panel overflow-hidden">
       {/* Card header */}
@@ -540,6 +673,19 @@ function SubCard({ sub, docs, projectId, token, onRefresh }: SubCardProps) {
           {chip.label}
         </span>
       </div>
+
+      {/* Request docs via email */}
+      <RequestDocsBar
+        projectId={projectId}
+        companyId={companyId}
+        companyName={companyName}
+        contactEmail={sub.companies?.contact_email}
+        missingTypes={missingTypes}
+        allTypes={visibleDocs}
+        pendingRequest={pendingRequest}
+        token={token}
+        onRefresh={onRefresh}
+      />
 
       {/* Doc table */}
       <table className="w-full text-sm">
@@ -615,6 +761,7 @@ export default function CompliancePage({ params }: { params: { id: string } }) {
   const supabase = createClient()
   const [subs, setSubs] = useState<Sub[]>([])
   const [docs, setDocs] = useState<ComplianceDoc[]>([])
+  const [requests, setRequests] = useState<DocRequest[]>([])
   const [token, setToken] = useState('')
   const [loading, setLoading] = useState(true)
 
@@ -635,6 +782,7 @@ export default function CompliancePage({ params }: { params: { id: string } }) {
       const json = await res.json()
       setSubs(json.subcontracts ?? [])
       setDocs(json.docs ?? [])
+      setRequests(json.requests ?? [])
     }
     setLoading(false)
   }
@@ -761,6 +909,7 @@ export default function CompliancePage({ params }: { params: { id: string } }) {
                 key={sub.id}
                 sub={sub}
                 docs={docs}
+                requests={requests}
                 projectId={params.id}
                 token={token}
                 onRefresh={fetchData}
