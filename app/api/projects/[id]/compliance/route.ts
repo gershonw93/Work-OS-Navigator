@@ -20,7 +20,7 @@ export async function GET(
 
   const { data: subcontracts, error: subError } = await db
     .from('subcontracts')
-    .select('*, companies(id, name, type)')
+    .select('*, companies(id, name, type, contact_email)')
     .eq('project_id', params.id)
 
   if (subError) return NextResponse.json({ error: subError.message }, { status: 500 })
@@ -47,7 +47,19 @@ export async function GET(
     docs = data ?? []
   }
 
-  return NextResponse.json({ subcontracts: subs, docs })
+  // Pending document requests (one-time links awaiting upload)
+  let requests: any[] = []
+  if (companyIds.length > 0) {
+    const { data: reqs } = await db
+      .from('compliance_requests')
+      .select('id, company_id, token, doc_types, status, created_at, submitted_at')
+      .eq('project_id', params.id)
+      .in('company_id', companyIds)
+      .order('created_at', { ascending: false })
+    requests = reqs ?? []
+  }
+
+  return NextResponse.json({ subcontracts: subs, docs, requests })
 }
 
 export async function POST(

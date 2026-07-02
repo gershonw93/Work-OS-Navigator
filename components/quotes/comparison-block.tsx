@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { X, Upload, Trophy, Trash2, FileText, Loader2, Check, ExternalLink, Sparkles, AlertTriangle, ClipboardList } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -82,6 +82,26 @@ export function ComparisonBlock({ comp, projectId, onChanged }: { comp: Comparis
       else alert((await res.json().catch(() => ({}))).error ?? 'Analysis failed')
     } finally { setAnalyzing(false) }
   }
+
+  // Comparing IS analyzing — as soon as a comparison has quotes, run the AI check
+  // automatically so the user never has to click a separate "Analyze" step.
+  // Runs once per comparison until an analysis exists; adding quotes later or
+  // editing requirements re-enables the manual "Re-analyze" button.
+  const autoRan = useRef(false)
+  useEffect(() => {
+    const readyQuotes = (comp.quotes ?? []).filter(q => q.total_amount != null || (q.data?.line_items?.length ?? 0) > 0)
+    if (
+      !autoRan.current &&
+      !awarding && !analyzing && !uploadingFor &&
+      !comp.analysis &&
+      !comp.awarded_subcontract_id &&
+      readyQuotes.length > 0
+    ) {
+      autoRan.current = true
+      analyze()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [comp.id, comp.quotes, comp.analysis, uploadingFor])
 
   async function uploadOne(file: File) {
     const token = await getToken()
@@ -212,9 +232,9 @@ export function ComparisonBlock({ comp, projectId, onChanged }: { comp: Comparis
             placeholder="What you need (requirements) — e.g. 200A panel, all permits included, finish in 3 weeks…"
             className="w-full rounded-lg border border-line bg-panel px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-accent focus:outline-none resize-none" />
           <div className="flex items-center justify-between mt-2">
-            <span className="text-xs text-faint">AI checks each quote against this and flags what's missing.</span>
-            <Button size="sm" disabled={analyzing || quotes.length === 0 || awarded} onClick={analyze}>
-              {analyzing ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Analyzing…</> : <><Sparkles className="h-3.5 w-3.5" /> Analyze quotes</>}
+            <span className="text-xs text-faint">AI checks each quote against this automatically. Re-run after changing requirements.</span>
+            <Button size="sm" variant={comp.analysis ? 'outline' : 'default'} disabled={analyzing || quotes.length === 0 || awarded} onClick={analyze}>
+              {analyzing ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Analyzing…</> : <><Sparkles className="h-3.5 w-3.5" /> {comp.analysis ? 'Re-analyze' : 'Analyze quotes'}</>}
             </Button>
           </div>
         </div>
