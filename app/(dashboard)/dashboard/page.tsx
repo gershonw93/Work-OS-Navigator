@@ -133,10 +133,13 @@ export default function DashboardPage() {
       ])
 
       // Admin-only overview (403 for other roles → keep the standard layout)
-      if (overviewRes.ok) setOverview(await overviewRes.json())
-      const meta = userRes.data.user?.user_metadata
-      const full = (meta?.full_name as string) || userRes.data.user?.email || ''
-      setFirstName(full.split(/[\s@]/)[0] ?? '')
+      if (overviewRes.ok) {
+        const ov = await overviewRes.json()
+        setOverview(ov)
+        // Prefer the profile's real name; fall back to auth metadata. Never the email.
+        const meta = (userRes.data.user?.user_metadata?.full_name as string) ?? ''
+        setFirstName(ov.first_name || meta.trim().split(/\s+/)[0] || '')
+      }
 
       if (notifRes.ok) {
         const data = await notifRes.json()
@@ -235,21 +238,22 @@ export default function DashboardPage() {
         </div>
       ) : overview ? (
         <>
-          {/* Admin tiles */}
+          {/* Admin tiles — each links to its page */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { label: 'Active Projects', value: v((stats as GcStats | null)?.activeProjects), icon: FolderKanban, cls: 'text-accent-fg' },
-              { label: 'Under Contract', value: money((stats as GcStats | null)?.totalContractValue), icon: DollarSign, cls: 'text-success' },
-              { label: 'Open Tasks', value: v((stats as GcStats | null)?.openTasks), icon: CheckSquare, cls: 'text-info' },
-              { label: 'Due This Week', value: loading ? '—' : String(overview.dueThisWeek), icon: Clock, cls: 'text-warn' },
+              { label: 'Active Projects', value: v((stats as GcStats | null)?.activeProjects), icon: FolderKanban, cls: 'text-accent-fg', href: '/projects' },
+              { label: 'Under Contract', value: money((stats as GcStats | null)?.totalContractValue), icon: DollarSign, cls: 'text-success', href: '/master-money' },
+              { label: 'Open Tasks', value: v((stats as GcStats | null)?.openTasks), icon: CheckSquare, cls: 'text-info', href: '/master-calendar' },
+              { label: 'Due This Week', value: loading ? '—' : String(overview.dueThisWeek), icon: Clock, cls: 'text-warn', href: '/master-calendar' },
             ].map(t => (
-              <div key={t.label} className="rounded-xl border border-line bg-panel px-4 py-4">
+              <Link key={t.label} href={t.href}
+                className="rounded-xl border border-line bg-panel px-4 py-4 transition-colors hover:border-accent hover:bg-surface">
                 <div className="flex items-center gap-2 mb-2">
                   <t.icon className={`h-4 w-4 ${t.cls}`} />
                   <span className={`text-xs font-semibold ${t.cls}`}>{t.label}</span>
                 </div>
                 <p className={`text-2xl font-extrabold ${t.cls}`}>{t.value}</p>
-              </div>
+              </Link>
             ))}
           </div>
 

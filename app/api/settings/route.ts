@@ -135,7 +135,7 @@ export async function GET(request: Request) {
   const { data: company } = profile.company_id
     ? await db
         .from('companies')
-        .select('id, name, type, contact_email, phone, address, license_number, default_payment_terms, delete_protection_enabled, delete_key_hash')
+        .select('id, name, type, contact_email, phone, address, license_number, default_payment_terms, logo_url, delete_protection_enabled, delete_key_hash')
         .eq('id', profile.company_id)
         .single()
     : { data: null }

@@ -330,3 +330,7 @@ ALTER TABLE projects
   ADD COLUMN IF NOT EXISTS sched_start DATE,
   ADD COLUMN IF NOT EXISTS sched_days INTEGER,
   ADD COLUMN IF NOT EXISTS sched_workers INTEGER;
+
+-- ===== 035_company_logo.sql =====
+-- Company logo, shown on generated PDFs (daily logs, invoices, reports).
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS logo_url TEXT;
