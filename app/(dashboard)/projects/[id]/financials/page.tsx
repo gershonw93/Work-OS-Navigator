@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 
 interface FinancialsData {
   budget: number
-  total_contracted: number; revised_contract: number; total_paid: number; total_approved: number
+  total_contracted: number; revised_contract: number; change_orders_on_top: number; total_paid: number; total_approved: number
   total_pending: number; approved_change_orders: number
   subcontracts: any[]; invoices: any[]; change_orders: any[]
   payment_schedule_items: any[]
@@ -275,11 +275,11 @@ export default function FinancialsPage({ params }: { params: { id: string } }) {
               <span className="text-sm text-muted-fg">Total Contracted</span>
               <span className="text-sm font-semibold text-ink-soft">${Number(data.total_contracted).toLocaleString()}</span>
             </div>
-            {data.approved_change_orders > 0 && (
+            {(data.change_orders_on_top ?? 0) !== 0 && (
               <>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-fg">+ Approved Change Orders</span>
-                  <span className="text-sm font-semibold text-special">${Number(data.approved_change_orders).toLocaleString()}</span>
+                  <span className="text-sm text-muted-fg">+ Change Orders (on top)</span>
+                  <span className="text-sm font-semibold text-special">${Number(data.change_orders_on_top).toLocaleString()}</span>
                 </div>
                 <div className="flex items-center justify-between border-t border-line-soft pt-1 mt-1">
                   <span className="text-sm font-semibold text-ink-soft">Revised Contract</span>
