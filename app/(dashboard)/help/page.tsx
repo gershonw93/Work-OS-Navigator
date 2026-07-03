@@ -130,8 +130,11 @@ export default function HelpPage() {
         )}
       </div>
 
-      {/* Search results */}
-      {query.trim() ? (
+      {/* An opened article always wins — even when a search is still active,
+          so clicking a result shows the article (Back returns to results). */}
+      {article ? (
+        <ArticleView article={article} onOpen={open} onBack={() => setOpenSlug(null)} />
+      ) : query.trim() ? (
         results.length > 0 ? (
           <div className="space-y-2">
             {results.map((a) => <ResultRow key={a.slug} article={a} onOpen={open} />)}
@@ -144,8 +147,6 @@ export default function HelpPage() {
             <button onClick={() => setQuery('')} className="mt-4 text-sm font-medium text-accent-fg hover:underline">Browse all topics</button>
           </div>
         )
-      ) : article ? (
-        <ArticleView article={article} onOpen={open} onBack={() => setOpenSlug(null)} />
       ) : (
         // Browse by category
         <div className="space-y-6">
