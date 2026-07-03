@@ -32,6 +32,7 @@ interface ChangeOrder {
   status: string
   requested_by_type: string
   review_notes: string | null
+  applied_to_contract?: boolean
   created_at: string
 }
 
@@ -205,6 +206,11 @@ export default function ChangeOrdersPage({ params }: { params: { id: string } })
               {new Date(co.created_at).toLocaleDateString()}
               {co.subcontract_id && ` · ${getSubName(co.subcontract_id)}`}
             </p>
+            {co.applied_to_contract && co.subcontract_id && (
+              <p className="text-[11px] text-success mt-0.5 inline-flex items-center gap-1">
+                <CheckCircle2 className="h-3 w-3" /> Added to {getSubName(co.subcontract_id)}'s contract
+              </p>
+            )}
           </div>
           {isExpanded
             ? <ChevronUp className="h-4 w-4 text-faint shrink-0" />
@@ -420,6 +426,7 @@ export default function ChangeOrdersPage({ params }: { params: { id: string } })
                         </option>
                       ))}
                     </SearchableSelect>
+                    <p className="text-xs text-faint">Linked & approved adds the amount to that sub's contract.</p>
                   </div>
                 </div>
               </div>

@@ -77,12 +77,17 @@ export async function GET(request: Request, { params }: { params: { id: string }
     .reduce((sum: number, inv: any) => sum + (inv.amount ?? 0), 0)
 
   // Approved change orders: change_orders rows with status='approved'
-  const approved_change_orders = (changeOrders ?? [])
-    .filter((co: any) => co.status === 'approved')
+  const approvedCOs = (changeOrders ?? []).filter((co: any) => co.status === 'approved')
+  const approved_change_orders = approvedCOs.reduce((sum: number, co: any) => sum + Number(co.amount ?? 0), 0)
+
+  // COs folded into a subcontract (applied_to_contract) are already inside
+  // total_contracted — only the rest sit "on top" of the contracted total.
+  const change_orders_on_top = approvedCOs
+    .filter((co: any) => !co.applied_to_contract)
     .reduce((sum: number, co: any) => sum + Number(co.amount ?? 0), 0)
 
-  // Revised contract = original contracted value + approved change orders
-  const revised_contract = total_contracted + approved_change_orders
+  // Revised contract = contracted value (incl. folded COs) + standalone COs
+  const revised_contract = total_contracted + change_orders_on_top
 
   // Budget = sum of budget line items (single source of truth)
   const budget = (budgetLines ?? []).reduce((sum: number, b: any) => sum + Number(b.budgeted_amount ?? 0), 0)
@@ -97,6 +102,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     budget,
     total_contracted,
     revised_contract,
+    change_orders_on_top,
     total_paid,
     total_approved,
     total_pending,
