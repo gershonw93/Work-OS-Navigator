@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, FolderKanban, Building2, CheckSquare,
   Settings, LogOut, ClipboardList, Briefcase, FolderOpen, X, UsersRound, LayoutTemplate,
-  CalendarDays, DollarSign, Wrench,
+  CalendarDays, DollarSign, Wrench, HelpCircle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -150,6 +150,14 @@ export function Sidebar() {
 
       {/* Bottom */}
       <div className="border-t border-line p-3 shrink-0 space-y-1">
+        <Link href="/help"
+          className={cn(
+            'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+            pathname.startsWith('/help') ? 'bg-accent text-accent-ink' : 'text-muted-fg hover:bg-muted hover:text-ink'
+          )}>
+          <HelpCircle className="h-4 w-4 shrink-0" />
+          Help &amp; Support
+        </Link>
         <div className="flex items-center justify-between rounded-lg px-3 py-1.5 text-sm font-medium text-muted-fg">
           <span>Appearance</span>
           <ThemeToggle />

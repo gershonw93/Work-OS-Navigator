@@ -12,6 +12,12 @@ Do NOT ask the user to merge or deploy. Vercel auto-deploys `main`.
   (keep the suffix current as new migrations are added). User pastes it into the
   Supabase SQL editor.
 
+## Help Center (KEEP CURRENT)
+- User-facing support articles live in `lib/help/articles.ts`, shown at `/help`.
+- IMPORTANT: whenever you add or change a feature/flow, update the matching
+  article (or add a new one) in the SAME change so Help never drifts from the app.
+- Search is client-side; keep each article's `keywords` list rich so it's findable.
+
 ## Stack notes
 - Next.js 14 App Router, Supabase (Postgres + Storage), Tailwind.
 - Theme: SyteNav "Field" — semantic CSS-var tokens (surface/panel/ink/accent…),
