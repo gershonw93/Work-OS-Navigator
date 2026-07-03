@@ -7,7 +7,8 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
 interface FinancialsData {
-  total_contracted: number; total_paid: number; total_approved: number
+  budget: number
+  total_contracted: number; revised_contract: number; total_paid: number; total_approved: number
   total_pending: number; approved_change_orders: number
   subcontracts: any[]; invoices: any[]; change_orders: any[]
   payment_schedule_items: any[]
@@ -65,18 +66,21 @@ export default function FinancialsPage({ params }: { params: { id: string } }) {
   if (loading) return <div className="p-4 sm:p-6 text-sm text-faint py-12 text-center">Loading...</div>
   if (!data) return <div className="p-4 sm:p-6 text-sm text-danger">Failed to load financials.</div>
 
+  // Revised contract = subcontracts + approved change orders. All progress is
+  // measured against it so approved COs immediately widen the "whole".
+  const revised = data.revised_contract ?? data.total_contracted
   const totalOutstanding = data.total_approved + data.total_pending
-  const remaining = data.total_contracted - data.total_paid - data.total_approved - data.total_pending
-  const paidPct = data.total_contracted > 0 ? (data.total_paid / data.total_contracted) * 100 : 0
-  const approvedPct = data.total_contracted > 0 ? (data.total_approved / data.total_contracted) * 100 : 0
-  const pendingPct = data.total_contracted > 0 ? (data.total_pending / data.total_contracted) * 100 : 0
+  const remaining = revised - data.total_paid - data.total_approved - data.total_pending
+  const paidPct = revised > 0 ? (data.total_paid / revised) * 100 : 0
+  const approvedPct = revised > 0 ? (data.total_approved / revised) * 100 : 0
+  const pendingPct = revised > 0 ? (data.total_pending / revised) * 100 : 0
 
   // Track which payment_schedule_item_ids already have invoices
   const invoicedItemIds = new Set((data.invoices ?? []).map((i: any) => i.payment_schedule_item_id).filter(Boolean))
 
   const statCards = [
     { label: 'Total Contracted', value: data.total_contracted, color: 'text-ink', bg: 'bg-panel', icon: DollarSign, desc: 'Sum of all subcontracts' },
-    { label: 'Approved Change Orders', value: data.approved_change_orders, color: 'text-special', bg: 'bg-special-tint', icon: TrendingUp, desc: 'Approved RFI change orders' },
+    { label: 'Approved Change Orders', value: data.approved_change_orders, color: 'text-special', bg: 'bg-special-tint', icon: TrendingUp, desc: 'Approved on the Change Orders tab' },
     { label: 'Total Paid', value: data.total_paid, color: 'text-success', bg: 'bg-success-tint', icon: CheckCircle2, desc: 'Invoices marked as paid' },
     { label: 'Outstanding', value: totalOutstanding, color: 'text-warn', bg: 'bg-warn-tint', icon: Clock, desc: 'Approved + pending invoices' },
   ]
@@ -266,36 +270,49 @@ export default function FinancialsPage({ params }: { params: { id: string } }) {
               )
             })}
           </div>
-          <div className="px-5 py-3 border-t border-line-soft flex items-center justify-between bg-surface">
-            <span className="text-sm font-semibold text-ink-soft">Total Contracted</span>
-            <span className="text-base font-bold text-ink">${Number(data.total_contracted).toLocaleString()}</span>
+          <div className="px-5 py-3 border-t border-line-soft bg-surface space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-fg">Total Contracted</span>
+              <span className="text-sm font-semibold text-ink-soft">${Number(data.total_contracted).toLocaleString()}</span>
+            </div>
+            {data.approved_change_orders > 0 && (
+              <>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-fg">+ Approved Change Orders</span>
+                  <span className="text-sm font-semibold text-special">${Number(data.approved_change_orders).toLocaleString()}</span>
+                </div>
+                <div className="flex items-center justify-between border-t border-line-soft pt-1 mt-1">
+                  <span className="text-sm font-semibold text-ink-soft">Revised Contract</span>
+                  <span className="text-base font-bold text-ink">${Number(revised).toLocaleString()}</span>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
 
-      {/* Change Orders */}
+      {/* Change Orders (from the Change Orders tab) */}
       {data.change_orders.length > 0 && (
         <div className="bg-panel rounded-xl border border-line overflow-hidden">
           <div className="px-5 py-3.5 border-b border-line-soft flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-ink-soft">Change Orders (from RFIs)</h2>
+            <h2 className="text-sm font-semibold text-ink-soft">Change Orders</h2>
             <span className="text-sm font-bold text-special">${Number(data.approved_change_orders).toLocaleString()} approved</span>
           </div>
           <div className="divide-y divide-line-soft">
             {data.change_orders.map((co: any) => (
               <div key={co.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 sm:px-5 py-3 text-sm">
-                <span className="font-mono text-xs text-faint">RFI-{String(co.rfi_number).padStart(3, '0')}</span>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-ink-soft truncate">{co.subject}</p>
-                  <p className="text-xs text-faint truncate">{co.company_name}</p>
+                  <p className="font-medium text-ink-soft truncate">{co.title}</p>
+                  {co.reason && <p className="text-xs text-faint truncate">{co.reason}</p>}
                 </div>
                 <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5',
-                  co.change_order_status === 'approved' ? 'bg-success-tint border-success/30 text-success' :
-                  co.change_order_status === 'denied' ? 'bg-danger-tint border-danger/30 text-danger' :
+                  co.status === 'approved' ? 'bg-success-tint border-success/30 text-success' :
+                  co.status === 'rejected' ? 'bg-danger-tint border-danger/30 text-danger' :
                   'bg-warn-tint border-warn/30 text-warn')}>
-                  {co.change_order_status ?? co.status}
+                  {co.status}
                 </span>
-                {co.change_order_amount && (
-                  <span className="font-bold text-special">${Number(co.change_order_amount).toLocaleString()}</span>
+                {co.amount != null && Number(co.amount) !== 0 && (
+                  <span className={cn('font-bold', co.status === 'approved' ? 'text-special' : 'text-muted-fg')}>${Number(co.amount).toLocaleString()}</span>
                 )}
               </div>
             ))}
