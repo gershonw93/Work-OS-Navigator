@@ -19,8 +19,9 @@ export async function GET(request: Request, { params }: { params: { id: string }
     { data: subcontracts },
     { data: invoices },
     { data: changeOrders },
+    { data: budgetLines },
   ] = await Promise.all([
-    db.from('projects').select('id, name, budget').eq('id', params.id).single(),
+    db.from('projects').select('id, name').eq('id', params.id).single(),
     db
       .from('subcontracts')
       .select('*, companies(id, name)')
@@ -31,12 +32,18 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .select('*')
       .eq('project_id', params.id)
       .order('created_at', { ascending: false }),
+    // Change orders now come from the Change Orders tab (change_orders table),
+    // not from RFIs — so approving one there flows straight into the numbers here.
     db
-      .from('rfis')
+      .from('change_orders')
       .select('*')
       .eq('project_id', params.id)
-      .eq('is_change_order', true)
       .order('created_at', { ascending: false }),
+    // Budget is the single source of truth: the sum of the Budget tab's line items.
+    db
+      .from('budget_line_items')
+      .select('budgeted_amount')
+      .eq('project_id', params.id),
   ])
 
   // Fetch payment schedule items via subcontract ids
@@ -69,12 +76,16 @@ export async function GET(request: Request, { params }: { params: { id: string }
     .filter((inv: any) => inv.status === 'pending_approval')
     .reduce((sum: number, inv: any) => sum + (inv.amount ?? 0), 0)
 
-  // Approved change orders: rfis with is_change_order=true and status='answered'
-  const answeredChangeOrders = (changeOrders ?? []).filter((rfi: any) => rfi.status === 'answered')
-  const approved_change_orders = answeredChangeOrders.reduce(
-    (sum: number, rfi: any) => sum + (rfi.change_order_amount ?? 0),
-    0,
-  )
+  // Approved change orders: change_orders rows with status='approved'
+  const approved_change_orders = (changeOrders ?? [])
+    .filter((co: any) => co.status === 'approved')
+    .reduce((sum: number, co: any) => sum + Number(co.amount ?? 0), 0)
+
+  // Revised contract = original contracted value + approved change orders
+  const revised_contract = total_contracted + approved_change_orders
+
+  // Budget = sum of budget line items (single source of truth)
+  const budget = (budgetLines ?? []).reduce((sum: number, b: any) => sum + Number(b.budgeted_amount ?? 0), 0)
 
   // Reshape subcontracts for response
   const subcontractsOut = (subcontracts ?? []).map((s: any) => ({
@@ -83,8 +94,9 @@ export async function GET(request: Request, { params }: { params: { id: string }
   }))
 
   return NextResponse.json({
-    budget: (project as any)?.budget ?? null,
+    budget,
     total_contracted,
+    revised_contract,
     total_paid,
     total_approved,
     total_pending,

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
-import { Plus, X, Receipt, CheckCircle2, Clock, Send, DollarSign, ChevronDown, ChevronUp, Printer, Upload, AlertTriangle, Pencil, Trash2 } from 'lucide-react'
+import { Plus, X, Receipt, CheckCircle2, Clock, Send, DollarSign, ChevronDown, ChevronUp, Printer, Upload, AlertTriangle, Pencil, Trash2, FileText } from 'lucide-react'
 import Link from 'next/link'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 
@@ -28,6 +28,7 @@ interface Invoice {
   due_date: string | null; created_at: string; subcontract_id: string | null
   payment_schedule_item_id: string | null; subcontracts?: { trade: string; contract_amount: number }
   lien_waiver_url: string | null; lien_waiver_type: string | null; lien_waiver_uploaded_at: string | null
+  document_url?: string | null; document_name?: string | null
 }
 
 export default function InvoicesPage({ params }: { params: { id: string } }) {
@@ -51,6 +52,8 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
   const [editSaving, setEditSaving] = useState(false)
   const conditionalInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const unconditionalInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+  const invoiceDocRefs = useRef<Record<string, HTMLInputElement | null>>({})
+  const [uploadingDoc, setUploadingDoc] = useState<string | null>(null)
 
   // Form
   const [subId, setSubId] = useState('')
@@ -194,6 +197,18 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
     }, { label: 'this invoice', protected: true })
   }
 
+  async function handleInvoiceDocUpload(invoice: Invoice, file: File) {
+    setUploadingDoc(invoice.id)
+    const token = await getToken()
+    const fd = new FormData()
+    fd.append('file', file)
+    await fetch(`/api/projects/${params.id}/invoices/${invoice.id}/document`, {
+      method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd,
+    })
+    setUploadingDoc(null)
+    fetchData()
+  }
+
   async function handleLienWaiverUpload(invoice: Invoice, waiverType: 'conditional' | 'unconditional', file: File) {
     setUploadingWaiver(invoice.id)
     const token = await getToken()
@@ -251,6 +266,24 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
               {invoice.sent_at && <div><p className="text-xs text-faint">Sent</p><p className="font-medium text-ink-soft">{new Date(invoice.sent_at).toLocaleDateString()}</p></div>}
             </div>
             {invoice.description && <p className="text-sm text-muted-fg break-words">{invoice.description}</p>}
+
+            {/* Vendor's invoice file — the sub has no account, so the GC attaches it here */}
+            <div className="rounded-lg border border-line bg-surface px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold text-muted-fg uppercase tracking-wide">Vendor Invoice File</p>
+                {invoice.document_url
+                  ? <a href={invoice.document_url} target="_blank" rel="noopener noreferrer" className="text-sm text-accent-fg hover:underline inline-flex items-center gap-1 mt-1"><FileText className="h-3.5 w-3.5" /> {invoice.document_name || 'View file'}</a>
+                  : <p className="text-xs text-faint mt-1">No file attached. Upload the invoice the sub emailed or handed you.</p>}
+              </div>
+              <input type="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" className="hidden"
+                ref={el => { invoiceDocRefs.current[invoice.id] = el }}
+                onChange={e => { const f = e.target.files?.[0]; if (f) handleInvoiceDocUpload(invoice, f); e.target.value = '' }} />
+              <button type="button" disabled={uploadingDoc === invoice.id} onClick={() => invoiceDocRefs.current[invoice.id]?.click()}
+                className="flex items-center gap-2 rounded-md border border-muted2 bg-panel px-3 py-2 text-sm font-medium text-ink-soft hover:bg-surface hover:border-accent transition-colors disabled:opacity-50">
+                <Upload className="h-4 w-4 text-faint" />
+                {uploadingDoc === invoice.id ? 'Uploading…' : invoice.document_url ? 'Replace' : 'Upload invoice'}
+              </button>
+            </div>
 
             {/* Lien Waiver Section */}
             <div className="rounded-lg border border-line bg-surface px-4 py-3 space-y-3">

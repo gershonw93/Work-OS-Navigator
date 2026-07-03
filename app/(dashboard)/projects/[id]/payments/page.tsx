@@ -73,6 +73,17 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
     setEditingId(null); load()
   }
 
+  // One-click "entered in QuickBooks" toggle straight from the ledger row —
+  // no need to open the edit form just to check it off another day.
+  async function toggleQb(p: Payment) {
+    setPayments(prev => prev.map(x => x.id === p.id ? { ...x, qb_entered: !x.qb_entered } : x))  // optimistic
+    const t = await token()
+    await fetch(`/api/projects/${params.id}/payments/${p.id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+      body: JSON.stringify({ qb_entered: !p.qb_entered }),
+    })
+  }
+
   function remove(p: Payment) {
     guardDelete(async () => {
       const t = await token()
@@ -125,6 +136,34 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
         )})}
       </div>
 
+      {/* Pay-vendors recommendation */}
+      {s && s.outstandingToVendors > 0 && (
+        s.escrowBalance >= s.outstandingToVendors ? (
+          <div className="rounded-xl border border-success/30 bg-success-tint px-4 py-3 flex flex-wrap items-center gap-3">
+            <Banknote className="h-5 w-5 text-success shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-ink">You have enough to pay your vendors.</p>
+              <p className="text-sm text-muted-fg">
+                {money(s.escrowBalance)} in escrow covers the {money(s.outstandingToVendors)} still owed. Go ahead and release payment.
+              </p>
+            </div>
+            <a href={`/projects/${params.id}/invoices`} className="shrink-0 rounded-lg bg-success-solid text-white text-sm font-semibold px-3.5 py-2 hover:opacity-90">
+              Pay vendors →
+            </a>
+          </div>
+        ) : (
+          <div className="rounded-xl border border-warn/30 bg-warn-tint px-4 py-3 flex flex-wrap items-center gap-3">
+            <TrendingDown className="h-5 w-5 text-warn shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-ink">Hold off — not enough in escrow yet.</p>
+              <p className="text-sm text-muted-fg">
+                {money(s.outstandingToVendors)} is owed to vendors but only {money(Math.max(s.escrowBalance, 0))} is available. You're short {money(s.outstandingToVendors - s.escrowBalance)} — collect from the client first.
+              </p>
+            </div>
+          </div>
+        )
+      )}
+
       {/* Secondary stats + fee setting */}
       <div className="bg-panel rounded-xl border border-line p-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
         <Stat label="Paid from escrow" value={money(s?.escrowPaid ?? 0)} />
@@ -159,10 +198,14 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
         <p className="text-xs text-faint mt-2">Projected cost = Budget × (1 + {(feePct * 100).toFixed(feePct * 100 % 1 ? 1 : 0)}% fee). Set budget lines on the Budget tab.</p>
       </div>
 
-      {/* Add form */}
+      {/* Add form — modal so it's front-and-center, not buried at the bottom */}
       {adding && (
-        <div className="bg-panel rounded-xl border border-accent/40 p-4 sm:p-5 space-y-3">
-          <p className="text-sm font-semibold text-ink-soft">Record a client payment</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !saving && setAdding(false)}>
+        <div className="bg-panel rounded-xl border border-accent/40 shadow-xl w-full max-w-lg p-4 sm:p-5 space-y-3" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-ink-soft">Record a client payment</p>
+            <button onClick={() => { setAdding(false); setForm({ ...blank }) }} className="text-faint hover:text-ink"><X className="h-4 w-4" /></button>
+          </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="space-y-1"><Label>Date</Label><Input type="date" value={form.paid_date} onChange={e => setForm({ ...form, paid_date: e.target.value })} /></div>
             <div className="space-y-1"><Label>Amount</Label><Input type="number" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} placeholder="0" /></div>
@@ -181,6 +224,7 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
               <Button onClick={addPayment} disabled={saving || !form.amount}>{saving ? 'Saving…' : 'Add'}</Button>
             </div>
           </div>
+        </div>
         </div>
       )}
 
@@ -212,7 +256,11 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
                 <span className="text-sm text-ink-soft truncate">{p.memo || '—'}{p.retainer && <span className="ml-2 text-[10px] rounded-full bg-info-tint text-info px-1.5 py-0.5">retainer</span>}</span>
                 <span className="text-sm text-muted-fg">{p.method || '—'}</span>
                 <span className="text-sm font-semibold text-success md:text-right block">{money(p.amount)}</span>
-                <span className="text-xs">{p.qb_entered ? <span className="text-success">✓ QB</span> : <span className="text-faint">—</span>}</span>
+                <button onClick={() => toggleQb(p)} title="Toggle QuickBooks entered"
+                  className={cn('text-xs inline-flex items-center gap-1 rounded-full border px-2 py-0.5 transition-colors',
+                    p.qb_entered ? 'border-success/40 bg-success-tint text-success' : 'border-line text-faint hover:border-muted2 hover:text-muted-fg')}>
+                  {p.qb_entered ? <><Check className="h-3 w-3" /> QB</> : 'QB?'}
+                </button>
                 <div className="flex justify-end gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                   <button onClick={() => { setEditingId(p.id); setEditForm({ paid_date: p.paid_date ?? '', amount: String(p.amount), method: p.method ?? 'Check', memo: p.memo ?? '', retainer: p.retainer, qb_entered: p.qb_entered }) }} className="p-1.5 rounded-lg text-faint hover:bg-muted"><Pencil className="h-3.5 w-3.5" /></button>
                   <button onClick={() => remove(p)} className="p-1.5 rounded-lg text-faint hover:bg-danger-tint hover:text-danger"><Trash2 className="h-3.5 w-3.5" /></button>
