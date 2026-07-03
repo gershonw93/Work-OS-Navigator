@@ -38,9 +38,13 @@ export const HELP_CATEGORIES: HelpCategory[] = [
   { key: 'projects', label: 'Projects', description: 'Create and manage jobs.' },
   { key: 'quotes', label: 'Quotes & Bidding', description: 'Request, compare, and award quotes.' },
   { key: 'money', label: 'Money', description: 'Budget, invoices, payments, and change orders.' },
+  { key: 'people', label: 'People & Communication', description: 'Team, RFIs, and approvals.' },
+  { key: 'docs', label: 'Permits, Inspections & Submittals', description: 'Keep paperwork and reviews on track.' },
   { key: 'compliance', label: 'Compliance', description: 'Insurance, licenses, and required documents.' },
-  { key: 'field', label: 'Field & Daily Logs', description: 'Track what happens on the jobsite.' },
+  { key: 'field', label: 'Field & Daily Logs', description: 'Schedule, tasks, time clock, and site logs.' },
   { key: 'equipment', label: 'Equipment', description: 'Track tools and machines.' },
+  { key: 'workspace', label: 'Directory, Customers & Files', description: 'Contacts, clients, and documents.' },
+  { key: 'cross-project', label: 'Cross-Project (Admin)', description: 'See every job at once.' },
   { key: 'settings', label: 'Settings & Team', description: 'Company profile, users, and permissions.' },
 ]
 
@@ -543,6 +547,242 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: 'warn', text: 'Keep the key somewhere safe — anyone who deletes protected data will need it.' },
     ],
     related: ['permissions'],
+  },
+
+  // ── Field: Schedule / Tasks / Time ─────────────────────────────────────────
+  {
+    slug: 'schedule-milestones',
+    title: 'Build a project schedule',
+    category: 'field',
+    keywords: ['schedule', 'milestone', 'timeline', 'dates', 'gantt', 'plan'],
+    summary: 'Lay out milestones and see when each phase happens.',
+    blocks: [
+      { type: 'text', text: 'The Schedule tab auto-populates from awarded bids, and you can add milestones by hand.' },
+      { type: 'steps', items: [
+        'Open the project and go to the Schedule tab.',
+        'Click Add Milestone.',
+        'Give it a name, start/end dates, and (optionally) tie it to a subcontractor.',
+        'Save — it appears on the timeline alongside the auto-generated items.',
+      ] },
+      { type: 'tip', text: 'Awarding a quote adds that sub\'s work to the schedule automatically, so the plan fills in as you hire.' },
+    ],
+    related: ['award-quote', 'master-calendar', 'tasks-assign'],
+  },
+  {
+    slug: 'tasks-assign',
+    title: 'Create and assign tasks',
+    category: 'field',
+    keywords: ['task', 'todo', 'assign', 'crew', 'due date', 'priority', 'punch list'],
+    summary: 'Assign work to your crew or subs and track it to done.',
+    blocks: [
+      { type: 'steps', items: [
+        'Open the project and go to the Tasks tab.',
+        'Click New Task.',
+        'Add a title and description, set a priority and due date, and assign it to a person.',
+        'Attach a photo if it helps, then save.',
+        'Move tasks along as they progress and add notes as you go.',
+      ] },
+      { type: 'tip', text: 'You can create a task straight from a budget/progress line and the two stay linked both ways.' },
+    ],
+    related: ['schedule-milestones', 'master-calendar'],
+  },
+  {
+    slug: 'time-clock',
+    title: 'Clock in and out (Time Clock)',
+    category: 'field',
+    keywords: ['time', 'clock', 'punch', 'hours', 'gps', 'selfie', 'timesheet', 'attendance'],
+    summary: 'Punch in/out with a timestamp, GPS check, and a selfie.',
+    blocks: [
+      { type: 'steps', items: [
+        'Open the project and go to the Time Clock tab.',
+        'Punch in — it records the time, a GPS location check, and a selfie.',
+        'Punch out at the end of the shift the same way.',
+      ] },
+      { type: 'text', text: 'Managers review timesheets and approve or reject entries, then export hours.' },
+    ],
+    related: ['time-approve'],
+  },
+  {
+    slug: 'time-approve',
+    title: 'Approve timesheets and export hours',
+    category: 'field',
+    keywords: ['timesheet', 'approve', 'reject', 'export', 'payroll', 'hours'],
+    summary: 'Review crew time, approve it, and export for payroll.',
+    blocks: [
+      { type: 'steps', items: [
+        'On the Time Clock tab, review each entry.',
+        'Approve or Reject entries as needed.',
+        'Export the approved hours for payroll.',
+      ] },
+    ],
+    related: ['time-clock'],
+  },
+
+  // ── People: RFIs & Approvals ───────────────────────────────────────────────
+  {
+    slug: 'rfis',
+    title: 'Submit and answer RFIs',
+    category: 'people',
+    keywords: ['rfi', 'request for information', 'question', 'answer', 'respond'],
+    summary: 'Ask and answer formal questions on a project.',
+    blocks: [
+      { type: 'steps', items: [
+        'Open the project and go to the RFIs tab.',
+        'Create an RFI with your question and any supporting detail.',
+        'When a response comes in, review it and mark it answered.',
+      ] },
+      { type: 'tip', text: 'RFIs keep a clear record of who asked what and when it was resolved.' },
+    ],
+    related: ['approvals-inbox'],
+  },
+  {
+    slug: 'approvals-inbox',
+    title: 'Use the Approvals inbox',
+    category: 'people',
+    keywords: ['approvals', 'approve', 'reject', 'pending', 'review', 'inbox'],
+    summary: 'One place to approve or reject everything waiting on you.',
+    blocks: [
+      { type: 'text', text: 'The Approvals screen (in the sidebar) gathers items across your projects that need a decision — invoices, submittals, time entries, and more.' },
+      { type: 'steps', items: [
+        'Click Approvals in the sidebar.',
+        'Review each pending item.',
+        'Approve or Reject it right from the list.',
+      ] },
+    ],
+    related: ['approve-invoice', 'time-approve'],
+  },
+
+  // ── Docs: Permits / Inspections / Submittals ───────────────────────────────
+  {
+    slug: 'permits',
+    title: 'Track permits',
+    category: 'docs',
+    keywords: ['permit', 'building', 'number', 'status', 'jurisdiction', 'add'],
+    summary: 'Log permits and keep their status and documents in one place.',
+    blocks: [
+      { type: 'steps', items: [
+        'Open the project and go to the Permits tab.',
+        'Click Add Permit.',
+        'Enter the permit number, type, status, and any contact.',
+        'Attach the permit document if you have it, then save.',
+      ] },
+    ],
+    related: ['inspections', 'submittals'],
+  },
+  {
+    slug: 'inspections',
+    title: 'Schedule and record inspections',
+    category: 'docs',
+    keywords: ['inspection', 'inspector', 'pass', 'fail', 'schedule', 'result'],
+    summary: 'Keep a record of inspections and their outcomes.',
+    blocks: [
+      { type: 'steps', items: [
+        'Open the project and go to the Inspections tab.',
+        'Add an inspection with its type and date.',
+        'Record the result and attach any report when it\'s done.',
+      ] },
+    ],
+    related: ['permits'],
+  },
+  {
+    slug: 'submittals',
+    title: 'Manage submittals',
+    category: 'docs',
+    keywords: ['submittal', 'shop drawing', 'review', 'approve', 'reject', 'spec'],
+    summary: 'Route submittals for review and track approvals.',
+    blocks: [
+      { type: 'steps', items: [
+        'Open the project and go to the Submittals tab.',
+        'Click Add Submittal and upload the document.',
+        'Route it for review; reviewers add notes and approve or reject.',
+      ] },
+      { type: 'tip', text: 'Add review notes for the submitter so revisions are clear.' },
+    ],
+    related: ['permits', 'inspections'],
+  },
+
+  // ── Workspace: Directory / Customers / Files ───────────────────────────────
+  {
+    slug: 'directory',
+    title: 'Add contacts to your Directory',
+    category: 'workspace',
+    keywords: ['directory', 'contact', 'sub', 'vendor', 'supplier', 'add', 'company'],
+    summary: 'Keep your subs, suppliers, and contacts in one address book.',
+    blocks: [
+      { type: 'steps', items: [
+        'Click Directory in the sidebar.',
+        'Click Add Contact.',
+        'Enter the company/person, trade, email, and phone.',
+        'Save — they\'re now available to invite to bids and add to projects.',
+      ] },
+      { type: 'tip', text: 'Awarding a quote adds the winning vendor to your Directory automatically.' },
+    ],
+    related: ['request-quotes', 'award-quote'],
+  },
+  {
+    slug: 'customers',
+    title: 'Manage customers and their jobs',
+    category: 'workspace',
+    keywords: ['customer', 'client', 'owner', 'add', 'projects'],
+    summary: 'Group a client\'s projects and keep their details together.',
+    blocks: [
+      { type: 'steps', items: [
+        'Click Customers in the sidebar.',
+        'Add a customer with their contact and billing details.',
+        'Create projects for them, or link existing ones, so all their jobs are grouped.',
+      ] },
+    ],
+    related: ['create-first-project'],
+  },
+  {
+    slug: 'files',
+    title: 'Store and share files',
+    category: 'workspace',
+    keywords: ['files', 'documents', 'upload', 'storage', 'share', 'packet'],
+    summary: 'Keep project documents organized and easy to find.',
+    blocks: [
+      { type: 'steps', items: [
+        'Click Files in the sidebar.',
+        'Upload documents and organize them.',
+        'Open a file to view or share it.',
+      ] },
+    ],
+    related: ['daily-log-pdf'],
+  },
+
+  // ── Cross-project (admin) ──────────────────────────────────────────────────
+  {
+    slug: 'master-calendar',
+    title: 'See every job on the Master Calendar',
+    category: 'cross-project',
+    keywords: ['master calendar', 'all projects', 'schedule', 'due dates', 'overview', 'admin'],
+    summary: 'All projects\' schedules and task due dates in one view.',
+    blocks: [
+      { type: 'text', text: 'Master Calendar (admin only) shows every project\'s schedule and task due dates together.' },
+      { type: 'steps', items: [
+        'Click Master Calendar in the sidebar (under Master).',
+        'Scan across all projects at once.',
+        'Click any item to jump straight to its project.',
+      ] },
+    ],
+    related: ['schedule-milestones', 'master-money'],
+  },
+  {
+    slug: 'master-money',
+    title: 'Company money across all jobs (Master Money)',
+    category: 'cross-project',
+    keywords: ['master money', 'all projects', 'budgeted', 'committed', 'billed', 'paid', 'escrow', 'admin', 'rollup'],
+    summary: 'Every project\'s budget, commitments, billing, and escrow in one table.',
+    blocks: [
+      { type: 'text', text: 'Master Money (admin only) rolls up the numbers from every project you run.' },
+      { type: 'steps', items: [
+        'Click Master Money in the sidebar (under Master).',
+        'See per-project Budgeted, Committed, Billed, Paid, Received, and Escrow, plus totals.',
+        'Click a row to open that project\'s Payments page.',
+      ] },
+      { type: 'tip', text: 'A negative escrow shows in red — a fast flag that a job has paid out more than it has collected.' },
+    ],
+    related: ['money-overview', 'record-client-payment'],
   },
 ]
 
