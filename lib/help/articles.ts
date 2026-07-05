@@ -43,6 +43,7 @@ export const HELP_CATEGORIES: HelpCategory[] = [
   { key: 'compliance', label: 'Compliance', description: 'Insurance, licenses, and required documents.' },
   { key: 'field', label: 'Field & Daily Logs', description: 'Schedule, tasks, time clock, and site logs.' },
   { key: 'equipment', label: 'Equipment', description: 'Track tools and machines.' },
+  { key: 'materials', label: 'Materials', description: 'Snap receipts and assign them to jobs.' },
   { key: 'workspace', label: 'Directory, Customers & Files', description: 'Contacts, clients, and documents.' },
   { key: 'cross-project', label: 'Cross-Project (Admin)', description: 'See every job at once.' },
   { key: 'settings', label: 'Settings & Team', description: 'Company profile, users, and permissions.' },
@@ -783,6 +784,27 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: 'tip', text: 'A negative escrow shows in red — a fast flag that a job has paid out more than it has collected.' },
     ],
     related: ['money-overview', 'record-client-payment'],
+  },
+
+  // ── Materials ──────────────────────────────────────────────────────────────
+  {
+    slug: 'materials-receipt',
+    title: 'Snap a material receipt and assign it to a job',
+    category: 'materials',
+    keywords: ['material', 'receipt', 'photo', 'store', 'buy', 'purchase', 'supplier', 'cost', 'expense', 'lumber', 'wire'],
+    summary: 'Take a photo of a receipt — AI reads the store and total, and it goes into the job\'s costs.',
+    blocks: [
+      { type: 'text', text: 'When someone buys materials (wire, lumber, lights, hardware), capture the receipt so the cost lands on the right job.' },
+      { type: 'steps', items: [
+        'Click Materials in the sidebar.',
+        'Click Add receipt, then Take photo (or Upload file).',
+        'The AI reads the store, date, total, tax, and line items — review and fix anything.',
+        'Choose which job it\'s for, pick a category, and (optionally) keep "Save the store to my Directory" checked so the store is added as a supplier.',
+        'Click Save receipt.',
+      ] },
+      { type: 'tip', text: 'The total flows into that project\'s costs — you\'ll see a Materials section with the total on the project\'s Financials tab.' },
+    ],
+    related: ['money-overview', 'add-project-budget'],
   },
 ]
 

@@ -2,14 +2,16 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { DollarSign, TrendingUp, Clock, CheckCircle2, ChevronDown, ChevronUp, Zap, Receipt, FileText } from 'lucide-react'
+import { DollarSign, TrendingUp, Clock, CheckCircle2, ChevronDown, ChevronUp, Zap, Receipt, FileText, ShoppingCart } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import Link from 'next/link'
 
 interface FinancialsData {
   budget: number
   total_contracted: number; revised_contract: number; change_orders_on_top: number; total_paid: number; total_approved: number
   total_pending: number; approved_change_orders: number
+  materials_total: number; materials: any[]
   subcontracts: any[]; invoices: any[]; change_orders: any[]
   payment_schedule_items: any[]
 }
@@ -320,7 +322,32 @@ export default function FinancialsPage({ params }: { params: { id: string } }) {
         </div>
       )}
 
-      {data.subcontracts.length === 0 && data.invoices.length === 0 && (
+      {/* Materials */}
+      {(data.materials?.length ?? 0) > 0 && (
+        <div className="bg-panel rounded-xl border border-line overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-line-soft flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-ink-soft inline-flex items-center gap-1.5"><ShoppingCart className="h-4 w-4 text-muted-fg" /> Materials</h2>
+            <span className="text-sm font-bold text-ink">${Number(data.materials_total).toLocaleString()} spent</span>
+          </div>
+          <div className="divide-y divide-line-soft">
+            {data.materials.map((m: any) => (
+              <div key={m.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 sm:px-5 py-3 text-sm">
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-ink-soft truncate">{m.store_name || 'Material purchase'}</p>
+                  <p className="text-xs text-faint truncate">{[m.category, m.purchase_date && new Date(m.purchase_date + 'T00:00:00').toLocaleDateString()].filter(Boolean).join(' · ')}</p>
+                </div>
+                {m.receipt_url && <a href={m.receipt_url} target="_blank" rel="noreferrer" className="text-xs text-accent-fg hover:underline">Receipt</a>}
+                <span className="font-bold text-ink">${Number(m.amount).toLocaleString()}</span>
+              </div>
+            ))}
+          </div>
+          <div className="px-5 py-2.5 border-t border-line-soft bg-surface text-right">
+            <Link href="/materials" className="text-xs font-medium text-accent-fg hover:underline">Manage materials →</Link>
+          </div>
+        </div>
+      )}
+
+      {data.subcontracts.length === 0 && data.invoices.length === 0 && (data.materials?.length ?? 0) === 0 && (
         <div className="rounded-xl border-2 border-dashed border-line py-16 text-center">
           <DollarSign className="h-8 w-8 text-faint mx-auto mb-3" />
           <p className="text-sm font-medium text-muted-fg">No financial data yet</p>

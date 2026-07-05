@@ -20,6 +20,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     { data: invoices },
     { data: changeOrders },
     { data: budgetLines },
+    { data: materials },
   ] = await Promise.all([
     db.from('projects').select('id, name').eq('id', params.id).single(),
     db
@@ -44,6 +45,12 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .from('budget_line_items')
       .select('budgeted_amount')
       .eq('project_id', params.id),
+    // Material purchases (receipts) assigned to this job.
+    db
+      .from('material_purchases')
+      .select('id, store_name, amount, category, purchase_date, receipt_url')
+      .eq('project_id', params.id)
+      .order('purchase_date', { ascending: false, nullsFirst: false }),
   ])
 
   // Fetch payment schedule items via subcontract ids
@@ -92,6 +99,9 @@ export async function GET(request: Request, { params }: { params: { id: string }
   // Budget = sum of budget line items (single source of truth)
   const budget = (budgetLines ?? []).reduce((sum: number, b: any) => sum + Number(b.budgeted_amount ?? 0), 0)
 
+  // Materials purchased for this job
+  const materials_total = (materials ?? []).reduce((sum: number, m: any) => sum + Number(m.amount ?? 0), 0)
+
   // Reshape subcontracts for response
   const subcontractsOut = (subcontracts ?? []).map((s: any) => ({
     ...s,
@@ -107,6 +117,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
     total_approved,
     total_pending,
     approved_change_orders,
+    materials_total,
+    materials: materials ?? [],
     subcontracts: subcontractsOut,
     invoices: invoiceList,
     payment_schedule_items: paymentScheduleItems,
