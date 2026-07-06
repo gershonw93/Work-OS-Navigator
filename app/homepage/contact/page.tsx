@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { Mail, MapPin, MessageSquare, Rocket, ArrowRight } from 'lucide-react'
 import { marketingMeta } from '@/components/marketing/meta'
 import { Eyebrow } from '@/components/marketing/section'
+import { ContactForm } from '@/components/marketing/contact-form'
 
 export const metadata: Metadata = marketingMeta({
   title: 'Contact · SyteNav',
@@ -70,29 +71,7 @@ export default function ContactPage() {
           </div>
         </div>
 
-        {/* Simple mailto-based form (no backend wired) */}
-        <form action="mailto:hello@sytenav.com" method="post" encType="text/plain" className="rounded-3xl border border-line bg-panel p-6 sm:p-8 space-y-5 self-start">
-          <div className="space-y-1.5">
-            <label htmlFor="contact-name" className="text-sm font-medium text-ink-soft">Name</label>
-            <input id="contact-name" name="name" required autoComplete="name" className="w-full rounded-lg border border-line bg-surface px-3.5 py-2.5 text-sm text-ink focus:border-accent focus:outline-none" />
-          </div>
-          <div className="space-y-1.5">
-            <label htmlFor="contact-email" className="text-sm font-medium text-ink-soft">Email</label>
-            <input id="contact-email" name="email" type="email" required autoComplete="email" className="w-full rounded-lg border border-line bg-surface px-3.5 py-2.5 text-sm text-ink focus:border-accent focus:outline-none" />
-          </div>
-          <div className="space-y-1.5">
-            <label htmlFor="contact-company" className="text-sm font-medium text-ink-soft">Company</label>
-            <input id="contact-company" name="company" autoComplete="organization" className="w-full rounded-lg border border-line bg-surface px-3.5 py-2.5 text-sm text-ink focus:border-accent focus:outline-none" />
-          </div>
-          <div className="space-y-1.5">
-            <label htmlFor="contact-message" className="text-sm font-medium text-ink-soft">How can we help?</label>
-            <textarea id="contact-message" name="message" rows={5} className="w-full rounded-lg border border-line bg-surface px-3.5 py-2.5 text-sm text-ink focus:border-accent focus:outline-none resize-none" />
-          </div>
-          <button type="submit" className="w-full rounded-xl bg-accent text-accent-ink font-bold py-3.5 hover:bg-accent/90 transition-colors">
-            Send message
-          </button>
-          <p className="text-xs text-faint text-center">We reply within one business day, usually much faster.</p>
-        </form>
+        <ContactForm />
       </section>
     </>
   )

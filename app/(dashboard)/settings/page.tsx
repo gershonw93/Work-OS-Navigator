@@ -67,7 +67,8 @@ interface NotifState {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const TABS: { id: string; label: string; icon: React.ElementType; danger?: boolean }[] = [
+// `href` items are links to their own page, not inline tabs.
+const TABS: { id: string; label: string; icon: React.ElementType; danger?: boolean; href?: string }[] = [
   { id: 'profile',       label: 'Profile',       icon: User },
   { id: 'company',       label: 'Company',        icon: Building2 },
   { id: 'team',          label: 'Team & Users',   icon: Users },
@@ -76,6 +77,7 @@ const TABS: { id: string; label: string; icon: React.ElementType; danger?: boole
   { id: 'preferences',   label: 'Preferences',    icon: SlidersHorizontal },
   { id: 'security',      label: 'Security',       icon: Lock },
   { id: 'billing',       label: 'Billing',        icon: CreditCard },
+  { id: 'budget-templates', label: 'Budget Templates', icon: LayoutTemplate, href: '/budget-templates' },
   { id: 'danger',        label: 'Danger Zone',    icon: AlertTriangle, danger: true },
 ]
 
@@ -638,9 +640,23 @@ export default function SettingsPage() {
               // Restricted users: only Profile and Notifications
               if (isRestricted) return id === 'profile' || id === 'notifications'
               if (id === 'team' || id === 'permissions' || id === 'billing' || id === 'danger' || id === 'security') return isAdmin
-              if (id === 'company') return isManager
+              if (id === 'company' || id === 'budget-templates') return isManager
               return true
-            }).map(({ id, label, icon: Icon, danger }) => {
+            }).map(({ id, label, icon: Icon, danger, href }) => {
+              // Budget Templates lives on its own page, so it's a link, not a tab.
+              if (href) {
+                return (
+                  <li key={id}>
+                    <Link
+                      href={href}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium transition-colors rounded-lg text-muted-fg hover:bg-surface"
+                    >
+                      <Icon className="h-5 w-5 shrink-0" />
+                      <span className="hidden md:block">{label}</span>
+                    </Link>
+                  </li>
+                )
+              }
               const active = activeTab === id
               return (
                 <li key={id}>
@@ -660,24 +676,6 @@ export default function SettingsPage() {
                 </li>
               )
             })}
-
-            {/* Budget Templates lives on its own page; managers reach it here
-                (and from any project's Budget tab). Not shown to restricted roles. */}
-            {(() => {
-              const isRestricted = ['field_supervisor', 'worker', 'member', 'read_only'].includes(userRole)
-              if (!userRole || isRestricted) return null
-              return (
-                <li>
-                  <Link
-                    href="/budget-templates"
-                    className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium transition-colors rounded-lg text-muted-fg hover:bg-surface"
-                  >
-                    <LayoutTemplate className="h-5 w-5 shrink-0" />
-                    <span className="hidden md:block">Budget Templates</span>
-                  </Link>
-                </li>
-              )
-            })()}
           </ul>
         </nav>
 
