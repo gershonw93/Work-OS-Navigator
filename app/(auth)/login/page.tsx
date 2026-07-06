@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import { Label } from '@/components/ui/label'
 
 export default function LoginPage() {
@@ -64,9 +65,9 @@ export default function LoginPage() {
           <Label htmlFor="password" className="text-faint">
             Password
           </Label>
-          <Input
+          <PasswordInput
             id="password"
-            type="password"
+            toggleClassName="text-slate-400 hover:text-white"
             placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
