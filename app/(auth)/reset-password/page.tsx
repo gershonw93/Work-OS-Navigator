@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, Suspense } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import { Label } from '@/components/ui/label'
 
 function ResetPasswordForm() {
@@ -66,9 +66,9 @@ function ResetPasswordForm() {
             <Label htmlFor="password" className="text-faint">
               New Password
             </Label>
-            <Input
+            <PasswordInput
               id="password"
-              type="password"
+              toggleClassName="text-slate-400 hover:text-white"
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -82,9 +82,9 @@ function ResetPasswordForm() {
             <Label htmlFor="confirmPassword" className="text-faint">
               Confirm Password
             </Label>
-            <Input
+            <PasswordInput
               id="confirmPassword"
-              type="password"
+              toggleClassName="text-slate-400 hover:text-white"
               placeholder="••••••••"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
