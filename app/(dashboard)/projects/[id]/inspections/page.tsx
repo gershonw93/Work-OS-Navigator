@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
-import { Plus, X, ClipboardCheck, Phone, Calendar, CheckCircle2, XCircle, Clock, AlertCircle, ChevronDown, ChevronUp, Sparkles, Loader2, Trash2, Pencil } from 'lucide-react'
+import { Plus, X, ClipboardCheck, Phone, Calendar, CheckCircle2, XCircle, Clock, AlertCircle, ChevronDown, ChevronUp, Loader2, Upload, Trash2, Pencil } from 'lucide-react'
 import { ContactPicker } from '@/components/contact-picker'
 
 const INSPECTION_TYPES = [
@@ -43,10 +43,8 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
   const [expanded, setExpanded] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [currentUser, setCurrentUser] = useState('')
-  const [analyzing, setAnalyzing] = useState(false)
-  const [analyzeError, setAnalyzeError] = useState('')
-  const [scannedFile, setScannedFile] = useState<File | null>(null)
-  const fileRef = useRef<HTMLInputElement>(null)
+  const [uploadingCardId, setUploadingCardId] = useState<string | null>(null)
+  const cardInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const [editingInsp, setEditingInsp] = useState<Inspection | null>(null)
 
   // Form
@@ -87,36 +85,24 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
     })
   }, [params.id])
 
-  async function analyzeImage(file: File) {
-    setAnalyzing(true)
-    setAnalyzeError('')
+  // AFTER the inspection happens: attach the inspector's card/paper. AI reads it
+  // and fills any blank fields, and offers to set the pass/fail result.
+  async function uploadCard(insp: Inspection, file: File) {
+    setUploadingCardId(insp.id)
     const token = await getToken()
     const form = new FormData()
     form.append('file', file)
-    setScannedFile(file)
-    const res = await fetch(`/api/projects/${params.id}/inspections/analyze`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-      body: form,
+    const res = await fetch(`/api/projects/${params.id}/inspections/${insp.id}/card`, {
+      method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form,
     })
-    const data = await res.json()
-    if (!res.ok || !data.fields) {
-      setAnalyzeError(data.error ?? 'Could not read image. Fill in the fields manually.')
-      setAnalyzing(false)
+    const data = await res.json().catch(() => ({}))
+    setUploadingCardId(null)
+    if (res.ok && data.suggested_status && insp.status !== data.suggested_status
+      && window.confirm(`The card looks ${data.suggested_status.toUpperCase()}. Mark this inspection ${data.suggested_status}?`)) {
+      await updateStatus(insp, data.suggested_status)
       return
     }
-    const f = data.fields
-    if (f.inspection_type && INSPECTION_TYPES.includes(f.inspection_type)) setInspType(f.inspection_type)
-    if (f.trade) setTrade(f.trade)
-    if (f.scheduled_date) setScheduledDate(f.scheduled_date)
-    if (f.inspector_name) setInspectorName(f.inspector_name)
-    if (f.inspector_phone) setInspectorPhone(f.inspector_phone)
-    if (f.scheduling_phone) setSchedulingPhone(f.scheduling_phone)
-    if (f.notes) {
-      const extra = [f.notes, f.issuing_authority && `Authority: ${f.issuing_authority}`, f.permit_number && `Permit #${f.permit_number}`].filter(Boolean).join(' · ')
-      setNotes(extra)
-    }
-    setAnalyzing(false)
+    fetchInspections()
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -157,7 +143,6 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
     if (schedulingPhone) form.append('scheduling_phone', schedulingPhone)
     if (schedulerId) { form.append('scheduler_profile_id', schedulerId); form.append('scheduler_name', teammates.find(t => t.id === schedulerId)?.full_name || '') }
     if (notes) form.append('notes', notes)
-    if (scannedFile) form.append('file', scannedFile)
     await fetch(`/api/projects/${params.id}/inspections`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
@@ -171,7 +156,6 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
     setEditingInsp(null)
     setInspType('Foundation'); setTrade(''); setScheduledDate(''); setScheduledTime('')
     setInspectorName(''); setInspectorPhone(''); setSchedulingPhone(''); setSchedulerId(''); setNotes('')
-    setScannedFile(null)
   }
 
   async function updateStatus(insp: Inspection, newStatus: string) {
@@ -195,7 +179,6 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
     setSchedulingPhone(insp.scheduling_phone ?? '')
     setSchedulerId(insp.scheduler_profile_id ?? '')
     setNotes(insp.notes ?? '')
-    setScannedFile(null)
     setShowForm(true)
   }
 
@@ -304,6 +287,24 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
               </a>
             )}
 
+            {/* Add the inspector's card/paper after the inspection happens */}
+            <div className="rounded-lg border border-dashed border-line-soft bg-surface px-3 py-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs font-semibold text-ink-soft">{insp.card_image_url ? "Inspector's card attached" : "Inspector's card / paperwork"}</p>
+                  <p className="text-xs text-faint">Upload the card you got from the inspector — AI reads it and fills the details.</p>
+                </div>
+                <input type="file" accept="image/*,application/pdf" className="sr-only"
+                  ref={el => { cardInputRefs.current[insp.id] = el }}
+                  onChange={e => { const f = e.target.files?.[0]; if (f) uploadCard(insp, f); e.target.value = '' }} />
+                <button type="button" disabled={uploadingCardId === insp.id}
+                  onClick={() => cardInputRefs.current[insp.id]?.click()}
+                  className="flex items-center gap-2 rounded-md border border-muted2 bg-panel px-3 py-1.5 text-xs font-medium text-ink-soft hover:bg-surface hover:border-accent disabled:opacity-50">
+                  {uploadingCardId === insp.id ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Reading…</> : <><Upload className="h-3.5 w-3.5" /> {insp.card_image_url ? 'Replace card' : "Add inspector's card"}</>}
+                </button>
+              </div>
+            </div>
+
             <div className="flex items-center gap-2 flex-wrap">
               {insp.status === 'scheduled' && !insp.ready_marked_by && (
                 <Button size="sm" variant="outline" onClick={() => markReady(insp)}>
@@ -339,41 +340,16 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-panel rounded-xl shadow-xl w-full min-w-0 max-w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between">
-              <h2 className="font-semibold text-ink">{editingInsp ? 'Edit Inspection' : 'Add Inspection'}</h2>
+              <h2 className="font-semibold text-ink">{editingInsp ? 'Edit Inspection' : 'Request Inspection'}</h2>
               <button onClick={() => { setShowForm(false); setEditingInsp(null) }} className="text-faint hover:text-muted-fg"><X className="h-5 w-5" /></button>
             </div>
             <form onSubmit={handleSubmit}>
               <div className="px-4 sm:px-6 py-5 pb-4 space-y-4">
-                {/* AI photo scan */}
-                <div className="space-y-1.5">
-                  <Label><Sparkles className="inline h-3.5 w-3.5 mr-1 text-accent-fg" />Scan Inspection Card (AI Auto-Fill)</Label>
-                  <label
-                    className={cn(
-                      'flex flex-col sm:flex-row items-center gap-3 rounded-lg border-2 border-dashed px-4 py-3.5 text-sm transition-colors cursor-pointer',
-                      analyzing ? 'border-accent bg-accent-tint cursor-wait pointer-events-none' : 'border-accent/40 bg-accent-tint/50 hover:bg-accent-tint hover:border-accent'
-                    )}
-                  >
-                    {analyzing
-                      ? <><Loader2 className="h-4 w-4 text-accent-fg animate-spin shrink-0" /><span className="text-accent-fg font-medium">Analyzing card…</span></>
-                      : <><Sparkles className="h-4 w-4 text-accent-fg shrink-0" /><span className="text-accent-fg font-medium">Upload a photo or PDF of the inspection card</span><span className="text-faint text-xs">— AI fills the fields automatically</span></>
-                    }
-                    <input ref={fileRef} type="file" accept="image/*,application/pdf" className="sr-only"
-                      onChange={e => { const f = e.target.files?.[0]; if (f) analyzeImage(f) }} />
-                  </label>
-                  {analyzeError && <p className="text-xs text-danger flex items-center gap-1"><X className="h-3 w-3 shrink-0" />{analyzeError}</p>}
-                  {scannedFile && !analyzeError && (
-                    <div className="flex items-center gap-2 mt-1">
-                      <img src={URL.createObjectURL(scannedFile)} alt="Scanned card" className="h-14 w-14 rounded object-cover border border-line shrink-0" />
-                      <div className="min-w-0">
-                        <p className="text-xs font-medium text-success">✓ Card scanned — fields filled</p>
-                        <p className="text-xs text-faint truncate">{scannedFile.name}</p>
-                        <button type="button" onClick={() => { setScannedFile(null); if (fileRef.current) fileRef.current.value = '' }} className="text-xs text-danger hover:text-danger">Remove</button>
-                      </div>
-                    </div>
-                  )}
-                  {!scannedFile && !analyzing && <p className="text-xs text-faint">or fill in manually below</p>}
-                </div>
-
+                {!editingInsp && (
+                  <p className="rounded-lg bg-surface border border-line-soft px-3 py-2 text-xs text-muted-fg">
+                    Request an inspection now. Once it happens, upload the inspector's card on the inspection to record the result.
+                  </p>
+                )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Inspection Type</Label>
@@ -435,7 +411,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
               </div>
               <div className="px-4 sm:px-6 py-4 border-t border-line-soft flex flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => { setShowForm(false); setEditingInsp(null) }}>Cancel</Button>
-                <Button type="submit" disabled={submitting}>{submitting ? 'Saving...' : editingInsp ? 'Save Changes' : 'Add Inspection'}</Button>
+                <Button type="submit" disabled={submitting}>{submitting ? 'Saving...' : editingInsp ? 'Save Changes' : 'Request Inspection'}</Button>
               </div>
             </form>
           </div>
@@ -447,7 +423,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
           <h1 className="text-2xl font-bold text-ink">Inspections</h1>
           <p className="text-sm text-muted-fg mt-0.5">Track all required inspections, status, and inspector contacts.</p>
         </div>
-        <Button onClick={() => setShowForm(true)}><Plus className="h-4 w-4" /> Add Inspection</Button>
+        <Button onClick={() => setShowForm(true)}><Plus className="h-4 w-4" /> Request Inspection</Button>
       </div>
 
       {loading ? (
