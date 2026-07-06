@@ -40,8 +40,13 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const inspector_name = formData.get('inspector_name') as string | null
   const inspector_phone = formData.get('inspector_phone') as string | null
   const scheduling_phone = formData.get('scheduling_phone') as string | null
+  const scheduled_time = formData.get('scheduled_time') as string | null
+  const scheduler_profile_id = formData.get('scheduler_profile_id') as string | null
+  const scheduler_name = formData.get('scheduler_name') as string | null
   const notes = formData.get('notes') as string | null
   const file = formData.get('file') as File | null
+
+  const { data: me } = await db.from('profiles').select('full_name').eq('id', user.id).single()
 
   let card_image_url: string | null = null
 
@@ -69,9 +74,14 @@ export async function POST(request: Request, { params }: { params: { id: string 
     trade: trade || null,
     status: status ?? 'not_scheduled',
     scheduled_date: scheduled_date || null,
+    scheduled_time: scheduled_time || null,
     inspector_name: inspector_name || null,
     inspector_phone: inspector_phone || null,
     scheduling_phone: scheduling_phone || null,
+    scheduler_profile_id: scheduler_profile_id || null,
+    scheduler_name: scheduler_name || null,
+    requested_by_id: user.id,
+    requested_by_name: (me as any)?.full_name || null,
     notes: notes || null,
   }
 
@@ -97,5 +107,19 @@ export async function POST(request: Request, { params }: { params: { id: string 
   }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Notify the assigned scheduler that there's an inspection to book.
+  if (scheduler_profile_id) {
+    const { data: proj } = await db.from('projects').select('name').eq('id', params.id).single()
+    const when = scheduled_date ? ` — preferred ${scheduled_date}${scheduled_time ? ` ${scheduled_time}` : ''}` : ''
+    const contact = inspector_name ? ` Contact: ${inspector_name}${inspector_phone ? ` (${inspector_phone})` : ''}.` : ''
+    await db.from('notifications').insert({
+      user_id: scheduler_profile_id,
+      type: 'inspection_to_schedule',
+      message: `Schedule an inspection: ${inspection_type} at ${proj?.name ?? 'a project'}${when}. Requested by ${(me as any)?.full_name ?? 'the field'}.${contact}`,
+      read: false,
+    })
+  }
+
   return NextResponse.json({ inspection }, { status: 201 })
 }

@@ -16,6 +16,9 @@ const ALLOWED_FIELDS = [
   'inspector_name',
   'inspector_phone',
   'scheduling_phone',
+  'scheduled_time',
+  'scheduler_profile_id',
+  'scheduler_name',
   'notes',
   'ready_marked_by',
   'ready_marked_at',
@@ -79,6 +82,30 @@ export async function PATCH(
       `${inspectionLabel} ${newStatus}`,
       { inspection_id: inspection.id, inspection_type: inspection.type, trade: inspection.trade, status: newStatus },
     )
+  }
+
+  // Follow-up notifications on status changes: keep the requester (and scheduler)
+  // in the loop when the inspection is booked, passes, or fails.
+  if (newStatus && ['scheduled', 'passed', 'failed', 'pending_reinspection'].includes(newStatus)) {
+    const { data: proj } = await db.from('projects').select('name').eq('id', params.id).single()
+    const label = inspection.type ? `${inspection.type}${inspection.trade ? ` (${inspection.trade})` : ''}` : 'Inspection'
+    const at = proj?.name ? ` at ${proj.name}` : ''
+    let msg = ''
+    if (newStatus === 'scheduled') msg = `Your ${label} inspection${at} is scheduled${inspection.scheduled_date ? ` for ${inspection.scheduled_date}${inspection.scheduled_time ? ` ${inspection.scheduled_time}` : ''}` : ''}.`
+    else if (newStatus === 'passed') msg = `✅ ${label} inspection${at} PASSED.`
+    else if (newStatus === 'failed') msg = `❌ ${label} inspection${at} FAILED.${inspection.notes ? ` ${inspection.notes}` : ''}`
+    else if (newStatus === 'pending_reinspection') msg = `${label} inspection${at} needs a re-inspection.`
+
+    const recipients = new Set<string>()
+    if (inspection.requested_by_id) recipients.add(inspection.requested_by_id)
+    // Passed/failed also loops in the scheduler; scheduling itself only pings the requester.
+    if (newStatus !== 'scheduled' && inspection.scheduler_profile_id) recipients.add(inspection.scheduler_profile_id)
+    recipients.delete(user.id) // don't notify the person who made the change
+    if (msg && recipients.size) {
+      await db.from('notifications').insert(
+        Array.from(recipients).map((uid) => ({ user_id: uid, type: `inspection_${newStatus}`, message: msg, read: false })),
+      )
+    }
   }
 
   return NextResponse.json({ inspection })

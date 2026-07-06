@@ -16,6 +16,7 @@ const INSPECTION_TYPES = [
   'Fire Sprinkler', 'Building Final', 'Certificate of Occupancy', 'Other'
 ]
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
+  requested: { label: 'Requested', color: 'bg-warn-tint border-warn/30 text-warn', icon: AlertCircle },
   not_scheduled: { label: 'Not Scheduled', color: 'bg-surface border-line text-muted-fg', icon: Clock },
   scheduled: { label: 'Scheduled', color: 'bg-info-tint border-info/30 text-info', icon: Calendar },
   passed: { label: 'Passed', color: 'bg-success-tint border-success/30 text-success', icon: CheckCircle2 },
@@ -25,11 +26,14 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }>
 
 interface Inspection {
   id: string; type: string; trade: string | null; status: string
-  scheduled_date: string | null; completed_date: string | null
+  scheduled_date: string | null; scheduled_time: string | null; completed_date: string | null
   inspector_name: string | null; inspector_phone: string | null; scheduling_phone: string | null
+  scheduler_profile_id: string | null; scheduler_name: string | null; requested_by_name: string | null
   notes: string | null; ready_marked_by: string | null; ready_marked_at: string | null
   card_image_url: string | null; created_at: string
 }
+
+interface Teammate { id: string; full_name: string | null; email: string }
 
 export default function InspectionsPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
@@ -49,10 +53,13 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
   const [inspType, setInspType] = useState('Foundation')
   const [trade, setTrade] = useState('')
   const [scheduledDate, setScheduledDate] = useState('')
+  const [scheduledTime, setScheduledTime] = useState('')
   const [inspectorName, setInspectorName] = useState('')
   const [inspectorPhone, setInspectorPhone] = useState('')
   const [schedulingPhone, setSchedulingPhone] = useState('')
+  const [schedulerId, setSchedulerId] = useState('')
   const [notes, setNotes] = useState('')
+  const [teammates, setTeammates] = useState<Teammate[]>([])
 
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -66,8 +73,15 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
     setLoading(false)
   }
 
+  async function fetchTeammates() {
+    const token = await getToken()
+    const res = await fetch('/api/settings/teammates', { headers: { Authorization: `Bearer ${token}` } })
+    if (res.ok) { const d = await res.json(); setTeammates(d.teammates ?? d.members ?? []) }
+  }
+
   useEffect(() => {
     fetchInspections()
+    fetchTeammates()
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user?.email) setCurrentUser(session.user.email)
     })
@@ -118,16 +132,16 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
           type: inspType,
           trade: trade || null,
           scheduled_date: scheduledDate || null,
+          scheduled_time: scheduledTime || null,
           inspector_name: inspectorName || null,
           inspector_phone: inspectorPhone || null,
           scheduling_phone: schedulingPhone || null,
+          scheduler_profile_id: schedulerId || null,
+          scheduler_name: teammates.find(t => t.id === schedulerId)?.full_name || null,
           notes: notes || null,
         }),
       })
-      setEditingInsp(null)
-      setInspType('Foundation'); setTrade(''); setScheduledDate('')
-      setInspectorName(''); setInspectorPhone(''); setSchedulingPhone(''); setNotes('')
-      setScannedFile(null)
+      resetForm()
       setShowForm(false); setSubmitting(false); fetchInspections()
       return
     }
@@ -136,10 +150,12 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
     form.append('inspection_type', inspType)
     if (trade) form.append('trade', trade)
     if (scheduledDate) form.append('scheduled_date', scheduledDate)
-    form.append('status', scheduledDate ? 'scheduled' : 'not_scheduled')
+    if (scheduledTime) form.append('scheduled_time', scheduledTime)
+    form.append('status', scheduledDate ? 'scheduled' : schedulerId ? 'requested' : 'not_scheduled')
     if (inspectorName) form.append('inspector_name', inspectorName)
     if (inspectorPhone) form.append('inspector_phone', inspectorPhone)
     if (schedulingPhone) form.append('scheduling_phone', schedulingPhone)
+    if (schedulerId) { form.append('scheduler_profile_id', schedulerId); form.append('scheduler_name', teammates.find(t => t.id === schedulerId)?.full_name || '') }
     if (notes) form.append('notes', notes)
     if (scannedFile) form.append('file', scannedFile)
     await fetch(`/api/projects/${params.id}/inspections`, {
@@ -147,10 +163,15 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
       headers: { Authorization: `Bearer ${token}` },
       body: form,
     })
-    setInspType('Foundation'); setTrade(''); setScheduledDate('')
-    setInspectorName(''); setInspectorPhone(''); setSchedulingPhone(''); setNotes('')
-    setScannedFile(null)
+    resetForm()
     setShowForm(false); setSubmitting(false); fetchInspections()
+  }
+
+  function resetForm() {
+    setEditingInsp(null)
+    setInspType('Foundation'); setTrade(''); setScheduledDate(''); setScheduledTime('')
+    setInspectorName(''); setInspectorPhone(''); setSchedulingPhone(''); setSchedulerId(''); setNotes('')
+    setScannedFile(null)
   }
 
   async function updateStatus(insp: Inspection, newStatus: string) {
@@ -168,9 +189,11 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
     setInspType(insp.type)
     setTrade(insp.trade ?? '')
     setScheduledDate(insp.scheduled_date ?? '')
+    setScheduledTime(insp.scheduled_time ?? '')
     setInspectorName(insp.inspector_name ?? '')
     setInspectorPhone(insp.inspector_phone ?? '')
     setSchedulingPhone(insp.scheduling_phone ?? '')
+    setSchedulerId(insp.scheduler_profile_id ?? '')
     setNotes(insp.notes ?? '')
     setScannedFile(null)
     setShowForm(true)
@@ -196,7 +219,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
     fetchInspections()
   }
 
-  const pending = inspections.filter(i => i.status === 'not_scheduled' || i.status === 'scheduled' || i.status === 'pending_reinspection')
+  const pending = inspections.filter(i => i.status === 'requested' || i.status === 'not_scheduled' || i.status === 'scheduled' || i.status === 'pending_reinspection')
   const completed = inspections.filter(i => i.status === 'passed' || i.status === 'failed')
 
   function InspCard({ insp }: { insp: Inspection }) {
@@ -218,8 +241,9 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
               )}
             </div>
             <p className="text-xs text-faint mt-0.5">
-              {insp.scheduled_date ? `Scheduled ${new Date(insp.scheduled_date).toLocaleDateString()}` : 'Not scheduled'}
+              {insp.scheduled_date ? `${new Date(insp.scheduled_date).toLocaleDateString()}${insp.scheduled_time ? ` ${insp.scheduled_time}` : ''}` : 'No date yet'}
               {insp.inspector_name && ` · ${insp.inspector_name}`}
+              {insp.status === 'requested' && insp.scheduler_name && ` · ${insp.scheduler_name} to schedule`}
             </p>
           </div>
           {isExpanded ? <ChevronUp className="h-4 w-4 text-faint shrink-0" /> : <ChevronDown className="h-4 w-4 text-faint shrink-0" />}
@@ -231,8 +255,17 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
               {insp.scheduled_date && (
                 <div><p className="text-xs text-faint">Scheduled Date</p><p className="font-medium text-ink-soft">{new Date(insp.scheduled_date).toLocaleDateString()}</p></div>
               )}
+              {insp.scheduled_time && (
+                <div><p className="text-xs text-faint">Time</p><p className="font-medium text-ink-soft">{insp.scheduled_time}</p></div>
+              )}
               {insp.completed_date && (
                 <div><p className="text-xs text-faint">Completed</p><p className="font-medium text-ink-soft">{new Date(insp.completed_date).toLocaleDateString()}</p></div>
+              )}
+              {insp.scheduler_name && (
+                <div><p className="text-xs text-faint">Scheduler</p><p className="font-medium text-ink-soft">{insp.scheduler_name}</p></div>
+              )}
+              {insp.requested_by_name && (
+                <div><p className="text-xs text-faint">Requested by</p><p className="font-medium text-ink-soft">{insp.requested_by_name}</p></div>
               )}
               {insp.inspector_name && (
                 <div>
@@ -279,7 +312,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
               )}
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-xs text-faint">Update status:</span>
-                {['not_scheduled', 'scheduled', 'passed', 'failed', 'pending_reinspection'].map(s => (
+                {['requested', 'scheduled', 'passed', 'failed', 'pending_reinspection'].map(s => (
                   <button key={s} type="button" onClick={() => updateStatus(insp, s)}
                     className={cn('text-xs rounded-full border px-2 py-0.5 font-medium transition-colors',
                       insp.status === s ? STATUS_CONFIG[s].color : 'border-line text-muted-fg hover:border-muted2')}>
@@ -354,9 +387,24 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
                     <Input placeholder="e.g. Electrical" value={trade} onChange={e => setTrade(e.target.value)} />
                   </div>
                 </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Preferred / Scheduled Date</Label>
+                    <Input type="date" value={scheduledDate} onChange={e => setScheduledDate(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Time <span className="text-faint font-normal">(optional)</span></Label>
+                    <Input type="time" value={scheduledTime} onChange={e => setScheduledTime(e.target.value)} />
+                  </div>
+                </div>
                 <div className="space-y-1.5">
-                  <Label>Scheduled Date <span className="text-faint font-normal">(if known)</span></Label>
-                  <Input type="date" value={scheduledDate} onChange={e => setScheduledDate(e.target.value)} />
+                  <Label>Who schedules this? <span className="text-faint font-normal">(they get notified)</span></Label>
+                  <SearchableSelect value={schedulerId} onChange={e => setSchedulerId(e.target.value)}
+                    className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
+                    <option value="">No one assigned yet</option>
+                    {teammates.map(t => <option key={t.id} value={t.id}>{t.full_name || t.email}</option>)}
+                  </SearchableSelect>
+                  <p className="text-xs text-faint">Assign the person who books inspections — they'll get a notification to schedule it.</p>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
