@@ -21,7 +21,7 @@ export const metadata: Metadata = marketingMeta({
 const FIELD_TOOLS = [
   { icon: BookOpen, title: 'Daily logs in two minutes', body: 'Weather, crew count, photos, and notes filed from the tailgate. The office sees it before you leave the lot.' },
   { icon: Clock, title: 'One-tap time clock', body: 'Clock in and out with location attached. Timesheets build themselves, payroll gets clean hours.' },
-  { icon: ScanLine, title: 'Scan paper with the camera', body: 'A sub hands you a paper quote, you photograph it, and AI turns it into line items before you reach the truck.' },
+  { icon: ScanLine, title: 'Scan paper with the camera', body: 'A sub hands you a quote, the lumber yard hands you a receipt. Photograph either one and AI files it: quotes become jobs, receipts roll into job costs.' },
   { icon: CheckSquare, title: 'Tasks that fit a thumb', body: 'The crew opens the phone and sees exactly what today is: their tasks, checked off as the work happens.' },
   { icon: CalendarDays, title: 'The week at a glance', body: 'Crew dates, deliveries, and inspections on a schedule that reads at arm’s length in the sun.' },
   { icon: Camera, title: 'Plans & photos on site', body: 'The current drawing set and every site photo, right where the question comes up.' },

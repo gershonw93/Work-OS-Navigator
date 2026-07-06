@@ -2,7 +2,7 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 import {
   ArrowRight, Upload, ListChecks, CalendarDays, Receipt, Quote as QuoteIcon,
-  Sparkles, Check, Clock, Camera,
+  Sparkles, Check, Clock, Camera, ReceiptText,
 } from 'lucide-react'
 import { marketingMeta } from '@/components/marketing/meta'
 import { QuoteScanMock } from '@/components/marketing/quote-scan-mock'
@@ -44,6 +44,7 @@ const STEPS = [
 const EXTRAS = [
   { icon: Clock, title: 'Time clock', body: 'Crew clocks in with location. Payroll gets clean hours.' },
   { icon: Camera, title: 'Daily logs & photos', body: 'Two minutes at the tailgate covers you on every job.' },
+  { icon: ReceiptText, title: 'Materials & receipts', body: 'Snap the receipt at the counter, the cost lands on the right job.' },
   { icon: Sparkles, title: 'Bid on GC RFQs', body: 'GCs on SyteNav send you plans. You bid on a link, no account needed.' },
 ]
 
@@ -149,7 +150,7 @@ export default function SubcontractorsPage() {
                 className="mb-12 sm:mb-16"
               />
             </Reveal>
-            <div className="grid sm:grid-cols-3 gap-10 sm:gap-8 text-center max-w-4xl mx-auto">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-10 sm:gap-8 text-center max-w-5xl mx-auto">
               {EXTRAS.map((x, i) => (
                 <Reveal key={x.title} delay={i * 100}>
                   <div>

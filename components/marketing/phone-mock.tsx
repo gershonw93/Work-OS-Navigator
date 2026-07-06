@@ -91,7 +91,7 @@ export function ClockScreen() {
 export function ScanScreen() {
   return (
     <>
-      <ScreenHeader title="Scan a document" sub="Camera · quote, invoice, permit" />
+      <ScreenHeader title="Scan a document" sub="Camera · quote, receipt, permit" />
       <div className="relative rounded-xl bg-ink/90 dark:bg-muted aspect-[4/5] mb-3 overflow-hidden flex items-center justify-center">
         {/* Paper in the viewfinder */}
         <div className="w-3/4 h-4/5 rounded-sm bg-surface rotate-2 p-2.5 space-y-1.5">

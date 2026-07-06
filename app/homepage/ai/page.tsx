@@ -28,8 +28,8 @@ const READS = [
   },
   {
     icon: Receipt,
-    title: 'Vendor invoices',
-    out: ['Amounts & due dates', 'Line-item detail', 'Matched to the job', 'Retainage & terms'],
+    title: 'Invoices & receipts',
+    out: ['Amounts & due dates', 'Store, tax & line items', 'Linked to a budget line', 'Rolled into job costs'],
   },
   {
     icon: ShieldCheck,
@@ -72,7 +72,7 @@ export default function AiPage() {
             A pile of PDFs goes in. A structured job comes out.
           </h1>
           <p className="mt-6 text-lg text-muted-fg leading-relaxed">
-            Every job starts as paperwork: quotes, plans, permits, invoices. SyteNav&apos;s AI reads all of it into clean, structured data, so the job is set up in minutes and nobody retypes a number again.
+            Every job starts as paperwork: quotes, plans, permits, invoices, material receipts. SyteNav&apos;s AI reads all of it into clean, structured data, so the job is set up in minutes and nobody retypes a number again.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link href="/signup" className="inline-flex items-center gap-2 rounded-xl bg-accent text-accent-ink font-bold px-6 py-3 hover:bg-accent/90 transition-colors">
