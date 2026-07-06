@@ -37,8 +37,9 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .eq('project_id', params.id),
     db
       .from('material_purchases')
-      .select('budget_line_id, amount')
-      .eq('project_id', params.id),
+      .select('id, budget_line_id, amount, store_name, category, purchase_date, receipt_url')
+      .eq('project_id', params.id)
+      .order('purchase_date', { ascending: false, nullsFirst: false }),
   ])
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -83,7 +84,9 @@ export async function GET(request: Request, { params }: { params: { id: string }
     contract_amount: Number(s.contract_amount ?? 0),
   }))
 
-  return NextResponse.json({ items, subcontracts: subOptions })
+  const materials_total = (materials ?? []).reduce((s: number, m: any) => s + Number(m.amount ?? 0), 0)
+
+  return NextResponse.json({ items, subcontracts: subOptions, materials: materials ?? [], materials_total })
 }
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {

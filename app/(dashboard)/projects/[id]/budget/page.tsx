@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
-import { Wallet, DollarSign, CheckCircle2, TrendingDown, TrendingUp, Plus, Trash2, Pencil, X, Check, Link as LinkIcon, AlertTriangle, LayoutTemplate, Save, FileSpreadsheet, FolderInput, Search } from 'lucide-react'
+import { Wallet, DollarSign, CheckCircle2, TrendingDown, TrendingUp, Plus, Trash2, Pencil, X, Check, Link as LinkIcon, AlertTriangle, LayoutTemplate, Save, FileSpreadsheet, FolderInput, Search, ShoppingCart } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -66,6 +66,8 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   const vc = useViewerContext(params.id)
   const [items, setItems] = useState<BudgetItem[]>([])
   const [subOptions, setSubOptions] = useState<SubOption[]>([])
+  const [materials, setMaterials] = useState<any[]>([])
+  const [materialsTotal, setMaterialsTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [adding, setAdding] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -101,6 +103,8 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       const d = await res.json()
       setItems(d.items ?? [])
       setSubOptions(d.subcontracts ?? [])
+      setMaterials(d.materials ?? [])
+      setMaterialsTotal(d.materials_total ?? 0)
     }
     setLoading(false)
   }
@@ -744,6 +748,33 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
               {overBudget ? '-' : ''}{money(Math.abs(remaining))}
             </span>
             <span />
+          </div>
+        </div>
+      )}
+
+      {/* Materials — receipts assigned to this job (linked ones roll into a line's Actual) */}
+      {materials.length > 0 && (
+        <div className="mt-6 rounded-xl border border-line bg-panel overflow-hidden">
+          <div className="px-4 sm:px-5 py-3.5 border-b border-line-soft flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-ink-soft inline-flex items-center gap-1.5"><ShoppingCart className="h-4 w-4 text-muted-fg" /> Materials</h2>
+            <span className="text-sm font-bold text-ink">{money(materialsTotal)} spent</span>
+          </div>
+          <div className="divide-y divide-line-soft">
+            {materials.map((m: any) => (
+              <div key={m.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 sm:px-5 py-2.5 text-sm">
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-ink-soft truncate">{m.store_name || 'Material purchase'}</p>
+                  <p className="text-xs text-faint truncate">
+                    {[m.category, m.budget_line_id ? 'in a budget line' : 'not linked to a line', m.purchase_date && new Date(m.purchase_date + 'T00:00:00').toLocaleDateString()].filter(Boolean).join(' · ')}
+                  </p>
+                </div>
+                {m.receipt_url && <a href={m.receipt_url} target="_blank" rel="noreferrer" className="text-xs text-accent-fg hover:underline">Receipt</a>}
+                <span className="font-bold text-ink">{money(m.amount)}</span>
+              </div>
+            ))}
+          </div>
+          <div className="px-5 py-2.5 border-t border-line-soft bg-surface text-right">
+            <a href="/materials" className="text-xs font-medium text-accent-fg hover:underline">Add a receipt →</a>
           </div>
         </div>
       )}
