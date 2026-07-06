@@ -49,6 +49,22 @@ function AddModal({ projects, onClose, onSaved }: { projects: ProjectOpt[]; onCl
   const [saveStore, setSaveStore] = useState(true)
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
+  // Budget lines for the chosen job, so a receipt can roll into a line's actuals
+  const [budgetLines, setBudgetLines] = useState<{ id: string; label: string }[]>([])
+  const [budgetLineId, setBudgetLineId] = useState('')
+
+  useEffect(() => {
+    setBudgetLineId('')
+    if (!projectId) { setBudgetLines([]); return }
+    let alive = true
+    ;(async () => {
+      const res = await fetch(`/api/projects/${projectId}/budget`, { headers: await authHeaders() })
+      if (!res.ok) { if (alive) setBudgetLines([]); return }
+      const d = await res.json()
+      if (alive) setBudgetLines((d.items ?? []).map((l: any) => ({ id: l.id, label: [l.category, l.description].filter(Boolean).join(' · ') || 'Line' })))
+    })()
+    return () => { alive = false }
+  }, [projectId])
 
   async function scan(file: File | Blob) {
     setScanning(true); setScanNote(''); setStage('form')
@@ -82,7 +98,7 @@ function AddModal({ projects, onClose, onSaved }: { projects: ProjectOpt[]; onCl
       body: JSON.stringify({
         project_id: projectId, store_name: store.trim() || null, amount, tax, purchase_date: date || null,
         category: category || null, notes: notes.trim() || null, receipt_url: receiptUrl, line_items: lineItems.length ? lineItems : null,
-        save_store: saveStore,
+        budget_line_id: budgetLineId || null, save_store: saveStore,
       }),
     })
     setSaving(false)
@@ -132,6 +148,15 @@ function AddModal({ projects, onClose, onSaved }: { projects: ProjectOpt[]; onCl
                 {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </Select>
             </div>
+            {projectId && budgetLines.length > 0 && (
+              <div>
+                <Label>Budget line <span className="text-faint font-normal">(optional — rolls into its actual cost)</span></Label>
+                <Select value={budgetLineId} onChange={e => setBudgetLineId(e.target.value)}>
+                  <option value="">Not linked to a budget line</option>
+                  {budgetLines.map(l => <option key={l.id} value={l.id}>{l.label}</option>)}
+                </Select>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div><Label>Store / vendor</Label><Input value={store} onChange={e => setStore(e.target.value)} placeholder="e.g. Home Depot" /></div>
               <div><Label>Date</Label><Input type="date" value={date} onChange={e => setDate(e.target.value)} /></div>

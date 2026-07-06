@@ -18,6 +18,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     { data, error },
     { data: subcontracts },
     { data: invoices },
+    { data: materials },
   ] = await Promise.all([
     db
       .from('budget_line_items')
@@ -34,6 +35,10 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .from('invoices')
       .select('subcontract_id, amount, status')
       .eq('project_id', params.id),
+    db
+      .from('material_purchases')
+      .select('budget_line_id, amount')
+      .eq('project_id', params.id),
   ])
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -49,19 +54,27 @@ export async function GET(request: Request, { params }: { params: { id: string }
   }
   const subById = new Map((subcontracts ?? []).map((s: any) => [s.id, s]))
 
-  // For linked lines, derive committed (contract amount) and actual (billed invoices).
+  // Material receipts assigned to a budget line also count toward its Actual.
+  const materialsByLine = new Map<string, number>()
+  for (const m of materials ?? []) {
+    if (m.budget_line_id) materialsByLine.set(m.budget_line_id, (materialsByLine.get(m.budget_line_id) ?? 0) + Number(m.amount ?? 0))
+  }
+
+  // For linked lines, derive committed (contract amount) and actual (billed invoices + materials).
   const items = (data ?? []).map((line: any) => {
+    const materialsAmount = materialsByLine.get(line.id) ?? 0
     if (line.subcontract_id && subById.has(line.subcontract_id)) {
       const sub: any = subById.get(line.subcontract_id)
       return {
         ...line,
         committed_amount: Number(sub.contract_amount ?? 0),
-        actual_amount: actualBySub.get(line.subcontract_id) ?? 0,
+        actual_amount: (actualBySub.get(line.subcontract_id) ?? 0) + materialsAmount,
+        materials_amount: materialsAmount,
         linked: true,
         linked_label: sub.companies?.name ?? sub.trade ?? 'Subcontract',
       }
     }
-    return { ...line, linked: false, linked_label: null }
+    return { ...line, actual_amount: Number(line.actual_amount ?? 0) + materialsAmount, materials_amount: materialsAmount, linked: false, linked_label: null }
   })
 
   const subOptions = (subcontracts ?? []).map((s: any) => ({
