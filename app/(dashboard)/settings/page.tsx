@@ -15,6 +15,7 @@ import {
   LayoutTemplate,
 } from 'lucide-react'
 import { PermissionsPanel } from '@/components/settings/permissions-panel'
+import { ConnectCalendarButton } from '@/components/calendar/connect-calendar'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -790,6 +791,16 @@ export default function SettingsPage() {
                       )}
                     </div>
                   )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Calendar</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-fg mb-3">Add your schedules, task due dates, and inspections to your own Google, Apple, or Outlook calendar. It's read-only and optional — SyteNav's calendar still works without it.</p>
+                  <ConnectCalendarButton />
                 </CardContent>
               </Card>
             </div>
