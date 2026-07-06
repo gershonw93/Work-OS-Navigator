@@ -4,8 +4,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { usePermissions } from '@/lib/use-permissions'
-import { ChevronLeft, ChevronRight, CalendarDays, CalendarPlus, X, Copy, Check, RefreshCw } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { ConnectCalendarButton } from '@/components/calendar/connect-calendar'
 
 interface Item {
   id: string; kind: 'schedule' | 'task' | 'inspection'; project_id: string; project_name: string
@@ -27,25 +28,9 @@ export default function MasterCalendarPage() {
   const [items, setItems] = useState<Item[]>([])
   const [loading, setLoading] = useState(true)
   const [cursor, setCursor] = useState(() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() } })
-  const [showSub, setShowSub] = useState(false)
-  const [feedUrl, setFeedUrl] = useState('')
-  const [copied, setCopied] = useState(false)
+  const [selectedDay, setSelectedDay] = useState<string | null>(null)
 
   const isAdmin = realRole === 'admin' || realRole === 'manager'
-
-  async function openSubscribe() {
-    setShowSub(true)
-    if (feedUrl) return
-    const { data: { session } } = await supabase.auth.getSession()
-    const res = await fetch('/api/settings/calendar', { headers: { Authorization: `Bearer ${session?.access_token}` } })
-    if (res.ok) setFeedUrl(`${window.location.origin}/api/calendar/${(await res.json()).calendar_token}`)
-  }
-  async function resetFeed() {
-    const { data: { session } } = await supabase.auth.getSession()
-    const res = await fetch('/api/settings/calendar', { method: 'POST', headers: { Authorization: `Bearer ${session?.access_token}` } })
-    if (res.ok) setFeedUrl(`${window.location.origin}/api/calendar/${(await res.json()).calendar_token}`)
-  }
-  function copyFeed() { navigator.clipboard?.writeText(feedUrl); setCopied(true); setTimeout(() => setCopied(false), 1500) }
 
   useEffect(() => {
     (async () => {
@@ -97,60 +82,9 @@ export default function MasterCalendarPage() {
           <span className="text-sm font-semibold text-ink-soft w-36 text-center">{monthLabel}</span>
           <button onClick={() => move(1)} className="p-2 rounded-lg border border-line text-muted-fg hover:bg-surface"><ChevronRight className="h-4 w-4" /></button>
           <button onClick={() => { const d = new Date(); setCursor({ y: d.getFullYear(), m: d.getMonth() }) }} className="ml-1 px-3 py-2 rounded-lg border border-line text-sm text-muted-fg hover:bg-surface">Today</button>
-          <button onClick={openSubscribe} className="ml-1 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line text-sm font-medium text-accent-fg hover:bg-surface"><CalendarPlus className="h-4 w-4" /> Connect to Calendar</button>
+          <ConnectCalendarButton className="ml-1" />
         </div>
       </div>
-
-      {/* Connect your calendar — one button per provider, direct deep-links */}
-      {showSub && (() => {
-        const https = feedUrl
-        const webcal = feedUrl.replace(/^https?:\/\//, 'webcal://')
-        const google = `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcal)}`
-        const outlook = `https://outlook.live.com/calendar/0/addfromweb?url=${encodeURIComponent(https)}&name=${encodeURIComponent('SyteNav')}`
-        const go = (url: string) => { if (feedUrl) window.open(url, '_blank') }
-        const providers = [
-          { key: 'google', label: 'Google Calendar', sub: 'Opens Google to add it', bg: 'bg-[#4285F4]', url: google },
-          { key: 'apple', label: 'Apple Calendar', sub: 'iPhone, iPad & Mac', bg: 'bg-ink', url: webcal },
-          { key: 'outlook', label: 'Outlook', sub: 'Outlook.com / Microsoft 365', bg: 'bg-[#0072C6]', url: outlook },
-        ]
-        return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowSub(false)}>
-          <div className="w-full max-w-md rounded-xl bg-panel shadow-xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between border-b border-line px-5 py-4">
-              <h2 className="text-lg font-bold text-ink">Connect to your calendar</h2>
-              <button onClick={() => setShowSub(false)} className="text-faint hover:text-ink"><X className="h-5 w-5" /></button>
-            </div>
-            <div className="space-y-3 px-5 py-4">
-              <p className="text-sm text-muted-fg">Pick your calendar. Your schedules, task due dates, and inspections will show up there automatically. It's read-only, so this never changes anything in SyteNav.</p>
-              <div className="space-y-2">
-                {providers.map(p => (
-                  <button key={p.key} onClick={() => go(p.url)} disabled={!feedUrl}
-                    className="flex w-full items-center gap-3 rounded-xl border border-line bg-panel px-4 py-3 text-left hover:border-accent hover:bg-surface disabled:opacity-50 transition-colors">
-                    <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white', p.bg)}><CalendarPlus className="h-5 w-5" /></span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block font-semibold text-ink">{p.label}</span>
-                      <span className="block text-xs text-muted-fg">{p.sub}</span>
-                    </span>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-faint" />
-                  </button>
-                ))}
-              </div>
-              {!feedUrl && <p className="text-center text-xs text-faint">Generating your private link…</p>}
-              <details className="pt-1">
-                <summary className="cursor-pointer text-xs text-muted-fg hover:text-ink">Other app? Copy the link instead</summary>
-                <div className="mt-2 flex items-center gap-1.5">
-                  <input readOnly value={feedUrl || '…'} className="flex-1 min-w-0 rounded-md border border-line bg-surface px-2.5 py-2 text-xs text-ink-soft" />
-                  <button onClick={copyFeed} disabled={!feedUrl} className="inline-flex items-center gap-1 rounded-md border border-line px-2.5 py-2 text-xs text-muted-fg hover:bg-surface disabled:opacity-50">
-                    {copied ? <><Check className="h-3.5 w-3.5 text-success" /> Copied</> : <><Copy className="h-3.5 w-3.5" /> Copy</>}
-                  </button>
-                </div>
-                <button onClick={resetFeed} className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-muted-fg hover:text-danger"><RefreshCw className="h-3 w-3" /> Reset link</button>
-              </details>
-            </div>
-          </div>
-        </div>
-        )
-      })()}
 
       <div className="bg-panel rounded-xl border border-line overflow-hidden">
         <div className="grid grid-cols-7 border-b border-line-soft">
@@ -161,22 +95,52 @@ export default function MasterCalendarPage() {
             const k = d ? iso(d) : ''
             const dayItems = d ? (byDay.get(k) ?? []) : []
             return (
-              <div key={i} className={cn('min-h-[96px] border-b border-r border-line-soft p-1.5 align-top', !d && 'bg-surface/40', k === todayIso && 'bg-accent-tint/30')}>
+              <div key={i}
+                onClick={() => { if (d && dayItems.length) setSelectedDay(k) }}
+                className={cn('min-h-[96px] border-b border-r border-line-soft p-1.5 align-top', !d && 'bg-surface/40', k === todayIso && 'bg-accent-tint/30', d && dayItems.length && 'cursor-pointer hover:bg-surface/60')}>
                 {d && <div className={cn('text-xs mb-1', k === todayIso ? 'font-bold text-accent-fg' : 'text-faint')}>{d.getDate()}</div>}
                 <div className="space-y-1">
                   {dayItems.slice(0, 4).map(it => (
-                    <button key={it.id} onClick={() => router.push(it.href)} title={`${it.project_name} · ${it.title}`}
+                    <button key={it.id} onClick={(e) => { e.stopPropagation(); router.push(it.href) }} title={`${it.project_name} · ${it.title}`}
                       className={cn('w-full text-left rounded px-1.5 py-0.5 text-[10px] leading-tight truncate hover:opacity-80', COLOR[it.color] ?? COLOR.blue, it.done && 'line-through opacity-60')}>
                       <span className="font-medium">{it.project_name}</span> · {it.title}
                     </button>
                   ))}
-                  {dayItems.length > 4 && <p className="text-[10px] text-faint px-1">+{dayItems.length - 4} more</p>}
+                  {dayItems.length > 4 && <p className="text-[10px] font-medium text-accent-fg px-1">+{dayItems.length - 4} more</p>}
                 </div>
               </div>
             )
           })}
         </div>
       </div>
+
+      {/* Day detail — everything happening that day; click one to open it */}
+      {selectedDay && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setSelectedDay(null)}>
+          <div className="w-full max-w-md max-h-[85vh] overflow-y-auto rounded-xl bg-panel shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="sticky top-0 flex items-center justify-between border-b border-line bg-panel px-5 py-4">
+              <h2 className="text-lg font-bold text-ink">
+                {new Date(selectedDay + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+              </h2>
+              <button onClick={() => setSelectedDay(null)} className="text-faint hover:text-ink text-2xl leading-none">×</button>
+            </div>
+            <div className="space-y-2 px-5 py-4">
+              {(byDay.get(selectedDay) ?? []).map(it => (
+                <button key={it.id} onClick={() => { setSelectedDay(null); router.push(it.href) }}
+                  className="flex w-full items-center gap-3 rounded-xl border border-line bg-panel px-3.5 py-3 text-left hover:border-accent hover:bg-surface transition-colors">
+                  <span className={cn('mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full', (COLOR[it.color] ?? COLOR.blue).split(' ')[0])} />
+                  <span className="min-w-0 flex-1">
+                    <span className={cn('block font-medium text-ink', it.done && 'line-through text-muted-fg')}>{it.title}</span>
+                    <span className="block text-xs text-muted-fg">{it.project_name} · {it.kind === 'inspection' ? 'Inspection' : it.kind === 'task' ? 'Task' : 'Schedule'}</span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-faint" />
+                </button>
+              ))}
+              {(byDay.get(selectedDay) ?? []).length === 0 && <p className="py-6 text-center text-sm text-muted-fg">Nothing scheduled.</p>}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
