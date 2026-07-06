@@ -68,7 +68,7 @@ export default function BudgetTemplatesPage() {
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-3xl mx-auto">
       <div>
-        <Link href="/projects" className="inline-flex items-center gap-1 text-sm text-muted-fg hover:text-ink mb-2"><ArrowLeft className="h-4 w-4" /> Back</Link>
+        <Link href="/settings" className="inline-flex items-center gap-1 text-sm text-muted-fg hover:text-ink mb-2"><ArrowLeft className="h-4 w-4" /> Back to Settings</Link>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold text-ink flex items-center gap-2"><LayoutTemplate className="h-6 w-6 text-accent-fg" /> Budget Templates</h1>
