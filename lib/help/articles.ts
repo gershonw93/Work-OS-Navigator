@@ -781,12 +781,11 @@ export const HELP_ARTICLES: HelpArticle[] = [
     blocks: [
       { type: 'text', text: 'The in-app Master Calendar is always there — this just adds a copy of those events to your personal calendar. It\'s read-only, so it can never change anything in SyteNav.' },
       { type: 'steps', items: [
-        'Open Master Calendar and click Subscribe.',
-        'Copy your private calendar link.',
-        'Google Calendar: Other calendars → + → From URL → paste. Apple: File → New Calendar Subscription → paste. Outlook: Add calendar → Subscribe from web → paste.',
+        'Open Master Calendar and click Connect to Calendar.',
+        'Pick your calendar — Google, Apple, or Outlook — and it opens that app with an "add calendar" prompt. Confirm and you\'re done.',
         'Schedule items, task due dates, and scheduled inspections now appear in your calendar and refresh automatically.',
       ] },
-      { type: 'tip', text: 'Keep the link private — anyone with it can view your calendar. Use Reset link to invalidate it and get a new one.' },
+      { type: 'tip', text: 'Using a different app? There\'s a "Copy the link instead" option, plus a Reset link button to invalidate the URL and get a new one.' },
       { type: 'warn', text: 'If you never connect a calendar, nothing changes — just keep using the Master Calendar inside SyteNav.' },
     ],
     related: ['master-calendar'],
