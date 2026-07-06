@@ -40,7 +40,7 @@ const groups = [
     ],
   },
   {
-    label: 'Money',
+    label: 'Financials',
     color: 'text-success',
     bg: 'bg-success-tint',
     tabs: [
@@ -48,7 +48,7 @@ const groups = [
       { label: 'Quotes', slug: 'request-quotes', icon: Send },
       { label: 'Invoices', slug: 'invoices', icon: Receipt },
       { label: 'Payments', slug: 'payments', icon: Wallet },
-      { label: 'Financials', slug: 'financials', icon: DollarSign },
+      { label: 'Summary', slug: 'financials', icon: DollarSign },
       { label: 'Change Orders', slug: 'change-orders', icon: GitPullRequest },
       { label: 'Reports', slug: 'reports', icon: BarChart2 },
     ],
