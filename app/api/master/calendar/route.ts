@@ -30,9 +30,10 @@ export async function GET(request: Request) {
   if (!ids.length) return NextResponse.json({ items: [], projects: [] })
   const nameById = new Map((projects ?? []).map(p => [p.id, p.name]))
 
-  const [{ data: sched }, { data: tasks }] = await Promise.all([
+  const [{ data: sched }, { data: tasks }, { data: inspections }] = await Promise.all([
     db.from('schedule_items').select('id, project_id, start_date, end_date, label, color, subcontract_id, subcontracts(scope, trade, companies(name))').in('project_id', ids),
     db.from('project_tasks').select('id, project_id, title, due_date, status').in('project_id', ids).not('due_date', 'is', null),
+    db.from('inspections').select('id, project_id, type, trade, status, scheduled_date').in('project_id', ids).not('scheduled_date', 'is', null),
   ])
 
   const items: any[] = []
@@ -50,6 +51,16 @@ export async function GET(request: Request) {
       id: `t_${t.id}`, kind: 'task', project_id: t.project_id, project_name: nameById.get(t.project_id) ?? '',
       title: t.title, start: t.due_date, end: t.due_date, color: t.status === 'completed' ? 'green' : 'amber',
       done: t.status === 'completed', href: `/projects/${t.project_id}/tasks`,
+    })
+  }
+
+  for (const ins of inspections ?? []) {
+    const done = ins.status === 'passed' || ins.status === 'failed'
+    items.push({
+      id: `i_${ins.id}`, kind: 'inspection', project_id: ins.project_id, project_name: nameById.get(ins.project_id) ?? '',
+      title: `${ins.type ?? 'Inspection'}${ins.trade ? ` (${ins.trade})` : ''}`, start: ins.scheduled_date, end: ins.scheduled_date,
+      color: ins.status === 'failed' ? 'red' : ins.status === 'passed' ? 'green' : 'purple',
+      done, href: `/projects/${ins.project_id}/inspections`,
     })
   }
 
