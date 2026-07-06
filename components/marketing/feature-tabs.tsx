@@ -5,7 +5,7 @@ import Link from 'next/link'
 import {
   ScanLine, Scale, Sparkles, Wallet, Banknote, Receipt, Send, GitPullRequest, BarChart2,
   CalendarDays, BookOpen, CheckSquare, Clock, Camera, ShieldCheck, Wrench, ClipboardCheck,
-  UsersRound, FolderOpen, Users, Lock, ArrowRight, FileText, Check,
+  UsersRound, FolderOpen, Users, Lock, ArrowRight, FileText, Check, ReceiptText,
 } from 'lucide-react'
 import { QuoteScanMock } from './quote-scan-mock'
 import { MoneyMock } from './money-mock'
@@ -18,6 +18,7 @@ function ComplianceVisual() {
   const rows = [
     { icon: ShieldCheck, name: 'Building permit · Maple St', state: 'Approved', tone: 'bg-success-tint text-success' },
     { icon: ClipboardCheck, name: 'Rough inspection · Thu 9am', state: 'Scheduled', tone: 'bg-info-tint text-info' },
+    { icon: ClipboardCheck, name: 'Final inspection · assigned to Sal', state: 'Requested', tone: 'bg-warn-tint text-warn' },
     { icon: FileText, name: 'GL insurance · Volt Bros', state: 'Expires 12d', tone: 'bg-warn-tint text-warn' },
     { icon: Wrench, name: 'RFI #14 · beam detail', state: 'Answered', tone: 'bg-success-tint text-success' },
     { icon: FileText, name: 'Submittal · window package', state: 'In review', tone: 'bg-info-tint text-info' },
@@ -100,6 +101,7 @@ const TABS: { key: string; label: string; blurb: string; items: Item[]; visual: 
       { icon: Wallet, title: 'Budgets & line items', body: 'Budgeted vs committed vs actual, or quote-driven line items for subs.' },
       { icon: Banknote, title: 'Client payments & escrow', body: 'Funds in, fee earned, escrow held, vendors owed. Always current.' },
       { icon: Receipt, title: 'Invoices & approvals', body: 'Create, route, and track invoices with the client-vs-escrow split built in.' },
+      { icon: ReceiptText, title: 'Materials & receipts', body: 'Snap the receipt, AI reads it, and the cost rolls into the budget actuals.' },
       { icon: Send, title: 'RFQs out, bids in', body: 'Send plans to subs and collect bids on a private link. No account needed.' },
       { icon: GitPullRequest, title: 'Change orders', body: 'Scope changes captured and priced, so the budget stays honest.' },
       { icon: BarChart2, title: 'Financial reports', body: 'Job-level numbers and company-wide rollups, one click apart.' },
@@ -124,7 +126,7 @@ const TABS: { key: string; label: string; blurb: string; items: Item[]; visual: 
     label: 'Compliance & office',
     blurb: 'Permits, inspections, insurance, and paperwork, tracked so nothing expires quietly.',
     items: [
-      { icon: ShieldCheck, title: 'Permits & inspections', body: 'Every permit status and inspection date, with reminders before they bite.' },
+      { icon: ShieldCheck, title: 'Permits & inspections', body: 'Request an inspection, assign who books it, and get notified when it is scheduled and when it passes or fails.' },
       { icon: Wrench, title: 'Submittals & RFIs', body: 'Questions, answers, and approvals in one thread, not forty emails.' },
       { icon: ClipboardCheck, title: 'Insurance & licenses', body: 'COIs and licenses with expiry warnings, per sub and per job.' },
       { icon: UsersRound, title: 'Directory & customers', body: 'Subs, suppliers, and clients in one shared address book.' },

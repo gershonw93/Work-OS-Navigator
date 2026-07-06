@@ -152,6 +152,7 @@ export default function ContractorsPage() {
               {[
                 'Stage payments tracked from invoice to release',
                 'Escrow held vs fee earned vs vendors owed, per job',
+                'Material receipts scanned straight into job costs',
                 'Company-wide cash picture in the master money view',
               ].map(t => (
                 <li key={t} className="flex items-start gap-3 text-ink-soft">
@@ -197,7 +198,7 @@ export default function ContractorsPage() {
           {[
             { icon: LayoutDashboard, title: 'Master dashboard', body: 'Every job’s health on one screen, every morning.' },
             { icon: BookOpen, title: 'Field, reporting in', body: 'Daily logs, photos, and time from every site, live.' },
-            { icon: ShieldCheck, title: 'Compliance covered', body: 'Permits, inspections, and COIs with reminders that fire early.' },
+            { icon: ShieldCheck, title: 'Compliance covered', body: 'Permits and COIs tracked, inspections requested, booked, and resulted on the master calendar.' },
           ].map((x, i) => (
             <Reveal key={x.title} delay={i * 100}>
               <div>

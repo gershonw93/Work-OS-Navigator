@@ -5,7 +5,7 @@ import {
   ArrowRight, ScanLine, Scale, Sparkles, FileText, Wallet, Banknote, Receipt, Send,
   GitPullRequest, BarChart2, CalendarDays, BookOpen, CheckSquare, Clock, Camera,
   ShieldCheck, Wrench, ClipboardCheck, UsersRound, FolderOpen, Users, Lock, Smartphone,
-  LayoutDashboard, DollarSign,
+  LayoutDashboard, DollarSign, ReceiptText, CalendarCheck,
 } from 'lucide-react'
 import { marketingMeta } from '@/components/marketing/meta'
 import { BrowserMock } from '@/components/marketing/browser-mock'
@@ -59,6 +59,7 @@ const SECTIONS: {
       { icon: Banknote, title: 'Client payments & escrow', body: 'Track client funds in, your fee earned, the escrow balance held, and what’s still owed to vendors, per stage and per job.' },
       { icon: Receipt, title: 'Invoices & approvals', body: 'Create invoices from progress, route them for approval, and track payment, with the client-versus-escrow split handled for you.' },
       { icon: Send, title: 'Request for quotes (RFQ)', body: 'Send plans and scope to your subs. They bid on a private link, no account required, and the bids land ready to compare.' },
+      { icon: ReceiptText, title: 'Materials & receipts', body: 'Snap the receipt at the lumber counter. AI reads the store, date, total, tax, and line items, links it to a budget line, and it rolls straight into actuals.' },
       { icon: GitPullRequest, title: 'Change orders', body: 'Capture scope changes with pricing and approval, so the contract and the budget never drift apart.' },
       { icon: BarChart2, title: 'Financials & reports', body: 'Job-level profitability and company-wide rollups. See which jobs earn and which ones eat.' },
     ],
@@ -85,6 +86,7 @@ const SECTIONS: {
     lead: 'Permits, inspections, insurance, submittals, and RFIs, the paperwork that can stop a job, tracked with reminders that fire before deadlines do.',
     features: [
       { icon: ShieldCheck, title: 'Permits & inspections', body: 'Track application, approval, and inspection dates for every permit, with reminders ahead of each one.' },
+      { icon: CalendarCheck, title: 'Inspection scheduling', body: 'Request an inspection with a type and preferred time, assign a teammate to book it, and everyone is notified when it is scheduled and when it passes or fails. Booked inspections land on the master calendar, color-coded by result.' },
       { icon: Wrench, title: 'Submittals & RFIs', body: 'Submittals routed for approval, questions answered in one thread with the drawings attached. No email archaeology.' },
       { icon: ClipboardCheck, title: 'Insurance & licenses', body: 'COIs and licenses tracked per sub with expiry warnings, so nobody works uncovered.' },
       { icon: UsersRound, title: 'Directory & customers', body: 'Subs, suppliers, and clients in one company-wide address book, linked to their jobs, bids, and paperwork.' },
