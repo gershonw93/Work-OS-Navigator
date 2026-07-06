@@ -770,7 +770,26 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'Click any item to jump straight to its project.',
       ] },
     ],
-    related: ['schedule-milestones', 'master-money'],
+    related: ['schedule-milestones', 'master-money', 'calendar-subscribe'],
+  },
+  {
+    slug: 'calendar-subscribe',
+    title: 'Add SyteNav to your Google / Apple / Outlook calendar',
+    category: 'cross-project',
+    keywords: ['calendar', 'google', 'apple', 'outlook', 'ical', 'subscribe', 'sync', 'feed'],
+    summary: 'Mirror your schedules, tasks, and inspections into your own calendar (optional, read-only).',
+    blocks: [
+      { type: 'text', text: 'The in-app Master Calendar is always there — this just adds a copy of those events to your personal calendar. It\'s read-only, so it can never change anything in SyteNav.' },
+      { type: 'steps', items: [
+        'Open Master Calendar and click Subscribe.',
+        'Copy your private calendar link.',
+        'Google Calendar: Other calendars → + → From URL → paste. Apple: File → New Calendar Subscription → paste. Outlook: Add calendar → Subscribe from web → paste.',
+        'Schedule items, task due dates, and scheduled inspections now appear in your calendar and refresh automatically.',
+      ] },
+      { type: 'tip', text: 'Keep the link private — anyone with it can view your calendar. Use Reset link to invalidate it and get a new one.' },
+      { type: 'warn', text: 'If you never connect a calendar, nothing changes — just keep using the Master Calendar inside SyteNav.' },
+    ],
+    related: ['master-calendar'],
   },
   {
     slug: 'master-money',

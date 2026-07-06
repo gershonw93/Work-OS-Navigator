@@ -4,11 +4,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { usePermissions } from '@/lib/use-permissions'
-import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CalendarDays, CalendarPlus, X, Copy, Check, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface Item {
-  id: string; kind: 'schedule' | 'task'; project_id: string; project_name: string
+  id: string; kind: 'schedule' | 'task' | 'inspection'; project_id: string; project_name: string
   title: string; start: string; end: string; color: string; done?: boolean; href: string
 }
 
@@ -27,8 +27,25 @@ export default function MasterCalendarPage() {
   const [items, setItems] = useState<Item[]>([])
   const [loading, setLoading] = useState(true)
   const [cursor, setCursor] = useState(() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() } })
+  const [showSub, setShowSub] = useState(false)
+  const [feedUrl, setFeedUrl] = useState('')
+  const [copied, setCopied] = useState(false)
 
   const isAdmin = realRole === 'admin' || realRole === 'manager'
+
+  async function openSubscribe() {
+    setShowSub(true)
+    if (feedUrl) return
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/settings/calendar', { headers: { Authorization: `Bearer ${session?.access_token}` } })
+    if (res.ok) setFeedUrl(`${window.location.origin}/api/calendar/${(await res.json()).calendar_token}`)
+  }
+  async function resetFeed() {
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/settings/calendar', { method: 'POST', headers: { Authorization: `Bearer ${session?.access_token}` } })
+    if (res.ok) setFeedUrl(`${window.location.origin}/api/calendar/${(await res.json()).calendar_token}`)
+  }
+  function copyFeed() { navigator.clipboard?.writeText(feedUrl); setCopied(true); setTimeout(() => setCopied(false), 1500) }
 
   useEffect(() => {
     (async () => {
@@ -80,8 +97,39 @@ export default function MasterCalendarPage() {
           <span className="text-sm font-semibold text-ink-soft w-36 text-center">{monthLabel}</span>
           <button onClick={() => move(1)} className="p-2 rounded-lg border border-line text-muted-fg hover:bg-surface"><ChevronRight className="h-4 w-4" /></button>
           <button onClick={() => { const d = new Date(); setCursor({ y: d.getFullYear(), m: d.getMonth() }) }} className="ml-1 px-3 py-2 rounded-lg border border-line text-sm text-muted-fg hover:bg-surface">Today</button>
+          <button onClick={openSubscribe} className="ml-1 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line text-sm font-medium text-accent-fg hover:bg-surface"><CalendarPlus className="h-4 w-4" /> Subscribe</button>
         </div>
       </div>
+
+      {/* Subscribe to your own calendar (Google / Apple / Outlook) */}
+      {showSub && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowSub(false)}>
+          <div className="w-full max-w-lg rounded-xl bg-panel shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-line px-5 py-4">
+              <h2 className="text-lg font-bold text-ink">Add SyteNav to your calendar</h2>
+              <button onClick={() => setShowSub(false)} className="text-faint hover:text-ink"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="space-y-4 px-5 py-4">
+              <p className="text-sm text-muted-fg">Subscribe with this private link and your schedules, task due dates, and inspections show up in your own calendar automatically. It's read-only — this never changes anything in SyteNav.</p>
+              <div className="flex items-center gap-1.5">
+                <input readOnly value={feedUrl || 'Generating link…'} className="flex-1 min-w-0 rounded-md border border-line bg-surface px-2.5 py-2 text-xs text-ink-soft" />
+                <button onClick={copyFeed} disabled={!feedUrl} className="inline-flex items-center gap-1 rounded-md border border-line px-2.5 py-2 text-xs text-muted-fg hover:bg-surface disabled:opacity-50">
+                  {copied ? <><Check className="h-3.5 w-3.5 text-success" /> Copied</> : <><Copy className="h-3.5 w-3.5" /> Copy</>}
+                </button>
+              </div>
+              <div className="rounded-lg border border-line-soft bg-surface p-3 text-xs text-muted-fg space-y-1.5">
+                <p><span className="font-semibold text-ink-soft">Google Calendar:</span> Other calendars → + → From URL → paste the link.</p>
+                <p><span className="font-semibold text-ink-soft">Apple Calendar:</span> File → New Calendar Subscription → paste the link.</p>
+                <p><span className="font-semibold text-ink-soft">Outlook:</span> Add calendar → Subscribe from web → paste the link.</p>
+              </div>
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-faint">Keep this link private — anyone with it can view your calendar.</p>
+                <button onClick={resetFeed} className="inline-flex items-center gap-1 text-xs font-medium text-muted-fg hover:text-danger"><RefreshCw className="h-3 w-3" /> Reset link</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="bg-panel rounded-xl border border-line overflow-hidden">
         <div className="grid grid-cols-7 border-b border-line-soft">
