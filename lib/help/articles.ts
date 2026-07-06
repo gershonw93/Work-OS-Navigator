@@ -216,7 +216,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     blocks: [
       { type: 'steps', items: [
         'Build a budget on a project you want to reuse.',
-        'Save it as a template from the Budget tab, or manage templates under Budget Templates in the sidebar.',
+        'Save it as a template from the Budget tab, or manage your templates from Settings → Budget Templates.',
         'On a new project\'s Budget tab, apply the template to instantly create all its lines.',
         'You can also copy another project\'s budget lines directly.',
       ] },

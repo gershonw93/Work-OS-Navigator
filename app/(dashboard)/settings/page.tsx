@@ -8,9 +8,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { Label } from '@/components/ui/label'
+import Link from 'next/link'
 import {
   User, Building2, Users, Shield, Bell, CreditCard, AlertTriangle,
   Check, X, SlidersHorizontal, Plug, Palette, Camera, RefreshCw, Ban, Lock,
+  LayoutTemplate,
 } from 'lucide-react'
 import { PermissionsPanel } from '@/components/settings/permissions-panel'
 
@@ -658,6 +660,24 @@ export default function SettingsPage() {
                 </li>
               )
             })}
+
+            {/* Budget Templates lives on its own page; managers reach it here
+                (and from any project's Budget tab). Not shown to restricted roles. */}
+            {(() => {
+              const isRestricted = ['field_supervisor', 'worker', 'member', 'read_only'].includes(userRole)
+              if (!userRole || isRestricted) return null
+              return (
+                <li>
+                  <Link
+                    href="/budget-templates"
+                    className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium transition-colors rounded-lg text-muted-fg hover:bg-surface"
+                  >
+                    <LayoutTemplate className="h-5 w-5 shrink-0" />
+                    <span className="hidden md:block">Budget Templates</span>
+                  </Link>
+                </li>
+              )
+            })()}
           </ul>
         </nav>
 
