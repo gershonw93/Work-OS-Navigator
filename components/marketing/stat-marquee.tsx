@@ -1,10 +1,10 @@
 const ITEMS = [
-  ['2,400+', 'contractors'],
-  ['$1.9B', 'in contracts tracked'],
-  ['48,000+', 'jobs managed'],
-  ['120k+', 'daily logs filed'],
-  ['310k+', 'documents scanned by AI'],
-  ['37', 'states'],
+  ['140+', 'contractors'],
+  ['$42M', 'in contracts tracked'],
+  ['1,800+', 'jobs managed'],
+  ['9,400+', 'daily logs filed'],
+  ['12,500+', 'documents scanned by AI'],
+  ['11', 'states'],
   ['92%', 'of invoices paid on schedule'],
   ['14s', 'average quote scan'],
 ] as const

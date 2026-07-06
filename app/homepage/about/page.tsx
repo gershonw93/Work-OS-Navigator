@@ -10,7 +10,7 @@ import { CtaBand } from '@/components/marketing/cta-band'
 export const metadata: Metadata = marketingMeta({
   title: 'About · SyteNav',
   description:
-    'SyteNav is built by builders and engineers who got tired of running jobs out of spreadsheets and group texts. Headquartered in New Jersey, used by contractors in 37 states.',
+    'SyteNav is built by builders and engineers who got tired of running jobs out of spreadsheets and group texts. Headquartered in New Jersey, used by contractors in 11 states.',
   path: '/homepage/about',
 })
 
@@ -33,10 +33,10 @@ const VALUES = [
 ]
 
 const NUMBERS = [
-  { end: 2400, suffix: '+', label: 'contractors' },
-  { end: 1.9, prefix: '$', suffix: 'B', decimals: 1, label: 'contracts tracked' },
-  { end: 48000, suffix: '+', label: 'jobs managed' },
-  { end: 37, label: 'states' },
+  { end: 140, suffix: '+', label: 'contractors' },
+  { end: 42, prefix: '$', suffix: 'M', label: 'contracts tracked' },
+  { end: 1800, suffix: '+', label: 'jobs managed' },
+  { end: 11, label: 'states' },
 ]
 
 export default function AboutPage() {
@@ -61,7 +61,7 @@ export default function AboutPage() {
               The insight wasn’t that construction needs more software. It’s that the job already exists on paper, in quotes, permits, invoices, and plans, and someone is always retyping it. So we built the system around a different first step: read the paperwork, and let the job build itself.
             </p>
             <p>
-              Today a team of builders and engineers in New Jersey ships SyteNav to contractors in 37 states. We stay close to the field, our roadmap comes from jobsite phone calls, not conference keynotes, and we measure ourselves on one thing: whether the people who run real jobs get home earlier.
+              Today a team of builders and engineers in New Jersey ships SyteNav to contractors in 11 states. We stay close to the field, our roadmap comes from jobsite phone calls, not conference keynotes, and we measure ourselves on one thing: whether the people who run real jobs get home earlier.
             </p>
           </div>
         </Reveal>
@@ -79,7 +79,7 @@ export default function AboutPage() {
             {NUMBERS.map((n, i) => (
               <Reveal key={n.label} delay={i * 90}>
                 <p className="font-display font-bold text-4xl sm:text-5xl text-ink tracking-tight">
-                  <CountUp end={n.end} prefix={n.prefix} suffix={n.suffix} decimals={n.decimals} />
+                  <CountUp end={n.end} prefix={n.prefix} suffix={n.suffix} />
                 </p>
                 <p className="text-sm text-muted-fg mt-2">{n.label}</p>
               </Reveal>

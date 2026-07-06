@@ -151,7 +151,7 @@ export function ScrollHero() {
             <p className="mt-6 text-lg text-muted-fg max-w-2xl leading-relaxed">{SUB}</p>
             <div className="mt-8"><Ctas center /></div>
             <p className="mt-6 font-mono text-[11px] uppercase tracking-[0.18em] text-faint">
-              2,400+ contractors · $1.9B tracked · 48,000+ jobs
+              140+ contractors · $42M tracked · 1,800+ jobs
             </p>
           </div>
 
