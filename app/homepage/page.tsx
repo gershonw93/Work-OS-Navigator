@@ -45,10 +45,10 @@ const STEPS = [
 ]
 
 const STATS = [
-  { end: 2400, suffix: '+', label: 'contractors building on SyteNav' },
-  { end: 1.9, prefix: '$', suffix: 'B', decimals: 1, label: 'in contracts tracked' },
-  { end: 48000, suffix: '+', label: 'jobs managed' },
-  { end: 310000, suffix: '+', label: 'documents scanned by AI' },
+  { end: 140, suffix: '+', label: 'contractors building on SyteNav' },
+  { end: 42, prefix: '$', suffix: 'M', label: 'in contracts tracked' },
+  { end: 1800, suffix: '+', label: 'jobs managed' },
+  { end: 12500, suffix: '+', label: 'documents scanned by AI' },
 ]
 
 const TESTIMONIALS = [
@@ -233,7 +233,7 @@ export default function HomePage() {
           {STATS.map((s, i) => (
             <Reveal key={s.label} delay={i * 100}>
               <p className="font-display font-bold text-4xl sm:text-5xl text-ink tracking-tight">
-                <CountUp end={s.end} prefix={s.prefix} suffix={s.suffix} decimals={s.decimals} />
+                <CountUp end={s.end} prefix={s.prefix} suffix={s.suffix} />
               </p>
               <p className="text-sm text-muted-fg mt-2 max-w-[180px] mx-auto">{s.label}</p>
             </Reveal>

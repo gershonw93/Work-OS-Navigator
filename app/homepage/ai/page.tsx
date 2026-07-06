@@ -119,7 +119,7 @@ export default function AiPage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12 grid grid-cols-3 gap-6 text-center">
           {[
             { end: 14, suffix: 's', label: 'average quote scan' },
-            { end: 310000, suffix: '+', label: 'documents scanned' },
+            { end: 12500, suffix: '+', label: 'documents scanned' },
             { end: 98, suffix: '%', label: 'line items captured on first pass' },
           ].map((s, i) => (
             <Reveal key={s.label} delay={i * 100}>

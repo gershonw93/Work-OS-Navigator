@@ -48,11 +48,11 @@ export default function OpengraphImage() {
         {/* Stats + accent bar */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
           <div style={{ display: 'flex', gap: 14, fontSize: 25, color: '#C9F24A', fontWeight: 700 }}>
-            <span>2,400+ contractors</span>
+            <span>140+ contractors</span>
             <span style={{ color: '#6E747C' }}>·</span>
-            <span>$1.9B tracked</span>
+            <span>$42M tracked</span>
             <span style={{ color: '#6E747C' }}>·</span>
-            <span>48,000+ jobs</span>
+            <span>1,800+ jobs</span>
           </div>
           <div style={{ display: 'flex', height: 10, width: '100%', background: '#C9F24A', borderRadius: 6 }} />
         </div>
