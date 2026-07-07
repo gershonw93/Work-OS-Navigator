@@ -33,8 +33,9 @@ export async function POST(request: Request) {
   const ws = wb.Sheets[wb.SheetNames[0]]
   const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, blankrows: false })
 
-  const SKIP = /^(total|subtotal|grand total|contractor fee|line item|amount|property address|phase\b)/i
+  const SKIP = /^(total|subtotal|grand total|contractor fee|line item|amount|property address|phase\b|description$|item$|category$|qty$|quantity$|unit price$|price$|cost$|notes?$)/i
   const items: { description: string; default_amount: number | null }[] = []
+  const seen = new Set<string>()
   for (const row of rows) {
     if (!Array.isArray(row)) continue
     let label: string | null = null
@@ -46,6 +47,9 @@ export async function POST(request: Request) {
     }
     if (!label || SKIP.test(label)) continue
     if (label.length > 120) continue
+    const key = label.toLowerCase().replace(/\s+/g, ' ')
+    if (seen.has(key)) continue   // same line twice in the sheet
+    seen.add(key)
     items.push({ description: label, default_amount: amount })
   }
 

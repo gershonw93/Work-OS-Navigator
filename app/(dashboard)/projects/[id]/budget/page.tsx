@@ -157,7 +157,11 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       body: JSON.stringify({ ...body, copy_amounts: copyAmounts }),
     })
     setApplying(false)
-    if (res.ok) { setShowTemplate(false); load() }
+    if (res.ok) {
+      const d = await res.json().catch(() => ({}))
+      if (d.skipped > 0) alert(`${d.skipped} line${d.skipped !== 1 ? 's' : ''} skipped — already on this budget.`)
+      setShowTemplate(false); load()
+    }
     else alert((await res.json().catch(() => ({}))).error ?? 'Could not apply')
   }
 
@@ -184,7 +188,11 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       body: JSON.stringify({ items: importItems, merge: true }),
     })
     setApplying(false)
-    if (res.ok) { setShowTemplate(false); setImportItems(null); load() }
+    if (res.ok) {
+      const d = await res.json().catch(() => ({}))
+      if (d.skipped > 0) alert(`${d.skipped} duplicate line${d.skipped !== 1 ? 's' : ''} skipped.`)
+      setShowTemplate(false); setImportItems(null); load()
+    }
     else alert((await res.json().catch(() => ({}))).error ?? 'Could not apply')
   }
 

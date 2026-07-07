@@ -92,6 +92,21 @@ export async function POST(request: Request, { params }: { params: { id: string 
     rows = remaining
   }
 
+  // Never create duplicates: drop rows whose description already exists on
+  // this budget (case/spacing-insensitive). Applies to templates, copies,
+  // and imports alike; merge mode has already consumed its matches above.
+  let skipped = 0
+  if (rows.length) {
+    const { data: existingAll } = await db
+      .from('budget_line_items')
+      .select('description')
+      .eq('project_id', params.id)
+    const existingKeys = new Set((existingAll ?? []).map((l: any) => norm(l.description ?? '')))
+    const before = rows.length
+    rows = rows.filter(r => !existingKeys.has(norm(r.description)))
+    skipped = before - rows.length
+  }
+
   // Append the (remaining) rows after any existing lines
   let inserted = 0
   if (rows.length) {
@@ -113,5 +128,5 @@ export async function POST(request: Request, { params }: { params: { id: string 
     inserted = data?.length ?? 0
   }
 
-  return NextResponse.json({ inserted, updated })
+  return NextResponse.json({ inserted, updated, skipped })
 }
