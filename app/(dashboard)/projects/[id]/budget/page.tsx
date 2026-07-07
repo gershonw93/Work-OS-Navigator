@@ -379,7 +379,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
 
               {/* Upload Excel */}
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-faint mb-2"><FileSpreadsheet className="inline h-3.5 w-3.5 mr-1" />Upload a budget Excel</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-faint mb-2"><FileSpreadsheet className="inline h-3.5 w-3.5 mr-1" />Import an estimate / budget sheet (Excel or CSV)</p>
                 {!importItems ? (
                   <label className="flex items-center gap-2 rounded-lg border border-dashed border-muted2 px-3 py-2.5 text-sm text-muted-fg hover:bg-surface cursor-pointer w-fit">
                     <FileSpreadsheet className="h-4 w-4" /> {importing ? 'Reading…' : 'Choose .xlsx / .csv'}

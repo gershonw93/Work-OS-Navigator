@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { FileText, ExternalLink, TrendingUp, StickyNote, ListChecks, CheckCircle2, X } from 'lucide-react'
+import { FileText, ExternalLink, TrendingUp, StickyNote, ListChecks, CheckCircle2, X, PenLine } from 'lucide-react'
+import { SignoffModal } from '@/components/ui/signoff-modal'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,6 +14,7 @@ interface LineTask { id: string; title: string; status: string }
 interface Line {
   id: string; description: string; budgeted_amount: number; progress_pct: number; progress_status: string
   progress_note: string | null; quantity: number | null; unit_price: number | null; section: string | null; task: LineTask | null
+  signoff_signed_at?: string | null; signoff_signed_by?: string | null; signoff_signature_url?: string | null
 }
 interface QProject { status: string; quote_file_url: string | null; quote_file_name: string | null; quote_total: number | null }
 
@@ -31,6 +33,27 @@ export function QuoteLineItems({ projectId, mode }: { projectId: string; mode: '
   const [project, setProject] = useState<QProject | null>(null)
   const [lines, setLines] = useState<Line[]>([])
   const [loading, setLoading] = useState(true)
+  const [signLine, setSignLine] = useState<Line | null>(null)
+  const [signSaving, setSignSaving] = useState(false)
+
+  async function signOffLine(blob: Blob, name: string) {
+    if (!signLine) return
+    setSignSaving(true)
+    const form = new FormData()
+    form.append('signature', new File([blob], 'signature.png', { type: 'image/png' }))
+    form.append('name', name)
+    const res = await fetch(`/api/projects/${projectId}/budget/${signLine.id}/signoff`, {
+      method: 'POST', headers: { Authorization: `Bearer ${await token()}` }, body: form,
+    })
+    setSignSaving(false)
+    if (res.ok) {
+      const { line } = await res.json()
+      setLines(ls => ls.map(l => l.id === line.id ? { ...l, ...line } : l))
+      setSignLine(null)
+    } else {
+      alert((await res.json().catch(() => ({}))).error ?? 'Could not sign off')
+    }
+  }
 
   async function token() { const { data: { session } } = await supabase.auth.getSession(); return session?.access_token ?? '' }
 
@@ -197,6 +220,18 @@ export function QuoteLineItems({ projectId, mode }: { projectId: string; mode: '
                       <button onClick={() => setNoteOpen(noteOpen === l.id ? null : l.id)} className="inline-flex items-center gap-1 text-xs text-muted-fg hover:text-ink">
                         <StickyNote className="h-3.5 w-3.5" /> {l.progress_note ? 'Note' : 'Add note'}
                       </button>
+                      {l.progress_status === 'done' && (
+                        l.signoff_signed_at ? (
+                          <span className="inline-flex items-center gap-1 text-xs text-success" title={`Signed off ${new Date(l.signoff_signed_at).toLocaleDateString()}`}>
+                            <PenLine className="h-3.5 w-3.5" /> Signed off by {l.signoff_signed_by}
+                            {l.signoff_signature_url && <a href={l.signoff_signature_url} target="_blank" rel="noreferrer" className="text-accent-fg hover:underline ml-0.5">view</a>}
+                          </span>
+                        ) : (
+                          <button onClick={() => setSignLine(l)} className="inline-flex items-center gap-1 text-xs text-accent-fg hover:underline">
+                            <PenLine className="h-3.5 w-3.5" /> Sign off
+                          </button>
+                        )
+                      )}
                       {l.task ? (
                         <Link href={`/projects/${projectId}/tasks`} className="inline-flex items-center gap-1 text-xs text-accent-fg hover:underline">
                           <ListChecks className="h-3.5 w-3.5" /> Task{l.task.status === 'completed' ? ' · done' : ''}
@@ -257,6 +292,10 @@ export function QuoteLineItems({ projectId, mode }: { projectId: string; mode: '
             </div>
           </div>
         </div>
+      )}
+
+      {signLine && (
+        <SignoffModal title={signLine.description} saving={signSaving} onClose={() => setSignLine(null)} onSign={signOffLine} />
       )}
     </div>
   )

@@ -19,7 +19,7 @@ const groups = [
     color: 'text-info',
     bg: 'bg-info-tint',
     tabs: [
-      { label: 'Quote', slug: 'quote', icon: ClipboardCheck },
+      { label: 'Estimate', slug: 'quote', icon: ClipboardCheck },
       { label: 'Plans', slug: 'plans', icon: FileText },
       { label: 'Schedule', slug: 'schedule', icon: Calendar },
       { label: 'Tasks', slug: 'tasks', icon: CheckSquare },

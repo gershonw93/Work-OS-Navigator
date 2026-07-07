@@ -75,7 +75,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const defaultTerms = (profile?.companies as any)?.default_payment_terms ?? null
   const [{ data: project }, { data: lines }] = await Promise.all([
     db.from('projects').select('status, quote_file_url, quote_file_name, quote_total, payment_terms, payment_stages').eq('id', params.id).single(),
-    db.from('budget_line_items').select('id, description, budgeted_amount, progress_pct, progress_status, progress_note, sort_order, quantity, unit_price, section').eq('project_id', params.id).order('sort_order', { ascending: true }),
+    db.from('budget_line_items').select('*').eq('project_id', params.id).order('sort_order', { ascending: true }),
   ])
   // Attach any task linked to each line (two-way link).
   const lineIds = (lines ?? []).map((l: any) => l.id)
