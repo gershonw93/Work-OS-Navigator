@@ -169,6 +169,23 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
     else alert((await res.json().catch(() => ({}))).error ?? 'Could not read file')
   }
 
+  const normDesc = (t: string) => (t || '').toLowerCase().replace(/\s+/g, ' ').trim()
+
+  // Merge an imported sheet into the existing budget: matching descriptions
+  // update that line's budgeted amount, everything else is added as new.
+  async function applyImportMerge() {
+    if (!importItems?.length) return
+    setApplying(true)
+    const token = await getToken()
+    const res = await fetch(`/api/projects/${params.id}/budget/apply`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ items: importItems, merge: true }),
+    })
+    setApplying(false)
+    if (res.ok) { setShowTemplate(false); setImportItems(null); load() }
+    else alert((await res.json().catch(() => ({}))).error ?? 'Could not apply')
+  }
+
   async function saveImportedAsTemplateAndApply() {
     if (!importItems?.length) return
     setApplying(true)
@@ -392,16 +409,49 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                     <input type="file" accept=".xlsx,.xls,.csv" className="sr-only" onChange={e => { const f = e.target.files?.[0]; if (f) importExcel(f) }} />
                   </label>
                 ) : (
+                  (() => {
+                    const existingDescs = new Set(items.map(l => normDesc(l.description)))
+                    const matches = importItems.filter(i => existingDescs.has(normDesc(i.description))).length
+                    const fresh = importItems.length - matches
+                    return (
                   <div className="rounded-lg border border-line p-3 space-y-2">
-                    <p className="text-sm text-ink-soft">{importItems.length} line items found</p>
-                    <div className="max-h-32 overflow-y-auto text-xs text-faint space-y-0.5">
-                      {importItems.slice(0, 30).map((i, idx) => <div key={idx} className="flex justify-between gap-2"><span className="truncate">{i.description}</span><span>{i.default_amount != null ? money(i.default_amount) : ''}</span></div>)}
+                    <p className="text-sm text-ink-soft">
+                      {importItems.length} line items found
+                      {items.length > 0 && matches > 0 && <span className="text-muted-fg"> — {matches} match existing lines, {fresh} new</span>}
+                    </p>
+                    <div className="max-h-32 overflow-y-auto text-xs space-y-0.5">
+                      {importItems.slice(0, 30).map((i, idx) => {
+                        const isMatch = existingDescs.has(normDesc(i.description))
+                        return (
+                          <div key={idx} className="flex items-center justify-between gap-2 text-faint">
+                            <span className="truncate">{i.description}</span>
+                            <span className="flex items-center gap-1.5 shrink-0">
+                              {items.length > 0 && (
+                                <span className={cn('rounded-full px-1.5 py-0 text-[10px] font-medium', isMatch ? 'bg-info-tint text-info' : 'bg-success-tint text-success')}>
+                                  {isMatch ? 'updates' : 'new'}
+                                </span>
+                              )}
+                              {i.default_amount != null ? money(i.default_amount) : ''}
+                            </span>
+                          </div>
+                        )
+                      })}
                     </div>
-                    <div className="flex gap-2 justify-end">
+                    <div className="flex flex-wrap gap-2 justify-end">
                       <Button size="sm" variant="outline" onClick={() => setImportItems(null)}>Choose another</Button>
-                      <Button size="sm" disabled={applying} onClick={saveImportedAsTemplateAndApply}>{applying ? 'Applying…' : 'Save template & apply'}</Button>
+                      {items.length > 0 && matches > 0 && (
+                        <Button size="sm" disabled={applying} onClick={applyImportMerge}>
+                          {applying ? 'Applying…' : `Update ${matches} matching${fresh > 0 ? ` + add ${fresh} new` : ''}`}
+                        </Button>
+                      )}
+                      <Button size="sm" variant={items.length > 0 && matches > 0 ? 'outline' : 'default'} disabled={applying} onClick={saveImportedAsTemplateAndApply}>{applying ? 'Applying…' : 'Add all as new (save template)'}</Button>
                     </div>
+                    {items.length > 0 && matches > 0 && (
+                      <p className="text-xs text-faint">Updating never deletes anything — lines not in the sheet are left untouched.</p>
+                    )}
                   </div>
+                    )
+                  })()
                 )}
               </div>
             </div>

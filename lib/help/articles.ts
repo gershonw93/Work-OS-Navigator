@@ -224,6 +224,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'Optionally link the line to a subcontract — then Committed and Actual fill in automatically from that sub\'s contract and approved invoices.',
       ] },
       { type: 'tip', text: 'Approving an invoice (not just paying it) moves the Actual amount. This keeps your budget honest the moment costs are accepted.' },
+      { type: 'text', text: 'Already have the budget in a spreadsheet? Use Import Estimate in the header (.xlsx/.csv). If the budget already has lines, rows whose descriptions match update those lines\' amounts and the rest are added as new — imports never delete anything.' },
     ],
     related: ['budget-templates', 'money-overview', 'create-invoice'],
   },
