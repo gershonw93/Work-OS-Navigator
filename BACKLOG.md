@@ -44,6 +44,14 @@ move it to **In progress**, and when it ships, move it to **Done** with the PR #
 - **Week / agenda view** and **filter by project** on the Master Calendar.
 - **Per-project calendar tab** (not just Master).
 
+## ✍️ Work signoffs (planned — next up)
+- **Signature-based approval of completed work** (distinct from percent-done tracking and button approvals). Reuses the existing signature pad (daily logs already collect one).
+- **Frontend placement:**
+  - *Tasks tab* — "Request signoff" on a completed task → assignee/sub signs → GC countersigns; signed badge on the task card.
+  - *Progress lines* (quote line items) — a "Sign off" action when a line hits 100%, so payment-linked milestones carry a signature.
+  - *Daily logs* — rename the existing signature step to "Signoff" for consistent wording.
+- Notifications: requester notified when signed; signoff stored with name + timestamp + signature image.
+
 ## 🏗️ Field / Inspections
 - **Email/SMS for inspection notifications** (currently in-app bell only).
 - **Inspections on the per-project Schedule tab** (currently on Master Calendar).

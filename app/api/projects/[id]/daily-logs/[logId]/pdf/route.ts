@@ -10,12 +10,12 @@ const admin = () => createClient(
 )
 
 const SURVEY_QUESTIONS: { key: string; label: string }[] = [
-  { key: 'accidents', label: 'Accidents' },
-  { key: 'scheduled_delays', label: 'Scheduled delays' },
-  { key: 'weather_delays', label: 'Weather delays' },
-  { key: 'visitors', label: 'Visitors on site' },
-  { key: 'areas_blocked', label: "Areas that can't be worked on" },
-  { key: 'equipment_rented', label: 'Equipment rented on site' },
+  { key: 'accidents', label: 'Safety incidents' },
+  { key: 'scheduled_delays', label: 'Schedule impacts' },
+  { key: 'weather_delays', label: 'Weather impacts' },
+  { key: 'visitors', label: 'Jobsite visitors' },
+  { key: 'areas_blocked', label: 'Blocked / inaccessible areas' },
+  { key: 'equipment_rented', label: 'Rental equipment on site' },
 ]
 
 export async function GET(request: Request, { params }: { params: { id: string; logId: string } }) {
