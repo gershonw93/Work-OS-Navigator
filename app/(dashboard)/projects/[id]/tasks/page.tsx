@@ -164,6 +164,18 @@ function TaskDetailPanel({ task, notes, notesLoading, onAddNote, projectId, onCh
   const [showSignoff, setShowSignoff] = useState(false)
   const [signSaving, setSignSaving] = useState(false)
   const [requesting, setRequesting] = useState(false)
+  const [planPin, setPlanPin] = useState<{ id: string; plan_id: string; page: number } | null>(null)
+
+  // If this task came from a plan pin, offer a link back to the exact spot.
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      const { data: { session } } = await createClient().auth.getSession()
+      const res = await fetch(`/api/projects/${projectId}/tasks/${task.id}/pin`, { headers: { Authorization: `Bearer ${session?.access_token}` } })
+      if (res.ok && alive) setPlanPin((await res.json()).pin)
+    })()
+    return () => { alive = false }
+  }, [task.id])
 
   const statusObj = STATUSES.find(s => s.value === task.status) ?? STATUSES[0]
 
@@ -246,6 +258,13 @@ function TaskDetailPanel({ task, notes, notesLoading, onAddNote, projectId, onCh
 
           {task.description && (
             <p className="text-sm text-muted-fg leading-relaxed whitespace-pre-wrap">{task.description}</p>
+          )}
+
+          {planPin && (
+            <a href={`/projects/${projectId}/plans/${planPin.plan_id}?pin=${planPin.id}`}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-accent-fg hover:underline">
+              <FileText className="h-4 w-4" /> View pinned spot on the plan
+            </a>
           )}
 
           {task.image_url && (
