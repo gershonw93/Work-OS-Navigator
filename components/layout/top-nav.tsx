@@ -57,7 +57,8 @@ export function TopNav() {
       </div>
       <div className="flex items-center gap-2">
         <ImpersonateSwitcher />
-        <ViewAsSwitcher />
+        {/* View-as crowds the mobile top bar — desktop only */}
+        <div className="hidden sm:block"><ViewAsSwitcher /></div>
         <NotificationBell />
         <button className="flex items-center justify-center w-8 h-8 rounded-full bg-muted2 text-muted-fg hover:bg-muted2 transition-colors">
           <User className="h-4 w-4" />
