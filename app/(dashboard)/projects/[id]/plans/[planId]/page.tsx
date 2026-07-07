@@ -10,6 +10,7 @@ import { Select } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import {
   ArrowLeft, MapPin, Plus, Minus, X, Loader2, ChevronLeft, ChevronRight, Trash2, ExternalLink,
+  Maximize2, Minimize2, List,
 } from 'lucide-react'
 
 interface Plan { id: string; name: string; plan_type: string; file_url: string }
@@ -46,6 +47,9 @@ export default function PlanViewerPage({ params }: { params: { id: string; planI
 
   // Pin state
   const [pinMode, setPinMode] = useState(false)
+  const [fullscreen, setFullscreen] = useState(false)
+  const [showList, setShowList] = useState(false)
+  const [highlightId, setHighlightId] = useState<string | null>(null)
   const [draft, setDraft] = useState<{ x: number; y: number } | null>(null)
   const [openPin, setOpenPin] = useState<Pin | null>(null)
   const [title, setTitle] = useState('')
@@ -78,6 +82,34 @@ export default function PlanViewerPage({ params }: { params: { id: string; planI
   }
   useEffect(() => { load() }, [params.planId])
 
+  // Deep link: /plans/[planId]?pin=<id> jumps straight to that pin (used by
+  // the "View on plan" link on tasks).
+  const pendingPin = useRef<string | null>(null)
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get('pin')
+    if (q) pendingPin.current = q
+  }, [])
+  useEffect(() => {
+    if (!pendingPin.current || !pins.length) return
+    const target = pins.find(p => p.id === pendingPin.current)
+    if (target) { pendingPin.current = null; jumpToPin(target) }
+  }, [pins])
+
+  function jumpToPin(pin: Pin) {
+    setShowList(false)
+    setPage(pin.page || 1)
+    setHighlightId(pin.id)
+    // Scroll once the pin is in the DOM (after any page render).
+    let tries = 0
+    const tick = () => {
+      const el = document.getElementById(`pin-${pin.id}`)
+      if (el) el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' })
+      else if (tries++ < 20) setTimeout(tick, 250)
+    }
+    setTimeout(tick, 100)
+    setTimeout(() => setHighlightId(null), 4000)
+  }
+
   // Render PDF page to canvas (pdfjs). Images render as a plain <img>.
   useEffect(() => {
     if (!plan || !isPdf) return
@@ -92,7 +124,11 @@ export default function PlanViewerPage({ params }: { params: { id: string; planI
         if (cancelled) return
         setNumPages(doc.numPages)
         const pg = await doc.getPage(Math.min(page, doc.numPages))
-        const viewport = pg.getViewport({ scale: 2 })   // crisp base render; zoom is CSS
+        // Cap the render size so huge sheets stay fast: crisp (2x) for normal
+        // pages, scaled down for monster architectural sheets (~35MP canvas max).
+        const base = pg.getViewport({ scale: 1 })
+        const scale = Math.min(2, 5000 / Math.max(base.width, base.height))
+        const viewport = pg.getViewport({ scale })
         const canvas = canvasRef.current
         if (!canvas) return
         canvas.width = viewport.width
@@ -165,7 +201,7 @@ export default function PlanViewerPage({ params }: { params: { id: string; planI
   if (!plan) return <div className="p-8 text-center text-sm text-danger">{error || 'Plan not found.'}</div>
 
   return (
-    <div className="p-4 sm:p-6 space-y-4">
+    <div className={cn('space-y-4', fullscreen ? 'fixed inset-0 z-40 overflow-y-auto bg-surface p-3 pb-6' : 'p-4 sm:p-6')}>
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2">
         <Link href={`/projects/${params.id}/plans`} className="inline-flex items-center gap-1.5 text-sm text-muted-fg hover:text-ink">
@@ -184,6 +220,13 @@ export default function PlanViewerPage({ params }: { params: { id: string; planI
           <span className="w-12 text-center text-xs text-muted-fg">{Math.round(zoom * 100)}%</span>
           <button onClick={() => setZoom(z => Math.min(4, Math.round((z + 0.25) * 100) / 100))} className="rounded-lg border border-line p-2 text-muted-fg hover:bg-surface"><Plus className="h-4 w-4" /></button>
           <a href={plan.file_url} target="_blank" rel="noreferrer" className="rounded-lg border border-line p-2 text-muted-fg hover:bg-surface" title="Open the file"><ExternalLink className="h-4 w-4" /></a>
+          <button onClick={() => setShowList(true)} className="relative rounded-lg border border-line p-2 text-muted-fg hover:bg-surface" title="All pins">
+            <List className="h-4 w-4" />
+            {pins.length > 0 && <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-accent-ink">{pins.length}</span>}
+          </button>
+          <button onClick={() => setFullscreen(v => !v)} className="rounded-lg border border-line p-2 text-muted-fg hover:bg-surface" title={fullscreen ? 'Exit full screen' : 'Full screen'}>
+            {fullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+          </button>
           <Button size="sm" variant={pinMode ? 'default' : 'outline'} onClick={() => { setPinMode(v => !v); setDraft(null) }}>
             <MapPin className="h-4 w-4" /> {pinMode ? 'Tap the plan…' : 'Add pin'}
           </Button>
@@ -202,7 +245,7 @@ export default function PlanViewerPage({ params }: { params: { id: string; planI
       )}
 
       {/* Sheet */}
-      <div className="overflow-auto rounded-xl border border-line bg-muted/40 max-h-[75vh]">
+      <div className={cn('overflow-auto rounded-xl border border-line bg-muted/40', fullscreen ? 'max-h-[calc(100vh-7.5rem)]' : 'max-h-[75vh]')}>
         <div className="relative inline-block min-w-full" style={{ width: `${zoom * 100}%` }}>
           <div className={cn('relative', pinMode && 'cursor-crosshair')} onClick={handleSheetClick}>
             {isPdf ? (
@@ -220,8 +263,12 @@ export default function PlanViewerPage({ params }: { params: { id: string; planI
                 <button key={pin.id}
                   onClick={(e) => { e.stopPropagation(); setOpenPin(pin) }}
                   style={{ left: `${pin.x_pct}%`, top: `${pin.y_pct}%` }}
+                  id={`pin-${pin.id}`}
                   className="absolute -translate-x-1/2 -translate-y-full group"
                   title={pin.project_tasks?.title ?? 'Task'}>
+                  {highlightId === pin.id && (
+                    <span className="absolute -inset-2 animate-ping rounded-full border-2 border-accent" />
+                  )}
                   <MapPin className={cn('h-7 w-7 drop-shadow-md transition-transform group-hover:scale-125', done && 'opacity-50')}
                     style={{ color: colorFor(pin.project_tasks?.assigned_to_name), fill: 'currentColor' }} strokeWidth={1} />
                 </button>
@@ -235,6 +282,38 @@ export default function PlanViewerPage({ params }: { params: { id: string; planI
           </div>
         </div>
       </div>
+
+      {/* All pins on this file */}
+      {showList && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowList(false)}>
+          <div className="w-full max-w-md max-h-[85vh] overflow-y-auto rounded-xl bg-panel shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="sticky top-0 flex items-center justify-between border-b border-line bg-panel px-5 py-4">
+              <h2 className="text-lg font-bold text-ink">Pins on this plan ({pins.length})</h2>
+              <button onClick={() => setShowList(false)} className="text-faint hover:text-ink"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="space-y-1.5 px-4 py-4">
+              {pins.length === 0 && <p className="py-6 text-center text-sm text-muted-fg">No pins yet — use Add pin.</p>}
+              {pins.map(pin => {
+                const t = pin.project_tasks
+                const done = t?.status === 'completed'
+                return (
+                  <button key={pin.id} onClick={() => jumpToPin(pin)}
+                    className="flex w-full items-center gap-3 rounded-xl border border-line bg-panel px-3.5 py-2.5 text-left hover:border-accent hover:bg-surface transition-colors">
+                    <MapPin className="h-5 w-5 shrink-0" style={{ color: colorFor(t?.assigned_to_name), fill: 'currentColor' }} strokeWidth={1} />
+                    <span className="min-w-0 flex-1">
+                      <span className={cn('block truncate text-sm font-medium text-ink', done && 'line-through text-muted-fg')}>{t?.title ?? 'Task'}</span>
+                      <span className="block truncate text-xs text-muted-fg">
+                        {t?.assigned_to_name || 'Unassigned'}{numPages > 1 ? ` · page ${pin.page || 1}` : ''} · {(t?.status ?? 'open').replace('_', ' ')}
+                      </span>
+                    </span>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-faint" />
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* New-pin task form */}
       {draft && (
