@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { FileText, Folder, FolderPlus, Upload, X, ChevronRight, ArrowLeft, Trash2, FolderInput, MoreVertical } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { PageHeader } from '@/components/ui/page-header'
@@ -401,8 +402,11 @@ export default function PlansPage({ params }: { params: { id: string } }) {
                         <td className="px-4 py-3 text-muted-fg">{new Date(plan.created_at).toLocaleDateString()}</td>
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-1">
+                            <Link href={`/projects/${params.id}/plans/${plan.id}`}>
+                              <Button variant="ghost" size="sm">Open</Button>
+                            </Link>
                             <a href={plan.file_url} target="_blank" rel="noopener noreferrer">
-                              <Button variant="ghost" size="sm">View</Button>
+                              <Button variant="ghost" size="sm">File</Button>
                             </a>
                             <button onClick={() => openMove(plan)} className="p-1 text-faint hover:text-accent-fg" title="Move to folder">
                               <FolderInput className="h-4 w-4" />
@@ -430,9 +434,9 @@ export default function PlansPage({ params }: { params: { id: string } }) {
                       </p>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      <a href={plan.file_url} target="_blank" rel="noopener noreferrer">
-                        <Button variant="ghost" size="sm">View</Button>
-                      </a>
+                      <Link href={`/projects/${params.id}/plans/${plan.id}`}>
+                        <Button variant="ghost" size="sm">Open</Button>
+                      </Link>
                       <button onClick={() => openMove(plan)} className="p-1 text-faint hover:text-accent-fg" title="Move to folder">
                         <FolderInput className="h-4 w-4" />
                       </button>

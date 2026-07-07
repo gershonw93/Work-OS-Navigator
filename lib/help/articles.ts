@@ -135,6 +135,24 @@ export const HELP_ARTICLES: HelpArticle[] = [
     ],
   },
 
+  {
+    slug: 'plan-pins',
+    title: 'Pin a task right on the plan',
+    category: 'projects',
+    keywords: ['pin', 'plan', 'blueprint', 'task', 'drop', 'marker', 'assign', 'drawing'],
+    summary: 'Open a plan, drop a pin where the work is, and assign it as a task.',
+    blocks: [
+      { type: 'steps', items: [
+        'On the Plans tab, click Open on a plan (PDFs and images both work).',
+        'Click Add pin, then tap the exact spot on the drawing.',
+        'Describe the work, assign a teammate, set a due date, and save — the pin drops and the task is created (the assignee is notified).',
+        'Pins are color-coded per assignee and stay anchored to the spot as you zoom in and out. Tap any pin to see its task or jump to the Tasks tab.',
+      ] },
+      { type: 'tip', text: 'Removing a pin keeps its task — nothing gets lost. Use the legend above the sheet to see whose work is where.' },
+    ],
+    related: ['tasks-assign', 'project-tabs-explained'],
+  },
+
   // ── Quotes & Bidding ───────────────────────────────────────────────────────
   {
     slug: 'request-quotes',
