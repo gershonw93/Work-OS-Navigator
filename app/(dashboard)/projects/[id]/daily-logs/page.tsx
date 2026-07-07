@@ -16,12 +16,12 @@ import {
 } from 'lucide-react'
 
 const SURVEY_QUESTIONS = [
-  { key: 'accidents', label: 'Any accidents?' },
-  { key: 'scheduled_delays', label: 'Any scheduled delays?' },
-  { key: 'weather_delays', label: 'Any weather delays?' },
-  { key: 'visitors', label: 'Any visitors on site?' },
-  { key: 'areas_blocked', label: "Any areas that can't be worked on?" },
-  { key: 'equipment_rented', label: 'Any equipment rented on site?' },
+  { key: 'accidents', label: 'Safety incidents or injuries today?' },
+  { key: 'scheduled_delays', label: 'Did anything push the schedule?' },
+  { key: 'weather_delays', label: 'Did weather slow the work?' },
+  { key: 'visitors', label: 'Anyone visit the jobsite?' },
+  { key: 'areas_blocked', label: 'Any work areas blocked or inaccessible?' },
+  { key: 'equipment_rented', label: 'Rental equipment on site today?' },
 ] as const
 
 const PHOTO_CATEGORIES = ['Work', 'Safety', 'Quality', 'General'] as const
