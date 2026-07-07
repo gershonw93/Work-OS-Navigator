@@ -18,6 +18,10 @@ Do NOT ask the user to merge or deploy. Vercel auto-deploys `main`.
   article (or add a new one) in the SAME change so Help never drifts from the app.
 - Search is client-side; keep each article's `keywords` list rich so it's findable.
 
+## Back burner (KEEP CURRENT)
+- Parked / future ideas live in `BACKLOG.md` at the repo root.
+- When we defer an idea, add it there; when we ship one, move it to "Recently shipped" with the PR #.
+
 ## Stack notes
 - Next.js 14 App Router, Supabase (Postgres + Storage), Tailwind.
 - Theme: SyteNav "Field" — semantic CSS-var tokens (surface/panel/ink/accent…),
