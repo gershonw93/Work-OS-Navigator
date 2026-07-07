@@ -22,7 +22,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { companyName, companyType, fullName, email, userId } = await request.json()
+  const { companyName, companyType, fullName, email, userId, inviteToken } = await request.json()
+
+  // Gated beta: account creation requires an approved access request token.
+  // (Fail open only if the access_requests table doesn't exist yet.)
+  const { data: invite, error: inviteErr } = await admin
+    .from('access_requests')
+    .select('id, status')
+    .eq('invite_token', inviteToken ?? '')
+    .eq('status', 'approved')
+    .maybeSingle()
+  const tableMissing = (inviteErr as any)?.code === '42P01'
+  if (!invite && !tableMissing) {
+    return NextResponse.json({ error: 'Signup is invite-only right now. Request access and we will be in touch.' }, { status: 403 })
+  }
 
   const targetId = userId ?? user.id
 
