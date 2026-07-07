@@ -24,6 +24,9 @@ move it to **In progress**, and when it ships, move it to **Done** with the PR #
 - **SMS reminders (Twilio)** — "text a receipt" for Materials, "inspection ready" to the scheduler, payment receipts to clients. Universal alternative to Ramp's receipt-texts. Smaller build, works for everyone.
 - **Slack / WhatsApp** — pipe project activity to a crew channel.
 
+## 📐 Plans
+- **Pin-to-task on plans** — drop a pin on the plan and create a task for an employee from it; pins color-coded per assignee; pins anchor to the plan coordinates so they stay put through zoom/pan; read the plan's title-block scale first ("every plan has a size in the corner") to know real-world dimensions. ⚠️ Design note: build our own take on this (differentiate from Raken/PlanGrid-style implementations — avoid copying UI/flows wholesale).
+
 ## 🧮 Estimating (light — NOT full takeoff)
 - **Light estimate builder** — reusable cost catalogs / assemblies + unit costs + markup → one click turns an estimate into a client quote and a project budget. We're ~70% there (Budget + Quotes already do line items, qty, unit price, markup).
 - **Do NOT build true takeoff** (measuring quantities off PDF/CAD plans) — that's Accubid/PlanSwift/STACK territory, years of work. Contractors keep naming estimating as a *separate* cost, so even a light builder is a differentiator.
