@@ -89,6 +89,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   const [savingTpl, setSavingTpl] = useState(false)
   const [importItems, setImportItems] = useState<{ description: string; default_amount: number | null }[] | null>(null)
   const importInputRef = useRef<HTMLInputElement>(null)
+  const [importOnly, setImportOnly] = useState(false)
   const [importName, setImportName] = useState('')
   const [importing, setImporting] = useState(false)
 
@@ -134,6 +135,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
 
   async function openTemplatePicker() {
     setShowTemplate(true)
+    setImportOnly(false)
     setCopyAmounts(false); setImportItems(null)
     const token = await getToken()
     const [tplRes, projRes] = await Promise.all([
@@ -347,7 +349,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
             <FileSpreadsheet className="h-4 w-4" /> Import Estimate
           </Button>
           <input ref={importInputRef} type="file" accept=".xlsx,.xls,.csv" className="sr-only"
-            onChange={e => { const file = e.target.files?.[0]; if (file) { openTemplatePicker(); importExcel(file) } e.target.value = '' }} />
+            onChange={e => { const file = e.target.files?.[0]; if (file) { setImportOnly(true); setShowTemplate(true); setImportItems(null); importExcel(file) } e.target.value = '' }} />
           <Button variant="outline" onClick={openTemplatePicker} className="gap-1.5"><LayoutTemplate className="h-4 w-4" /> Use Template</Button>
           {items.length > 0 && <Button variant="outline" onClick={() => setShowSave(true)} className="gap-1.5"><Save className="h-4 w-4" /> Save as Template</Button>}
           <Button onClick={() => setAdding(v => !v)} className="gap-1.5"><Plus className="h-4 w-4" /> Add Line</Button>
@@ -359,20 +361,20 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowTemplate(false)}>
           <div className="bg-panel rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="px-5 py-4 border-b border-line-soft flex items-center justify-between">
-              <h2 className="font-semibold text-ink">Start from a template</h2>
+              <h2 className="font-semibold text-ink">{importOnly ? 'Import estimate / budget sheet' : 'Start from a template'}</h2>
               <div className="flex items-center gap-3">
-                <a href="/budget-templates" className="text-xs text-accent-fg hover:underline">Manage templates →</a>
+                {!importOnly && <a href="/budget-templates" className="text-xs text-accent-fg hover:underline">Manage templates →</a>}
                 <button onClick={() => setShowTemplate(false)} className="text-faint hover:text-ink"><X className="h-5 w-5" /></button>
               </div>
             </div>
             <div className="p-5 space-y-5">
-              <label className="flex items-center gap-2 text-sm text-ink-soft">
+              {!importOnly && <label className="flex items-center gap-2 text-sm text-ink-soft">
                 <input type="checkbox" className="accent-[#C9F24A]" checked={copyAmounts} onChange={e => setCopyAmounts(e.target.checked)} />
                 Also copy amounts (default: bring line items in blank)
-              </label>
+              </label>}
 
               {/* Saved templates */}
-              <div>
+              {!importOnly && <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-faint mb-2">Saved templates</p>
                 {templates.length === 0 ? <p className="text-xs text-faint">No templates yet.</p> : (
                   <div className="space-y-1.5">
@@ -387,10 +389,10 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                     ))}
                   </div>
                 )}
-              </div>
+              </div>}
 
               {/* From another job */}
-              <div>
+              {!importOnly && <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-faint mb-2"><FolderInput className="inline h-3.5 w-3.5 mr-1" />Copy from a similar job</p>
                 <div className="flex gap-2">
                   <SearchableSelect className="flex-1" onChange={e => e.target.value && applyTemplate({ source_project_id: e.target.value })}>
@@ -398,7 +400,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                     {otherProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </SearchableSelect>
                 </div>
-              </div>
+              </div>}
 
               {/* Upload Excel */}
               <div>
