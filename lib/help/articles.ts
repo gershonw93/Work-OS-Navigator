@@ -671,6 +671,24 @@ export const HELP_ARTICLES: HelpArticle[] = [
     related: ['approve-invoice', 'time-approve'],
   },
 
+  {
+    slug: 'work-signoffs',
+    title: 'Sign off completed work',
+    category: 'people',
+    keywords: ['signoff', 'sign off', 'signature', 'approve', 'completed', 'accept', 'work'],
+    summary: 'Get a signature confirming work is done and accepted — on tasks and progress lines.',
+    blocks: [
+      { type: 'text', text: 'A signoff is a signed approval — different from percent-done, which just tracks progress. Signoffs live in three places:' },
+      { type: 'steps', items: [
+        'Tasks: open a completed task — use Request signoff to ask the assignee (they get notified), or Sign off to sign right there with the signature pad.',
+        'Progress lines (the sub\'s Estimate/Progress view): when a line is marked Done, a Sign off action appears next to it.',
+        'Daily logs: the site manager\'s end-of-day signature is the log\'s signoff.',
+      ] },
+      { type: 'tip', text: 'Every signoff stores who signed, when, and the signature image — tap "View signature" to see it.' },
+    ],
+    related: ['tasks-assign', 'daily-log-create'],
+  },
+
   // ── Docs: Permits / Inspections / Submittals ───────────────────────────────
   {
     slug: 'permits',

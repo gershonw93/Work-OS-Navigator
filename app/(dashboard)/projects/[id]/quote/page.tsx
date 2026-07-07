@@ -94,11 +94,11 @@ export default function QuotePage({ params }: { params: { id: string } }) {
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Quote</h1>
-          <p className="text-sm text-muted-fg mt-0.5">Upload the quote you sent the client. AI reads it into line items — then convert it to an active job.</p>
+          <h1 className="text-2xl font-bold text-ink">Estimate</h1>
+          <p className="text-sm text-muted-fg mt-0.5">Build or upload your estimate. AI reads it into line items — send it as your proposal, then convert it to an active job once it's accepted.</p>
         </div>
         <span className={cn('text-xs font-semibold rounded-full px-2.5 py-1', isPending ? 'bg-warn-tint text-warn' : 'bg-success-tint text-success')}>
-          {isPending ? 'Quote · Pending' : 'Active job'}
+          {isPending ? 'Estimate · Pending' : 'Active job'}
         </span>
       </div>
 

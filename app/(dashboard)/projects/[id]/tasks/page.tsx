@@ -8,6 +8,7 @@ import {
   ChevronDown, MessageSquare, Loader2, ImagePlus, CalendarClock, FileText,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { SignoffModal } from '@/components/ui/signoff-modal'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -40,6 +41,8 @@ interface Task {
   created_by: string; completed_at: string | null; created_at: string
   image_url: string | null; follow_up_date: string | null; follow_up_note: string | null
   budget_line_item_id: string | null
+  signoff_requested_at?: string | null; signoff_requested_by?: string | null
+  signoff_signed_at?: string | null; signoff_signed_by?: string | null; signoff_signature_url?: string | null
 }
 interface Member { id: string; name: string; role: string }
 interface Sub { id: string; scope: string; trade: string | null; companies: { id: string; name: string } | null }
@@ -150,14 +153,46 @@ interface TaskDetailPanelProps {
   notes: TaskNote[]
   notesLoading: boolean
   currentUser: string
+  projectId: string
+  onChanged: () => void
   onAddNote: (taskId: string, content: string) => Promise<void>
 }
 
-function TaskDetailPanel({ task, notes, notesLoading, onAddNote }: TaskDetailPanelProps) {
+function TaskDetailPanel({ task, notes, notesLoading, onAddNote, projectId, onChanged }: TaskDetailPanelProps) {
   const [noteText, setNoteText] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [showSignoff, setShowSignoff] = useState(false)
+  const [signSaving, setSignSaving] = useState(false)
+  const [requesting, setRequesting] = useState(false)
 
   const statusObj = STATUSES.find(s => s.value === task.status) ?? STATUSES[0]
+
+  async function signoffToken() {
+    const { data: { session } } = await createClient().auth.getSession()
+    return session?.access_token ?? ''
+  }
+  async function requestSignoff() {
+    setRequesting(true)
+    await fetch(`/api/projects/${projectId}/tasks/${task.id}/signoff`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await signoffToken()}` },
+      body: JSON.stringify({ action: 'request' }),
+    })
+    setRequesting(false)
+    onChanged()
+  }
+  async function sign(blob: Blob, name: string) {
+    setSignSaving(true)
+    const form = new FormData()
+    form.append('signature', new File([blob], 'signature.png', { type: 'image/png' }))
+    form.append('name', name)
+    await fetch(`/api/projects/${projectId}/tasks/${task.id}/signoff`, {
+      method: 'POST', headers: { Authorization: `Bearer ${await signoffToken()}` }, body: form,
+    })
+    setSignSaving(false)
+    setShowSignoff(false)
+    onChanged()
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -220,9 +255,49 @@ function TaskDetailPanel({ task, notes, notesLoading, onAddNote }: TaskDetailPan
             </a>
           )}
 
+          {/* Work signoff — signature approval once the work is done */}
+          {task.status === 'completed' && (
+            <div className="rounded-lg border border-line-soft bg-panel px-3 py-2.5">
+              {task.signoff_signed_at ? (
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-success">
+                    <CheckSquare className="h-4 w-4" /> Signed off by {task.signoff_signed_by}
+                  </span>
+                  <span className="text-xs text-faint">{new Date(task.signoff_signed_at).toLocaleDateString()}</span>
+                  {task.signoff_signature_url && (
+                    <a href={task.signoff_signature_url} target="_blank" rel="noreferrer" className="text-xs text-accent-fg hover:underline">View signature</a>
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-xs font-semibold text-ink-soft">Work signoff</p>
+                    <p className="text-xs text-faint">
+                      {task.signoff_requested_at
+                        ? `Signoff requested by ${task.signoff_requested_by ?? 'someone'} · awaiting signature`
+                        : 'Get a signature confirming this work is done and accepted.'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {!task.signoff_requested_at && (
+                      <Button size="sm" variant="outline" disabled={requesting} onClick={requestSignoff}>
+                        {requesting ? 'Requesting…' : 'Request signoff'}
+                      </Button>
+                    )}
+                    <Button size="sm" onClick={() => setShowSignoff(true)}>Sign off</Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="text-xs text-faint">
             Created {new Date(task.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
           </div>
+
+          {showSignoff && (
+            <SignoffModal title={task.title} saving={signSaving} onClose={() => setShowSignoff(false)} onSign={sign} />
+          )}
         </div>
 
         {/* ── Right: notes feed ──────────────────────────────────────────── */}
@@ -732,6 +807,8 @@ export default function TasksPage({ params }: { params: { id: string } }) {
 
         {expanded && (
           <TaskDetailPanel
+            projectId={params.id}
+            onChanged={load}
             task={task}
             notes={notesCache[task.id] ?? []}
             notesLoading={!!notesLoading[task.id]}
@@ -807,6 +884,8 @@ export default function TasksPage({ params }: { params: { id: string } }) {
               </button>
             </div>
             <TaskDetailPanel
+            projectId={params.id}
+            onChanged={load}
               task={expandedTask}
               notes={notesCache[expandedTask.id] ?? []}
               notesLoading={!!notesLoading[expandedTask.id]}

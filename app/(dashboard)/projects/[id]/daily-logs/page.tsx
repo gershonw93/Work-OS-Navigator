@@ -1005,7 +1005,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
 
             {/* Signature — site manager */}
             <div className="space-y-2">
-              <Label><PenLine className="inline h-3.5 w-3.5 mr-1 text-faint" />Site Manager Signature</Label>
+              <Label><PenLine className="inline h-3.5 w-3.5 mr-1 text-faint" />Site Manager Signoff</Label>
               <div className="inline-flex rounded-lg border border-line p-0.5">
                 {(['draw', 'type'] as const).map(m => (
                   <button key={m} type="button" onClick={() => setSigMode(m)}
@@ -1369,7 +1369,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                     {/* Signature */}
                     {(log.signature_url || log.signed_by_name) && (
                       <div>
-                        <p className="text-xs font-semibold text-faint uppercase tracking-wide mb-2">Site Manager Signature</p>
+                        <p className="text-xs font-semibold text-faint uppercase tracking-wide mb-2">Site Manager Signoff</p>
                         {log.signature_url && (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={log.signature_url} alt="Signature" className="h-20 rounded-lg border border-line bg-panel p-1" />

@@ -242,7 +242,7 @@ export async function GET(request: Request, { params }: { params: { id: string; 
   }
 
   // Signature
-  heading('Signature')
+  heading('Signoff')
   if (log.signature_url) await drawImage(log.signature_url, 240, 90)
   if (log.signed_by_name) text(`Signed by: ${log.signed_by_name}`, { f: bold })
   if (log.signed_at) text(`Date: ${new Date(log.signed_at).toLocaleString('en-US')}`, { size: 9, color: muted })
