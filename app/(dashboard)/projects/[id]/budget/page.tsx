@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
 import { Wallet, DollarSign, CheckCircle2, TrendingDown, TrendingUp, Plus, Trash2, Pencil, X, Check, Link as LinkIcon, AlertTriangle, LayoutTemplate, Save, FileSpreadsheet, FolderInput, Search, ShoppingCart } from 'lucide-react'
@@ -88,6 +88,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   const [tplName, setTplName] = useState('')
   const [savingTpl, setSavingTpl] = useState(false)
   const [importItems, setImportItems] = useState<{ description: string; default_amount: number | null }[] | null>(null)
+  const importInputRef = useRef<HTMLInputElement>(null)
   const [importName, setImportName] = useState('')
   const [importing, setImporting] = useState(false)
 
@@ -325,6 +326,11 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
           <p className="text-sm text-muted-fg mt-0.5">Line-item cost breakdown — budgeted vs committed vs actual.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" onClick={() => importInputRef.current?.click()} className="gap-1.5">
+            <FileSpreadsheet className="h-4 w-4" /> Import Estimate
+          </Button>
+          <input ref={importInputRef} type="file" accept=".xlsx,.xls,.csv" className="sr-only"
+            onChange={e => { const file = e.target.files?.[0]; if (file) { openTemplatePicker(); importExcel(file) } e.target.value = '' }} />
           <Button variant="outline" onClick={openTemplatePicker} className="gap-1.5"><LayoutTemplate className="h-4 w-4" /> Use Template</Button>
           {items.length > 0 && <Button variant="outline" onClick={() => setShowSave(true)} className="gap-1.5"><Save className="h-4 w-4" /> Save as Template</Button>}
           <Button onClick={() => setAdding(v => !v)} className="gap-1.5"><Plus className="h-4 w-4" /> Add Line</Button>
