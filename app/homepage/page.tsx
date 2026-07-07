@@ -75,6 +75,35 @@ export default function HomePage() {
       {/* Proof-point marquee */}
       <StatMarquee />
 
+      {/* The problem — the "$25k / 8 apps / broken spreadsheets" positioning */}
+      <section className="bg-panel border-y border-line">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-20 sm:py-28 text-center">
+          <Reveal>
+            <Eyebrow>The problem</Eyebrow>
+            <h2 className="mt-3 text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-ink leading-[1.06]">
+              Stop paying $25k a year to<br className="hidden sm:block" /> patch 8 apps together.
+            </h2>
+            <p className="mt-5 text-lg text-muted-fg max-w-2xl mx-auto leading-relaxed">
+              Bids in one tool. Field time in another. Daily reports somewhere else. Budgets in a spreadsheet with a formula that broke last week. SyteNav puts the whole job — bids, budgets, field time, daily logs, compliance, and materials — in one place.
+            </p>
+          </Reveal>
+          <div className="mt-12 grid sm:grid-cols-3 gap-4 max-w-3xl mx-auto">
+            {[
+              { big: '8+ → 1', small: 'tools, consolidated' },
+              { big: 'A fraction', small: 'of enterprise pricing' },
+              { big: 'Zero', small: 'broken spreadsheets' },
+            ].map((s, i) => (
+              <Reveal key={s.small} delay={i * 100}>
+                <div className="rounded-2xl border border-line bg-surface px-5 py-6">
+                  <p className="text-2xl sm:text-3xl font-extrabold text-accent-fg">{s.big}</p>
+                  <p className="mt-1 text-sm text-muted-fg">{s.small}</p>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* How it works, three borderless steps */}
       <section className="max-w-6xl mx-auto px-4 sm:px-6 py-20 sm:py-28">
         <Reveal>
