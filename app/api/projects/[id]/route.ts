@@ -18,11 +18,12 @@ export async function PATCH(
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { name, address, client, type, status, start_date, end_date, customer_id } = body
+  const { name, address, client, type, status, start_date, end_date, customer_id, lat, lng } = body
 
   const updates: Record<string, unknown> = {}
   if (name !== undefined) updates.name = name
   if (address !== undefined) updates.address = address
+  if (lat !== undefined && lng !== undefined && lat != null && lng != null) { updates.lat = lat; updates.lng = lng; updates.geocoded_address = address }
   if (client !== undefined) updates.client = client
   if (type !== undefined) updates.type = type
   if (status !== undefined) updates.status = status

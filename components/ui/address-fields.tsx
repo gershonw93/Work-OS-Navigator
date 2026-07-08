@@ -30,10 +30,11 @@ export function joinAddress(p: AddressParts): string {
 }
 
 export function AddressFields({
-  value, onChange, required,
+  value, onChange, onCoords, required,
 }: {
   value: string
   onChange: (full: string) => void
+  onCoords?: (lat: number | null, lng: number | null) => void
   required?: boolean
 }) {
   const initial = useMemo(() => splitAddress(value), []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -45,6 +46,7 @@ export function AddressFields({
   function push(next: Partial<AddressParts>) {
     const parts = { street, city, state, zip, ...next }
     onChange(joinAddress(parts))
+    onCoords?.(null, null) // manual edits invalidate any picked coordinates
   }
 
   return (
@@ -56,16 +58,21 @@ export function AddressFields({
           value={street}
           required={required}
           placeholder="Start typing the street address…"
-          onChange={(v) => {
-            // A picked suggestion looks like "123 Main St, City, ST 12345" —
-            // spread it across the fields; a raw keystroke just updates street.
-            if (v.includes(',')) {
-              const p = splitAddress(v)
-              setStreet(p.street); if (p.city) setCity(p.city); if (p.state) setState(p.state); if (p.zip) setZip(p.zip)
-              onChange(joinAddress({ street: p.street, city: p.city || city, state: p.state || state, zip: p.zip || zip }))
-            } else {
-              setStreet(v); push({ street: v })
-            }
+          onChange={(v) => { setStreet(v); push({ street: v }) }}
+          onPick={async (s) => {
+            // Google: fetch structured parts + coords. Photon: parse the label.
+            let p = splitAddress(s.label)
+            let lat = s.lat ?? null, lng = s.lng ?? null
+            try {
+              const res = await fetch(`/api/geo/details?placeId=${encodeURIComponent(s.id)}`)
+              if (res.ok) {
+                const d = await res.json()
+                if (d.ok) { p = { street: d.street, city: d.city, state: d.state, zip: d.zip }; lat = d.lat; lng = d.lng }
+              }
+            } catch { /* fall back to parsed label */ }
+            setStreet(p.street); setCity(p.city || city); setState(p.state || state); setZip(p.zip || zip)
+            onChange(joinAddress({ street: p.street, city: p.city || city, state: p.state || state, zip: p.zip || zip }))
+            onCoords?.(lat, lng)
           }}
         />
       </div>
