@@ -16,6 +16,7 @@ import { ScheduleMock } from '@/components/marketing/schedule-mock'
 import { MoneyMock } from '@/components/marketing/money-mock'
 import { DashboardMock } from '@/components/marketing/dashboard-mock'
 import { PhoneMock, LogScreen, ClockScreen, ScanScreen } from '@/components/marketing/phone-mock'
+import { PhoneFan } from '@/components/marketing/phone-fan'
 import { SideNav } from '@/components/marketing/side-nav'
 import { BlueprintGrid } from '@/components/marketing/blueprint'
 import { Reveal } from '@/components/marketing/reveal'
@@ -249,11 +250,13 @@ const STEPS: Step[] = [
       { icon: MessageSquare, title: 'RFIs and tasks from the field', body: 'A question or a change doesn\'t wait for a call back to the office. It\'s logged against the job the moment it comes up.' },
     ],
     visual: (
-      <div className="flex flex-wrap items-end justify-center gap-6">
-        <PhoneMock className="scale-90 origin-bottom"><LogScreen /></PhoneMock>
-        <PhoneMock><ClockScreen /></PhoneMock>
-        <PhoneMock className="scale-90 origin-bottom hidden sm:block"><ScanScreen /></PhoneMock>
-      </div>
+      <PhoneFan
+        items={[
+          { key: 'log', label: 'Daily log', node: <PhoneMock><LogScreen /></PhoneMock> },
+          { key: 'clock', label: 'Time clock', node: <PhoneMock><ClockScreen /></PhoneMock> },
+          { key: 'scan', label: 'AI scan', node: <PhoneMock><ScanScreen /></PhoneMock> },
+        ]}
+      />
     ),
   },
   {
