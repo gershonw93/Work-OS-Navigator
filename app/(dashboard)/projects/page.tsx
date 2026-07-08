@@ -30,6 +30,8 @@ interface Project {
   end_date: string | null
   lat?: number | null
   lng?: number | null
+  interior_sqft?: number | null
+  exterior_sqft?: number | null
   created_at: string
 }
 
@@ -98,6 +100,8 @@ export default function ProjectsPage() {
   const [editStatus, setEditStatus] = useState('')
   const [editStartDate, setEditStartDate] = useState('')
   const [editEndDate, setEditEndDate] = useState('')
+  const [editInteriorSqft, setEditInteriorSqft] = useState('')
+  const [editExteriorSqft, setEditExteriorSqft] = useState('')
 
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -143,6 +147,8 @@ export default function ProjectsPage() {
     setEditStatus(project.status ?? '')
     setEditStartDate(project.start_date ?? '')
     setEditEndDate(project.end_date ?? '')
+    setEditInteriorSqft(project.interior_sqft != null ? String(project.interior_sqft) : '')
+    setEditExteriorSqft(project.exterior_sqft != null ? String(project.exterior_sqft) : '')
   }
 
   async function handleEdit(e: React.FormEvent) {
@@ -161,6 +167,8 @@ export default function ProjectsPage() {
         status: editStatus || null,
         start_date: editStartDate || null,
         end_date: editEndDate || null,
+        interior_sqft: editInteriorSqft ? Number(editInteriorSqft) : null,
+        exterior_sqft: editExteriorSqft ? Number(editExteriorSqft) : null,
       }),
     })
     setSaving(false)
@@ -280,6 +288,16 @@ export default function ProjectsPage() {
                   <div className="space-y-1.5">
                     <Label>End Date</Label>
                     <Input type="date" value={editEndDate} onChange={e => setEditEndDate(e.target.value)} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Interior Sq Ft <span className="text-faint font-normal">(under A/C)</span></Label>
+                    <Input type="number" min="0" value={editInteriorSqft} onChange={e => setEditInteriorSqft(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Exterior Sq Ft <span className="text-faint font-normal">(under roof)</span></Label>
+                    <Input type="number" min="0" value={editExteriorSqft} onChange={e => setEditExteriorSqft(e.target.value)} />
                   </div>
                 </div>
               </div>
