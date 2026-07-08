@@ -53,6 +53,13 @@ export default function NewProjectPage() {
       return
     }
 
+    if (!client.trim()) {
+      setError('Pick or enter a client.')
+      setLoading(false)
+      return
+    }
+
+    const isNew = customerId === '__new__' || !customerId
     const res = await fetch('/api/projects', {
       method: 'POST',
       headers: {
@@ -66,7 +73,7 @@ export default function NewProjectPage() {
         type,
         start_date: startDate,
         end_date: endDate || null,
-        customer_id: customerId || null,
+        customer_id: isNew ? null : customerId,
       }),
     })
 
@@ -118,21 +125,24 @@ export default function NewProjectPage() {
               <Select
                 value={customerId}
                 onChange={(e) => {
-                  setCustomerId(e.target.value)
-                  const c = customers.find(x => x.id === e.target.value)
+                  const v = e.target.value
+                  setCustomerId(v)
+                  const c = customers.find(x => x.id === v)
                   setClient(c ? c.name : '')
                 }}
               >
-                <option value="">— New client —</option>
+                <option value="" disabled>Select a client…</option>
                 {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                <option value="__new__">+ New client…</option>
               </Select>
-              {!customerId && (
+              {customerId === '__new__' && (
                 <Input
                   id="client"
                   placeholder="New client's name, e.g. Acme Corp"
                   value={client}
                   onChange={(e) => setClient(e.target.value)}
                   required
+                  autoFocus
                 />
               )}
             </div>
