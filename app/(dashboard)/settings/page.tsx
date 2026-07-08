@@ -143,12 +143,12 @@ async function authHeaders(): Promise<Record<string, string>> {
     : { 'Content-Type': 'application/json' }
 }
 
-function RoleBadge({ role }: { role: string }) {
-  const colors = ROLE_COLORS[role] ?? 'bg-gray-100 text-gray-600'
-  const label = ROLES.find((r) => r.value === role)?.label ?? role
+function RoleBadge({ role, label }: { role: string; label?: string }) {
+  const colors = ROLE_COLORS[role] ?? 'bg-muted text-ink-soft'
+  const text = label ?? ROLES.find((r) => r.value === role)?.label ?? role
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colors}`}>
-      {label}
+      {text}
     </span>
   )
 }
@@ -205,6 +205,20 @@ export default function SettingsPage() {
   const [inviteRole, setInviteRole] = useState('read_only')
   const [inviteSending, setInviteSending] = useState(false)
   const [inviteMsg, setInviteMsg] = useState<{ ok: boolean; text: string } | null>(null)
+
+  // Custom classes (company_roles) — merged into role pickers alongside the
+  // built-in roles, and used to show friendly labels for custom role keys.
+  const [customRoles, setCustomRoles] = useState<{ role_key: string; label: string }[]>([])
+  const loadCustomRoles = useCallback(async () => {
+    const headers = await authHeaders()
+    const res = await fetch('/api/settings/roles', { headers })
+    if (res.ok) {
+      const data = await res.json()
+      setCustomRoles(((data.roles ?? []) as any[]).filter(r => r.is_custom).map(r => ({ role_key: r.role_key, label: r.label })))
+    }
+  }, [])
+  const roleOptions = [...ROLES, ...customRoles.map(r => ({ value: r.role_key, label: r.label, desc: 'Custom class' }))]
+  const roleLabel = (role: string) => roleOptions.find(r => r.value === role)?.label ?? role
 
   // Notifications
   const [notifState, setNotifState] = useState<NotifState>({
@@ -321,6 +335,7 @@ export default function SettingsPage() {
   useEffect(() => {
     loadSettings()
     loadTeammates()
+    loadCustomRoles()
     // Load preferences from localStorage
     try {
       const raw = localStorage.getItem('workos_preferences')
@@ -723,7 +738,7 @@ export default function SettingsPage() {
                     <div>
                       <Label>Role</Label>
                       <div className="mt-2">
-                        <RoleBadge role={profile?.role ?? ''} />
+                        <RoleBadge role={profile?.role ?? ''} label={roleLabel(profile?.role ?? '')} />
                       </div>
                     </div>
                   </div>
@@ -991,7 +1006,7 @@ export default function SettingsPage() {
                                       onChange={(e) => setPendingRoles(prev => ({ ...prev, [t.id]: e.target.value }))}
                                       className="rounded border border-line px-2 py-1 text-xs bg-panel focus:outline-none focus:ring-1 focus:ring-accent"
                                     >
-                                      {ROLES.map((r) => (
+                                      {roleOptions.map((r) => (
                                         <option key={r.value} value={r.value}>{r.label}</option>
                                       ))}
                                     </SearchableSelect>
@@ -1008,7 +1023,7 @@ export default function SettingsPage() {
                                     )}
                                   </div>
                                 ) : (
-                                  <RoleBadge role={t.role} />
+                                  <RoleBadge role={t.role} label={roleLabel(t.role)} />
                                 )}
                               </td>
                               <td className="px-4 py-3">
@@ -1059,7 +1074,7 @@ export default function SettingsPage() {
                         {pendingInvites.map((inv) => (
                           <tr key={inv.id} className="border-b border-line-soft last:border-0 hover:bg-surface/50">
                             <td className="px-4 py-3 text-ink-soft">{inv.email}</td>
-                            <td className="px-4 py-3"><RoleBadge role={inv.role} /></td>
+                            <td className="px-4 py-3"><RoleBadge role={inv.role} label={roleLabel(inv.role)} /></td>
                             <td className="px-4 py-3 text-muted-fg text-xs">{new Date(inv.created_at).toLocaleDateString()}</td>
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-3">
@@ -1141,13 +1156,13 @@ export default function SettingsPage() {
                           onChange={(e) => setInviteRole(e.target.value)}
                           className="mt-1 block w-full rounded-md border border-muted2 bg-panel px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent"
                         >
-                          {ROLES.map((r) => (
+                          {roleOptions.map((r) => (
                             <option key={r.value} value={r.value}>{r.label}</option>
                           ))}
                         </SearchableSelect>
                         {inviteRole && (
                           <p className="mt-1.5 text-xs text-muted-fg">
-                            {ROLES.find((r) => r.value === inviteRole)?.desc}
+                            {roleOptions.find((r) => r.value === inviteRole)?.desc}
                           </p>
                         )}
                       </div>
@@ -1184,7 +1199,7 @@ export default function SettingsPage() {
                 <CardTitle>Permissions</CardTitle>
               </CardHeader>
               <CardContent>
-                <PermissionsPanel teammates={teammates as any} />
+                <PermissionsPanel teammates={teammates as any} onRolesChanged={loadCustomRoles} />
               </CardContent>
             </Card>
           )}

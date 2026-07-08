@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { getRoleDefaults, type OverrideMap } from '@/lib/permissions'
+import { resolveRoleBase, type OverrideMap, type PermMap } from '@/lib/permissions'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,6 +14,14 @@ async function getCaller(token: string) {
   if (!user) return null
   const { data: profile } = await db.from('profiles').select('id, role, company_id').eq('id', user.id).single()
   return profile ?? null
+}
+
+async function loadCompanyRoleMap(companyId: string | null | undefined): Promise<Record<string, PermMap>> {
+  if (!companyId) return {}
+  const { data } = await admin().from('company_roles').select('role_key, permissions').eq('company_id', companyId)
+  const map: Record<string, PermMap> = {}
+  for (const r of data ?? []) map[r.role_key] = r.permissions as PermMap
+  return map
 }
 
 // GET — return the member's role, default permissions, and saved overrides
@@ -36,18 +44,20 @@ export async function GET(req: Request, { params }: { params: { memberId: string
     // Possibly column missing — retry without overrides
     const { data: basic } = await db.from('profiles').select('id, full_name, email, role, company_id').eq('id', params.memberId).single()
     if (!basic || basic.company_id !== caller.company_id) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    const companyRoleMap = await loadCompanyRoleMap(basic.company_id)
     return NextResponse.json({
       member: basic,
-      defaults: getRoleDefaults(basic.role),
+      defaults: resolveRoleBase(basic.role, companyRoleMap),
       overrides: {},
     })
   }
 
   if (member.company_id !== caller.company_id) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
+  const companyRoleMap = await loadCompanyRoleMap(member.company_id)
   return NextResponse.json({
     member: { id: member.id, full_name: member.full_name, email: member.email, role: member.role },
-    defaults: getRoleDefaults(member.role),
+    defaults: resolveRoleBase(member.role, companyRoleMap),
     overrides: (member.permission_overrides ?? {}) as OverrideMap,
   })
 }

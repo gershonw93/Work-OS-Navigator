@@ -551,7 +551,26 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'Field roles are scoped to only the projects they\'re assigned to.',
       ] },
     ],
-    related: ['invite-team-member'],
+    related: ['invite-team-member', 'custom-roles'],
+  },
+  {
+    slug: 'custom-roles',
+    title: 'Edit a role\'s defaults or create a new class',
+    category: 'settings',
+    keywords: ['role', 'class', 'custom', 'permissions', 'edit defaults', 'new role', 'project manager', 'office staff'],
+    summary: 'Change what a standard role can do, or build a brand-new class from scratch.',
+    blocks: [
+      { type: 'text', text: 'Standard roles like Project Manager or Office Staff come with sensible default permissions — but you can now edit those defaults company-wide, or create an entirely new class with its own permission grid.' },
+      { type: 'steps', items: [
+        'Open Settings, go to Team & Users, and find the Roles & Classes section.',
+        'Pick a standard role and check/uncheck view, create, edit, delete for each screen — this changes the default for everyone with that role (unless a person has their own override).',
+        'Click "New class" to create a custom role. Give it a name, then set its permissions the same way; it starts out with Field Worker-level access.',
+        'The new class shows up alongside the standard roles when inviting someone or changing a teammate\'s role.',
+        'To remove a custom class, reassign anyone still on it first, then delete it.',
+      ] },
+      { type: 'tip', text: 'Admin access can never be edited or removed — this keeps at least one person always able to manage the account.' },
+    ],
+    related: ['permissions', 'invite-team-member'],
   },
   {
     slug: 'delete-protection',

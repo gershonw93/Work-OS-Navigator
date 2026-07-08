@@ -143,12 +143,34 @@ export function getRoleDefaults(role: string | null | undefined): PermMap {
   return ROLE_DEFAULTS[role ?? ''] ?? ROLE_DEFAULTS.read_only
 }
 
+export function isBuiltinRole(role: string | null | undefined): boolean {
+  return !!role && Object.prototype.hasOwnProperty.call(ROLE_DEFAULTS, role)
+}
+
+// All-N base map for a brand-new custom role with nothing granted yet.
+export function buildAllNone(): PermMap {
+  const m: PermMap = {}
+  for (const r of RESOURCES) m[r.key] = { ...N }
+  return m
+}
+
+// A company can override a built-in role's hardcoded defaults, or define a
+// brand-new role (a "class") that never existed in code. `companyRoleMap` is
+// keyed by role_key -> a full PermMap, loaded from the company_roles table.
+export function resolveRoleBase(role: string | null | undefined, companyRoleMap?: Record<string, PermMap> | null): PermMap {
+  const key = role ?? ''
+  if (companyRoleMap && companyRoleMap[key]) return JSON.parse(JSON.stringify(companyRoleMap[key]))
+  if (isBuiltinRole(role)) return getRoleDefaults(role)
+  return buildAllNone()
+}
+
 // ── Effective permissions (defaults + per-user overrides) ─────────────────────
 export function getEffectivePermissions(
   role: string | null | undefined,
   overrides?: OverrideMap | null,
+  baseDefaults?: PermMap,
 ): PermMap {
-  const defaults = getRoleDefaults(role)
+  const defaults = baseDefaults ?? getRoleDefaults(role)
   if (!overrides || Object.keys(overrides).length === 0) {
     // deep copy so callers can't mutate the shared default object
     return JSON.parse(JSON.stringify(defaults))
