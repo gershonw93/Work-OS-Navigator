@@ -27,7 +27,7 @@ export async function GET(request: Request) {
   // jobs live under My Jobs, since those projects are owned by the GC.)
   if ((profile.companies as any)?.type === 'subcontractor' && profile.company_id) {
     const { data: ownProjects } = await db.from('projects')
-      .select('id, name, status, start_date, end_date, address, client, type, created_at')
+      .select('id, name, status, start_date, end_date, address, client, type, created_at, lat, lng')
       .or(`created_by_company_id.eq.${profile.company_id},gc_company_id.eq.${profile.company_id}`)
       .order('created_at', { ascending: false })
     return NextResponse.json({ projects: ownProjects ?? [] })
@@ -64,7 +64,7 @@ export async function GET(request: Request) {
 
     const { data } = await db
       .from('projects')
-      .select('id, name, status, start_date, end_date, address, client, type, created_at')
+      .select('id, name, status, start_date, end_date, address, client, type, created_at, lat, lng')
       .in('id', projectIds)
       .order('created_at', { ascending: false })
 

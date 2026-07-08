@@ -686,3 +686,11 @@ CREATE TABLE IF NOT EXISTS access_requests (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_access_requests_email ON access_requests (lower(email));
 CREATE INDEX IF NOT EXISTS idx_access_requests_status ON access_requests (status);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_access_requests_token ON access_requests (invite_token) WHERE invite_token IS NOT NULL;
+
+-- ===== 047_project_coords.sql =====
+-- Cached coordinates for the projects map view (geocoded once per address
+-- via OpenStreetMap/Nominatim, free).
+ALTER TABLE projects
+  ADD COLUMN IF NOT EXISTS lat double precision,
+  ADD COLUMN IF NOT EXISTS lng double precision,
+  ADD COLUMN IF NOT EXISTS geocoded_address text;
