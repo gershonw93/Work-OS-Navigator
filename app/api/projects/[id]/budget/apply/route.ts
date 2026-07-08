@@ -15,7 +15,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { template_id, source_project_id, copy_amounts, items, merge } = await request.json()
+  const { template_id, source_project_id, copy_amounts, items, merge, skip_duplicates } = await request.json()
   const keepAmounts = !!copy_amounts
 
   // Build the line items to insert, from a template or another project
@@ -66,6 +66,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   // Existing lines not present in the sheet are never touched or deleted.
   const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim()
   let updated = 0
+  let skippedDuplicates = 0
   if (merge) {
     const { data: existing } = await db
       .from('budget_line_items')
@@ -80,7 +81,9 @@ export async function POST(request: Request, { params }: { params: { id: string 
     for (const r of rows) {
       const matchId = byDesc.get(norm(r.description))
       if (matchId) {
-        if (r.amount != null) {
+        if (skip_duplicates) {
+          skippedDuplicates++
+        } else if (r.amount != null) {
           const { error } = await db.from('budget_line_items').update({ budgeted_amount: r.amount }).eq('id', matchId)
           if (!error) updated++
         }
@@ -128,5 +131,5 @@ export async function POST(request: Request, { params }: { params: { id: string 
     inserted = data?.length ?? 0
   }
 
-  return NextResponse.json({ inserted, updated, skipped })
+  return NextResponse.json({ inserted, updated, skipped: skipped + skippedDuplicates })
 }

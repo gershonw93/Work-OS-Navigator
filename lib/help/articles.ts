@@ -215,7 +215,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'add-project-budget',
     title: 'Build a project budget',
     category: 'money',
-    keywords: ['budget', 'line item', 'cost', 'estimate', 'committed', 'actual', 'interior', 'exterior', 'square footage', 'sq ft'],
+    keywords: ['budget', 'line item', 'cost', 'estimate', 'committed', 'actual', 'interior', 'exterior', 'square footage', 'sq ft', 'bulk delete', 'select all', 'duplicate'],
     summary: 'Add budget lines and track budgeted vs committed vs actual.',
     blocks: [
       { type: 'text', text: 'Each budget line tracks three numbers: Budgeted (what you planned), Committed (what you\'ve promised in signed contracts), and Actual (what\'s actually been billed).' },
@@ -227,7 +227,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
       ] },
       { type: 'tip', text: 'Approving an invoice (not just paying it) moves the Actual amount. This keeps your budget honest the moment costs are accepted.' },
       { type: 'text', text: 'If the project has Interior/Exterior square footage set (from New Project or the Projects list edit), the Budget tab shows an Interior total, Exterior total, cost-per-square-foot for each, and a grand total — so you can see your cost per sq ft at a glance.' },
-      { type: 'text', text: 'Already have the budget in a spreadsheet? Use Import Estimate in the header (.xlsx/.csv). If the budget already has lines, rows whose descriptions match update those lines\' amounts and the rest are added as new — imports never delete anything.' },
+      { type: 'text', text: 'Already have the budget in a spreadsheet? Use Import Estimate in the header (.xlsx/.csv). If some rows already exist as lines, you\'ll be asked to either skip those duplicates (only add the new rows) or update them with the sheet\'s amounts — either way nothing already on the budget is ever deleted.' },
+      { type: 'text', text: 'Loaded the wrong template or made a mess? Check the box next to any line (or the header checkbox to select a whole category or everything visible), then click Delete — you\'ll be asked to confirm before anything is removed.' },
     ],
     related: ['budget-templates', 'money-overview', 'create-invoice'],
   },
