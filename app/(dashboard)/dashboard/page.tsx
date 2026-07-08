@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { FolderKanban, AlertCircle, ShieldAlert, MessageSquare, Package, CheckSquare, DollarSign, Briefcase, FileText, Receipt, Activity, FileUp, ClipboardList, CalendarCheck, ScrollText, UploadCloud, UserPlus, Clock } from 'lucide-react'
+import { FolderKanban, AlertCircle, ShieldAlert, MessageSquare, Package, CheckSquare, DollarSign, Briefcase, FileText, Receipt, Activity, FileUp, ClipboardList, CalendarCheck, ScrollText, UploadCloud, UserPlus, UserMinus, Clock, ShoppingCart, Wallet, Wrench, LogIn, LogOut } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { StatCard } from '@/components/ui/stat-card'
 import { AdminOverview, type OverviewData } from '@/components/dashboard/admin-overview'
@@ -80,6 +80,18 @@ const ACTIVITY_ICONS: Record<string, React.ElementType> = {
   invoice_updated: Receipt,
   file_uploaded: FileText,
   member_added: UserPlus,
+  material_purchased: ShoppingCart,
+  client_payment_received: Wallet,
+  equipment_checked_out: Wrench,
+  equipment_checked_in: Wrench,
+  time_clock_in: LogIn,
+  time_clock_out: LogOut,
+  team_member_added: UserPlus,
+  team_member_removed: UserMinus,
+  compliance_document_added: ShieldAlert,
+  daily_log_update: ClipboardList,
+  budget_line_added: DollarSign,
+  budget_line_removed: DollarSign,
 }
 
 function getActivityIcon(type: string): React.ElementType {

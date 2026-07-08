@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { logActivity } from '@/lib/log-activity'
 
 export const runtime = 'nodejs'
 
@@ -95,6 +96,11 @@ export async function POST(request: Request, { params }: { params: { id: string 
       clock_in_selfie_url: selfieUrl,
     }).select().single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    await logActivity(db, params.id, (profile as any)?.full_name || user.email || 'Worker', 'time_clock_in',
+      `${(profile as any)?.full_name || 'A worker'} clocked in${flagged ? ' (flagged)' : ''}`,
+      { entry_id: data.id, flagged, distance }, user.id)
+
     return NextResponse.json({ entry: data, flagged, distance })
   }
 
@@ -111,5 +117,10 @@ export async function POST(request: Request, { params }: { params: { id: string 
     clock_out_selfie_url: selfieUrl,
   }).eq('id', open.id).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  await logActivity(db, params.id, (profile as any)?.full_name || user.email || 'Worker', 'time_clock_out',
+    `${(profile as any)?.full_name || 'A worker'} clocked out${flagged ? ' (flagged)' : ''}`,
+    { entry_id: data.id, flagged, distance }, user.id)
+
   return NextResponse.json({ entry: data, flagged, distance })
 }

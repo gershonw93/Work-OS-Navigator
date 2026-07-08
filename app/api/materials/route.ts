@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { logActivity } from '@/lib/log-activity'
 
 export const runtime = 'nodejs'
 
@@ -14,9 +15,9 @@ async function ctx(request: Request) {
   const db = admin()
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return null
-  const { data: profile } = await db.from('profiles').select('company_id').eq('id', user.id).single()
+  const { data: profile } = await db.from('profiles').select('company_id, full_name').eq('id', user.id).single()
   if (!profile?.company_id) return null
-  return { db, user, companyId: profile.company_id }
+  return { db, user, companyId: profile.company_id, actorName: profile.full_name || 'Someone' }
 }
 
 // List material purchases across the company's projects, plus the projects list
@@ -50,7 +51,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const c = await ctx(request)
   if (!c) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const { db, user, companyId } = c
+  const { db, user, companyId, actorName } = c
 
   const body = await request.json()
   const { project_id, store_name, amount, tax, purchase_date, category, notes, receipt_url, line_items, budget_line_id, save_store, client_paid } = body
@@ -95,5 +96,10 @@ export async function POST(request: Request) {
   }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  await logActivity(db, project_id, actorName, 'material_purchased',
+    `Material receipt: ${store_name || 'purchase'} — $${Number(amount || 0).toLocaleString()}`,
+    { material_id: data.id, store_name, amount }, user.id)
+
   return NextResponse.json({ material: data })
 }

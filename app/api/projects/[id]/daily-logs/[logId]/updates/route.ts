@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { logActivity } from '@/lib/log-activity'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -31,5 +32,9 @@ export async function POST(request: Request, { params }: { params: { id: string;
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  await logActivity(db, params.id, (profile as any)?.full_name || 'Someone', 'daily_log_update',
+    `Daily log update: ${body.trim().slice(0, 80)}`, { log_id: params.logId, update_id: data.id }, user.id)
+
   return NextResponse.json({ update: data })
 }
