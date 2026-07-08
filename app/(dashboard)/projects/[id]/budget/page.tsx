@@ -25,6 +25,7 @@ interface BudgetItem {
   subcontract_id: string | null
   linked: boolean
   linked_label: string | null
+  space_type: 'interior' | 'exterior' | null
 }
 
 interface SubOption {
@@ -57,8 +58,10 @@ function Field({ label, children, className }: { label: string; children: React.
 const blankForm = {
   cost_code: '', category: 'General', description: '',
   budgeted_amount: '', committed_amount: '', actual_amount: '', notes: '',
-  subcontract_id: '',
+  subcontract_id: '', space_type: '',
 }
+
+const SPACE_LABELS: Record<string, string> = { interior: 'Interior', exterior: 'Exterior' }
 
 export default function BudgetPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
@@ -68,6 +71,8 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   const [subOptions, setSubOptions] = useState<SubOption[]>([])
   const [materials, setMaterials] = useState<any[]>([])
   const [materialsTotal, setMaterialsTotal] = useState(0)
+  const [spaceTotals, setSpaceTotals] = useState({ interior: 0, exterior: 0, unassigned: 0 })
+  const [projectSqft, setProjectSqft] = useState<{ interior: number | null; exterior: number | null }>({ interior: null, exterior: null })
   const [loading, setLoading] = useState(true)
   const [adding, setAdding] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -107,6 +112,8 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       setSubOptions(d.subcontracts ?? [])
       setMaterials(d.materials ?? [])
       setMaterialsTotal(d.materials_total ?? 0)
+      setSpaceTotals(d.space_totals ?? { interior: 0, exterior: 0, unassigned: 0 })
+      setProjectSqft(d.project_sqft ?? { interior: null, exterior: null })
     }
     setLoading(false)
   }
@@ -254,6 +261,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       actual_amount: String(item.actual_amount ?? ''),
       notes: item.notes ?? '',
       subcontract_id: item.subcontract_id ?? '',
+      space_type: item.space_type ?? '',
     })
   }
 
@@ -508,6 +516,26 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
         })}
       </div>
 
+      {/* Interior / Exterior breakdown */}
+      {(spaceTotals.interior > 0 || spaceTotals.exterior > 0 || projectSqft.interior || projectSqft.exterior) && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="rounded-xl border border-info/30 bg-info-tint p-4">
+            <p className="text-xs font-medium text-info mb-1">Interior {projectSqft.interior ? `· ${Number(projectSqft.interior).toLocaleString()} sq ft` : ''}</p>
+            <p className="text-xl font-bold text-info">{money(spaceTotals.interior)}</p>
+            {projectSqft.interior ? <p className="text-xs text-muted-fg mt-0.5">{money(spaceTotals.interior / Number(projectSqft.interior))} / sq ft</p> : null}
+          </div>
+          <div className="rounded-xl border border-warn/30 bg-warn-tint p-4">
+            <p className="text-xs font-medium text-warn mb-1">Exterior {projectSqft.exterior ? `· ${Number(projectSqft.exterior).toLocaleString()} sq ft` : ''}</p>
+            <p className="text-xl font-bold text-warn">{money(spaceTotals.exterior)}</p>
+            {projectSqft.exterior ? <p className="text-xs text-muted-fg mt-0.5">{money(spaceTotals.exterior / Number(projectSqft.exterior))} / sq ft</p> : null}
+          </div>
+          <div className="rounded-xl border border-line bg-panel p-4">
+            <p className="text-xs font-medium text-muted-fg mb-1">Grand Total{spaceTotals.unassigned > 0 ? ` · ${money(spaceTotals.unassigned)} unassigned` : ''}</p>
+            <p className="text-xl font-bold text-ink">{money(spaceTotals.interior + spaceTotals.exterior + spaceTotals.unassigned)}</p>
+          </div>
+        </div>
+      )}
+
       {/* Unbudgeted subcontracts hint */}
       {unbudgetedSubs.length > 0 && (
         <div className="rounded-xl border border-warn/30 bg-warn-tint px-4 py-3 flex items-start gap-3">
@@ -572,6 +600,12 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
               value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
             <input type="number" className="rounded-lg border border-line px-3 py-2 text-sm" placeholder="Budgeted $"
               value={form.budgeted_amount} onChange={e => setForm({ ...form, budgeted_amount: e.target.value })} />
+            <SearchableSelect className="rounded-lg border border-line px-3 py-2 text-sm bg-panel"
+              value={form.space_type} onChange={e => setForm({ ...form, space_type: e.target.value })}>
+              <option value="">Space: unassigned</option>
+              <option value="interior">Interior</option>
+              <option value="exterior">Exterior</option>
+            </SearchableSelect>
             {form.subcontract_id ? (
               <>
                 <div className="rounded-lg border border-line bg-muted px-3 py-2 text-sm text-muted-fg flex items-center justify-between">
@@ -697,6 +731,14 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                               <input type="number" className="w-full rounded-lg border border-line px-2.5 py-1.5 text-sm" placeholder="0"
                                 value={editForm.budgeted_amount} onChange={e => setEditForm({ ...editForm, budgeted_amount: e.target.value })} />
                             </Field>
+                            <Field label="Space">
+                              <SearchableSelect className="w-full rounded-lg border border-line px-2.5 py-1.5 text-sm bg-panel"
+                                value={editForm.space_type} onChange={e => setEditForm({ ...editForm, space_type: e.target.value })}>
+                                <option value="">Unassigned</option>
+                                <option value="interior">Interior</option>
+                                <option value="exterior">Exterior</option>
+                              </SearchableSelect>
+                            </Field>
                             {editForm.subcontract_id ? (
                               <>
                                 <Field label="Committed ($)">
@@ -752,6 +794,12 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                           <p className="text-sm font-medium text-ink-soft truncate">
                             {item.cost_code && <span className="text-faint font-normal mr-1.5">{item.cost_code}</span>}
                             {item.description}
+                            {item.space_type && (
+                              <span className={cn('ml-1.5 rounded-full px-1.5 py-0 text-[10px] font-medium align-middle',
+                                item.space_type === 'interior' ? 'bg-info-tint text-info' : 'bg-warn-tint text-warn')}>
+                                {SPACE_LABELS[item.space_type]}
+                              </span>
+                            )}
                           </p>
                           {item.linked ? (
                             <p className="text-xs text-accent-fg truncate flex items-center gap-1">

@@ -86,18 +86,26 @@ export async function GET(request: Request) {
   const scope = `gc_company_id.eq.${profile.company_id},created_by_company_id.eq.${profile.company_id}`
   let { data, error } = await db
     .from('projects')
-    .select('id, name, status, start_date, end_date, type, customer_id, address, client, lat, lng')
+    .select('id, name, status, start_date, end_date, type, customer_id, address, client, lat, lng, interior_sqft, exterior_sqft')
     .or(scope)
     .order('created_at', { ascending: false })
 
-  // Pre-migration fallback: lat/lng columns may not exist yet.
+  // Pre-migration fallback: sqft and/or lat/lng columns may not exist yet.
   if (error && (error as any).code === '42703') {
-    const retry = await db
+    const retry1 = await db
       .from('projects')
-      .select('id, name, status, start_date, end_date, type, customer_id, address, client')
+      .select('id, name, status, start_date, end_date, type, customer_id, address, client, lat, lng')
       .or(scope)
       .order('created_at', { ascending: false })
-    data = retry.data as any; error = retry.error
+    data = retry1.data as any; error = retry1.error
+    if (error && (error as any).code === '42703') {
+      const retry2 = await db
+        .from('projects')
+        .select('id, name, status, start_date, end_date, type, customer_id, address, client')
+        .or(scope)
+        .order('created_at', { ascending: false })
+      data = retry2.data as any; error = retry2.error
+    }
   }
 
   return NextResponse.json({ projects: data ?? [] })
@@ -134,7 +142,7 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json()
-  const { name, address, client, type, start_date, end_date, customer_id, lat, lng } = body
+  const { name, address, client, type, start_date, end_date, customer_id, lat, lng, interior_sqft, exterior_sqft } = body
 
   const base = {
     name, address, client, type, start_date,
@@ -145,12 +153,19 @@ export async function POST(request: Request) {
     created_by_company_id: profile.company_id,
   }
   const withGeo = lat != null && lng != null ? { ...base, lat, lng, geocoded_address: address } : base
+  const full = (interior_sqft != null || exterior_sqft != null)
+    ? { ...withGeo, interior_sqft: interior_sqft ?? null, exterior_sqft: exterior_sqft ?? null }
+    : withGeo
 
-  let { data: project, error: insertError } = await admin.from('projects').insert(withGeo).select().single()
-  // Pre-migration fallback: geo columns may not exist yet.
+  let { data: project, error: insertError } = await admin.from('projects').insert(full).select().single()
+  // Pre-migration fallback: sqft and/or geo columns may not exist yet.
   if (insertError && (insertError as any).code === '42703') {
-    const retry = await admin.from('projects').insert(base).select().single()
-    project = retry.data; insertError = retry.error
+    const retry1 = await admin.from('projects').insert(withGeo).select().single()
+    project = retry1.data; insertError = retry1.error
+    if (insertError && (insertError as any).code === '42703') {
+      const retry2 = await admin.from('projects').insert(base).select().single()
+      project = retry2.data; insertError = retry2.error
+    }
   }
 
   if (insertError) {

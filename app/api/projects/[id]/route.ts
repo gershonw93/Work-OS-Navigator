@@ -18,7 +18,7 @@ export async function PATCH(
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { name, address, client, type, status, start_date, end_date, customer_id, lat, lng } = body
+  const { name, address, client, type, status, start_date, end_date, customer_id, lat, lng, interior_sqft, exterior_sqft } = body
 
   const updates: Record<string, unknown> = {}
   if (name !== undefined) updates.name = name
@@ -30,13 +30,22 @@ export async function PATCH(
   if (start_date !== undefined) updates.start_date = start_date
   if (end_date !== undefined) updates.end_date = end_date
   if (customer_id !== undefined) updates.customer_id = customer_id || null
+  if (interior_sqft !== undefined) updates.interior_sqft = interior_sqft
+  if (exterior_sqft !== undefined) updates.exterior_sqft = exterior_sqft
 
-  const { data, error } = await db
+  let { data, error } = await db
     .from('projects')
     .update(updates)
     .eq('id', params.id)
     .select()
     .single()
+
+  // Pre-migration fallback: sqft columns may not exist yet.
+  if (error && (error as any).code === '42703' && ('interior_sqft' in updates || 'exterior_sqft' in updates)) {
+    const { interior_sqft: _i, exterior_sqft: _e, ...withoutSqft } = updates
+    const retry = await db.from('projects').update(withoutSqft).eq('id', params.id).select().single()
+    data = retry.data; error = retry.error
+  }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 

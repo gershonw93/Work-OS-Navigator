@@ -36,6 +36,8 @@ export default function NewProjectPage() {
     })()
   }, [])
   const [type, setType] = useState<'residential' | 'commercial' | 'mixed_use'>('commercial')
+  const [interiorSqft, setInteriorSqft] = useState('')
+  const [exteriorSqft, setExteriorSqft] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -76,6 +78,8 @@ export default function NewProjectPage() {
         end_date: endDate || null,
         customer_id: isNew ? null : customerId,
         lat: coords.lat, lng: coords.lng,
+        interior_sqft: interiorSqft ? Number(interiorSqft) : null,
+        exterior_sqft: exteriorSqft ? Number(exteriorSqft) : null,
       }),
     })
 
@@ -154,6 +158,31 @@ export default function NewProjectPage() {
                 <option value="commercial">Commercial</option>
                 <option value="mixed_use">Mixed Use</option>
               </Select>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="interiorSqft">Interior Sq Ft <span className="text-faint font-normal">(under A/C, optional)</span></Label>
+                <Input
+                  id="interiorSqft"
+                  type="number"
+                  min="0"
+                  placeholder="e.g. 2400"
+                  value={interiorSqft}
+                  onChange={(e) => setInteriorSqft(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="exteriorSqft">Exterior Sq Ft <span className="text-faint font-normal">(under roof, optional)</span></Label>
+                <Input
+                  id="exteriorSqft"
+                  type="number"
+                  min="0"
+                  placeholder="e.g. 600"
+                  value={exteriorSqft}
+                  onChange={(e) => setExteriorSqft(e.target.value)}
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

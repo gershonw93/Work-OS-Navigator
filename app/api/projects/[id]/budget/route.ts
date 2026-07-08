@@ -19,6 +19,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     { data: subcontracts },
     { data: invoices },
     { data: materials },
+    { data: projectRow },
   ] = await Promise.all([
     db
       .from('budget_line_items')
@@ -40,6 +41,11 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .select('id, budget_line_id, amount, store_name, category, purchase_date, receipt_url, client_paid')
       .eq('project_id', params.id)
       .order('purchase_date', { ascending: false, nullsFirst: false }),
+    db
+      .from('projects')
+      .select('interior_sqft, exterior_sqft')
+      .eq('id', params.id)
+      .single(),
   ])
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -86,7 +92,20 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
   const materials_total = (materials ?? []).reduce((s: number, m: any) => s + Number(m.amount ?? 0), 0)
 
-  return NextResponse.json({ items, subcontracts: subOptions, materials: materials ?? [], materials_total })
+  const spaceTotals = { interior: 0, exterior: 0, unassigned: 0 }
+  for (const it of items) {
+    const key = it.space_type === 'interior' ? 'interior' : it.space_type === 'exterior' ? 'exterior' : 'unassigned'
+    spaceTotals[key] += Number(it.budgeted_amount ?? 0)
+  }
+
+  return NextResponse.json({
+    items,
+    subcontracts: subOptions,
+    materials: materials ?? [],
+    materials_total,
+    space_totals: spaceTotals,
+    project_sqft: { interior: projectRow?.interior_sqft ?? null, exterior: projectRow?.exterior_sqft ?? null },
+  })
 }
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
@@ -98,7 +117,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { cost_code, category, description, budgeted_amount, committed_amount, actual_amount, notes, subcontract_id } = body
+  const { cost_code, category, description, budgeted_amount, committed_amount, actual_amount, notes, subcontract_id, space_type } = body
 
   if (!description) return NextResponse.json({ error: 'Description is required' }, { status: 400 })
 
@@ -107,22 +126,27 @@ export async function POST(request: Request, { params }: { params: { id: string 
     .select('*', { count: 'exact', head: true })
     .eq('project_id', params.id)
 
-  const { data, error } = await db
-    .from('budget_line_items')
-    .insert({
-      project_id: params.id,
-      cost_code: cost_code || null,
-      category: category || 'General',
-      description,
-      budgeted_amount: Number(budgeted_amount) || 0,
-      committed_amount: Number(committed_amount) || 0,
-      actual_amount: Number(actual_amount) || 0,
-      notes: notes || null,
-      subcontract_id: subcontract_id || null,
-      sort_order: count ?? 0,
-    })
-    .select()
-    .single()
+  const row = {
+    project_id: params.id,
+    cost_code: cost_code || null,
+    category: category || 'General',
+    description,
+    budgeted_amount: Number(budgeted_amount) || 0,
+    committed_amount: Number(committed_amount) || 0,
+    actual_amount: Number(actual_amount) || 0,
+    notes: notes || null,
+    subcontract_id: subcontract_id || null,
+    space_type: space_type === 'interior' || space_type === 'exterior' ? space_type : null,
+    sort_order: count ?? 0,
+  }
+
+  let { data, error } = await db.from('budget_line_items').insert(row).select().single()
+  // Pre-migration fallback: space_type column may not exist yet.
+  if (error && (error as any).code === '42703') {
+    const { space_type: _omit, ...withoutSpaceType } = row
+    const retry = await db.from('budget_line_items').insert(withoutSpaceType).select().single()
+    data = retry.data; error = retry.error
+  }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 

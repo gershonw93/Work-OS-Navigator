@@ -22,14 +22,28 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   for (const key of ['budgeted_amount', 'committed_amount', 'actual_amount', 'sort_order']) {
     if (key in body) updates[key] = Number(body[key]) || 0
   }
+  if ('space_type' in body) updates.space_type = body.space_type === 'interior' || body.space_type === 'exterior' ? body.space_type : null
 
-  const { data, error } = await db
+  let { data, error } = await db
     .from('budget_line_items')
     .update(updates)
     .eq('id', params.lineId)
     .eq('project_id', params.id)
     .select()
     .single()
+
+  // Pre-migration fallback: space_type column may not exist yet.
+  if (error && (error as any).code === '42703' && 'space_type' in updates) {
+    const { space_type: _omit, ...withoutSpaceType } = updates
+    const retry = await db
+      .from('budget_line_items')
+      .update(withoutSpaceType)
+      .eq('id', params.lineId)
+      .eq('project_id', params.id)
+      .select()
+      .single()
+    data = retry.data; error = retry.error
+  }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
