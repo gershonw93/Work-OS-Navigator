@@ -26,10 +26,15 @@ export async function GET(request: Request) {
   // Subcontractors: "Projects" lists the jobs they created/own. (Awarded GC
   // jobs live under My Jobs, since those projects are owned by the GC.)
   if ((profile.companies as any)?.type === 'subcontractor' && profile.company_id) {
-    const { data: ownProjects } = await db.from('projects')
+    const subScope = `created_by_company_id.eq.${profile.company_id},gc_company_id.eq.${profile.company_id}`
+    let { data: ownProjects, error: e1 } = await db.from('projects')
       .select('id, name, status, start_date, end_date, address, client, type, created_at, lat, lng')
-      .or(`created_by_company_id.eq.${profile.company_id},gc_company_id.eq.${profile.company_id}`)
-      .order('created_at', { ascending: false })
+      .or(subScope).order('created_at', { ascending: false })
+    if (e1 && (e1 as any).code === '42703') {
+      ownProjects = (await db.from('projects')
+        .select('id, name, status, start_date, end_date, address, client, type, created_at')
+        .or(subScope).order('created_at', { ascending: false })).data as any
+    }
     return NextResponse.json({ projects: ownProjects ?? [] })
   }
 
@@ -62,21 +67,38 @@ export async function GET(request: Request) {
 
     if (projectIds.length === 0) return NextResponse.json({ projects: [] })
 
-    const { data } = await db
+    let { data, error: e2 } = await db
       .from('projects')
       .select('id, name, status, start_date, end_date, address, client, type, created_at, lat, lng')
       .in('id', projectIds)
       .order('created_at', { ascending: false })
+    if (e2 && (e2 as any).code === '42703') {
+      data = (await db.from('projects')
+        .select('id, name, status, start_date, end_date, address, client, type, created_at')
+        .in('id', projectIds).order('created_at', { ascending: false })).data as any
+    }
 
     return NextResponse.json({ projects: data ?? [] })
   }
 
-  // All company projects — either as GC or as standalone owner
-  const { data } = await db
+  // All company projects — either as GC or as standalone owner.
+  // Includes address + coords so the Projects map can place pins.
+  const scope = `gc_company_id.eq.${profile.company_id},created_by_company_id.eq.${profile.company_id}`
+  let { data, error } = await db
     .from('projects')
-    .select('id, name, status, start_date, type, customer_id')
-    .or(`gc_company_id.eq.${profile.company_id},created_by_company_id.eq.${profile.company_id}`)
+    .select('id, name, status, start_date, end_date, type, customer_id, address, client, lat, lng')
+    .or(scope)
     .order('created_at', { ascending: false })
+
+  // Pre-migration fallback: lat/lng columns may not exist yet.
+  if (error && (error as any).code === '42703') {
+    const retry = await db
+      .from('projects')
+      .select('id, name, status, start_date, end_date, type, customer_id, address, client')
+      .or(scope)
+      .order('created_at', { ascending: false })
+    data = retry.data as any; error = retry.error
+  }
 
   return NextResponse.json({ projects: data ?? [] })
 }
