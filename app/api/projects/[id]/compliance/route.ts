@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { logActivity } from '@/lib/log-activity'
 
 const admin = () =>
   createClient(
@@ -108,5 +109,10 @@ export async function POST(
   }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  const { data: profile } = await db.from('profiles').select('full_name').eq('id', user.id).single()
+  await logActivity(db, params.id, profile?.full_name || 'Someone', 'compliance_document_added',
+    `Compliance document added: ${type}`, { doc_id: doc.id, type, status: doc.status }, user.id)
+
   return NextResponse.json({ doc }, { status: 201 })
 }

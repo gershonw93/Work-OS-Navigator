@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { logActivity } from '@/lib/log-activity'
 
 export const runtime = 'nodejs'
 
@@ -93,5 +94,11 @@ export async function POST(request: Request, { params }: { params: { id: string 
     created_by: user.id,
   }).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  const { data: profile } = await db.from('profiles').select('full_name').eq('id', user.id).single()
+  await logActivity(db, params.id, profile?.full_name || 'Someone', 'client_payment_received',
+    `Client payment received — $${Number(body.amount || 0).toLocaleString()}`,
+    { payment_id: data.id, amount: body.amount }, user.id)
+
   return NextResponse.json({ payment: data })
 }

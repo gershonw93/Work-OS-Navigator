@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { logActivity } from '@/lib/log-activity'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -58,6 +59,8 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const { data: line } = await db.from('budget_line_items').select('description').eq('id', params.lineId).single()
+
   const { error } = await db
     .from('budget_line_items')
     .delete()
@@ -65,6 +68,10 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     .eq('project_id', params.id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  const { data: profile } = await db.from('profiles').select('full_name').eq('id', user.id).single()
+  await logActivity(db, params.id, profile?.full_name || 'Someone', 'budget_line_removed',
+    `Budget line removed: ${line?.description || 'line item'}`, { line_id: params.lineId }, user.id)
 
   return NextResponse.json({ ok: true })
 }
