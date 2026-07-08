@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import Link from 'next/link'
 import {
-  FolderKanban, Plus, Pencil, Trash2, X, Search, LayoutGrid, List,
+  FolderKanban, Plus, Pencil, Trash2, X, Search, LayoutGrid, List, Map,
   MapPin, User, Calendar, ArrowUpDown, Building2, SlidersHorizontal,
 } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
@@ -16,6 +16,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { createClient } from '@/lib/supabase/client'
+import { ProjectsMap } from '@/components/projects/projects-map'
 import { cn } from '@/lib/utils'
 
 interface Project {
@@ -27,6 +28,8 @@ interface Project {
   status: string | null
   start_date: string | null
   end_date: string | null
+  lat?: number | null
+  lng?: number | null
   created_at: string
 }
 
@@ -85,7 +88,7 @@ export default function ProjectsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [typeFilter, setTypeFilter] = useState<string>('all')
   const [sort, setSort] = useState<SortKey>('created_desc')
-  const [view, setView] = useState<'grid' | 'list'>('grid')
+  const [view, setView] = useState<'grid' | 'list' | 'map'>('grid')
 
   // Edit form state
   const [editName, setEditName] = useState('')
@@ -124,9 +127,9 @@ export default function ProjectsPage() {
   // Restore view preference
   useEffect(() => {
     const v = localStorage.getItem('workos_projects_view')
-    if (v === 'grid' || v === 'list') setView(v)
+    if (v === 'grid' || v === 'list' || v === 'map') setView(v)
   }, [])
-  function changeView(v: 'grid' | 'list') {
+  function changeView(v: 'grid' | 'list' | 'map') {
     setView(v)
     localStorage.setItem('workos_projects_view', v)
   }
@@ -396,6 +399,13 @@ export default function ProjectsPage() {
               >
                 <List className="h-4 w-4" />
               </button>
+              <button
+                onClick={() => changeView('map')}
+                className={cn('rounded-md p-1.5 transition-colors', view === 'map' ? 'bg-accent text-accent-ink' : 'text-faint hover:text-muted-fg')}
+                title="Map view"
+              >
+                <Map className="h-4 w-4" />
+              </button>
             </div>
           </div>
         </div>
@@ -434,6 +444,8 @@ export default function ProjectsPage() {
           <p className="text-sm font-medium text-muted-fg">No projects match your filters.</p>
           <button onClick={clearFilters} className="mt-2 text-sm font-medium text-accent-fg hover:text-accent-fg">Clear filters</button>
         </div>
+      ) : view === 'map' ? (
+        <ProjectsMap projects={filtered as any} />
       ) : view === 'grid' ? (
         /* ───── GRID VIEW ───── */
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">

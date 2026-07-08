@@ -113,7 +113,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'Enter the project name, address, client/customer, and start date.',
         'Save. The project opens to its tabs.',
       ] },
-      { type: 'tip', text: 'You can link a project to a customer so all of that client\'s jobs are grouped together.' },
+      { type: 'tip', text: 'The address suggests matches as you type, and the Owner/Client dropdown pulls from your existing customers (or pick "New client" and type a name). On the Projects page, use the map toggle to see every job on a map, color-coded by status.' },
     ],
     related: ['project-tabs-explained', 'add-project-budget'],
   },

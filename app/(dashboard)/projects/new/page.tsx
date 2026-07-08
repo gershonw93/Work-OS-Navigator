@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
+import { AddressAutocomplete } from '@/components/ui/address-autocomplete'
 
 export default function NewProjectPage() {
   const router = useRouter()
@@ -103,38 +104,37 @@ export default function NewProjectPage() {
 
             <div className="space-y-1.5">
               <Label htmlFor="address">Address</Label>
-              <Input
+              <AddressAutocomplete
                 id="address"
-                placeholder="123 Main St, City, State 12345"
+                placeholder="Start typing the address…"
                 value={address}
-                onChange={(e) => setAddress(e.target.value)}
+                onChange={setAddress}
                 required
               />
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="client">Client</Label>
-              {customers.length > 0 && (
-                <Select
-                  value={customerId}
-                  onChange={(e) => {
-                    setCustomerId(e.target.value)
-                    const c = customers.find(x => x.id === e.target.value)
-                    if (c) setClient(c.name)
-                  }}
-                  className="mb-2"
-                >
-                  <option value="">Pick an existing customer…</option>
-                  {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </Select>
+              <Label htmlFor="client">Owner / Client</Label>
+              <Select
+                value={customerId}
+                onChange={(e) => {
+                  setCustomerId(e.target.value)
+                  const c = customers.find(x => x.id === e.target.value)
+                  setClient(c ? c.name : '')
+                }}
+              >
+                <option value="">— New client —</option>
+                {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </Select>
+              {!customerId && (
+                <Input
+                  id="client"
+                  placeholder="New client's name, e.g. Acme Corp"
+                  value={client}
+                  onChange={(e) => setClient(e.target.value)}
+                  required
+                />
               )}
-              <Input
-                id="client"
-                placeholder={customers.length ? 'or type a new client name' : 'e.g. Acme Corp'}
-                value={client}
-                onChange={(e) => { setClient(e.target.value); setCustomerId('') }}
-                required
-              />
             </div>
 
             <div className="space-y-1.5">
