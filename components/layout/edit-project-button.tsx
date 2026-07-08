@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
-import { AddressAutocomplete } from '@/components/ui/address-autocomplete'
+import { AddressFields } from '@/components/ui/address-fields'
 import { Settings, X } from 'lucide-react'
 
 interface Props {
@@ -93,7 +93,7 @@ export function EditProjectButton({ projectId, project }: Props) {
               </div>
               <div className="space-y-1.5">
                 <Label>Address</Label>
-                <AddressAutocomplete value={address} onChange={setAddress} placeholder="Start typing the address…" />
+                <AddressFields value={address} onChange={setAddress} />
               </div>
               <div className="space-y-1.5">
                 <Label>Owner / Client</Label>
