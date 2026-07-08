@@ -819,11 +819,16 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       )}
 
       {/* Materials — receipts assigned to this job (linked ones roll into a line's Actual) */}
-      {materials.length > 0 && (
+      {materials.length > 0 && (() => {
+        const materialsOwed = materials.reduce((s: number, m: any) => s + (m.client_paid ? 0 : Number(m.amount ?? 0)), 0)
+        return (
         <div className="mt-6 rounded-xl border border-line bg-panel overflow-hidden">
-          <div className="px-4 sm:px-5 py-3.5 border-b border-line-soft flex items-center justify-between">
+          <div className="px-4 sm:px-5 py-3.5 border-b border-line-soft flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-semibold text-ink-soft inline-flex items-center gap-1.5"><ShoppingCart className="h-4 w-4 text-muted-fg" /> Materials</h2>
-            <span className="text-sm font-bold text-ink">{money(materialsTotal)} spent</span>
+            <div className="flex items-center gap-3 text-sm">
+              <span className="font-bold text-ink">{money(materialsTotal)} spent</span>
+              {materialsOwed > 0 && <span className="font-medium text-warn">{money(materialsOwed)} owed by client</span>}
+            </div>
           </div>
           <div className="divide-y divide-line-soft">
             {materials.map((m: any) => (
@@ -834,6 +839,11 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                     {[m.category, m.budget_line_id ? 'in a budget line' : 'not linked to a line', m.purchase_date && new Date(m.purchase_date + 'T00:00:00').toLocaleDateString()].filter(Boolean).join(' · ')}
                   </p>
                 </div>
+                {m.client_paid ? (
+                  <span className="text-xs font-medium text-success">Paid</span>
+                ) : (
+                  <span className="text-xs font-medium text-warn">Owed</span>
+                )}
                 {m.receipt_url && <a href={m.receipt_url} target="_blank" rel="noreferrer" className="text-xs text-accent-fg hover:underline">Receipt</a>}
                 <span className="font-bold text-ink">{money(m.amount)}</span>
               </div>
@@ -843,7 +853,8 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
             <a href="/materials" className="text-xs font-medium text-accent-fg hover:underline">Add a receipt →</a>
           </div>
         </div>
-      )}
+        )
+      })()}
     </div>
   )
 }

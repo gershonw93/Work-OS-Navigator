@@ -10,7 +10,8 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
 import { CameraCapture } from '@/components/ui/camera-capture'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
-import { Plus, X, ShoppingCart, Camera, Upload, Loader2, Receipt, Trash2, ExternalLink, Search } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { Plus, X, ShoppingCart, Camera, Upload, Loader2, Receipt, Trash2, ExternalLink, Search, ChevronDown, ChevronRight, CheckCircle2, Circle } from 'lucide-react'
 
 const CATEGORIES = ['Lumber', 'Electrical', 'Plumbing', 'Hardware', 'Concrete', 'Paint', 'Drywall', 'Tools', 'Fuel', 'Rental', 'Other']
 const money = (n: number) => `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
@@ -19,6 +20,7 @@ type Material = {
   id: string; project_id: string; project_name: string; store_name: string | null
   amount: number; tax: number | null; purchase_date: string | null; category: string | null
   notes: string | null; receipt_url: string | null; line_items: any[] | null; company_id: string | null
+  budget_line_id: string | null; client_paid: boolean; created_at: string
 }
 type ProjectOpt = { id: string; name: string }
 
@@ -44,6 +46,7 @@ function AddModal({ projects, lockedProjectId, onClose, onSaved }: { projects: P
   const [notes, setNotes] = useState('')
   const [lineItems, setLineItems] = useState<any[]>([])
   const [saveStore, setSaveStore] = useState(true)
+  const [clientPaid, setClientPaid] = useState(false)
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
   const [budgetLines, setBudgetLines] = useState<{ id: string; label: string }[]>([])
@@ -94,7 +97,7 @@ function AddModal({ projects, lockedProjectId, onClose, onSaved }: { projects: P
       body: JSON.stringify({
         project_id: projectId, store_name: store.trim() || null, amount, tax, purchase_date: date || null,
         category: category || null, notes: notes.trim() || null, receipt_url: receiptUrl, line_items: lineItems.length ? lineItems : null,
-        budget_line_id: budgetLineId || null, save_store: saveStore,
+        budget_line_id: budgetLineId || null, save_store: saveStore, client_paid: clientPaid,
       }),
     })
     setSaving(false)
@@ -187,6 +190,10 @@ function AddModal({ projects, lockedProjectId, onClose, onSaved }: { projects: P
               <input type="checkbox" className="accent-[#C9F24A]" checked={saveStore} onChange={e => setSaveStore(e.target.checked)} />
               Save the store to my Directory as a supplier
             </label>
+            <label className={cn('flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm', clientPaid ? 'border-success/40 bg-success-tint text-success' : 'border-line-soft bg-surface text-ink-soft')}>
+              <input type="checkbox" className="accent-[#C9F24A]" checked={clientPaid} onChange={e => setClientPaid(e.target.checked)} />
+              Customer already paid for this — don&apos;t count it as owed
+            </label>
             {err && <p className="text-sm text-danger">{err}</p>}
           </div>
         )}
@@ -215,6 +222,8 @@ export function MaterialsView({ lockedProjectId }: { lockedProjectId?: string })
   const [showAdd, setShowAdd] = useState(false)
   const [query, setQuery] = useState('')
   const [projectFilter, setProjectFilter] = useState('all')
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [budgetLineLabels, setBudgetLineLabels] = useState<Record<string, string>>({})
 
   async function load() {
     const res = await fetch('/api/materials', { headers: await authHeaders() })
@@ -230,6 +239,25 @@ export function MaterialsView({ lockedProjectId }: { lockedProjectId?: string })
     }, { label: `the ${money(m.amount)} receipt from ${m.store_name ?? 'this store'}`, protected: true })
   }
 
+  async function toggleClientPaid(m: Material) {
+    const next = !m.client_paid
+    setMaterials(prev => prev.map(x => x.id === m.id ? { ...x, client_paid: next } : x))
+    await fetch(`/api/materials/${m.id}`, { method: 'PATCH', headers: await authHeaders(), body: JSON.stringify({ client_paid: next }) })
+  }
+
+  async function toggleExpand(m: Material) {
+    const opening = expandedId !== m.id
+    setExpandedId(opening ? m.id : null)
+    if (opening && m.budget_line_id && !budgetLineLabels[m.budget_line_id]) {
+      const res = await fetch(`/api/projects/${m.project_id}/budget`, { headers: await authHeaders() })
+      if (res.ok) {
+        const d = await res.json()
+        const line = (d.items ?? []).find((l: any) => l.id === m.budget_line_id)
+        if (line) setBudgetLineLabels(prev => ({ ...prev, [m.budget_line_id!]: [line.category, line.description].filter(Boolean).join(' · ') || 'Line' }))
+      }
+    }
+  }
+
   const scoped = useMemo(() => lockedProjectId ? materials.filter(m => m.project_id === lockedProjectId) : materials, [materials, lockedProjectId])
 
   const filtered = useMemo(() => {
@@ -242,6 +270,8 @@ export function MaterialsView({ lockedProjectId }: { lockedProjectId?: string })
   }, [scoped, query, projectFilter, lockedProjectId])
 
   const total = useMemo(() => filtered.reduce((s, m) => s + Number(m.amount || 0), 0), [filtered])
+  const paidByClient = useMemo(() => filtered.filter(m => m.client_paid).reduce((s, m) => s + Number(m.amount || 0), 0), [filtered])
+  const owed = Math.max(total - paidByClient, 0)
 
   return (
     <div className={lockedProjectId ? 'p-4 sm:p-6' : 'mx-auto max-w-4xl px-4 py-8 sm:px-6'}>
@@ -251,14 +281,22 @@ export function MaterialsView({ lockedProjectId }: { lockedProjectId?: string })
         action={<Button onClick={() => setShowAdd(true)}><Plus className="mr-1.5 h-4 w-4" />Add receipt</Button>}
       />
 
-      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-xl border border-line bg-panel px-4 py-3">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-fg">Receipts</p>
           <p className="mt-0.5 text-2xl font-bold text-ink">{filtered.length}</p>
         </div>
         <div className="rounded-xl border border-line bg-panel px-4 py-3">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-fg">Total spent</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-fg">Total cost</p>
           <p className="mt-0.5 text-2xl font-bold text-ink">{money(total)}</p>
+        </div>
+        <div className="rounded-xl border border-line bg-panel px-4 py-3">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-fg">Customer paid</p>
+          <p className="mt-0.5 text-2xl font-bold text-success">{money(paidByClient)}</p>
+        </div>
+        <div className="rounded-xl border border-line bg-panel px-4 py-3">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-fg">Owed by customer</p>
+          <p className={cn('mt-0.5 text-2xl font-bold', owed > 0 ? 'text-warn' : 'text-ink')}>{money(owed)}</p>
         </div>
       </div>
 
@@ -283,32 +321,95 @@ export function MaterialsView({ lockedProjectId }: { lockedProjectId?: string })
           description={scoped.length === 0 ? 'Add your first material receipt — take a photo and we\'ll read it.' : 'Try a different search or filter.'} />
       ) : (
         <div className="space-y-2">
-          {filtered.map(m => (
-            <div key={m.id} className="flex items-center gap-3 rounded-xl border border-line bg-panel px-4 py-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted text-ink-soft">
-                {m.receipt_url
-                  // eslint-disable-next-line @next/next/no-img-element
-                  ? <img src={m.receipt_url} alt="" className="h-full w-full object-cover" />
-                  : <Receipt className="h-5 w-5" />}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="truncate font-semibold text-ink">{m.store_name || 'Material purchase'}</p>
-                  {m.category && <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-fg">{m.category}</span>}
+          {filtered.map(m => {
+            const isOpen = expandedId === m.id
+            return (
+            <div key={m.id} className="overflow-hidden rounded-xl border border-line bg-panel">
+              <button type="button" onClick={() => toggleExpand(m)}
+                className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-surface/60 transition-colors">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted text-ink-soft">
+                  {m.receipt_url
+                    // eslint-disable-next-line @next/next/no-img-element
+                    ? <img src={m.receipt_url} alt="" className="h-full w-full object-cover" />
+                    : <Receipt className="h-5 w-5" />}
                 </div>
-                <p className="truncate text-xs text-muted-fg">
-                  {lockedProjectId ? '' : `${m.project_name}`}{m.purchase_date ? `${lockedProjectId ? '' : ' · '}${new Date(m.purchase_date + 'T00:00:00').toLocaleDateString()}` : ''}
-                </p>
-              </div>
-              <div className="shrink-0 text-right">
-                <p className="font-bold text-ink">{money(m.amount)}</p>
-                <div className="mt-0.5 flex items-center justify-end gap-2">
-                  {m.receipt_url && <a href={m.receipt_url} target="_blank" rel="noreferrer" className="text-faint hover:text-accent-fg"><ExternalLink className="h-3.5 w-3.5" /></a>}
-                  <button onClick={() => remove(m)} className="text-faint hover:text-danger"><Trash2 className="h-3.5 w-3.5" /></button>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="truncate font-semibold text-ink">{m.store_name || 'Material purchase'}</p>
+                    {m.category && <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-fg">{m.category}</span>}
+                    {m.client_paid && <span className="inline-flex items-center gap-1 rounded-full bg-success-tint px-1.5 py-0.5 text-[10px] font-medium text-success"><CheckCircle2 className="h-3 w-3" />Paid</span>}
+                  </div>
+                  <p className="truncate text-xs text-muted-fg">
+                    {lockedProjectId ? '' : `${m.project_name}`}{m.purchase_date ? `${lockedProjectId ? '' : ' · '}${new Date(m.purchase_date + 'T00:00:00').toLocaleDateString()}` : ''}
+                  </p>
                 </div>
-              </div>
+                <div className="shrink-0 text-right">
+                  <p className="font-bold text-ink">{money(m.amount)}</p>
+                </div>
+                {isOpen ? <ChevronDown className="h-4 w-4 shrink-0 text-faint" /> : <ChevronRight className="h-4 w-4 shrink-0 text-faint" />}
+              </button>
+
+              {isOpen && (
+                <div className="space-y-3 border-t border-line-soft bg-surface/50 px-4 py-4">
+                  {m.receipt_url && (
+                    <a href={m.receipt_url} target="_blank" rel="noreferrer" className="block">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={m.receipt_url} alt="Receipt" className="max-h-64 w-full rounded-lg border border-line object-contain bg-panel" />
+                    </a>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
+                    <div><p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Store</p><p className="text-ink-soft">{m.store_name || '—'}</p></div>
+                    <div><p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Date</p><p className="text-ink-soft">{m.purchase_date ? new Date(m.purchase_date + 'T00:00:00').toLocaleDateString() : '—'}</p></div>
+                    <div><p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Category</p><p className="text-ink-soft">{m.category || 'Uncategorized'}</p></div>
+                    <div><p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Job</p><p className="text-ink-soft">{m.project_name}</p></div>
+                    <div><p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Tax</p><p className="text-ink-soft">{m.tax != null ? money(m.tax) : '—'}</p></div>
+                    <div><p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Total</p><p className="font-semibold text-ink">{money(m.amount)}</p></div>
+                    {m.budget_line_id && (
+                      <div className="col-span-2 sm:col-span-3"><p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Budget line</p><p className="text-ink-soft">{budgetLineLabels[m.budget_line_id] ?? 'Loading…'}</p></div>
+                    )}
+                    {m.notes && (
+                      <div className="col-span-2 sm:col-span-3"><p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Notes</p><p className="text-ink-soft">{m.notes}</p></div>
+                    )}
+                  </div>
+
+                  {(m.line_items?.length ?? 0) > 0 && (
+                    <div>
+                      <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-faint">Items on receipt</p>
+                      <div className="space-y-0.5 rounded-lg border border-line-soft bg-panel p-2.5">
+                        {m.line_items!.map((li: any, i: number) => (
+                          <div key={i} className="flex justify-between gap-2 text-xs">
+                            <span className="truncate text-muted-fg">{li.qty ? `${li.qty}× ` : ''}{li.description}</span>
+                            <span className="shrink-0 text-ink-soft">{li.amount != null ? money(li.amount) : ''}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line-soft pt-3">
+                    <button type="button" onClick={() => toggleClientPaid(m)}
+                      className={cn('inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors',
+                        m.client_paid ? 'border-success/40 bg-success-tint text-success' : 'border-line text-muted-fg hover:bg-surface')}>
+                      {m.client_paid ? <CheckCircle2 className="h-4 w-4" /> : <Circle className="h-4 w-4" />}
+                      {m.client_paid ? 'Customer paid — click to mark unpaid' : 'Mark customer paid'}
+                    </button>
+                    <div className="flex items-center gap-3">
+                      {m.receipt_url && (
+                        <a href={m.receipt_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm text-accent-fg hover:underline">
+                          <ExternalLink className="h-3.5 w-3.5" /> Open receipt
+                        </a>
+                      )}
+                      <button onClick={() => remove(m)} className="inline-flex items-center gap-1 text-sm text-faint hover:text-danger">
+                        <Trash2 className="h-3.5 w-3.5" /> Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          ))}
+            )
+          })}
         </div>
       )}
 

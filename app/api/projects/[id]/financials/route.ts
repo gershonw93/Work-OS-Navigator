@@ -48,7 +48,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     // Material purchases (receipts) assigned to this job.
     db
       .from('material_purchases')
-      .select('id, store_name, amount, category, purchase_date, receipt_url')
+      .select('id, store_name, amount, category, purchase_date, receipt_url, client_paid')
       .eq('project_id', params.id)
       .order('purchase_date', { ascending: false, nullsFirst: false }),
   ])

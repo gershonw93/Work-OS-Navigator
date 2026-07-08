@@ -865,7 +865,24 @@ export const HELP_ARTICLES: HelpArticle[] = [
       ] },
       { type: 'tip', text: 'See a job\'s receipts on that project\'s Financials tab (a Materials section with the total), or filter by job on the Materials page. If you linked a budget line, the amount also shows in that line\'s Actual on the Budget tab.' },
     ],
-    related: ['money-overview', 'add-project-budget'],
+    related: ['money-overview', 'add-project-budget', 'materials-client-paid'],
+  },
+  {
+    slug: 'materials-client-paid',
+    title: 'Track which material costs the customer already paid',
+    category: 'materials',
+    keywords: ['material', 'receipt', 'client paid', 'customer paid', 'owed', 'reimbursed', 'expand', 'details'],
+    summary: 'Check "customer paid" on a receipt so it stops counting as money owed.',
+    blocks: [
+      { type: 'text', text: 'Sometimes the client reimburses you for a material purchase directly, or pays the supplier themselves. Mark that receipt paid so your numbers stay accurate.' },
+      { type: 'steps', items: [
+        'When adding a receipt, check "Customer already paid for this" if it applies.',
+        'Already added a receipt? Click it to expand the full details — store, date, category, tax, notes, line items, and the receipt image.',
+        'Inside the expanded view, click "Mark customer paid" (or click it again to undo).',
+      ] },
+      { type: 'tip', text: 'The Materials page, and the Materials sections on Financials and Budget, all show Total cost, Customer paid, and Owed by customer so you always know what\'s outstanding.' },
+    ],
+    related: ['materials-receipt'],
   },
 ]
 

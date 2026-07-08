@@ -1,7 +1,7 @@
 -- ============================================================
--- SyteNav FULL fresh-install schema (001 → 046).
+-- SyteNav FULL fresh-install schema (001 → 048).
 -- Use ONLY on a brand-new/empty Supabase project. On the
--- original production DB, run _combined_008-046.sql instead.
+-- original production DB, run _combined_008-048.sql instead.
 -- ============================================================
 
 -- ===== 001_initial_schema.sql =====
@@ -1084,3 +1084,10 @@ ALTER TABLE projects
   ADD COLUMN IF NOT EXISTS lat double precision,
   ADD COLUMN IF NOT EXISTS lng double precision,
   ADD COLUMN IF NOT EXISTS geocoded_address text;
+
+-- ===== 048_material_client_paid.sql =====
+-- Track whether the customer already paid for a material purchase directly
+-- (e.g. reimbursed the GC, or paid the store themselves), so cost vs. what the
+-- client still owes stays accurate.
+ALTER TABLE material_purchases
+  ADD COLUMN IF NOT EXISTS client_paid boolean NOT NULL DEFAULT false;
