@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
-import { AddressAutocomplete } from '@/components/ui/address-autocomplete'
+import { AddressFields } from '@/components/ui/address-fields'
 
 export default function NewProjectPage() {
   const router = useRouter()
@@ -110,14 +110,8 @@ export default function NewProjectPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="address">Address</Label>
-              <AddressAutocomplete
-                id="address"
-                placeholder="Start typing the address…"
-                value={address}
-                onChange={setAddress}
-                required
-              />
+              <Label>Address</Label>
+              <AddressFields value={address} onChange={setAddress} required />
             </div>
 
             <div className="space-y-1.5">
