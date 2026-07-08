@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent } from '@/components/ui/card'
@@ -17,6 +17,22 @@ export default function NewProjectPage() {
   const [name, setName] = useState('')
   const [address, setAddress] = useState('')
   const [client, setClient] = useState('')
+  const [customers, setCustomers] = useState<{ id: string; name: string }[]>([])
+  const [customerId, setCustomerId] = useState('')
+
+  // Existing customers from the directory, so the client can be picked
+  // instead of retyped (same as the edit form).
+  useEffect(() => {
+    ;(async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      const res = await fetch('/api/customers', { headers: { Authorization: `Bearer ${session.access_token}` } })
+      if (res.ok) {
+        const d = await res.json()
+        setCustomers((d.customers ?? []).map((c: any) => ({ id: c.id, name: c.name })))
+      }
+    })()
+  }, [])
   const [type, setType] = useState<'residential' | 'commercial' | 'mixed_use'>('commercial')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
@@ -49,6 +65,7 @@ export default function NewProjectPage() {
         type,
         start_date: startDate,
         end_date: endDate || null,
+        customer_id: customerId || null,
       }),
     })
 
@@ -96,12 +113,26 @@ export default function NewProjectPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="client">Client Name</Label>
+              <Label htmlFor="client">Client</Label>
+              {customers.length > 0 && (
+                <Select
+                  value={customerId}
+                  onChange={(e) => {
+                    setCustomerId(e.target.value)
+                    const c = customers.find(x => x.id === e.target.value)
+                    if (c) setClient(c.name)
+                  }}
+                  className="mb-2"
+                >
+                  <option value="">Pick an existing customer…</option>
+                  {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </Select>
+              )}
               <Input
                 id="client"
-                placeholder="e.g. Acme Corp"
+                placeholder={customers.length ? 'or type a new client name' : 'e.g. Acme Corp'}
                 value={client}
-                onChange={(e) => setClient(e.target.value)}
+                onChange={(e) => { setClient(e.target.value); setCustomerId('') }}
                 required
               />
             </div>
