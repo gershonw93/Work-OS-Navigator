@@ -860,7 +860,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'Click Materials in the sidebar.',
         'Click Add receipt, then Take photo (or Upload file).',
         'The AI reads the store, date, total, tax, and line items — review and fix anything.',
-        'Choose which job it\'s for. Optionally link it to a budget line so the cost rolls into that line\'s actuals, and keep "Save the store to my Directory" checked to add the store as a supplier.',
+        'Choose which job it\'s for. For the budget line, pick an existing one, choose "+ Create new budget line…" to make one on the spot (same idea as awarding a quote), or leave it unlinked. Keep "Save the store to my Directory" checked to add the store as a supplier.',
         'Click Save receipt.',
       ] },
       { type: 'tip', text: 'See a job\'s receipts on that project\'s Financials tab (a Materials section with the total), or filter by job on the Materials page. If you linked a budget line, the amount also shows in that line\'s Actual on the Budget tab.' },

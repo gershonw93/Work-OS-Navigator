@@ -51,6 +51,8 @@ function AddModal({ projects, lockedProjectId, onClose, onSaved }: { projects: P
   const [err, setErr] = useState('')
   const [budgetLines, setBudgetLines] = useState<{ id: string; label: string }[]>([])
   const [budgetLineId, setBudgetLineId] = useState('')
+  const [newLineCategory, setNewLineCategory] = useState('')
+  const [newLineDescription, setNewLineDescription] = useState('')
 
   useEffect(() => {
     setBudgetLineId('')
@@ -92,12 +94,33 @@ function AddModal({ projects, lockedProjectId, onClose, onSaved }: { projects: P
     if (!projectId) { setErr('Pick which job this is for.'); return }
     if (!amount) { setErr('Enter the total amount.'); return }
     setSaving(true); setErr('')
+
+    // "+ Create new budget line…" — same idea as awarding a quote: make the
+    // line first, then link the receipt to it.
+    let resolvedBudgetLineId = budgetLineId
+    if (budgetLineId === '__new__') {
+      const lineRes = await fetch(`/api/projects/${projectId}/budget`, {
+        method: 'POST', headers: await authHeaders(),
+        body: JSON.stringify({
+          category: newLineCategory.trim() || 'General',
+          description: newLineDescription.trim() || store.trim() || 'Materials',
+          budgeted_amount: Number(amount) || 0,
+        }),
+      })
+      if (!lineRes.ok) {
+        setSaving(false)
+        setErr((await lineRes.json().catch(() => ({}))).error || 'Could not create the budget line.')
+        return
+      }
+      resolvedBudgetLineId = (await lineRes.json()).item?.id ?? ''
+    }
+
     const res = await fetch('/api/materials', {
       method: 'POST', headers: await authHeaders(),
       body: JSON.stringify({
         project_id: projectId, store_name: store.trim() || null, amount, tax, purchase_date: date || null,
         category: category || null, notes: notes.trim() || null, receipt_url: receiptUrl, line_items: lineItems.length ? lineItems : null,
-        budget_line_id: budgetLineId || null, save_store: saveStore, client_paid: clientPaid,
+        budget_line_id: resolvedBudgetLineId || null, save_store: saveStore, client_paid: clientPaid,
       }),
     })
     setSaving(false)
@@ -149,13 +172,28 @@ function AddModal({ projects, lockedProjectId, onClose, onSaved }: { projects: P
                 </Select>
               </div>
             )}
-            {projectId && budgetLines.length > 0 && (
-              <div>
-                <Label>Budget line <span className="text-faint font-normal">(optional — rolls into its actual cost)</span></Label>
-                <Select value={budgetLineId} onChange={e => setBudgetLineId(e.target.value)}>
+            {projectId && (
+              <div className="space-y-2 rounded-lg border border-line-soft bg-surface p-3">
+                <Label>Budget line <span className="text-faint font-normal">— like awarding a quote, link it or create one</span></Label>
+                <Select value={budgetLineId} onChange={e => {
+                  const v = e.target.value
+                  setBudgetLineId(v)
+                  if (v === '__new__') {
+                    setNewLineDescription(store.trim() || 'Materials')
+                    setNewLineCategory(category || '')
+                  }
+                }}>
                   <option value="">Not linked to a budget line</option>
                   {budgetLines.map(l => <option key={l.id} value={l.id}>{l.label}</option>)}
+                  <option value="__new__">+ Create new budget line…</option>
                 </Select>
+                {budgetLineId === '__new__' && (
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <div><Label className="text-xs">Category</Label><Input value={newLineCategory} onChange={e => setNewLineCategory(e.target.value)} placeholder="e.g. Electrical" /></div>
+                    <div><Label className="text-xs">Description</Label><Input value={newLineDescription} onChange={e => setNewLineDescription(e.target.value)} placeholder="e.g. Materials" /></div>
+                    <p className="col-span-2 text-xs text-faint">Starts budgeted at the receipt total ({amount ? money(Number(amount)) : '$0'}) — adjust anytime on the Budget tab.</p>
+                  </div>
+                )}
               </div>
             )}
             <div className="grid grid-cols-2 gap-3">
