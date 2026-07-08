@@ -25,8 +25,15 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   }
   if (body.amount !== undefined) updates.amount = Number(body.amount) || 0
   if (body.tax !== undefined) updates.tax = body.tax === '' || body.tax == null ? null : Number(body.tax)
+  if (body.client_paid !== undefined) updates.client_paid = !!body.client_paid
 
-  const { data, error } = await db.from('material_purchases').update(updates).eq('id', params.id).select('*').single()
+  let { data, error } = await db.from('material_purchases').update(updates).eq('id', params.id).select('*').single()
+  // Pre-migration fallback: client_paid column may not exist yet.
+  if (error && (error as any).code === '42703') {
+    const { client_paid: _omit, ...rest } = updates
+    const retry = await db.from('material_purchases').update(rest).eq('id', params.id).select('*').single()
+    data = retry.data; error = retry.error
+  }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ material: data })
 }

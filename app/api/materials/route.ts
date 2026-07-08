@@ -53,7 +53,7 @@ export async function POST(request: Request) {
   const { db, user, companyId } = c
 
   const body = await request.json()
-  const { project_id, store_name, amount, tax, purchase_date, category, notes, receipt_url, line_items, budget_line_id, save_store } = body
+  const { project_id, store_name, amount, tax, purchase_date, category, notes, receipt_url, line_items, budget_line_id, save_store, client_paid } = body
   if (!project_id) return NextResponse.json({ error: 'Pick which job this is for.' }, { status: 400 })
 
   // Optionally save the store as a supplier in the Directory (find or create by name).
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const { data, error } = await db.from('material_purchases').insert({
+  const row = {
     project_id,
     company_id: store_company_id,
     budget_line_id: budget_line_id || null,
@@ -82,8 +82,17 @@ export async function POST(request: Request) {
     notes: notes || null,
     receipt_url: receipt_url || null,
     line_items: line_items ?? null,
+    client_paid: !!client_paid,
     created_by: user.id,
-  }).select('*').single()
+  }
+
+  let { data, error } = await db.from('material_purchases').insert(row).select('*').single()
+  // Pre-migration fallback: client_paid column may not exist yet.
+  if (error && (error as any).code === '42703') {
+    const { client_paid: _omit, ...withoutClientPaid } = row
+    const retry = await db.from('material_purchases').insert(withoutClientPaid).select('*').single()
+    data = retry.data; error = retry.error
+  }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ material: data })

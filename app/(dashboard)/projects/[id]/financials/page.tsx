@@ -323,11 +323,16 @@ export default function FinancialsPage({ params }: { params: { id: string } }) {
       )}
 
       {/* Materials */}
-      {(data.materials?.length ?? 0) > 0 && (
+      {(data.materials?.length ?? 0) > 0 && (() => {
+        const materialsOwed = data.materials.reduce((s: number, m: any) => s + (m.client_paid ? 0 : Number(m.amount ?? 0)), 0)
+        return (
         <div className="bg-panel rounded-xl border border-line overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-line-soft flex items-center justify-between">
+          <div className="px-5 py-3.5 border-b border-line-soft flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-semibold text-ink-soft inline-flex items-center gap-1.5"><ShoppingCart className="h-4 w-4 text-muted-fg" /> Materials</h2>
-            <span className="text-sm font-bold text-ink">${Number(data.materials_total).toLocaleString()} spent</span>
+            <div className="flex items-center gap-3 text-sm">
+              <span className="font-bold text-ink">${Number(data.materials_total).toLocaleString()} spent</span>
+              {materialsOwed > 0 && <span className="font-medium text-warn">${materialsOwed.toLocaleString()} owed by client</span>}
+            </div>
           </div>
           <div className="divide-y divide-line-soft">
             {data.materials.map((m: any) => (
@@ -336,6 +341,11 @@ export default function FinancialsPage({ params }: { params: { id: string } }) {
                   <p className="font-medium text-ink-soft truncate">{m.store_name || 'Material purchase'}</p>
                   <p className="text-xs text-faint truncate">{[m.category, m.purchase_date && new Date(m.purchase_date + 'T00:00:00').toLocaleDateString()].filter(Boolean).join(' · ')}</p>
                 </div>
+                {m.client_paid ? (
+                  <span className="text-xs font-medium text-success">Paid</span>
+                ) : (
+                  <span className="text-xs font-medium text-warn">Owed</span>
+                )}
                 {m.receipt_url && <a href={m.receipt_url} target="_blank" rel="noreferrer" className="text-xs text-accent-fg hover:underline">Receipt</a>}
                 <span className="font-bold text-ink">${Number(m.amount).toLocaleString()}</span>
               </div>
@@ -345,7 +355,8 @@ export default function FinancialsPage({ params }: { params: { id: string } }) {
             <Link href="/materials" className="text-xs font-medium text-accent-fg hover:underline">Manage materials →</Link>
           </div>
         </div>
-      )}
+        )
+      })()}
 
       {data.subcontracts.length === 0 && data.invoices.length === 0 && (data.materials?.length ?? 0) === 0 && (
         <div className="rounded-xl border-2 border-dashed border-line py-16 text-center">

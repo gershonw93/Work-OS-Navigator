@@ -37,7 +37,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .eq('project_id', params.id),
     db
       .from('material_purchases')
-      .select('id, budget_line_id, amount, store_name, category, purchase_date, receipt_url')
+      .select('id, budget_line_id, amount, store_name, category, purchase_date, receipt_url, client_paid')
       .eq('project_id', params.id)
       .order('purchase_date', { ascending: false, nullsFirst: false }),
   ])
