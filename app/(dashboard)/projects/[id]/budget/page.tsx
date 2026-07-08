@@ -82,6 +82,8 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   const [assigningSubId, setAssigningSubId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState('category')
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [bulkDeleting, setBulkDeleting] = useState(false)
 
   // Templates
   const [showTemplate, setShowTemplate] = useState(false)
@@ -184,15 +186,17 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
 
   const normDesc = (t: string) => (t || '').toLowerCase().replace(/\s+/g, ' ').trim()
 
-  // Merge an imported sheet into the existing budget: matching descriptions
-  // update that line's budgeted amount, everything else is added as new.
-  async function applyImportMerge() {
+  // Merge an imported sheet into the existing budget. By default, matching
+  // descriptions update that line's budgeted amount; skipDuplicates leaves
+  // matching lines untouched instead. Either way, everything else (fresh
+  // rows) is added as new.
+  async function applyImportMerge(skipDuplicates = false) {
     if (!importItems?.length) return
     setApplying(true)
     const token = await getToken()
     const res = await fetch(`/api/projects/${params.id}/budget/apply`, {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ items: importItems, merge: true }),
+      body: JSON.stringify({ items: importItems, merge: true, skip_duplicates: skipDuplicates }),
     })
     setApplying(false)
     if (res.ok) {
@@ -286,6 +290,41 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       })
       load()
     }, { label: 'this budget line', protected: true })
+  }
+
+  function toggleSelect(id: string) {
+    setSelected(s => {
+      const next = new Set(s)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  function toggleSelectAll(rows: BudgetItem[]) {
+    setSelected(s => {
+      const rowIds = rows.map(r => r.id)
+      const allSelected = rowIds.every(id => s.has(id))
+      const next = new Set(s)
+      if (allSelected) rowIds.forEach(id => next.delete(id))
+      else rowIds.forEach(id => next.add(id))
+      return next
+    })
+  }
+
+  function bulkRemove() {
+    const ids = Array.from(selected)
+    if (!ids.length) return
+    guardDelete(async () => {
+      setBulkDeleting(true)
+      const token = await getToken()
+      await Promise.all(ids.map(id => fetch(`/api/projects/${params.id}/budget/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })))
+      setBulkDeleting(false)
+      setSelected(new Set())
+      load()
+    }, { label: `these ${ids.length} budget line${ids.length !== 1 ? 's' : ''}`, protected: true })
   }
 
   const totalBudgeted = items.reduce((s, i) => s + Number(i.budgeted_amount || 0), 0)
@@ -458,14 +497,19 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                     <div className="flex flex-wrap gap-2 justify-end">
                       <Button size="sm" variant="outline" onClick={() => setImportItems(null)}>Choose another</Button>
                       {items.length > 0 && matches > 0 && (
-                        <Button size="sm" disabled={applying} onClick={applyImportMerge}>
-                          {applying ? 'Applying…' : `Update ${matches} matching${fresh > 0 ? ` + add ${fresh} new` : ''}`}
-                        </Button>
+                        <>
+                          <Button size="sm" variant="outline" disabled={applying} onClick={() => applyImportMerge(true)}>
+                            {applying ? 'Applying…' : `Skip ${matches} duplicate${matches !== 1 ? 's' : ''}, add ${fresh} new`}
+                          </Button>
+                          <Button size="sm" disabled={applying} onClick={() => applyImportMerge(false)}>
+                            {applying ? 'Applying…' : `Update ${matches} matching${fresh > 0 ? ` + add ${fresh} new` : ''}`}
+                          </Button>
+                        </>
                       )}
-                      <Button size="sm" variant={items.length > 0 && matches > 0 ? 'outline' : 'default'} disabled={applying} onClick={saveImportedAsTemplateAndApply}>{applying ? 'Applying…' : 'Add all as new (save template)'}</Button>
+                      <Button size="sm" variant={matches > 0 ? 'outline' : 'default'} disabled={applying} onClick={saveImportedAsTemplateAndApply}>{applying ? 'Applying…' : 'Add all as new (save template)'}</Button>
                     </div>
                     {items.length > 0 && matches > 0 && (
-                      <p className="text-xs text-faint">Updating never deletes anything — lines not in the sheet are left untouched.</p>
+                      <p className="text-xs text-faint">Neither option deletes anything — lines not in the sheet are left untouched.</p>
                     )}
                   </div>
                     )
@@ -673,6 +717,19 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
         </div>
       )}
 
+      {/* Bulk selection bar */}
+      {selected.size > 0 && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-danger/30 bg-danger-tint px-4 py-2.5">
+          <p className="text-sm font-medium text-danger">{selected.size} line{selected.size !== 1 ? 's' : ''} selected</p>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setSelected(new Set())} className="text-xs text-muted-fg hover:text-ink-soft px-2 py-1">Clear</button>
+            <Button size="sm" variant="destructive" disabled={bulkDeleting} onClick={bulkRemove} className="gap-1.5">
+              <Trash2 className="h-3.5 w-3.5" /> {bulkDeleting ? 'Deleting…' : `Delete ${selected.size} line${selected.size !== 1 ? 's' : ''}`}
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Budget table */}
       {items.length === 0 ? (
         <div className="bg-panel rounded-xl border border-line p-10 text-center">
@@ -687,7 +744,9 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       ) : (
         <div className="bg-panel rounded-xl border border-line overflow-hidden">
           {/* header row (desktop) */}
-          <div className="hidden md:grid grid-cols-[1fr_repeat(4,minmax(0,7rem))_3rem] gap-2 px-4 py-2.5 border-b border-line-soft text-xs font-semibold text-faint uppercase tracking-wide">
+          <div className="hidden md:grid grid-cols-[1.5rem_1fr_repeat(4,minmax(0,7rem))_3rem] gap-2 px-4 py-2.5 border-b border-line-soft text-xs font-semibold text-faint uppercase tracking-wide items-center">
+            <input type="checkbox" className="accent-danger" checked={filtered.length > 0 && filtered.every(i => selected.has(i.id))}
+              onChange={() => toggleSelectAll(filtered)} title="Select all" />
             <span>Line Item</span>
             <span className="text-right">Budgeted</span>
             <span className="text-right">Committed</span>
@@ -700,8 +759,12 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
             const gBudget = group.rows.reduce((s, i) => s + Number(i.budgeted_amount || 0), 0)
             return (
               <div key={group.category}>
-                <div className="bg-surface px-4 py-2 flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wide text-muted-fg">{group.category}</span>
+                <div className="bg-surface px-4 py-2 flex items-center justify-between gap-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" className="accent-danger" checked={group.rows.every(i => selected.has(i.id))}
+                      onChange={() => toggleSelectAll(group.rows)} />
+                    <span className="text-xs font-bold uppercase tracking-wide text-muted-fg">{group.category}</span>
+                  </label>
                   <span className="text-xs font-semibold text-muted-fg">{money(gBudget)}</span>
                 </div>
                 <div className="divide-y divide-line-soft">
@@ -789,7 +852,10 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                       )
                     }
                     return (
-                      <div key={item.id} className="group md:grid md:grid-cols-[1fr_repeat(4,minmax(0,7rem))_3rem] md:gap-2 md:items-center px-4 py-3 hover:bg-surface transition-colors">
+                      <div key={item.id} className={cn('group md:grid md:grid-cols-[1.5rem_1fr_repeat(4,minmax(0,7rem))_3rem] md:gap-2 md:items-center px-4 py-3 hover:bg-surface transition-colors', selected.has(item.id) && 'bg-danger-tint/40')}>
+                        <div className="flex items-center mb-2 md:mb-0">
+                          <input type="checkbox" className="accent-danger" checked={selected.has(item.id)} onChange={() => toggleSelect(item.id)} />
+                        </div>
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-ink-soft truncate">
                             {item.cost_code && <span className="text-faint font-normal mr-1.5">{item.cost_code}</span>}
@@ -850,7 +916,8 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
           })}
 
           {/* totals footer */}
-          <div className="hidden md:grid grid-cols-[1fr_repeat(4,minmax(0,7rem))_3rem] gap-2 px-4 py-3 border-t-2 border-line bg-surface text-sm font-bold text-ink-soft">
+          <div className="hidden md:grid grid-cols-[1.5rem_1fr_repeat(4,minmax(0,7rem))_3rem] gap-2 px-4 py-3 border-t-2 border-line bg-surface text-sm font-bold text-ink-soft">
+            <span />
             <span>Total</span>
             <span className="text-right">{money(totalBudgeted)}</span>
             <span className={cn('text-right', (totalCommitted - totalBudgeted) >= 1 ? 'text-danger' : '')}
