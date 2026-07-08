@@ -134,24 +134,24 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json()
-  const { name, address, client, type, start_date, end_date, customer_id } = body
+  const { name, address, client, type, start_date, end_date, customer_id, lat, lng } = body
 
-  const { data: project, error: insertError } = await admin
-    .from('projects')
-    .insert({
-      name,
-      address,
-      client,
-      type,
-      start_date,
-      end_date: end_date || null,
-      status: 'planning',
-      customer_id: customer_id || null,
-      gc_company_id: profile.company_id,
-      created_by_company_id: profile.company_id,
-    })
-    .select()
-    .single()
+  const base = {
+    name, address, client, type, start_date,
+    end_date: end_date || null,
+    status: 'planning',
+    customer_id: customer_id || null,
+    gc_company_id: profile.company_id,
+    created_by_company_id: profile.company_id,
+  }
+  const withGeo = lat != null && lng != null ? { ...base, lat, lng, geocoded_address: address } : base
+
+  let { data: project, error: insertError } = await admin.from('projects').insert(withGeo).select().single()
+  // Pre-migration fallback: geo columns may not exist yet.
+  if (insertError && (insertError as any).code === '42703') {
+    const retry = await admin.from('projects').insert(base).select().single()
+    project = retry.data; insertError = retry.error
+  }
 
   if (insertError) {
     return NextResponse.json({ error: insertError.message }, { status: 500 })

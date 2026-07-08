@@ -17,6 +17,7 @@ export default function NewProjectPage() {
 
   const [name, setName] = useState('')
   const [address, setAddress] = useState('')
+  const [coords, setCoords] = useState<{ lat: number | null; lng: number | null }>({ lat: null, lng: null })
   const [client, setClient] = useState('')
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([])
   const [customerId, setCustomerId] = useState('')
@@ -74,6 +75,7 @@ export default function NewProjectPage() {
         start_date: startDate,
         end_date: endDate || null,
         customer_id: isNew ? null : customerId,
+        lat: coords.lat, lng: coords.lng,
       }),
     })
 
@@ -111,7 +113,7 @@ export default function NewProjectPage() {
 
             <div className="space-y-1.5">
               <Label>Address</Label>
-              <AddressFields value={address} onChange={setAddress} required />
+              <AddressFields value={address} onChange={setAddress} onCoords={(lat, lng) => setCoords({ lat, lng })} required />
             </div>
 
             <div className="space-y-1.5">

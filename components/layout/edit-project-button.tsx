@@ -39,6 +39,7 @@ export function EditProjectButton({ projectId, project }: Props) {
   const [status, setStatus] = useState(project.status ?? 'planning')
   const [startDate, setStartDate] = useState((project.start_date ?? '').slice(0, 10))
   const [endDate, setEndDate] = useState((project.end_date ?? '').slice(0, 10))
+  const [coords, setCoords] = useState<{ lat: number | null; lng: number | null } | null>(null)
 
   useEffect(() => {
     if (!open) return
@@ -61,6 +62,7 @@ export function EditProjectButton({ projectId, project }: Props) {
       body: JSON.stringify({
         name, address, customer_id: customerId || null, client, type, status,
         start_date: startDate || null, end_date: endDate || null,
+        ...(coords ? { lat: coords.lat, lng: coords.lng } : {}),
       }),
     })
     setSaving(false)
@@ -93,7 +95,7 @@ export function EditProjectButton({ projectId, project }: Props) {
               </div>
               <div className="space-y-1.5">
                 <Label>Address</Label>
-                <AddressFields value={address} onChange={setAddress} />
+                <AddressFields value={address} onChange={setAddress} onCoords={(lat, lng) => setCoords({ lat, lng })} />
               </div>
               <div className="space-y-1.5">
                 <Label>Owner / Client</Label>

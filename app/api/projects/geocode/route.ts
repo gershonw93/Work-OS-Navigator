@@ -31,7 +31,17 @@ export async function POST(request: Request) {
 
   const pending = (projects ?? []).filter(p => p.address && (p.lat == null || p.geocoded_address !== p.address)).slice(0, 25)
 
+  const key = process.env.GOOGLE_MAPS_API_KEY
   const results = await Promise.all(pending.map(async (p) => {
+    // Google first (catches new construction), Photon as fallback.
+    if (key) {
+      try {
+        const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(p.address)}&key=${key}`)
+        const d = await res.json()
+        const loc = d?.results?.[0]?.geometry?.location
+        if (loc?.lat != null) return { p, lat: Number(loc.lat), lng: Number(loc.lng) }
+      } catch { /* fall through */ }
+    }
     try {
       const res = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(p.address)}&limit=1&lang=en`)
       if (!res.ok) return { p, lat: null as number | null, lng: null as number | null }
