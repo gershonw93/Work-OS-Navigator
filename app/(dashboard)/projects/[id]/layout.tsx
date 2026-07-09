@@ -24,14 +24,14 @@ export default async function ProjectLayout({ children, params }: ProjectLayoutP
     <div className="flex flex-col min-h-full">
       {/* Project header */}
       <div className="border-b border-line bg-panel px-4 sm:px-6 py-4">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
-            <div>
-              <h1 className="text-xl font-bold text-ink">
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl font-bold text-ink truncate">
                 {project?.name ?? 'Project'}
               </h1>
               {project?.address && (
-                <p className="text-sm text-muted-fg mt-0.5">{project.address}</p>
+                <p className="text-sm text-muted-fg mt-0.5 truncate">{project.address}</p>
               )}
             </div>
             {project?.status && (
@@ -40,7 +40,7 @@ export default async function ProjectLayout({ children, params }: ProjectLayoutP
               </Badge>
             )}
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 lg:shrink-0">
             <TeamQuickView projectId={params.id} />
             <SharePortalButton projectId={params.id} />
             <ProjectActivityButton projectId={params.id} />
