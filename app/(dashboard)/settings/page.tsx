@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { PermissionsPanel } from '@/components/settings/permissions-panel'
 import { ConnectCalendarButton } from '@/components/calendar/connect-calendar'
+import { ThemeToggle, useTheme } from '@/components/ui/theme-toggle'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -156,6 +157,7 @@ function RoleBadge({ role, label }: { role: string; label?: string }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
+  const { theme } = useTheme()
   const [activeTab, setActiveTab] = useState('profile')
   const [loading, setLoading] = useState(true)
   const [userRole, setUserRole] = useState<string>('')
@@ -752,6 +754,24 @@ export default function SettingsPage() {
                         {profileMsg.text}
                       </span>
                     )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Appearance */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><Palette className="h-4 w-4 text-accent-fg" /> Appearance</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-ink">Theme</p>
+                      <p className="text-xs text-muted-fg mt-0.5">
+                        Currently {theme === 'dark' ? 'dark' : 'light'} mode. Switch anytime.
+                      </p>
+                    </div>
+                    <ThemeToggle className="border border-line" />
                   </div>
                 </CardContent>
               </Card>
