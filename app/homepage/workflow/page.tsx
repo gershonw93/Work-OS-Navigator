@@ -215,17 +215,17 @@ const STEPS: Step[] = [
     title: 'One calendar that already knows your whole week',
     lead: 'Scheduling trades is a puzzle where the pieces live in different boxes. Your framer\'s dates are in one thread, your electrician\'s in another, and the conflict between them is invisible until both crews show up Thursday.',
     without: 'The old way: you keep a scheduling app for your own jobs, a shared calendar for the office, and a text thread per sub. Nobody sees the whole week, so double-bookings surface on site, not on screen.',
-    youDo: 'You drag the sub\'s dates onto the schedule.',
+    youDo: 'You drag the sub\'s dates onto the schedule, and pin tasks right on the blueprint.',
     auto: [
       { text: 'The booking is checked against every other job that crew is on. Overlaps get flagged before you save', who: ['You'] },
       { text: 'The sub sees the dates on their own SyteNav calendar, across all the GCs they work for', who: ['Sub'] },
-      { text: 'Your site manager\'s week view updates, so Thursday holds no surprises', who: ['Site manager'] },
-      { text: 'Tasks punched from plan pins or daily logs land on the same calendar automatically', who: ['Field crew'] },
+      { text: 'Drop a pin on the exact spot on the drawing and it becomes a task: assignee, due date, done. The assignee gets notified', who: ['Field crew', 'Site manager'] },
+      { text: 'Pinned tasks land on the same calendar automatically, and the pin links back to the spot on the plan', who: ['Field crew'] },
     ],
     details: [
       { icon: CalendarDays, title: 'One calendar across every project', body: 'A subcontractor\'s week spans multiple GCs\' jobs. See all of it in one view instead of five separate calendars.' },
       { icon: ShieldCheck, title: 'Crew-overlap warnings', body: 'If the same crew is booked on two jobs the same day, SyteNav flags it before it turns into a missed rough-in.' },
-      { icon: ClipboardList, title: 'Tasks tied to the plan', body: 'Punch a task from a plan pin or a daily log and it lands on the schedule automatically. No separate to-do list.' },
+      { icon: ClipboardList, title: 'Pin the blueprint, skip the ambiguity', body: 'Instead of "the outlet by the kitchen, you know the one," drop a pin on the exact spot on the plan. The task carries the location with it, and the crew taps the pin to see what\'s needed.' },
     ],
     visual: <ScheduleMock />,
     reverse: true,
@@ -288,15 +288,16 @@ const STEPS: Step[] = [
     title: 'Store the inspection once. Everything downstream updates.',
     lead: 'A lapsed certificate of insurance or a missed inspection window only gets noticed when it\'s already your problem, and usually an expensive one.',
     without: 'The old way: permits live in a binder or a file share, COIs sit in an email folder, and inspection dates are on whoever\'s calendar booked them. Expirations are discovered, not tracked.',
-    youDo: 'You log the inspection result, or request a COI from your sub. One click each.',
+    youDo: 'Your sub taps Mark Ready for Inspection. You log the result, or request a COI. One tap each.',
     auto: [
+      { text: 'The moment work is marked ready, you and the office know to book the inspector. No "are we good to schedule?" calls', who: ['You', 'Office'] },
       { text: 'The inspection lands on the project timeline and the schedule, pass or fail', who: ['You', 'Site manager'] },
       { text: 'A pass can trigger the next payment stage that was waiting on it', who: ['Office', 'Client'] },
       { text: 'The sub gets a secure upload link for their COI. No account needed, no email chain', who: ['Sub'] },
       { text: 'Expiring documents surface on your dashboard weeks ahead, not the day the auditor asks', who: ['You', 'Office'] },
     ],
     details: [
-      { icon: ScrollText, title: 'Permits & inspections', body: 'Track permit numbers, inspection dates, and pass or fail status against the schedule, in the same place as everything else.' },
+      { icon: ScrollText, title: 'Permits & inspections', body: 'Subs mark work Ready for Inspection right from their job view; you track permit numbers, dates, and pass or fail status against the schedule.' },
       { icon: ShieldCheck, title: 'Subcontractor compliance', body: 'Certificates of insurance and licenses live on the sub\'s record, with expiring documents surfaced automatically.' },
       { icon: ClipboardCheck, title: 'Submittals in the loop', body: 'Route submittals for approval and keep the paper trail with the project. Useful the day someone asks "did we ever approve that?"' },
     ],
@@ -304,9 +305,11 @@ const STEPS: Step[] = [
       <div className="grid grid-cols-2 gap-3 max-w-sm mx-auto lg:mx-0">
         {[
           ['Permit #PB-22140', 'Approved', 'text-success bg-success-tint'],
+          ['Rough electrical · Apex Electric', 'Ready for inspection', 'text-accent-fg bg-accent-tint'],
           ['GL insurance · Apex Electric', 'Expires in 12 days', 'text-warn bg-warn-tint'],
           ['Framing inspection', 'Passed', 'text-success bg-success-tint'],
           ['Submittal #14 · Windows', 'In review', 'text-info bg-info-tint'],
+          ['Final plumbing', 'Scheduled Thu', 'text-info bg-info-tint'],
         ].map(([label, status, tone]) => (
           <div key={label} className="rounded-xl border border-line bg-panel p-3.5 text-left">
             <p className="text-xs font-semibold text-ink leading-tight">{label}</p>
