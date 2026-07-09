@@ -84,6 +84,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   const [sortBy, setSortBy] = useState('category')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [bulkDeleting, setBulkDeleting] = useState(false)
+  const [selectMode, setSelectMode] = useState(false)
 
   // Templates
   const [showTemplate, setShowTemplate] = useState(false)
@@ -407,6 +408,11 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
             onChange={e => { const file = e.target.files?.[0]; if (file) { setImportOnly(true); setShowTemplate(true); setImportItems(null); importExcel(file) } e.target.value = '' }} />
           <Button variant="outline" onClick={openTemplatePicker} className="gap-1.5"><LayoutTemplate className="h-4 w-4" /> Use Template</Button>
           {items.length > 0 && <Button variant="outline" onClick={() => setShowSave(true)} className="gap-1.5"><Save className="h-4 w-4" /> Save as Template</Button>}
+          {items.length > 0 && (
+            <Button variant={selectMode ? 'default' : 'outline'} onClick={() => { setSelectMode(v => !v); setSelected(new Set()) }} className="gap-1.5">
+              <Pencil className="h-4 w-4" /> {selectMode ? 'Done' : 'Select'}
+            </Button>
+          )}
           <Button onClick={() => setAdding(v => !v)} className="gap-1.5"><Plus className="h-4 w-4" /> Add Line</Button>
         </div>
       </div>
@@ -744,9 +750,12 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       ) : (
         <div className="bg-panel rounded-xl border border-line overflow-hidden">
           {/* header row (desktop) */}
-          <div className="hidden md:grid grid-cols-[1.5rem_1fr_repeat(4,minmax(0,7rem))_3rem] gap-2 px-4 py-2.5 border-b border-line-soft text-xs font-semibold text-faint uppercase tracking-wide items-center">
-            <input type="checkbox" className="accent-danger" checked={filtered.length > 0 && filtered.every(i => selected.has(i.id))}
-              onChange={() => toggleSelectAll(filtered)} title="Select all" />
+          <div className={cn('hidden md:grid gap-2 px-4 py-2.5 border-b border-line-soft text-xs font-semibold text-faint uppercase tracking-wide items-center',
+            selectMode ? 'grid-cols-[1.5rem_1fr_repeat(4,minmax(0,7rem))_3rem]' : 'grid-cols-[1fr_repeat(4,minmax(0,7rem))_3rem]')}>
+            {selectMode && (
+              <input type="checkbox" className="accent-danger" checked={filtered.length > 0 && filtered.every(i => selected.has(i.id))}
+                onChange={() => toggleSelectAll(filtered)} title="Select all" />
+            )}
             <span>Line Item</span>
             <span className="text-right">Budgeted</span>
             <span className="text-right">Committed</span>
@@ -761,8 +770,10 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
               <div key={group.category}>
                 <div className="bg-surface px-4 py-2 flex items-center justify-between gap-2">
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" className="accent-danger" checked={group.rows.every(i => selected.has(i.id))}
-                      onChange={() => toggleSelectAll(group.rows)} />
+                    {selectMode && (
+                      <input type="checkbox" className="accent-danger" checked={group.rows.every(i => selected.has(i.id))}
+                        onChange={() => toggleSelectAll(group.rows)} />
+                    )}
                     <span className="text-xs font-bold uppercase tracking-wide text-muted-fg">{group.category}</span>
                   </label>
                   <span className="text-xs font-semibold text-muted-fg">{money(gBudget)}</span>
@@ -852,10 +863,14 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                       )
                     }
                     return (
-                      <div key={item.id} className={cn('group md:grid md:grid-cols-[1.5rem_1fr_repeat(4,minmax(0,7rem))_3rem] md:gap-2 md:items-center px-4 py-3 hover:bg-surface transition-colors', selected.has(item.id) && 'bg-danger-tint/40')}>
-                        <div className="flex items-center mb-2 md:mb-0">
-                          <input type="checkbox" className="accent-danger" checked={selected.has(item.id)} onChange={() => toggleSelect(item.id)} />
-                        </div>
+                      <div key={item.id} className={cn('group md:grid md:gap-2 md:items-center px-4 py-3 hover:bg-surface transition-colors',
+                        selectMode ? 'md:grid-cols-[1.5rem_1fr_repeat(4,minmax(0,7rem))_3rem]' : 'md:grid-cols-[1fr_repeat(4,minmax(0,7rem))_3rem]',
+                        selectMode && selected.has(item.id) && 'bg-danger-tint/40')}>
+                        {selectMode && (
+                          <div className="flex items-center mb-2 md:mb-0">
+                            <input type="checkbox" className="accent-danger" checked={selected.has(item.id)} onChange={() => toggleSelect(item.id)} />
+                          </div>
+                        )}
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-ink-soft truncate">
                             {item.cost_code && <span className="text-faint font-normal mr-1.5">{item.cost_code}</span>}
@@ -916,8 +931,9 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
           })}
 
           {/* totals footer */}
-          <div className="hidden md:grid grid-cols-[1.5rem_1fr_repeat(4,minmax(0,7rem))_3rem] gap-2 px-4 py-3 border-t-2 border-line bg-surface text-sm font-bold text-ink-soft">
-            <span />
+          <div className={cn('hidden md:grid gap-2 px-4 py-3 border-t-2 border-line bg-surface text-sm font-bold text-ink-soft',
+            selectMode ? 'grid-cols-[1.5rem_1fr_repeat(4,minmax(0,7rem))_3rem]' : 'grid-cols-[1fr_repeat(4,minmax(0,7rem))_3rem]')}>
+            {selectMode && <span />}
             <span>Total</span>
             <span className="text-right">{money(totalBudgeted)}</span>
             <span className={cn('text-right', (totalCommitted - totalBudgeted) >= 1 ? 'text-danger' : '')}
