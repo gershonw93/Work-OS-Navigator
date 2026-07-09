@@ -11,7 +11,6 @@ import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { usePermissions } from '@/lib/use-permissions'
 import { SyteNavLogo } from '@/components/ui/logo'
-import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { useEffect, useState } from 'react'
 
 // GC nav items mapped to permission resource keys. Settings has no resource —
@@ -25,7 +24,6 @@ const GC_NAV_ITEMS = [
   { label: 'Equipment', href: '/equipment', icon: Wrench, resource: 'equipment' },
   { label: 'Materials', href: '/materials', icon: ShoppingCart, resource: 'materials' },
   { label: 'Approvals', href: '/approvals', icon: CheckSquare, resource: 'approvals' },
-  { label: 'Settings', href: '/settings', icon: Settings, resource: null },
 ]
 
 // Admin/owner-only cross-project ("master") views.
@@ -42,7 +40,6 @@ const SUB_NAV = [
   { label: 'Directory', href: '/directory', icon: Building2 },
   { label: 'Files', href: '/files', icon: FolderOpen },
   { label: 'Approvals', href: '/approvals', icon: CheckSquare },
-  { label: 'Settings', href: '/settings', icon: Settings },
 ]
 
 // TopNav dispatches this event to open the drawer on mobile
@@ -158,10 +155,14 @@ export function Sidebar() {
           <HelpCircle className="h-4 w-4 shrink-0" />
           Help &amp; Support
         </Link>
-        <div className="flex items-center justify-between rounded-lg px-3 py-1.5 text-sm font-medium text-muted-fg">
-          <span>Appearance</span>
-          <ThemeToggle />
-        </div>
+        <Link href="/settings"
+          className={cn(
+            'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+            pathname.startsWith('/settings') ? 'bg-accent text-accent-ink' : 'text-muted-fg hover:bg-muted hover:text-ink'
+          )}>
+          <Settings className="h-4 w-4 shrink-0" />
+          Settings
+        </Link>
         <button onClick={handleLogout}
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-fg hover:bg-muted hover:text-ink transition-colors">
           <LogOut className="h-4 w-4 shrink-0" />
