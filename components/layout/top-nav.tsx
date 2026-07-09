@@ -6,6 +6,7 @@ import { NotificationBell } from './notification-bell'
 import { OPEN_SIDEBAR_EVENT } from './sidebar'
 import { ViewAsSwitcher } from './view-as-switcher'
 import { ImpersonateSwitcher } from './impersonate-switcher'
+import { GlobalSearch } from './global-search'
 
 const sectionLabels: Record<string, string> = {
   '/dashboard': 'Dashboard',
@@ -43,8 +44,8 @@ export function TopNav() {
   const pathname = usePathname()
 
   return (
-    <header className="flex h-14 items-center justify-between border-b border-line bg-panel px-4 sm:px-6">
-      <div className="flex items-center gap-3">
+    <header className="flex h-14 items-center gap-3 border-b border-line bg-panel px-4 sm:px-6">
+      <div className="flex items-center gap-3 shrink-0">
         {/* Hamburger — mobile only */}
         <button
           className="sm:hidden flex items-center justify-center w-8 h-8 rounded-md text-muted-fg hover:bg-muted transition-colors"
@@ -53,9 +54,15 @@ export function TopNav() {
         >
           <Menu className="h-5 w-5" />
         </button>
-        <p className="text-sm font-medium text-muted-fg">{getBreadcrumb(pathname)}</p>
+        <p className="hidden md:block text-sm font-medium text-muted-fg">{getBreadcrumb(pathname)}</p>
       </div>
-      <div className="flex items-center gap-2">
+
+      {/* Global search — grows to fill the middle */}
+      <div className="flex-1 flex justify-center min-w-0">
+        <GlobalSearch />
+      </div>
+
+      <div className="flex items-center gap-2 shrink-0">
         <ImpersonateSwitcher />
         {/* View-as crowds the mobile top bar — desktop only */}
         <div className="hidden sm:block"><ViewAsSwitcher /></div>

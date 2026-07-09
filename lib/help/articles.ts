@@ -119,6 +119,23 @@ export const HELP_ARTICLES: HelpArticle[] = [
     related: ['project-tabs-explained', 'add-project-budget'],
   },
   {
+    slug: 'global-search',
+    title: 'Search across everything at once',
+    category: 'projects',
+    keywords: ['search', 'global', 'find', 'master search', 'quick find', 'jump', 'command', 'line item', 'receipt', 'customer', 'invoice'],
+    summary: 'One search box in the top bar finds jobs, line items, receipts, customers, and more.',
+    blocks: [
+      { type: 'text', text: 'The search box at the top of every page searches your whole account at once, not just the page you\'re on.' },
+      { type: 'steps', items: [
+        'Click the search box in the top bar, or press Cmd/Ctrl + K from anywhere.',
+        'Type at least two letters. Results appear instantly, grouped by type: Projects, Budget lines, Material receipts, Invoices, Subcontracts, RFIs, Tasks, Change orders, Customers, and Directory.',
+        'Use the arrow keys and Enter, or just click a result, to jump straight to it.',
+      ] },
+      { type: 'tip', text: 'It matches on more than names: a receipt\'s store, a budget line\'s cost code, an invoice number, a customer\'s email, and more. You only see records from your own company\'s jobs.' },
+    ],
+    related: ['project-tabs-explained', 'create-first-project'],
+  },
+  {
     slug: 'project-tabs-explained',
     title: 'Understanding the project tabs',
     category: 'projects',
