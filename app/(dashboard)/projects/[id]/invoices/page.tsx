@@ -109,12 +109,28 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
     return parseFloat(amount) || 0
   })()
 
+  // What's still owed on the selected sub's contract: contract minus everything
+  // already invoiced (any non-rejected invoice counts against the balance so
+  // you can't stack drafts past the contract).
+  const selectedSub = subcontracts.find(s => s.id === subId)
+  const alreadyInvoiced = selectedSub
+    ? invoices
+        .filter(i => i.subcontract_id === selectedSub.id && i.status !== 'rejected')
+        .reduce((sum, i) => sum + Number(i.amount || 0), 0)
+    : 0
+  const remaining = selectedSub ? Math.max(selectedSub.contract_amount - alreadyInvoiced, 0) : 0
+  const overBilled = !!selectedSub && billedAmount > remaining + 0.005
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
     setCreateError('')
     const sub = subcontracts.find(s => s.id === subId)
     if (!sub) { setCreateError('Select a subcontractor'); return }
     if (!(billedAmount > 0)) { setCreateError('Enter an amount or percent'); return }
+    if (billedAmount > remaining + 0.005) {
+      setCreateError(`That's more than the $${remaining.toLocaleString()} still owed on this contract.`)
+      return
+    }
     setSubmitting(true)
     const token = await getToken()
     try {
@@ -524,17 +540,33 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
                       <Input type="number" step="0.01" placeholder="e.g. 40" value={percent} onChange={e => setPercent(e.target.value)} className="pr-7" />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-faint text-sm">%</span>
                     </div>
-                    {(() => { const sub = subcontracts.find(s => s.id === subId); return sub
-                      ? <p className="text-xs text-muted-fg">= <span className="font-semibold text-ink-soft">${billedAmount.toLocaleString()}</span> of ${sub.contract_amount.toLocaleString()} contract</p>
-                      : <p className="text-xs text-faint">Select a subcontractor to compute the amount.</p> })()}
+                    {selectedSub
+                      ? (overBilled
+                          ? <p className="text-xs text-danger">= ${billedAmount.toLocaleString()}, over the ${remaining.toLocaleString()} still owed.</p>
+                          : <p className="text-xs text-muted-fg">= <span className="font-semibold text-ink-soft">${billedAmount.toLocaleString()}</span> of ${selectedSub.contract_amount.toLocaleString()} contract · ${remaining.toLocaleString()} still owed</p>)
+                      : <p className="text-xs text-faint">Select a subcontractor to compute the amount.</p>}
                   </div>
                 ) : (
                   <div className="space-y-1.5">
-                    <Label>Amount</Label>
+                    <div className="flex items-center justify-between">
+                      <Label>Amount</Label>
+                      {selectedSub && remaining > 0 && (
+                        <button type="button" onClick={() => setAmount(String(remaining))}
+                          className="text-xs font-medium text-accent-fg hover:underline">
+                          Bill full remaining (${remaining.toLocaleString()})
+                        </button>
+                      )}
+                    </div>
                     <div className="relative">
                       <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-faint" />
-                      <Input type="number" step="0.01" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} className="pl-8" />
+                      <Input type="number" step="0.01" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)}
+                        className={cn('pl-8', overBilled && 'border-danger focus:border-danger')} />
                     </div>
+                    {selectedSub && (
+                      overBilled
+                        ? <p className="text-xs text-danger">Over the ${remaining.toLocaleString()} still owed on this ${selectedSub.contract_amount.toLocaleString()} contract.</p>
+                        : <p className="text-xs text-muted-fg">${remaining.toLocaleString()} still owed of ${selectedSub.contract_amount.toLocaleString()} contract{alreadyInvoiced > 0 ? ` (${'$'}${alreadyInvoiced.toLocaleString()} invoiced)` : ''}.</p>
+                    )}
                   </div>
                 )}
 
@@ -552,7 +584,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
                 {createError && <p className="text-sm text-danger">{createError}</p>}
                 <div className="flex flex-wrap gap-2 justify-end">
                   <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>Cancel</Button>
-                  <Button type="submit" disabled={submitting}>{submitting ? 'Creating...' : 'Create Invoice'}</Button>
+                  <Button type="submit" disabled={submitting || overBilled}>{submitting ? 'Creating...' : 'Create Invoice'}</Button>
                 </div>
               </div>
             </form>
