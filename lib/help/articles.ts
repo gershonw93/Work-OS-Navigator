@@ -299,6 +299,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'Open the invoice and use Upload invoice to attach the PDF or photo the sub sent you.',
       ] },
       { type: 'tip', text: 'New invoices start as Pending Approval. Approve → Mark Sent → Mark Paid as they move through.' },
+      { type: 'tip', text: 'The amount is capped at what\'s still owed on that sub\'s contract, so you can\'t over-bill. Use "Bill full remaining" to invoice the exact balance in one click.' },
     ],
     related: ['approve-invoice', 'lien-waiver', 'money-overview'],
   },
