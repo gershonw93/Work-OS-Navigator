@@ -89,16 +89,20 @@
     min-height: 2.25rem;
   }
 
-  /* Theme-aware defaults so bare textarea and select elements (ones that do
-     not set a bg or text utility class) stay readable in dark mode instead of
-     white text on a white browser default. Any Tailwind color utility still
-     wins, since utilities load in a later layer. */
+  /* Theme-aware defaults so bare text inputs, textareas, and selects (ones
+     that do not set a bg or text utility class) stay readable in dark mode
+     instead of white text on a white browser default. Checkboxes, radios,
+     ranges, colors, and file inputs are excluded so their native controls are
+     untouched. Any Tailwind color utility still wins, since utilities load in
+     a later layer. */
   textarea,
-  select {
+  select,
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']):not([type='submit']):not([type='button']):not([type='image']) {
     background-color: rgb(var(--panel));
     color: rgb(var(--ink));
   }
-  textarea::placeholder {
+  textarea::placeholder,
+  input::placeholder {
     color: rgb(var(--faint));
   }
 
