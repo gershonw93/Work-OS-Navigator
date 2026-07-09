@@ -463,23 +463,24 @@ export default function WorkflowPage() {
                   <StepDetails details={s.details} cols3 />
                 </>
               ) : (
-                /* Card and phone mocks: alternating two-column layout. */
-                <div className={`grid lg:grid-cols-2 gap-10 lg:gap-14 items-start ${s.reverse ? 'lg:[&>*:first-child]:order-2' : ''}`}>
-                  <Reveal>
-                    <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-faint mb-2">{s.step}</p>
-                    <Eyebrow>{s.eyebrow}</Eyebrow>
-                    <h2 id={`${s.id}-title`} className="mt-3 text-2xl sm:text-3xl font-extrabold tracking-tight text-ink leading-[1.1]">{s.title}</h2>
-                    <p className="mt-4 text-base sm:text-lg text-muted-fg leading-relaxed">{s.lead}</p>
-                    <OldWay without={s.without} />
-                    <AutoChain youDo={s.youDo} auto={s.auto} />
-                  </Reveal>
-                  <Reveal delay={140}>
-                    <div className="lg:sticky lg:top-28">
-                      {s.visual}
-                      <StepDetails details={s.details} />
-                    </div>
-                  </Reveal>
-                </div>
+                /* Card and phone mocks: alternating two-column layout, with the
+                   three detail points side by side across the full width below. */
+                <>
+                  <div className={`grid lg:grid-cols-2 gap-10 lg:gap-14 items-start ${s.reverse ? 'lg:[&>*:first-child]:order-2' : ''}`}>
+                    <Reveal>
+                      <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-faint mb-2">{s.step}</p>
+                      <Eyebrow>{s.eyebrow}</Eyebrow>
+                      <h2 id={`${s.id}-title`} className="mt-3 text-2xl sm:text-3xl font-extrabold tracking-tight text-ink leading-[1.1]">{s.title}</h2>
+                      <p className="mt-4 text-base sm:text-lg text-muted-fg leading-relaxed">{s.lead}</p>
+                      <OldWay without={s.without} />
+                      <AutoChain youDo={s.youDo} auto={s.auto} />
+                    </Reveal>
+                    <Reveal delay={140}>
+                      <div className="lg:sticky lg:top-28">{s.visual}</div>
+                    </Reveal>
+                  </div>
+                  <StepDetails details={s.details} cols3 />
+                </>
               )}
             </section>
           ))}
