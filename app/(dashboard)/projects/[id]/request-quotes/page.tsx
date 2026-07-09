@@ -252,7 +252,15 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
         <div className="bg-panel rounded-xl border border-line p-10 text-center"><Send className="h-8 w-8 text-faint mx-auto mb-3" /><p className="text-sm text-muted-fg">No quotes yet. Create a request to invite subs, or upload quotes you already have to compare them.</p></div>
       ) : requests.map(req => {
         const invites = req.bid_invites ?? []
-        const submissions = req.bid_submissions ?? []
+        const allSubmissions = req.bid_submissions ?? []
+        // A sub can submit a revision, which creates another row. Keep only the
+        // latest submission per invite so the GC sees the current quote, not
+        // every draft.
+        const latestByInvite = new Map<string, any>()
+        for (const s of [...allSubmissions].sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())) {
+          latestByInvite.set(s.bid_invite_id, s)
+        }
+        const submissions = Array.from(latestByInvite.values())
         const comp = compFor(req.id)
         const awarded = !!comp?.awarded_subcontract_id
         const today = new Date(); today.setHours(0, 0, 0, 0)
