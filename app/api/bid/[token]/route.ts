@@ -69,6 +69,11 @@ export async function POST(request: Request, { params }: { params: { token: stri
 
   if (amount == null && !file_url) return NextResponse.json({ error: 'Attach your quote or enter an amount.' }, { status: 400 })
 
+  // A revised quote replaces the sub's previous one, so the GC (and the AI
+  // comparison) only ever see the current quote, never the original plus its
+  // revision.
+  await db.from('bid_submissions').delete().eq('bid_invite_id', invite.id)
+
   const { error } = await db.from('bid_submissions').insert({
     bid_request_id: invite.bid_request_id,
     bid_invite_id: invite.id,
