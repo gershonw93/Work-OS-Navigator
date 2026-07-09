@@ -48,7 +48,7 @@ export function TopNav() {
       <div className="flex items-center gap-3 shrink-0">
         {/* Hamburger — mobile only */}
         <button
-          className="sm:hidden flex items-center justify-center w-8 h-8 rounded-md text-muted-fg hover:bg-muted transition-colors"
+          className="lg:hidden flex items-center justify-center w-8 h-8 rounded-md text-muted-fg hover:bg-muted transition-colors"
           onClick={() => window.dispatchEvent(new Event(OPEN_SIDEBAR_EVENT))}
           aria-label="Open menu"
         >

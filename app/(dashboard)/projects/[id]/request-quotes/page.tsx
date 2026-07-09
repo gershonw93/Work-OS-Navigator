@@ -323,7 +323,7 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
                         const isLowest = sub.amount != null && sub.amount === Math.min(...submissions.filter((s: any) => s.amount != null).map((s: any) => s.amount))
                         return (
                           <div key={sub.id} className="rounded-lg border border-line bg-surface px-3 py-2.5">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5">
                               <div className="min-w-0">
                                 <p className="text-sm font-medium text-ink-soft truncate">
                                   {vendor}
@@ -331,11 +331,11 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
                                 </p>
                                 {sub.created_at && <p className="text-[11px] text-faint mt-0.5">Submitted {new Date(sub.created_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</p>}
                               </div>
-                              <div className="flex items-center gap-3 shrink-0">
-                                <span className="text-base font-bold text-ink">{sub.amount != null ? money(sub.amount) : 'See file'}</span>
+                              <div className="flex items-center gap-3 min-w-0 sm:justify-end sm:shrink-0">
+                                <span className="text-base font-bold text-ink shrink-0">{sub.amount != null ? money(sub.amount) : 'See file'}</span>
                                 {sub.file_url && (
-                                  <a href={sub.file_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-accent-fg hover:underline">
-                                    <FileText className="h-3.5 w-3.5" /> {sub.file_name ?? 'Quote'}
+                                  <a href={sub.file_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-accent-fg hover:underline min-w-0">
+                                    <FileText className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{sub.file_name ?? 'Quote'}</span>
                                   </a>
                                 )}
                               </div>
@@ -355,17 +355,19 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
                   const sub = submissions.find((s: any) => s.bid_invite_id === inv.id)
                   const em = emailFor(req, inv)
                   return (
-                    <div key={inv.id} className="px-3 py-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                    <div key={inv.id} className="px-3 py-2 flex flex-col sm:flex-row sm:items-center gap-x-3 gap-y-2">
                       <div className="flex-1 min-w-0">
                         <span className="text-sm font-medium text-ink-soft">{inv.vendor_name ?? inv.vendor_email ?? 'Vendor'}</span>
                         {sub && <span className="text-xs text-success ml-2">{money(sub.amount)}{sub.file_name ? ' · file' : ''}</span>}
                         {sub?.created_at && <span className="block text-[11px] text-faint mt-0.5">Submitted {new Date(sub.created_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</span>}
                       </div>
-                      <span className={cn('text-[10px] font-medium rounded-full px-1.5 py-0.5 capitalize', STATUS[inv.status] ?? 'bg-muted text-muted-fg')}>{inv.status}</span>
-                      <button onClick={() => copy(linkFor(inv.token), `l${inv.id}`)} title="Copy link" className="inline-flex items-center gap-1 text-xs text-muted-fg hover:text-ink">{copied === `l${inv.id}` ? <CheckCircle2 className="h-3.5 w-3.5 text-success" /> : <Link2 className="h-3.5 w-3.5" />} Link</button>
-                      <button onClick={() => copy(`${em.subject}\n\n${em.body}`, `e${inv.id}`)} title="Copy email" className="inline-flex items-center gap-1 text-xs text-muted-fg hover:text-ink">{copied === `e${inv.id}` ? <CheckCircle2 className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />} Email</button>
-                      {inv.vendor_email && <a href={em.mailto} className="inline-flex items-center gap-1 text-xs text-accent-fg hover:underline"><Mail className="h-3.5 w-3.5" /> Send</a>}
-                      <button onClick={() => removeInvite(req.id, inv.id)} className="text-faint hover:text-danger"><X className="h-3.5 w-3.5" /></button>
+                      <div className="flex items-center flex-wrap gap-x-3 gap-y-1.5 shrink-0">
+                        <span className={cn('text-[10px] font-medium rounded-full px-1.5 py-0.5 capitalize', STATUS[inv.status] ?? 'bg-muted text-muted-fg')}>{inv.status}</span>
+                        <button onClick={() => copy(linkFor(inv.token), `l${inv.id}`)} title="Copy link" className="inline-flex items-center gap-1 text-xs text-muted-fg hover:text-ink">{copied === `l${inv.id}` ? <CheckCircle2 className="h-3.5 w-3.5 text-success" /> : <Link2 className="h-3.5 w-3.5" />} Link</button>
+                        <button onClick={() => copy(`${em.subject}\n\n${em.body}`, `e${inv.id}`)} title="Copy email" className="inline-flex items-center gap-1 text-xs text-muted-fg hover:text-ink">{copied === `e${inv.id}` ? <CheckCircle2 className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />} Email</button>
+                        {inv.vendor_email && <a href={em.mailto} className="inline-flex items-center gap-1 text-xs text-accent-fg hover:underline"><Mail className="h-3.5 w-3.5" /> Send</a>}
+                        <button onClick={() => removeInvite(req.id, inv.id)} className="text-faint hover:text-danger"><X className="h-3.5 w-3.5" /></button>
+                      </div>
                     </div>
                   )
                 })}
