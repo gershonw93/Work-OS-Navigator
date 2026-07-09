@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { X, Upload, Trophy, Trash2, FileText, Loader2, Check, ExternalLink, Sparkles, AlertTriangle, ClipboardList } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 
 export interface Quote {
@@ -188,11 +189,13 @@ export function ComparisonBlock({ comp, projectId, onChanged }: { comp: Comparis
                     <label className="flex items-center gap-2 text-sm text-ink-soft">
                       <input type="radio" className="accent-[#C9F24A]" checked={awardBudget !== 'new' && awardBudget !== 'none'} onChange={() => setAwardBudget(budgetLines[0].id)} />
                       Link to an existing budget line:
-                      <select disabled={awardBudget === 'new' || awardBudget === 'none'} value={awardBudget === 'new' || awardBudget === 'none' ? '' : awardBudget}
+                      <SearchableSelect disabled={awardBudget === 'new' || awardBudget === 'none'}
+                        value={awardBudget === 'new' || awardBudget === 'none' ? '' : awardBudget}
                         onChange={e => setAwardBudget(e.target.value)}
-                        className="flex-1 min-w-0 rounded-md border border-line bg-panel px-2 py-1 text-sm disabled:opacity-50">
+                        placeholder="Search budget lines…"
+                        className="flex-1 min-w-0 disabled:opacity-50">
                         {budgetLines.map(l => <option key={l.id} value={l.id}>{l.category} · {l.description}</option>)}
-                      </select>
+                      </SearchableSelect>
                     </label>
                   )}
                   <label className="flex items-center gap-2 text-sm text-muted-fg">
