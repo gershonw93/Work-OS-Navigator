@@ -227,8 +227,8 @@ const STEPS: Step[] = [
       { icon: ShieldCheck, title: 'Crew-overlap warnings', body: 'If the same crew is booked on two jobs the same day, SyteNav flags it before it turns into a missed rough-in.' },
       { icon: ClipboardList, title: 'Pin the blueprint, skip the ambiguity', body: 'Instead of "the outlet by the kitchen, you know the one," drop a pin on the exact spot on the plan. The task carries the location with it, and the crew taps the pin to see what\'s needed.' },
     ],
-    visual: <ScheduleMock />,
-    reverse: true,
+    wide: true,
+    visual: <div className="max-w-2xl mx-auto"><ScheduleMock /></div>,
   },
   {
     id: 'field',
@@ -301,8 +301,9 @@ const STEPS: Step[] = [
       { icon: ShieldCheck, title: 'Subcontractor compliance', body: 'Certificates of insurance and licenses live on the sub\'s record, with expiring documents surfaced automatically.' },
       { icon: ClipboardCheck, title: 'Submittals in the loop', body: 'Route submittals for approval and keep the paper trail with the project. Useful the day someone asks "did we ever approve that?"' },
     ],
+    wide: true,
     visual: (
-      <div className="grid grid-cols-2 gap-3 max-w-sm mx-auto lg:mx-0">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-w-3xl mx-auto">
         {[
           ['Permit #PB-22140', 'Approved', 'text-success bg-success-tint'],
           ['Rough electrical · Apex Electric', 'Ready for inspection', 'text-accent-fg bg-accent-tint'],

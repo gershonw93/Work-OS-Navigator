@@ -79,11 +79,11 @@ export function DashboardMock() {
                 <span className="inline-flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-sm bg-info/50 inline-block" /> Out</span>
               </div>
             </div>
-            <div className="flex items-end gap-2 h-24">
+            <div className="flex gap-2 h-24">
               {bars.map((b, i) => (
-                <div key={i} className="flex-1 flex flex-col justify-end gap-0.5">
-                  <div className="w-full rounded-t bg-accent" style={{ height: `${b}%` }} />
-                  <div className="w-full rounded-t bg-info/40" style={{ height: `${Math.max(b - 25, 8)}%` }} />
+                <div key={i} className="flex-1 h-full flex items-end justify-center gap-0.5">
+                  <div className="w-1/2 rounded-t bg-accent" style={{ height: `${b}%` }} />
+                  <div className="w-1/2 rounded-t bg-info/40" style={{ height: `${Math.max(b - 25, 8)}%` }} />
                 </div>
               ))}
             </div>
