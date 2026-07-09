@@ -267,11 +267,11 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
         const isCollapsed = !expanded.has(req.id)
         return (
           <div key={req.id} className={cn('bg-panel rounded-xl border overflow-hidden', awarded ? 'border-success/40' : overdue ? 'border-danger/40' : 'border-line')}>
-            <div className="px-4 sm:px-5 py-3.5 border-b border-line-soft flex flex-wrap items-center justify-between gap-2">
+            <div onClick={() => toggleCollapse(req.id)} className="px-4 sm:px-5 py-3.5 border-b border-line-soft flex flex-wrap items-center justify-between gap-2 cursor-pointer hover:bg-surface/60 transition-colors">
               <div className="flex items-start gap-2 min-w-0">
-                <button onClick={() => toggleCollapse(req.id)} className="p-1 -ml-1 mt-0.5 rounded text-faint hover:text-ink shrink-0" aria-label={isCollapsed ? 'Expand' : 'Collapse'}>
+                <span className="p-1 -ml-1 mt-0.5 rounded text-faint shrink-0" aria-hidden>
                   {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                </button>
+                </span>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <h2 className="text-sm font-semibold text-ink-soft">{req.title}</h2>
@@ -284,7 +284,7 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
                   <p className={cn('text-xs', overdue ? 'text-danger' : 'text-faint')}>{req.trade ? `${req.trade} · ` : ''}{invites.length} invited · {submissions.length} responded{req.due_date ? ` · ${overdue ? 'was due' : 'due'} ${new Date(req.due_date + 'T00:00:00').toLocaleDateString()}` : ''}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
                 {submissions.length > 0 && !awarded && (
                   <Button size="sm" disabled={pulling === req.id} onClick={() => pullToComparison(req.id)}>
                     {pulling === req.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Scale className="h-3.5 w-3.5" />} {comp ? 'Refresh comparison' : 'Compare quotes'}
@@ -353,11 +353,11 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
         const isCollapsed = !expanded.has(comp.id)
         return (
           <div key={comp.id} className="bg-panel rounded-xl border border-line overflow-hidden">
-            <div className="px-4 sm:px-5 py-3.5 border-b border-line-soft flex items-center justify-between gap-2">
+            <div onClick={() => toggleCollapse(comp.id)} className="px-4 sm:px-5 py-3.5 border-b border-line-soft flex items-center justify-between gap-2 cursor-pointer hover:bg-surface/60 transition-colors">
               <div className="flex items-center gap-2 min-w-0">
-                <button onClick={() => toggleCollapse(comp.id)} className="p-1 -ml-1 rounded text-faint hover:text-ink shrink-0" aria-label={isCollapsed ? 'Expand' : 'Collapse'}>
+                <span className="p-1 -ml-1 rounded text-faint shrink-0" aria-hidden>
                   {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                </button>
+                </span>
                 <Upload className="h-4 w-4 text-faint shrink-0" />
                 <h2 className="text-sm font-semibold text-ink-soft truncate">{comp.title}</h2>
                 {comp.awarded_subcontract_id && <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-success-tint text-success inline-flex items-center gap-1 shrink-0"><Trophy className="h-2.5 w-2.5" /> Awarded</span>}
