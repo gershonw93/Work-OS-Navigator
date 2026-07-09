@@ -67,7 +67,7 @@ export async function GET(request: Request) {
 
   const [
     projectHits, budgetHits, materialHits, invoiceHits, subHits,
-    rfiHits, taskHits, changeOrderHits, customerHits, directoryHits,
+    rfiHits, taskHits, changeOrderHits, customerHits, directoryHits, teamHits,
   ] = await Promise.all([
     // Projects
     safe(async () => projects
@@ -176,13 +176,13 @@ export async function GET(request: Request) {
     // Customers
     safe(async () => {
       const { data } = await db.from('customers')
-        .select('id, name, contact_name, email, billing_address')
+        .select('id, name, contact_name, email, phone, billing_address')
         .eq('gc_company_id', companyId)
-        .or(`name.ilike.${like},contact_name.ilike.${like},email.ilike.${like},billing_address.ilike.${like}`)
+        .or(`name.ilike.${like},contact_name.ilike.${like},email.ilike.${like},phone.ilike.${like},billing_address.ilike.${like}`)
         .limit(PER)
       return (data ?? []).map((c: any) => ({
         id: c.id, title: c.name,
-        subtitle: [c.contact_name, c.email].filter(Boolean).join(' · ') || null,
+        subtitle: [c.contact_name, c.email, c.phone].filter(Boolean).join(' · ') || null,
         href: `/customers/${c.id}`,
       }))
     }),
@@ -190,14 +190,28 @@ export async function GET(request: Request) {
     // Directory (companies I've added or work with)
     safe(async () => {
       const { data } = await db.from('companies')
-        .select('id, name, trade, contact_email')
+        .select('id, name, trade, contact_email, phone')
         .eq('added_by_company_id', companyId)
-        .or(`name.ilike.${like},trade.ilike.${like},contact_email.ilike.${like}`)
+        .or(`name.ilike.${like},trade.ilike.${like},contact_email.ilike.${like},phone.ilike.${like}`)
         .limit(PER)
       return (data ?? []).map((c: any) => ({
         id: c.id, title: c.name,
-        subtitle: c.trade || c.contact_email || null,
+        subtitle: [c.trade, c.contact_email, c.phone].filter(Boolean).join(' · ') || null,
         href: `/directory`,
+      }))
+    }),
+
+    // Team members (profiles in the same company)
+    safe(async () => {
+      const { data } = await db.from('profiles')
+        .select('id, full_name, email, phone, role')
+        .eq('company_id', companyId)
+        .or(`full_name.ilike.${like},email.ilike.${like},phone.ilike.${like}`)
+        .limit(PER)
+      return (data ?? []).map((p: any) => ({
+        id: p.id, title: p.full_name || p.email || 'Teammate',
+        subtitle: [p.email, p.phone].filter(Boolean).join(' · ') || null,
+        href: `/settings`,
       }))
     }),
   ])
@@ -213,6 +227,7 @@ export async function GET(request: Request) {
     { key: 'change-orders', label: 'Change orders', items: changeOrderHits },
     { key: 'customers', label: 'Customers', items: customerHits },
     { key: 'directory', label: 'Directory', items: directoryHits },
+    { key: 'team', label: 'Team members', items: teamHits },
   ].filter(g => g.items.length > 0)
 
   return NextResponse.json({ groups })
