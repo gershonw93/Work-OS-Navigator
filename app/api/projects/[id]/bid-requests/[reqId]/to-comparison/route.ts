@@ -46,7 +46,13 @@ export async function POST(request: Request, { params }: { params: { id: string;
     .eq('id', params.reqId).eq('project_id', params.id).single()
   if (!req) return NextResponse.json({ error: 'Bid request not found' }, { status: 404 })
 
-  const subs = req.bid_submissions ?? []
+  // Keep only the latest submission per invite so a sub's revised quote
+  // replaces its original instead of both being compared.
+  const latestByInvite = new Map<string, any>()
+  for (const s of [...(req.bid_submissions ?? [])].sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())) {
+    latestByInvite.set(s.bid_invite_id, s)
+  }
+  const subs = Array.from(latestByInvite.values())
   if (!subs.length) return NextResponse.json({ error: 'No submissions to compare yet.' }, { status: 400 })
 
   // Reuse the comparison already linked to this request (re-pulling refreshes it) instead of duplicating.
