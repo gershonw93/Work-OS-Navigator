@@ -105,15 +105,24 @@ export default function BidPage({ params }: { params: { token: string } }) {
           {done || data.submission ? (
             <div className="rounded-xl bg-success-tint border border-success/30 px-4 py-5 text-center">
               <CheckCircle2 className="h-8 w-8 text-success mx-auto mb-2" />
-              <p className="font-semibold text-ink">Quote submitted — thank you!</p>
+              <p className="font-semibold text-ink">Quote submitted. Thank you!</p>
               <p className="text-sm text-muted-fg mt-1">{name || data.invite.vendor_name}{(data.submission?.amount != null || amount) ? ` · $${Number(data.submission?.amount ?? amount).toLocaleString()}` : ''}</p>
-              {!done && <p className="text-xs text-faint mt-2">Need to revise? Just submit again below.</p>}
+              {data.submission?.created_at && <p className="text-xs text-faint mt-1">Received {new Date(data.submission.created_at).toLocaleDateString()}</p>}
             </div>
           ) : null}
 
+          {/* First submission, or a revision after already submitting. A fresh
+              submit this session shows only the banner above. */}
           {!done && (
             <form onSubmit={submit} className="space-y-4">
-              <p className="text-xs uppercase tracking-wide text-faint font-semibold">{data.submission ? 'Submit a revised quote' : 'Submit your quote'}</p>
+              {data.submission ? (
+                <div className="border-t border-line-soft pt-5">
+                  <h2 className="text-lg font-bold text-ink">Need to change something?</h2>
+                  <p className="text-sm text-muted-fg mt-1">Submit a revised quote below and it replaces the one you sent.</p>
+                </div>
+              ) : (
+                <p className="text-xs uppercase tracking-wide text-faint font-semibold">Submit your quote</p>
+              )}
               <div className="space-y-1.5">
                 <label className="text-sm text-ink-soft">Your name / company</label>
                 <input value={name} onChange={e => setName(e.target.value)} required className={inputCls} />
