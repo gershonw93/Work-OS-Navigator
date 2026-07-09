@@ -301,6 +301,45 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
                 </div>
               )}
 
+              {/* Quotes received — visible without opening the AI comparison */}
+              {submissions.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-faint mb-2">Quotes received ({submissions.length})</p>
+                  <div className="space-y-2">
+                    {submissions
+                      .slice()
+                      .sort((a: any, b: any) => (a.amount ?? Infinity) - (b.amount ?? Infinity))
+                      .map((sub: any) => {
+                        const inv = invites.find((i: any) => i.id === sub.bid_invite_id)
+                        const vendor = inv?.vendor_name ?? sub.submitted_by_name ?? 'Vendor'
+                        const isLowest = sub.amount != null && sub.amount === Math.min(...submissions.filter((s: any) => s.amount != null).map((s: any) => s.amount))
+                        return (
+                          <div key={sub.id} className="rounded-lg border border-line bg-surface px-3 py-2.5">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium text-ink-soft truncate">
+                                  {vendor}
+                                  {isLowest && submissions.length > 1 && <span className="ml-2 text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-success-tint text-success">Lowest</span>}
+                                </p>
+                                {sub.created_at && <p className="text-[11px] text-faint mt-0.5">Submitted {new Date(sub.created_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</p>}
+                              </div>
+                              <div className="flex items-center gap-3 shrink-0">
+                                <span className="text-base font-bold text-ink">{sub.amount != null ? money(sub.amount) : 'See file'}</span>
+                                {sub.file_url && (
+                                  <a href={sub.file_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-accent-fg hover:underline">
+                                    <FileText className="h-3.5 w-3.5" /> {sub.file_name ?? 'Quote'}
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                            {sub.notes && <p className="text-xs text-muted-fg mt-1.5 whitespace-pre-wrap border-t border-line-soft pt-1.5">{sub.notes}</p>}
+                          </div>
+                        )
+                      })}
+                  </div>
+                </div>
+              )}
+
               {/* Invites */}
               <div className="rounded-lg border border-line-soft divide-y divide-line-soft">
                 {invites.length === 0 && <p className="px-3 py-2 text-xs text-faint">No subs invited yet.</p>}
