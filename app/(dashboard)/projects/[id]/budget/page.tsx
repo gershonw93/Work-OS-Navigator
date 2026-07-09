@@ -883,9 +883,10 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                             )}
                           </p>
                           {item.linked ? (
-                            <p className="text-xs text-accent-fg truncate flex items-center gap-1">
+                            <a href={`/projects/${params.id}/team`} onClick={e => e.stopPropagation()}
+                              className="text-xs text-accent-fg truncate flex items-center gap-1 hover:underline w-fit">
                               <LinkIcon className="h-3 w-3 shrink-0" /> Linked · {item.linked_label}
-                            </p>
+                            </a>
                           ) : item.notes ? (
                             <p className="text-xs text-faint truncate">{item.notes}</p>
                           ) : null}
