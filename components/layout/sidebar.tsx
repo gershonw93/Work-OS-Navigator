@@ -97,7 +97,7 @@ export function Sidebar() {
         <SyteNavLogo size={26} />
         {/* Close button — mobile only */}
         <button
-          className="sm:hidden text-faint hover:text-ink p-1"
+          className="lg:hidden text-faint hover:text-ink p-1"
           onClick={() => setMobileOpen(false)}
         >
           <X className="h-5 w-5" />
@@ -175,21 +175,21 @@ export function Sidebar() {
   return (
     <>
       {/* Desktop sidebar — hidden on mobile */}
-      <aside className="hidden sm:flex fixed inset-y-0 left-0 z-30 w-60 flex-col bg-panel text-ink border-r border-line">
+      <aside className="hidden lg:flex fixed inset-y-0 left-0 z-30 w-60 flex-col bg-panel text-ink border-r border-line">
         {navContent}
       </aside>
 
       {/* Mobile backdrop */}
       {mobileOpen && (
         <div
-          className="sm:hidden fixed inset-0 z-40 bg-black/60"
+          className="lg:hidden fixed inset-0 z-40 bg-black/60"
           onClick={() => setMobileOpen(false)}
         />
       )}
 
       {/* Mobile drawer */}
       <aside className={cn(
-        'sm:hidden fixed inset-y-0 left-0 z-50 w-72 flex flex-col bg-panel text-ink border-r border-line transition-transform duration-300 ease-in-out',
+        'lg:hidden fixed inset-y-0 left-0 z-50 w-72 flex flex-col bg-panel text-ink border-r border-line transition-transform duration-300 ease-in-out',
         mobileOpen ? 'translate-x-0' : '-translate-x-full'
       )}>
         {navContent}

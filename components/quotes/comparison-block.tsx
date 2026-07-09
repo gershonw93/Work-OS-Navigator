@@ -252,12 +252,14 @@ export function ComparisonBlock({ comp, projectId, onChanged }: { comp: Comparis
       {quotes.length === 0 ? (
         <div className="p-6 text-center text-sm text-faint">{uploadingFor ? 'Reading quote…' : 'No quotes yet.'}</div>
       ) : (
-        <div className="p-4 grid gap-4" style={{ gridTemplateColumns: `repeat(${Math.min(quotes.length, 3)}, minmax(0, 1fr))` }}>
+        // Cards scroll horizontally on phones (one at a time), then wrap into
+        // equal columns from lg up.
+        <div className="p-4 flex gap-4 overflow-x-auto snap-x lg:flex-wrap lg:overflow-visible">
           {quotes.map(q => {
             const isLowest = q.total_amount != null && q.total_amount === lowest && totals.length > 1
             const isWinner = comp.winning_quote_id === q.id
             return (
-              <div key={q.id} className={cn('rounded-xl border p-4 flex flex-col gap-3 min-w-0', isWinner ? 'border-accent ring-1 ring-accent bg-accent-tint/30' : 'border-line')}>
+              <div key={q.id} className={cn('rounded-xl border p-4 flex flex-col gap-3 snap-start shrink-0 w-[85%] sm:w-[46%] lg:w-auto lg:flex-1 lg:min-w-[240px]', isWinner ? 'border-accent ring-1 ring-accent bg-accent-tint/30' : 'border-line')}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="font-semibold text-ink truncate">{q.vendor_name ?? 'Unknown vendor'}</p>

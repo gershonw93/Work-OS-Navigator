@@ -21,7 +21,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     <DeleteGuardProvider>
       <div className="flex min-h-screen bg-surface">
         <Sidebar />
-        <div className="flex flex-1 flex-col min-w-0 sm:pl-60">
+        <div className="flex flex-1 flex-col min-w-0 lg:pl-60">
           <ImpersonationBanner />
           <ViewAsBanner />
           <TopNav />

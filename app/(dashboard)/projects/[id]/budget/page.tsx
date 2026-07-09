@@ -639,14 +639,14 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       {adding && (
         <div className="bg-panel rounded-xl border border-accent/40 p-4 sm:p-5 space-y-3">
           <p className="text-sm font-semibold text-ink-soft">New Budget Line</p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <input className="rounded-lg border border-line px-3 py-2 text-sm" placeholder="Cost code (optional)"
               value={form.cost_code} onChange={e => setForm({ ...form, cost_code: e.target.value })} />
             <SearchableSelect className="rounded-lg border border-line px-3 py-2 text-sm bg-panel"
               value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
               {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
             </SearchableSelect>
-            <input className="rounded-lg border border-line px-3 py-2 text-sm col-span-2 sm:col-span-1" placeholder="Description *"
+            <input className="rounded-lg border border-line px-3 py-2 text-sm sm:col-span-2 lg:col-span-1" placeholder="Description *"
               value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
             <input type="number" className="rounded-lg border border-line px-3 py-2 text-sm" placeholder="Budgeted $"
               value={form.budgeted_amount} onChange={e => setForm({ ...form, budgeted_amount: e.target.value })} />
@@ -786,7 +786,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                     if (editingId === item.id) {
                       return (
                         <div key={item.id} className="px-4 py-3 bg-accent-tint/40 space-y-2">
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                             <Field label="Cost code">
                               <input className="w-full rounded-lg border border-line px-2.5 py-1.5 text-sm" placeholder="optional"
                                 value={editForm.cost_code} onChange={e => setEditForm({ ...editForm, cost_code: e.target.value })} />
@@ -797,7 +797,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                                 {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                               </SearchableSelect>
                             </Field>
-                            <Field label="Description" className="col-span-2 sm:col-span-1">
+                            <Field label="Description" className="sm:col-span-2 lg:col-span-1">
                               <input className="w-full rounded-lg border border-line px-2.5 py-1.5 text-sm" placeholder="What this covers"
                                 value={editForm.description} onChange={e => setEditForm({ ...editForm, description: e.target.value })} />
                             </Field>
