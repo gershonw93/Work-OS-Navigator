@@ -89,6 +89,19 @@
     min-height: 2.25rem;
   }
 
+  /* Theme-aware defaults so bare textarea and select elements (ones that do
+     not set a bg or text utility class) stay readable in dark mode instead of
+     white text on a white browser default. Any Tailwind color utility still
+     wins, since utilities load in a later layer. */
+  textarea,
+  select {
+    background-color: rgb(var(--panel));
+    color: rgb(var(--ink));
+  }
+  textarea::placeholder {
+    color: rgb(var(--faint));
+  }
+
   /* Prevent sideways scroll without breaking position: sticky.
      overflow-x: hidden on body silently disables sticky for every
      descendant (it creates a scroll container); clip does not.
