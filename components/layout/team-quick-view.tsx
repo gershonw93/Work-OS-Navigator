@@ -101,7 +101,7 @@ export function TeamQuickView({ projectId }: { projectId: string }) {
       </button>
 
       {open && (
-        <div className="absolute right-0 z-50 mt-2 w-[calc(100vw-2rem)] sm:w-80 max-h-[70vh] overflow-y-auto rounded-xl border border-line bg-panel shadow-xl">
+        <div className="absolute left-0 sm:left-auto sm:right-0 z-50 mt-2 w-[calc(100vw-2rem)] sm:w-80 max-h-[70vh] overflow-y-auto rounded-xl border border-line bg-panel shadow-xl">
           {members.length > 0 && (
             <div className="p-3">
               <p className="px-1 pb-2 text-xs font-semibold uppercase tracking-wide text-faint flex items-center gap-1.5">
