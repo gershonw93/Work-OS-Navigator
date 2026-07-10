@@ -524,13 +524,13 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
       {/* Edit log modal */}
       {showEditModal && editingLog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-panel rounded-xl shadow-xl w-full max-w-md">
-            <div className="px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between">
+          <div className="bg-panel rounded-xl shadow-xl w-full max-w-lg flex flex-col max-h-[90vh]">
+            <div className="px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between shrink-0">
               <h2 className="font-semibold text-ink">Edit Daily Log</h2>
               <button onClick={() => { setShowEditModal(false); setEditingLog(null) }} className="text-faint hover:text-muted-fg"><X className="h-5 w-5" /></button>
             </div>
-            <form onSubmit={handleEditSubmit}>
-              <div className="px-4 sm:px-6 py-5 space-y-4">
+            <form onSubmit={handleEditSubmit} className="flex flex-col min-h-0 flex-1">
+              <div className="px-4 sm:px-6 py-5 space-y-4 overflow-y-auto">
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-ink-soft">Date</label>
                   <input type="date" value={editLogDate} onChange={e => setEditLogDate(e.target.value)} required
@@ -663,7 +663,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                   </div>
                 </div>
               </div>
-              <div className="px-4 sm:px-6 py-4 border-t border-line-soft flex flex-wrap gap-2 justify-end">
+              <div className="px-4 sm:px-6 py-4 border-t border-line-soft flex flex-wrap gap-2 justify-end shrink-0 bg-panel">
                 <button type="button" onClick={() => { setShowEditModal(false); setEditingLog(null) }}
                   className="rounded-md border border-muted2 px-3 py-2 text-sm font-medium text-ink-soft hover:bg-surface">Cancel</button>
                 <button type="submit" disabled={editSubmitting}
