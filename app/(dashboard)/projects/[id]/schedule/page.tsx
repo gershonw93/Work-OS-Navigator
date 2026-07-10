@@ -374,7 +374,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
           <h1 className="text-2xl font-bold text-ink">Schedule</h1>
           <p className="text-sm text-muted-fg mt-0.5">Auto-populated from awarded bids. Add milestones manually.</p>
         </div>
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
           <div className="inline-flex rounded-lg border border-line bg-panel p-0.5">
             {([
               { key: 'calendar', label: 'Calendar', icon: CalendarRange },
