@@ -264,8 +264,8 @@ export function ComparisonBlock({ comp, projectId, onChanged }: { comp: Comparis
                   <div className="min-w-0">
                     <p className="font-semibold text-ink truncate">{q.vendor_name ?? 'Unknown vendor'}</p>
                     {q.file_name && (
-                      <a href={q.file_url ?? '#'} target="_blank" rel="noreferrer" className="text-xs text-accent-fg hover:underline inline-flex items-center gap-1">
-                        <FileText className="h-3 w-3" /> {q.file_name} <ExternalLink className="h-2.5 w-2.5" />
+                      <a href={q.file_url ?? '#'} target="_blank" rel="noreferrer" className="text-xs text-accent-fg hover:underline flex items-center gap-1 min-w-0">
+                        <FileText className="h-3 w-3 shrink-0" /> <span className="truncate">{q.file_name}</span> <ExternalLink className="h-2.5 w-2.5 shrink-0" />
                       </a>
                     )}
                   </div>
