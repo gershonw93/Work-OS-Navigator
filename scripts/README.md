@@ -8,7 +8,28 @@ tasks, daily logs + photos, time clock, RFIs, change orders, permits,
 inspections, submittals, compliance, materials, equipment, RFQs/quotes, team,
 and the activity feed).
 
-### Run it
+### Option A - no terminal (browser)
+
+Easiest if you don't have a terminal. This runs on the deployed app, which
+already has the Supabase keys.
+
+1. In Vercel, add an env var **`DEMO_SEED_SECRET`** with any random value, and
+   redeploy.
+2. Visit this URL in your browser (swap in your secret):
+
+   ```
+   https://app.sytenav.com/api/dev/seed-demo?secret=YOUR_SECRET
+   ```
+
+   It returns JSON when done (`"ok": true`) with the login. Optionally add
+   `&password=yourpassword`.
+3. When you're finished demoing, remove `DEMO_SEED_SECRET` so the route turns
+   off (it 404s with no secret set).
+
+> This is NOT SQL - do not paste it into the Supabase SQL editor. It's a web
+> URL you open in a browser (or a terminal command below), nothing else.
+
+### Option B - terminal
 
 From the repo root, with your project's Supabase URL and **service-role** key
 (Supabase dashboard → Project Settings → API):
