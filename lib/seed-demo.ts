@@ -88,12 +88,33 @@ export async function runSeed(
   const log = opts.log ?? (() => {})
   const password = opts.password || DEFAULT_DEMO_PASSWORD
 
+  // If the live DB is missing a column this seed sets (production schemas can
+  // drift from the migration files), drop that column and retry instead of
+  // failing the whole seed.
+  function missingColumn(error: any): string | null {
+    const msg = String(error?.message ?? '')
+    const m1 = /Could not find the '([^']+)' column/.exec(msg)
+    if (m1) return m1[1]
+    if (error?.code === '42703') {
+      const m2 = /column "([^"]+)"/.exec(msg)
+      if (m2) return m2[1]
+    }
+    return null
+  }
   async function insert(table: string, rows: any[] | any) {
-    const payload = Array.isArray(rows) ? rows : [rows]
+    let payload = Array.isArray(rows) ? rows : [rows]
     if (payload.length === 0) return []
-    const { data, error } = await db.from(table).insert(payload).select()
-    if (error) { throw new Error(`insert into ${table} failed: ${error.message}`) }
-    return data ?? []
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const { data, error } = await db.from(table).insert(payload).select()
+      if (!error) return data ?? []
+      const col = missingColumn(error)
+      if (col && payload.some(r => col in r)) {
+        payload = payload.map(r => { const c = { ...r }; delete c[col]; return c })
+        continue
+      }
+      throw new Error(`insert into ${table} failed: ${error.message}`)
+    }
+    return []
   }
   async function insertSoft(table: string, row: any, dropKeys: string[]) {
     const { data, error } = await db.from(table).insert(row).select().single()
