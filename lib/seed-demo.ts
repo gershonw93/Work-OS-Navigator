@@ -255,7 +255,9 @@ export async function runSeed(
           project_id: projectId, subcontract_id: sc.id, company_id: sc.companyId, company_name: v?.name ?? sc.trade,
           invoice_number: `INV-${proj.name.slice(0, 3).toUpperCase()}-${String(invNo).padStart(3, '0')}`, amount,
           description: `${sc.trade} - progress billing ${k + 1}`, status, due_date: ymd(daysFromNow(15 + invNo)),
-          created_at: iso(when), submitted_at: iso(when),
+          // updated_at drives the dashboard's "Out" bucket; set it (and
+          // created_at) to the spread month so paid invoices fill every bar.
+          created_at: iso(when), updated_at: iso(when), submitted_at: iso(when),
           approved_at: ['approved', 'sent', 'paid'].includes(status) ? iso(when) : null,
           paid_at: status === 'paid' ? iso(when) : null,
           client_paid: status === 'paid' ? round2(amount * 0.5) : 0, escrow_paid: status === 'paid' ? round2(amount * 0.5) : 0,
