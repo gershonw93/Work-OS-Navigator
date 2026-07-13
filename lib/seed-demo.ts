@@ -249,7 +249,7 @@ export async function runSeed(
     }
     await insert('schedule_items', { project_id: projectId, subcontract_id: null, label: 'Substantial Completion', color: '#C9F24A', start_date: ymd(end), end_date: ymd(end) })
 
-    await insert('project_tasks', TASK_TITLES.slice(0, 5 + (p % 4)).map((t, i) => ({ project_id: projectId, title: t, description: 'Auto-seeded demo task.', due_date: ymd(daysFromNow(3 + i * 4)), priority: pick(['low', 'medium', 'high'], i), status: pick(['open', 'in_progress', 'open', 'done'], i), assigned_to_name: pick(CREW, i).name, created_by: 'Demo Admin', completed_at: i % 4 === 3 ? iso(daysFromNow(-2)) : null })))
+    await insert('project_tasks', TASK_TITLES.slice(0, 5 + (p % 4)).map((t, i) => ({ project_id: projectId, title: t, description: 'Auto-seeded demo task.', due_date: ymd(daysFromNow(3 + i * 4)), priority: pick(['low', 'medium', 'high'], i), status: pick(['open', 'in_progress', 'open', 'completed'], i), assigned_to_name: pick(CREW, i).name, created_by: 'Demo Admin', completed_at: i % 4 === 3 ? iso(daysFromNow(-2)) : null })))
 
     for (let d = 0; d < 4; d++) {
       const logRow = await insert('daily_logs', {
