@@ -131,8 +131,13 @@ export function SearchableSelect({
     const spaceBelow = window.innerHeight - r.bottom
     const below = spaceBelow > 280 || spaceBelow > r.top
     // Keep the panel on screen even if the trigger is partly off-screen (e.g.
-    // a modal that overflows on a narrow phone).
+    // a modal that overflows on a narrow phone). On phones, just make it a
+    // full-width sheet so it can never clip off an edge.
     const vw = window.innerWidth
+    if (vw <= 640) {
+      setRect({ top: below ? r.bottom + 4 : r.top - 4, left: 8, width: vw - 16, below })
+      return
+    }
     const width = Math.min(Math.max(r.width, 220), vw - 16)
     let left = r.left
     if (left + width > vw - 8) left = vw - 8 - width
