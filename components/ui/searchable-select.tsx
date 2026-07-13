@@ -232,7 +232,9 @@ export function SearchableSelect({
                 onChange={e => { setQuery(e.target.value); setActiveIdx(0) }}
                 onKeyDown={onKeyDown}
                 placeholder="Search…"
-                className="w-full bg-transparent py-2 text-sm text-ink placeholder:text-faint focus:outline-none"
+                // 16px font stops iOS Safari from auto-zooming the page on focus.
+                style={{ fontSize: 16 }}
+                className="w-full bg-transparent py-2 text-ink placeholder:text-faint focus:outline-none"
               />
             </div>
           )}

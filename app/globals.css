@@ -106,6 +106,18 @@
     color: rgb(var(--faint));
   }
 
+  /* iOS Safari zooms the whole page when a focused form control has a font
+     smaller than 16px. Force 16px on phones so tapping any field (or a
+     dropdown's search box) never triggers that jarring zoom. Desktop keeps
+     its denser sizing. */
+  @media (max-width: 640px) {
+    input,
+    select,
+    textarea {
+      font-size: 16px;
+    }
+  }
+
   /* Prevent sideways scroll without breaking position: sticky.
      overflow-x: hidden on body silently disables sticky for every
      descendant (it creates a scroll container); clip does not.
