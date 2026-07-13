@@ -35,7 +35,7 @@ export async function POST(request: Request, { params }: { params: { id: string;
   const prompt = `You are helping a general contractor compare price quotes for: "${comp.title}"${comp.trade ? ` (${comp.trade})` : ''}.
 
 What the GC needs (requirements):
-${comp.requirements?.trim() || '(no explicit requirements given — infer reasonable scope expectations for this trade)'}
+${comp.requirements?.trim() || '(no explicit requirements given - infer reasonable scope expectations for this trade)'}
 
 Here are the quotes (JSON):
 ${JSON.stringify(quotesSummary, null, 2)}

@@ -74,7 +74,7 @@ export async function POST(
       .eq('status', 'completed')
 
     const taskList = tasks ?? []
-    // billing_amount not on tasks — use contract_amount divided evenly across tasks as fallback
+    // billing_amount not on tasks - use contract_amount divided evenly across tasks as fallback
     amount = taskList.length > 0 ? Math.round((sub.contract_amount / Math.max(taskList.length, 1)) * 100) / 100 : 0
     description = `Task completion billing: ${taskList.map((t: any) => t.title).join(', ')}`
 
@@ -86,7 +86,7 @@ export async function POST(
     const weekLabel = week_start
       ? new Date(week_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
       : new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-    description = `Weekly billing — week of ${weekLabel}`
+    description = `Weekly billing - week of ${weekLabel}`
   } else {
     return NextResponse.json({ error: 'Invalid billing_type' }, { status: 400 })
   }

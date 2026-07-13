@@ -134,7 +134,7 @@ function FragmentGroup({ group, children }: { group: string; children: React.Rea
   )
 }
 
-// ── Role defaults — editable classes, plus create-a-new-class ─────────────────
+// ── Role defaults - editable classes, plus create-a-new-class ─────────────────
 function RoleDefaultsView({ onRolesChanged }: { onRolesChanged?: () => void }) {
   const [roles, setRoles] = useState<CompanyRole[]>([])
   const [loading, setLoading] = useState(true)
@@ -209,7 +209,7 @@ function RoleDefaultsView({ onRolesChanged }: { onRolesChanged?: () => void }) {
     const headers = await authHeaders()
     const res = await fetch(`/api/settings/roles?role_key=${encodeURIComponent(selected.role_key)}`, { method: 'DELETE', headers })
     if (res.ok) { setMsg({ ok: true, text: 'Class deleted.' }); load(); onRolesChanged?.() }
-    else setMsg({ ok: false, text: (await res.json().catch(() => ({}))).error ?? 'Could not delete — reassign members first.' })
+    else setMsg({ ok: false, text: (await res.json().catch(() => ({}))).error ?? 'Could not delete - reassign members first.' })
   }
 
   return (
@@ -341,7 +341,7 @@ function UserOverridesView({ teammates }: { teammates: Teammate[] }) {
       setMsg({ ok: true, text: 'Permissions saved.' })
     } else {
       const d = await res.json().catch(() => ({}))
-      setMsg({ ok: false, text: `${d.error ?? 'Save failed'}${d.hint ? ` — ${d.hint}` : ''}` })
+      setMsg({ ok: false, text: `${d.error ?? 'Save failed'}${d.hint ? ` - ${d.hint}` : ''}` })
     }
     setSaving(false)
   }
@@ -354,7 +354,7 @@ function UserOverridesView({ teammates }: { teammates: Teammate[] }) {
         <label className="text-sm font-medium text-muted-fg">Select a user</label>
         <SearchableSelect value={selectedId} onChange={e => setSelectedId(e.target.value)}
           className="rounded-md border border-muted2 px-3 py-1.5 text-sm bg-panel focus:border-accent focus:outline-none min-w-[220px]">
-          <option value="">— Choose a team member —</option>
+          <option value="">- Choose a team member -</option>
           {teammates.map(t => (
             <option key={t.id} value={t.id}>{t.full_name || t.email} ({ROLE_LABELS[t.role] ?? t.role})</option>
           ))}

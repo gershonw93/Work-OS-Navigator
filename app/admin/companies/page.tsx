@@ -57,10 +57,10 @@ export default function AdminCompanies() {
             {!loading && rows.length === 0 && <tr><td colSpan={4} className="px-4 py-8 text-center text-faint">No companies found.</td></tr>}
             {!loading && rows.map(c => (
               <tr key={c.id} className="hover:bg-surface">
-                <td className="px-4 py-2.5 font-medium text-ink-soft">{c.name || '—'}</td>
+                <td className="px-4 py-2.5 font-medium text-ink-soft">{c.name || '-'}</td>
                 <td className="px-4 py-2.5 text-muted-fg">{c.user_count}</td>
                 <td className="px-4 py-2.5 text-muted-fg">{c.project_count}</td>
-                <td className="px-4 py-2.5 text-muted-fg hidden sm:table-cell">{c.created_at ? new Date(c.created_at).toLocaleDateString() : '—'}</td>
+                <td className="px-4 py-2.5 text-muted-fg hidden sm:table-cell">{c.created_at ? new Date(c.created_at).toLocaleDateString() : '-'}</td>
               </tr>
             ))}
           </tbody>

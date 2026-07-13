@@ -50,7 +50,7 @@ export default function AccessRequestsPage() {
     setCopiedId(r.id); setTimeout(() => setCopiedId(null), 1500)
   }
   function mailto(r: AccessRequest) {
-    const subject = "You're in — your SyteNav invite"
+    const subject = "You're in - your SyteNav invite"
     const body = `Hi ${r.name.split(' ')[0]},\n\nYour SyteNav access request is approved. Create your account with this personal invite link:\n${inviteLink(r)}\n\nWelcome aboard!`
     return `mailto:${r.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
   }
@@ -69,7 +69,7 @@ export default function AccessRequestsPage() {
       {loading ? (
         <p className="py-12 text-center text-sm text-faint">Loading…</p>
       ) : requests.length === 0 ? (
-        <p className="py-12 text-center text-sm text-faint">No requests yet — they&apos;ll appear here when someone fills the Request Access form.</p>
+        <p className="py-12 text-center text-sm text-faint">No requests yet - they&apos;ll appear here when someone fills the Request Access form.</p>
       ) : (
         <div className="space-y-2">
           {requests.map(r => (

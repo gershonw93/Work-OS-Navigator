@@ -9,8 +9,8 @@ const admin = () => createClient(
 )
 
 // Tells the UI how the current viewer relates to this project:
-//   companyType — 'gc' | 'subcontractor' | ...
-//   owns        — true if the viewer's company owns/created the project
+//   companyType - 'gc' | 'subcontractor' | ...
+//   owns        - true if the viewer's company owns/created the project
 // Used to gate project tabs (a sub awarded a subcontract on a GC's project
 // should only see their own lane, not the GC's private money tabs).
 export async function GET(request: Request, { params }: { params: { id: string } }) {

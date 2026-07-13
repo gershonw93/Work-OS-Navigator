@@ -551,7 +551,7 @@ CREATE TABLE IF NOT EXISTS contacts (
 );
 
 -- ============================================================
--- SyteNav — combined migrations 008–015
+-- SyteNav - combined migrations 008–015
 -- Paste this whole file into the Supabase SQL editor and run once.
 -- Safe to re-run (idempotent): IF NOT EXISTS / DROP-then-ADD throughout.
 -- ============================================================
@@ -804,8 +804,8 @@ ALTER TABLE companies
 
 -- ===== 027_client_payments.sql =====
 -- Cost-plus / escrow money model:
---   • client_payments — incoming funds from the client (deposits/draws)
---   • projects.contractor_fee_pct — management fee rate (e.g. 0.15 = 15%)
+--   • client_payments - incoming funds from the client (deposits/draws)
+--   • projects.contractor_fee_pct - management fee rate (e.g. 0.15 = 15%)
 CREATE TABLE IF NOT EXISTS client_payments (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   project_id UUID NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
@@ -948,7 +948,7 @@ CREATE INDEX IF NOT EXISTS idx_compliance_requests_company ON compliance_request
 CREATE INDEX IF NOT EXISTS idx_compliance_requests_token ON compliance_requests (token);
 -- ===== 038_invoice_document.sql =====
 -- Let the GC attach the subcontractor's actual invoice file (PDF/photo) to an
--- invoice record. Subs don't need an account — the GC records the invoice and
+-- invoice record. Subs don't need an account - the GC records the invoice and
 -- staples the vendor's document to it here.
 ALTER TABLE invoices
   ADD COLUMN IF NOT EXISTS document_url text,
@@ -1011,7 +1011,7 @@ ALTER TABLE inspections
 ALTER TABLE inspections DROP CONSTRAINT IF EXISTS inspections_status_check;
 
 -- ===== 042_calendar_feed.sql =====
--- Private per-user token for the iCal calendar subscription feed. Optional — the
+-- Private per-user token for the iCal calendar subscription feed. Optional - the
 -- in-app Master Calendar is unchanged; this just lets a user mirror those events
 -- into Google/Apple/Outlook via a secret subscribe URL.
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS calendar_token text;

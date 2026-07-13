@@ -274,7 +274,7 @@ function TaskDetailPanel({ task, notes, notesLoading, onAddNote, projectId, onCh
             </a>
           )}
 
-          {/* Work signoff — signature approval once the work is done */}
+          {/* Work signoff - signature approval once the work is done */}
           {task.status === 'completed' && (
             <div className="rounded-lg border border-line-soft bg-panel px-3 py-2.5">
               {task.signoff_signed_at ? (
@@ -333,7 +333,7 @@ function TaskDetailPanel({ task, notes, notesLoading, onAddNote, projectId, onCh
                 Loading updates…
               </div>
             ) : notes.length === 0 ? (
-              <p className="text-xs text-faint py-2 italic">No updates yet — add the first one</p>
+              <p className="text-xs text-faint py-2 italic">No updates yet - add the first one</p>
             ) : (
               notes.map(note => (
                 <div key={note.id} className="bg-panel rounded-lg border border-line-soft px-3 py-2">
@@ -500,7 +500,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
   function openAddForm(defaultStatus?: string) {
     resetForm()
     if (defaultStatus) {
-      // we'll pass it via a transient state — handled below via addDefaultStatus
+      // we'll pass it via a transient state - handled below via addDefaultStatus
     }
     setShowAdd(true)
   }
@@ -587,7 +587,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
       }
       setShowAdd(false); resetForm(); load()
     } catch (err: any) {
-      setSaveError(err?.message ? `Save failed: ${err.message}` : 'Save failed — check your connection and try again.')
+      setSaveError(err?.message ? `Save failed: ${err.message}` : 'Save failed - check your connection and try again.')
     } finally {
       setSaving(false)
     }
@@ -890,7 +890,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
           })}
         </div>
 
-        {/* Board expanded panel — drawer below the board */}
+        {/* Board expanded panel - drawer below the board */}
         {expandedTask && (
           <div className="rounded-xl border border-accent/40 bg-panel shadow-md overflow-hidden">
             <div className="flex items-center justify-between px-4 py-2.5 bg-accent-tint border-b border-accent/20">
@@ -1064,7 +1064,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
                       ? <p className="text-xs text-faint">No crew members on this project yet. Add them in the Team tab.</p>
                       : <Select value={assignedMemberId} onChange={e => setAssignedMemberId(e.target.value)}>
                           <option value="">Unassigned</option>
-                          {members.map(m => <option key={m.id} value={m.id}>{m.name} — {m.role}</option>)}
+                          {members.map(m => <option key={m.id} value={m.id}>{m.name} - {m.role}</option>)}
                         </Select>
                   )}
                   {assigneeType === 'sub' && (
@@ -1072,7 +1072,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
                       ? <p className="text-xs text-faint">No awarded subcontractors yet. Award bids first.</p>
                       : <Select value={assignedSubId} onChange={e => setAssignedSubId(e.target.value)}>
                           <option value="">Unassigned</option>
-                          {subs.map(s => <option key={s.id} value={s.id}>{s.companies?.name} — {s.scope}</option>)}
+                          {subs.map(s => <option key={s.id} value={s.id}>{s.companies?.name} - {s.scope}</option>)}
                         </Select>
                   )}
                 </div>
@@ -1081,7 +1081,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
                 <div className="space-y-1.5">
                   <Label htmlFor="followup">Follow-up date <span className="text-faint font-normal">(optional)</span></Label>
                   <Input id="followup" type="date" value={followUpDate} onChange={e => setFollowUpDate(e.target.value)} />
-                  <p className="text-xs text-faint">Set a date to revisit this task — leave blank for none.</p>
+                  <p className="text-xs text-faint">Set a date to revisit this task - leave blank for none.</p>
                 </div>
 
                 {/* Image attachment */}

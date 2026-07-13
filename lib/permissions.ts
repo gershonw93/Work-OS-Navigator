@@ -1,9 +1,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// WorkOS Navigator — Permission model
+// WorkOS Navigator - Permission model
 //
 // Two levels:
-//   1. ROLE_DEFAULTS  — fixed in code. What each role can do out of the box.
-//   2. per-user overrides — stored in profiles.permission_overrides (jsonb).
+//   1. ROLE_DEFAULTS  - fixed in code. What each role can do out of the box.
+//   2. per-user overrides - stored in profiles.permission_overrides (jsonb).
 //      An override replaces the default for a single resource+action.
 //
 // Effective permission = role default, unless a per-user override exists.

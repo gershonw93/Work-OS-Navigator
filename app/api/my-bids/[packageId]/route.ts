@@ -160,7 +160,7 @@ export async function POST(request: Request, { params }: { params: { packageId: 
     const action = isRevision ? 'bid_revised' : existing ? 'bid_updated' : 'bid_submitted'
     const verb = isRevision ? 'resubmitted revised' : existing ? 'updated' : 'submitted'
     await logActivity(db, pkg.project_id, companyName, action,
-      `${companyName} ${verb} bid for "${pkg.scope}" — $${Number(amount).toLocaleString()}`,
+      `${companyName} ${verb} bid for "${pkg.scope}" - $${Number(amount).toLocaleString()}`,
       { bid_id: bid?.id, package_id: params.packageId, amount, duration_days, crew_size }
     )
 
@@ -182,7 +182,7 @@ export async function POST(request: Request, { params }: { params: { packageId: 
               db,
               p.id,
               `New Bid: ${pkg.scope}`,
-              `${companyName} ${verb} a bid — $${Number(amount).toLocaleString()}`,
+              `${companyName} ${verb} a bid - $${Number(amount).toLocaleString()}`,
               `/projects/${pkg.project_id}/bids`,
               'bid',
             )

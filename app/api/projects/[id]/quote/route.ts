@@ -66,7 +66,7 @@ function parseTerms(text: string | null): any[] | null {
   return stages.length ? stages : null
 }
 
-// GET — quote file + status + line items for this project.
+// GET - quote file + status + line items for this project.
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   const user = await authUser(request)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -91,7 +91,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
   return NextResponse.json({ project: project ?? null, line_items: lines ?? [], default_payment_terms: defaultTerms })
 }
 
-// POST — upload a quote file, AI-scan it into line items.
+// POST - upload a quote file, AI-scan it into line items.
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   const user = await authUser(request)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -150,7 +150,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   return NextResponse.json({ file_url: fileUrl, file_name: file.name, total, payment_terms: paymentTerms, payment_stages: stages, line_items: items, scanned: !!parsed })
 }
 
-// PATCH — convert Quote/Pending → Active (or update a line item's progress %).
+// PATCH - convert Quote/Pending → Active (or update a line item's progress %).
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
   const user = await authUser(request)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

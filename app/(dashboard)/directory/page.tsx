@@ -879,7 +879,7 @@ export default function DirectoryPage() {
                           <p className="text-xl font-bold text-ink">
                             {profileData.subcontracts?.reduce((s: number, sub: any) => s + (Number(sub.contract_amount) || 0), 0) > 0
                               ? '$' + (profileData.subcontracts.reduce((s: number, sub: any) => s + (Number(sub.contract_amount) || 0), 0) / 1000).toFixed(0) + 'k'
-                              : '—'}
+                              : '-'}
                           </p>
                           <p className="text-xs text-faint mt-0.5">Contracted</p>
                         </div>
@@ -932,10 +932,10 @@ export default function DirectoryPage() {
                                       </span>
                                     </td>
                                     <td className="px-4 py-3 text-muted-fg text-xs">
-                                      {doc.expiry_date ? new Date(doc.expiry_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                                      {doc.expiry_date ? new Date(doc.expiry_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'}
                                     </td>
                                     <td className="px-4 py-3 text-faint text-xs">
-                                      {doc.created_at ? new Date(doc.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                                      {doc.created_at ? new Date(doc.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'}
                                     </td>
                                     <td className="px-4 py-3 text-right">
                                       {doc.file_url ? (

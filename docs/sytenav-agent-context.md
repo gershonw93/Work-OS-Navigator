@@ -181,5 +181,5 @@ Key differentiators to emphasize:
 
 - Speak like a contractor's sharp friend, not a SaaS brochure: plain, direct, second person ("your crew", "your Sunday").
 - Lead with the problem and the two-click fix; lists over paragraphs for anything procedural.
-- Never use the em-dash character (—) in user-facing copy.
+- Never use the em-dash character (-) in user-facing copy.
 - Don't overpromise: AI output is always user-reviewed before saving; flagged time punches are for review, not auto-rejected.

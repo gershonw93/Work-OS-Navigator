@@ -43,7 +43,7 @@ function isDelivery(item: ScheduleItem) {
 }
 
 function getLabel(item: ScheduleItem) {
-  if (isDelivery(item)) return `Delivery — ${item.subcontracts?.companies?.name ?? item.subcontracts?.trade ?? 'Supplier'}`
+  if (isDelivery(item)) return `Delivery - ${item.subcontracts?.companies?.name ?? item.subcontracts?.trade ?? 'Supplier'}`
   if (item.label) return item.label
   if (item.subcontracts) return item.subcontracts.scope
   return 'Untitled'
@@ -514,7 +514,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
             <div className="px-5 py-3 border-b border-line-soft flex items-center gap-2 flex-wrap">
               <CalendarDays className="h-4 w-4 text-faint" />
               <span className="text-sm font-semibold text-ink-soft">Timeline</span>
-              <span className="text-xs text-faint ml-1">{formatDateFull(minDate)} — {formatDateFull(maxDate)}</span>
+              <span className="text-xs text-faint ml-1">{formatDateFull(minDate)} - {formatDateFull(maxDate)}</span>
             </div>
             <div className="overflow-x-auto">
               <div style={{ minWidth: Math.max(700, totalDays * 18) + 220 }}>

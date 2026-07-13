@@ -26,7 +26,7 @@ export async function GET(
 
   if (subError) return NextResponse.json({ error: subError.message }, { status: 500 })
 
-  // Deduplicate by company — one compliance card per company, not per subcontract
+  // Deduplicate by company - one compliance card per company, not per subcontract
   const seen = new Set<string>()
   const subs = (subcontracts ?? []).filter((s: any) => {
     const cid = s.companies?.id

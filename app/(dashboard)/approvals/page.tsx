@@ -162,7 +162,7 @@ export default function ApprovalsPage() {
                     </div>
 
                     <div>
-                      <p className="text-sm font-medium text-ink-soft">{item.project ?? '—'}</p>
+                      <p className="text-sm font-medium text-ink-soft">{item.project ?? '-'}</p>
                       {item.description && <p className="text-xs text-muted-fg mt-0.5 line-clamp-2">{item.description}</p>}
                       {!isSub && item.submitted_by && (
                         <p className="text-xs text-faint mt-0.5">From: {item.submitted_by}</p>
@@ -253,10 +253,10 @@ export default function ApprovalsPage() {
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-ink-soft">{item.project ?? '—'}</td>
-                        {!isSub && <td className="px-4 py-3 text-muted-fg">{item.submitted_by ?? '—'}</td>}
+                        <td className="px-4 py-3 text-ink-soft">{item.project ?? '-'}</td>
+                        {!isSub && <td className="px-4 py-3 text-muted-fg">{item.submitted_by ?? '-'}</td>}
                         <td className="px-4 py-3 font-semibold text-ink-soft">
-                          {item.amount != null ? `$${Number(item.amount).toLocaleString()}` : '—'}
+                          {item.amount != null ? `$${Number(item.amount).toLocaleString()}` : '-'}
                         </td>
                         <td className="px-4 py-3">
                           <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5', STATUS_COLORS[item.status] ?? STATUS_COLORS.pending)}>
@@ -306,7 +306,7 @@ export default function ApprovalsPage() {
                             </span>
                           )}
                           {isSub && item.type === 'invoice' && (
-                            <span className="text-xs text-faint">—</span>
+                            <span className="text-xs text-faint">-</span>
                           )}
                         </td>
                       </tr>

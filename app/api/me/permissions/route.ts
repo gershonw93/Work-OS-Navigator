@@ -23,7 +23,7 @@ export async function GET(request: Request) {
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // Select defensively — permission_overrides column may not exist yet
+  // Select defensively - permission_overrides column may not exist yet
   let role = (user.user_metadata?.role as string) ?? 'read_only'
   let overrides: OverrideMap | null = null
   let companyId: string | null = null
@@ -39,7 +39,7 @@ export async function GET(request: Request) {
     overrides = (full.permission_overrides ?? null) as OverrideMap | null
     companyId = full.company_id ?? null
   } else {
-    // Column missing or other error — fall back to role only
+    // Column missing or other error - fall back to role only
     const { data: basic } = await db.from('profiles').select('role, company_id').eq('id', user.id).single()
     if (basic?.role) role = basic.role
     companyId = basic?.company_id ?? null
@@ -49,7 +49,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url)
   const companyRoleMap = await loadCompanyRoleMap(db, companyId)
 
-  // Admin-only "View as specific user" — preview that user's effective permissions
+  // Admin-only "View as specific user" - preview that user's effective permissions
   const asUser = url.searchParams.get('as_user')
   if (asUser && realRole === 'admin') {
     // Caller's company for a same-company guard
@@ -71,7 +71,7 @@ export async function GET(request: Request) {
     }
   }
 
-  // Admin-only "View as role" preview — supports built-in roles and this
+  // Admin-only "View as role" preview - supports built-in roles and this
   // company's custom classes.
   const viewAs = url.searchParams.get('as')
   if (viewAs && realRole === 'admin' && (ROLE_DEFAULTS[viewAs] || companyRoleMap[viewAs])) {

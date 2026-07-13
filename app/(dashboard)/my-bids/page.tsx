@@ -99,7 +99,7 @@ export default function MyBidsPage() {
             <p className="text-xs text-faint mt-0.5">Bid due {new Date(pkg.due_date).toLocaleDateString()}</p>
           )}
           {activeTab === 'revisions' && (
-            <p className="text-xs text-warn mt-0.5 font-medium">Revision requested — update and resubmit</p>
+            <p className="text-xs text-warn mt-0.5 font-medium">Revision requested - update and resubmit</p>
           )}
         </div>
         <div className="shrink-0 flex items-center gap-3">
@@ -169,7 +169,7 @@ export default function MyBidsPage() {
                 const isExpanded = expandedJob === group.projectId
 
                 if (isSingle) {
-                  // Single bid for this job — direct card, show project name under scope
+                  // Single bid for this job - direct card, show project name under scope
                   const inv = group.items[0]
                   const pkg = inv.bid_packages
                   return (
@@ -190,7 +190,7 @@ export default function MyBidsPage() {
                           <p className="text-xs text-faint mt-0.5">Bid due {new Date(pkg.due_date).toLocaleDateString()}</p>
                         )}
                         {activeTab === 'revisions' && (
-                          <p className="text-xs text-warn mt-0.5 font-medium">Revision requested — update and resubmit</p>
+                          <p className="text-xs text-warn mt-0.5 font-medium">Revision requested - update and resubmit</p>
                         )}
                       </div>
                       <div className="shrink-0 flex items-center gap-3">
@@ -203,7 +203,7 @@ export default function MyBidsPage() {
                   )
                 }
 
-                // Multiple bids for same job — collapsible group
+                // Multiple bids for same job - collapsible group
                 const totalValue = group.items.reduce((s, i) => s + (i.my_bid?.amount ?? 0), 0)
                 return (
                   <div key={group.projectId} className="rounded-xl border border-line bg-panel overflow-hidden">

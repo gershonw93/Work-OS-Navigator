@@ -1,6 +1,6 @@
 -- Request-for-quote (bid-out) flow. A GC creates a bid request with plans,
 -- invites subs (each gets a unique public link/token), and subs submit a quote
--- from a public page — no account required. Feeds Compare Quotes.
+-- from a public page - no account required. Feeds Compare Quotes.
 
 CREATE TABLE IF NOT EXISTS bid_requests (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

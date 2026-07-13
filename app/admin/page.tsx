@@ -31,7 +31,7 @@ export default function AdminOverview() {
             <div className={`mb-3 inline-flex h-9 w-9 items-center justify-center rounded-lg ${c.color}`}>
               <c.icon className="h-5 w-5" />
             </div>
-            <p className="text-2xl font-bold text-ink-soft">{loading ? '—' : c.value ?? 0}</p>
+            <p className="text-2xl font-bold text-ink-soft">{loading ? '-' : c.value ?? 0}</p>
             <p className="text-xs font-medium text-muted-fg">{c.label}</p>
           </Link>
         ))}

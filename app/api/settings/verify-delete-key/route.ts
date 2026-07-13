@@ -9,7 +9,7 @@ const admin = () => createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
-// Verify the company's secret delete key. Returns { ok } — ok is also true when
+// Verify the company's secret delete key. Returns { ok } - ok is also true when
 // protection is disabled (nothing to verify against).
 export async function POST(request: Request) {
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')

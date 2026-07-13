@@ -622,7 +622,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                         </div>
                         <div className="text-right shrink-0">
                           <p className="text-sm font-semibold text-ink">
-                            {item.amount ? `$${Number(item.amount).toLocaleString()}` : item.percentage ? `${item.percentage}%` : '—'}
+                            {item.amount ? `$${Number(item.amount).toLocaleString()}` : item.percentage ? `${item.percentage}%` : '-'}
                           </p>
                           <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5',
                             STATUS_COLORS[item.status] ?? STATUS_COLORS.pending)}>
@@ -1060,7 +1060,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                     <div className="rounded-lg bg-success-tint border border-success/30 px-4 py-3">
                       <p className="text-xs font-semibold text-success mb-1">GC Response</p>
                       <p className="text-sm text-success whitespace-pre-wrap">{selectedRfi.response}</p>
-                      <p className="text-xs text-success mt-1.5">— {selectedRfi.responded_by_name}</p>
+                      <p className="text-xs text-success mt-1.5">- {selectedRfi.responded_by_name}</p>
                     </div>
                   ) : (
                     <p className="text-sm text-faint italic">Awaiting GC response...</p>
@@ -1228,7 +1228,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                       className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
                       <option value="">Select contract...</option>
                       {(subcontracts ?? []).map((s: any) => (
-                        <option key={s.id} value={s.id}>{s.trade} — ${Number(s.contract_amount).toLocaleString()}</option>
+                        <option key={s.id} value={s.id}>{s.trade} - ${Number(s.contract_amount).toLocaleString()}</option>
                       ))}
                     </SearchableSelect>
                   </div>

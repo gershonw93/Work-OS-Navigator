@@ -9,7 +9,7 @@ const admin = () => createClient(
 )
 
 // Geocode the company's projects that don't have cached coordinates yet.
-// Uses Photon (OpenStreetMap) — free, no key, and (unlike Nominatim) reliable
+// Uses Photon (OpenStreetMap) - free, no key, and (unlike Nominatim) reliable
 // from datacenter/serverless IPs.
 export async function POST(request: Request) {
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     .or(`gc_company_id.eq.${profile.company_id},created_by_company_id.eq.${profile.company_id}`)
     .not('address', 'is', null)
 
-  // Columns not there yet (migration 047 hasn't run) — nothing to do.
+  // Columns not there yet (migration 047 hasn't run) - nothing to do.
   if (selErr) return NextResponse.json({ updated: 0, error: 'Run the latest migration to enable the map.' })
 
   const pending = (projects ?? []).filter(p => p.address && (p.lat == null || p.geocoded_address !== p.address)).slice(0, 25)

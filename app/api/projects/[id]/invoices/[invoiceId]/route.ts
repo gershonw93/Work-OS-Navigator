@@ -46,7 +46,7 @@ export async function PATCH(
     updates.approved_at = new Date().toISOString()
     updates.approved_by_name = (profile as any)?.full_name ?? null
 
-    await logActivity(db, params.id, (profile as any)?.full_name ?? 'GC', 'invoice_approved', `Invoice ${invoice.invoice_number} approved — $${Number(invoice.amount).toLocaleString()}`)
+    await logActivity(db, params.id, (profile as any)?.full_name ?? 'GC', 'invoice_approved', `Invoice ${invoice.invoice_number} approved - $${Number(invoice.amount).toLocaleString()}`)
 
     // Notify sub company
     if (invoice.company_id) {
@@ -61,7 +61,7 @@ export async function PATCH(
               db,
               p.id,
               `Invoice Approved`,
-              `Invoice ${invoice.invoice_number} has been approved — $${Number(invoice.amount).toLocaleString()}`,
+              `Invoice ${invoice.invoice_number} has been approved - $${Number(invoice.amount).toLocaleString()}`,
               `/projects/${params.id}/invoices`,
               'invoice_approved',
             )
@@ -73,7 +73,7 @@ export async function PATCH(
     updates.sent_at = new Date().toISOString()
 
     const { data: gcProfile } = await db.from('profiles').select('full_name').eq('id', user.id).single()
-    await logActivity(db, params.id, (gcProfile as any)?.full_name ?? 'GC', 'invoice_sent', `Invoice ${invoice.invoice_number} sent to sub — $${Number(invoice.amount).toLocaleString()}`)
+    await logActivity(db, params.id, (gcProfile as any)?.full_name ?? 'GC', 'invoice_sent', `Invoice ${invoice.invoice_number} sent to sub - $${Number(invoice.amount).toLocaleString()}`)
 
     // Notify sub company
     if (invoice.company_id) {
@@ -88,7 +88,7 @@ export async function PATCH(
               db,
               p.id,
               `Invoice Sent`,
-              `Invoice ${invoice.invoice_number} — $${Number(invoice.amount).toLocaleString()}. Please review.`,
+              `Invoice ${invoice.invoice_number} - $${Number(invoice.amount).toLocaleString()}. Please review.`,
               `/projects/${params.id}/invoices`,
               'invoice_sent',
             )
@@ -98,7 +98,7 @@ export async function PATCH(
     }
   } else if (status === 'paid') {
     const { data: paidProfile } = await db.from('profiles').select('full_name').eq('id', user.id).single()
-    await logActivity(db, params.id, (paidProfile as any)?.full_name ?? 'GC', 'invoice_paid', `Invoice ${invoice.invoice_number} marked as paid — $${Number(invoice.amount).toLocaleString()}`)
+    await logActivity(db, params.id, (paidProfile as any)?.full_name ?? 'GC', 'invoice_paid', `Invoice ${invoice.invoice_number} marked as paid - $${Number(invoice.amount).toLocaleString()}`)
 
     // Notify sub company
     if (invoice.company_id) {
@@ -113,7 +113,7 @@ export async function PATCH(
               db,
               p.id,
               `Invoice Paid`,
-              `Invoice ${invoice.invoice_number} has been marked as paid — $${Number(invoice.amount).toLocaleString()}`,
+              `Invoice ${invoice.invoice_number} has been marked as paid - $${Number(invoice.amount).toLocaleString()}`,
               `/projects/${params.id}/invoices`,
               'invoice_paid',
             )

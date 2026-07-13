@@ -596,7 +596,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
             <div className="px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-ink">{editingSubId ? 'Edit Subcontractor' : 'Add Subcontractor'}</h2>
-                <p className="text-xs text-faint">{editingSubId ? 'Update this sub’s details.' : 'Enter a sub manually — they don’t need an account.'}</p>
+                <p className="text-xs text-faint">{editingSubId ? 'Update this sub’s details.' : 'Enter a sub manually - they don’t need an account.'}</p>
               </div>
               <button onClick={() => { setShowAddSub(false); setEditingSubId(null) }} className="text-faint hover:text-muted-fg"><X className="h-5 w-5" /></button>
             </div>
@@ -623,7 +623,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                       <option value="">-- Pick from your saved subs --</option>
                       {directorySubs.map(s => <option key={s.id} value={s.id}>{s.name}{s.trade ? ` (${s.trade})` : ''}</option>)}
                     </Select>
-                    {directorySubs.length === 0 && <p className="text-xs text-faint">No saved subs yet — add a new one and it'll be saved here for next time.</p>}
+                    {directorySubs.length === 0 && <p className="text-xs text-faint">No saved subs yet - add a new one and it'll be saved here for next time.</p>}
                   </div>
                 ) : (
                   <>
@@ -655,11 +655,11 @@ export default function TeamPage({ params }: { params: { id: string } }) {
 
                 {/* Scope as line items */}
                 <div className="space-y-2">
-                  <Label>Scope of Work — line items</Label>
+                  <Label>Scope of Work - line items</Label>
                   <div className="space-y-2">
                     {subLineItems.map((li, i) => (
                       <div key={i} className="flex items-center gap-2">
-                        <Input className="flex-1" placeholder={`Item ${i + 1} — e.g. Rough-in plumbing`} value={li.description} onChange={e => updateLineItem(i, 'description', e.target.value)} />
+                        <Input className="flex-1" placeholder={`Item ${i + 1} - e.g. Rough-in plumbing`} value={li.description} onChange={e => updateLineItem(i, 'description', e.target.value)} />
                         <div className="relative w-28 shrink-0">
                           <span className="absolute left-2.5 top-2 text-faint text-sm">$</span>
                           <Input className="pl-5" placeholder="0" value={li.amount} onChange={e => updateLineItem(i, 'amount', e.target.value)} />
@@ -731,7 +731,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                       onChange={e => { const f = e.target.files?.[0]; if (f) analyzeProposal(f) }} />
                   </label>
                   {subAnalyzeError && <p className="text-xs text-danger flex items-center gap-1"><X className="h-3 w-3 shrink-0" />{subAnalyzeError}</p>}
-                  {subScanned && !subAnalyzeError && <p className="text-xs font-medium text-success">✓ AI filled the fields below — review and edit as needed.</p>}
+                  {subScanned && !subAnalyzeError && <p className="text-xs font-medium text-success">✓ AI filled the fields below - review and edit as needed.</p>}
                 </div>
                 )}
               </div>
@@ -892,7 +892,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                                         </span>
                                       )}
                                     </span>
-                                    <span className="text-muted-fg font-medium shrink-0">{li.amount != null ? `$${Number(li.amount).toLocaleString()}` : '—'}</span>
+                                    <span className="text-muted-fg font-medium shrink-0">{li.amount != null ? `$${Number(li.amount).toLocaleString()}` : '-'}</span>
                                   </div>
                                 ))}
                                 <div className="flex items-center justify-between gap-3 px-3 py-1.5 text-sm bg-surface font-semibold">

@@ -95,7 +95,7 @@ export async function GET(request: Request) {
     has_account: companiesWithAccount.has(c.id),
   }))
 
-  // Try to fetch contacts table — gracefully fall back if it doesn't exist
+  // Try to fetch contacts table - gracefully fall back if it doesn't exist
   let contactsResult: unknown[] = []
   try {
     const { data: contacts, error } = await db
@@ -106,7 +106,7 @@ export async function GET(request: Request) {
       contactsResult = contacts ?? []
     }
   } catch {
-    // contacts table doesn't exist — return empty array
+    // contacts table doesn't exist - return empty array
     contactsResult = []
   }
 
@@ -169,7 +169,7 @@ export async function POST(request: Request) {
     added_by_company_id: myCompanyId,
   }
 
-  // Attempt to set extra column — if it doesn't exist Supabase will just ignore or error
+  // Attempt to set extra column - if it doesn't exist Supabase will just ignore or error
   if (Object.keys(extra).length > 0) {
     insertPayload.extra = extra
   }

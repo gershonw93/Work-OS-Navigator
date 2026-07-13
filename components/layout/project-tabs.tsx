@@ -69,7 +69,7 @@ const groups = [
 const allTabs = groups.flatMap(g => g.tabs)
 
 // When a subcontractor opens a GC-owned project they were awarded, restrict to
-// their own lane (plans/schedule to do the work + their field items) — never the
+// their own lane (plans/schedule to do the work + their field items) - never the
 // GC's private money/people tabs.
 const SUB_AWARDED_ALLOWED = new Set(['plans', 'schedule', 'tasks', 'progress', 'daily-logs', 'time', 'rfis', 'compliance'])
 // On a sub's OWN job they get the full set except: submittals (a sub→GC
@@ -105,7 +105,7 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
     if (!isSub) return true
     return ctx?.owns ? !SUB_OWN_HIDDEN.has(slug) : SUB_AWARDED_ALLOWED.has(slug)
   }
-  // The "Quote" tab is the sub's own-job starting point — only there.
+  // The "Quote" tab is the sub's own-job starting point - only there.
   const tabAllowed = (slug: string) => {
     if (slug === 'quote') return isSub && !!ctx?.owns
     return can(slug, 'view') && subAllows(slug)

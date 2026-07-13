@@ -70,7 +70,7 @@ function RequestAccessForm() {
       <div className="text-center py-8">
         <h1 className="text-2xl font-bold text-white">Request received</h1>
         <p className="mt-3 text-sm text-faint max-w-sm mx-auto">
-          Thanks — we review every request personally. You&apos;ll get an email with your invite link as soon as you&apos;re approved.
+          Thanks - we review every request personally. You&apos;ll get an email with your invite link as soon as you&apos;re approved.
         </p>
         <p className="mt-6 text-sm text-faint">
           Already have an account?{' '}
@@ -188,7 +188,7 @@ function CreateAccountForm({ inviteToken, prefill }: { inviteToken: string; pref
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white">You&apos;re in — create your account</h1>
+        <h1 className="text-2xl font-bold text-white">You&apos;re in - create your account</h1>
         <p className="mt-1 text-sm text-faint">Your access request was approved. Welcome to SyteNav.</p>
       </div>
 

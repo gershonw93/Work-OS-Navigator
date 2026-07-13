@@ -25,7 +25,7 @@ export async function POST(request: Request, { params }: { params: { id: string;
 
   const quote = (comp.quotes ?? []).find((q: any) => q.id === quote_id)
   if (!quote) return NextResponse.json({ error: 'Quote not found' }, { status: 404 })
-  if (quote.total_amount == null) return NextResponse.json({ error: 'This quote has no total amount — set one before awarding.' }, { status: 400 })
+  if (quote.total_amount == null) return NextResponse.json({ error: 'This quote has no total amount - set one before awarding.' }, { status: 400 })
 
   const { data: profile } = await db.from('profiles').select('full_name, company_id').eq('id', user.id).single()
   const myCompanyId = (profile as any)?.company_id ?? null

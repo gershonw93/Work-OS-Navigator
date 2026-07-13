@@ -115,13 +115,13 @@ export default function TimeClockPage({ params }: { params: { id: string } }) {
       const data = await res.json().catch(() => ({}))
       if (!res.ok) { setMsg({ kind: 'error', text: data.error || 'Punch failed.' }); return }
       if (data.flagged) {
-        setMsg({ kind: 'warn', text: `Clocked ${action === 'in' ? 'in' : 'out'} — but your location is ${data.distance != null ? `${data.distance}m from the job site` : 'unavailable'}. Flagged for review.` })
+        setMsg({ kind: 'warn', text: `Clocked ${action === 'in' ? 'in' : 'out'} - but your location is ${data.distance != null ? `${data.distance}m from the job site` : 'unavailable'}. Flagged for review.` })
       } else {
         setMsg({ kind: 'ok', text: `Clocked ${action === 'in' ? 'in' : 'out'} successfully${data.distance != null ? ` · ${data.distance}m from site` : ''}.` })
       }
       load()
     } catch (err: any) {
-      setMsg({ kind: 'error', text: err?.message ? `Failed: ${err.message}` : 'Failed — check connection.' })
+      setMsg({ kind: 'error', text: err?.message ? `Failed: ${err.message}` : 'Failed - check connection.' })
     } finally {
       setBusy(false)
     }

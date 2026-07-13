@@ -207,7 +207,7 @@ export default function BidDetailPage({ params }: { params: { packageId: string 
       {isAwarded && (
         <div className="rounded-xl bg-accent-tint border border-accent/40 px-5 py-4 flex items-center gap-3">
           <CheckCircle2 className="h-5 w-5 text-accent-fg shrink-0" />
-          <p className="text-sm font-medium text-accent-fg">Congratulations — you have been awarded this contract!</p>
+          <p className="text-sm font-medium text-accent-fg">Congratulations - you have been awarded this contract!</p>
         </div>
       )}
 
@@ -222,7 +222,7 @@ export default function BidDetailPage({ params }: { params: { packageId: string 
             </div>
             <div className="flex items-center gap-1.5 text-sm text-muted-fg">
               <MapPin className="h-3.5 w-3.5" />
-              <span>{project?.name} — {project?.address}</span>
+              <span>{project?.name} - {project?.address}</span>
             </div>
           </div>
           <div className="flex items-center gap-6 text-sm shrink-0">
@@ -420,7 +420,7 @@ export default function BidDetailPage({ params }: { params: { packageId: string 
         </div>
       )}
 
-      {/* RFIs — only show when bid is submitted/awarded */}
+      {/* RFIs - only show when bid is submitted/awarded */}
       {myBid && (
         <div className="bg-panel rounded-xl border border-line p-5">
           <div className="flex items-center justify-between mb-4">

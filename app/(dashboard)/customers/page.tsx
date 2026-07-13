@@ -142,7 +142,7 @@ function AddProjectModal({
                 <option value="">Choose a project…</option>
                 {existing.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </Select>
-              {existing.length === 0 && <p className="text-xs text-faint">No unassigned projects — every project is already linked to a customer.</p>}
+              {existing.length === 0 && <p className="text-xs text-faint">No unassigned projects - every project is already linked to a customer.</p>}
             </div>
           ) : (
             <>

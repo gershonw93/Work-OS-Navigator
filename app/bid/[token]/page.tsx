@@ -63,7 +63,7 @@ export default function BidPage({ params }: { params: { token: string } }) {
             <Link href="/login" className="rounded-lg border border-line text-sm font-medium text-ink-soft px-4 py-2 hover:bg-surface">Log in</Link>
           </div>
         </div>
-        <p className="text-center text-xs text-faint mt-3">No account needed to submit — this secure link is just for you.</p>
+        <p className="text-center text-xs text-faint mt-3">No account needed to submit - this secure link is just for you.</p>
       </div>
     </div>
   )

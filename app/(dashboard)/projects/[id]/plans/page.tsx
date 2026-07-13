@@ -306,7 +306,7 @@ export default function PlansPage({ params }: { params: { id: string } }) {
               <div className="space-y-1.5">
                 <Label htmlFor="moveFolder">Destination Folder</Label>
                 <Select id="moveFolder" value={moveTargetFolderId} onChange={e => setMoveTargetFolderId(e.target.value)}>
-                  <option value="__root__">— Root (no folder) —</option>
+                  <option value="__root__">- Root (no folder) -</option>
                   {folders.map(f => (
                     <option key={f.id} value={f.id}>{f.name}</option>
                   ))}

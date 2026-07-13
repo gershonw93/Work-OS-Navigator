@@ -75,7 +75,7 @@ async function authHeaders() {
   return { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` }
 }
 
-// ── History panel — the checkout timeline for one item ───────────────────────
+// ── History panel - the checkout timeline for one item ───────────────────────
 function HistoryPanel({ equipmentId }: { equipmentId: string }) {
   const [history, setHistory] = useState<Assignment[] | null>(null)
 
@@ -118,7 +118,7 @@ function HistoryPanel({ equipmentId }: { equipmentId: string }) {
   )
 }
 
-// ── Check-out modal — pick who + where, then Confirm (the 3rd click) ──────────
+// ── Check-out modal - pick who + where, then Confirm (the 3rd click) ──────────
 function CheckOutModal({
   item, projects, teammates, onClose, onDone,
 }: {

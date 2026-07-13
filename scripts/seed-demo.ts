@@ -15,7 +15,7 @@
  *
  * Re-running wipes the demo company's projects and reseeds (the login is kept
  * and its password reset). Never point this at a database with real data other
- * than the demo company — it deletes the demo company's rows on each run.
+ * than the demo company - it deletes the demo company's rows on each run.
  */
 import { createClient } from '@supabase/supabase-js'
 
@@ -138,7 +138,7 @@ const TASK_TITLES = [
   'Close out permit with city',
 ]
 const RFI_Q = [
-  'Confirm ceiling height at corridor B — plans conflict with structural.',
+  'Confirm ceiling height at corridor B - plans conflict with structural.',
   'Which fixture spec applies to the second-floor baths?',
   'Is the north retaining wall in this scope or by others?',
   'Provide detail for the roof-to-parapet flashing.',
@@ -315,7 +315,7 @@ async function main() {
         await insert('invoices', {
           project_id: projectId, subcontract_id: sc.id, company_id: sc.companyId,
           company_name: v?.name ?? sc.trade, invoice_number: `INV-${proj.name.slice(0, 3).toUpperCase()}-${String(invNo).padStart(3, '0')}`,
-          amount, description: `${sc.trade} — progress billing ${k + 1}`, status,
+          amount, description: `${sc.trade} - progress billing ${k + 1}`, status,
           due_date: ymd(daysFromNow(15 + invNo)),
           submitted_at: iso(daysFromNow(-20 + invNo)),
           approved_at: ['approved', 'sent', 'paid'].includes(status) ? iso(daysFromNow(-15 + invNo)) : null,
@@ -445,7 +445,7 @@ async function main() {
       })
     }
 
-    // Materials (receipts) — some linked to budget lines
+    // Materials (receipts) - some linked to budget lines
     const { data: someLines } = await db.from('budget_line_items').select('id, category').eq('project_id', projectId).limit(4)
     await insert('material_purchases', (someLines ?? []).map((bl: any, i: number) => ({
       project_id: projectId, company_id: vendorIds['Certified Lumber & Home Center'],
@@ -490,7 +490,7 @@ async function main() {
       const total = round2(proj.budget * (0.08 + q * 0.03))
       if (q < 2) {
         await insert('bid_submissions', {
-          bid_request_id: brId, bid_invite_id: inviteRow[0].id, amount: total, notes: `${v.trade} proposal — includes testing and closeout.`,
+          bid_request_id: brId, bid_invite_id: inviteRow[0].id, amount: total, notes: `${v.trade} proposal - includes testing and closeout.`,
           file_url: SAMPLE_PDF, file_name: `${v.name.split(' ')[0]}_Proposal.pdf`, submitted_by_name: v.name,
         })
         await insert('quotes', {

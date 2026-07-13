@@ -1,6 +1,6 @@
 # Scripts
 
-## seed-demo.ts — demo account
+## seed-demo.ts - demo account
 
 Creates the login **demo@sytenav.com** and fills 12 projects with data on every
 tab (plans/files, budget, subcontracts, invoices, client payments, schedule,
@@ -29,7 +29,7 @@ DEMO_PASSWORD="your-password" ... npx tsx scripts/seed-demo.ts
 
 - Run against a database that has all migrations applied (through `050`).
 - Re-running wipes the **demo company's** projects/vendors and reseeds; the
-  login is kept and its password reset. It only touches the demo company —
+  login is kept and its password reset. It only touches the demo company -
   never any other company's data.
 - File/photo links point at public placeholder images and a sample PDF, so the
   rows are populated even though nothing was uploaded to Storage.

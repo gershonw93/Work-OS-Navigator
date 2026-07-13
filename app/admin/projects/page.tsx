@@ -60,11 +60,11 @@ export default function AdminProjects() {
             {!loading && rows.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-faint">No projects found.</td></tr>}
             {!loading && rows.map(p => (
               <tr key={p.id} className="hover:bg-surface">
-                <td className="px-4 py-2.5 font-medium text-ink-soft">{p.name || '—'}</td>
-                <td className="px-4 py-2.5 text-muted-fg hidden md:table-cell">{p.company_name || '—'}</td>
-                <td className="px-4 py-2.5 text-muted-fg hidden sm:table-cell">{p.client || '—'}</td>
-                <td className="px-4 py-2.5"><span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-fg capitalize">{p.status || '—'}</span></td>
-                <td className="px-4 py-2.5 text-muted-fg hidden sm:table-cell">{p.created_at ? new Date(p.created_at).toLocaleDateString() : '—'}</td>
+                <td className="px-4 py-2.5 font-medium text-ink-soft">{p.name || '-'}</td>
+                <td className="px-4 py-2.5 text-muted-fg hidden md:table-cell">{p.company_name || '-'}</td>
+                <td className="px-4 py-2.5 text-muted-fg hidden sm:table-cell">{p.client || '-'}</td>
+                <td className="px-4 py-2.5"><span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-fg capitalize">{p.status || '-'}</span></td>
+                <td className="px-4 py-2.5 text-muted-fg hidden sm:table-cell">{p.created_at ? new Date(p.created_at).toLocaleDateString() : '-'}</td>
               </tr>
             ))}
           </tbody>

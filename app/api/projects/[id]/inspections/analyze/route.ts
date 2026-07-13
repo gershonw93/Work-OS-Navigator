@@ -30,16 +30,16 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   const prompt = `This is a construction inspection card or document. Extract all visible information and return it as JSON with these exact keys (use null for any field not found):
 {
-  "inspection_type": one of ["Foundation","Framing","Rough Electrical","Rough Plumbing","Rough Mechanical","Insulation","Drywall","Final Electrical","Final Plumbing","Final Mechanical","Fire Sprinkler","Building Final","Certificate of Occupancy","Other"] — pick the closest match based on what's visible,
+  "inspection_type": one of ["Foundation","Framing","Rough Electrical","Rough Plumbing","Rough Mechanical","Insulation","Drywall","Final Electrical","Final Plumbing","Final Mechanical","Fire Sprinkler","Building Final","Certificate of Occupancy","Other"] - pick the closest match based on what's visible,
   "trade": "the trade or work type if visible (e.g. Plumbing, Electrical) or null",
-  "status": one of ["passed","failed","scheduled","not_scheduled","pending_reinspection"] — if the card shows an approval/pass mark infer "passed", otherwise null,
-  "scheduled_date": "YYYY-MM-DD or null — use the date shown on the card",
+  "status": one of ["passed","failed","scheduled","not_scheduled","pending_reinspection"] - if the card shows an approval/pass mark infer "passed", otherwise null,
+  "scheduled_date": "YYYY-MM-DD or null - use the date shown on the card",
   "inspector_name": "full name of inspector if visible or null",
   "inspector_phone": "phone number if visible or null",
   "scheduling_phone": "scheduling or office phone number if visible or null",
   "issuing_authority": "the city, township, department name if visible or null",
   "permit_number": "permit or job number if visible or null",
-  "notes": "any other relevant info — checked boxes, sub-type of inspection (e.g. Slab, Rough, Water), address, etc."
+  "notes": "any other relevant info - checked boxes, sub-type of inspection (e.g. Slab, Rough, Water), address, etc."
 }
 Return ONLY the JSON object, no other text.`
 

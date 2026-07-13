@@ -59,7 +59,7 @@ export async function POST(request: Request, { params }: { params: { id: string;
     const message = await anthropic.messages.create({ model: 'claude-opus-4-8', max_tokens: 1024, messages: [{ role: 'user', content }] })
     const text = message.content[0].type === 'text' ? message.content[0].text : ''
     fields = JSON.parse(text.replace(/^```json\s*/i, '').replace(/\s*```$/, '').trim())
-  } catch { /* card unreadable — still attach the image */ }
+  } catch { /* card unreadable - still attach the image */ }
 
   // Only fill blanks; never overwrite what the user already entered.
   const { data: existing } = await db.from('inspections').select('*').eq('id', params.inspectionId).eq('project_id', params.id).single()

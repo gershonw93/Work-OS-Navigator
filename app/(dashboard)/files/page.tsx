@@ -408,7 +408,7 @@ export default function FilesPage() {
                     </label>
                   </div>
                   {files.length === 0 ? (
-                    <p className="text-sm text-faint py-3">No files yet — use “Upload new file” above to add one to this packet.</p>
+                    <p className="text-sm text-faint py-3">No files yet - use “Upload new file” above to add one to this packet.</p>
                   ) : (
                     <div className="rounded-lg border border-line divide-y divide-line-soft max-h-64 overflow-y-auto">
                       {files.map(file => {
@@ -594,7 +594,7 @@ export default function FilesPage() {
             <div className="rounded-xl border-2 border-dashed border-line py-16 text-center">
               <Package className="h-8 w-8 text-faint mx-auto mb-3" />
               <p className="text-sm font-medium text-muted-fg">No packets yet</p>
-              <p className="text-xs text-faint mt-1">Bundle files into a packet — e.g. everything you need for a permit submission.</p>
+              <p className="text-xs text-faint mt-1">Bundle files into a packet - e.g. everything you need for a permit submission.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">

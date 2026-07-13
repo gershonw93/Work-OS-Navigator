@@ -31,14 +31,14 @@ export async function GET(request: Request) {
 
   // Auto-create profile if missing
   if (!profile) {
-    // Check if this user was invited — invited users have company_id + role in their metadata
+    // Check if this user was invited - invited users have company_id + role in their metadata
     const metaCompanyId = user.user_metadata?.company_id as string | undefined
     const metaRole = user.user_metadata?.role as string | undefined
 
     let assignedCompanyId: string | null = metaCompanyId ?? null
 
     if (!assignedCompanyId) {
-      // Brand-new user (not via invite) — create a company for them
+      // Brand-new user (not via invite) - create a company for them
       const { data: newCompany } = await db
         .from('companies')
         .insert({ name: user.email?.split('@')[0] ?? 'My Company', type: 'gc', contact_email: user.email ?? '', insurance_status: 'missing' })
@@ -140,7 +140,7 @@ export async function GET(request: Request) {
         .single()
     : { data: null }
 
-  // Never leak the hash — expose only whether protection is on and a key is set.
+  // Never leak the hash - expose only whether protection is on and a key is set.
   const deleteProtection = {
     enabled: !!(company as any)?.delete_protection_enabled,
     keySet: !!(company as any)?.delete_key_hash,
@@ -158,7 +158,7 @@ export async function GET(request: Request) {
 
   const teammates = allMembers ?? []
 
-  // Also fetch pending invites — select * to avoid column-not-found if role column missing
+  // Also fetch pending invites - select * to avoid column-not-found if role column missing
   let pendingInvites: unknown[] = []
   if (profile.company_id) {
     const { data: rawInvites } = await db

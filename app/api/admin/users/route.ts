@@ -7,7 +7,7 @@ const admin = () => createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
-// GET /api/admin/users?q=<search>  — super-admin only, lists ALL accounts across companies
+// GET /api/admin/users?q=<search>  - super-admin only, lists ALL accounts across companies
 export async function GET(request: Request) {
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

@@ -34,7 +34,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .eq('project_id', params.id)
       .order('created_at', { ascending: false }),
     // Change orders now come from the Change Orders tab (change_orders table),
-    // not from RFIs — so approving one there flows straight into the numbers here.
+    // not from RFIs - so approving one there flows straight into the numbers here.
     db
       .from('change_orders')
       .select('*')
@@ -88,7 +88,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const approved_change_orders = approvedCOs.reduce((sum: number, co: any) => sum + Number(co.amount ?? 0), 0)
 
   // COs folded into a subcontract (applied_to_contract) are already inside
-  // total_contracted — only the rest sit "on top" of the contracted total.
+  // total_contracted - only the rest sit "on top" of the contracted total.
   const change_orders_on_top = approvedCOs
     .filter((co: any) => !co.applied_to_contract)
     .reduce((sum: number, co: any) => sum + Number(co.amount ?? 0), 0)

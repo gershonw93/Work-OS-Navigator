@@ -25,7 +25,7 @@ async function getCallerProfile(token: string) {
   return profile ?? null
 }
 
-// ── PATCH /api/settings/members/[memberId] — update role ─────────────────────
+// ── PATCH /api/settings/members/[memberId] - update role ─────────────────────
 
 export async function PATCH(
   req: Request,
@@ -86,13 +86,13 @@ export async function PATCH(
   })
   if (metaError) {
     console.warn('[PATCH /api/settings/members] metadata sync failed:', metaError.message)
-    // Non-fatal — profile is the source of truth
+    // Non-fatal - profile is the source of truth
   }
 
   return NextResponse.json({ ok: true, role: updated[0].role })
 }
 
-// ── DELETE /api/settings/members/[memberId] — remove member ──────────────────
+// ── DELETE /api/settings/members/[memberId] - remove member ──────────────────
 
 export async function DELETE(
   req: Request,
@@ -139,7 +139,7 @@ export async function DELETE(
   const { error: authError } = await db.auth.admin.deleteUser(memberId)
   if (authError) {
     console.warn('[DELETE /api/settings/members] auth user deletion failed:', authError.message)
-    // Non-fatal — the profile is already gone
+    // Non-fatal - the profile is already gone
   }
 
   return NextResponse.json({ ok: true })

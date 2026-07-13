@@ -189,7 +189,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
         : null
 
       const paymentTermsText = paymentSchedule.length > 0
-        ? paymentSchedule.map(p => `${p.label || 'Payment'}${p.percent != null ? ` — ${p.percent}%` : ''}${p.amount != null ? ` ($${Number(p.amount).toLocaleString()})` : ''}`).join('\n')
+        ? paymentSchedule.map(p => `${p.label || 'Payment'}${p.percent != null ? ` - ${p.percent}%` : ''}${p.amount != null ? ` ($${Number(p.amount).toLocaleString()})` : ''}`).join('\n')
         : null
 
       const startDateForBid = (form.get('start_date') as string ?? '').trim() || null
@@ -233,7 +233,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     params.id,
     (profile as any)?.full_name ?? 'Someone',
     'subcontractor_added',
-    `Subcontractor added: ${company.name}${trade ? ` (${trade})` : ''}${contractAmount ? ` — $${Number(contractAmount).toLocaleString()}` : ''}`,
+    `Subcontractor added: ${company.name}${trade ? ` (${trade})` : ''}${contractAmount ? ` - $${Number(contractAmount).toLocaleString()}` : ''}`,
     { subcontract_id: subcontract.id, company: company.name, trade },
   )
 

@@ -37,7 +37,7 @@ export async function POST(request: Request) {
   }
   if (!targetEmail) return NextResponse.json({ error: 'Target user not found' }, { status: 404 })
 
-  // Generate a magic-link token_hash for the target — the client verifies it to get a real session
+  // Generate a magic-link token_hash for the target - the client verifies it to get a real session
   const { data: link, error: linkErr } = await db.auth.admin.generateLink({
     type: 'magiclink',
     email: targetEmail,
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: linkErr?.message ?? 'Could not generate session' }, { status: 500 })
   }
 
-  // Audit log (best-effort — don't block impersonation if the table is missing)
+  // Audit log (best-effort - don't block impersonation if the table is missing)
   await db.from('impersonation_log').insert({
     actor_id: user.id,
     actor_email: user.email,

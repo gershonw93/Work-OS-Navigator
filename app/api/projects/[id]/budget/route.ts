@@ -153,7 +153,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   const { data: profile } = await db.from('profiles').select('full_name').eq('id', user.id).single()
   await logActivity(db, params.id, profile?.full_name || 'Someone', 'budget_line_added',
-    `Budget line added: ${description} — $${Number(budgeted_amount || 0).toLocaleString()}`,
+    `Budget line added: ${description} - $${Number(budgeted_amount || 0).toLocaleString()}`,
     { line_id: data.id, description, budgeted_amount }, user.id)
 
   return NextResponse.json({ item: data })

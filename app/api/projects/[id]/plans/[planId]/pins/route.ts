@@ -90,7 +90,7 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
   const pinId = new URL(request.url).searchParams.get('pinId')
   if (!pinId) return NextResponse.json({ error: 'pinId required' }, { status: 400 })
   const db = admin()
-  // Remove pin only — keep the task (it may have progress/notes on it).
+  // Remove pin only - keep the task (it may have progress/notes on it).
   const { error } = await db.from('plan_pins').delete().eq('id', pinId).eq('plan_id', params.planId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })

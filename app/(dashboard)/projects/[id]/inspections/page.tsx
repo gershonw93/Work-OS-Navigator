@@ -292,7 +292,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <p className="text-xs font-semibold text-ink-soft">{insp.card_image_url ? "Inspector's card attached" : "Inspector's card / paperwork"}</p>
-                  <p className="text-xs text-faint">Upload the card you got from the inspector — AI reads it and fills the details.</p>
+                  <p className="text-xs text-faint">Upload the card you got from the inspector - AI reads it and fills the details.</p>
                 </div>
                 <input type="file" accept="image/*,application/pdf" className="sr-only"
                   ref={el => { cardInputRefs.current[insp.id] = el }}
@@ -380,7 +380,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
                     <option value="">No one assigned yet</option>
                     {teammates.map(t => <option key={t.id} value={t.id}>{t.full_name || t.email}</option>)}
                   </SearchableSelect>
-                  <p className="text-xs text-faint">Assign the person who books inspections — they'll get a notification to schedule it.</p>
+                  <p className="text-xs text-faint">Assign the person who books inspections - they'll get a notification to schedule it.</p>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">

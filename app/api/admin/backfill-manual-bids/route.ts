@@ -92,7 +92,7 @@ export async function POST(request: Request) {
           ? scheduleRows
               .map(
                 (p: any) =>
-                  `${p.label || 'Payment'}${p.percentage != null ? ` — ${p.percentage}%` : ''}${p.amount != null ? ` ($${Number(p.amount).toLocaleString()})` : ''}`,
+                  `${p.label || 'Payment'}${p.percentage != null ? ` - ${p.percentage}%` : ''}${p.amount != null ? ` ($${Number(p.amount).toLocaleString()})` : ''}`,
               )
               .join('\n')
           : null

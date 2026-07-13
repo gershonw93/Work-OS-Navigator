@@ -75,7 +75,7 @@ export default function HomePage() {
       {/* Proof-point marquee */}
       <StatMarquee />
 
-      {/* The problem — the "$25k / 8 apps / broken spreadsheets" positioning */}
+      {/* The problem - the "$25k / 8 apps / broken spreadsheets" positioning */}
       <section className="bg-panel border-y border-line">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-20 sm:py-28 text-center">
           <Reveal>
@@ -84,7 +84,7 @@ export default function HomePage() {
               Stop paying $25k a year to<br className="hidden sm:block" /> patch 8 apps together.
             </h2>
             <p className="mt-5 text-lg text-muted-fg max-w-2xl mx-auto leading-relaxed">
-              Bids in one tool. Field time in another. Daily reports somewhere else. Budgets in a spreadsheet with a formula that broke last week. SyteNav puts the whole job — bids, budgets, field time, daily logs, compliance, and materials — in one place.
+              Bids in one tool. Field time in another. Daily reports somewhere else. Budgets in a spreadsheet with a formula that broke last week. SyteNav puts the whole job - bids, budgets, field time, daily logs, compliance, and materials - in one place.
             </p>
           </Reveal>
           <div className="mt-12 grid sm:grid-cols-3 gap-4 max-w-3xl mx-auto">

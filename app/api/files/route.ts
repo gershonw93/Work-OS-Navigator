@@ -40,7 +40,7 @@ export async function GET(request: Request) {
   const [filesRes, packetsRes, complianceRes] = await Promise.all([
     db.from('company_files').select('*').eq('company_id', company_id).order('created_at', { ascending: false }),
     db.from('file_packets').select('*').eq('company_id', company_id).order('created_at', { ascending: false }),
-    // Compliance docs with a file_url — own company + all subs
+    // Compliance docs with a file_url - own company + all subs
     subCompanyIds.length > 0
       ? db.from('compliance_documents')
           .select('id, type, status, expiry_date, file_url, notes, company_id, project_id, companies(name), projects(id, name)')

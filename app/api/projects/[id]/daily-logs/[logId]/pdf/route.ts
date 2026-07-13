@@ -149,7 +149,7 @@ export async function GET(request: Request, { params }: { params: { id: string; 
 
   const dateStr = new Date(log.log_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
 
-  // Header — company logo top-right when the company has one uploaded
+  // Header - company logo top-right when the company has one uploaded
   if (project?.gc_company_id) {
     try {
       const { data: co } = await db.from('companies').select('logo_url').eq('id', project.gc_company_id).single()
@@ -166,7 +166,7 @@ export async function GET(request: Request, { params }: { params: { id: string; 
           page.drawImage(img, { x: width - margin - w, y: y - h + 16, width: w, height: h })
         }
       }
-    } catch { /* logo is decorative — never block the PDF */ }
+    } catch { /* logo is decorative - never block the PDF */ }
   }
   page.drawText('Daily Log', { x: margin, y, size: 22, font: bold, color: ink }); y -= 26
   text(project?.name ?? 'Project', { size: 12, f: bold })
@@ -180,7 +180,7 @@ export async function GET(request: Request, { params }: { params: { id: string; 
   if (subs.length) {
     heading('Subcontractors On Site')
     for (const s of subs) {
-      text(`${s.name}${s.workers ? ` — ${s.workers} worker${s.workers !== 1 ? 's' : ''}` : ''}`, { size: 10 })
+      text(`${s.name}${s.workers ? ` - ${s.workers} worker${s.workers !== 1 ? 's' : ''}` : ''}`, { size: 10 })
     }
   }
 
