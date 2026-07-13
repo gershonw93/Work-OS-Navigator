@@ -15,6 +15,9 @@ const rid = () => (globalThis.crypto as Crypto).randomUUID()
 const pick = <T,>(arr: T[], i: number): T => arr[i % arr.length]
 const round2 = (n: number) => Math.round(n * 100) / 100
 const daysFromNow = (d: number) => { const t = new Date(); t.setDate(t.getDate() + d); return t }
+// The 12th of the month, `n` months back (for spreading money across the
+// dashboard's 8-month cash chart).
+const monthsAgo = (n: number) => { const t = new Date(); return new Date(t.getFullYear(), t.getMonth() - n, 12) }
 const iso = (d: Date) => d.toISOString()
 const ymd = (d: Date) => d.toISOString().slice(0, 10)
 
@@ -245,23 +248,33 @@ export async function runSeed(
         const status = pick(invStatuses, invNo)
         const amount = round2(sc.amount * (0.2 + (k * 0.2)))
         const v = VENDORS.find(x => vendorIds[x.name] === sc.companyId)
+        // Spread invoice dates across the last 8 months so the dashboard's
+        // "Cash in vs out" chart (out = paid invoices) fills every bar.
+        const when = monthsAgo((invNo + p) % 8)
         await insert('invoices', {
           project_id: projectId, subcontract_id: sc.id, company_id: sc.companyId, company_name: v?.name ?? sc.trade,
           invoice_number: `INV-${proj.name.slice(0, 3).toUpperCase()}-${String(invNo).padStart(3, '0')}`, amount,
           description: `${sc.trade} - progress billing ${k + 1}`, status, due_date: ymd(daysFromNow(15 + invNo)),
-          submitted_at: iso(daysFromNow(-20 + invNo)),
-          approved_at: ['approved', 'sent', 'paid'].includes(status) ? iso(daysFromNow(-15 + invNo)) : null,
-          paid_at: status === 'paid' ? iso(daysFromNow(-10 + invNo)) : null,
+          created_at: iso(when), submitted_at: iso(when),
+          approved_at: ['approved', 'sent', 'paid'].includes(status) ? iso(when) : null,
+          paid_at: status === 'paid' ? iso(when) : null,
           client_paid: status === 'paid' ? round2(amount * 0.5) : 0, escrow_paid: status === 'paid' ? round2(amount * 0.5) : 0,
         })
       }
     }
 
-    await insert('client_payments', [
-      { project_id: projectId, paid_date: ymd(daysFromNow(-60)), amount: round2(proj.budget * 0.1), method: 'Wire', memo: 'Deposit', retainer: true, qb_entered: true, created_by: userId },
-      { project_id: projectId, paid_date: ymd(daysFromNow(-30)), amount: round2(proj.budget * 0.25), method: 'Check', memo: 'Draw #1', retainer: false, qb_entered: true, created_by: userId },
-      { project_id: projectId, paid_date: ymd(daysFromNow(-5)), amount: round2(proj.budget * 0.2), method: 'Wire', memo: 'Draw #2', retainer: false, qb_entered: false, created_by: userId },
-    ])
+    // Client payments (cash IN) spread one per month across the last 8 months.
+    const pays = []
+    for (let mo = 0; mo < 8; mo++) {
+      pays.push({
+        project_id: projectId, paid_date: ymd(monthsAgo(mo)),
+        amount: round2(proj.budget * (0.04 + ((mo + p) % 4) * 0.02)),
+        method: pick(['Wire', 'Check', 'ACH'], mo + p),
+        memo: mo === 7 ? 'Deposit' : `Draw ${8 - mo}`,
+        retainer: mo === 7, qb_entered: mo > 1, created_by: userId,
+      })
+    }
+    await insert('client_payments', pays)
 
     let sIdx = 0
     for (const sc of subcontractIds) {
