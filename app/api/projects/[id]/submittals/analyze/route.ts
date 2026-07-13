@@ -27,10 +27,10 @@ export async function POST(request: Request, { params: _params }: { params: { id
 
   const base64 = Buffer.from(await file.arrayBuffer()).toString('base64')
 
-  const prompt = `This is a construction submittal document — a product tech/data sheet, shop drawing, or product cut sheet. Extract its key info and return ONLY a JSON object with these exact keys (use null for anything not found):
+  const prompt = `This is a construction submittal document - a product tech/data sheet, shop drawing, or product cut sheet. Extract its key info and return ONLY a JSON object with these exact keys (use null for anything not found):
 {
-  "title": "a short descriptive title for this submittal (e.g. 'Roof Membrane — GAF EverGuard TPO')",
-  "type": one of ["Tech Sheet","Shop Drawing","Product Data","Sample","Other"] — pick the closest,
+  "title": "a short descriptive title for this submittal (e.g. 'Roof Membrane - GAF EverGuard TPO')",
+  "type": one of ["Tech Sheet","Shop Drawing","Product Data","Sample","Other"] - pick the closest,
   "trade": "the trade this relates to (e.g. Roofing, Plumbing, Electrical) or null",
   "manufacturer": "manufacturer / brand name or null",
   "model_number": "model or product number or null",

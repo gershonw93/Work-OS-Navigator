@@ -84,9 +84,9 @@ function AddModal({ projects, lockedProjectId, onClose, onSaved }: { projects: P
       if (f.tax != null) setTax(String(f.tax))
       if (f.category) setCategory(f.category)
       if (Array.isArray(f.line_items)) setLineItems(f.line_items)
-      setScanNote('Scanned — review the details below.')
+      setScanNote('Scanned - review the details below.')
     } else {
-      setScanNote(d.error || 'Could not read the receipt — enter the details manually.')
+      setScanNote(d.error || 'Could not read the receipt - enter the details manually.')
     }
   }
 
@@ -95,7 +95,7 @@ function AddModal({ projects, lockedProjectId, onClose, onSaved }: { projects: P
     if (!amount) { setErr('Enter the total amount.'); return }
     setSaving(true); setErr('')
 
-    // "+ Create new budget line…" — same idea as awarding a quote: make the
+    // "+ Create new budget line…" - same idea as awarding a quote: make the
     // line first, then link the receipt to it.
     let resolvedBudgetLineId = budgetLineId
     if (budgetLineId === '__new__') {
@@ -174,7 +174,7 @@ function AddModal({ projects, lockedProjectId, onClose, onSaved }: { projects: P
             )}
             {projectId && (
               <div className="space-y-2 rounded-lg border border-line-soft bg-surface p-3">
-                <Label>Budget line <span className="text-faint font-normal">— like awarding a quote, link it or create one</span></Label>
+                <Label>Budget line <span className="text-faint font-normal">- like awarding a quote, link it or create one</span></Label>
                 <Select value={budgetLineId} onChange={e => {
                   const v = e.target.value
                   setBudgetLineId(v)
@@ -191,7 +191,7 @@ function AddModal({ projects, lockedProjectId, onClose, onSaved }: { projects: P
                   <div className="grid grid-cols-2 gap-2 pt-1">
                     <div><Label className="text-xs">Category</Label><Input value={newLineCategory} onChange={e => setNewLineCategory(e.target.value)} placeholder="e.g. Electrical" /></div>
                     <div><Label className="text-xs">Description</Label><Input value={newLineDescription} onChange={e => setNewLineDescription(e.target.value)} placeholder="e.g. Materials" /></div>
-                    <p className="col-span-2 text-xs text-faint">Starts budgeted at the receipt total ({amount ? money(Number(amount)) : '$0'}) — adjust anytime on the Budget tab.</p>
+                    <p className="col-span-2 text-xs text-faint">Starts budgeted at the receipt total ({amount ? money(Number(amount)) : '$0'}) - adjust anytime on the Budget tab.</p>
                   </div>
                 )}
               </div>
@@ -230,7 +230,7 @@ function AddModal({ projects, lockedProjectId, onClose, onSaved }: { projects: P
             </label>
             <label className={cn('flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm', clientPaid ? 'border-success/40 bg-success-tint text-success' : 'border-line-soft bg-surface text-ink-soft')}>
               <input type="checkbox" className="accent-[#C9F24A]" checked={clientPaid} onChange={e => setClientPaid(e.target.checked)} />
-              Customer already paid for this — don&apos;t count it as owed
+              Customer already paid for this - don&apos;t count it as owed
             </label>
             {err && <p className="text-sm text-danger">{err}</p>}
           </div>
@@ -356,7 +356,7 @@ export function MaterialsView({ lockedProjectId }: { lockedProjectId?: string })
       ) : filtered.length === 0 ? (
         <EmptyState icon={ShoppingCart}
           title={scoped.length === 0 ? 'No receipts yet' : 'Nothing matches'}
-          description={scoped.length === 0 ? 'Add your first material receipt — take a photo and we\'ll read it.' : 'Try a different search or filter.'} />
+          description={scoped.length === 0 ? 'Add your first material receipt - take a photo and we\'ll read it.' : 'Try a different search or filter.'} />
       ) : (
         <div className="space-y-2">
           {filtered.map(m => {
@@ -397,11 +397,11 @@ export function MaterialsView({ lockedProjectId }: { lockedProjectId?: string })
                   )}
 
                   <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
-                    <div><p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Store</p><p className="text-ink-soft">{m.store_name || '—'}</p></div>
-                    <div><p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Date</p><p className="text-ink-soft">{m.purchase_date ? new Date(m.purchase_date + 'T00:00:00').toLocaleDateString() : '—'}</p></div>
+                    <div><p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Store</p><p className="text-ink-soft">{m.store_name || '-'}</p></div>
+                    <div><p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Date</p><p className="text-ink-soft">{m.purchase_date ? new Date(m.purchase_date + 'T00:00:00').toLocaleDateString() : '-'}</p></div>
                     <div><p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Category</p><p className="text-ink-soft">{m.category || 'Uncategorized'}</p></div>
                     <div><p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Job</p><p className="text-ink-soft">{m.project_name}</p></div>
-                    <div><p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Tax</p><p className="text-ink-soft">{m.tax != null ? money(m.tax) : '—'}</p></div>
+                    <div><p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Tax</p><p className="text-ink-soft">{m.tax != null ? money(m.tax) : '-'}</p></div>
                     <div><p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Total</p><p className="font-semibold text-ink">{money(m.amount)}</p></div>
                     {m.budget_line_id && (
                       <div className="col-span-2 sm:col-span-3"><p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Budget line</p><p className="text-ink-soft">{budgetLineLabels[m.budget_line_id] ?? 'Loading…'}</p></div>
@@ -430,7 +430,7 @@ export function MaterialsView({ lockedProjectId }: { lockedProjectId?: string })
                       className={cn('inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors',
                         m.client_paid ? 'border-success/40 bg-success-tint text-success' : 'border-line text-muted-fg hover:bg-surface')}>
                       {m.client_paid ? <CheckCircle2 className="h-4 w-4" /> : <Circle className="h-4 w-4" />}
-                      {m.client_paid ? 'Customer paid — click to mark unpaid' : 'Mark customer paid'}
+                      {m.client_paid ? 'Customer paid - click to mark unpaid' : 'Mark customer paid'}
                     </button>
                     <div className="flex items-center gap-3">
                       {m.receipt_url && (

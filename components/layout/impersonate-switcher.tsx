@@ -32,7 +32,7 @@ interface AccountRow {
   company_name: string | null
 }
 
-// Shared impersonation flow — mints a real session for the target user and swaps to it.
+// Shared impersonation flow - mints a real session for the target user and swaps to it.
 // Returns an error message on failure, or null on success (the page will redirect).
 export async function impersonateUser(userId: string): Promise<string | null> {
   const supabase = createClient()
@@ -219,7 +219,7 @@ export function ImpersonationBanner() {
     <div className="flex items-center justify-center gap-3 bg-rose-600 px-4 py-1.5 text-white text-sm font-medium">
       <UserCog className="h-4 w-4 shrink-0" />
       <span>
-        Logged in as <strong>{state.name}</strong> ({state.email}) — customer-support session.
+        Logged in as <strong>{state.name}</strong> ({state.email}) - customer-support session.
       </span>
       <button
         onClick={() => exitImpersonation()}

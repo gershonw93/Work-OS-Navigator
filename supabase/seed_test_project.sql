@@ -1,5 +1,5 @@
 -- ============================================================================
--- WorkOS Navigator — Test Project Seed
+-- WorkOS Navigator - Test Project Seed
 -- ----------------------------------------------------------------------------
 -- Creates a fully-populated demo project (subs, workers, tasks, invoices,
 -- plans, daily logs, RFIs, permits, inspections) under YOUR company so you can
@@ -10,7 +10,7 @@
 --   2. Set v_owner_email below to the email of the admin you log in as.
 --   3. Run. It prints the new project id at the end.
 --
--- TO REMOVE LATER: delete the project named 'TEST — Maple Street Residences'
+-- TO REMOVE LATER: delete the project named 'TEST - Maple Street Residences'
 --   from the Projects page (cascades remove everything seeded here), or run the
 --   cleanup block at the very bottom.
 -- ============================================================================
@@ -63,7 +63,7 @@ BEGIN
 
   -- ── The project ──────────────────────────────────────────────────────────
   INSERT INTO projects (gc_company_id, name, address, client, start_date, end_date, type, status)
-  VALUES (v_company_id, 'TEST — Maple Street Residences', '420 Maple Street, Brooklyn, NY',
+  VALUES (v_company_id, 'TEST - Maple Street Residences', '420 Maple Street, Brooklyn, NY',
           'Maple Holdings LLC', CURRENT_DATE - 60, CURRENT_DATE + 120, 'residential', 'active')
   RETURNING id INTO v_project_id;
 
@@ -129,7 +129,7 @@ BEGIN
    (v_project_id, 'HVAC ductwork',             'Second floor first',   CURRENT_DATE + 18, 'low',    'open',        v_tm_w2, 'Luis Ramirez', 'Seed'),
    (v_project_id, 'Roof membrane',             'Weather permitting',   CURRENT_DATE + 25, 'medium', 'open',        v_tm_super, 'Mike Torres', 'Seed'),
    (v_project_id, 'Site safety audit',         'Weekly walk',          CURRENT_DATE + 2,  'high',   'in_progress', v_tm_w4, 'Chris Nguyen', 'Seed'),
-   (v_project_id, 'Punch list — exterior',     'Before close-in',      CURRENT_DATE + 60, 'low',    'open',        v_tm_w1, 'Danny Cole', 'Seed');
+   (v_project_id, 'Punch list - exterior',     'Before close-in',      CURRENT_DATE + 60, 'low',    'open',        v_tm_w1, 'Danny Cole', 'Seed');
 
   -- ── Invoices (drives Paid / Outstanding on the card) ──────────────────────
   -- Uses only base invoices columns. 'approved' = owed but unpaid (outstanding).
@@ -151,7 +151,7 @@ BEGIN
   INSERT INTO daily_logs (project_id, log_date, workers_onsite, notes, weather, created_by) VALUES
    (v_project_id, CURRENT_DATE - 3, 8,  'Framing crew started first floor walls. Material delivery on time.', 'Sunny, 72F', v_owner_id),
    (v_project_id, CURRENT_DATE - 2, 9,  'Continued framing. Electrician walked site for rough-in prep.',     'Cloudy, 68F', v_owner_id),
-   (v_project_id, CURRENT_DATE - 1, 7,  'Half day — rain in afternoon. Tarped open areas.',                  'Rain, 60F',  v_owner_id),
+   (v_project_id, CURRENT_DATE - 1, 7,  'Half day - rain in afternoon. Tarped open areas.',                  'Rain, 60F',  v_owner_id),
    (v_project_id, CURRENT_DATE,     10, 'Full crew. Safety audit in progress. Framing ~60% first floor.',    'Clear, 70F', v_owner_id);
 
   -- ── RFIs ────────────────────────────────────────────────────────────────────
@@ -186,5 +186,5 @@ END $$;
 -- CLEANUP (run separately to wipe the seeded demo)
 -- ----------------------------------------------------------------------------
 -- DELETE FROM companies WHERE contact_email LIKE '%@%.test';
--- DELETE FROM projects WHERE name = 'TEST — Maple Street Residences';
+-- DELETE FROM projects WHERE name = 'TEST - Maple Street Residences';
 -- ============================================================================

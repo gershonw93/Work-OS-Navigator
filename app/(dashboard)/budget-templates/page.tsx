@@ -11,7 +11,7 @@ import Link from 'next/link'
 interface TemplateItem { id?: string; description: string; default_amount: number | null; category?: string }
 interface Template { id: string; name: string; source: string; created_at: string; budget_template_items: TemplateItem[] }
 
-const money = (n: number | null) => n == null ? '—' : `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+const money = (n: number | null) => n == null ? '-' : `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 
 export default function BudgetTemplatesPage() {
   const supabase = createClient()
@@ -81,7 +81,7 @@ export default function BudgetTemplatesPage() {
         </div>
       </div>
 
-      {/* Staged import — review & save */}
+      {/* Staged import - review & save */}
       {staged && (
         <div className="bg-panel rounded-xl border border-accent/40 p-4 sm:p-5 space-y-3">
           <div className="flex items-center justify-between gap-2">
@@ -90,7 +90,7 @@ export default function BudgetTemplatesPage() {
           </div>
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-fg">Template name</label>
-            <Input value={staged.name} onChange={e => setStaged({ ...staged, name: e.target.value })} placeholder="e.g. New build — full custom" />
+            <Input value={staged.name} onChange={e => setStaged({ ...staged, name: e.target.value })} placeholder="e.g. New build - full custom" />
           </div>
           <div className="rounded-lg border border-line-soft max-h-60 overflow-y-auto divide-y divide-line-soft">
             {staged.items.map((it, i) => (
@@ -100,7 +100,7 @@ export default function BudgetTemplatesPage() {
               </div>
             ))}
           </div>
-          <p className="text-xs text-faint">Amounts are kept as suggested defaults — when you apply the template, amounts come in blank unless you choose to copy them.</p>
+          <p className="text-xs text-faint">Amounts are kept as suggested defaults - when you apply the template, amounts come in blank unless you choose to copy them.</p>
           <div className="flex gap-2 justify-end">
             <Button variant="secondary" onClick={() => setStaged(null)}>Discard</Button>
             <Button onClick={saveStaged} disabled={saving || !staged.name.trim()}>{saving ? 'Saving…' : 'Save Template'}</Button>

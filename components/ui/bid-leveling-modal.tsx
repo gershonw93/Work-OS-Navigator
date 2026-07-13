@@ -156,7 +156,7 @@ export function BidLevelingModal({
         <div className="overflow-x-auto">
           <table className="w-full text-sm border-separate border-spacing-0" style={{ minWidth: `${Math.max(520, sorted.length * 200 + 160)}px` }}>
 
-            {/* Column headers — one per bidding company */}
+            {/* Column headers - one per bidding company */}
             <thead>
               <tr>
                 {/* Row label column */}
@@ -236,7 +236,7 @@ export function BidLevelingModal({
                     key={bid.id}
                     className={cn('px-4 py-3 text-center', cellHighlight(i, durationMM.minIdx, durationMM.maxIdx))}
                   >
-                    {bid.duration_days != null ? bid.duration_days : <span className="text-faint">—</span>}
+                    {bid.duration_days != null ? bid.duration_days : <span className="text-faint">-</span>}
                   </td>
                 ))}
               </tr>
@@ -250,7 +250,7 @@ export function BidLevelingModal({
                   <td key={bid.id} className="px-4 py-3 text-center text-ink-soft">
                     {bid.earliest_start_date
                       ? new Date(bid.earliest_start_date).toLocaleDateString()
-                      : <span className="text-faint">—</span>}
+                      : <span className="text-faint">-</span>}
                   </td>
                 ))}
               </tr>
@@ -265,7 +265,7 @@ export function BidLevelingModal({
                     key={bid.id}
                     className={cn('px-4 py-3 text-center', cellHighlight(i, crewMM.minIdx, crewMM.maxIdx))}
                   >
-                    {bid.crew_size != null ? bid.crew_size : <span className="text-faint">—</span>}
+                    {bid.crew_size != null ? bid.crew_size : <span className="text-faint">-</span>}
                   </td>
                 ))}
               </tr>
@@ -277,7 +277,7 @@ export function BidLevelingModal({
                 </td>
                 {sorted.map(bid => (
                   <td key={bid.id} className="px-4 py-3 text-center text-ink-soft text-xs leading-relaxed">
-                    {bid.payment_terms ?? <span className="text-faint">—</span>}
+                    {bid.payment_terms ?? <span className="text-faint">-</span>}
                   </td>
                 ))}
               </tr>
@@ -327,7 +327,7 @@ export function BidLevelingModal({
                             ? 'Excl.'
                             : val != null
                               ? fmt(val)
-                              : <span className="text-faint">—</span>}
+                              : <span className="text-faint">-</span>}
                         </td>
                       )
                     })}
@@ -352,7 +352,7 @@ export function BidLevelingModal({
                   <td key={bid.id} className="px-4 py-3 text-center text-ink-soft text-xs leading-relaxed align-top">
                     {bid.notes
                       ? <span className="whitespace-pre-wrap">{bid.notes}</span>
-                      : <span className="text-faint">—</span>}
+                      : <span className="text-faint">-</span>}
                   </td>
                 ))}
               </tr>

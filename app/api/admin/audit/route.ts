@@ -21,7 +21,7 @@ export async function GET(request: Request) {
     .order('created_at', { ascending: false })
     .limit(200)
 
-  // Table may not exist yet — return empty rather than erroring
+  // Table may not exist yet - return empty rather than erroring
   if (error) return NextResponse.json({ log: [], note: 'Run migration 003_impersonation_log.sql to enable audit logging.' })
   return NextResponse.json({ log: data ?? [] })
 }

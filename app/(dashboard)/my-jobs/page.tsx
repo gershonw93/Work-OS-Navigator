@@ -88,7 +88,7 @@ export default function MyJobsPage() {
             <div className="px-6 py-4 border-b border-line-soft flex items-center justify-between">
               <div>
                 <h2 className="font-semibold text-ink">New Project</h2>
-                <p className="text-xs text-muted-fg mt-0.5">Create a project you manage directly — permits, inspections, plans, and more.</p>
+                <p className="text-xs text-muted-fg mt-0.5">Create a project you manage directly - permits, inspections, plans, and more.</p>
               </div>
               <button onClick={() => setShowForm(false)} className="text-faint hover:text-muted-fg"><X className="h-5 w-5" /></button>
             </div>
@@ -122,7 +122,7 @@ export default function MyJobsPage() {
                     <option value="">No customer / add later</option>
                     {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </SearchableSelect>
-                  {customers.length === 0 && <p className="text-xs text-faint">No customers yet — add them in the Customers tab.</p>}
+                  {customers.length === 0 && <p className="text-xs text-faint">No customers yet - add them in the Customers tab.</p>}
                 </div>
                 <div className="space-y-1.5">
                   <Label>Notes <span className="text-faint font-normal">(optional)</span></Label>
@@ -143,7 +143,7 @@ export default function MyJobsPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-ink">My Jobs</h1>
-          <p className="text-sm text-muted-fg mt-0.5">Projects you're working on — awarded and your own.</p>
+          <p className="text-sm text-muted-fg mt-0.5">Projects you're working on - awarded and your own.</p>
         </div>
         <Button onClick={() => { setActiveTab('own'); setShowForm(true) }} className="self-start sm:self-auto"><Plus className="h-4 w-4" /> New Project</Button>
       </div>
@@ -222,7 +222,7 @@ export default function MyJobsPage() {
           <div className="rounded-xl border-2 border-dashed border-line py-16 text-center">
             <FolderOpen className="h-8 w-8 text-faint mx-auto mb-3" />
             <p className="text-sm font-medium text-muted-fg">No projects yet</p>
-            <p className="text-xs text-faint mt-1">Create and manage your own projects — permits, inspections, plans, daily logs, and more.</p>
+            <p className="text-xs text-faint mt-1">Create and manage your own projects - permits, inspections, plans, daily logs, and more.</p>
             <button onClick={() => setShowForm(true)} className="mt-4 text-sm text-accent-fg hover:underline font-medium">
               + Create your first project
             </button>

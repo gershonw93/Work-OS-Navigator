@@ -70,7 +70,7 @@ export default function CompliancePortal({ params }: { params: { token: string }
             <Link href="/login" className="rounded-lg border border-line text-sm font-medium text-ink-soft px-4 py-2 hover:bg-surface">Log in</Link>
           </div>
         </div>
-        <p className="text-center text-xs text-faint mt-3">No account needed to upload — this secure link is just for you.</p>
+        <p className="text-center text-xs text-faint mt-3">No account needed to upload - this secure link is just for you.</p>
       </div>
     </div>
   )
@@ -112,7 +112,7 @@ export default function CompliancePortal({ params }: { params: { token: string }
           {allDone ? (
             <div className="rounded-xl bg-success-tint border border-success/30 px-4 py-6 text-center">
               <CheckCircle2 className="h-8 w-8 text-success mx-auto mb-2" />
-              <p className="font-semibold text-ink">All documents received — thank you!</p>
+              <p className="font-semibold text-ink">All documents received - thank you!</p>
               <p className="text-sm text-muted-fg mt-1">The contractor has everything they requested.</p>
             </div>
           ) : (

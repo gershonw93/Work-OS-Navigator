@@ -24,7 +24,7 @@ async function loadCompanyRoleMap(companyId: string | null | undefined): Promise
   return map
 }
 
-// GET — return the member's role, default permissions, and saved overrides
+// GET - return the member's role, default permissions, and saved overrides
 export async function GET(req: Request, { params }: { params: { memberId: string } }) {
   const token = req.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -41,7 +41,7 @@ export async function GET(req: Request, { params }: { params: { memberId: string
     .single()
 
   if (error || !member) {
-    // Possibly column missing — retry without overrides
+    // Possibly column missing - retry without overrides
     const { data: basic } = await db.from('profiles').select('id, full_name, email, role, company_id').eq('id', params.memberId).single()
     if (!basic || basic.company_id !== caller.company_id) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     const companyRoleMap = await loadCompanyRoleMap(basic.company_id)
@@ -62,7 +62,7 @@ export async function GET(req: Request, { params }: { params: { memberId: string
   })
 }
 
-// PUT — replace the member's overrides
+// PUT - replace the member's overrides
 export async function PUT(req: Request, { params }: { params: { memberId: string } }) {
   const token = req.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

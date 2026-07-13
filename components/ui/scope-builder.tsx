@@ -133,7 +133,7 @@ export function ScopeBuilder({ value, onChange }: ScopeBuildProps) {
                         className={cn('h-6 w-6 rounded-full flex items-center justify-center shrink-0 transition-colors border',
                           item.included ? 'bg-success-solid border-success text-white' : 'bg-danger-tint border-danger/40 text-danger'
                         )}
-                        title={item.included ? 'Included — click to exclude' : 'Excluded — click to include'}
+                        title={item.included ? 'Included - click to exclude' : 'Excluded - click to include'}
                       >
                         {item.included ? <Check className="h-3 w-3" /> : <Ban className="h-3 w-3" />}
                       </button>
@@ -177,7 +177,7 @@ export function ScopeBuilder({ value, onChange }: ScopeBuildProps) {
 
                       {/* Line total */}
                       <p className={cn('text-sm font-medium text-right', item.included ? 'text-ink-soft' : 'text-faint')}>
-                        {lineTotal != null ? `$${lineTotal.toLocaleString()}` : '—'}
+                        {lineTotal != null ? `$${lineTotal.toLocaleString()}` : '-'}
                       </p>
 
                       {/* Status label */}

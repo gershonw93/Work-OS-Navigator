@@ -6,7 +6,7 @@ import { AlertTriangle, Loader2, X, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 interface GuardOptions {
-  /** What is being deleted, e.g. "this quote" — shown in the prompt. */
+  /** What is being deleted, e.g. "this quote" - shown in the prompt. */
   label?: string
   /** Set true for money/files etc. so the secret key is required when protection is on. */
   protected?: boolean

@@ -156,7 +156,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
       setSubId(''); setScheduleItemId(''); setAmount(''); setPercent(''); setDescription(''); setDueDate('')
       setShowForm(false); setSubmitting(false); fetchData()
     } catch (err: any) {
-      setCreateError(err?.message ? `Failed: ${err.message}` : 'Failed — check your connection.')
+      setCreateError(err?.message ? `Failed: ${err.message}` : 'Failed - check your connection.')
       setSubmitting(false)
     }
   }
@@ -283,7 +283,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
             </div>
             {invoice.description && <p className="text-sm text-muted-fg break-words">{invoice.description}</p>}
 
-            {/* Vendor's invoice file — the sub has no account, so the GC attaches it here */}
+            {/* Vendor's invoice file - the sub has no account, so the GC attaches it here */}
             <div className="rounded-lg border border-line bg-surface px-4 py-3 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold text-muted-fg uppercase tracking-wide">Vendor Invoice File</p>
@@ -308,7 +308,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
               {invoice.status === 'paid' && !invoice.lien_waiver_url && (
                 <div className="flex items-start gap-2 rounded-md border border-warn/30 bg-warn-tint px-3 py-2 text-sm text-warn">
                   <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-                  <span>Payment released — unconditional lien waiver required</span>
+                  <span>Payment released - unconditional lien waiver required</span>
                 </div>
               )}
 
@@ -499,7 +499,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
                     className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
                     <option value="">Select subcontractor...</option>
                     {subcontracts.map(s => (
-                      <option key={s.id} value={s.id}>{(s.companies as any)?.name ?? s.trade} — {s.trade}</option>
+                      <option key={s.id} value={s.id}>{(s.companies as any)?.name ?? s.trade} - {s.trade}</option>
                     ))}
                   </SearchableSelect>
                 </div>
@@ -527,7 +527,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
                           className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
                           <option value="">Select milestone...</option>
                           {subPaymentItems.map(p => (
-                            <option key={p.id} value={p.id}>{p.label}{p.amount ? ` — $${Number(p.amount).toLocaleString()}` : p.percentage ? ` — ${p.percentage}%` : ''}</option>
+                            <option key={p.id} value={p.id}>{p.label}{p.amount ? ` - $${Number(p.amount).toLocaleString()}` : p.percentage ? ` - ${p.percentage}%` : ''}</option>
                           ))}
                         </SearchableSelect>}
                   </div>
@@ -572,7 +572,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
 
                 <div className="space-y-1.5">
                   <Label>Description</Label>
-                  <Input placeholder="e.g. Rough electrical complete — 40%" value={description} onChange={e => setDescription(e.target.value)} />
+                  <Input placeholder="e.g. Rough electrical complete - 40%" value={description} onChange={e => setDescription(e.target.value)} />
                 </div>
 
                 <div className="space-y-1.5">
@@ -595,7 +595,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-ink">Invoices</h1>
-          <p className="text-sm text-muted-fg mt-0.5">Subcontractor invoices — approve, send, and track payments.</p>
+          <p className="text-sm text-muted-fg mt-0.5">Subcontractor invoices - approve, send, and track payments.</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {pending.length > 0 && (

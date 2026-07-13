@@ -52,7 +52,7 @@ const PROMPT = `This is a construction subcontractor compliance document. Identi
 Return ONLY the JSON object.`
 
 // Scan a compliance document with Claude and return the extracted fields.
-// Throws on unreadable input — callers should catch and fall back to a plain upload.
+// Throws on unreadable input - callers should catch and fall back to a plain upload.
 export async function extractComplianceFields(file: File): Promise<ComplianceFields> {
   const imageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
   const isPdf = file.type === 'application/pdf'

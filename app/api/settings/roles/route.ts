@@ -12,7 +12,7 @@ const admin = () => createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
-// Built-in "classes" a company can edit (admin is always full access — never
+// Built-in "classes" a company can edit (admin is always full access - never
 // editable, so nobody can lock themselves out).
 const BUILTIN_ORDER = ['project_manager', 'office_staff', 'field_supervisor', 'worker', 'read_only']
 const BUILTIN_LABELS: Record<string, string> = {
@@ -46,7 +46,7 @@ function slugify(label: string): string {
   return 'custom_' + label.toLowerCase().trim().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40) || 'custom_role'
 }
 
-// GET — every editable class for this company: built-in roles (with any
+// GET - every editable class for this company: built-in roles (with any
 // company override applied) plus fully custom roles.
 export async function GET(request: Request) {
   const caller = await requireAdmin(request)
@@ -78,7 +78,7 @@ export async function GET(request: Request) {
   return NextResponse.json({ roles })
 }
 
-// POST — create a brand-new custom role ("class").
+// POST - create a brand-new custom role ("class").
 export async function POST(request: Request) {
   const caller = await requireAdmin(request)
   if (!caller) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -104,7 +104,7 @@ export async function POST(request: Request) {
   return NextResponse.json({ role: { role_key: data.role_key, label: data.label, permissions: data.permissions, is_custom: true, is_overridden: true } })
 }
 
-// PUT — save a class's permission grid (and/or rename it). Works for both a
+// PUT - save a class's permission grid (and/or rename it). Works for both a
 // built-in role (creates/updates the override row) and a custom role.
 export async function PUT(request: Request) {
   const caller = await requireAdmin(request)
@@ -127,7 +127,7 @@ export async function PUT(request: Request) {
   return NextResponse.json({ role: { role_key: data.role_key, label: data.label, permissions: data.permissions, is_custom: data.is_custom, is_overridden: true } })
 }
 
-// DELETE — for a custom role, remove it entirely (must have no members left
+// DELETE - for a custom role, remove it entirely (must have no members left
 // on it). For a built-in role, just drop the override so it reverts to the
 // hardcoded default.
 export async function DELETE(request: Request) {
@@ -141,7 +141,7 @@ export async function DELETE(request: Request) {
 
   if (!isBuiltinRole(roleKey)) {
     const { count } = await db.from('profiles').select('*', { count: 'exact', head: true }).eq('company_id', caller.company_id).eq('role', roleKey)
-    if ((count ?? 0) > 0) return NextResponse.json({ error: `${count} team member${count === 1 ? '' : 's'} still ${count === 1 ? 'has' : 'have'} this role — reassign them first.` }, { status: 400 })
+    if ((count ?? 0) > 0) return NextResponse.json({ error: `${count} team member${count === 1 ? '' : 's'} still ${count === 1 ? 'has' : 'have'} this role - reassign them first.` }, { status: 400 })
   }
 
   const { error } = await db.from('company_roles').delete().eq('company_id', caller.company_id).eq('role_key', roleKey)

@@ -100,7 +100,7 @@ export function EditProjectButton({ projectId, project }: Props) {
               <div className="space-y-1.5">
                 <Label>Owner / Client</Label>
                 <Select value={customerId} onChange={e => setCustomerId(e.target.value)}>
-                  <option value="">— No customer —</option>
+                  <option value="">- No customer -</option>
                   {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </Select>
               </div>

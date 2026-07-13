@@ -218,16 +218,16 @@ export default function ReportsPage({ params }: { params: { id: string } }) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                 <div>
                   <p className="text-xs text-faint uppercase tracking-wide mb-1">Project</p>
-                  <p className="text-sm font-semibold text-ink-soft">{project?.name ?? '—'}</p>
+                  <p className="text-sm font-semibold text-ink-soft">{project?.name ?? '-'}</p>
                   {project?.address && <p className="text-xs text-muted-fg mt-0.5">{project.address}</p>}
                 </div>
                 <div>
                   <p className="text-xs text-faint uppercase tracking-wide mb-1">Client</p>
-                  <p className="text-sm font-semibold text-ink-soft">{project?.client_name ?? '—'}</p>
+                  <p className="text-sm font-semibold text-ink-soft">{project?.client_name ?? '-'}</p>
                 </div>
                 <div>
                   <p className="text-xs text-faint uppercase tracking-wide mb-1">Status</p>
-                  {project?.status ? <StatusBadge status={project.status} /> : <span className="text-sm text-faint">—</span>}
+                  {project?.status ? <StatusBadge status={project.status} /> : <span className="text-sm text-faint">-</span>}
                 </div>
                 {project?.contract_value != null && (
                   <div>

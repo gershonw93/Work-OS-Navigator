@@ -38,7 +38,7 @@ export async function POST(request: Request, { params: _params }: { params: { id
   "contact_email": "contact email if shown or null",
   "phone": "contact phone if shown or null"
 }
-For "line_items": copy the pricing-summary rows exactly — one object per priced row, preserving qty, unit, unit price and line total when shown. If there's no itemized pricing, split the scope paragraph into distinct items (amounts null is fine).
+For "line_items": copy the pricing-summary rows exactly - one object per priced row, preserving qty, unit, unit price and line total when shown. If there's no itemized pricing, split the scope paragraph into distinct items (amounts null is fine).
 For "payment_schedule": extract the proposal's payment terms / payment schedule (e.g. deposit %, amount due at start, balance at completion). One object per milestone with its percent and dollar amount. Return [] if no payment terms are stated.
 Return ONLY the JSON object, no other text.`
 

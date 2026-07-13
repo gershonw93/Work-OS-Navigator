@@ -81,7 +81,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ projects: data ?? [] })
   }
 
-  // All company projects — either as GC or as standalone owner.
+  // All company projects - either as GC or as standalone owner.
   // Includes address + coords so the Projects map can place pins.
   const scope = `gc_company_id.eq.${profile.company_id},created_by_company_id.eq.${profile.company_id}`
   let { data, error } = await db

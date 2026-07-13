@@ -10,7 +10,7 @@ interface Line { id: string; description: string; budgeted_amount: number; progr
 interface Stage { label: string; percent: number | null; amount: number | null; trigger?: string | null }
 interface QProject { status: string; quote_file_url: string | null; quote_file_name: string | null; quote_total: number | null; payment_terms: string | null; payment_stages: Stage[] | null }
 
-const money = (n: number | null) => n == null ? '—' : `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+const money = (n: number | null) => n == null ? '-' : `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 
 export default function QuotePage({ params }: { params: { id: string } }) {
   const supabase = createClient()
@@ -95,7 +95,7 @@ export default function QuotePage({ params }: { params: { id: string } }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-ink">Estimate</h1>
-          <p className="text-sm text-muted-fg mt-0.5">Build or upload your estimate. AI reads it into line items — send it as your proposal, then convert it to an active job once it's accepted.</p>
+          <p className="text-sm text-muted-fg mt-0.5">Build or upload your estimate. AI reads it into line items - send it as your proposal, then convert it to an active job once it's accepted.</p>
         </div>
         <span className={cn('text-xs font-semibold rounded-full px-2.5 py-1', isPending ? 'bg-warn-tint text-warn' : 'bg-success-tint text-success')}>
           {isPending ? 'Estimate · Pending' : 'Active job'}
@@ -124,7 +124,7 @@ export default function QuotePage({ params }: { params: { id: string } }) {
         </button>
       )}
 
-      {/* Line items — grouped by section, with Qty / Unit / Amount columns */}
+      {/* Line items - grouped by section, with Qty / Unit / Amount columns */}
       {lines.length > 0 && (
         <div className="bg-panel rounded-xl border border-line overflow-hidden">
           <div className="px-4 py-2.5 border-b border-line-soft flex items-center justify-between">
@@ -143,12 +143,12 @@ export default function QuotePage({ params }: { params: { id: string } }) {
                   <div key={l.id} className="px-4 py-2.5">
                     <div className="flex items-center justify-between gap-3 sm:grid sm:grid-cols-[1fr_4rem_6rem_6rem] sm:gap-3">
                       <span className="text-sm text-ink-soft min-w-0">{l.description}</span>
-                      <span className="hidden sm:block text-sm text-muted-fg text-right">{l.quantity != null ? l.quantity : '—'}</span>
-                      <span className="hidden sm:block text-sm text-muted-fg text-right">{l.unit_price != null ? money(l.unit_price) : '—'}</span>
+                      <span className="hidden sm:block text-sm text-muted-fg text-right">{l.quantity != null ? l.quantity : '-'}</span>
+                      <span className="hidden sm:block text-sm text-muted-fg text-right">{l.unit_price != null ? money(l.unit_price) : '-'}</span>
                       <span className="text-sm font-medium text-ink text-right shrink-0">{money(l.budgeted_amount)}</span>
                     </div>
                     {l.quantity != null && (
-                      <p className="sm:hidden text-xs text-faint mt-0.5">{l.quantity} × {l.unit_price != null ? money(l.unit_price) : '—'}</p>
+                      <p className="sm:hidden text-xs text-faint mt-0.5">{l.quantity} × {l.unit_price != null ? money(l.unit_price) : '-'}</p>
                     )}
                   </div>
                 ))}
@@ -161,7 +161,7 @@ export default function QuotePage({ params }: { params: { id: string } }) {
         </div>
       )}
 
-      {/* Payment terms — structured stages from the quote */}
+      {/* Payment terms - structured stages from the quote */}
       {(project?.quote_file_url || lines.length > 0) && (
         stages && stages.length > 0 ? (
           <div className="bg-panel rounded-xl border border-line overflow-hidden">
@@ -195,7 +195,7 @@ export default function QuotePage({ params }: { params: { id: string } }) {
             </div>
             {!project?.payment_terms && (
               <p className="text-xs text-muted-fg mb-2">
-                We couldn't find payment terms on the quote. {defaultTerms ? 'Your default is filled in below — adjust if needed.' : 'Add them here (e.g. 50% deposit, 40% on rough-in, 10% on completion).'}
+                We couldn't find payment terms on the quote. {defaultTerms ? 'Your default is filled in below - adjust if needed.' : 'Add them here (e.g. 50% deposit, 40% on rough-in, 10% on completion).'}
               </p>
             )}
             <textarea rows={3} value={terms} onChange={e => setTerms(e.target.value)}

@@ -316,7 +316,7 @@ export default function BidsPage({ params }: { params: { id: string } }) {
       body: JSON.stringify({ bid_id: bidId }),
     })
     setAwardingBid(null)
-    // Check if the awarded sub lacks an account — prompt to invite
+    // Check if the awarded sub lacks an account - prompt to invite
     const awardedBid = bids.find(b => b.id === bidId)
     if (awardedBid) {
       const company = allCompanies.find(c => c.id === awardedBid.company_id)
@@ -783,15 +783,15 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                   </div>
                   <div className="rounded-lg bg-surface px-4 py-3">
                     <p className="text-xs text-muted-fg mb-1">Duration</p>
-                    <p className="text-lg font-bold text-ink">{bid.duration_days ? `${bid.duration_days}d` : '—'}</p>
+                    <p className="text-lg font-bold text-ink">{bid.duration_days ? `${bid.duration_days}d` : '-'}</p>
                   </div>
                   <div className="rounded-lg bg-surface px-4 py-3">
                     <p className="text-xs text-muted-fg mb-1">Crew Size</p>
-                    <p className="text-lg font-bold text-ink">{bid.crew_size ?? '—'}</p>
+                    <p className="text-lg font-bold text-ink">{bid.crew_size ?? '-'}</p>
                   </div>
                   <div className="rounded-lg bg-surface px-4 py-3">
                     <p className="text-xs text-muted-fg mb-1">Start Date</p>
-                    <p className="text-base font-bold text-ink">{bid.earliest_start_date ? new Date(bid.earliest_start_date).toLocaleDateString() : '—'}</p>
+                    <p className="text-base font-bold text-ink">{bid.earliest_start_date ? new Date(bid.earliest_start_date).toLocaleDateString() : '-'}</p>
                   </div>
                 </div>
 
@@ -830,7 +830,7 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                                 <span className={cn('text-ink-soft', !item.included && 'line-through')}>{item.item}</span>
                                 <span className="text-faint text-xs">{item.qty ? `×${item.qty}` : ''}</span>
                                 <span className="text-faint text-xs">{item.unit_price ? `$${item.unit_price.toLocaleString()}` : ''}</span>
-                                <span className="text-ink-soft font-medium text-right">{total ? `$${total.toLocaleString()}` : '—'}</span>
+                                <span className="text-ink-soft font-medium text-right">{total ? `$${total.toLocaleString()}` : '-'}</span>
                               </div>
                             )
                           })}
@@ -867,7 +867,7 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                     {sub.fully_executed_at && (
                       <div className="rounded-md bg-success-tint border border-success/30 px-4 py-2.5 text-sm font-semibold text-success flex items-center gap-2">
                         <CheckCircle2 className="h-4 w-4" />
-                        Fully Executed — {new Date(sub.fully_executed_at).toLocaleDateString()}
+                        Fully Executed - {new Date(sub.fully_executed_at).toLocaleDateString()}
                       </div>
                     )}
                     <div className="grid grid-cols-2 gap-4">
@@ -1132,7 +1132,7 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                                       {hasBid ? (
                                         <span className="text-success font-medium">${Number(hasBid.amount).toLocaleString()}</span>
                                       ) : (
-                                        <span className="text-faint">—</span>
+                                        <span className="text-faint">-</span>
                                       )}
                                     </td>
                                     <td className="px-5 py-3 text-right">
@@ -1186,8 +1186,8 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                                 </div>
                                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-fg">
                                   <span className="font-semibold text-ink">${Number(bid.amount).toLocaleString()}</span>
-                                  <span>{bid.duration_days ? `${bid.duration_days}d` : '—'}</span>
-                                  <span>Crew: {bid.crew_size ?? '—'}</span>
+                                  <span>{bid.duration_days ? `${bid.duration_days}d` : '-'}</span>
+                                  <span>Crew: {bid.crew_size ?? '-'}</span>
                                   <span className="text-xs text-faint ml-auto">Tap to view →</span>
                                 </div>
                               </button>
@@ -1224,13 +1224,13 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                                     </div>
                                   </td>
                                   <td className="px-4 py-3 font-semibold text-ink">${Number(bid.amount).toLocaleString()}</td>
-                                  <td className="px-4 py-3 text-muted-fg">{bid.duration_days ? `${bid.duration_days}d` : '—'}</td>
-                                  <td className="px-4 py-3 text-muted-fg">{bid.earliest_start_date ? new Date(bid.earliest_start_date).toLocaleDateString() : '—'}</td>
-                                  <td className="px-4 py-3 text-muted-fg">{bid.crew_size ?? '—'}</td>
+                                  <td className="px-4 py-3 text-muted-fg">{bid.duration_days ? `${bid.duration_days}d` : '-'}</td>
+                                  <td className="px-4 py-3 text-muted-fg">{bid.earliest_start_date ? new Date(bid.earliest_start_date).toLocaleDateString() : '-'}</td>
+                                  <td className="px-4 py-3 text-muted-fg">{bid.crew_size ?? '-'}</td>
                                   <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                                     {bid.proposal_url
                                       ? <a href={bid.proposal_url} target="_blank" rel="noopener noreferrer" className="text-xs text-accent-fg hover:underline flex items-center gap-1"><FileText className="h-3 w-3" />View</a>
-                                      : <span className="text-faint text-xs">—</span>}
+                                      : <span className="text-faint text-xs">-</span>}
                                   </td>
                                   <td className="px-4 py-3">
                                     <Badge variant={getStatusVariant(bid.status)}>{bid.status}</Badge>

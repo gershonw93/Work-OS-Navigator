@@ -36,7 +36,7 @@ export interface Comparison {
   quotes: Quote[]
 }
 
-const money = (n: number | null) => n == null ? '—' : `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+const money = (n: number | null) => n == null ? '-' : `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 
 // Renders the analysis + quote grid + award flow for a single comparison.
 // Used standalone and embedded inside a Request Quotes card.
@@ -84,7 +84,7 @@ export function ComparisonBlock({ comp, projectId, onChanged }: { comp: Comparis
     } finally { setAnalyzing(false) }
   }
 
-  // Comparing IS analyzing — as soon as a comparison has quotes, run the AI check
+  // Comparing IS analyzing - as soon as a comparison has quotes, run the AI check
   // automatically so the user never has to click a separate "Analyze" step.
   // Runs once per comparison until an analysis exists; adding quotes later or
   // editing requirements re-enables the manual "Re-analyze" button.
@@ -164,7 +164,7 @@ export function ComparisonBlock({ comp, projectId, onChanged }: { comp: Comparis
             <div className="px-5 py-4 border-b border-line-soft"><h2 className="font-semibold text-ink">Award to project</h2></div>
             <div className="p-5 space-y-4">
               <p className="text-sm text-muted-fg">
-                Adds <span className="font-medium text-ink-soft">{awardTarget.vendor}</span> to your Directory and creates a contract — the amount flows into Financials, Schedule, and Compliance.
+                Adds <span className="font-medium text-ink-soft">{awardTarget.vendor}</span> to your Directory and creates a contract - the amount flows into Financials, Schedule, and Compliance.
               </p>
               <div>
                 <p className="text-sm font-medium text-ink-soft mb-1.5">This vendor is a…</p>
@@ -218,7 +218,7 @@ export function ComparisonBlock({ comp, projectId, onChanged }: { comp: Comparis
         <div className="flex items-center justify-between gap-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-faint flex items-center gap-1"><ClipboardList className="h-3.5 w-3.5" /> Compare responses{lowest != null && highest != null && highest > lowest ? <span className="text-success ml-1">· spread {money(highest - lowest)}</span> : null}</p>
           {awarded ? (
-            <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-success-tint text-success inline-flex items-center gap-1"><Check className="h-3 w-3" /> Awarded — locked</span>
+            <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-success-tint text-success inline-flex items-center gap-1"><Check className="h-3 w-3" /> Awarded - locked</span>
           ) : (
             <>
               <input ref={fileRef} type="file" accept="application/pdf,image/*" multiple className="sr-only"
@@ -232,7 +232,7 @@ export function ComparisonBlock({ comp, projectId, onChanged }: { comp: Comparis
         <div>
           <textarea rows={2} defaultValue={comp.requirements ?? ''}
             onBlur={e => { if ((e.target.value ?? '') !== (comp.requirements ?? '')) saveRequirements(e.target.value) }}
-            placeholder="What you need (requirements) — e.g. 200A panel, all permits included, finish in 3 weeks…"
+            placeholder="What you need (requirements) - e.g. 200A panel, all permits included, finish in 3 weeks…"
             className="w-full rounded-lg border border-line bg-panel px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-accent focus:outline-none resize-none" />
           <div className="flex items-center justify-between mt-2">
             <span className="text-xs text-faint">AI checks each quote against this automatically. Re-run after changing requirements.</span>
@@ -349,7 +349,7 @@ export function ComparisonBlock({ comp, projectId, onChanged }: { comp: Comparis
                   {awarded ? (
                     isWinner ? (
                       <div className="rounded-lg bg-success-tint text-success text-xs font-medium px-2.5 py-2 text-center flex items-center justify-center gap-1.5">
-                        <Check className="h-3.5 w-3.5" /> Awarded — added to the project
+                        <Check className="h-3.5 w-3.5" /> Awarded - added to the project
                       </div>
                     ) : (
                       <div className="rounded-lg bg-muted text-muted-fg text-xs font-medium px-2.5 py-2 text-center">Not selected</div>
@@ -358,7 +358,7 @@ export function ComparisonBlock({ comp, projectId, onChanged }: { comp: Comparis
                     <>
                       {isWinner ? (
                         <Button size="sm" variant="secondary" className="w-full" onClick={() => setWinner(null)}>
-                          <Trophy className="h-3.5 w-3.5 text-accent-fg" /> Winner — clear
+                          <Trophy className="h-3.5 w-3.5 text-accent-fg" /> Winner - clear
                         </Button>
                       ) : (
                         <Button size="sm" variant="outline" className="w-full" onClick={() => setWinner(q.id)}>

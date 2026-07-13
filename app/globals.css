@@ -3,12 +3,12 @@
 @tailwind utilities;
 
 /* ───────────────────────────────────────────────────────────────
-   SyteNav — "Field" theme tokens.
+   SyteNav - "Field" theme tokens.
    One accent system, two surface modes. Values are space-separated
    RGB triplets so Tailwind can apply opacity via rgb(var() / <alpha>).
    ─────────────────────────────────────────────────────────────── */
 :root {
-  /* Light mode — "Paper" surfaces */
+  /* Light mode - "Paper" surfaces */
   --surface: 244 244 241;     /* #F4F4F1 */
   --panel: 255 255 255;       /* #FFFFFF */
   --muted: 237 236 231;       /* #EDECE7 */
@@ -38,7 +38,7 @@
 }
 
 .dark {
-  /* Dark mode — "Pit" surfaces */
+  /* Dark mode - "Pit" surfaces */
   --surface: 15 17 19;        /* #0F1113 */
   --panel: 31 34 39;          /* #1F2227 */
   --muted: 42 46 52;          /* #2A2E34 */
@@ -73,7 +73,7 @@
   }
 
   /* Native date/time inputs have an intrinsic min-width on iOS that
-     forces grids and modals wider than the viewport — let them shrink. */
+     forces grids and modals wider than the viewport - let them shrink. */
   input,
   select,
   textarea {

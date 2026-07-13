@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils'
 import { ComparisonBlock, type Comparison } from '@/components/quotes/comparison-block'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 
-const money = (n: number | null) => n == null ? '—' : `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+const money = (n: number | null) => n == null ? '-' : `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 const STATUS: Record<string, string> = {
   invited: 'bg-muted text-muted-fg', viewed: 'bg-info-tint text-info',
   submitted: 'bg-success-tint text-success', declined: 'bg-danger-tint text-danger',
@@ -180,7 +180,7 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
   function linkFor(token: string) { return `${origin}/bid/${token}` }
   function copy(text: string, key: string) { navigator.clipboard?.writeText(text); setCopied(key); setTimeout(() => setCopied(null), 1500) }
   function emailFor(req: any, inv: any) {
-    const subject = `Request for Quote — ${req.title}`
+    const subject = `Request for Quote - ${req.title}`
     const body = `Hi ${inv.vendor_name ?? ''},\n\nWe'd like your quote for: ${req.title}${req.trade ? ` (${req.trade})` : ''}.\nView the scope and plans, and submit your quote here (no account needed):\n${linkFor(inv.token)}\n\n${req.due_date ? `Please respond by ${new Date(req.due_date + 'T00:00:00').toLocaleDateString()}.\n\n` : ''}Thank you.`
     return { subject, body, mailto: `mailto:${inv.vendor_email ?? ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}` }
   }
@@ -195,7 +195,7 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-ink">Quotes</h1>
-          <p className="text-sm text-muted-fg mt-0.5">Send plans to subs, track responses, then compare &amp; award — all in one place. Each sub gets a private link, no account needed.</p>
+          <p className="text-sm text-muted-fg mt-0.5">Send plans to subs, track responses, then compare &amp; award - all in one place. Each sub gets a private link, no account needed.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" onClick={() => newRef.current?.click()} disabled={newUploading} className="gap-1.5">
@@ -223,7 +223,7 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
 
           {/* Pick from saved project plans */}
           <div className="space-y-1.5">
-            <Label>Attach saved plans <span className="text-faint font-normal">— from this project's Plans</span></Label>
+            <Label>Attach saved plans <span className="text-faint font-normal">- from this project's Plans</span></Label>
             {savedPlans.length === 0 ? (
               <p className="text-xs text-faint">No saved plans on this project yet. Upload plans on the Plans tab, or attach files above.</p>
             ) : (
@@ -309,7 +309,7 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
                 </div>
               )}
 
-              {/* Quotes received — visible without opening the AI comparison */}
+              {/* Quotes received - visible without opening the AI comparison */}
               {submissions.length > 0 && (
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-faint mb-2">Quotes received ({submissions.length})</p>

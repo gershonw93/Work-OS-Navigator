@@ -101,7 +101,7 @@ export function ViewAsSwitcher() {
           onChange={e => { setCurrentUser(e.target.value); setViewAsUser(e.target.value) }}
           className={`text-xs font-medium bg-transparent focus:outline-none cursor-pointer max-w-[130px] ${previewing ? 'text-warn' : 'text-muted-fg'}`}
         >
-          <option value="">— pick user —</option>
+          <option value="">- pick user -</option>
           {teammates.map(t => (
             <option key={t.id} value={t.id}>
               {t.full_name || t.email || t.id.slice(0, 8)}
@@ -124,7 +124,7 @@ export function ViewAsBanner() {
     <div className="flex items-center justify-center gap-3 bg-warn-solid px-4 py-1.5 text-white text-sm font-medium">
       <Eye className="h-4 w-4 shrink-0" />
       <span>
-        Viewing as <strong>{label}</strong> — this is a preview, not your real account.
+        Viewing as <strong>{label}</strong> - this is a preview, not your real account.
       </span>
       <button
         onClick={clearAllPreviews}

@@ -111,7 +111,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   // Notify the assigned scheduler that there's an inspection to book.
   if (scheduler_profile_id) {
     const { data: proj } = await db.from('projects').select('name').eq('id', params.id).single()
-    const when = scheduled_date ? ` — preferred ${scheduled_date}${scheduled_time ? ` ${scheduled_time}` : ''}` : ''
+    const when = scheduled_date ? ` - preferred ${scheduled_date}${scheduled_time ? ` ${scheduled_time}` : ''}` : ''
     const contact = inspector_name ? ` Contact: ${inspector_name}${inspector_phone ? ` (${inspector_phone})` : ''}.` : ''
     await db.from('notifications').insert({
       user_id: scheduler_profile_id,

@@ -18,7 +18,7 @@ export async function POST(request: Request) {
   }
 
   const db = admin()
-  // One request per email — resubmitting just confirms receipt.
+  // One request per email - resubmitting just confirms receipt.
   const { data: existing } = await db.from('access_requests').select('id, status').ilike('email', email).maybeSingle()
   if (existing) return NextResponse.json({ ok: true, already: true })
 
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     phone: String(body.phone ?? '').trim() || null,
     message: String(body.message ?? '').trim().slice(0, 1000) || null,
   })
-  if (error) return NextResponse.json({ error: 'Could not submit — try again.' }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Could not submit - try again.' }, { status: 500 })
   return NextResponse.json({ ok: true })
 }
 

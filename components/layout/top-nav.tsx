@@ -46,7 +46,7 @@ export function TopNav() {
   return (
     <header className="flex h-14 items-center gap-3 border-b border-line bg-panel px-4 sm:px-6">
       <div className="flex items-center gap-3 shrink-0">
-        {/* Hamburger — mobile only */}
+        {/* Hamburger - mobile only */}
         <button
           className="lg:hidden flex items-center justify-center w-8 h-8 rounded-md text-muted-fg hover:bg-muted transition-colors"
           onClick={() => window.dispatchEvent(new Event(OPEN_SIDEBAR_EVENT))}
@@ -57,14 +57,14 @@ export function TopNav() {
         <p className="hidden md:block text-sm font-medium text-muted-fg">{getBreadcrumb(pathname)}</p>
       </div>
 
-      {/* Global search — grows to fill the middle */}
+      {/* Global search - grows to fill the middle */}
       <div className="flex-1 flex justify-center min-w-0">
         <GlobalSearch />
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
         <ImpersonateSwitcher />
-        {/* View-as crowds the mobile top bar — desktop only */}
+        {/* View-as crowds the mobile top bar - desktop only */}
         <div className="hidden sm:block"><ViewAsSwitcher /></div>
         <NotificationBell />
         <button className="flex items-center justify-center w-8 h-8 rounded-full bg-muted2 text-muted-fg hover:bg-muted2 transition-colors">

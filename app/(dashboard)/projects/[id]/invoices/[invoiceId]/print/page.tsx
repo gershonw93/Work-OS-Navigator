@@ -42,7 +42,7 @@ export default function InvoicePrintPage({ params }: { params: { id: string; inv
 
   return (
     <>
-      {/* Print button — hidden when printing */}
+      {/* Print button - hidden when printing */}
       <div className="no-print fixed top-4 right-4 z-50">
         <button onClick={() => window.print()}
           className="flex items-center gap-2 bg-accent text-accent-ink rounded-lg px-4 py-2 text-sm font-medium hover:bg-accent shadow-lg">
@@ -98,7 +98,7 @@ export default function InvoicePrintPage({ params }: { params: { id: string; inv
           </thead>
           <tbody>
             <tr className="border-b border-line-soft">
-              <td className="px-4 py-4 text-ink-soft">{invoice.description ?? `Payment — ${invoice.company_name}`}</td>
+              <td className="px-4 py-4 text-ink-soft">{invoice.description ?? `Payment - ${invoice.company_name}`}</td>
               <td className="px-4 py-4 text-right font-semibold text-ink">${Number(invoice.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
             </tr>
           </tbody>

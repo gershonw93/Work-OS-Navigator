@@ -66,10 +66,10 @@ export default function AdminUsers() {
             {!loading && users.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-faint">No users found.</td></tr>}
             {!loading && users.map(u => (
               <tr key={u.id} className="hover:bg-surface">
-                <td className="px-4 py-2.5 font-medium text-ink-soft">{u.full_name || '—'}</td>
+                <td className="px-4 py-2.5 font-medium text-ink-soft">{u.full_name || '-'}</td>
                 <td className="px-4 py-2.5 text-muted-fg hidden sm:table-cell">{u.email}</td>
-                <td className="px-4 py-2.5 text-muted-fg hidden md:table-cell">{u.company_name || '—'}</td>
-                <td className="px-4 py-2.5"><span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-fg">{u.role || '—'}</span></td>
+                <td className="px-4 py-2.5 text-muted-fg hidden md:table-cell">{u.company_name || '-'}</td>
+                <td className="px-4 py-2.5"><span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-fg">{u.role || '-'}</span></td>
                 <td className="px-4 py-2.5 text-right">
                   <button
                     disabled={busy === u.id}

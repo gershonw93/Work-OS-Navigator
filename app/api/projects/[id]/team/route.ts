@@ -35,7 +35,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     subcontracts = retry.data
   }
 
-  // Deduplicate subcontracts by company — show each company once
+  // Deduplicate subcontracts by company - show each company once
   const seenCompanies = new Set<string>()
   const uniqueSubs = (subcontracts ?? []).filter((s: any) => {
     const cid = (s.companies as any)?.name

@@ -66,7 +66,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   const { data: creator } = await db.from('profiles').select('full_name').eq('id', user.id).single()
-  await logActivity(db, params.id, (creator as any)?.full_name ?? 'GC', 'invoice_created', `Invoice ${invoice_number} created for ${company_name} — $${Number(amount).toLocaleString()}`)
+  await logActivity(db, params.id, (creator as any)?.full_name ?? 'GC', 'invoice_created', `Invoice ${invoice_number} created for ${company_name} - $${Number(amount).toLocaleString()}`)
 
   await db.from('notifications').insert({
     user_id: user.id,

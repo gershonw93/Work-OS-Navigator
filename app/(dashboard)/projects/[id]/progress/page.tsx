@@ -85,7 +85,7 @@ export default function ProgressPage({ params }: { params: { id: string } }) {
         <div className="rounded-xl border border-dashed border-line py-16 text-center">
           <TrendingUp className="h-10 w-10 text-faint mx-auto mb-3" />
           <p className="text-sm font-medium text-muted-fg">No tasks yet</p>
-          <p className="text-xs text-faint mt-1">Create tasks in the Tasks tab — progress updates automatically as they get completed.</p>
+          <p className="text-xs text-faint mt-1">Create tasks in the Tasks tab - progress updates automatically as they get completed.</p>
         </div>
       ) : (
         <div className="space-y-6">

@@ -113,7 +113,7 @@ export default function HelpPage() {
         </div>
       )}
 
-      {/* Search — always visible so you can jump anywhere */}
+      {/* Search - always visible so you can jump anywhere */}
       <div className="sticky top-0 z-10 -mx-4 mb-6 bg-surface/80 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
@@ -130,7 +130,7 @@ export default function HelpPage() {
         )}
       </div>
 
-      {/* An opened article always wins — even when a search is still active,
+      {/* An opened article always wins - even when a search is still active,
           so clicking a result shows the article (Back returns to results). */}
       {article ? (
         <ArticleView article={article} onOpen={open} onBack={() => setOpenSlug(null)} />

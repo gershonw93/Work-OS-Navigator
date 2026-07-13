@@ -52,7 +52,7 @@ export async function POST(request: Request) {
   if (inviteError) {
     const msg = inviteError.message?.toLowerCase() ?? ''
     if (msg.includes('already') || msg.includes('email rate limit') || msg.includes('already registered')) {
-      // User already exists or rate limited — still record in DB
+      // User already exists or rate limited - still record in DB
       emailSent = false
     } else {
       return NextResponse.json({ error: inviteError.message }, { status: 500 })

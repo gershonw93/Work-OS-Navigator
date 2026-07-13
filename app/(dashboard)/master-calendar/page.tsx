@@ -114,7 +114,7 @@ export default function MasterCalendarPage() {
         </div>
       </div>
 
-      {/* Day detail — everything happening that day; click one to open it */}
+      {/* Day detail - everything happening that day; click one to open it */}
       {selectedDay && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setSelectedDay(null)}>
           <div className="w-full max-w-md max-h-[85vh] overflow-y-auto rounded-xl bg-panel shadow-xl" onClick={e => e.stopPropagation()}>

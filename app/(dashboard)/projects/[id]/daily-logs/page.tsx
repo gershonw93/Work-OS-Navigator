@@ -466,7 +466,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
       setShowForm(false)
       fetchLogs()
     } catch (err: any) {
-      setError(err?.message ? `Save failed: ${err.message}` : 'Save failed — please try again.')
+      setError(err?.message ? `Save failed: ${err.message}` : 'Save failed - please try again.')
     } finally {
       setSubmitting(false)
     }
@@ -738,14 +738,14 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                     <SearchableSelect value={taskAssigneeId} onChange={e => setTaskAssigneeId(e.target.value)}
                       className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
                       <option value="">Select crew member...</option>
-                      {teamMembers.map(m => <option key={m.id} value={m.id}>{m.name} — {m.role}</option>)}
+                      {teamMembers.map(m => <option key={m.id} value={m.id}>{m.name} - {m.role}</option>)}
                     </SearchableSelect>
                   )}
                   {taskAssigneeType === 'sub' && subcontracts.length > 0 && (
                     <SearchableSelect value={taskAssigneeId} onChange={e => setTaskAssigneeId(e.target.value)}
                       className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
                       <option value="">Select subcontractor...</option>
-                      {subcontracts.map(s => <option key={s.id} value={s.id}>{(s.companies as any)?.name ?? s.trade} — {s.trade}</option>)}
+                      {subcontracts.map(s => <option key={s.id} value={s.id}>{(s.companies as any)?.name ?? s.trade} - {s.trade}</option>)}
                     </SearchableSelect>
                   )}
                 </div>
@@ -966,7 +966,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
               </div>
             </div>
 
-            {/* Work log photos — taggable per sub */}
+            {/* Work log photos - taggable per sub */}
             <div className="space-y-2">
               <Label><Camera className="inline h-3.5 w-3.5 mr-1 text-faint" />Work Log Photos</Label>
               {photoPreviews.length > 0 && (
@@ -1003,7 +1003,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
               <p className="text-xs text-faint">Tag each photo to the sub it belongs to.</p>
             </div>
 
-            {/* Signature — site manager */}
+            {/* Signature - site manager */}
             <div className="space-y-2">
               <Label><PenLine className="inline h-3.5 w-3.5 mr-1 text-faint" />Site Manager Signoff</Label>
               <div className="inline-flex rounded-lg border border-line p-0.5">

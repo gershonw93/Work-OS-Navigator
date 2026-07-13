@@ -31,7 +31,7 @@ export async function POST(
 
   const profile = await db.from('profiles').select('id').eq('company_id', company_id).single()
   if (!profile.data) {
-    return NextResponse.json({ message: 'Sub has no account — reminder not sent in-app' })
+    return NextResponse.json({ message: 'Sub has no account - reminder not sent in-app' })
   }
 
   const projectName = (pkg?.projects as any)?.name ?? 'a project'

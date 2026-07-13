@@ -71,7 +71,7 @@ export function SharePortalButton({ projectId }: SharePortalButtonProps) {
             </div>
 
             <p className="text-sm text-muted-fg">
-              Anyone with this link can view a read-only snapshot of this project — no login required.
+              Anyone with this link can view a read-only snapshot of this project - no login required.
             </p>
 
             {loading ? (

@@ -1,6 +1,6 @@
 import type { Config } from 'tailwindcss'
 
-// SyteNav — "Field" brand direction.
+// SyteNav - "Field" brand direction.
 // One accent system, two surface modes (light + dark). Colors are driven by
 // CSS variables defined in globals.css so every token flips with the theme.
 const v = (name: string) => `rgb(var(${name}) / <alpha-value>)`
@@ -27,7 +27,7 @@ const config: Config = {
         'ink-soft': v('--ink-soft'),   // secondary headings
         'muted-fg': v('--muted-fg'),   // body / labels
         faint: v('--faint'),           // hints / disabled
-        // Accent (Hi-Vis Lime) — fill stays lime in both modes, fg darkens in light
+        // Accent (Hi-Vis Lime) - fill stays lime in both modes, fg darkens in light
         accent: v('--accent'),
         'accent-fg': v('--accent-fg'),
         'accent-ink': v('--accent-ink'),

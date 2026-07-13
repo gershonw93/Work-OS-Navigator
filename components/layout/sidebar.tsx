@@ -13,7 +13,7 @@ import { usePermissions } from '@/lib/use-permissions'
 import { SyteNavLogo } from '@/components/ui/logo'
 import { useEffect, useState } from 'react'
 
-// GC nav items mapped to permission resource keys. Settings has no resource —
+// GC nav items mapped to permission resource keys. Settings has no resource -
 // everyone can reach Settings (at minimum their own profile).
 const GC_NAV_ITEMS = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, resource: 'dashboard' },
@@ -95,7 +95,7 @@ export function Sidebar() {
       {/* Logo */}
       <div className="flex h-16 items-center justify-between gap-2 px-5 border-b border-line shrink-0">
         <SyteNavLogo size={26} />
-        {/* Close button — mobile only */}
+        {/* Close button - mobile only */}
         <button
           className="lg:hidden text-faint hover:text-ink p-1"
           onClick={() => setMobileOpen(false)}
@@ -123,7 +123,7 @@ export function Sidebar() {
           )
         })}
 
-        {/* Master (admin-only, cross-project — works for GC and sub on their own jobs) */}
+        {/* Master (admin-only, cross-project - works for GC and sub on their own jobs) */}
         {isAdmin && (
           <div className="pt-3 mt-2 border-t border-line">
             <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-faint">Master</p>
@@ -174,7 +174,7 @@ export function Sidebar() {
 
   return (
     <>
-      {/* Desktop sidebar — hidden on mobile */}
+      {/* Desktop sidebar - hidden on mobile */}
       <aside className="hidden lg:flex fixed inset-y-0 left-0 z-30 w-60 flex-col bg-panel text-ink border-r border-line">
         {navContent}
       </aside>

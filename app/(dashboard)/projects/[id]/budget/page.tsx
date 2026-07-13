@@ -169,7 +169,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
     setApplying(false)
     if (res.ok) {
       const d = await res.json().catch(() => ({}))
-      if (d.skipped > 0) alert(`${d.skipped} line${d.skipped !== 1 ? 's' : ''} skipped — already on this budget.`)
+      if (d.skipped > 0) alert(`${d.skipped} line${d.skipped !== 1 ? 's' : ''} skipped - already on this budget.`)
       setShowTemplate(false); load()
     }
     else alert((await res.json().catch(() => ({}))).error ?? 'Could not apply')
@@ -398,7 +398,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-ink">Budget</h1>
-          <p className="text-sm text-muted-fg mt-0.5">Line-item cost breakdown — budgeted vs committed vs actual.</p>
+          <p className="text-sm text-muted-fg mt-0.5">Line-item cost breakdown - budgeted vs committed vs actual.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" onClick={() => importInputRef.current?.click()} className="gap-1.5">
@@ -480,7 +480,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                   <div className="rounded-lg border border-line p-3 space-y-2">
                     <p className="text-sm text-ink-soft">
                       {importItems.length} line items found
-                      {items.length > 0 && matches > 0 && <span className="text-muted-fg"> — {matches} match existing lines, {fresh} new</span>}
+                      {items.length > 0 && matches > 0 && <span className="text-muted-fg"> - {matches} match existing lines, {fresh} new</span>}
                     </p>
                     <div className="max-h-32 overflow-y-auto text-xs space-y-0.5">
                       {importItems.slice(0, 30).map((i, idx) => {
@@ -515,7 +515,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                       <Button size="sm" variant={matches > 0 ? 'outline' : 'default'} disabled={applying} onClick={saveImportedAsTemplateAndApply}>{applying ? 'Applying…' : 'Add all as new (save template)'}</Button>
                     </div>
                     {items.length > 0 && matches > 0 && (
-                      <p className="text-xs text-faint">Neither option deletes anything — lines not in the sheet are left untouched.</p>
+                      <p className="text-xs text-faint">Neither option deletes anything - lines not in the sheet are left untouched.</p>
                     )}
                   </div>
                     )
@@ -538,7 +538,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
             <div className="p-5 space-y-3">
               <div className="space-y-1.5">
                 <Label>Template name</Label>
-                <Input placeholder="e.g. New build — full custom" value={tplName} onChange={e => setTplName(e.target.value)} autoFocus />
+                <Input placeholder="e.g. New build - full custom" value={tplName} onChange={e => setTplName(e.target.value)} autoFocus />
               </div>
               <p className="text-xs text-faint">Saves these {items.length} line items (with amounts) as a reusable template for future jobs.</p>
               <div className="flex gap-2 justify-end">
@@ -690,7 +690,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                     budgeted_amount: f.budgeted_amount || (sub ? String(sub.contract_amount) : ''),
                   }))
                 }}>
-                <option value="">Not linked — enter manually</option>
+                <option value="">Not linked - enter manually</option>
                 {subOptions.filter(s => !linkedSubIds.has(s.id)).map(s => <option key={s.id} value={s.id}>{s.label} · {money(s.contract_amount)}</option>)}
               </SearchableSelect>
             </div>
@@ -845,7 +845,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                             <Field label="Link to subcontract (auto-fills Committed & Actual)">
                               <SearchableSelect className="w-full rounded-lg border border-line px-2.5 py-1.5 text-sm bg-panel"
                                 value={editForm.subcontract_id} onChange={e => setEditForm({ ...editForm, subcontract_id: e.target.value })}>
-                                <option value="">Not linked — enter manually</option>
+                                <option value="">Not linked - enter manually</option>
                                 {subOptions.filter(s => !linkedSubIds.has(s.id) || s.id === item.subcontract_id).map(s => <option key={s.id} value={s.id}>{s.label} · {money(s.contract_amount)}</option>)}
                               </SearchableSelect>
                             </Field>
@@ -912,7 +912,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                         <div className="flex justify-between md:block md:text-right text-sm font-medium">
                           <span className="md:hidden text-xs text-faint">Variance</span>
                           <span className={variance === 0 ? 'text-faint' : over ? 'text-danger' : 'text-success'}>
-                            {variance === 0 ? '—' : `${over ? '-' : ''}${money(Math.abs(variance))}`}
+                            {variance === 0 ? '-' : `${over ? '-' : ''}${money(Math.abs(variance))}`}
                           </span>
                         </div>
                         <div className="flex justify-end gap-1 mt-2 md:mt-0 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
@@ -950,7 +950,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
         </div>
       )}
 
-      {/* Materials — receipts assigned to this job (linked ones roll into a line's Actual) */}
+      {/* Materials - receipts assigned to this job (linked ones roll into a line's Actual) */}
       {materials.length > 0 && (() => {
         const materialsOwed = materials.reduce((s: number, m: any) => s + (m.client_paid ? 0 : Number(m.amount ?? 0)), 0)
         return (

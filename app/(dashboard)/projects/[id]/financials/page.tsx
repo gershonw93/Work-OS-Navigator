@@ -247,7 +247,7 @@ export default function FinancialsPage({ params }: { params: { id: string } }) {
                             <div key={inv.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm py-1">
                               <div className="flex items-center gap-2 min-w-0">
                                 <span className="font-mono text-xs text-faint shrink-0">{inv.invoice_number}</span>
-                                <span className="text-ink-soft truncate min-w-0">{inv.description ?? '—'}</span>
+                                <span className="text-ink-soft truncate min-w-0">{inv.description ?? '-'}</span>
                               </div>
                               <div className="flex flex-wrap items-center gap-2">
                                 <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5',

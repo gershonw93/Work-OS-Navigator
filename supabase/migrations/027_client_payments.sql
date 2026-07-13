@@ -1,6 +1,6 @@
 -- Cost-plus / escrow money model:
---   • client_payments — incoming funds from the client (deposits/draws)
---   • projects.contractor_fee_pct — management fee rate (e.g. 0.15 = 15%)
+--   • client_payments - incoming funds from the client (deposits/draws)
+--   • projects.contractor_fee_pct - management fee rate (e.g. 0.15 = 15%)
 CREATE TABLE IF NOT EXISTS client_payments (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   project_id UUID NOT NULL REFERENCES projects (id) ON DELETE CASCADE,

@@ -19,7 +19,7 @@ function plusOneDay(dateStr: string) {
   return `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}${String(d.getUTCDate()).padStart(2, '0')}`
 }
 
-// Public iCal feed — protected only by the secret token in the URL (that's how
+// Public iCal feed - protected only by the secret token in the URL (that's how
 // calendar apps subscribe; they can't send auth headers). Read-only.
 export async function GET(_request: Request, { params }: { params: { token: string } }) {
   const db = admin()

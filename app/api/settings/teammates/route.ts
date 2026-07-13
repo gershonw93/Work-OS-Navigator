@@ -62,7 +62,7 @@ export async function GET(request: Request) {
       if (byId) {
         profilesById.push({ ...byId, email: authEmail })
       } else {
-        // Auth user confirmed their account but never got a profile row — create one now
+        // Auth user confirmed their account but never got a profile row - create one now
         const inviteRow = (rawInvites ?? []).find((r: Record<string, unknown>) => r.email === authEmail)
         const inviteRole = (inviteRow?.role as string) ?? 'read_only'
         const { data: created } = await db

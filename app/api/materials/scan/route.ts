@@ -71,7 +71,7 @@ Keep line_items short (skip store boilerplate). Return ONLY the JSON object.`
     const fields = JSON.parse(cleaned)
     return NextResponse.json({ fields, receipt_url })
   } catch {
-    // Scan failed — still return the stored image so they can fill it in by hand.
-    return NextResponse.json({ fields: null, receipt_url, error: 'Could not read the receipt — enter the details manually.' })
+    // Scan failed - still return the stored image so they can fill it in by hand.
+    return NextResponse.json({ fields: null, receipt_url, error: 'Could not read the receipt - enter the details manually.' })
   }
 }

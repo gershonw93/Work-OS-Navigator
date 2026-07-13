@@ -73,7 +73,7 @@ const TYPE_ACCENT: Record<string, string> = {
 }
 
 function fmtDate(d: string | null) {
-  if (!d) return '—'
+  if (!d) return '-'
   return new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
@@ -119,7 +119,7 @@ export default function ProjectsPage() {
       setItems([])
     }
     setLoading(false)
-    // Stats are non-blocking — load after the list renders
+    // Stats are non-blocking - load after the list renders
     fetch('/api/projects/stats', { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.ok ? r.json() : { stats: {} })
       .then(d => setProjectStats(d.stats ?? {}))
@@ -628,7 +628,7 @@ export default function ProjectsPage() {
                           {project.status?.replace('_', ' ')}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-muted-fg">{project.client ?? '—'}</TableCell>
+                      <TableCell className="text-muted-fg">{project.client ?? '-'}</TableCell>
                       <TableCell>{fmtDate(project.start_date)}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">

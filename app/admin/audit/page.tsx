@@ -44,8 +44,8 @@ export default function AdminAudit() {
             {!loading && rows.map(r => (
               <tr key={r.id} className="hover:bg-surface">
                 <td className="px-4 py-2.5 text-muted-fg">{new Date(r.created_at).toLocaleString()}</td>
-                <td className="px-4 py-2.5 text-ink-soft">{r.actor_email || '—'}</td>
-                <td className="px-4 py-2.5 text-ink-soft">{r.target_email || '—'}</td>
+                <td className="px-4 py-2.5 text-ink-soft">{r.actor_email || '-'}</td>
+                <td className="px-4 py-2.5 text-ink-soft">{r.target_email || '-'}</td>
               </tr>
             ))}
           </tbody>

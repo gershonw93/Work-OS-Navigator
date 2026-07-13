@@ -118,7 +118,7 @@ export default function PlanViewerPage({ params }: { params: { id: string; planI
       setRendering(true)
       try {
         const pdfjs = await import('pdfjs-dist')
-        // Worker served from /public — bundling the .mjs worker trips Next's parser.
+        // Worker served from /public - bundling the .mjs worker trips Next's parser.
         pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
         const doc = await pdfjs.getDocument({ url: plan.file_url }).promise
         if (cancelled) return
@@ -135,7 +135,7 @@ export default function PlanViewerPage({ params }: { params: { id: string; planI
         canvas.height = viewport.height
         await pg.render({ canvasContext: canvas.getContext('2d')!, viewport } as any).promise
       } catch {
-        if (!cancelled) setError('Could not render this PDF — use View file to open it directly.')
+        if (!cancelled) setError('Could not render this PDF - use View file to open it directly.')
       } finally {
         if (!cancelled) setRendering(false)
       }
@@ -256,7 +256,7 @@ export default function PlanViewerPage({ params }: { params: { id: string; planI
             )}
             {rendering && <div className="absolute inset-0 flex items-center justify-center bg-surface/60"><Loader2 className="h-6 w-6 animate-spin text-accent-fg" /></div>}
 
-            {/* Pins — % coordinates, so they ride along with zoom/pan */}
+            {/* Pins - % coordinates, so they ride along with zoom/pan */}
             {pagePins.map(pin => {
               const done = pin.project_tasks?.status === 'completed'
               return (
@@ -292,7 +292,7 @@ export default function PlanViewerPage({ params }: { params: { id: string; planI
               <button onClick={() => setShowList(false)} className="text-faint hover:text-ink"><X className="h-5 w-5" /></button>
             </div>
             <div className="space-y-1.5 px-4 py-4">
-              {pins.length === 0 && <p className="py-6 text-center text-sm text-muted-fg">No pins yet — use Add pin.</p>}
+              {pins.length === 0 && <p className="py-6 text-center text-sm text-muted-fg">No pins yet - use Add pin.</p>}
               {pins.map(pin => {
                 const t = pin.project_tasks
                 const done = t?.status === 'completed'

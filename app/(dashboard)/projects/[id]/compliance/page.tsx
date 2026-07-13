@@ -70,7 +70,7 @@ const STATUS_CONFIG: Record<DocStatus, { label: string; classes: string }> = {
   approved:      { label: 'Approved',       classes: 'bg-success-tint text-success' },
   expired:       { label: 'Expired',        classes: 'bg-danger-tint text-danger' },
   expiring_soon: { label: 'Expiring Soon',  classes: 'bg-accent-tint text-accent-fg' },
-  optional:      { label: '—',              classes: 'bg-transparent text-faint' },
+  optional:      { label: '-',              classes: 'bg-transparent text-faint' },
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -254,7 +254,7 @@ function UploadForm({
     <div className="rounded-xl border border-line bg-surface p-4 mt-2 space-y-3">
       <div className="flex items-center justify-between">
         <p className="text-sm font-semibold text-ink-soft">
-          {existingDoc ? 'Update' : 'Upload'} {DOC_LABELS[docType]} — {companyName}
+          {existingDoc ? 'Update' : 'Upload'} {DOC_LABELS[docType]} - {companyName}
         </p>
         <button onClick={onClose} className="text-faint hover:text-muted-fg">
           <X className="h-4 w-4" />
@@ -433,7 +433,7 @@ function UploadForm({
         <div className={cn('rounded-lg border p-3 space-y-2', scanned ? 'border-success/30 bg-success-tint' : 'border-accent/40 bg-accent-tint')}>
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-ink-soft">🤖 Scan with AI</span>
-            <span className="text-xs text-muted-fg">— upload the document and Claude extracts expiry, status &amp; coverage</span>
+            <span className="text-xs text-muted-fg">- upload the document and Claude extracts expiry, status &amp; coverage</span>
           </div>
           <label className={cn(
             'flex items-center justify-center gap-2 w-full rounded-lg border-2 border-dashed px-4 py-3 cursor-pointer transition-colors text-sm font-medium',
@@ -447,7 +447,7 @@ function UploadForm({
                 Scanning document…
               </>
             ) : scanned ? (
-              <>✓ Scanned — fields auto-filled. Choose another to re-scan.</>
+              <>✓ Scanned - fields auto-filled. Choose another to re-scan.</>
             ) : (
               <><Upload className="h-4 w-4" /> Choose PDF or image to scan</>
             )}
@@ -467,7 +467,7 @@ function UploadForm({
 
         {/* File URL */}
         <div className="space-y-1">
-          <Label htmlFor="file_url" className="text-xs">File URL <span className="text-faint font-normal">(optional — paste a link to the stored doc)</span></Label>
+          <Label htmlFor="file_url" className="text-xs">File URL <span className="text-faint font-normal">(optional - paste a link to the stored doc)</span></Label>
           <Input
             id="file_url"
             type="url"
@@ -562,7 +562,7 @@ function RequestDocsBar({ projectId, companyId, companyName, contactEmail, missi
 
   function mailtoHref() {
     const to = email ?? contactEmail ?? ''
-    const subject = `Compliance documents needed — ${companyName}`
+    const subject = `Compliance documents needed - ${companyName}`
     const list = selected.map((t) => DOC_LABELS[t]).join(', ')
     const body = `Hi,\n\nPlease upload your compliance documents (${list}) using this secure link (no account needed):\n${activeLink}\n\nThank you.`
     return `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
@@ -659,7 +659,7 @@ function SubCard({ sub, docs, requests, projectId, token, onRefresh }: SubCardPr
   const worst = worstStatus(allStatuses)
   const chip = cardChip(worst)
 
-  // Docs still missing/expired — the sensible default to request from the vendor
+  // Docs still missing/expired - the sensible default to request from the vendor
   const missingTypes = visibleDocs.filter((t) => ['missing', 'expired', 'expiring_soon'].includes(resolveStatus(t)))
   const pendingRequest = requests
     .filter((r) => r.company_id === companyId)
@@ -724,12 +724,12 @@ function SubCard({ sub, docs, requests, projectId, token, onRefresh }: SubCardPr
                 <td className="px-5 py-3 text-xs text-faint">
                   {doc?.expiry_date
                     ? new Date(doc.expiry_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                    : '—'}
+                    : '-'}
                 </td>
                 <td className="px-5 py-3">
                   {doc?.file_url
                     ? <a href={doc.file_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1 text-xs text-accent-fg hover:underline font-medium"><ExternalLink className="h-3 w-3" /> View</a>
-                    : <span className="text-xs text-faint">—</span>}
+                    : <span className="text-xs text-faint">-</span>}
                 </td>
                 <td className="px-5 py-3 text-right">
                   <button
@@ -748,7 +748,7 @@ function SubCard({ sub, docs, requests, projectId, token, onRefresh }: SubCardPr
                       <p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Details on file</p>
                       {doc.notes
                         ? <p className="text-xs text-ink-soft whitespace-pre-wrap">{doc.notes}</p>
-                        : <p className="text-xs text-faint">No extracted details — open the file to review, or hit Update to add them.</p>}
+                        : <p className="text-xs text-faint">No extracted details - open the file to review, or hit Update to add them.</p>}
                       <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-xs text-muted-fg">
                         <span>Status: <span className="text-ink-soft font-medium">{STATUS_CONFIG[status].label}</span></span>
                         {doc.expiry_date && <span>Expires: <span className="text-ink-soft font-medium">{new Date(doc.expiry_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span></span>}

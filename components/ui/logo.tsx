@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils'
 
 /**
- * SyteNav "Field" mark — a locator arrow ("you are here on the site")
+ * SyteNav "Field" mark - a locator arrow ("you are here on the site")
  * knocked out of a rounded tile.
  */
 export function SyteNavMark({

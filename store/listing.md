@@ -1,4 +1,4 @@
-# SyteNav — store listing copy
+# SyteNav - store listing copy
 
 ## App name
 SyteNav

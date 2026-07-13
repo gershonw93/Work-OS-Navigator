@@ -17,7 +17,7 @@ const DOC_LABELS: Record<string, string> = {
   other: 'Other document',
 }
 
-// Public: anyone with the link can see what's requested and upload — no account.
+// Public: anyone with the link can see what's requested and upload - no account.
 export async function GET(_request: Request, { params }: { params: { token: string } }) {
   const db = admin()
   const { data: req } = await db.from('compliance_requests').select('*').eq('token', params.token).single()
@@ -70,7 +70,7 @@ export async function POST(request: Request, { params }: { params: { token: stri
       if (!expiry && fields.expiry_date) expiry = fields.expiry_date
       const summary = buildComplianceSummary(type, fields)
       notes = [summary, fields.notes].filter(Boolean).join('\n') || null
-    } catch { /* unreadable file — store it anyway, contractor reviews manually */ }
+    } catch { /* unreadable file - store it anyway, contractor reviews manually */ }
 
     const row: Record<string, unknown> = {
       company_id: req.company_id,
@@ -93,7 +93,7 @@ export async function POST(request: Request, { params }: { params: { token: stri
   if (uploadedTypes.length === 0) return NextResponse.json({ error: 'Attach at least one document.' }, { status: 400 })
 
   // Which of the requested docs now have a file? Only fully close the request
-  // when every requested doc is in — otherwise keep it open so the sub can
+  // when every requested doc is in - otherwise keep it open so the sub can
   // return via the same link and finish the rest.
   const { data: onFile } = await db
     .from('compliance_documents')

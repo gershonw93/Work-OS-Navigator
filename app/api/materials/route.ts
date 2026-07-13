@@ -98,7 +98,7 @@ export async function POST(request: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   await logActivity(db, project_id, actorName, 'material_purchased',
-    `Material receipt: ${store_name || 'purchase'} — $${Number(amount || 0).toLocaleString()}`,
+    `Material receipt: ${store_name || 'purchase'} - $${Number(amount || 0).toLocaleString()}`,
     { material_id: data.id, store_name, amount }, user.id)
 
   return NextResponse.json({ material: data })

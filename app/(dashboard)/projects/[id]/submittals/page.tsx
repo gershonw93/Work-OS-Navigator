@@ -259,16 +259,16 @@ export default function SubmittalsPage({ params }: { params: { id: string } }) {
                   <label className="flex items-center gap-2 rounded-lg border-2 border-dashed border-accent/40 bg-accent-tint/40 px-3 py-3 cursor-pointer hover:bg-accent-tint transition-colors">
                     {analyzing
                       ? <><Loader2 className="h-4 w-4 text-accent-fg animate-spin shrink-0" /><span className="text-accent-fg font-medium text-sm">Reading document…</span></>
-                      : <><Sparkles className="h-4 w-4 text-accent-fg shrink-0" /><span className="text-accent-fg font-medium text-sm">Upload a tech sheet / cut sheet</span><span className="text-faint text-xs">— AI fills the fields</span></>}
+                      : <><Sparkles className="h-4 w-4 text-accent-fg shrink-0" /><span className="text-accent-fg font-medium text-sm">Upload a tech sheet / cut sheet</span><span className="text-faint text-xs">- AI fills the fields</span></>}
                     <input type="file" accept="image/*,application/pdf" className="sr-only"
                       onChange={e => { const f = e.target.files?.[0]; if (f) analyzeDoc(f) }} />
                   </label>
                   {analyzeError && <p className="text-xs text-danger flex items-center gap-1"><X className="h-3 w-3 shrink-0" />{analyzeError}</p>}
-                  {scanned && !analyzeError && <p className="text-xs font-medium text-success">✓ Scanned — fields filled. The file is attached below.</p>}
+                  {scanned && !analyzeError && <p className="text-xs font-medium text-success">✓ Scanned - fields filled. The file is attached below.</p>}
                 </div>
                 <div className="space-y-1.5">
                   <Label>Title</Label>
-                  <Input placeholder="e.g. Roof Membrane — GAF EverGuard TPO" value={title} onChange={e => setTitle(e.target.value)} required />
+                  <Input placeholder="e.g. Roof Membrane - GAF EverGuard TPO" value={title} onChange={e => setTitle(e.target.value)} required />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">

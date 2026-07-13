@@ -1,19 +1,19 @@
-# SyteNav — App Store & Play Store runbook
+# SyteNav - App Store & Play Store runbook
 
 This app is a **server-rendered Next.js app** (120+ API routes, middleware, SSR). A
-Capacitor **static export is not possible** — it would delete the backend. So we ship a
+Capacitor **static export is not possible** - it would delete the backend. So we ship a
 **Capacitor native shell that loads the live deployed web app** (`server.url` in
 `capacitor.config.ts`). Everything keeps working with no rewrite.
 
 Run these on **your machine** (Windows/Linux is fine for Android; iOS builds happen in
-the cloud via Codemagic — no Mac needed).
+the cloud via Codemagic - no Mac needed).
 
 ---
 
 ## 0. Accounts you need
-- **Apple Developer Program** — $99/yr — https://developer.apple.com/programs/
-- **Google Play Console** — $25 one-time — https://play.google.com/console/
-- **Codemagic** account (free tier ok) for Mac-free iOS builds — https://codemagic.io
+- **Apple Developer Program** - $99/yr - https://developer.apple.com/programs/
+- **Google Play Console** - $25 one-time - https://play.google.com/console/
+- **Codemagic** account (free tier ok) for Mac-free iOS builds - https://codemagic.io
 
 Decide your identifiers first (used everywhere):
 - Bundle ID / package name: `com.sytenav.app` (set in `capacitor.config.ts` + `codemagic.yaml`)
@@ -57,7 +57,7 @@ not Safari/Chrome.
 Already configured in `capacitor.config.ts`: **splash screen**, **push notifications**.
 Add via the web app when running natively:
 - **Status bar** styling (`@capacitor/status-bar`)
-- **Camera** for jobsite photos / document capture (`@capacitor/camera`) — fits daily logs & AI doc scan
+- **Camera** for jobsite photos / document capture (`@capacitor/camera`) - fits daily logs & AI doc scan
 - **Push notifications** for approvals, new bids, invoice status
 - **Share / open external links** in the system browser (`@capacitor/browser`)
 - Optional: **Geolocation** for the time clock, **Filesystem** for offline PDFs
@@ -74,7 +74,7 @@ This generates every required iOS/Android icon + splash size.
 
 ---
 
-## 5. Cloud builds (no Mac) — Codemagic
+## 5. Cloud builds (no Mac) - Codemagic
 `codemagic.yaml` is in the repo (workflows: `ios-capacitor`, `android-capacitor`).
 1. Connect the repo in Codemagic.
 2. iOS: add an **App Store Connect API key** integration named `SyteNav ASC`; enable automatic code signing.

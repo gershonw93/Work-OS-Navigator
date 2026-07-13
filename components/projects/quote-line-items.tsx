@@ -26,8 +26,8 @@ const STATUSES = [
 ]
 
 // Sub's own-job line items, sourced from their uploaded quote.
-//  mode 'budget'   — what they quoted (amounts + earned-to-date)
-//  mode 'progress' — editable % complete per line + overall amount-weighted bar
+//  mode 'budget'   - what they quoted (amounts + earned-to-date)
+//  mode 'progress' - editable % complete per line + overall amount-weighted bar
 export function QuoteLineItems({ projectId, mode }: { projectId: string; mode: 'budget' | 'progress' }) {
   const supabase = createClient()
   const [project, setProject] = useState<QProject | null>(null)
@@ -101,7 +101,7 @@ export function QuoteLineItems({ projectId, mode }: { projectId: string; mode: '
   async function saveNote(id: string, note: string) {
     const res = await patchLine(id, { progress_note: note })
     if (res.ok) { setNoteSaved(id); setTimeout(() => setNoteSaved(s => s === id ? null : s), 1500) }
-    else alert((await res.json().catch(() => ({}))).error ?? "Couldn't save the note — run the latest DB migration (033).")
+    else alert((await res.json().catch(() => ({}))).error ?? "Couldn't save the note - run the latest DB migration (033).")
   }
 
   function openTask(l: Line) {
@@ -144,7 +144,7 @@ export function QuoteLineItems({ projectId, mode }: { projectId: string; mode: '
     return (
       <div className="bg-panel rounded-xl border border-line p-10 text-center">
         <FileText className="h-8 w-8 text-faint mx-auto mb-3" />
-        <p className="text-sm text-muted-fg">No line items yet. Upload your quote on the <span className="font-medium text-ink-soft">Quote</span> tab — AI reads it into line items.</p>
+        <p className="text-sm text-muted-fg">No line items yet. Upload your quote on the <span className="font-medium text-ink-soft">Quote</span> tab - AI reads it into line items.</p>
       </div>
     )
   }
@@ -155,7 +155,7 @@ export function QuoteLineItems({ projectId, mode }: { projectId: string; mode: '
         <div>
           <h1 className="text-2xl font-bold text-ink">{mode === 'budget' ? 'Line Items' : 'Progress'}</h1>
           <p className="text-sm text-muted-fg mt-0.5">
-            {mode === 'budget' ? 'The line items from the quote you sent the client.' : 'Mark how complete each line item is — overall % is weighted by value.'}
+            {mode === 'budget' ? 'The line items from the quote you sent the client.' : 'Mark how complete each line item is - overall % is weighted by value.'}
           </p>
         </div>
         {project?.quote_file_url && (
@@ -179,7 +179,7 @@ export function QuoteLineItems({ projectId, mode }: { projectId: string; mode: '
         </div>
       </div>
 
-      {/* Lines — grouped by section */}
+      {/* Lines - grouped by section */}
       <div className="bg-panel rounded-xl border border-line overflow-hidden">
         {sections.map(sec => (
           <div key={sec.name}>
@@ -273,7 +273,7 @@ export function QuoteLineItems({ projectId, mode }: { projectId: string; mode: '
                   <option value="">Unassigned</option>
                   {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                 </select>
-                {members.length === 0 && <p className="text-xs text-faint">No crew yet — add people on the Team tab.</p>}
+                {members.length === 0 && <p className="text-xs text-faint">No crew yet - add people on the Team tab.</p>}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">

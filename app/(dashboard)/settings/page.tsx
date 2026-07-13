@@ -208,7 +208,7 @@ export default function SettingsPage() {
   const [inviteSending, setInviteSending] = useState(false)
   const [inviteMsg, setInviteMsg] = useState<{ ok: boolean; text: string } | null>(null)
 
-  // Custom classes (company_roles) — merged into role pickers alongside the
+  // Custom classes (company_roles) - merged into role pickers alongside the
   // built-in roles, and used to show friendly labels for custom role keys.
   const [customRoles, setCustomRoles] = useState<{ role_key: string; label: string }[]>([])
   const loadCustomRoles = useCallback(async () => {
@@ -267,7 +267,7 @@ export default function SettingsPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setLoading(false); return }
 
-      // Use API as primary — it auto-creates profile if missing and uses service role
+      // Use API as primary - it auto-creates profile if missing and uses service role
       const headers = await authHeaders()
       const res = await fetch('/api/settings', { headers })
       if (res.ok) {
@@ -283,7 +283,7 @@ export default function SettingsPage() {
           setFullName(resolvedName)
           setProfilePhone(p.phone ?? '')
         } else {
-          // Profile row missing even after API — set role from auth metadata so tabs appear
+          // Profile row missing even after API - set role from auth metadata so tabs appear
           const metaRole = user.user_metadata?.role ?? 'read_only'
           setUserRole(metaRole)
           setFullName(user.user_metadata?.full_name ?? '')
@@ -313,7 +313,7 @@ export default function SettingsPage() {
 
         if (data.pendingInvites) setPendingInvites(data.pendingInvites)
       } else {
-        // API failed — fall back to auth metadata so we're never stuck blank
+        // API failed - fall back to auth metadata so we're never stuck blank
         const metaRole = user.user_metadata?.role ?? 'admin'
         setUserRole(metaRole)
         setFullName(user.user_metadata?.full_name ?? '')
@@ -327,7 +327,7 @@ export default function SettingsPage() {
         })
       }
     } catch {
-      // Last resort — don't stay blank
+      // Last resort - don't stay blank
       setUserRole('read_only')
     } finally {
       setLoading(false)
@@ -523,7 +523,7 @@ export default function SettingsPage() {
         setInviteMsg({
           ok: true,
           text: d.emailSent === false
-            ? `Recorded! ${d.note ?? 'Email may not have been sent — check Supabase email limits.'}`
+            ? `Recorded! ${d.note ?? 'Email may not have been sent - check Supabase email limits.'}`
             : 'Invite sent! They will receive an email to set up their account.',
         })
         setInviteEmail('')
@@ -562,7 +562,7 @@ export default function SettingsPage() {
         loadTeammates()
       }
     } catch {
-      alert('Network error — role not saved.')
+      alert('Network error - role not saved.')
       loadTeammates()
     }
   }
@@ -834,7 +834,7 @@ export default function SettingsPage() {
                   <CardTitle>Calendar</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm text-muted-fg mb-3">Add your schedules, task due dates, and inspections to your own Google, Apple, or Outlook calendar. It's read-only and optional — SyteNav's calendar still works without it.</p>
+                  <p className="text-sm text-muted-fg mb-3">Add your schedules, task due dates, and inspections to your own Google, Apple, or Outlook calendar. It's read-only and optional - SyteNav's calendar still works without it.</p>
                   <ConnectCalendarButton />
                 </CardContent>
               </Card>
@@ -852,7 +852,7 @@ export default function SettingsPage() {
                   <p className="text-muted-fg text-sm">No company linked to your account.</p>
                 ) : (
                   <>
-                    {/* Company logo — stamped on PDFs (daily logs, invoices, reports) */}
+                    {/* Company logo - stamped on PDFs (daily logs, invoices, reports) */}
                     <div className="flex items-center gap-4">
                       <div className="h-16 w-16 rounded-xl border border-line bg-surface flex items-center justify-center overflow-hidden shrink-0">
                         {logoUrl ? (
@@ -1012,7 +1012,7 @@ export default function SettingsPage() {
                                     {initials(t.full_name ?? t.email ?? '?')}
                                   </div>
                                   <div>
-                                    <span className="font-medium text-ink-soft">{t.full_name || '—'}</span>
+                                    <span className="font-medium text-ink-soft">{t.full_name || '-'}</span>
                                     {isSelf && <span className="ml-2 text-xs text-faint">(you)</span>}
                                   </div>
                                 </div>
@@ -1408,13 +1408,13 @@ export default function SettingsPage() {
                 <CardContent className="space-y-4">
                   <p className="text-sm text-muted-fg">
                     When on, deleting important records (quotes, invoices, budget lines, quote requests, and uploaded files)
-                    asks for a secret key first — a safeguard against accidental or unauthorized deletions.
+                    asks for a secret key first - a safeguard against accidental or unauthorized deletions.
                   </p>
 
                   <label className="flex items-center justify-between gap-4 rounded-lg border border-line px-4 py-3">
                     <span>
                       <span className="block text-sm font-medium text-ink-soft">Require the secret key to delete</span>
-                      <span className="block text-xs text-faint mt-0.5">{dpKeySet ? 'A key is set.' : 'No key set yet — enter one below.'}</span>
+                      <span className="block text-xs text-faint mt-0.5">{dpKeySet ? 'A key is set.' : 'No key set yet - enter one below.'}</span>
                     </span>
                     <button type="button" role="switch" aria-checked={dpEnabled} onClick={() => setDpEnabled(v => !v)}
                       className={cn('relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors', dpEnabled ? 'bg-accent' : 'bg-muted2')}>
@@ -1425,7 +1425,7 @@ export default function SettingsPage() {
                   <div className="space-y-1.5">
                     <Label>{dpKeySet ? 'Change the secret key' : 'Set a secret key'}</Label>
                     <Input type="password" value={dpKey} onChange={e => setDpKey(e.target.value)} placeholder={dpKeySet ? 'Leave blank to keep the current key' : 'Choose a key…'} />
-                    <p className="text-xs text-faint">Share this only with people allowed to delete financial records. It's stored hashed — we can't recover it, only replace it.</p>
+                    <p className="text-xs text-faint">Share this only with people allowed to delete financial records. It's stored hashed - we can't recover it, only replace it.</p>
                   </div>
 
                   {dpMsg && <p className={cn('text-sm', dpMsg.ok ? 'text-success' : 'text-danger')}>{dpMsg.text}</p>}

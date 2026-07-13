@@ -73,7 +73,7 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
     setEditingId(null); load()
   }
 
-  // One-click "entered in QuickBooks" toggle straight from the ledger row —
+  // One-click "entered in QuickBooks" toggle straight from the ledger row -
   // no need to open the edit form just to check it off another day.
   async function toggleQb(p: Payment) {
     setPayments(prev => prev.map(x => x.id === p.id ? { ...x, qb_entered: !x.qb_entered } : x))  // optimistic
@@ -121,7 +121,7 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-ink">Payments &amp; Escrow</h1>
-          <p className="text-sm text-muted-fg mt-0.5">Client funds in, your fee, and what's left to pay vendors — the cash side of the job.</p>
+          <p className="text-sm text-muted-fg mt-0.5">Client funds in, your fee, and what's left to pay vendors - the cash side of the job.</p>
         </div>
         <Button onClick={() => setAdding(v => !v)} className="gap-1.5"><Plus className="h-4 w-4" /> Record Payment</Button>
       </div>
@@ -155,9 +155,9 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
           <div className="rounded-xl border border-warn/30 bg-warn-tint px-4 py-3 flex flex-wrap items-center gap-3">
             <TrendingDown className="h-5 w-5 text-warn shrink-0" />
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-ink">Hold off — not enough in escrow yet.</p>
+              <p className="text-sm font-semibold text-ink">Hold off - not enough in escrow yet.</p>
               <p className="text-sm text-muted-fg">
-                {money(s.outstandingToVendors)} is owed to vendors but only {money(Math.max(s.escrowBalance, 0))} is available. You're short {money(s.outstandingToVendors - s.escrowBalance)} — collect from the client first.
+                {money(s.outstandingToVendors)} is owed to vendors but only {money(Math.max(s.escrowBalance, 0))} is available. You're short {money(s.outstandingToVendors - s.escrowBalance)} - collect from the client first.
               </p>
             </div>
           </div>
@@ -198,7 +198,7 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
         <p className="text-xs text-faint mt-2">Projected cost = Budget × (1 + {(feePct * 100).toFixed(feePct * 100 % 1 ? 1 : 0)}% fee). Set budget lines on the Budget tab.</p>
       </div>
 
-      {/* Add form — modal so it's front-and-center, not buried at the bottom */}
+      {/* Add form - modal so it's front-and-center, not buried at the bottom */}
       {adding && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !saving && setAdding(false)}>
         <div className="bg-panel rounded-xl border border-accent/40 shadow-xl w-full max-w-lg p-4 sm:p-5 space-y-3" onClick={e => e.stopPropagation()}>
@@ -252,9 +252,9 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
               </div>
             ) : (
               <div key={p.id} className="group md:grid md:grid-cols-[7rem_1fr_8rem_1fr_5rem_3rem] md:gap-2 md:items-center px-4 py-3 hover:bg-surface">
-                <span className="text-sm text-ink-soft">{p.paid_date ? new Date(p.paid_date + 'T00:00:00').toLocaleDateString() : '—'}</span>
-                <span className="text-sm text-ink-soft truncate">{p.memo || '—'}{p.retainer && <span className="ml-2 text-[10px] rounded-full bg-info-tint text-info px-1.5 py-0.5">retainer</span>}</span>
-                <span className="text-sm text-muted-fg">{p.method || '—'}</span>
+                <span className="text-sm text-ink-soft">{p.paid_date ? new Date(p.paid_date + 'T00:00:00').toLocaleDateString() : '-'}</span>
+                <span className="text-sm text-ink-soft truncate">{p.memo || '-'}{p.retainer && <span className="ml-2 text-[10px] rounded-full bg-info-tint text-info px-1.5 py-0.5">retainer</span>}</span>
+                <span className="text-sm text-muted-fg">{p.method || '-'}</span>
                 <span className="text-sm font-semibold text-success md:text-right block">{money(p.amount)}</span>
                 <button onClick={() => toggleQb(p)} title="Toggle QuickBooks entered"
                   className={cn('text-xs inline-flex items-center gap-1 rounded-full border px-2 py-0.5 transition-colors',
