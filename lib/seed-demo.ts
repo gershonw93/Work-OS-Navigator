@@ -296,7 +296,7 @@ export async function runSeed(
 
     await insert('change_orders', CO_TITLES.slice(0, 2 + (p % 2)).map((t, i) => ({ project_id: projectId, subcontract_id: pick(subcontractIds, i).id, title: t, description: 'Owner-directed scope change.', amount: round2(3000 + i * 2500), reason: 'Owner request', requested_by_type: 'gc', status: pick(['approved', 'pending', 'approved', 'rejected'], i) })))
 
-    await insert('permits', PERMIT_TYPES.slice(0, 3 + (p % 2)).map((t, i) => ({ project_id: projectId, type: t, permit_number: `PB-${20000 + p * 100 + i}`, status: pick(['approved', 'pending', 'active', 'approved'], i), expiry_date: ymd(daysFromNow(120 + i * 30)) })))
+    await insert('permits', PERMIT_TYPES.slice(0, 3 + (p % 2)).map((t, i) => ({ project_id: projectId, permit_type: t, type: t, permit_number: `PB-${20000 + p * 100 + i}`, description: `${t} permit`, status: pick(['approved', 'pending', 'active', 'approved'], i), expiry_date: ymd(daysFromNow(120 + i * 30)) })))
 
     await insert('inspections', INSPECTION_TYPES.slice(0, 3 + (p % 3)).map((t, i) => ({ project_id: projectId, type: t, trade: t, status: pick(['passed', 'scheduled', 'requested', 'passed'], i), scheduled_date: ymd(daysFromNow(-10 + i * 7)), completed_date: i % 4 === 0 ? ymd(daysFromNow(-9 + i * 7)) : null, inspector_name: 'City Inspections Bureau', inspector_phone: '(212) 555-0199', requested_by_name: 'Mike Torres', notes: i % 3 === 0 ? 'Passed with no comments.' : null })))
 
