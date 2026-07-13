@@ -130,7 +130,14 @@ export function SearchableSelect({
     const r = el.getBoundingClientRect()
     const spaceBelow = window.innerHeight - r.bottom
     const below = spaceBelow > 280 || spaceBelow > r.top
-    setRect({ top: below ? r.bottom + 4 : r.top - 4, left: r.left, width: r.width, below })
+    // Keep the panel on screen even if the trigger is partly off-screen (e.g.
+    // a modal that overflows on a narrow phone).
+    const vw = window.innerWidth
+    const width = Math.min(Math.max(r.width, 220), vw - 16)
+    let left = r.left
+    if (left + width > vw - 8) left = vw - 8 - width
+    if (left < 8) left = 8
+    setRect({ top: below ? r.bottom + 4 : r.top - 4, left, width, below })
   }
 
   useLayoutEffect(() => {
