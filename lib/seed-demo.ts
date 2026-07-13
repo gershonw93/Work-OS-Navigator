@@ -271,7 +271,7 @@ export async function runSeed(
       await insert('time_entries', { project_id: projectId, profile_id: null, worker_name: m.name, clock_in_at: iso(inAt), clock_out_at: iso(outAt), clock_in_lat: proj.lat, clock_in_lng: proj.lng, clock_in_distance_m: 20 + t, clock_in_flagged: t % 5 === 4, clock_in_selfie_url: img(`clock-${projectId}-${t}`), approval_status: pick(['approved', 'pending', 'approved'], t), reviewed_by_name: t % 3 === 0 ? 'Demo Admin' : null })
     }
 
-    await insert('rfis', RFI_Q.slice(0, 2 + (p % 3)).map((q, i) => ({ project_id: projectId, question: q, response: i % 2 === 0 ? 'See revised detail A-501, issued in latest set.' : null, status: i % 2 === 0 ? 'answered' : 'open', created_by: userId })))
+    await insert('rfis', RFI_Q.slice(0, 2 + (p % 3)).map((q, i) => ({ project_id: projectId, rfi_number: i + 1, subject: q.length > 60 ? q.slice(0, 57) + '...' : q, description: q, response: i % 2 === 0 ? 'See revised detail A-501, issued in latest set.' : null, status: i % 2 === 0 ? 'answered' : 'open', submitted_by_name: 'Mike Torres' })))
 
     await insert('change_orders', CO_TITLES.slice(0, 2 + (p % 2)).map((t, i) => ({ project_id: projectId, subcontract_id: pick(subcontractIds, i).id, title: t, description: 'Owner-directed scope change.', amount: round2(3000 + i * 2500), reason: 'Owner request', requested_by_type: 'gc', status: pick(['approved', 'pending', 'approved', 'rejected'], i) })))
 
