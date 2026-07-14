@@ -250,6 +250,26 @@ export const HELP_ARTICLES: HelpArticle[] = [
     related: ['budget-templates', 'money-overview', 'create-invoice'],
   },
   {
+    slug: 'pay-applications',
+    title: 'Bill by pay application (AIA G702 / G703)',
+    category: 'money',
+    keywords: ['pay application', 'aia', 'g702', 'g703', 'progress billing', 'draw', 'schedule of values', 'retainage', 'bank', 'commercial', 'application for payment'],
+    summary: 'Monthly progress billing against a schedule of values, with retainage and a G702/G703 PDF.',
+    blocks: [
+      { type: 'text', text: 'On commercial jobs you bill in monthly draws against a schedule of values (SOV), and the bank funds each one. The Pay Apps tab handles that AIA-style, in both directions: you bill the owner/bank, or a sub bills you.' },
+      { type: 'steps', items: [
+        'Open the project and go to the Pay Apps tab (under Financials).',
+        'Click New Application. Choose "We bill the owner" (uses the whole budget as the SOV) or "A sub bills us" (uses that sub\'s scope). Set the period-ending date and retainage %.',
+        'The SOV lines fill in, with "previously billed" carried forward from earlier applications automatically.',
+        'Enter this period\'s work (and any stored materials) per line. The G702 summary updates: completed to date, retainage held, and current payment due.',
+        'Move it through Draft, Submitted, Certified, Funded as the bank/architect processes it.',
+        'Use "G702 / G703 PDF" to print the Application and Certificate for Payment plus the continuation sheet to submit.',
+      ] },
+      { type: 'tip', text: 'The schedule of values is your budget line items, so build the budget first. Change orders that adjust the contract flow into the SOV total.' },
+    ],
+    related: ['add-project-budget', 'create-invoice', 'money-overview'],
+  },
+  {
     slug: 'budget-templates',
     title: 'Save and reuse a budget template',
     category: 'money',

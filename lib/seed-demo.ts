@@ -311,6 +311,29 @@ export async function runSeed(
 
     await insert('change_orders', CO_TITLES.slice(0, 2 + (p % 2)).map((t, i) => ({ project_id: projectId, subcontract_id: pick(subcontractIds, i).id, title: t, description: 'Owner-directed scope change.', amount: round2(3000 + i * 2500), reason: 'Owner request', requested_by_type: 'gc', status: pick(['approved', 'pending', 'approved', 'rejected'], i) })))
 
+    // AIA pay applications (GC bills owner/bank) - a couple months of draws for
+    // commercial jobs. Guarded so the seed still runs if migration 051 isn't
+    // applied yet.
+    if (proj.type === 'commercial' || proj.type === 'mixed_use' || proj.type === 'industrial') {
+      try {
+        const { data: blines } = await db.from('budget_line_items').select('id, cost_code, description, budgeted_amount').eq('project_id', projectId).order('sort_order')
+        const sov = (blines ?? []).map((l: any) => ({ id: l.id, cost_code: l.cost_code, description: l.description, sv: Number(l.budgeted_amount || 0) }))
+        for (let a = 0; a < 2; a++) {
+          const appRow = await insert('pay_applications', {
+            project_id: projectId, subcontract_id: null, application_number: a + 1,
+            period_end: ymd(monthsAgo(2 - a)), status: a === 0 ? 'funded' : 'submitted',
+            retainage_pct: 10, created_by: userId,
+          })
+          const appId = appRow[0].id
+          await insert('pay_application_lines', sov.map((s, i) => {
+            const prev = a === 0 ? 0 : round2(s.sv * 0.35)
+            const thisPer = a === 0 ? round2(s.sv * 0.35) : round2(s.sv * 0.25)
+            return { pay_application_id: appId, budget_line_item_id: s.id, cost_code: s.cost_code, description: s.description, scheduled_value: s.sv, previous_completed: prev, this_period: thisPer, materials_stored: 0, sort_order: i }
+          }))
+        }
+      } catch { /* table not present yet - skip pay apps */ }
+    }
+
     await insert('permits', PERMIT_TYPES.slice(0, 3 + (p % 2)).map((t, i) => ({ project_id: projectId, permit_type: t, type: t, permit_number: `PB-${20000 + p * 100 + i}`, description: `${t} permit`, status: pick(['approved', 'pending', 'active', 'approved'], i), expiry_date: ymd(daysFromNow(120 + i * 30)) })))
 
     await insert('inspections', INSPECTION_TYPES.slice(0, 3 + (p % 3)).map((t, i) => ({ project_id: projectId, type: t, trade: t, status: pick(['passed', 'scheduled', 'requested', 'passed'], i), scheduled_date: ymd(daysFromNow(-10 + i * 7)), completed_date: i % 4 === 0 ? ymd(daysFromNow(-9 + i * 7)) : null, inspector_name: 'City Inspections Bureau', inspector_phone: '(212) 555-0199', requested_by_name: 'Mike Torres', notes: i % 3 === 0 ? 'Passed with no comments.' : null })))
