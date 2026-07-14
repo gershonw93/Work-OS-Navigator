@@ -41,6 +41,7 @@ export const RESOURCES: ResourceDef[] = [
   { key: 'rfis',           label: 'RFIs',           group: 'People', slug: 'rfis' },
   // Money
   { key: 'invoices',       label: 'Invoices',       group: 'Money', slug: 'invoices' },
+  { key: 'pay-apps',       label: 'Pay Applications', group: 'Money', slug: 'pay-apps' },
   { key: 'payments',       label: 'Payments & Escrow', group: 'Money', slug: 'payments' },
   { key: 'budget',         label: 'Budget',         group: 'Money', slug: 'budget' },
   { key: 'request-quotes', label: 'Request Quotes', group: 'Money', slug: 'request-quotes' },
@@ -94,7 +95,7 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
   project_manager: {
     plans: FULL, schedule: FULL, tasks: FULL, progress: FULL, 'daily-logs': FULL, time: FULL,
     team: VE, bids: FULL, rfis: FULL,
-    invoices: VE, payments: VE, budget: FULL, quotes: FULL, 'request-quotes': FULL, financials: N, 'change-orders': FULL,
+    invoices: VE, 'pay-apps': FULL, payments: VE, budget: FULL, quotes: FULL, 'request-quotes': FULL, financials: N, 'change-orders': FULL,
     permits: FULL, inspections: FULL, submittals: FULL, compliance: V, reports: N,
     dashboard: V, projects: VCE, customers: VE, directory: V, files: FULL, equipment: FULL, materials: FULL, approvals: VE,
     settings_company: N, settings_team: N, settings_billing: N,
@@ -103,7 +104,7 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
   office_staff: {
     plans: V, schedule: V, tasks: V, progress: V, 'daily-logs': V, time: VC,
     team: V, bids: V, rfis: V,
-    invoices: FULL, payments: FULL, budget: FULL, quotes: FULL, 'request-quotes': FULL, financials: V, 'change-orders': FULL,
+    invoices: FULL, 'pay-apps': FULL, payments: FULL, budget: FULL, quotes: FULL, 'request-quotes': FULL, financials: V, 'change-orders': FULL,
     permits: VE, inspections: VE, submittals: VE, compliance: FULL, reports: V,
     dashboard: V, projects: V, customers: VE, directory: V, files: FULL, equipment: FULL, materials: FULL, approvals: VE,
     settings_company: N, settings_team: N, settings_billing: N,

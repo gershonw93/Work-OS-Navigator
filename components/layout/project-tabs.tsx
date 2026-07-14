@@ -10,7 +10,7 @@ import {
   FileText, Users, Calendar, CheckSquare, TrendingUp, BookOpen,
   MessageSquare, Receipt, DollarSign, GitPullRequest, Shield,
   ClipboardCheck, FileCheck, BarChart2, X, LayoutGrid,
-  Wrench, Wallet, Clock, Send, ShoppingCart,
+  Wrench, Wallet, Clock, Send, ShoppingCart, FileSpreadsheet,
 } from 'lucide-react'
 
 const groups = [
@@ -48,6 +48,7 @@ const groups = [
       { label: 'Materials', slug: 'materials', icon: ShoppingCart },
       { label: 'Quotes', slug: 'request-quotes', icon: Send },
       { label: 'Invoices', slug: 'invoices', icon: Receipt },
+      { label: 'Pay Apps', slug: 'pay-apps', icon: FileSpreadsheet },
       { label: 'Payments', slug: 'payments', icon: Wallet },
       { label: 'Summary', slug: 'financials', icon: DollarSign },
       { label: 'Change Orders', slug: 'change-orders', icon: GitPullRequest },
