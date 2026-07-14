@@ -2,28 +2,41 @@
 
 import { useEffect, useState } from 'react'
 
-// Sticky in-page navigation for long pages (Features). Highlights the section
-// currently in view via IntersectionObserver.
+// Sticky in-page navigation for long pages (Features, How it works).
+// Highlights the section you're reading: the last section whose top has
+// scrolled past the header line. Scroll-position based rather than an
+// IntersectionObserver, because with very tall sections the observer only
+// reports edge crossings, so the highlight drifted one section ahead while
+// you were still reading the previous one.
 export function SideNav({ items }: { items: { id: string; label: string }[] }) {
   const [active, setActive] = useState(items[0]?.id)
 
   useEffect(() => {
-    const io = new IntersectionObserver(
-      entries => {
-        // Pick the topmost visible section.
-        const visible = entries.filter(e => e.isIntersecting)
-        if (visible.length > 0) {
-          const top = visible.reduce((a, b) => (a.boundingClientRect.top < b.boundingClientRect.top ? a : b))
-          setActive(top.target.id)
-        }
-      },
-      { rootMargin: '-96px 0px -60% 0px', threshold: 0 }
-    )
-    for (const { id } of items) {
-      const el = document.getElementById(id)
-      if (el) io.observe(el)
+    const HEADER_OFFSET = 140 // sticky header height plus breathing room
+
+    function update() {
+      let current = items[0]?.id
+      for (const { id } of items) {
+        const el = document.getElementById(id)
+        if (!el) continue
+        if (el.getBoundingClientRect().top <= HEADER_OFFSET) current = id
+        else break
+      }
+      // At the very bottom of the page the last section wins even if its top
+      // never reaches the header line.
+      if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2) {
+        current = items[items.length - 1]?.id ?? current
+      }
+      setActive(current)
     }
-    return () => io.disconnect()
+
+    update()
+    window.addEventListener('scroll', update, { passive: true })
+    window.addEventListener('resize', update)
+    return () => {
+      window.removeEventListener('scroll', update)
+      window.removeEventListener('resize', update)
+    }
   }, [items])
 
   return (
