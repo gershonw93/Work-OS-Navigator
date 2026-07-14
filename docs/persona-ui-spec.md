@@ -53,7 +53,15 @@ screen) - **Nav** (how they move) - **Sees** - **Does** (the 2-3 that matter) -
 - **Open Qs**: should they see labor cost/hours (yes, likely) but not contract
   money (no)?
 
-## 4. Field Worker (**Field Mode** - the build target)
+## 4. Field Worker (**Field Mode** - SHIPPED v1)
+> Built: `/field` shell (no sidebar/tabs) with a bottom bar (Home / Tasks / Log
+> / Me), gated to roles `worker` + `member`. Home has the big clock in/out
+> (selfie + GPS, reuses the per-project punch API), today's tasks, and a
+> photo/log shortcut. `/api/me/tasks` powers it (cross-job assigned tasks +
+> assigned jobs + current clock status). Dashboard layout redirects field roles
+> here. v1 open Qs left for later: read-only plan viewing, workers raising RFIs,
+> offline capture.
+
 - **Device**: phone only. Gloves, sun, one hand. Big targets, few words.
 - **Lands on**: a **single home screen** = today, not a dashboard. Three things:
   1. **Clock in / out** (big button, shows if currently on the clock + where).
