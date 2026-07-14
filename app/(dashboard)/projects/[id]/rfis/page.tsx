@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
-import { X, ChevronDown, ChevronUp, MessageSquare, DollarSign, CheckCircle2, Clock, AlertCircle, Check, XCircle, RefreshCw, Paperclip, Trash2, Pencil } from 'lucide-react'
+import { X, ChevronDown, ChevronUp, MessageSquare, DollarSign, CheckCircle2, Clock, AlertCircle, Check, XCircle, RefreshCw, Paperclip, Trash2, Pencil, Link2 } from 'lucide-react'
 
 interface RFI {
   id: string; rfi_number: number; submitted_by_name: string; company_name: string | null
@@ -28,6 +28,7 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
   const [rfis, setRfis] = useState<RFI[]>([])
   const [loading, setLoading] = useState(true)
   const [expandedRfi, setExpandedRfi] = useState<string | null>(null)
+  const [linkCopied, setLinkCopied] = useState<string | null>(null)
   const [respondingTo, setRespondingTo] = useState<RFI | null>(null)
   const [responseText, setResponseText] = useState('')
   const [responseStatus, setResponseStatus] = useState<'answered' | 'closed'>('answered')
@@ -84,6 +85,22 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
     fetchRfis()
   }
 
+  // One-time answer link for the architect/designer (like compliance requests).
+  async function copyAnswerLink(rfi: RFI) {
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch(`/api/projects/${params.id}/rfis/${rfi.id}/answer-link`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({}),
+    })
+    if (!res.ok) { alert((await res.json().catch(() => ({}))).error ?? 'Could not create the link.'); return }
+    const { token } = await res.json()
+    const url = `${window.location.origin}/rfi/${token}`
+    try { await navigator.clipboard.writeText(url) } catch { window.prompt('Copy the answer link:', url); return }
+    setLinkCopied(rfi.id)
+    setTimeout(() => setLinkCopied(c => (c === rfi.id ? null : c)), 2500)
+  }
+
   function openRespond(rfi: RFI) {
     setRespondingTo(rfi)
     setResponseText('')
@@ -127,6 +144,12 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
               'bg-success-tint border-success/30 text-success')}>
               {rfi.status}
             </span>
+            {rfi.status === 'open' && (
+              <button onClick={() => copyAnswerLink(rfi)} className="text-faint hover:text-accent-fg p-0.5"
+                title="Copy answer link - send it to the architect/designer, they answer without an account">
+                {linkCopied === rfi.id ? <CheckCircle2 className="h-3.5 w-3.5 text-success" /> : <Link2 className="h-3.5 w-3.5" />}
+              </button>
+            )}
             <button onClick={() => openEditRfi(rfi)} className="text-faint hover:text-muted-fg p-0.5" title="Edit RFI">
               <Pencil className="h-3.5 w-3.5" />
             </button>

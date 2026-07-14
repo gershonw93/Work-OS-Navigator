@@ -724,15 +724,16 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'rfis',
     title: 'Submit and answer RFIs',
     category: 'people',
-    keywords: ['rfi', 'request for information', 'question', 'answer', 'respond'],
+    keywords: ['rfi', 'request for information', 'question', 'answer', 'respond', 'architect', 'designer', 'answer link'],
     summary: 'Ask and answer formal questions on a project.',
     blocks: [
       { type: 'steps', items: [
         'Open the project and go to the RFIs tab.',
         'Create an RFI with your question and any supporting detail.',
+        'To get the answer from your architect or designer, click the link icon on the RFI card - it copies a secure one-time link. Send it to them; they see the question and attachments and submit the answer (with drawings if needed), no account required.',
         'When a response comes in, review it and mark it answered.',
       ] },
-      { type: 'tip', text: 'RFIs keep a clear record of who asked what and when it was resolved.' },
+      { type: 'tip', text: 'RFIs keep a clear record of who asked what and when it was resolved. Answers submitted through the link land on the RFI automatically and show in the activity feed.' },
     ],
     related: ['approvals-inbox'],
   },
