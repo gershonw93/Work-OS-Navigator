@@ -6,6 +6,7 @@ import { TopNav } from '@/components/layout/top-nav'
 import { ViewAsBanner } from '@/components/layout/view-as-switcher'
 import { ImpersonationBanner } from '@/components/layout/impersonate-switcher'
 import { DeleteGuardProvider } from '@/components/ui/delete-guard'
+import { IdleLogout } from '@/components/layout/idle-logout'
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const supabase = createClient()
@@ -19,6 +20,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
 
   return (
     <DeleteGuardProvider>
+      <IdleLogout />
       <div className="flex min-h-screen bg-surface">
         <Sidebar />
         <div className="flex flex-1 flex-col min-w-0 lg:pl-60">

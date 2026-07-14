@@ -135,7 +135,7 @@ export async function GET(request: Request) {
   let company: any = null
   if (profile.company_id) {
     const full = await db.from('companies')
-      .select('id, name, type, contact_email, phone, address, license_number, default_payment_terms, default_billing_mode, default_retainage_pct, logo_url, delete_protection_enabled, delete_key_hash')
+      .select('id, name, type, contact_email, phone, address, license_number, default_payment_terms, default_billing_mode, default_retainage_pct, auto_logout_minutes, logo_url, delete_protection_enabled, delete_key_hash')
       .eq('id', profile.company_id).single()
     if (!full.error) company = full.data
     else {
@@ -239,7 +239,7 @@ export async function PATCH(request: Request) {
 
     if (profile?.company_id) {
       const companyUpdates: Record<string, unknown> = {}
-      const allowed = ['name', 'type', 'contact_email', 'phone', 'address', 'license_number', 'default_payment_terms', 'default_billing_mode', 'default_retainage_pct']
+      const allowed = ['name', 'type', 'contact_email', 'phone', 'address', 'license_number', 'default_payment_terms', 'default_billing_mode', 'default_retainage_pct', 'auto_logout_minutes']
       for (const key of allowed) {
         if (company[key] !== undefined) companyUpdates[key] = company[key]
       }
@@ -248,7 +248,7 @@ export async function PATCH(request: Request) {
         let { error } = await db.from('companies').update(companyUpdates).eq('id', profile.company_id)
         // Pre-migration fallback: drop the billing default columns if absent.
         if (error && (error as any).code === '42703') {
-          const { default_billing_mode: _b, default_retainage_pct: _r, ...rest } = companyUpdates
+          const { default_billing_mode: _b, default_retainage_pct: _r, auto_logout_minutes: _a, ...rest } = companyUpdates
           error = (await db.from('companies').update(rest).eq('id', profile.company_id)).error
         }
         if (error) return NextResponse.json({ error: error.message }, { status: 500 })

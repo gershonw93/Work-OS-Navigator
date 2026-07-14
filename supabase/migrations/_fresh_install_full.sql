@@ -1,7 +1,7 @@
 -- ============================================================
--- SyteNav FULL fresh-install schema (001 → 053).
+-- SyteNav FULL fresh-install schema (001 → 054).
 -- Use ONLY on a brand-new/empty Supabase project. On the
--- original production DB, run _combined_008-053.sql instead.
+-- original production DB, run _combined_008-054.sql instead.
 -- ============================================================
 
 -- ===== 001_initial_schema.sql =====
@@ -1188,3 +1188,9 @@ ALTER TABLE projects ADD COLUMN IF NOT EXISTS default_retainage_pct numeric(6, 3
 ALTER TABLE companies ADD COLUMN IF NOT EXISTS default_billing_mode text NOT NULL DEFAULT 'simple'
   CHECK (default_billing_mode IN ('simple', 'aia'));
 ALTER TABLE companies ADD COLUMN IF NOT EXISTS default_retainage_pct numeric(6, 3) NOT NULL DEFAULT 10;
+
+-- ===== 054_auto_logout.sql =====
+-- Company security policy: sign users out after this many minutes of
+-- inactivity. 0 = never (default, matches current behavior).
+
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS auto_logout_minutes integer NOT NULL DEFAULT 0;
