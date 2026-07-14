@@ -24,9 +24,14 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const companyType = (profile?.companies as any)?.type ?? 'gc'
   const companyId = profile?.company_id ?? null
 
-  const { data: project } = await db.from('projects')
-    .select('gc_company_id, created_by_company_id').eq('id', params.id).single()
+  let { data: project } = await db.from('projects')
+    .select('gc_company_id, created_by_company_id, billing_mode').eq('id', params.id).single()
+  // Pre-migration fallback: billing_mode column may not exist yet.
+  if (!project) {
+    const retry = await db.from('projects').select('gc_company_id, created_by_company_id').eq('id', params.id).single()
+    project = retry.data as any
+  }
 
   const owns = !!companyId && (project?.gc_company_id === companyId || project?.created_by_company_id === companyId)
-  return NextResponse.json({ companyType, owns })
+  return NextResponse.json({ companyType, owns, billingMode: (project as any)?.billing_mode ?? 'simple' })
 }

@@ -62,7 +62,11 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   const body = await request.json().catch(() => ({}))
   const subcontractId: string | null = body.subcontract_id || null
-  const retainagePct = body.retainage_pct != null ? Number(body.retainage_pct) : 10
+  let retainagePct = body.retainage_pct != null ? Number(body.retainage_pct) : NaN
+  if (isNaN(retainagePct)) {
+    const { data: proj } = await db.from('projects').select('default_retainage_pct').eq('id', params.id).maybeSingle()
+    retainagePct = Number((proj as any)?.default_retainage_pct ?? 10)
+  }
 
   // Schedule of Values: for a GC->Owner app it's the whole budget; for a
   // Sub->GC app it's the budget lines linked to that subcontract (fallback to

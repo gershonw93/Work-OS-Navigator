@@ -38,6 +38,8 @@ export default function NewProjectPage() {
   const [type, setType] = useState<'residential' | 'commercial' | 'mixed_use'>('commercial')
   const [interiorSqft, setInteriorSqft] = useState('')
   const [exteriorSqft, setExteriorSqft] = useState('')
+  const [billingMode, setBillingMode] = useState<'simple' | 'aia'>('simple')
+  const [retainage, setRetainage] = useState('10')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -80,6 +82,8 @@ export default function NewProjectPage() {
         lat: coords.lat, lng: coords.lng,
         interior_sqft: interiorSqft ? Number(interiorSqft) : null,
         exterior_sqft: exteriorSqft ? Number(exteriorSqft) : null,
+        billing_mode: billingMode,
+        default_retainage_pct: billingMode === 'aia' ? (Number(retainage) || 0) : null,
       }),
     })
 
@@ -158,6 +162,29 @@ export default function NewProjectPage() {
                 <option value="commercial">Commercial</option>
                 <option value="mixed_use">Mixed Use</option>
               </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>How will you bill this job?</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button type="button" onClick={() => setBillingMode('simple')}
+                  className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${billingMode === 'simple' ? 'border-accent bg-accent-tint text-accent-fg' : 'border-line text-ink-soft hover:bg-panel'}`}>
+                  <span className="block text-sm font-semibold">Simple invoicing</span>
+                  <span className="block text-xs text-muted-fg mt-0.5">Invoices and client payments / escrow. Best for residential and smaller jobs.</span>
+                </button>
+                <button type="button" onClick={() => setBillingMode('aia')}
+                  className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${billingMode === 'aia' ? 'border-accent bg-accent-tint text-accent-fg' : 'border-line text-ink-soft hover:bg-panel'}`}>
+                  <span className="block text-sm font-semibold">Progress billing (AIA)</span>
+                  <span className="block text-xs text-muted-fg mt-0.5">Monthly pay applications (G702/G703) with retainage. For commercial and bank-funded jobs.</span>
+                </button>
+              </div>
+              {billingMode === 'aia' && (
+                <div className="flex items-center gap-2 pt-1">
+                  <Label htmlFor="retainage" className="text-sm font-normal text-muted-fg">Default retainage</Label>
+                  <Input id="retainage" type="number" step="0.1" value={retainage} onChange={(e) => setRetainage(e.target.value)} className="w-24" />
+                  <span className="text-sm text-muted-fg">%</span>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

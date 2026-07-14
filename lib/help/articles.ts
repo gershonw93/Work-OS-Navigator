@@ -112,6 +112,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'Click New Project.',
         'Enter the project name, address, client/customer, and start date.',
         'Optionally enter Interior Sq Ft (under A/C) and Exterior Sq Ft (under roof) - this powers the interior/exterior cost breakdown on the Budget tab.',
+        'Choose how you\'ll bill it: Simple invoicing (invoices + client payments, for residential/smaller jobs) or Progress billing (AIA pay applications with retainage, for commercial/bank-funded jobs). This decides which money tabs show, so the job isn\'t cluttered with both. You can change it later from the Projects list edit.',
         'Save. The project opens to its tabs.',
       ] },
       { type: 'tip', text: 'The address suggests matches as you type, and the Owner/Client dropdown pulls from your existing customers (or pick "New client" and type a name). On the Projects page, use the map toggle to see every job on a map, color-coded by status. You can edit the square footage later from the Projects list (pencil icon).' },
@@ -256,7 +257,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     keywords: ['pay application', 'aia', 'g702', 'g703', 'progress billing', 'draw', 'schedule of values', 'retainage', 'bank', 'commercial', 'application for payment'],
     summary: 'Monthly progress billing against a schedule of values, with retainage and a G702/G703 PDF.',
     blocks: [
-      { type: 'text', text: 'On commercial jobs you bill in monthly draws against a schedule of values (SOV), and the bank funds each one. The Pay Apps tab handles that AIA-style, in both directions: you bill the owner/bank, or a sub bills you.' },
+      { type: 'text', text: 'On commercial jobs you bill in monthly draws against a schedule of values (SOV), and the bank funds each one. The Pay Apps tab handles that AIA-style, in both directions: you bill the owner/bank, or a sub bills you. The tab only shows when the project\'s billing method is set to Progress billing (AIA) - pick that when you create the job, or change it from the Projects list edit.' },
       { type: 'steps', items: [
         'Open the project and go to the Pay Apps tab (under Financials).',
         'Click New Application. Choose "We bill the owner" (uses the whole budget as the SOV) or "A sub bills us" (uses that sub\'s scope). Set the period-ending date and retainage %.',

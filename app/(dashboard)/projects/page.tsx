@@ -32,6 +32,8 @@ interface Project {
   lng?: number | null
   interior_sqft?: number | null
   exterior_sqft?: number | null
+  billing_mode?: string | null
+  default_retainage_pct?: number | null
   created_at: string
 }
 
@@ -102,6 +104,8 @@ export default function ProjectsPage() {
   const [editEndDate, setEditEndDate] = useState('')
   const [editInteriorSqft, setEditInteriorSqft] = useState('')
   const [editExteriorSqft, setEditExteriorSqft] = useState('')
+  const [editBillingMode, setEditBillingMode] = useState<'simple' | 'aia'>('simple')
+  const [editRetainage, setEditRetainage] = useState('10')
 
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -149,6 +153,8 @@ export default function ProjectsPage() {
     setEditEndDate(project.end_date ?? '')
     setEditInteriorSqft(project.interior_sqft != null ? String(project.interior_sqft) : '')
     setEditExteriorSqft(project.exterior_sqft != null ? String(project.exterior_sqft) : '')
+    setEditBillingMode(project.billing_mode === 'aia' ? 'aia' : 'simple')
+    setEditRetainage(project.default_retainage_pct != null ? String(project.default_retainage_pct) : '10')
   }
 
   async function handleEdit(e: React.FormEvent) {
@@ -169,6 +175,8 @@ export default function ProjectsPage() {
         end_date: editEndDate || null,
         interior_sqft: editInteriorSqft ? Number(editInteriorSqft) : null,
         exterior_sqft: editExteriorSqft ? Number(editExteriorSqft) : null,
+        billing_mode: editBillingMode,
+        default_retainage_pct: editBillingMode === 'aia' ? (Number(editRetainage) || 0) : undefined,
       }),
     })
     setSaving(false)
@@ -299,6 +307,29 @@ export default function ProjectsPage() {
                     <Label>Exterior Sq Ft <span className="text-faint font-normal">(under roof)</span></Label>
                     <Input type="number" min="0" value={editExteriorSqft} onChange={e => setEditExteriorSqft(e.target.value)} />
                   </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Billing method</Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <button type="button" onClick={() => setEditBillingMode('simple')}
+                      className={`rounded-lg border px-3 py-2 text-left text-sm ${editBillingMode === 'simple' ? 'border-accent bg-accent-tint text-accent-fg' : 'border-line text-ink-soft'}`}>
+                      <span className="font-semibold">Simple invoicing</span>
+                      <span className="block text-xs text-muted-fg">Invoices + client payments</span>
+                    </button>
+                    <button type="button" onClick={() => setEditBillingMode('aia')}
+                      className={`rounded-lg border px-3 py-2 text-left text-sm ${editBillingMode === 'aia' ? 'border-accent bg-accent-tint text-accent-fg' : 'border-line text-ink-soft'}`}>
+                      <span className="font-semibold">Progress billing (AIA)</span>
+                      <span className="block text-xs text-muted-fg">Pay applications + retainage</span>
+                    </button>
+                  </div>
+                  {editBillingMode === 'aia' && (
+                    <div className="flex items-center gap-2 pt-1">
+                      <Label className="text-sm font-normal text-muted-fg">Default retainage</Label>
+                      <Input type="number" step="0.1" value={editRetainage} onChange={e => setEditRetainage(e.target.value)} className="w-24" />
+                      <span className="text-sm text-muted-fg">%</span>
+                    </div>
+                  )}
+                  <p className="text-xs text-faint">Switching hides the other money tabs; existing data is kept.</p>
                 </div>
               </div>
               <div className="px-6 py-4 border-t border-line-soft flex gap-2 justify-end">
