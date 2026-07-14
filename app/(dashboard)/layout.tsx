@@ -7,6 +7,7 @@ import { ViewAsBanner } from '@/components/layout/view-as-switcher'
 import { ImpersonationBanner } from '@/components/layout/impersonate-switcher'
 import { DeleteGuardProvider } from '@/components/ui/delete-guard'
 import { IdleLogout } from '@/components/layout/idle-logout'
+import { FIELD_ROLES } from '@/lib/permissions'
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const supabase = createClient()
@@ -16,6 +17,13 @@ export default async function DashboardLayout({ children }: { children: ReactNod
 
   if (!user) {
     redirect('/login')
+  }
+
+  // Field workers get the dedicated Field Mode shell, not the office app.
+  const { data: profile } = await supabase
+    .from('profiles').select('role').eq('id', user.id).single()
+  if (profile && FIELD_ROLES.includes((profile as any).role)) {
+    redirect('/field')
   }
 
   return (

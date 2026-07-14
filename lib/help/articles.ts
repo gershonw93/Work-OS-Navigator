@@ -481,6 +481,25 @@ export const HELP_ARTICLES: HelpArticle[] = [
 
   // ── Field & Daily Logs ─────────────────────────────────────────────────────
   {
+    slug: 'field-mode',
+    title: 'Field Mode for field workers',
+    category: 'field',
+    keywords: ['field mode', 'field worker', 'crew', 'mobile', 'phone', 'clock in', 'clock out', 'punch', 'tasks', 'photo', 'laborer', 'worker'],
+    summary: 'A stripped-down phone screen for crew: clock in, see today\'s tasks, snap photos.',
+    blocks: [
+      { type: 'text', text: 'Team members with the Worker role get Field Mode - a simple, phone-first screen built for gloves and sunlight. There is no sidebar and no project tabs; just today\'s work. They land here automatically when they sign in.' },
+      { type: 'text', text: 'The bottom bar has four spots: Home, Tasks, Log, and Me.' },
+      { type: 'steps', items: [
+        'Home: one big Clock in / Clock out button (takes a quick selfie and grabs GPS), plus today\'s tasks and a shortcut to add a photo.',
+        'Tasks: every task assigned to the worker across all their jobs. Tap the circle to check one off.',
+        'Log: pick a job, snap or attach photos, add a quick note - it saves as a daily log entry on that job.',
+        'Me: their assigned jobs, current clock status, and sign out.',
+      ] },
+      { type: 'tip', text: 'A worker only ever sees the jobs they are assigned to and their own tasks, time, and photos. No budgets, invoices, or other people\'s work.' },
+    ],
+    related: ['daily-log-create', 'invite-team-member'],
+  },
+  {
     slug: 'daily-log-create',
     title: 'Write a daily log',
     category: 'field',

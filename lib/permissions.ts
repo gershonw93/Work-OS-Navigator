@@ -87,6 +87,11 @@ function buildAllFull(): PermMap {
 // Roles whose project views are scoped to ONLY projects/tasks they're assigned to.
 export const ASSIGNED_ONLY_ROLES = ['field_supervisor', 'worker', 'member', 'read_only']
 
+// Roles that get the stripped-down mobile "Field Mode" shell instead of the
+// full office app. Kept narrow on purpose: supervisors stay in the responsive
+// dashboard for now (they need budgets/compliance breadth).
+export const FIELD_ROLES = ['worker', 'member']
+
 export const ROLE_DEFAULTS: Record<string, PermMap> = {
   admin: buildAllFull(),
 
