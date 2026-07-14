@@ -7,6 +7,7 @@ import { ViewAsBanner } from '@/components/layout/view-as-switcher'
 import { ImpersonationBanner } from '@/components/layout/impersonate-switcher'
 import { DeleteGuardProvider } from '@/components/ui/delete-guard'
 import { IdleLogout } from '@/components/layout/idle-logout'
+import { FieldPreviewGate } from '@/components/layout/field-preview'
 import { FIELD_ROLES } from '@/lib/permissions'
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
@@ -29,6 +30,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   return (
     <DeleteGuardProvider>
       <IdleLogout />
+      <FieldPreviewGate />
       <div className="flex min-h-screen bg-surface">
         <Sidebar />
         <div className="flex flex-1 flex-col min-w-0 lg:pl-60">
