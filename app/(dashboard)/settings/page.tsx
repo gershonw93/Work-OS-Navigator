@@ -40,6 +40,7 @@ interface Company {
   default_payment_terms?: string
   default_billing_mode?: string
   default_retainage_pct?: number
+  auto_logout_minutes?: number
 }
 
 interface Teammate {
@@ -186,6 +187,9 @@ export default function SettingsPage() {
   const [licenseNumber, setLicenseNumber] = useState('')
   const [defaultPaymentTerms, setDefaultPaymentTerms] = useState('')
   const [defaultBillingMode, setDefaultBillingMode] = useState<'simple' | 'aia'>('simple')
+  const [autoLogout, setAutoLogout] = useState('0')
+  const [autoLogoutSaving, setAutoLogoutSaving] = useState(false)
+  const [autoLogoutMsg, setAutoLogoutMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [defaultRetainage, setDefaultRetainage] = useState('10')
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [logoUploading, setLogoUploading] = useState(false)
@@ -311,6 +315,7 @@ export default function SettingsPage() {
           setLicenseNumber(c.license_number ?? '')
           setDefaultPaymentTerms(c.default_payment_terms ?? '')
           setDefaultBillingMode(c.default_billing_mode === 'aia' ? 'aia' : 'simple')
+          setAutoLogout(c.auto_logout_minutes != null ? String(c.auto_logout_minutes) : '0')
           setDefaultRetainage(c.default_retainage_pct != null ? String(c.default_retainage_pct) : '10')
           setLogoUrl(c.logo_url ?? null)
         }
@@ -1462,6 +1467,42 @@ export default function SettingsPage() {
                   {dpMsg && <p className={cn('text-sm', dpMsg.ok ? 'text-success' : 'text-danger')}>{dpMsg.text}</p>}
                   <div className="flex justify-end">
                     <Button onClick={saveDeleteProtection} disabled={dpSaving}>{dpSaving ? 'Saving…' : 'Save'}</Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><Lock className="h-4 w-4 text-accent-fg" /> Auto sign-out</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-muted-fg">
+                    Sign everyone in the company out automatically after a period of inactivity. Good for shared office
+                    computers and lost phones. Applies the next time each person loads the app.
+                  </p>
+                  <div className="space-y-1.5 max-w-xs">
+                    <Label>Sign out after</Label>
+                    <SearchableSelect value={autoLogout} onChange={e => setAutoLogout(e.target.value)} sort={false} searchable={false}>
+                      <option value="0">Never (stay signed in)</option>
+                      <option value="15">15 minutes of inactivity</option>
+                      <option value="30">30 minutes of inactivity</option>
+                      <option value="60">1 hour of inactivity</option>
+                      <option value="240">4 hours of inactivity</option>
+                      <option value="480">8 hours of inactivity</option>
+                    </SearchableSelect>
+                  </div>
+                  {autoLogoutMsg && <p className={cn('text-sm', autoLogoutMsg.ok ? 'text-success' : 'text-danger')}>{autoLogoutMsg.text}</p>}
+                  <div className="flex justify-end">
+                    <Button disabled={autoLogoutSaving} onClick={async () => {
+                      setAutoLogoutSaving(true); setAutoLogoutMsg(null)
+                      const headers = await authHeaders()
+                      const res = await fetch('/api/settings', {
+                        method: 'PATCH', headers,
+                        body: JSON.stringify({ company: { auto_logout_minutes: Number(autoLogout) || 0 } }),
+                      })
+                      setAutoLogoutSaving(false)
+                      setAutoLogoutMsg(res.ok ? { ok: true, text: 'Saved.' } : { ok: false, text: 'Failed to save.' })
+                    }}>{autoLogoutSaving ? 'Saving…' : 'Save'}</Button>
                   </div>
                 </CardContent>
               </Card>

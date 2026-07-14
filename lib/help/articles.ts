@@ -616,6 +616,23 @@ export const HELP_ARTICLES: HelpArticle[] = [
     related: ['permissions', 'invite-team-member'],
   },
   {
+    slug: 'auto-signout',
+    title: 'Sign users out automatically after inactivity',
+    category: 'settings',
+    keywords: ['auto logout', 'sign out', 'inactivity', 'timeout', 'security', 'session', 'idle', 'log off'],
+    summary: 'Set an inactivity timer that signs the whole company out automatically.',
+    blocks: [
+      { type: 'text', text: 'By default, everyone stays signed in. If you share office computers or worry about lost phones, set an inactivity timeout.' },
+      { type: 'steps', items: [
+        'Open Settings and go to the Security tab.',
+        'Under Auto sign-out, pick how long someone can be inactive (15 minutes up to 8 hours) before they\'re signed out.',
+        'Save. It applies company-wide the next time each person loads the app.',
+      ] },
+      { type: 'tip', text: 'Activity means any tap, keypress, or scroll. The timer also keeps counting while the app is closed, so a phone left in a truck overnight is signed out by morning.' },
+    ],
+    related: ['delete-protection', 'permissions'],
+  },
+  {
     slug: 'delete-protection',
     title: 'Protect deletes with a secret key',
     category: 'settings',
