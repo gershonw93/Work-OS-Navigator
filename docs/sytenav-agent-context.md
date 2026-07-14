@@ -37,7 +37,7 @@ Within a company, the people involved: owner/admin, office staff, project manage
 Permission resources, by group:
 - Field: Plans, Schedule, Tasks, Progress, Daily Logs, Time Clock
 - People: Team, Bids, RFIs
-- Money: Invoices, Payments & Escrow, Budget, Request Quotes, Compare Quotes, Financials, Change Orders
+- Money: Invoices, Pay Applications, Payments & Escrow, Budget, Request Quotes, Compare Quotes, Financials, Change Orders
 - Compliance: Permits, Inspections, Submittals, Compliance, Reports
 - Workspace: Dashboard, Projects, Customers, Directory, Files, Equipment, Materials, Approvals
 - Settings: Company Settings, Team & Users, Billing
@@ -59,7 +59,7 @@ AI reads construction paperwork so nobody retypes it. Everything the AI extracts
 ## Feature catalog
 
 ### Projects
-- Create a project with name, address (autocomplete + geocoding for map pins), owner/client (picked from existing customers or "+ New client"), type (residential / commercial / mixed use), start & target end dates, and optional **interior sq ft (under A/C)** and **exterior sq ft (under roof)** for cost-per-square-foot breakdowns.
+- Create a project with name, address (autocomplete + geocoding for map pins), owner/client (picked from existing customers or "+ New client"), type (residential / commercial / mixed use), start & target end dates, optional **interior sq ft (under A/C)** and **exterior sq ft (under roof)** for cost-per-square-foot breakdowns, and a **billing method** choice (Simple invoicing vs. AIA progress billing, pre-filled from the company default).
 - Projects page: grid, list, and **map view** (every job pinned by location, color-coded by status). Search by name, address, or client; filter by status/type; sort options. Cards show live progress %, contract value, and what's due next.
 - Edit project details (including sq ft) from the list; delete with confirmation.
 - Project statuses: planning, active, on hold, completed, cancelled.
@@ -67,7 +67,7 @@ AI reads construction paperwork so nobody retypes it. Everything the AI extracts
 ### Project tabs (inside a job), grouped:
 - **Field**: Plans, Schedule, Tasks, Progress, Daily Logs, Time Clock
 - **People**: Team, Bids, RFIs
-- **Money**: Budget, Invoices, Payments, Request Quotes, Compare Quotes, Financials, Change Orders
+- **Money**: Budget, Invoices, Pay Apps, Payments, Request Quotes, Compare Quotes, Financials, Change Orders (which money tabs show depends on the project's billing mode; see Money)
 - **Compliance**: Permits, Inspections, Submittals, Compliance, Reports
 Which tabs a user sees depends on their role/permissions.
 
@@ -116,7 +116,9 @@ Which tabs a user sees depends on their role/permissions.
 - Notifications system (in-app) for assignments, RFIs, invites, approvals.
 
 ### Money
-- **How it fits together**: client money in → escrow → your fee → vendor payments out, all per project and rolled up company-wide.
+- **Billing mode per project**, chosen at setup (with a company-wide account default in Settings → Company): **Simple invoicing** (Invoices + Payments/escrow; residential and smaller jobs) or **Progress billing (AIA)** (Pay Apps with retainage; commercial and bank-funded jobs). Only the matching money tabs show; the mode is changeable later from the Projects list edit.
+- **How simple mode fits together**: client money in → escrow → your fee → vendor payments out, all per project and rolled up company-wide.
+- **Pay Applications (AIA G702/G703)**, on progress-billing jobs: monthly draws against the schedule of values (the budget lines). Each application carries "previously billed" forward automatically; enter this period's work and stored materials per line; retainage % held per draw (default from project/company settings). G702 summary computes completed & stored to date, retainage, earned less retainage, less previous certificates, current payment due, and balance to finish. Status flow Draft → Submitted → Certified → Funded, and a printable G702 + G703 PDF for the architect/bank. Works in both directions: the GC bills the owner/bank for the whole contract, or a sub bills the GC for their scope.
 - **Invoices**: create for a subcontract (even if the sub has no account), or generated from line-item progress. Status flow: draft → approved → sent → paid. **Approving an invoice (not just paying) moves the budget's Actual column.** Client-paid vs. escrow-paid split per invoice. Printable invoice view. **Lien waiver attachments** on invoices.
 - **Client payments & escrow** (Payments tab): record client payments (date, amount, method, memo, retainer flag, QuickBooks-entered flag), set the contractor fee %, and see received, fee earned, available after fee, vendor billed/paid, escrow balance, outstanding to vendors, and forward projections (projected cost vs. invoiced, projected remaining).
 - **"Can I pay my vendors" guidance**: the summary shows what is safe to release based on escrow and outstanding balances.
