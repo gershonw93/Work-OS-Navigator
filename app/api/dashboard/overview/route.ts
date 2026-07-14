@@ -31,7 +31,16 @@ export async function GET(request: Request) {
   if (!ids.length) return NextResponse.json({ months: [], week: [], recent: [], dueThisWeek: 0, first_name: firstName })
 
   const now = new Date()
-  const windowStart = new Date(now.getFullYear(), now.getMonth() - 7, 1) // last 8 months
+  // Cash chart granularity: last 8 months (default) or last 8 weeks.
+  const range = new URL(request.url).searchParams.get('range') === 'weekly' ? 'weekly' : 'monthly'
+  const startOfWeek = (d: Date) => {
+    const t = new Date(d); t.setHours(0, 0, 0, 0)
+    t.setDate(t.getDate() - ((t.getDay() + 6) % 7)) // Monday
+    return t
+  }
+  const windowStart = range === 'weekly'
+    ? new Date(startOfWeek(now).getTime() - 7 * 7 * 86400000) // last 8 weeks
+    : new Date(now.getFullYear(), now.getMonth() - 7, 1) // last 8 months
   const weekEnd = new Date(now.getTime() + 7 * 86400000)
   const todayIso = now.toISOString().split('T')[0]
   const weekEndIso = weekEnd.toISOString().split('T')[0]
@@ -51,14 +60,23 @@ export async function GET(request: Request) {
     db.from('project_tasks').select('project_id, status').in('project_id', ids),
   ])
 
-  // Monthly cash in vs out (last 8 months)
+  // Cash in vs out buckets (8 months or 8 weeks)
   const months: { label: string; in: number; out: number }[] = []
-  const keyOf = (d: Date) => `${d.getFullYear()}-${d.getMonth()}`
+  const keyOf = range === 'weekly'
+    ? (d: Date) => String(startOfWeek(d).getTime())
+    : (d: Date) => `${d.getFullYear()}-${d.getMonth()}`
   const idx = new Map<string, number>()
   for (let i = 0; i < 8; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() - 7 + i, 1)
+    const d = range === 'weekly'
+      ? new Date(startOfWeek(now).getTime() - (7 - i) * 7 * 86400000)
+      : new Date(now.getFullYear(), now.getMonth() - 7 + i, 1)
     idx.set(keyOf(d), months.length)
-    months.push({ label: d.toLocaleDateString(undefined, { month: 'short' }), in: 0, out: 0 })
+    months.push({
+      label: range === 'weekly'
+        ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+        : d.toLocaleDateString(undefined, { month: 'short' }),
+      in: 0, out: 0,
+    })
   }
   for (const p of paymentsIn ?? []) {
     const d = new Date((p.paid_date ?? p.created_at) + (p.paid_date ? 'T00:00:00' : ''))
