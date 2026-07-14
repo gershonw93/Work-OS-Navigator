@@ -272,10 +272,11 @@ const STEPS: Step[] = [
       { text: 'The cost rolls into the right budget line and into what the client owes, instantly', who: ['Office'] },
       { text: 'The invoice generates from real line-item progress, not from memory', who: ['Office', 'Client'] },
       { text: 'Approving it moves the budget\'s Actual column and updates escrow, fee, and vendor balances in the same second', who: ['You', 'Office'] },
+      { text: 'On commercial jobs, the monthly pay application builds from the schedule of values: previously billed carries forward, retainage is held, and the G702/G703 PDF is ready for the bank', who: ['Office', 'Client'] },
     ],
     details: [
       { icon: Landmark, title: 'Client payments & escrow', body: 'See what the client has paid in, what\'s sitting in escrow, and what\'s already gone out to vendors. No separate ledger to reconcile.' },
-      { icon: FileCheck2, title: 'Invoices tied to progress', body: 'Approving an invoice, not just paying it, is what moves the Actual column, so the budget reflects reality the moment costs are accepted.' },
+      { icon: FileCheck2, title: 'AIA progress billing for commercial', body: 'Jobs set to progress billing get monthly pay applications (G702/G703) with retainage and draw status from submitted to certified to funded. Built for bank-funded work.' },
       { icon: Wallet, title: 'Material receipts, tracked to the job', body: 'Snap a receipt, mark whether the customer already paid for it, and it rolls straight into what they owe versus what\'s been covered.' },
     ],
     visual: <MoneyMock />,

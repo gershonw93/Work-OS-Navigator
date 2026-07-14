@@ -53,11 +53,12 @@ const SECTIONS: {
     id: 'money',
     eyebrow: 'Money',
     title: 'Every dollar, accounted for',
-    lead: 'From the client’s first deposit to the last vendor payment, the money side of the job stays visible, current, and honest.',
+    lead: 'From the client’s first deposit to the last vendor payment, the money side of the job stays visible, current, and honest. Each job picks its billing style at setup: simple invoicing for residential, or AIA progress billing for commercial and bank-funded work.',
     features: [
       { icon: Wallet, title: 'Budgets & line items', body: 'Budgeted versus committed versus actual for GCs, or quote-driven line items for subs. The budget updates as the job moves.' },
       { icon: Banknote, title: 'Client payments & escrow', body: 'Track client funds in, your fee earned, the escrow balance held, and what’s still owed to vendors, per stage and per job.' },
       { icon: Receipt, title: 'Invoices & approvals', body: 'Create invoices from progress, route them for approval, and track payment, with the client-versus-escrow split handled for you.' },
+      { icon: FileText, title: 'AIA progress billing (G702/G703)', body: 'Monthly pay applications against your schedule of values: previously billed carries forward, retainage is held per draw, and the G702/G703 PDF is ready for the architect and the bank.' },
       { icon: Send, title: 'Request for quotes (RFQ)', body: 'Send plans and scope to your subs. They bid on a private link, no account required, and the bids land ready to compare.' },
       { icon: ReceiptText, title: 'Materials & receipts', body: 'Snap the receipt at the lumber counter. AI reads the store, date, total, tax, and line items, links it to a budget line, and it rolls straight into actuals.' },
       { icon: GitPullRequest, title: 'Change orders', body: 'Capture scope changes with pricing and approval, so the contract and the budget never drift apart.' },
