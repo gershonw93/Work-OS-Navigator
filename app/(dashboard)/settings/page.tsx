@@ -38,6 +38,8 @@ interface Company {
   address: string
   license_number: string
   default_payment_terms?: string
+  default_billing_mode?: string
+  default_retainage_pct?: number
 }
 
 interface Teammate {
@@ -183,6 +185,8 @@ export default function SettingsPage() {
   const [address, setAddress] = useState('')
   const [licenseNumber, setLicenseNumber] = useState('')
   const [defaultPaymentTerms, setDefaultPaymentTerms] = useState('')
+  const [defaultBillingMode, setDefaultBillingMode] = useState<'simple' | 'aia'>('simple')
+  const [defaultRetainage, setDefaultRetainage] = useState('10')
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [logoUploading, setLogoUploading] = useState(false)
   const [logoMsg, setLogoMsg] = useState<{ ok: boolean; text: string } | null>(null)
@@ -306,6 +310,8 @@ export default function SettingsPage() {
           setAddress(c.address ?? '')
           setLicenseNumber(c.license_number ?? '')
           setDefaultPaymentTerms(c.default_payment_terms ?? '')
+          setDefaultBillingMode(c.default_billing_mode === 'aia' ? 'aia' : 'simple')
+          setDefaultRetainage(c.default_retainage_pct != null ? String(c.default_retainage_pct) : '10')
           setLogoUrl(c.logo_url ?? null)
         }
 
@@ -438,6 +444,8 @@ export default function SettingsPage() {
             address,
             license_number: licenseNumber,
             default_payment_terms: defaultPaymentTerms,
+            default_billing_mode: defaultBillingMode,
+            default_retainage_pct: Number(defaultRetainage) || 0,
           },
         }),
       })
@@ -956,6 +964,29 @@ export default function SettingsPage() {
                         className="mt-1 w-full rounded-md border border-muted2 px-3 py-2 text-sm focus:border-accent focus:outline-none resize-none"
                       />
                       <p className="text-xs text-faint mt-1">Auto-fills on new quotes when the quote doesn't specify terms.</p>
+                    </div>
+                    <div>
+                      <Label>Default billing method for new projects</Label>
+                      <div className="mt-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <button type="button" onClick={() => setDefaultBillingMode('simple')}
+                          className={`rounded-lg border px-3 py-2 text-left text-sm ${defaultBillingMode === 'simple' ? 'border-accent bg-accent-tint text-accent-fg' : 'border-line text-ink-soft'}`}>
+                          <span className="font-semibold">Simple invoicing</span>
+                          <span className="block text-xs text-muted-fg">Invoices + client payments</span>
+                        </button>
+                        <button type="button" onClick={() => setDefaultBillingMode('aia')}
+                          className={`rounded-lg border px-3 py-2 text-left text-sm ${defaultBillingMode === 'aia' ? 'border-accent bg-accent-tint text-accent-fg' : 'border-line text-ink-soft'}`}>
+                          <span className="font-semibold">Progress billing (AIA)</span>
+                          <span className="block text-xs text-muted-fg">Pay applications + retainage</span>
+                        </button>
+                      </div>
+                      {defaultBillingMode === 'aia' && (
+                        <div className="flex items-center gap-2 mt-2">
+                          <Label className="text-sm font-normal text-muted-fg">Default retainage</Label>
+                          <Input type="number" step="0.1" value={defaultRetainage} onChange={(e) => setDefaultRetainage(e.target.value)} className="w-24" />
+                          <span className="text-sm text-muted-fg">%</span>
+                        </div>
+                      )}
+                      <p className="text-xs text-faint mt-1">New projects start with this. You can still change it per job.</p>
                     </div>
                     <div className="flex items-center gap-3 pt-2">
                       <Button onClick={saveCompany} disabled={companySaving}>

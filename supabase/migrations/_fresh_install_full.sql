@@ -1,7 +1,7 @@
 -- ============================================================
--- SyteNav FULL fresh-install schema (001 → 052).
+-- SyteNav FULL fresh-install schema (001 → 053).
 -- Use ONLY on a brand-new/empty Supabase project. On the
--- original production DB, run _combined_008-052.sql instead.
+-- original production DB, run _combined_008-053.sql instead.
 -- ============================================================
 
 -- ===== 001_initial_schema.sql =====
@@ -1180,3 +1180,11 @@ CREATE INDEX IF NOT EXISTS idx_pay_application_lines_app ON pay_application_line
 ALTER TABLE projects ADD COLUMN IF NOT EXISTS billing_mode text NOT NULL DEFAULT 'simple'
   CHECK (billing_mode IN ('simple', 'aia'));
 ALTER TABLE projects ADD COLUMN IF NOT EXISTS default_retainage_pct numeric(6, 3) NOT NULL DEFAULT 10;
+
+-- ===== 053_company_billing_defaults.sql =====
+-- Account-level defaults that pre-fill new projects, so a company sets its
+-- normal way of billing once instead of per job.
+
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS default_billing_mode text NOT NULL DEFAULT 'simple'
+  CHECK (default_billing_mode IN ('simple', 'aia'));
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS default_retainage_pct numeric(6, 3) NOT NULL DEFAULT 10;

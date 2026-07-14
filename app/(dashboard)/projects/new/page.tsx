@@ -33,6 +33,13 @@ export default function NewProjectPage() {
         const d = await res.json()
         setCustomers((d.customers ?? []).map((c: any) => ({ id: c.id, name: c.name })))
       }
+      // Pre-fill billing from the company's account defaults.
+      const s = await fetch('/api/settings', { headers: { Authorization: `Bearer ${session.access_token}` } })
+      if (s.ok) {
+        const c = (await s.json()).company
+        if (c?.default_billing_mode === 'aia') setBillingMode('aia')
+        if (c?.default_retainage_pct != null) setRetainage(String(c.default_retainage_pct))
+      }
     })()
   }, [])
   const [type, setType] = useState<'residential' | 'commercial' | 'mixed_use'>('commercial')
