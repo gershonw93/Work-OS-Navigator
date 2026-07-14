@@ -86,7 +86,7 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const { can, loading } = usePermissions()
-  const [ctx, setCtx] = useState<{ companyType: string; owns: boolean } | null>(null)
+  const [ctx, setCtx] = useState<{ companyType: string; owns: boolean; billingMode?: string } | null>(null)
 
   useEffect(() => {
     let active = true
@@ -106,10 +106,19 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
     if (!isSub) return true
     return ctx?.owns ? !SUB_OWN_HIDDEN.has(slug) : SUB_AWARDED_ALLOWED.has(slug)
   }
+  // Billing mode set at project setup decides which money flow is shown, so a
+  // job isn't cluttered with both. AIA jobs bill via Pay Apps; simple jobs use
+  // Invoices + Payments.
+  const billingMode = ctx?.billingMode ?? 'simple'
+  const billingAllows = (slug: string) => {
+    if (slug === 'pay-apps') return billingMode === 'aia'
+    if (slug === 'invoices' || slug === 'payments') return billingMode !== 'aia'
+    return true
+  }
   // The "Quote" tab is the sub's own-job starting point - only there.
   const tabAllowed = (slug: string) => {
     if (slug === 'quote') return isSub && !!ctx?.owns
-    return can(slug, 'view') && subAllows(slug)
+    return can(slug, 'view') && subAllows(slug) && billingAllows(slug)
   }
 
   // Wait for both permissions and viewer-context before deciding (avoids flashing

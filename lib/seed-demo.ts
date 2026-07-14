@@ -205,6 +205,9 @@ export async function runSeed(
       client: pick(CUSTOMERS, p).name, customer_id: pick(customerIds, p), start_date: ymd(start), end_date: ymd(end),
       type: proj.type, status: proj.status, latitude: proj.lat, longitude: proj.lng, lat: proj.lat, lng: proj.lng,
       interior_sqft: proj.iSq, exterior_sqft: proj.eSq, contractor_fee_pct: 0.15,
+      // Bigger jobs bill by AIA pay application; smaller ones use simple invoicing.
+      billing_mode: (proj.type === 'commercial' || proj.type === 'industrial' || proj.type === 'mixed_use') ? 'aia' : 'simple',
+      default_retainage_pct: 10,
     })
 
     const teamCount = 3 + (p % 3)

@@ -142,7 +142,7 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json()
-  const { name, address, client, type, start_date, end_date, customer_id, lat, lng, interior_sqft, exterior_sqft } = body
+  const { name, address, client, type, start_date, end_date, customer_id, lat, lng, interior_sqft, exterior_sqft, billing_mode, default_retainage_pct } = body
 
   const base = {
     name, address, client, type, start_date,
@@ -153,12 +153,19 @@ export async function POST(request: Request) {
     created_by_company_id: profile.company_id,
   }
   const withGeo = lat != null && lng != null ? { ...base, lat, lng, geocoded_address: address } : base
-  const full = (interior_sqft != null || exterior_sqft != null)
+  const withSqft = (interior_sqft != null || exterior_sqft != null)
     ? { ...withGeo, interior_sqft: interior_sqft ?? null, exterior_sqft: exterior_sqft ?? null }
     : withGeo
+  const full = billing_mode
+    ? { ...withSqft, billing_mode, ...(default_retainage_pct != null ? { default_retainage_pct } : {}) }
+    : withSqft
 
   let { data: project, error: insertError } = await admin.from('projects').insert(full).select().single()
-  // Pre-migration fallback: sqft and/or geo columns may not exist yet.
+  // Pre-migration fallback: billing_mode / sqft / geo columns may not exist yet.
+  if (insertError && (insertError as any).code === '42703') {
+    const retryBilling = await admin.from('projects').insert(withSqft).select().single()
+    project = retryBilling.data; insertError = retryBilling.error
+  }
   if (insertError && (insertError as any).code === '42703') {
     const retry1 = await admin.from('projects').insert(withGeo).select().single()
     project = retry1.data; insertError = retry1.error
