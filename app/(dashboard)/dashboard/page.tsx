@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { FolderKanban, AlertCircle, ShieldAlert, MessageSquare, Package, CheckSquare, DollarSign, Briefcase, FileText, Receipt, Activity, FileUp, ClipboardList, CalendarCheck, ScrollText, UploadCloud, UserPlus, UserMinus, Clock, ShoppingCart, Wallet, Wrench, LogIn, LogOut } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { usePermissions } from '@/lib/use-permissions'
 import { StatCard } from '@/components/ui/stat-card'
 import { AdminOverview, type OverviewData } from '@/components/dashboard/admin-overview'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
@@ -117,6 +118,7 @@ function greeting() {
 
 export default function DashboardPage() {
   const supabase = createClient()
+  const { role } = usePermissions()
   const [newBidNotifications, setNewBidNotifications] = useState<Notification[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
@@ -195,6 +197,11 @@ export default function DashboardPage() {
     ? `$${(n / 1000000).toFixed(1)}M`
     : n && n >= 1000 ? `$${(n / 1000).toFixed(0)}K` : `$${(n ?? 0).toLocaleString()}`
   const isSub = stats?.isSub === true
+  // The company-money overview is admin-level. When an admin is "viewing as"
+  // another role, respect the previewed role so the preview is honest (a field
+  // worker or office-staff preview shouldn't show company money). The overview
+  // API returns data with the real admin token, so gate it here on role.
+  const ov = (role === 'admin' || role === 'manager') ? overview : null
 
   // While the first load is in flight we don't yet know which layout applies
   // (admin overview vs. sub vs. standard GC). Render a neutral skeleton instead
@@ -255,7 +262,7 @@ export default function DashboardPage() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-ink">
-          {overview && firstName ? `${greeting()}, ${firstName}` : 'Dashboard'}
+          {ov && firstName ? `${greeting()}, ${firstName}` : 'Dashboard'}
         </h1>
         <p className="text-sm text-muted-fg mt-0.5">
           {isSub
@@ -274,7 +281,7 @@ export default function DashboardPage() {
           <StatCard label="Expiring Docs" value={v((stats as SubStats).expiringCompliance)} icon={ShieldAlert} iconColor="text-danger" />
           <StatCard label="Contract Value" value={money((stats as SubStats).totalContractValue)} icon={DollarSign} iconColor="text-muted-fg" />
         </div>
-      ) : overview ? (
+      ) : ov ? (
         <>
           {/* Admin tiles - each links to its page */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -282,7 +289,7 @@ export default function DashboardPage() {
               { label: 'Active Projects', value: v((stats as GcStats | null)?.activeProjects), icon: FolderKanban, cls: 'text-accent-fg', href: '/projects' },
               { label: 'Under Contract', value: money((stats as GcStats | null)?.totalContractValue), icon: DollarSign, cls: 'text-success', href: '/master-money' },
               { label: 'Open Tasks', value: v((stats as GcStats | null)?.openTasks), icon: CheckSquare, cls: 'text-info', href: '/master-calendar' },
-              { label: 'Due This Week', value: loading ? '-' : String(overview.dueThisWeek), icon: Clock, cls: 'text-warn', href: '/master-calendar' },
+              { label: 'Due This Week', value: loading ? '-' : String(ov.dueThisWeek), icon: Clock, cls: 'text-warn', href: '/master-calendar' },
             ].map(t => (
               <Link key={t.label} href={t.href}
                 className="rounded-xl border border-line bg-panel px-4 py-4 transition-colors hover:border-accent hover:bg-surface">
@@ -317,7 +324,7 @@ export default function DashboardPage() {
           ) : null}
 
           {/* Cash chart + this week + recent projects */}
-          <AdminOverview data={overview} />
+          <AdminOverview data={ov} />
         </>
       ) : (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
@@ -331,7 +338,7 @@ export default function DashboardPage() {
       )}
 
       {/* Master views - admin quick links (hidden when the overview layout covers it) */}
-      {activityIsAdmin && !isSub && !overview && (
+      {activityIsAdmin && !isSub && !ov && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Link href="/master-calendar" className="group rounded-xl border border-line bg-panel p-4 hover:border-accent hover:bg-surface transition-colors flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-accent-tint flex items-center justify-center shrink-0"><CalendarCheck className="h-5 w-5 text-accent-fg" /></div>
@@ -354,7 +361,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
 
         {/* Recent Projects */}
-        <div className={overview ? 'hidden' : 'lg:col-span-3'}>
+        <div className={ov ? 'hidden' : 'lg:col-span-3'}>
           <Card>
             <CardHeader>
               <CardTitle>{isSub ? 'Recent Jobs' : 'Recent Projects'}</CardTitle>
@@ -415,7 +422,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Recent Activity */}
-        <div className={overview ? 'lg:col-span-5' : 'lg:col-span-2'}>
+        <div className={ov ? 'lg:col-span-5' : 'lg:col-span-2'}>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-3">
               <CardTitle>Recent Activity</CardTitle>
