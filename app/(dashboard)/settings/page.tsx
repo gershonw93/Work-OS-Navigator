@@ -15,6 +15,7 @@ import {
   LayoutTemplate,
 } from 'lucide-react'
 import { PermissionsPanel } from '@/components/settings/permissions-panel'
+import { QuickBooksCard } from '@/components/settings/quickbooks-card'
 import { ConnectCalendarButton } from '@/components/calendar/connect-calendar'
 import { ThemeToggle, useTheme } from '@/components/ui/theme-toggle'
 
@@ -82,6 +83,7 @@ const TABS: { id: string; label: string; icon: React.ElementType; danger?: boole
   { id: 'preferences',   label: 'Preferences',    icon: SlidersHorizontal },
   { id: 'security',      label: 'Security',       icon: Lock },
   { id: 'billing',       label: 'Billing',        icon: CreditCard },
+  { id: 'integrations',  label: 'Integrations',   icon: Plug },
   { id: 'budget-templates', label: 'Budget Templates', icon: LayoutTemplate, href: '/budget-templates' },
   { id: 'danger',        label: 'Danger Zone',    icon: AlertTriangle, danger: true },
 ]
@@ -163,6 +165,12 @@ export default function SettingsPage() {
   const { theme } = useTheme()
   const [activeTab, setActiveTab] = useState('profile')
   const [loading, setLoading] = useState(true)
+
+  // Open a specific tab when linked with ?tab= (e.g. the QuickBooks OAuth callback).
+  useEffect(() => {
+    const tab = new URLSearchParams(window.location.search).get('tab')
+    if (tab && TABS.some(t => t.id === tab && !t.href)) setActiveTab(tab)
+  }, [])
   const [userRole, setUserRole] = useState<string>('')
 
   // Profile
@@ -1506,6 +1514,17 @@ export default function SettingsPage() {
                   </div>
                 </CardContent>
               </Card>
+            </div>
+          )}
+
+          {/* ══════════════════════════════════════ TAB: INTEGRATIONS */}
+          {activeTab === 'integrations' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-semibold text-ink">Integrations</h2>
+                <p className="mt-1 text-sm text-muted-fg">Connect SyteNav to the tools you already use.</p>
+              </div>
+              <QuickBooksCard />
             </div>
           )}
 

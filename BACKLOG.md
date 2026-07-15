@@ -8,7 +8,7 @@ move it to **In progress**, and when it ships, move it to **Done** with the PR #
 ---
 
 ## 🔌 Integrations
-- **QuickBooks Online sync** - invoices, client payments, vendors. Highest-value accounting integration (you already have a "Entered in QuickBooks" checkbox = double-entry signal). Higher effort; reuses the calendar token/OAuth groundwork.
+- **QuickBooks Online sync** - *phase 1a shipped (PR #185):* per-company OAuth connect + one-way push of customers and subs (vendors) from Settings > Integrations, with entity id mapping (no dupes) and a sync log. **Next:** invoices/bills (needs an expense-account map), client payments, then pull-back and two-way. Desktop is a separate, larger track. Requires an Intuit Developer app (client ID/secret) in env to go live; built against the sandbox.
 - **Stripe / Plaid (collect payments in-app)** - turn Payments from a ledger into a money-mover; auto-reconcile escrow. Possible revenue line.
 - **Ramp** *(back burner - discussed)* - corporate cards + auto receipt capture (texts the crew for a photo). Link via their developer API (OAuth) → pull transactions + receipt images into Materials; user tags job + budget line. Caveats: only helps customers on Ramp; **API access needs partner approval (start that clock early)**. Competitors: Brex, BILL/Divvy - build the "card feed → materials" pipe generic.
 - **Xero** - accounting sync for non-QuickBooks shops.
