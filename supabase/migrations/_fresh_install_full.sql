@@ -1,7 +1,7 @@
 -- ============================================================
 -- SyteNav FULL fresh-install schema (001 → 055).
 -- Use ONLY on a brand-new/empty Supabase project. On the
--- original production DB, run _combined_008-056.sql instead.
+-- original production DB, run _combined_008-057.sql instead.
 -- ============================================================
 
 -- ===== 001_initial_schema.sql =====

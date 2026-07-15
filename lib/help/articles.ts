@@ -584,6 +584,25 @@ export const HELP_ARTICLES: HelpArticle[] = [
 
   // ── Settings & Team ────────────────────────────────────────────────────────
   {
+    slug: 'connect-quickbooks',
+    title: 'Connect QuickBooks Online',
+    category: 'settings',
+    keywords: ['quickbooks', 'qbo', 'accounting', 'sync', 'integration', 'bookkeeping', 'customers', 'vendors', 'invoices', 'export', 'intuit'],
+    summary: 'Push your customers and subs into QuickBooks Online so nothing gets double-entered.',
+    blocks: [
+      { type: 'text', text: 'SyteNav connects to QuickBooks Online (the cloud version). Once connected, you can push your data into QuickBooks so your bookkeeper does not have to re-enter it. This is a one-way push for now (SyteNav to QuickBooks); more is coming.' },
+      { type: 'steps', items: [
+        'Open Settings and go to the Integrations tab.',
+        'Click Connect QuickBooks and sign in to your QuickBooks Online company.',
+        'Back in SyteNav, use Sync customers and Sync subs (vendors) to push those records.',
+        'Watch the Recent sync activity list to confirm what went over (and see any errors).',
+      ] },
+      { type: 'tip', text: 'Each record is linked to its QuickBooks counterpart, so re-running a sync will not create duplicates - already-synced records are skipped.' },
+      { type: 'text', text: 'Phase 1 covers customers and subs (vendors). Invoices, bills, and payments are next. QuickBooks Desktop is not supported - only QuickBooks Online.' },
+    ],
+    related: ['invite-team-member', 'pay-applications'],
+  },
+  {
     slug: 'invite-team-member',
     title: 'Invite a team member',
     category: 'settings',
