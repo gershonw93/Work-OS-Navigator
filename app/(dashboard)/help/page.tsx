@@ -2,7 +2,9 @@
 
 import { useMemo, useState } from 'react'
 import { cn } from '@/lib/utils'
-import { Search, ChevronRight, ArrowLeft, Lightbulb, AlertTriangle, BookOpen } from 'lucide-react'
+import { Search, ChevronRight, ArrowLeft, Lightbulb, AlertTriangle, BookOpen, Mail } from 'lucide-react'
+
+const SUPPORT_EMAIL = 'sytenav@gmail.com'
 import {
   HELP_CATEGORIES, HELP_ARTICLES, searchArticles, getArticle, articlesByCategory,
   type HelpArticle, type HelpBlock,
@@ -172,6 +174,19 @@ export default function HelpPage() {
           <p className="pt-2 text-center text-xs text-faint">{HELP_ARTICLES.length} articles · always kept up to date with the app</p>
         </div>
       )}
+
+      {/* Still stuck? Reach a human. */}
+      <div className="mt-8 rounded-xl border border-line bg-panel p-5 text-center">
+        <Mail className="mx-auto h-5 w-5 text-accent-fg" />
+        <p className="mt-2 text-sm font-semibold text-ink">Still need help?</p>
+        <p className="mt-0.5 text-sm text-muted-fg">Email our team and we'll get back to you.</p>
+        <a
+          href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('SyteNav support')}`}
+          className="mt-3 inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-ink"
+        >
+          <Mail className="h-4 w-4" /> {SUPPORT_EMAIL}
+        </a>
+      </div>
     </div>
   )
 }
