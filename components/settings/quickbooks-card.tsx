@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Plug, Check, Loader2, RefreshCw, Users, Building2, AlertTriangle, ExternalLink } from 'lucide-react'
+import { Plug, Check, Loader2, RefreshCw, Users, Building2, AlertTriangle, FileText, Banknote } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface Connection {
@@ -76,7 +76,7 @@ export function QuickBooksCard() {
     } catch (e: any) { setMsg({ ok: false, text: e.message }) } finally { setBusy('') }
   }
 
-  async function sync(entity: 'customers' | 'vendors') {
+  async function sync(entity: 'customers' | 'vendors' | 'bills' | 'payments') {
     setBusy(entity); setMsg(null)
     try {
       const res = await fetch('/api/quickbooks/sync', {
@@ -161,6 +161,16 @@ export function QuickBooksCard() {
                   {busy === 'vendors' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Building2 className="h-4 w-4" />}
                   Sync subs (vendors)
                 </button>
+                <button onClick={() => sync('bills')} disabled={!!busy}
+                  className="inline-flex items-center gap-2 rounded-lg border border-line bg-surface px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50">
+                  {busy === 'bills' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+                  Sync bills
+                </button>
+                <button onClick={() => sync('payments')} disabled={!!busy}
+                  className="inline-flex items-center gap-2 rounded-lg border border-line bg-surface px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50">
+                  {busy === 'payments' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Banknote className="h-4 w-4" />}
+                  Sync payments
+                </button>
                 <button onClick={disconnect} disabled={!!busy}
                   className="inline-flex items-center gap-2 rounded-lg border border-line bg-surface px-4 py-2 text-sm font-semibold text-danger disabled:opacity-50">
                   Disconnect
@@ -171,7 +181,7 @@ export function QuickBooksCard() {
         )}
 
         <p className="mt-4 text-xs text-muted-fg">
-          Phase 1 pushes customers and subs (vendors) one way into QuickBooks. Invoices, bills and payments are next.
+          Pushes one way into QuickBooks: customers, subs (vendors), sub bills (approved/paid invoices), and client payments (as sales receipts). Bills and payments auto-create their vendor/customer if needed. Re-running skips anything already synced.
         </p>
       </div>
 
