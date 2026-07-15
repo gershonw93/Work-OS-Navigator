@@ -144,3 +144,29 @@ export async function qboFetch(
   }
   return data
 }
+
+// Run a QBO SQL-ish query (read). Returns the QueryResponse object.
+export async function qboQuery(conn: Connection, sql: string): Promise<any> {
+  const data = await qboFetch(conn, `query?query=${encodeURIComponent(sql)}`)
+  return data?.QueryResponse ?? {}
+}
+
+// A default expense account to book a Bill line against. Prefers Cost of Goods
+// Sold, then any Expense account. Bills need an AccountRef and QBO has no
+// per-line mapping UI yet - this keeps phase 1 push working out of the box.
+export async function defaultExpenseAccountId(conn: Connection): Promise<string> {
+  const cogs = await qboQuery(conn, "select Id, AccountType from Account where AccountType = 'Cost of Goods Sold' and Active = true")
+  if (cogs?.Account?.[0]?.Id) return cogs.Account[0].Id
+  const exp = await qboQuery(conn, "select Id from Account where AccountType = 'Expense' and Active = true")
+  if (exp?.Account?.[0]?.Id) return exp.Account[0].Id
+  throw new Error('No expense account found in QuickBooks to book bills against.')
+}
+
+// A default service item for a Sales Receipt line (carries the income account).
+export async function defaultServiceItemId(conn: Connection): Promise<string> {
+  const svc = await qboQuery(conn, "select Id from Item where Type = 'Service' and Active = true")
+  if (svc?.Item?.[0]?.Id) return svc.Item[0].Id
+  const any = await qboQuery(conn, "select Id from Item where Active = true")
+  if (any?.Item?.[0]?.Id) return any.Item[0].Id
+  throw new Error('No item found in QuickBooks to record payments against.')
+}
