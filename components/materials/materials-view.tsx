@@ -8,7 +8,6 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
-import { CameraCapture } from '@/components/ui/camera-capture'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 import { cn } from '@/lib/utils'
 import { Plus, X, ShoppingCart, Camera, Upload, Loader2, Receipt, Trash2, ExternalLink, Search, ChevronDown, ChevronRight, CheckCircle2, Circle } from 'lucide-react'
@@ -31,10 +30,10 @@ async function authHeaders() {
 
 function AddModal({ projects, lockedProjectId, onClose, onSaved }: { projects: ProjectOpt[]; lockedProjectId?: string; onClose: () => void; onSaved: () => void }) {
   const [stage, setStage] = useState<'capture' | 'form'>('capture')
-  const [showCamera, setShowCamera] = useState(false)
   const [scanning, setScanning] = useState(false)
   const [scanNote, setScanNote] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
+  const cameraRef = useRef<HTMLInputElement>(null)
 
   const [receiptUrl, setReceiptUrl] = useState<string | null>(null)
   const [store, setStore] = useState('')
@@ -141,8 +140,13 @@ function AddModal({ projects, lockedProjectId, onClose, onSaved }: { projects: P
             <p className="text-sm text-muted-fg">Snap a photo of the receipt and we'll read the store and total for you.</p>
             <input ref={fileRef} type="file" accept="image/*,application/pdf" className="sr-only"
               onChange={e => { const f = e.target.files?.[0]; if (f) scan(f) }} />
+            {/* Native camera: on phones/iPad this opens the full-screen camera
+                with autofocus and returns a proper high-res photo - far more
+                reliable than a live getUserMedia frame. */}
+            <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="sr-only"
+              onChange={e => { const f = e.target.files?.[0]; if (f) scan(f) }} />
             <div className="grid grid-cols-2 gap-3">
-              <button onClick={() => setShowCamera(true)}
+              <button onClick={() => cameraRef.current?.click()}
                 className="flex flex-col items-center gap-2 rounded-xl border-2 border-dashed border-accent/50 bg-accent-tint/40 px-4 py-6 text-accent-fg hover:bg-accent-tint">
                 <Camera className="h-6 w-6" /> <span className="text-sm font-semibold">Take photo</span>
               </button>
@@ -241,11 +245,6 @@ function AddModal({ projects, lockedProjectId, onClose, onSaved }: { projects: P
           {stage === 'form' && <Button onClick={save} disabled={saving || scanning}>{saving ? 'Saving…' : 'Save receipt'}</Button>}
         </div>
       </div>
-
-      {showCamera && (
-        <CameraCapture facing="environment" onClose={() => setShowCamera(false)}
-          onCapture={(blob) => { setShowCamera(false); scan(blob) }} />
-      )}
     </div>
   )
 }
