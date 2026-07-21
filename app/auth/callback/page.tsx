@@ -20,6 +20,24 @@ export default function AuthCallbackPage() {
       const refreshToken = params.get('refresh_token')
       const tokenHash = params.get('token_hash') // PKCE flow
 
+      // PKCE: Supabase may redirect with ?code=... (and ?type=) in the query
+      // string rather than tokens in the hash. Exchange it for a session, then
+      // route by type just like the implicit flow below.
+      const search = new URLSearchParams(window.location.search)
+      const code = search.get('code')
+      const queryType = search.get('type') as 'invite' | 'recovery' | null
+      if (code) {
+        const { error: exErr } = await supabase.auth.exchangeCodeForSession(code)
+        if (exErr) {
+          setError(`Link error: ${exErr.message}. Please request a new link.`)
+          return
+        }
+        if (queryType === 'invite') { router.replace('/reset-password?type=invite'); return }
+        if (queryType === 'recovery') { router.replace('/reset-password'); return }
+        router.replace('/dashboard')
+        return
+      }
+
       if (!accessToken && !tokenHash) {
         // Maybe Supabase already handled it via onAuthStateChange
         const { data: { session } } = await supabase.auth.getSession()
