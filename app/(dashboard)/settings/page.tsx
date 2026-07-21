@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { PermissionsPanel } from '@/components/settings/permissions-panel'
 import { QuickBooksCard } from '@/components/settings/quickbooks-card'
+import { PasswordInput } from '@/components/ui/password-input'
 import { ConnectCalendarButton } from '@/components/calendar/connect-calendar'
 import { ThemeToggle, useTheme } from '@/components/ui/theme-toggle'
 
@@ -180,6 +181,7 @@ export default function SettingsPage() {
   const [profileSaving, setProfileSaving] = useState(false)
   const [profileMsg, setProfileMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [showPwForm, setShowPwForm] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [pwMsg, setPwMsg] = useState<{ ok: boolean; text: string } | null>(null)
@@ -413,6 +415,10 @@ export default function SettingsPage() {
   }
 
   async function changePassword() {
+    if (!currentPassword) {
+      setPwMsg({ ok: false, text: 'Enter your current password.' })
+      return
+    }
     if (newPassword !== confirmPassword) {
       setPwMsg({ ok: false, text: 'Passwords do not match.' })
       return
@@ -421,13 +427,24 @@ export default function SettingsPage() {
       setPwMsg({ ok: false, text: 'Password must be at least 8 characters.' })
       return
     }
+    if (newPassword === currentPassword) {
+      setPwMsg({ ok: false, text: 'New password must be different from the current one.' })
+      return
+    }
     setPwSaving(true)
     setPwMsg(null)
     try {
       const supabase = createClient()
+      // Verify the current password by re-authenticating before changing it.
+      const email = profile?.email
+      if (!email) throw new Error('Could not confirm your account. Please sign in again.')
+      const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password: currentPassword })
+      if (signInErr) throw new Error('Current password is incorrect.')
+
       const { error } = await supabase.auth.updateUser({ password: newPassword })
       if (error) throw error
       setPwMsg({ ok: true, text: 'Password updated.' })
+      setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
       setShowPwForm(false)
@@ -810,22 +827,32 @@ export default function SettingsPage() {
                   ) : (
                     <div className="space-y-4 max-w-sm">
                       <div>
+                        <Label htmlFor="currentPassword">Current Password</Label>
+                        <PasswordInput
+                          id="currentPassword"
+                          value={currentPassword}
+                          onChange={(e) => setCurrentPassword(e.target.value)}
+                          autoComplete="current-password"
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
                         <Label htmlFor="newPassword">New Password</Label>
-                        <Input
+                        <PasswordInput
                           id="newPassword"
-                          type="password"
                           value={newPassword}
                           onChange={(e) => setNewPassword(e.target.value)}
+                          autoComplete="new-password"
                           className="mt-1"
                         />
                       </div>
                       <div>
                         <Label htmlFor="confirmPassword">Confirm Password</Label>
-                        <Input
+                        <PasswordInput
                           id="confirmPassword"
-                          type="password"
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
+                          autoComplete="new-password"
                           className="mt-1"
                         />
                       </div>
@@ -835,7 +862,7 @@ export default function SettingsPage() {
                         </Button>
                         <Button
                           variant="outline"
-                          onClick={() => { setShowPwForm(false); setPwMsg(null) }}
+                          onClick={() => { setShowPwForm(false); setPwMsg(null); setCurrentPassword(''); setNewPassword(''); setConfirmPassword('') }}
                         >
                           Cancel
                         </Button>
