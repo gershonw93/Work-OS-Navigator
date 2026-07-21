@@ -604,28 +604,6 @@ export const HELP_ARTICLES: HelpArticle[] = [
     related: ['invite-team-member', 'pay-applications'],
   },
   {
-    slug: 'linkedin-auto-posting',
-    title: 'Auto-post to your LinkedIn business page',
-    category: 'settings',
-    keywords: ['linkedin', 'social', 'social media', 'marketing', 'post', 'posting', 'schedule', 'auto', 'automatic', 'company page', 'business page', 'share', 'publish', 'integration'],
-    summary: 'Connect your LinkedIn company page and publish or schedule posts straight from SyteNav.',
-    blocks: [
-      { type: 'text', text: 'SyteNav can post to your LinkedIn business page for you. Write an update in Settings > Integrations and either post it immediately, schedule it for later, or keep it as a draft. Scheduled posts are published automatically by a background job - no need to be at your desk.' },
-      { type: 'text', text: 'One-time setup (server side): the connection runs through your own LinkedIn Developer app. Create an app at developers.linkedin.com linked to your company page, request the "Community Management API" product (LinkedIn reviews and approves this - it can take a few days), add the redirect URL shown on the card to the app\'s OAuth settings, and put the app\'s Client ID and Client Secret into the server environment (LINKEDIN_CLIENT_ID / LINKEDIN_CLIENT_SECRET). Until that is done the card shows a "not set up on the server yet" notice.' },
-      { type: 'steps', items: [
-        'Open Settings and go to the Integrations tab.',
-        'On the LinkedIn Page card, click Connect LinkedIn and sign in with a LinkedIn account that is an admin of your business page.',
-        'If you admin more than one page, pick which page SyteNav should post as (or paste the page ID from your admin URL).',
-        'Write your update in the composer, then choose Post now, pick a date and time and Schedule, or Save draft.',
-        'Watch the Queue & recent posts list below - it shows what is scheduled, what went out, and any failures with the reason.',
-      ] },
-      { type: 'tip', text: 'Scheduled posts go out on the next publish run at or after their scheduled time. The built-in run happens once a day; if you want minute-level precision, ping /api/cron/linkedin-posts?secret=YOUR_CRON_SECRET from a free external scheduler (like cron-job.org) every 15 minutes, or tighten the Vercel cron schedule on a Pro plan.' },
-      { type: 'warn', text: 'LinkedIn access tokens expire after about 60 days. If the card shows "Expired - reconnect", click Reconnect LinkedIn once and scheduled posting resumes. Whoever scheduled a post gets an in-app notification when it goes out or fails.' },
-      { type: 'text', text: 'Posts are text-only for now (hashtags work; images are on the roadmap) with a 3,000 character limit. Only admins and managers can connect the page or manage posts, and removing a post from the queue never deletes anything already published on LinkedIn.' },
-    ],
-    related: ['connect-quickbooks', 'invite-team-member'],
-  },
-  {
     slug: 'invite-team-member',
     title: 'Invite a team member',
     category: 'settings',

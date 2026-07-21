@@ -1,30 +1,26 @@
 import { NextResponse } from 'next/server'
+import { isSuperAdmin } from '@/lib/super-admin'
 import { admin, getValidConnection, publishPost, POST_MAX_CHARS } from '@/lib/linkedin'
 
 export const runtime = 'nodejs'
 
-async function requireManager(request: Request) {
+async function requireOwner(request: Request) {
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
   const db = admin()
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
-  const { data: profile } = await db.from('profiles').select('company_id, role').eq('id', user.id).single()
-  if (!profile?.company_id) return { error: NextResponse.json({ error: 'No company' }, { status: 400 }) }
-  if (!['admin', 'manager'].includes(profile.role)) {
-    return { error: NextResponse.json({ error: 'Only an admin can manage LinkedIn posts.' }, { status: 403 }) }
-  }
-  return { db, companyId: profile.company_id as string }
+  if (!isSuperAdmin(user.email)) return { error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
+  return { db }
 }
 
 // Edit a queued post, or publish it right now.
 // { body?, scheduled_at?, action?: 'now' | 'unschedule' }
 export async function PATCH(request: Request, { params }: { params: { postId: string } }) {
-  const ctx = await requireManager(request)
+  const ctx = await requireOwner(request)
   if ('error' in ctx) return ctx.error
 
-  const { data: post } = await ctx.db.from('linkedin_posts')
-    .select('*').eq('id', params.postId).eq('company_id', ctx.companyId).maybeSingle()
+  const { data: post } = await ctx.db.from('linkedin_posts').select('*').eq('id', params.postId).maybeSingle()
   if (!post) return NextResponse.json({ error: 'Post not found' }, { status: 404 })
   if (post.status === 'posted') return NextResponse.json({ error: 'This post is already on LinkedIn.' }, { status: 400 })
 
@@ -53,7 +49,7 @@ export async function PATCH(request: Request, { params }: { params: { postId: st
   }
 
   if (payload.action === 'now') {
-    const conn = await getValidConnection(ctx.db, ctx.companyId)
+    const conn = await getValidConnection(ctx.db)
     if (!conn || conn.status !== 'connected' || !conn.org_urn) {
       return NextResponse.json({ error: 'LinkedIn is not connected. Connect it above first.' }, { status: 400 })
     }
@@ -72,11 +68,10 @@ export async function PATCH(request: Request, { params }: { params: { postId: st
   return NextResponse.json({ post: updated })
 }
 
-// Remove a draft/scheduled/failed post from the queue (history rows too, if
-// you want them gone - it never deletes anything on LinkedIn itself).
+// Remove a post from the queue/history (never deletes anything on LinkedIn).
 export async function DELETE(request: Request, { params }: { params: { postId: string } }) {
-  const ctx = await requireManager(request)
+  const ctx = await requireOwner(request)
   if ('error' in ctx) return ctx.error
-  await ctx.db.from('linkedin_posts').delete().eq('id', params.postId).eq('company_id', ctx.companyId)
+  await ctx.db.from('linkedin_posts').delete().eq('id', params.postId)
   return NextResponse.json({ ok: true })
 }

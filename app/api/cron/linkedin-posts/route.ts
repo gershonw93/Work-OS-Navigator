@@ -9,9 +9,10 @@ const admin = () => createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
-// Publish every scheduled LinkedIn post that has come due. Runs on the Vercel
-// cron; can also be pinged by an external scheduler with ?secret=CRON_SECRET
-// for tighter timing than the Vercel plan allows.
+// Publish every scheduled LinkedIn post that has come due, using the app's one
+// LinkedIn connection. Runs on the Vercel cron; can also be pinged by an
+// external scheduler with ?secret=CRON_SECRET for tighter timing than the
+// Vercel plan allows.
 export async function GET(request: Request) {
   // Auth: Vercel Cron sends x-vercel-cron; otherwise require CRON_SECRET.
   const isVercelCron = request.headers.get('x-vercel-cron') != null
@@ -26,29 +27,25 @@ export async function GET(request: Request) {
   const nowIso = new Date().toISOString()
 
   const { data: due, error } = await db.from('linkedin_posts')
-    .select('id, company_id, body, created_by')
+    .select('id, body, created_by')
     .eq('status', 'scheduled')
     .lte('scheduled_at', nowIso)
     .order('scheduled_at', { ascending: true })
     .limit(25)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (!due?.length) return NextResponse.json({ ok: true, due: 0, posted: 0, failed: 0 })
+
+  const conn = await getValidConnection(db)
+  const connReady = !!conn && conn.status === 'connected' && !!conn.org_urn
+  const connError = 'LinkedIn connection is missing or expired. Reconnect in the admin console.'
 
   let posted = 0, failed = 0
-  const connections = new Map<string, Awaited<ReturnType<typeof getValidConnection>>>()
-
-  for (const post of due ?? []) {
-    if (!connections.has(post.company_id)) {
-      connections.set(post.company_id, await getValidConnection(db, post.company_id))
-    }
-    const conn = connections.get(post.company_id)
-
+  for (const post of due) {
     let ok = false
-    let message = ''
-    if (!conn || conn.status !== 'connected' || !conn.org_urn) {
-      message = 'LinkedIn connection is missing or expired. Reconnect in Settings > Integrations.'
-    } else {
+    let message = connError
+    if (connReady) {
       try {
-        const urn = await publishPost(conn, post.body)
+        const urn = await publishPost(conn!, post.body)
         await db.from('linkedin_posts').update({
           status: 'posted', posted_at: new Date().toISOString(), linkedin_post_urn: urn, error: null, updated_at: new Date().toISOString(),
         }).eq('id', post.id)
@@ -80,5 +77,5 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, due: due?.length ?? 0, posted, failed })
+  return NextResponse.json({ ok: true, due: due.length, posted, failed })
 }

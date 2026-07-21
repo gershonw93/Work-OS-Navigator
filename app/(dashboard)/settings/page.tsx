@@ -16,7 +16,6 @@ import {
 } from 'lucide-react'
 import { PermissionsPanel } from '@/components/settings/permissions-panel'
 import { QuickBooksCard } from '@/components/settings/quickbooks-card'
-import { LinkedInCard } from '@/components/settings/linkedin-card'
 import { ConnectCalendarButton } from '@/components/calendar/connect-calendar'
 import { ThemeToggle, useTheme } from '@/components/ui/theme-toggle'
 
@@ -1526,7 +1525,6 @@ export default function SettingsPage() {
                 <p className="mt-1 text-sm text-muted-fg">Connect SyteNav to the tools you already use.</p>
               </div>
               <QuickBooksCard />
-              <LinkedInCard />
             </div>
           )}
 

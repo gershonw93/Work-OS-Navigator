@@ -1,12 +1,15 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
-// LinkedIn company-page posting integration.
+// LinkedIn business-page posting integration.
+//
+// There is ONE connection for the whole app (a singleton row), managed only by
+// the platform owner (super admin) from /admin/linkedin. It is not per-company.
 //
 // Requires a LinkedIn Developer app with the **Community Management API**
 // product enabled (that product grants the two scopes below). Set these env
 // vars (Vercel):
 //   LINKEDIN_CLIENT_ID, LINKEDIN_CLIENT_SECRET
-//   LINKEDIN_REDIRECT_URI   defaults to `${NEXT_PUBLIC_APP_URL}/api/linkedin/callback`
+//   LINKEDIN_REDIRECT_URI   defaults to `${NEXT_PUBLIC_APP_URL}/api/admin/linkedin/callback`
 //   LINKEDIN_API_VERSION    optional, LinkedIn-Version header (default below)
 // The redirect URI must exactly match one registered on the LinkedIn app.
 
@@ -18,6 +21,8 @@ const API_VERSION = process.env.LINKEDIN_API_VERSION || '202506'
 // r_organization_admin: list pages the member administers (to pick the page).
 const SCOPES = 'w_organization_social r_organization_admin'
 
+// The singleton connection row lives at id = 1 (see 058_linkedin.sql).
+export const CONNECTION_ID = 1
 export const POST_MAX_CHARS = 3000
 
 export function admin(): SupabaseClient {
@@ -32,7 +37,7 @@ export function redirectUri(request?: Request): string {
   if (process.env.LINKEDIN_REDIRECT_URI) return process.env.LINKEDIN_REDIRECT_URI
   const base = process.env.NEXT_PUBLIC_APP_URL
     ?? (request ? `https://${request.headers.get('host')}` : 'https://sytenav.com')
-  return `${base.replace(/\/$/, '')}/api/linkedin/callback`
+  return `${base.replace(/\/$/, '')}/api/admin/linkedin/callback`
 }
 
 export function authorizeUrl(state: string, request?: Request): string {
@@ -79,7 +84,6 @@ export async function refreshTokens(refresh_token: string): Promise<TokenRespons
 }
 
 export interface Connection {
-  company_id: string
   org_urn: string | null
   org_name: string | null
   access_token: string
@@ -88,11 +92,12 @@ export interface Connection {
   status: string
 }
 
-// Return a usable connection, refreshing the access token if we can. LinkedIn
-// only issues refresh tokens to approved apps, so without one an expired
-// connection just flips to 'expired' and the card asks for a reconnect.
-export async function getValidConnection(db: SupabaseClient, companyId: string): Promise<Connection | null> {
-  const { data: conn } = await db.from('linkedin_connections').select('*').eq('company_id', companyId).maybeSingle()
+// Return the app's usable connection, refreshing the access token if we can.
+// LinkedIn only issues refresh tokens to approved apps, so without one an
+// expired connection just flips to 'expired' and the console asks for a
+// reconnect.
+export async function getValidConnection(db: SupabaseClient): Promise<Connection | null> {
+  const { data: conn } = await db.from('linkedin_connection').select('*').eq('id', CONNECTION_ID).maybeSingle()
   if (!conn) return null
 
   const expMs = conn.access_expires_at ? new Date(conn.access_expires_at).getTime() : Infinity
@@ -100,7 +105,7 @@ export async function getValidConnection(db: SupabaseClient, companyId: string):
   if (!nearExpiry) return conn as Connection
 
   if (!conn.refresh_token) {
-    await db.from('linkedin_connections').update({ status: 'expired', updated_at: new Date().toISOString() }).eq('company_id', companyId)
+    await db.from('linkedin_connection').update({ status: 'expired', updated_at: new Date().toISOString() }).eq('id', CONNECTION_ID)
     return null
   }
   try {
@@ -114,10 +119,10 @@ export async function getValidConnection(db: SupabaseClient, companyId: string):
       status: conn.org_urn ? 'connected' : 'needs_org',
       updated_at: new Date().toISOString(),
     }
-    await db.from('linkedin_connections').update(updated).eq('company_id', companyId)
+    await db.from('linkedin_connection').update(updated).eq('id', CONNECTION_ID)
     return { ...conn, ...updated } as Connection
   } catch {
-    await db.from('linkedin_connections').update({ status: 'expired', updated_at: new Date().toISOString() }).eq('company_id', companyId)
+    await db.from('linkedin_connection').update({ status: 'expired', updated_at: new Date().toISOString() }).eq('id', CONNECTION_ID)
     return null
   }
 }

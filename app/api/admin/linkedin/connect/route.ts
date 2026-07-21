@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
+import { isSuperAdmin } from '@/lib/super-admin'
 import { admin, authorizeUrl, linkedinConfigured, redirectUri } from '@/lib/linkedin'
 
 export const runtime = 'nodejs'
 
-// Start the OAuth handshake: mint a state row (CSRF + which company) and hand
-// back the LinkedIn authorize URL for the browser to open.
+// Start the OAuth handshake: mint a state row (CSRF anchor) and hand back the
+// LinkedIn authorize URL for the browser to open. Owner (super admin) only.
 export async function GET(request: Request) {
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -16,17 +17,10 @@ export async function GET(request: Request) {
   const db = admin()
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const { data: profile } = await db.from('profiles').select('company_id, role').eq('id', user.id).single()
-  if (!profile?.company_id) return NextResponse.json({ error: 'No company' }, { status: 400 })
-  if (!['admin', 'manager'].includes(profile.role)) {
-    return NextResponse.json({ error: 'Only an admin can connect LinkedIn.' }, { status: 403 })
-  }
+  if (!isSuperAdmin(user.email)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const state = randomUUID()
-  await db.from('linkedin_oauth_states').insert({
-    state, company_id: profile.company_id, created_by: user.id,
-  })
+  await db.from('linkedin_oauth_states').insert({ state, created_by: user.id })
 
   return NextResponse.json({ url: authorizeUrl(state, request), redirectUri: redirectUri(request) })
 }

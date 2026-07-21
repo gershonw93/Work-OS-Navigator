@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { admin } from '@/lib/linkedin'
+import { isSuperAdmin } from '@/lib/super-admin'
+import { admin, CONNECTION_ID } from '@/lib/linkedin'
 
 export const runtime = 'nodejs'
 
@@ -12,13 +13,8 @@ export async function POST(request: Request) {
   const db = admin()
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!isSuperAdmin(user.email)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const { data: profile } = await db.from('profiles').select('company_id, role').eq('id', user.id).single()
-  if (!profile?.company_id) return NextResponse.json({ error: 'No company' }, { status: 400 })
-  if (!['admin', 'manager'].includes(profile.role)) {
-    return NextResponse.json({ error: 'Only an admin can disconnect LinkedIn.' }, { status: 403 })
-  }
-
-  await db.from('linkedin_connections').delete().eq('company_id', profile.company_id)
+  await db.from('linkedin_connection').delete().eq('id', CONNECTION_ID)
   return NextResponse.json({ ok: true })
 }

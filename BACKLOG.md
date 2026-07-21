@@ -19,7 +19,7 @@ move it to **In progress**, and when it ships, move it to **Done** with the PR #
 - **CompanyCam** - jobsite photos.
 - **Procore / Autodesk Construction Cloud** - for GCs who also run Procore.
 
-- **LinkedIn company-page posting** - *shipped:* per-company OAuth connect from Settings > Integrations, compose + Post now / Schedule / Save draft, daily cron (`/api/cron/linkedin-posts`) publishes due scheduled posts, queue + history with retry, in-app notification on publish/fail. Text posts only. **Next:** image/link attachments, per-project "share this milestone" one-click, richer scheduling UI, other channels (Facebook/Instagram/X).
+- **LinkedIn company-page posting** - *shipped:* single, platform-wide (owner-only) LinkedIn page connected from `/admin` → LinkedIn (super-admin, behind the PIN gate); compose + Post now / Schedule / Save draft; daily cron (`/api/cron/linkedin-posts`) publishes due scheduled posts; queue + history; in-app notification on publish/fail. Text posts only. Setup in `docs/linkedin-setup.md`. **Next:** image/link attachments, per-project "share this milestone" one-click, richer scheduling UI, other channels (Facebook/Instagram/X). *(Note: deliberately NOT per-company - one page for the whole app.)*
 
 ## 📣 Notifications & comms
 - **Transactional email (Resend/SendGrid)** - biggest "feels unfinished" gap. Quote/compliance/inspection flows already produce messages; today they're in-app + mailto. Make them real emails.

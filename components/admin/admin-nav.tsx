@@ -10,6 +10,7 @@ const TABS = [
   { href: '/admin/companies', label: 'Companies' },
   { href: '/admin/projects', label: 'Projects' },
   { href: '/admin/audit', label: 'Audit Log' },
+  { href: '/admin/linkedin', label: 'LinkedIn' },
 ]
 
 export function AdminNav() {

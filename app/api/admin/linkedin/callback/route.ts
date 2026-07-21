@@ -1,28 +1,27 @@
 import { NextResponse } from 'next/server'
-import { admin, exchangeCode, listAdminOrganizations } from '@/lib/linkedin'
+import { admin, exchangeCode, listAdminOrganizations, CONNECTION_ID } from '@/lib/linkedin'
 
 export const runtime = 'nodejs'
 
-// LinkedIn redirects the browser here with ?code&state. We match the state to
-// a company, exchange the code for tokens, store the connection, then bounce
-// back to Settings. No bearer here (top-level navigation) - the single-use
-// state row is the trust anchor. If the member admins exactly one page we pick
-// it automatically; otherwise the card asks them to choose.
+// LinkedIn redirects the browser here with ?code&state. This is a top-level
+// navigation with no bearer, so the single-use state row (created only by the
+// super-admin-gated connect route) is the trust anchor. We exchange the code,
+// store the one global connection, then bounce back to the admin console. If
+// the member admins exactly one page we pick it automatically.
 export async function GET(request: Request) {
   const url = new URL(request.url)
   const code = url.searchParams.get('code')
   const state = url.searchParams.get('state')
   const error = url.searchParams.get('error')
 
-  const settings = new URL('/settings', url.origin)
-  settings.searchParams.set('tab', 'integrations')
+  const console_ = new URL('/admin/linkedin', url.origin)
 
-  if (error) { settings.searchParams.set('li', 'denied'); return NextResponse.redirect(settings) }
-  if (!code || !state) { settings.searchParams.set('li', 'error'); return NextResponse.redirect(settings) }
+  if (error) { console_.searchParams.set('li', 'denied'); return NextResponse.redirect(console_) }
+  if (!code || !state) { console_.searchParams.set('li', 'error'); return NextResponse.redirect(console_) }
 
   const db = admin()
   const { data: st } = await db.from('linkedin_oauth_states').select('*').eq('state', state).maybeSingle()
-  if (!st?.company_id) { settings.searchParams.set('li', 'error'); return NextResponse.redirect(settings) }
+  if (!st) { console_.searchParams.set('li', 'error'); return NextResponse.redirect(console_) }
   await db.from('linkedin_oauth_states').delete().eq('state', state)
 
   try {
@@ -35,10 +34,10 @@ export async function GET(request: Request) {
     try {
       const orgs = await listAdminOrganizations(t.access_token)
       if (orgs.length === 1) { orgUrn = orgs[0].urn; orgName = orgs[0].name }
-    } catch { /* non-fatal - the card falls back to a manual page picker */ }
+    } catch { /* non-fatal - the console falls back to a manual page picker */ }
 
-    await db.from('linkedin_connections').upsert({
-      company_id: st.company_id,
+    await db.from('linkedin_connection').upsert({
+      id: CONNECTION_ID,
       org_urn: orgUrn,
       org_name: orgName,
       access_token: t.access_token,
@@ -50,11 +49,11 @@ export async function GET(request: Request) {
       connected_by: st.created_by,
       connected_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-    }, { onConflict: 'company_id' })
+    }, { onConflict: 'id' })
 
-    settings.searchParams.set('li', orgUrn ? 'connected' : 'needs_org')
+    console_.searchParams.set('li', orgUrn ? 'connected' : 'needs_org')
   } catch {
-    settings.searchParams.set('li', 'error')
+    console_.searchParams.set('li', 'error')
   }
-  return NextResponse.redirect(settings)
+  return NextResponse.redirect(console_)
 }
