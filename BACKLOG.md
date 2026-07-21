@@ -19,6 +19,8 @@ move it to **In progress**, and when it ships, move it to **Done** with the PR #
 - **CompanyCam** - jobsite photos.
 - **Procore / Autodesk Construction Cloud** - for GCs who also run Procore.
 
+- **LinkedIn company-page posting** - *shipped:* per-company OAuth connect from Settings > Integrations, compose + Post now / Schedule / Save draft, daily cron (`/api/cron/linkedin-posts`) publishes due scheduled posts, queue + history with retry, in-app notification on publish/fail. Text posts only. **Next:** image/link attachments, per-project "share this milestone" one-click, richer scheduling UI, other channels (Facebook/Instagram/X).
+
 ## 📣 Notifications & comms
 - **Transactional email (Resend/SendGrid)** - biggest "feels unfinished" gap. Quote/compliance/inspection flows already produce messages; today they're in-app + mailto. Make them real emails.
 - **SMS reminders (Twilio)** - "text a receipt" for Materials, "inspection ready" to the scheduler, payment receipts to clients. Universal alternative to Ramp's receipt-texts. Smaller build, works for everyone.
