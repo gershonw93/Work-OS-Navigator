@@ -41,8 +41,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'No company linked to your account. Please set up your company first.' }, { status: 400 })
   }
 
-  // Send Supabase auth invite
-  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://work-os-navigator.vercel.app').replace(/\/$/, '')
+  // Send Supabase auth invite. Prefer configured site/app URL; fall back to the
+  // request's own host so the callback always lands on the domain the app is
+  // actually served from (never a stale hardcoded default).
+  const origin = (() => { try { return new URL(request.url).origin } catch { return null } })()
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? origin ?? 'https://www.sytenav.com').replace(/\/$/, '')
   const { error: inviteError } = await db.auth.admin.inviteUserByEmail(email, {
     data: { company_id, role: role ?? 'read_only', full_name: body.full_name ?? '' },
     redirectTo: `${siteUrl}/auth/callback`,
