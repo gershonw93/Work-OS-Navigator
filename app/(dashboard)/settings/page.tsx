@@ -181,6 +181,9 @@ export default function SettingsPage() {
   const [profileSaving, setProfileSaving] = useState(false)
   const [profileMsg, setProfileMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [showPwForm, setShowPwForm] = useState(false)
+  // Read-only until focus: blocks the browser from autofilling the saved
+  // login password into the "current password" field on load.
+  const [curPwLocked, setCurPwLocked] = useState(true)
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -821,7 +824,7 @@ export default function SettingsPage() {
                 </CardHeader>
                 <CardContent>
                   {!showPwForm ? (
-                    <Button variant="outline" onClick={() => setShowPwForm(true)}>
+                    <Button variant="outline" onClick={() => { setCurPwLocked(true); setShowPwForm(true) }}>
                       Change Password
                     </Button>
                   ) : (
@@ -830,9 +833,14 @@ export default function SettingsPage() {
                         <Label htmlFor="currentPassword">Current Password</Label>
                         <PasswordInput
                           id="currentPassword"
+                          name="sytenav-current-pw"
                           value={currentPassword}
                           onChange={(e) => setCurrentPassword(e.target.value)}
-                          autoComplete="current-password"
+                          readOnly={curPwLocked}
+                          onFocus={() => setCurPwLocked(false)}
+                          autoComplete="off"
+                          data-1p-ignore
+                          data-lpignore="true"
                           className="mt-1"
                         />
                       </div>
@@ -862,7 +870,7 @@ export default function SettingsPage() {
                         </Button>
                         <Button
                           variant="outline"
-                          onClick={() => { setShowPwForm(false); setPwMsg(null); setCurrentPassword(''); setNewPassword(''); setConfirmPassword('') }}
+                          onClick={() => { setShowPwForm(false); setPwMsg(null); setCurrentPassword(''); setNewPassword(''); setConfirmPassword(''); setCurPwLocked(true) }}
                         >
                           Cancel
                         </Button>
