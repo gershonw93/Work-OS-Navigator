@@ -28,6 +28,15 @@ export default function ProposalPrintPage({ params }: { params: { id: string } }
   const [detail, setDetail] = useState<Detail>('category')
   const [loading, setLoading] = useState(true)
 
+  // Force light theme on this page so the printed proposal is always clean
+  // white with dark text, regardless of the user's app theme.
+  useEffect(() => {
+    const root = document.documentElement
+    const prev = root.getAttribute('data-theme')
+    root.setAttribute('data-theme', 'light')
+    return () => { if (prev) root.setAttribute('data-theme', prev); else root.removeAttribute('data-theme') }
+  }, [])
+
   useEffect(() => {
     async function load() {
       const { data: { session } } = await supabase.auth.getSession()
@@ -198,7 +207,8 @@ export default function ProposalPrintPage({ params }: { params: { id: string } }
       <style>{`
         @media print {
           .no-print { display: none !important; }
-          body { margin: 0; }
+          body { margin: 0; background: #fff; }
+          @page { margin: 0.5in; }
         }
       `}</style>
     </>

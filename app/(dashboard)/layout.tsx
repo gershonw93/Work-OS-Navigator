@@ -32,12 +32,18 @@ export default async function DashboardLayout({ children }: { children: ReactNod
       <IdleLogout />
       <FieldPreviewGate />
       <div className="flex min-h-screen bg-surface">
-        <Sidebar />
-        <div className="flex flex-1 flex-col min-w-0 lg:pl-60">
-          <ImpersonationBanner />
-          <ViewAsBanner />
-          <TopNav />
-          <main className="flex-1 overflow-y-auto overflow-x-hidden">
+        {/* App chrome is hidden when printing so print/PDF pages (proposals,
+            invoices, pay apps) render clean, without the sidebar/nav/tabs. */}
+        <div className="print:hidden">
+          <Sidebar />
+        </div>
+        <div className="flex flex-1 flex-col min-w-0 lg:pl-60 print:pl-0">
+          <div className="print:hidden">
+            <ImpersonationBanner />
+            <ViewAsBanner />
+            <TopNav />
+          </div>
+          <main className="flex-1 overflow-y-auto overflow-x-hidden print:overflow-visible">
             {children}
           </main>
         </div>

@@ -23,7 +23,7 @@ export default async function ProjectLayout({ children, params }: ProjectLayoutP
   return (
     <div className="flex flex-col min-h-full">
       {/* Project header */}
-      <div className="border-b border-line bg-panel px-4 sm:px-6 py-4">
+      <div className="border-b border-line bg-panel px-4 sm:px-6 py-4 print:hidden">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
             <div className="min-w-0">
@@ -55,10 +55,12 @@ export default async function ProjectLayout({ children, params }: ProjectLayoutP
       </div>
 
       {/* Tabs */}
-      <ProjectTabs projectId={params.id} />
+      <div className="print:hidden">
+        <ProjectTabs projectId={params.id} />
+      </div>
 
       {/* Content */}
-      <div className="flex-1 p-4 sm:p-6">
+      <div className="flex-1 p-4 sm:p-6 print:p-0">
         {children}
       </div>
     </div>
