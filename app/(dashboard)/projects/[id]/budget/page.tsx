@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
-import { Wallet, DollarSign, CheckCircle2, TrendingDown, TrendingUp, Plus, Trash2, Pencil, X, Check, Link as LinkIcon, AlertTriangle, LayoutTemplate, Save, FileSpreadsheet, FolderInput, Search, ShoppingCart } from 'lucide-react'
+import { Wallet, DollarSign, CheckCircle2, TrendingDown, TrendingUp, Plus, Trash2, Pencil, X, Check, Link as LinkIcon, AlertTriangle, LayoutTemplate, Save, FileSpreadsheet, FolderInput, Search, ShoppingCart, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -73,6 +73,10 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   const [materialsTotal, setMaterialsTotal] = useState(0)
   const [spaceTotals, setSpaceTotals] = useState({ interior: 0, exterior: 0, unassigned: 0 })
   const [projectSqft, setProjectSqft] = useState<{ interior: number | null; exterior: number | null }>({ interior: null, exterior: null })
+  // Markup % (stored as a fraction on the project as contractor_fee_pct). Shown
+  // here as a whole percent; also drives the client proposal + billing fee.
+  const [markupPct, setMarkupPct] = useState('0')
+  const [savingMarkup, setSavingMarkup] = useState(false)
   const [loading, setLoading] = useState(true)
   const [adding, setAdding] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -117,8 +121,26 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       setMaterialsTotal(d.materials_total ?? 0)
       setSpaceTotals(d.space_totals ?? { interior: 0, exterior: 0, unassigned: 0 })
       setProjectSqft(d.project_sqft ?? { interior: null, exterior: null })
+      setMarkupPct(String(Math.round((Number(d.contractor_fee_pct ?? 0)) * 1000) / 10))
     }
     setLoading(false)
+  }
+
+  // Persist the markup % (as a fraction) on the project. Reuses the payments
+  // fee endpoint - markup and the billed contractor fee are the same number.
+  async function saveMarkup() {
+    setSavingMarkup(true)
+    try {
+      const token = await getToken()
+      const frac = Math.max(0, (Number(markupPct) || 0) / 100)
+      await fetch(`/api/projects/${params.id}/payments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ fee_pct: frac }),
+      })
+    } finally {
+      setSavingMarkup(false)
+    }
   }
 
   useEffect(() => { load() }, [params.id])
@@ -565,6 +587,44 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
           )
         })}
       </div>
+
+      {/* Estimate → Proposal: markup + client price + generate a client PDF */}
+      {items.length > 0 && (
+        <div className="rounded-xl border border-accent/30 bg-accent-tint/30 p-4">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div className="flex flex-wrap items-end gap-5">
+              <div>
+                <label className="block text-xs font-medium text-muted-fg mb-1">Markup</label>
+                <div className="flex items-center gap-1.5">
+                  <Input type="number" min="0" step="0.5" value={markupPct}
+                    onChange={e => setMarkupPct(e.target.value)}
+                    onBlur={saveMarkup}
+                    className="w-24" />
+                  <span className="text-sm font-medium text-muted-fg">%</span>
+                  {savingMarkup && <span className="text-xs text-faint">saving…</span>}
+                </div>
+                <p className="mt-1 text-[11px] text-faint">Added on top of cost. Also your billed fee.</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-fg mb-1">Cost (internal)</p>
+                <p className="text-lg font-semibold text-ink-soft">{money(totalBudgeted)}</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-fg mb-1">Client price</p>
+                <p className="text-2xl font-bold text-accent-fg">{money(totalBudgeted * (1 + (Number(markupPct) || 0) / 100))}</p>
+              </div>
+            </div>
+            <a
+              href={`/projects/${params.id}/proposal/print`}
+              target="_blank" rel="noreferrer"
+              onClick={() => { if (!savingMarkup) saveMarkup() }}
+              className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink hover:bg-accent/90"
+            >
+              <FileText className="h-4 w-4" /> Generate Proposal
+            </a>
+          </div>
+        </div>
+      )}
 
       {/* Interior / Exterior breakdown */}
       {(spaceTotals.interior > 0 || spaceTotals.exterior > 0 || projectSqft.interior || projectSqft.exterior) && (
