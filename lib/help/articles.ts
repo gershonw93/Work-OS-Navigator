@@ -248,7 +248,26 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: 'text', text: 'Already have the budget in a spreadsheet? Use Import Estimate in the header (.xlsx/.csv). If some rows already exist as lines, you\'ll be asked to either skip those duplicates (only add the new rows) or update them with the sheet\'s amounts - either way nothing already on the budget is ever deleted.' },
       { type: 'text', text: 'Loaded the wrong template or made a mess? Check the box next to any line (or the header checkbox to select a whole category or everything visible), then click Delete - you\'ll be asked to confirm before anything is removed.' },
     ],
-    related: ['budget-templates', 'money-overview', 'create-invoice'],
+    related: ['budget-templates', 'money-overview', 'create-invoice', 'estimate-proposal'],
+  },
+  {
+    slug: 'estimate-proposal',
+    title: 'Turn a budget into a client proposal (estimate)',
+    category: 'money',
+    keywords: ['estimate', 'proposal', 'bid', 'quote', 'markup', 'margin', 'client price', 'pdf', 'sell price', 'win', 'contractor fee'],
+    summary: 'Add a markup to your budget and generate a branded proposal PDF for the client.',
+    blocks: [
+      { type: 'text', text: 'Your budget is also your estimate: build the line items at your cost, then add a markup to get the price you show the client. The markup you set here is the same percentage used as your contractor fee when you bill - one number, one source of truth.' },
+      { type: 'steps', items: [
+        'Build the budget with your internal costs (Budget tab).',
+        'In the Markup box, enter your percentage. The Client price updates instantly (cost + markup).',
+        'Click Generate Proposal.',
+        'On the proposal page, choose how much to show - Lump sum, By section, or Itemized - then Print / Save PDF.',
+      ] },
+      { type: 'tip', text: 'The proposal shows only client-facing prices (cost + markup). Your raw costs and margin are never printed, so it is safe to hand to the client.' },
+      { type: 'text', text: 'The proposal is branded with your logo and details, includes a valid-until date, terms, and a signature line. When you win the job, the same budget is already your baseline - actual costs track against it automatically.' },
+    ],
+    related: ['add-project-budget', 'compare-quotes', 'create-invoice'],
   },
   {
     slug: 'pay-applications',

@@ -44,7 +44,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .order('purchase_date', { ascending: false, nullsFirst: false }),
     db
       .from('projects')
-      .select('interior_sqft, exterior_sqft')
+      .select('interior_sqft, exterior_sqft, contractor_fee_pct')
       .eq('id', params.id)
       .single(),
   ])
@@ -106,6 +106,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     materials_total,
     space_totals: spaceTotals,
     project_sqft: { interior: projectRow?.interior_sqft ?? null, exterior: projectRow?.exterior_sqft ?? null },
+    contractor_fee_pct: Number((projectRow as any)?.contractor_fee_pct ?? 0),
   })
 }
 
