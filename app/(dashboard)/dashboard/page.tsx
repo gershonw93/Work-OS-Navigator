@@ -118,7 +118,7 @@ function greeting() {
 
 export default function DashboardPage() {
   const supabase = createClient()
-  const { role } = usePermissions()
+  const { role, loading: roleLoading } = usePermissions()
   const [newBidNotifications, setNewBidNotifications] = useState<Notification[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
@@ -204,9 +204,11 @@ export default function DashboardPage() {
   const ov = (role === 'admin' || role === 'manager') ? overview : null
 
   // While the first load is in flight we don't yet know which layout applies
-  // (admin overview vs. sub vs. standard GC). Render a neutral skeleton instead
-  // of committing to a layout and then swapping it out - that flash looked broken.
-  if (loading) {
+  // (admin overview vs. sub vs. standard GC). Wait for the role too - it loads
+  // on its own timeline, and rendering before it resolves flashes the standard
+  // layout and then swaps to the admin overview. Render a neutral skeleton until
+  // both the data and the role are known.
+  if (loading || roleLoading) {
     return (
       <div className="p-4 sm:p-6 space-y-5 animate-pulse">
         <div className="space-y-2">
