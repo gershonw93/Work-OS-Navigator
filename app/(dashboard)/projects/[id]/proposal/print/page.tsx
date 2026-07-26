@@ -87,22 +87,27 @@ export default function ProposalPrintPage({ params }: { params: { id: string } }
 
   return (
     <>
-      <div className="no-print fixed top-4 right-4 z-50 flex items-center gap-2">
-        <div className="flex overflow-hidden rounded-lg border border-line bg-panel text-sm">
-          {(['lump', 'category', 'line'] as Detail[]).map(d => (
-            <button key={d} onClick={() => setDetail(d)}
-              className={`px-3 py-2 font-medium capitalize ${detail === d ? 'bg-accent text-accent-ink' : 'text-muted-fg hover:bg-surface'}`}>
-              {d === 'lump' ? 'Lump sum' : d === 'category' ? 'By section' : 'Itemized'}
-            </button>
-          ))}
+      {/* Toolbar sits in the page flow at the top of the content, not floating.
+          Hidden when printing. */}
+      <div className="no-print sticky top-0 z-10 -mx-4 -mt-4 mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-line bg-surface/90 px-4 py-3 backdrop-blur sm:-mx-6 sm:-mt-6 sm:px-6">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-muted-fg">Detail:</span>
+          <div className="flex overflow-hidden rounded-lg border border-line bg-panel text-sm">
+            {(['lump', 'category', 'line'] as Detail[]).map(d => (
+              <button key={d} onClick={() => setDetail(d)}
+                className={`px-3 py-2 font-medium capitalize ${detail === d ? 'bg-accent text-accent-ink' : 'text-muted-fg hover:bg-surface'}`}>
+                {d === 'lump' ? 'Lump sum' : d === 'category' ? 'By section' : 'Itemized'}
+              </button>
+            ))}
+          </div>
         </div>
         <button onClick={() => window.print()}
-          className="flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-ink shadow-lg">
+          className="flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-ink shadow-sm hover:bg-accent/90">
           <Printer className="h-4 w-4" /> Print / Save PDF
         </button>
       </div>
 
-      <div className="min-h-screen bg-panel p-10 max-w-3xl mx-auto print:p-0 print:max-w-none">
+      <div className="mx-auto max-w-3xl rounded-xl border border-line bg-panel p-8 sm:p-10 print:max-w-none print:rounded-none print:border-0 print:p-0">
         {/* Header */}
         <div className="flex items-start justify-between mb-8">
           <div>
