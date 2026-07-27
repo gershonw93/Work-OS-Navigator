@@ -77,6 +77,8 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   // here as a whole percent; also drives the client proposal + billing fee.
   const [markupPct, setMarkupPct] = useState('0')
   const [savingMarkup, setSavingMarkup] = useState(false)
+  const [projectStatus, setProjectStatus] = useState<string | null>(null)
+  const [billingMode, setBillingMode] = useState<string>('simple')
   const [loading, setLoading] = useState(true)
   const [adding, setAdding] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -122,6 +124,8 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       setSpaceTotals(d.space_totals ?? { interior: 0, exterior: 0, unassigned: 0 })
       setProjectSqft(d.project_sqft ?? { interior: null, exterior: null })
       setMarkupPct(String(Math.round((Number(d.contractor_fee_pct ?? 0)) * 1000) / 10))
+      setProjectStatus(d.project_status ?? null)
+      setBillingMode(d.billing_mode ?? 'simple')
     }
     setLoading(false)
   }
@@ -395,6 +399,16 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   const unbudgetedSubs = subOptions.filter(s => !linkedSubIds.has(s.id))
   const unbudgetedTotal = unbudgetedSubs.reduce((s, x) => s + Number(x.contract_amount || 0), 0)
 
+  // The estimate/markup tool is a PRE-AWARD thing, and only for the simple
+  // (residential/small-GC) billing flow. Commercial AIA jobs bid formally and
+  // bill through pay apps, so a marked-up budget PDF doesn't apply. Once a job
+  // is won (active/completed), editing the markup would silently move the billed
+  // contractor fee - so we drop to a read-only "view the proposal we sent" link.
+  const preAward = projectStatus === 'planning' || projectStatus === null
+  const estimateApplies = billingMode !== 'aia' && items.length > 0
+  const showEstimateBar = estimateApplies && preAward
+  const showProposalLink = estimateApplies && !preAward
+
   const statCards = [
     { label: 'Total Budget', value: totalBudgeted, color: 'text-ink', bg: 'bg-panel', icon: DollarSign },
     { label: 'Committed', value: totalCommitted, color: 'text-info', bg: 'bg-info-tint', icon: TrendingUp },
@@ -588,8 +602,17 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
         })}
       </div>
 
-      {/* Estimate → Proposal: markup + client price + generate a client PDF */}
-      {items.length > 0 && (
+      {/* Won job: no markup editing, just reprint the proposal that was sent. */}
+      {showProposalLink && (
+        <a href={`/projects/${params.id}/proposal/print`} target="_blank" rel="noreferrer"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-accent-fg hover:underline">
+          <FileText className="h-4 w-4" /> View proposal
+        </a>
+      )}
+
+      {/* Estimate → Proposal: markup + client price + generate a client PDF.
+          Pre-award only, simple-billing jobs only. */}
+      {showEstimateBar && (
         <div className="rounded-xl border border-accent/30 bg-accent-tint/30 p-4">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div className="flex flex-wrap items-end gap-5">
