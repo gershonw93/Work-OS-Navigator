@@ -258,6 +258,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     summary: 'Add a markup to your budget and generate a branded proposal PDF for the client.',
     blocks: [
       { type: 'text', text: 'Your budget is also your estimate: build the line items at your cost, then add a markup to get the price you show the client. The markup you set here is the same percentage used as your contractor fee when you bill - one number, one source of truth.' },
+      { type: 'text', text: 'Where it shows up: the Markup box appears on the Budget tab only while a project is still in Planning (before you win it), and only on projects using simple billing. Commercial projects set to AIA pay-application billing bid formally and bill through pay apps instead, so they do not get the markup box. Once a job is Active, the markup is locked (it is your billed fee at that point) and the Budget tab just shows a "View proposal" link so you can reprint what you sent.' },
       { type: 'steps', items: [
         'Build the budget with your internal costs (Budget tab).',
         'In the Markup box, enter your percentage. The Client price updates instantly (cost + markup).',

@@ -44,12 +44,21 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .order('purchase_date', { ascending: false, nullsFirst: false }),
     db
       .from('projects')
-      .select('interior_sqft, exterior_sqft, contractor_fee_pct')
+      .select('interior_sqft, exterior_sqft, contractor_fee_pct, status, billing_mode')
       .eq('id', params.id)
       .single(),
   ])
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // billing_mode arrived in a later migration - fall back if it isn't there yet.
+  let projectMeta: any = projectRow
+  if (!projectMeta) {
+    const retry = await db.from('projects')
+      .select('interior_sqft, exterior_sqft, contractor_fee_pct, status')
+      .eq('id', params.id).single()
+    projectMeta = retry.data
+  }
 
   // Actual = billed & accepted invoices (approved / sent / paid), per subcontract.
   // (Approving an invoice should move the line, not only marking it paid.)
@@ -105,8 +114,10 @@ export async function GET(request: Request, { params }: { params: { id: string }
     materials: materials ?? [],
     materials_total,
     space_totals: spaceTotals,
-    project_sqft: { interior: projectRow?.interior_sqft ?? null, exterior: projectRow?.exterior_sqft ?? null },
-    contractor_fee_pct: Number((projectRow as any)?.contractor_fee_pct ?? 0),
+    project_sqft: { interior: projectMeta?.interior_sqft ?? null, exterior: projectMeta?.exterior_sqft ?? null },
+    contractor_fee_pct: Number(projectMeta?.contractor_fee_pct ?? 0),
+    project_status: projectMeta?.status ?? null,
+    billing_mode: projectMeta?.billing_mode ?? 'simple',
   })
 }
 
