@@ -202,13 +202,16 @@ export default function PlanViewerPage({ params }: { params: { id: string; planI
 
   return (
     <div className={cn('space-y-4', fullscreen ? 'fixed inset-0 z-40 overflow-y-auto bg-surface p-3 pb-6' : 'p-4 sm:p-6')}>
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2">
-        <Link href={`/projects/${params.id}/plans`} className="inline-flex items-center gap-1.5 text-sm text-muted-fg hover:text-ink">
-          <ArrowLeft className="h-4 w-4" /> Plans
-        </Link>
-        <h1 className="text-lg font-bold text-ink truncate flex-1 min-w-0">{plan.name}</h1>
-        <div className="flex items-center gap-1.5">
+      {/* Toolbar - title on its own row, controls wrap underneath on phones so
+          nothing overflows the viewport. */}
+      <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center">
+        <div className="flex min-w-0 items-center gap-2">
+          <Link href={`/projects/${params.id}/plans`} className="inline-flex shrink-0 items-center gap-1.5 text-sm text-muted-fg hover:text-ink">
+            <ArrowLeft className="h-4 w-4" /> <span className="hidden sm:inline">Plans</span>
+          </Link>
+          <h1 className="min-w-0 flex-1 truncate text-base font-bold text-ink sm:text-lg">{plan.name}</h1>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5 lg:ml-auto">
           {isPdf && numPages > 1 && (
             <div className="flex items-center gap-1 rounded-lg border border-line px-1 py-1">
               <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1} className="p-1 text-muted-fg hover:text-ink disabled:opacity-40"><ChevronLeft className="h-4 w-4" /></button>
@@ -217,7 +220,7 @@ export default function PlanViewerPage({ params }: { params: { id: string; planI
             </div>
           )}
           <button onClick={() => setZoom(z => Math.max(0.5, Math.round((z - 0.25) * 100) / 100))} className="rounded-lg border border-line p-2 text-muted-fg hover:bg-surface"><Minus className="h-4 w-4" /></button>
-          <span className="w-12 text-center text-xs text-muted-fg">{Math.round(zoom * 100)}%</span>
+          <span className="w-12 shrink-0 text-center text-xs text-muted-fg">{Math.round(zoom * 100)}%</span>
           <button onClick={() => setZoom(z => Math.min(4, Math.round((z + 0.25) * 100) / 100))} className="rounded-lg border border-line p-2 text-muted-fg hover:bg-surface"><Plus className="h-4 w-4" /></button>
           <a href={plan.file_url} target="_blank" rel="noreferrer" className="rounded-lg border border-line p-2 text-muted-fg hover:bg-surface" title="Open the file"><ExternalLink className="h-4 w-4" /></a>
           <button onClick={() => setShowList(true)} className="relative rounded-lg border border-line p-2 text-muted-fg hover:bg-surface" title="All pins">
@@ -227,8 +230,9 @@ export default function PlanViewerPage({ params }: { params: { id: string; planI
           <button onClick={() => setFullscreen(v => !v)} className="rounded-lg border border-line p-2 text-muted-fg hover:bg-surface" title={fullscreen ? 'Exit full screen' : 'Full screen'}>
             {fullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
           </button>
-          <Button size="sm" variant={pinMode ? 'default' : 'outline'} onClick={() => { setPinMode(v => !v); setDraft(null) }}>
-            <MapPin className="h-4 w-4" /> {pinMode ? 'Tap the plan…' : 'Add pin'}
+          <Button size="sm" variant={pinMode ? 'default' : 'outline'} onClick={() => { setPinMode(v => !v); setDraft(null) }}
+            className="shrink-0 whitespace-nowrap">
+            <MapPin className="h-4 w-4" /> {pinMode ? 'Tap the plan' : 'Add pin'}
           </Button>
         </div>
       </div>
