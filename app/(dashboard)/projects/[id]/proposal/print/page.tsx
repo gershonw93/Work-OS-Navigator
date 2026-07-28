@@ -9,8 +9,12 @@ type Detail = 'lump' | 'category' | 'line'
 interface BudgetItem {
   id: string
   category: string
+  /** Sub quotes group by section; GC budgets group by category. */
+  section?: string | null
   description: string
   cost_code?: string | null
+  quantity?: number | null
+  unit_price?: number | null
   budgeted_amount: number
 }
 
@@ -63,7 +67,7 @@ export default function ProposalPrintPage({ params }: { params: { id: string } }
   const byCategory = useMemo(() => {
     const map = new Map<string, BudgetItem[]>()
     for (const i of items) {
-      const c = i.category || 'General'
+      const c = i.section || i.category || 'General'
       if (!map.has(c)) map.set(c, [])
       map.get(c)!.push(i)
     }
@@ -170,7 +174,12 @@ export default function ProposalPrintPage({ params }: { params: { id: string } }
                 </tr>
                 {g.rows.map(r => (
                   <tr key={r.id} className="border-b border-line-soft">
-                    <td className="px-4 py-3 pl-6 text-ink-soft">{r.description || r.cost_code || 'Work item'}</td>
+                    <td className="px-4 py-3 pl-6 text-ink-soft">
+                      {r.description || r.cost_code || 'Work item'}
+                      {r.quantity != null && r.unit_price != null && (
+                        <span className="block text-xs text-muted-fg">{r.quantity} × {money(sell(r.unit_price))}</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-right text-ink">{money(sell(r.budgeted_amount))}</td>
                   </tr>
                 ))}
