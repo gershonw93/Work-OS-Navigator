@@ -17,6 +17,11 @@ interface Line {
   signoff_signed_at?: string | null; signoff_signed_by?: string | null; signoff_signature_url?: string | null
 }
 interface QProject { status: string; quote_file_url: string | null; quote_file_name: string | null; quote_total: number | null }
+interface Costing {
+  materials_cost: number; materials_billed_to_client: number
+  labor_hours: number; labor_rate: number; labor_cost: number
+  total_cost: number; received: number
+}
 
 const money = (n: number) => `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 const STATUSES = [
@@ -32,6 +37,9 @@ export function QuoteLineItems({ projectId, mode }: { projectId: string; mode: '
   const supabase = createClient()
   const [project, setProject] = useState<QProject | null>(null)
   const [lines, setLines] = useState<Line[]>([])
+  const [costing, setCosting] = useState<Costing | null>(null)
+  const [rateInput, setRateInput] = useState('')
+  const [rateSaving, setRateSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [signLine, setSignLine] = useState<Line | null>(null)
   const [signSaving, setSignSaving] = useState(false)
@@ -60,8 +68,25 @@ export function QuoteLineItems({ projectId, mode }: { projectId: string; mode: '
   async function load() {
     const t = await token()
     const res = await fetch(`/api/projects/${projectId}/quote`, { headers: { Authorization: `Bearer ${t}` } })
-    if (res.ok) { const d = await res.json(); setProject(d.project); setLines(d.line_items ?? []) }
+    if (res.ok) {
+      const d = await res.json()
+      setProject(d.project); setLines(d.line_items ?? [])
+      setCosting(d.costing ?? null)
+      if (d.costing?.labor_rate) setRateInput(String(d.costing.labor_rate))
+    }
     setLoading(false)
+  }
+
+  async function saveRate() {
+    setRateSaving(true)
+    try {
+      await fetch(`/api/projects/${projectId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await token()}` },
+        body: JSON.stringify({ labor_rate: Number(rateInput) || 0 }),
+      })
+      await load()
+    } finally { setRateSaving(false) }
   }
   useEffect(() => { load() }, [projectId])
 
@@ -153,9 +178,9 @@ export function QuoteLineItems({ projectId, mode }: { projectId: string; mode: '
     <div className="space-y-6 max-w-3xl">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-ink">{mode === 'budget' ? 'Line Items' : 'Progress'}</h1>
+          <h1 className="text-2xl font-bold text-ink">{mode === 'budget' ? 'Job Money' : 'Progress'}</h1>
           <p className="text-sm text-muted-fg mt-0.5">
-            {mode === 'budget' ? 'The line items from the quote you sent the client.' : 'Mark how complete each line item is - overall % is weighted by value.'}
+            {mode === 'budget' ? 'What you quoted, what it has cost you, and what you are making.' : 'Mark how complete each line item is - overall % is weighted by value.'}
           </p>
         </div>
         {project?.quote_file_url && (
@@ -178,6 +203,82 @@ export function QuoteLineItems({ projectId, mode }: { projectId: string; mode: '
           <span>Earned to date {money(earned)}</span><span>of {money(total)}</span>
         </div>
       </div>
+
+      {/* Job money - am I making anything on this job? */}
+      {mode === 'budget' && costing && (
+        <>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <div className="rounded-xl border border-line bg-panel p-4">
+              <p className="text-xs font-medium text-muted-fg">Earned to date</p>
+              <p className="mt-1 text-xl font-bold text-ink">{money(earned)}</p>
+              <p className="mt-0.5 text-[11px] text-faint">{overallPct}% of {money(total)}</p>
+            </div>
+            <div className="rounded-xl border border-line bg-panel p-4">
+              <p className="text-xs font-medium text-muted-fg">Cost to date</p>
+              <p className="mt-1 text-xl font-bold text-warn">{money(costing.total_cost)}</p>
+              <p className="mt-0.5 text-[11px] text-faint">materials + labor</p>
+            </div>
+            <div className={cn('rounded-xl border p-4', earned - costing.total_cost >= 0 ? 'border-success/30 bg-success-tint' : 'border-danger/30 bg-danger-tint')}>
+              <p className="text-xs font-medium text-muted-fg">Profit so far</p>
+              <p className={cn('mt-1 text-xl font-bold', earned - costing.total_cost >= 0 ? 'text-success' : 'text-danger')}>
+                {money(earned - costing.total_cost)}
+              </p>
+              <p className="mt-0.5 text-[11px] text-faint">
+                {earned > 0 ? `${Math.round(((earned - costing.total_cost) / earned) * 100)}% margin` : 'no work billed yet'}
+              </p>
+            </div>
+            <div className="rounded-xl border border-line bg-panel p-4">
+              <p className="text-xs font-medium text-muted-fg">Left to bill</p>
+              <p className="mt-1 text-xl font-bold text-info">{money(Math.max(0, total - costing.received))}</p>
+              <p className="mt-0.5 text-[11px] text-faint">{money(costing.received)} received</p>
+            </div>
+          </div>
+
+          {/* Cost breakdown + the rate that makes labor real */}
+          <div className="rounded-xl border border-line bg-panel p-4">
+            <p className="mb-3 text-sm font-semibold text-ink-soft">Where the money went</p>
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-fg">Materials (your cost)</span>
+                <span className="font-medium text-ink">{money(costing.materials_cost)}</span>
+              </div>
+              {costing.materials_billed_to_client > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-fg">Materials billed to client</span>
+                  <span className="font-medium text-ink-soft">{money(costing.materials_billed_to_client)}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <span className="text-muted-fg">
+                  Labor - {costing.labor_hours.toLocaleString()} hrs
+                  {costing.labor_rate > 0 && <span className="text-faint"> @ {money(costing.labor_rate)}/hr</span>}
+                </span>
+                <span className="font-medium text-ink">{costing.labor_rate > 0 ? money(costing.labor_cost) : '-'}</span>
+              </div>
+              <div className="flex items-center justify-between border-t border-line-soft pt-2">
+                <span className="font-semibold text-ink-soft">Total cost</span>
+                <span className="font-bold text-ink">{money(costing.total_cost)}</span>
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-end gap-2 border-t border-line-soft pt-3">
+              <div>
+                <Label className="text-xs">Crew rate ($/hr)</Label>
+                <Input type="number" min="0" step="1" value={rateInput} onChange={e => setRateInput(e.target.value)}
+                  placeholder="0" className="mt-1 w-28" />
+              </div>
+              <Button size="sm" variant="outline" onClick={saveRate} disabled={rateSaving}>
+                {rateSaving ? 'Saving…' : 'Save rate'}
+              </Button>
+              <p className="text-xs text-faint">
+                {costing.labor_rate > 0
+                  ? 'Clocked hours are costed at this rate.'
+                  : 'Set a rate to turn clocked hours into a labor cost.'}
+              </p>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Lines - grouped by section */}
       <div className="bg-panel rounded-xl border border-line overflow-hidden">
@@ -209,7 +310,11 @@ export function QuoteLineItems({ projectId, mode }: { projectId: string; mode: '
                           {STATUSES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
                         </select>
                       ) : (
-                        l.progress_pct > 0 && <span className="text-xs text-success w-9 text-right">{l.progress_pct}%</span>
+                        <span className="w-20 text-right text-xs">
+                          {l.progress_pct > 0
+                            ? <><span className="font-medium text-success">{l.progress_pct}%</span><span className="block text-faint">{money(Number(l.budgeted_amount || 0) * l.progress_pct / 100)} earned</span></>
+                            : <span className="text-faint">not started</span>}
+                        </span>
                       )}
                     </div>
                   </div>

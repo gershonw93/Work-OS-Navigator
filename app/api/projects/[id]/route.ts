@@ -18,7 +18,7 @@ export async function PATCH(
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { name, address, client, type, status, start_date, end_date, customer_id, lat, lng, interior_sqft, exterior_sqft, billing_mode, default_retainage_pct } = body
+  const { name, address, client, type, status, start_date, end_date, customer_id, lat, lng, interior_sqft, exterior_sqft, billing_mode, default_retainage_pct, labor_rate } = body
 
   const updates: Record<string, unknown> = {}
   if (name !== undefined) updates.name = name
@@ -34,6 +34,7 @@ export async function PATCH(
   if (exterior_sqft !== undefined) updates.exterior_sqft = exterior_sqft
   if (billing_mode !== undefined) updates.billing_mode = billing_mode
   if (default_retainage_pct !== undefined) updates.default_retainage_pct = default_retainage_pct
+  if (labor_rate !== undefined) updates.labor_rate = Math.max(0, Number(labor_rate) || 0)
 
   let { data, error } = await db
     .from('projects')
@@ -43,6 +44,11 @@ export async function PATCH(
     .single()
 
   // Pre-migration fallback: drop columns that may not exist yet, one class at a time.
+  if (error && (error as any).code === '42703' && 'labor_rate' in updates) {
+    const { labor_rate: _lr, ...noRate } = updates
+    const retry = await db.from('projects').update(noRate).eq('id', params.id).select().single()
+    data = retry.data; error = retry.error
+  }
   if (error && (error as any).code === '42703' && ('billing_mode' in updates || 'default_retainage_pct' in updates)) {
     const { billing_mode: _b, default_retainage_pct: _r, ...noBilling } = updates
     const retry = await db.from('projects').update(noBilling).eq('id', params.id).select().single()
