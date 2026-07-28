@@ -175,7 +175,7 @@ export function QuoteLineItems({ projectId, mode }: { projectId: string; mode: '
   }
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-ink">{mode === 'budget' ? 'Job Money' : 'Progress'}</h1>
@@ -183,11 +183,21 @@ export function QuoteLineItems({ projectId, mode }: { projectId: string; mode: '
             {mode === 'budget' ? 'What you quoted, what it has cost you, and what you are making.' : 'Mark how complete each line item is - overall % is weighted by value.'}
           </p>
         </div>
-        {project?.quote_file_url && (
-          <a href={project.quote_file_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm text-accent-fg hover:underline">
-            <FileText className="h-4 w-4" /> View quote <ExternalLink className="h-3 w-3" />
-          </a>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          {project?.quote_file_url && (
+            <a href={project.quote_file_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm text-accent-fg hover:underline">
+              <FileText className="h-4 w-4" /> View quote <ExternalLink className="h-3 w-3" />
+            </a>
+          )}
+          {mode === 'budget' && (
+            // Sub's line amounts are already what they charge, so the proposal
+            // prints them as-is (no markup applied on top).
+            <a href={`/projects/${projectId}/proposal/print`} target="_blank" rel="noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-accent-ink hover:bg-accent/90">
+              <FileText className="h-4 w-4" /> Generate Proposal
+            </a>
+          )}
+        </div>
       </div>
 
       {/* Overall */}
@@ -235,7 +245,8 @@ export function QuoteLineItems({ projectId, mode }: { projectId: string; mode: '
           </div>
 
           {/* Cost breakdown + the rate that makes labor real */}
-          <div className="rounded-xl border border-line bg-panel p-4">
+          <div className="rounded-xl border border-line bg-panel p-4 lg:grid lg:grid-cols-2 lg:gap-8">
+            <div>
             <p className="mb-3 text-sm font-semibold text-ink-soft">Where the money went</p>
             <div className="space-y-2 text-sm">
               <div className="flex items-center justify-between">
@@ -260,20 +271,24 @@ export function QuoteLineItems({ projectId, mode }: { projectId: string; mode: '
                 <span className="font-bold text-ink">{money(costing.total_cost)}</span>
               </div>
             </div>
+            </div>
 
-            <div className="mt-4 flex flex-wrap items-end gap-2 border-t border-line-soft pt-3">
-              <div>
-                <Label className="text-xs">Crew rate ($/hr)</Label>
-                <Input type="number" min="0" step="1" value={rateInput} onChange={e => setRateInput(e.target.value)}
-                  placeholder="0" className="mt-1 w-28" />
+            <div className="mt-4 border-t border-line-soft pt-3 lg:mt-0 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
+              <p className="mb-3 text-sm font-semibold text-ink-soft">Crew rate</p>
+              <div className="flex flex-wrap items-end gap-2">
+                <div>
+                  <Label className="text-xs">Rate ($/hr)</Label>
+                  <Input type="number" min="0" step="1" value={rateInput} onChange={e => setRateInput(e.target.value)}
+                    placeholder="0" className="mt-1 w-28" />
+                </div>
+                <Button size="sm" variant="outline" onClick={saveRate} disabled={rateSaving}>
+                  {rateSaving ? 'Saving…' : 'Save rate'}
+                </Button>
               </div>
-              <Button size="sm" variant="outline" onClick={saveRate} disabled={rateSaving}>
-                {rateSaving ? 'Saving…' : 'Save rate'}
-              </Button>
-              <p className="text-xs text-faint">
+              <p className="mt-2 text-xs text-faint">
                 {costing.labor_rate > 0
-                  ? 'Clocked hours are costed at this rate.'
-                  : 'Set a rate to turn clocked hours into a labor cost.'}
+                  ? 'Hours come from the time clock - each finished shift (clock in to clock out) across everyone on this job, costed at this rate. Shifts still open are not counted until they clock out.'
+                  : 'Set a rate to turn clocked hours into a labor cost. Hours come from finished time-clock shifts on this job.'}
               </p>
             </div>
           </div>
