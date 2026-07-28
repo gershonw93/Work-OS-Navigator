@@ -73,9 +73,12 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const db = admin()
   const { data: profile } = await db.from('profiles').select('companies(default_payment_terms)').eq('id', user.id).single()
   const defaultTerms = (profile?.companies as any)?.default_payment_terms ?? null
-  const [{ data: project }, { data: lines }] = await Promise.all([
+  const [{ data: project }, { data: lines }, { data: materials }, { data: entries }, { data: payments }] = await Promise.all([
     db.from('projects').select('status, quote_file_url, quote_file_name, quote_total, payment_terms, payment_stages').eq('id', params.id).single(),
     db.from('budget_line_items').select('*').eq('project_id', params.id).order('sort_order', { ascending: true }),
+    db.from('material_purchases').select('amount, client_paid').eq('project_id', params.id),
+    db.from('time_entries').select('clock_in_at, clock_out_at').eq('project_id', params.id),
+    db.from('client_payments').select('amount').eq('project_id', params.id),
   ])
   // Attach any task linked to each line (two-way link).
   const lineIds = (lines ?? []).map((l: any) => l.id)
@@ -88,7 +91,49 @@ export async function GET(request: Request, { params }: { params: { id: string }
   if (project && !(project as any).payment_stages && (project as any).payment_terms) {
     ;(project as any).payment_stages = parseTerms((project as any).payment_terms)
   }
-  return NextResponse.json({ project: project ?? null, line_items: lines ?? [], default_payment_terms: defaultTerms })
+  // Job costing rollup: is this job actually making money?
+  //  materials = receipts logged against the job (excluding ones the client
+  //  reimburses), labor = clocked hours x the project's rate (0 = unset, so
+  //  labor stays out of cost and we show hours only), received = client payments.
+  const materialsCost = (materials ?? [])
+    .filter((m: any) => !m.client_paid)
+    .reduce((s: number, m: any) => s + Number(m.amount ?? 0), 0)
+  const materialsBilledToClient = (materials ?? [])
+    .filter((m: any) => m.client_paid)
+    .reduce((s: number, m: any) => s + Number(m.amount ?? 0), 0)
+
+  let laborHours = 0
+  for (const e of entries ?? []) {
+    if (!e.clock_in_at || !e.clock_out_at) continue
+    const ms = new Date(e.clock_out_at).getTime() - new Date(e.clock_in_at).getTime()
+    if (ms > 0) laborHours += ms / 3600000
+  }
+  laborHours = Math.round(laborHours * 100) / 100
+  // labor_rate arrived in a later migration - read it separately so databases
+  // that haven't run it yet still load the page.
+  let laborRate = 0
+  {
+    const { data: rateRow } = await db.from('projects').select('labor_rate').eq('id', params.id).maybeSingle()
+    laborRate = Number((rateRow as any)?.labor_rate ?? 0)
+  }
+  const laborCost = laborRate > 0 ? Math.round(laborHours * laborRate * 100) / 100 : 0
+
+  const received = (payments ?? []).reduce((s: number, p: any) => s + Number(p.amount ?? 0), 0)
+
+  return NextResponse.json({
+    project: project ?? null,
+    line_items: lines ?? [],
+    default_payment_terms: defaultTerms,
+    costing: {
+      materials_cost: materialsCost,
+      materials_billed_to_client: materialsBilledToClient,
+      labor_hours: laborHours,
+      labor_rate: laborRate,
+      labor_cost: laborCost,
+      total_cost: materialsCost + laborCost,
+      received,
+    },
+  })
 }
 
 // POST - upload a quote file, AI-scan it into line items.

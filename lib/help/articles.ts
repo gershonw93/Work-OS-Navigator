@@ -624,6 +624,26 @@ export const HELP_ARTICLES: HelpArticle[] = [
     related: ['invite-team-member', 'pay-applications'],
   },
   {
+    slug: 'sub-job-money',
+    title: 'Job Money: are you making money on your own job? (subs)',
+    category: 'money',
+    keywords: ['subcontractor', 'sub', 'own job', 'job money', 'profit', 'margin', 'cost', 'labor', 'crew rate', 'hourly', 'materials', 'earned', 'left to bill', 'quote'],
+    summary: 'For subs running their own jobs: quoted vs earned vs cost, with live profit and margin.',
+    blocks: [
+      { type: 'text', text: 'When you run your own job, your quote is your budget. The Budget tab becomes Job Money and shows the full picture instead of just the quote.' },
+      { type: 'text', text: 'Four numbers across the top: Earned to date (your quote weighted by how complete each line is), Cost to date (materials plus labor), Profit so far (earned minus cost, with your margin %), and Left to bill (quote total minus what the client has actually paid you).' },
+      { type: 'steps', items: [
+        'Upload your quote on the Quote tab - it is read into line items automatically.',
+        'Set your Crew rate ($/hr) in the "Where the money went" card. Clocked hours are then costed at that rate.',
+        'Log material receipts on the Materials tab - they count as job cost (receipts marked as billed to the client are shown separately, not as your cost).',
+        'Update % complete per line on the Progress tab - that drives Earned to date.',
+      ] },
+      { type: 'tip', text: 'Until you set a crew rate, labor shows hours only and stays out of the cost total, so your profit number is not silently wrong.' },
+      { type: 'text', text: 'Each line item now shows its % complete and the dollars earned on that line, so you can see exactly where the money is sitting.' },
+    ],
+    related: ['add-project-budget', 'materials-receipt', 'time-clock'],
+  },
+  {
     slug: 'invite-team-member',
     title: 'Invite a team member',
     category: 'settings',

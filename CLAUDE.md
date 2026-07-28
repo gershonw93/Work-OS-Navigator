@@ -8,7 +8,7 @@ Do NOT ask the user to merge or deploy. Vercel auto-deploys `main`.
   (no DB access from here). Mention those once, briefly - don't nag about deploy.
 
 ## Migrations
-- Combined, idempotent SQL lives at `supabase/migrations/_combined_008-057.sql`
+- Combined, idempotent SQL lives at `supabase/migrations/_combined_008-058.sql`
   (keep the suffix current as new migrations are added). User pastes it into the
   Supabase SQL editor.
 
