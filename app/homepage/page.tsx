@@ -7,7 +7,6 @@ import {
 import { marketingMeta } from '@/components/marketing/meta'
 import { ScrollHero } from '@/components/marketing/scroll-hero'
 import { StatMarquee } from '@/components/marketing/stat-marquee'
-import { BrowserMock } from '@/components/marketing/browser-mock'
 import { DashboardMock } from '@/components/marketing/dashboard-mock'
 import { QuoteScanMock } from '@/components/marketing/quote-scan-mock'
 import { FeatureTabs } from '@/components/marketing/feature-tabs'
@@ -161,7 +160,7 @@ export default function HomePage() {
             </Link>
           </Reveal>
           <Reveal delay={150} className="min-w-0">
-            <BrowserMock url="app.sytenav.com/dashboard"><DashboardMock /></BrowserMock>
+            <DashboardMock />
           </Reveal>
         </div>
       </section>
