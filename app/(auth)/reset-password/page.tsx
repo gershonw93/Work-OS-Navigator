@@ -77,6 +77,20 @@ function ResetPasswordForm() {
       return
     }
 
+    // Link the account to the inviting company and clear the pending invite.
+    // Best-effort: the password is already set, so never block on this.
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.access_token) {
+        await fetch('/api/invite/accept', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        })
+      }
+    } catch {
+      /* non-fatal - the team list reconciles on next load */
+    }
+
     setSuccess(true)
     setTimeout(() => {
       router.push('/dashboard')

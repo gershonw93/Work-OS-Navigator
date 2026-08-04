@@ -173,13 +173,29 @@ export async function GET(request: Request) {
       .select('*')
       .eq('company_id', profile.company_id)
       .eq('status', 'pending')
-    pendingInvites = (rawInvites ?? []).map((r: Record<string, unknown>) => ({
-      id: r.id,
-      email: r.email,
-      role: r.role ?? 'read_only',
-      status: r.status,
-      created_at: r.created_at,
-    }))
+    // Anyone who has already joined is not "pending" any more, even if their
+    // invite row was never marked accepted. Filter by member email (and
+    // de-dupe re-sends) so accepted invites disappear from the list.
+    const memberEmails = new Set(
+      (teammates ?? [])
+        .map((t: Record<string, unknown>) => (t.email as string | null)?.toLowerCase())
+        .filter(Boolean) as string[],
+    )
+    const seen = new Set<string>()
+    pendingInvites = (rawInvites ?? [])
+      .filter((r: Record<string, unknown>) => {
+        const email = (r.email as string | null)?.toLowerCase()
+        if (!email || memberEmails.has(email) || seen.has(email)) return false
+        seen.add(email)
+        return true
+      })
+      .map((r: Record<string, unknown>) => ({
+        id: r.id,
+        email: r.email,
+        role: r.role ?? 'read_only',
+        status: r.status,
+        created_at: r.created_at,
+      }))
   }
 
   return NextResponse.json({

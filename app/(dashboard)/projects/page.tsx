@@ -16,6 +16,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { createClient } from '@/lib/supabase/client'
+import { usePermissions } from '@/lib/use-permissions'
 import { ProjectsMap } from '@/components/projects/projects-map'
 import { cn } from '@/lib/utils'
 
@@ -80,6 +81,8 @@ function fmtDate(d: string | null) {
 }
 
 export default function ProjectsPage() {
+  const { can } = usePermissions()
+  const canCreate = can('projects', 'create')
   const supabase = createClient()
   const [items, setItems] = useState<Project[]>([])
   const [projectStats, setProjectStats] = useState<Record<string, ProjectStat>>({})
@@ -344,14 +347,14 @@ export default function ProjectsPage() {
       <PageHeader
         title="Projects"
         subtitle="Manage all your construction projects."
-        action={
+        action={canCreate ? (
           <Link href="/projects/new">
             <Button>
               <Plus className="h-4 w-4" />
               New Project
             </Button>
           </Link>
-        }
+        ) : undefined}
       />
 
       {/* Stats bar */}
@@ -482,8 +485,10 @@ export default function ProjectsPage() {
             <EmptyState
               icon={FolderKanban}
               title="No projects yet"
-              description="Create your first project to start managing plans, bids, and the full construction workflow."
-              action={{ label: 'New Project' }}
+              description={canCreate
+                ? 'Create your first project to start managing plans, bids, and the full construction workflow.'
+                : 'You have not been assigned to any projects yet.'}
+              action={canCreate ? { label: 'New Project' } : undefined}
             />
           </CardContent>
         </Card>

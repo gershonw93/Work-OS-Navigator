@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { getActor, actorCan } from '@/lib/server-permissions'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -139,6 +140,13 @@ export async function POST(request: Request) {
 
   if (profileError || !profile) {
     return NextResponse.json({ error: 'Profile not found. Please contact support.' }, { status: 400 })
+  }
+
+  // Enforce the same permission the UI checks. Without this, any signed-in
+  // user (including a view-only Field Worker) could create projects.
+  const actor = await getActor(admin, token)
+  if (!actorCan(actor, 'projects', 'create')) {
+    return NextResponse.json({ error: 'You do not have permission to create projects.' }, { status: 403 })
   }
 
   const body = await request.json()
