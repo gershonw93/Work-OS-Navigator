@@ -1,7 +1,24 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { ROLE_DEFAULTS } from '@/lib/permissions'
 
-const ALLOWED_ROLES = ['admin', 'project_manager', 'field_supervisor', 'office_staff', 'read_only']
+// Any built-in role, plus any custom class this company has defined. Checked
+// per-request so newly created classes are immediately assignable.
+async function isAssignableRole(
+  db: ReturnType<typeof adminClient>,
+  companyId: string | null | undefined,
+  role: string,
+): Promise<boolean> {
+  if (Object.prototype.hasOwnProperty.call(ROLE_DEFAULTS, role)) return true
+  if (!companyId) return false
+  const { data } = await db
+    .from('company_roles')
+    .select('role_key')
+    .eq('company_id', companyId)
+    .eq('role_key', role)
+    .maybeSingle()
+  return !!data
+}
 
 function adminClient() {
   return createClient(
@@ -39,11 +56,11 @@ export async function PATCH(
   if (caller.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { role } = await req.json().catch(() => ({}))
-  if (!role || !ALLOWED_ROLES.includes(role)) {
+  const db = adminClient()
+  if (!role || !(await isAssignableRole(db, caller.company_id, role))) {
     return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
   }
 
-  const db = adminClient()
   const { memberId } = params
 
   // Verify the target member belongs to the same company

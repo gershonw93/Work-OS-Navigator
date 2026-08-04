@@ -94,6 +94,7 @@ const ROLES = [
   { value: 'project_manager',  label: 'Project Manager',  desc: 'Can create/edit projects, tasks, RFIs, daily logs' },
   { value: 'field_supervisor', label: 'Field Supervisor', desc: 'Can submit daily logs, view tasks, update progress' },
   { value: 'office_staff',     label: 'Office Staff',     desc: 'Can view projects, submit invoices, manage compliance docs' },
+  { value: 'worker',           label: 'Worker',           desc: 'Crew member on the mobile field view; tasks, logs, and time clock' },
   { value: 'read_only',        label: 'Field Worker',     desc: 'Sees only assigned projects and tasks; view-only access' },
 ]
 
@@ -229,18 +230,37 @@ export default function SettingsPage() {
   const [inviteSending, setInviteSending] = useState(false)
   const [inviteMsg, setInviteMsg] = useState<{ ok: boolean; text: string } | null>(null)
 
-  // Custom classes (company_roles) - merged into role pickers alongside the
-  // built-in roles, and used to show friendly labels for custom role keys.
-  const [customRoles, setCustomRoles] = useState<{ role_key: string; label: string }[]>([])
+  // Assignable classes come from the same source as the Permissions tab
+  // (/api/settings/roles: built-in roles with any company rename/override,
+  // plus custom classes). That keeps both dropdowns in sync automatically as
+  // classes are added or renamed. Admin is added here because it's assignable
+  // but never editable, so the roles API leaves it out.
+  const [companyRoles, setCompanyRoles] = useState<{ role_key: string; label: string; is_custom: boolean }[]>([])
   const loadCustomRoles = useCallback(async () => {
     const headers = await authHeaders()
     const res = await fetch('/api/settings/roles', { headers })
     if (res.ok) {
       const data = await res.json()
-      setCustomRoles(((data.roles ?? []) as any[]).filter(r => r.is_custom).map(r => ({ role_key: r.role_key, label: r.label })))
+      setCompanyRoles(((data.roles ?? []) as any[]).map(r => ({
+        role_key: r.role_key, label: r.label, is_custom: !!r.is_custom,
+      })))
     }
   }, [])
-  const roleOptions = [...ROLES, ...customRoles.map(r => ({ value: r.role_key, label: r.label, desc: 'Custom class' }))]
+
+  const ADMIN_OPTION = { value: 'admin', label: 'Admin', desc: 'Full access, can manage users and settings' }
+  const roleOptions = companyRoles.length > 0
+    ? [
+        ADMIN_OPTION,
+        ...companyRoles.map(r => ({
+          value: r.role_key,
+          label: r.label,
+          desc: r.is_custom
+            ? 'Custom class'
+            : ROLES.find(b => b.value === r.role_key)?.desc ?? 'Configurable in Permissions',
+        })),
+      ]
+    // Fallback for non-admins (the roles API is admin-only) so labels still render.
+    : ROLES
   const roleLabel = (role: string) => roleOptions.find(r => r.value === role)?.label ?? role
 
   // Notifications
