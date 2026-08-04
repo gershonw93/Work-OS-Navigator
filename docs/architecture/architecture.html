@@ -1,0 +1,865 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SyteNav · Architecture Map</title>
+<style>
+/* ── SyteNav "Field" tokens ───────────────────────────────────────────── */
+:root{
+  --surface:#F4F4F1; --panel:#FFFFFF; --muted:#EDECE7; --muted2:#E3E1DB;
+  --line:#E7E7E2; --line-soft:#EFEEE9;
+  --ink:#16181B; --ink-soft:#3A3F46; --muted-fg:#6A6E74; --faint:#9A9C96;
+  --accent:#C9F24A; --accent-fg:#5F7A12; --accent-ink:#16181B; --accent-tint:#ECF6C8;
+  --success:#1F8F5F; --danger:#C2341C; --warn:#B57400; --info:#2563EB; --special:#7C3AED;
+  --shadow:0 1px 2px rgba(22,24,27,.06), 0 8px 24px rgba(22,24,27,.06);
+  --L-actors:#2563EB; --L-edge:#B57400; --L-shell:#7C3AED; --L-ui:#5F7A12;
+  --L-api:#1F8F5F; --L-domain:#0E7490; --L-data:#4338CA; --L-external:#6A6E74;
+  --edge-stroke:#C9C9C2; --edge-hl:#16181B;
+}
+@media (prefers-color-scheme: dark){ :root[data-theme="auto"]{ color-scheme:dark;
+  --surface:#0F1113; --panel:#1F2227; --muted:#2A2E34; --muted2:#3A3F46;
+  --line:#2A2E34; --line-soft:#23272D;
+  --ink:#ECEEF0; --ink-soft:#C2C7CE; --muted-fg:#9AA0A8; --faint:#6E747C;
+  --accent:#C9F24A; --accent-fg:#C9F24A; --accent-ink:#0F1113; --accent-tint:#2C3110;
+  --success:#5FD89B; --danger:#FF7A5C; --warn:#FFB02E; --info:#7FB0FF; --special:#C4A2F5;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+  --L-actors:#7FB0FF; --L-edge:#FFB02E; --L-shell:#C4A2F5; --L-ui:#C9F24A;
+  --L-api:#5FD89B; --L-domain:#67E8F9; --L-data:#A5B4FC; --L-external:#9AA0A8;
+  --edge-stroke:#4A5058; --edge-hl:#ECEEF0;
+}}
+:root[data-theme="dark"]{ color-scheme:dark;
+  --surface:#0F1113; --panel:#1F2227; --muted:#2A2E34; --muted2:#3A3F46;
+  --line:#2A2E34; --line-soft:#23272D;
+  --ink:#ECEEF0; --ink-soft:#C2C7CE; --muted-fg:#9AA0A8; --faint:#6E747C;
+  --accent:#C9F24A; --accent-fg:#C9F24A; --accent-ink:#0F1113; --accent-tint:#2C3110;
+  --success:#5FD89B; --danger:#FF7A5C; --warn:#FFB02E; --info:#7FB0FF; --special:#C4A2F5;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+  --L-actors:#7FB0FF; --L-edge:#FFB02E; --L-shell:#C4A2F5; --L-ui:#C9F24A;
+  --L-api:#5FD89B; --L-domain:#67E8F9; --L-data:#A5B4FC; --L-external:#9AA0A8;
+  --edge-stroke:#4A5058; --edge-hl:#ECEEF0;
+}
+:root[data-theme="light"]{ color-scheme:light; }
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--surface); color:var(--ink);
+  font:14px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased; overflow:hidden;
+}
+button{font:inherit;color:inherit}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:var(--muted2);border-radius:99px;border:3px solid transparent;background-clip:content-box}
+
+/* ── Layout ───────────────────────────────────────────────────────────── */
+.app{display:flex;flex-direction:column;height:100dvh}
+header.bar{
+  display:flex;align-items:center;gap:14px;padding:10px 16px;
+  background:var(--panel);border-bottom:1px solid var(--line);flex:none;z-index:30;
+}
+.brand{display:flex;align-items:baseline;gap:10px;min-width:0}
+.brand h1{margin:0;font-size:15px;font-weight:700;letter-spacing:-.01em;white-space:nowrap}
+.brand .sub{color:var(--muted-fg);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.spacer{flex:1}
+.tools{display:flex;align-items:center;gap:8px}
+.search{position:relative}
+.search input{
+  width:210px;padding:7px 10px 7px 30px;border-radius:8px;border:1px solid var(--line);
+  background:var(--surface);color:var(--ink);font-size:13px;outline:none;
+}
+.search input:focus{border-color:var(--accent-fg);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent-fg) 18%,transparent)}
+.search svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);opacity:.5;pointer-events:none}
+.btn{
+  display:inline-flex;align-items:center;gap:6px;padding:7px 11px;border-radius:8px;
+  border:1px solid var(--line);background:var(--surface);cursor:pointer;font-size:13px;
+  white-space:nowrap;transition:background .12s,border-color .12s;
+}
+.btn:hover{background:var(--muted);border-color:var(--muted2)}
+.btn.icon{padding:7px 8px}
+.btn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+
+main{flex:1;display:flex;min-height:0;position:relative}
+.stage{flex:1;position:relative;min-width:0;overflow:hidden;background:
+  radial-gradient(circle at 1px 1px, color-mix(in srgb,var(--muted-fg) 22%,transparent) 1px, transparent 0) 0 0/26px 26px;
+}
+svg#canvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab;touch-action:none}
+svg#canvas.dragging{cursor:grabbing}
+
+/* ── Nodes ────────────────────────────────────────────────────────────── */
+.node{cursor:pointer}
+.node .box{
+  height:100%;border-radius:10px;border:1px solid var(--line);background:var(--panel);
+  box-shadow:var(--shadow);padding:8px 10px 8px 12px;position:relative;overflow:hidden;
+  display:flex;flex-direction:column;justify-content:center;
+  font:inherit;color:var(--ink);transition:border-color .12s, transform .12s;
+}
+.node .box::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--lc)}
+.node .t{font-weight:650;font-size:12.5px;line-height:1.25;letter-spacing:-.005em}
+.node .k{font-size:10.5px;color:var(--muted-fg);margin-top:2px;text-transform:uppercase;letter-spacing:.05em}
+.node:hover .box{border-color:var(--lc);transform:translateY(-1px)}
+.node.sel .box{border-color:var(--lc);box-shadow:0 0 0 2px color-mix(in srgb,var(--lc) 45%,transparent),var(--shadow)}
+.node.dim{opacity:.16}
+.node.hl .box{border-color:var(--lc);box-shadow:0 0 0 2px color-mix(in srgb,var(--lc) 55%,transparent),var(--shadow)}
+.node.active .box{border-color:var(--lc);box-shadow:0 0 0 3px color-mix(in srgb,var(--lc) 70%,transparent),var(--shadow)}
+.node.match .box{border-color:var(--accent-fg);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent-fg) 45%,transparent),var(--shadow)}
+.dimmed .node:not(.hl):not(.match){opacity:.16}
+.node.hidden,.edge.hidden,.layerlab.hidden{display:none}
+
+/* ── Edges ────────────────────────────────────────────────────────────── */
+.edge{fill:none;stroke:var(--edge-stroke);stroke-width:1.4;transition:stroke .12s,stroke-width .12s,opacity .12s}
+.edge.kind-external{stroke-dasharray:5 4}
+.edge.kind-event{stroke-dasharray:2 4}
+.edge.kind-redirect{stroke-dasharray:8 4}
+.dimmed .edge:not(.hl){opacity:.07}
+.edge.hl{stroke:var(--edge-hl);stroke-width:2.4;opacity:1}
+.edge.related{stroke:var(--accent-fg);stroke-width:2}
+.arrow{fill:var(--edge-stroke)}
+.arrow-hl{fill:var(--edge-hl)}
+
+.elabel{font-size:9.5px;fill:var(--muted-fg);paint-order:stroke;stroke:var(--surface);stroke-width:3px;stroke-linejoin:round;pointer-events:none;opacity:0}
+.edge-g.hl .elabel{opacity:1;fill:var(--ink)}
+
+.badge circle{fill:var(--accent);stroke:var(--accent-ink);stroke-width:1}
+.badge text{font-size:11px;font-weight:750;fill:var(--accent-ink);text-anchor:middle;dominant-baseline:central}
+
+.layerlab{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;fill:var(--faint)}
+.layerrule{stroke:var(--line);stroke-width:1}
+
+/* ── Side panel ───────────────────────────────────────────────────────── */
+aside{
+  width:390px;flex:none;background:var(--panel);border-left:1px solid var(--line);
+  display:flex;flex-direction:column;min-height:0;z-index:20;
+}
+.tabs{display:flex;gap:2px;padding:8px 8px 0;border-bottom:1px solid var(--line);flex:none}
+.tab{
+  flex:1;padding:8px 6px;border:none;background:none;cursor:pointer;font-size:12.5px;font-weight:600;
+  color:var(--muted-fg);border-bottom:2px solid transparent;border-radius:6px 6px 0 0;
+}
+.tab:hover{background:var(--muted);color:var(--ink)}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent-fg)}
+.pane{flex:1;overflow-y:auto;padding:12px 14px 40px;display:none}
+.pane.on{display:block}
+
+.flowsearch{width:100%;padding:7px 10px;border-radius:8px;border:1px solid var(--line);
+  background:var(--surface);color:var(--ink);font-size:13px;outline:none;margin-bottom:10px}
+.flowsearch:focus{border-color:var(--accent-fg)}
+.cat{font-size:10.5px;font-weight:750;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin:14px 0 6px}
+.cat:first-child{margin-top:2px}
+.flow{
+  width:100%;text-align:left;padding:9px 11px;border-radius:9px;border:1px solid transparent;
+  background:var(--surface);cursor:pointer;margin-bottom:5px;transition:background .12s,border-color .12s;
+}
+.flow:hover{border-color:var(--muted2);background:var(--muted)}
+.flow[aria-current="true"]{background:var(--accent-tint);border-color:var(--accent-fg)}
+.flow .fn{font-weight:650;font-size:13px;display:flex;align-items:center;gap:7px}
+.flow .fn .cnt{font-size:10.5px;font-weight:700;color:var(--muted-fg);background:var(--muted2);
+  border-radius:99px;padding:1px 6px;flex:none}
+.flow .fs{font-size:12px;color:var(--muted-fg);margin-top:3px;line-height:1.4}
+
+.flowhead{display:flex;align-items:flex-start;gap:8px;margin-bottom:4px}
+.flowhead h2{margin:0;font-size:15px;font-weight:700;letter-spacing:-.01em;flex:1}
+.lede{color:var(--muted-fg);font-size:12.5px;margin:0 0 12px;line-height:1.5}
+.stepnav{display:flex;gap:6px;margin-bottom:12px}
+.steps{list-style:none;margin:0;padding:0;position:relative}
+.steps::before{content:"";position:absolute;left:11px;top:10px;bottom:10px;width:2px;background:var(--line)}
+.step{position:relative;padding:0 0 12px 34px;cursor:pointer}
+.step .num{
+  position:absolute;left:0;top:0;width:23px;height:23px;border-radius:99px;
+  background:var(--muted);color:var(--muted-fg);border:2px solid var(--panel);
+  display:grid;place-items:center;font-size:11.5px;font-weight:750;
+}
+.step[aria-current="true"] .num{background:var(--accent);color:var(--accent-ink)}
+.step .st{font-weight:650;font-size:13px;line-height:1.35}
+.step .sn{font-size:11px;color:var(--muted-fg);margin-top:1px}
+.step .sd{font-size:12.5px;color:var(--muted-fg);margin-top:4px;line-height:1.5}
+.step:hover .st{color:var(--accent-fg)}
+
+.det h2{margin:0 0 2px;font-size:16px;font-weight:700;letter-spacing:-.015em}
+.chip{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  padding:2px 7px;border-radius:99px;background:var(--muted);color:var(--muted-fg);margin-right:5px}
+.chip.lc{background:color-mix(in srgb,var(--lc) 16%,transparent);color:var(--lc)}
+.sect{margin-top:16px}
+.sect h3{margin:0 0 6px;font-size:10.5px;font-weight:750;letter-spacing:.09em;text-transform:uppercase;color:var(--faint)}
+.sect p{margin:0;font-size:13px;line-height:1.55;color:var(--ink-soft)}
+code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11.5px}
+.paths{list-style:none;margin:0;padding:0}
+.paths li{padding:3px 0;border-bottom:1px solid var(--line-soft);color:var(--muted-fg);word-break:break-all}
+.paths li:last-child{border-bottom:none}
+.tags{display:flex;flex-wrap:wrap;gap:5px}
+.tag{font-size:11px;padding:2px 8px;border-radius:99px;background:var(--muted);color:var(--muted-fg)}
+.linkrow{display:flex;flex-direction:column;gap:4px}
+.linkbtn{text-align:left;background:none;border:none;padding:4px 6px;border-radius:6px;cursor:pointer;
+  font-size:12.5px;color:var(--accent-fg);font-weight:600}
+.linkbtn:hover{background:var(--muted)}
+.empty{color:var(--faint);font-size:13px;text-align:center;padding:36px 12px;line-height:1.6}
+
+.legend-item{display:flex;align-items:center;gap:9px;padding:5px 0;font-size:12.5px}
+.swatch{width:13px;height:13px;border-radius:4px;flex:none;border:1px solid rgba(0,0,0,.12)}
+.legend-line{width:26px;height:0;border-top-width:2px;flex:none}
+.layertoggle{display:flex;align-items:center;gap:9px;padding:5px 0;font-size:12.5px;cursor:pointer;user-select:none}
+.layertoggle input{accent-color:var(--accent-fg);width:14px;height:14px;cursor:pointer}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:3px 14px;font-size:12.5px}
+.kv dt{color:var(--muted-fg)}
+.kv dd{margin:0;font-weight:600;text-align:right}
+.note{font-size:12px;color:var(--muted-fg);line-height:1.55;background:var(--surface);
+  border:1px solid var(--line);border-left:3px solid var(--warn);border-radius:8px;padding:9px 11px;margin-top:10px}
+
+/* ── Tooltip ──────────────────────────────────────────────────────────── */
+#tip{
+  position:fixed;z-index:60;max-width:330px;padding:9px 11px;border-radius:9px;
+  background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow);
+  pointer-events:none;opacity:0;transition:opacity .1s;font-size:12.5px;line-height:1.5;
+}
+#tip.on{opacity:1}
+#tip .tt{font-weight:700;margin-bottom:2px;font-size:13px}
+#tip .tk{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted-fg);margin-bottom:5px}
+#tip .ts{color:var(--ink-soft)}
+#tip .tp{margin-top:6px;color:var(--faint);border-top:1px solid var(--line-soft);padding-top:5px}
+
+/* ── Zoom controls ────────────────────────────────────────────────────── */
+.zoom{position:absolute;left:14px;bottom:14px;display:flex;gap:6px;z-index:15}
+.zoom .btn{background:var(--panel);box-shadow:var(--shadow)}
+.hint{position:absolute;right:14px;bottom:14px;z-index:15;font-size:11.5px;color:var(--faint);
+  background:color-mix(in srgb,var(--panel) 82%,transparent);padding:4px 9px;border-radius:7px;
+  border:1px solid var(--line);pointer-events:none}
+#panelToggle{display:none}
+
+/* ── Responsive ───────────────────────────────────────────────────────── */
+@media (max-width:1000px){
+  aside{
+    position:absolute;inset:auto 0 0 0;width:100%;height:62dvh;border-left:none;
+    border-top:1px solid var(--line);border-radius:16px 16px 0 0;box-shadow:var(--shadow);
+    transform:translateY(calc(100% - 0px));transition:transform .22s ease;
+  }
+  aside.open{transform:translateY(0)}
+  #panelToggle{display:inline-flex;position:absolute;right:14px;bottom:14px;z-index:25;
+    background:var(--accent);color:var(--accent-ink);border-color:var(--accent);box-shadow:var(--shadow)}
+  .hint{display:none}
+  .brand .sub{display:none}
+  .search input{width:130px}
+}
+@media (max-width:640px){
+  .brand h1{font-size:13.5px}
+  .tools .btn span{display:none}
+  .search input{width:110px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="bar">
+    <div class="brand">
+      <h1>SyteNav · Architecture Map</h1>
+      <span class="sub" id="subtitle"></span>
+    </div>
+    <div class="spacer"></div>
+    <div class="tools">
+      <div class="search">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="q" type="search" placeholder="Search components…" aria-label="Search components">
+      </div>
+      <button class="btn" id="fit" title="Fit to screen (F)"><span>Fit</span>⤢</button>
+      <button class="btn icon" id="theme" title="Toggle theme" aria-label="Toggle theme">◐</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="stage" id="stage">
+      <svg id="canvas" role="img" aria-label="Interactive architecture diagram">
+        <g id="viewport">
+          <g id="layersG"></g>
+          <g id="edgesG"></g>
+          <g id="nodesG"></g>
+          <g id="badgesG"></g>
+        </g>
+      </svg>
+      <div class="zoom">
+        <button class="btn icon" id="zoomOut" aria-label="Zoom out">−</button>
+        <button class="btn icon" id="zoomIn" aria-label="Zoom in">+</button>
+      </div>
+      <div class="hint">Drag to pan · scroll to zoom · click a node for detail</div>
+      <button class="btn" id="panelToggle">Flows ▲</button>
+    </div>
+
+    <aside id="panel">
+      <div class="tabs" role="tablist">
+        <button class="tab" id="tab-flows" role="tab" aria-selected="true" aria-controls="pane-flows">Flows</button>
+        <button class="tab" id="tab-detail" role="tab" aria-selected="false" aria-controls="pane-detail">Component</button>
+        <button class="tab" id="tab-legend" role="tab" aria-selected="false" aria-controls="pane-legend">Legend</button>
+      </div>
+      <div class="pane on" id="pane-flows" role="tabpanel" aria-labelledby="tab-flows"></div>
+      <div class="pane" id="pane-detail" role="tabpanel" aria-labelledby="tab-detail"></div>
+      <div class="pane" id="pane-legend" role="tabpanel" aria-labelledby="tab-legend"></div>
+    </aside>
+  </main>
+</div>
+
+<div id="tip" role="tooltip"></div>
+
+<script id="graph-data" type="application/json">{"$schema":"https://sytenav.com/schemas/architecture-graph-1.json","meta":{"name":"SyteNav (work-os-navigator)","description":"Construction management platform: quotes, bidding, budgets, schedule, field ops, compliance and money for general contractors and subcontractors. Next.js 14 App Router + Supabase (Postgres/Auth/Storage) on Vercel, with an Anthropic-powered document-reading layer.","version":"1.0.0","generated":"2026-08-04","commit":"e73b23f","repo":"gershonw93/work-os-navigator","purpose":"Machine-readable architecture graph for AI agents. Nodes are components, edges are the calls between them, flows are ordered end-to-end paths through those edges.","stats":{"api_routes":157,"pages":84,"layouts":7,"components":72,"sql_migrations":60,"db_tables":57,"ts_tsx_loc":55864},"stack":{"framework":"Next.js 14.2.16 (App Router, React 18, RSC + client components)","language":"TypeScript 5","styling":"Tailwind CSS 3 with CSS-variable design tokens (SyteNav \"Field\" theme, light + dark)","data":"Supabase Postgres, Supabase Auth (cookie sessions via @supabase/ssr), Supabase Storage","ai":"@anthropic-ai/sdk, model claude-opus-4-8, vision + PDF document blocks","hosting":"Vercel (SSR + serverless route handlers, one daily cron)","mobile":"Capacitor remote-URL native shell (loads the deployed web app); dedicated /field mobile shell in-app","notable_libs":["pdf-lib","pdfjs-dist","xlsx","leaflet","lucide-react","tailwind-merge","clsx"]},"layout":{"rule":"Nodes are placed in vertical columns by `layer`, ordered top-to-bottom by `order`. Renderers may compute x = layerIndex * columnWidth and y from `order`, centering each column.","layers":[{"id":"actors","index":0,"label":"Actors & Clients"},{"id":"edge","index":1,"label":"Edge"},{"id":"shell","index":2,"label":"App Shells"},{"id":"ui","index":3,"label":"UI Surfaces"},{"id":"api","index":4,"label":"API Layer"},{"id":"domain","index":5,"label":"Server Libraries"},{"id":"data","index":6,"label":"Data Plane"},{"id":"external","index":7,"label":"External Services"}]},"legend":{"node_kinds":{"actor":"A human or machine that originates traffic","edge":"Request interception before routing","shell":"A Next.js route group / layout that frames a set of pages","page":"A user-facing screen or cluster of screens","hook":"Client-side data/state module","api":"Route handlers under app/api","lib":"Shared server-side module","store":"Persisted data (Postgres, Auth, Storage)","external":"Third-party service reached over the network"},"edge_kinds":{"request":"Browser or client HTTP request","redirect":"Server-side redirect","render":"Server renders / mounts the target","fetch":"In-app fetch to an internal API route","query":"Database read/write","storage":"Object storage read/write","external":"Outbound call to a third-party API","event":"Side effect written for someone else to read (notification, activity log)"}},"conventions":{"auth":"Browser sessions are Supabase cookies, refreshed in middleware.ts. Route handlers authenticate with an `Authorization: Bearer \u003csupabase access token>` header, resolved by `db.auth.getUser(token)`.","db_access":"149 of 157 route handlers instantiate a Supabase client with SUPABASE_SERVICE_ROLE_KEY, which bypasses RLS. Row-level security is enabled on the base tables (18 ENABLE ROW LEVEL SECURITY statements in 001_initial_schema.sql) but the service-role path means authorization is enforced in route code, not by the database.","authorization":"The permission model lives in lib/permissions.ts (32 resources x view/create/edit/delete). The client resolves it via /api/me/permissions and hides UI; server-side re-checks exist in lib/server-permissions.ts (`getActor`/`actorCan`) but are currently wired into app/api/projects/route.ts plus the settings permission endpoints. Most other handlers authenticate the user and scope queries by company/project rather than consulting the permission grid.","no_account_access":"Subs, clients, architects and inspectors act through unguessable tokens in the URL (bid_invites.token, rfis.answer_token, compliance_requests.token, projects.client_portal_token, profiles.calendar_token). Those routes intentionally skip auth.","activity":"Cross-cutting writes go through lib/log-activity.ts (project_activity) and lib/notify.ts (notifications); the Recent Activity feed and the bell both read those tables.","ai_review":"Every AI extraction returns a draft the user reviews and edits before anything is saved."}},"nodes":[{"id":"actor-office","label":"Office user","layer":"actors","order":0,"kind":"actor","summary":"Owner, admin, project manager or office staff working in the full desktop/responsive app.","detail":"Sees the (dashboard) shell: sidebar, top nav, project tabs. Role decides which tabs and actions exist.","tags":["human"]},{"id":"actor-field","label":"Field crew","layer":"actors","order":1,"kind":"actor","summary":"Worker or field member on a phone. Routed to the stripped-down Field Mode shell.","detail":"FIELD_ROLES = ['worker','member'] in lib/permissions.ts. Field supervisors stay in the full app because they need budget/compliance breadth.","tags":["human","mobile"]},{"id":"actor-sub","label":"Subcontractor","layer":"actors","order":2,"kind":"actor","summary":"Sub company with an account: receives bid invites, submits quotes, runs awarded jobs.","detail":"Company type drives sub-specific views (My Bids, My Jobs, quote-line-items-as-budget).","tags":["human"]},{"id":"actor-guest","label":"Client / architect (no account)","layer":"actors","order":3,"kind":"actor","summary":"Clients, architects, inspectors and un-registered subs who act purely through secure token links.","detail":"Client portal, RFI answer link, compliance upload link, bid submission link, sign-off link. No login, no Supabase user.","tags":["human","public"]},{"id":"actor-superadmin","label":"Platform super admin","layer":"actors","order":4,"kind":"actor","summary":"Emails listed in lib/super-admin.ts. Can open /admin and impersonate any account for support.","detail":"Gated twice: super-admin email allowlist, then an HMAC-signed PIN cookie (lib/admin-gate.ts).","paths":["lib/super-admin.ts"],"tags":["human","privileged"]},{"id":"native-shell","label":"Capacitor native shell","layer":"actors","order":5,"kind":"actor","summary":"iOS/Android wrapper that loads the deployed web app over https rather than bundling a static export.","detail":"A static export is not viable (SSR + 157 route handlers + middleware), so capacitor.config.ts points server.url at the production domain and allowlists only that origin plus *.supabase.co.","paths":["capacitor.config.ts","codemagic.yaml","MOBILE.md"],"tags":["mobile"]},{"id":"calendar-client","label":"Calendar app","layer":"actors","order":6,"kind":"actor","summary":"Google / Apple / Outlook subscribing to the read-only iCal feed.","detail":"Calendar clients cannot send auth headers, so the feed is protected only by profiles.calendar_token in the URL.","tags":["machine"]},{"id":"vercel-cron","label":"Vercel Cron","layer":"actors","order":7,"kind":"actor","summary":"Daily 08:07 UTC trigger declared in vercel.json.","detail":"Hits /api/cron/compliance-reminders. Authenticated by the x-vercel-cron header, or CRON_SECRET when called manually.","paths":["vercel.json"],"tags":["machine","scheduled"]},{"id":"middleware","label":"middleware.ts","layer":"edge","order":0,"kind":"edge","summary":"Runs on every non-asset request: refreshes the Supabase cookie session and redirects based on auth state.","detail":"Protects /dashboard, /projects, /directory, /approvals, /settings. Logged-out root goes to /homepage; logged-in visitors on /login, /signup or / go to /dashboard. Cookie writes are mirrored onto the response so the session stays fresh.","paths":["middleware.ts"],"tags":["auth","routing"]},{"id":"shell-marketing","label":"/homepage (marketing)","layer":"shell","order":0,"kind":"shell","summary":"Public marketing site: features, workflow walkthrough, AI, pricing, security, GC and sub audience pages, legal.","detail":"16 pages plus a bespoke component kit (scroll hero, phone fan, device mocks, stat marquee). Also drives robots.ts, sitemap.ts and OG/Twitter image routes.","paths":["app/homepage/**","components/marketing/**","app/sitemap.ts","app/robots.ts","app/opengraph-image.tsx"],"tags":["public"]},{"id":"shell-auth","label":"(auth) shell","layer":"shell","order":1,"kind":"shell","summary":"Login, signup, forgot-password, reset-password and the OAuth/magic-link callback.","paths":["app/(auth)/**","app/auth/callback/page.tsx"],"tags":["auth"]},{"id":"shell-dashboard","label":"(dashboard) shell","layer":"shell","order":2,"kind":"shell","summary":"The office app frame: sidebar, top nav, impersonation and view-as banners, idle logout, delete-guard provider.","detail":"Server component. Redirects unauthenticated users to /login and FIELD_ROLES users to /field. All chrome is print:hidden so invoice / pay-app / proposal print views render clean.","paths":["app/(dashboard)/layout.tsx","components/layout/**"],"tags":["authenticated"]},{"id":"shell-field","label":"/field (Field Mode)","layer":"shell","order":3,"kind":"shell","summary":"Dedicated mobile shell for field workers: no sidebar, no project tabs, no company money.","detail":"Bottom nav only. Office roles that land here bounce to /dashboard; admins and managers may enter to preview it.","paths":["app/field/layout.tsx","app/field/field-nav.tsx"],"tags":["mobile","authenticated"]},{"id":"shell-admin","label":"/admin console","layer":"shell","order":4,"kind":"shell","summary":"Platform-owner console behind a PIN gate: companies, users, projects, access requests, audit log.","paths":["app/admin/layout.tsx","components/admin/admin-pin-gate.tsx","components/admin/admin-nav.tsx"],"tags":["privileged"]},{"id":"shell-public","label":"Token pages (no auth)","layer":"shell","order":5,"kind":"shell","summary":"Standalone pages reached by secret link: /bid/[token], /rfi/[token], /compliance/[token], /portal/[token].","detail":"Rendered outside every authenticated layout. Each one talks to its matching public API route.","paths":["app/bid/[token]/page.tsx","app/rfi/[token]/page.tsx","app/compliance/[token]/page.tsx","app/portal/[token]/page.tsx"],"tags":["public"]},{"id":"ui-dashboard","label":"Dashboard & cross-project","layer":"ui","order":0,"kind":"page","summary":"Home dashboard, Master Calendar and Master Money.","detail":"Stat cards, cash-in vs cash-out chart, this-week agenda, recent projects and the Recent Activity drawer. Master views roll every job into one calendar and one money sheet.","paths":["app/(dashboard)/dashboard/page.tsx","app/(dashboard)/master-calendar/page.tsx","app/(dashboard)/master-money/page.tsx","components/dashboard/admin-overview.tsx","components/layout/activity-drawer.tsx"]},{"id":"ui-projects","label":"Projects list / map / new","layer":"ui","order":1,"kind":"page","summary":"Grid, list and Leaflet map of every job, plus the create-project form.","detail":"Search by name/address/client, filter by status and type, edit inline (including sq ft and billing mode), delete with confirmation. Address autocomplete + geocoding drops map pins.","paths":["app/(dashboard)/projects/page.tsx","app/(dashboard)/projects/new/page.tsx","components/projects/projects-map.tsx","components/ui/address-autocomplete.tsx"]},{"id":"ui-proj-field","label":"Project · Field tabs","layer":"ui","order":2,"kind":"page","summary":"Plans, Schedule, Tasks, Progress, Daily Logs, Time Clock.","detail":"Plan viewer with zoom and pins, schedule with crew-overlap warnings, tasks with sign-off, daily logs with photos and PDF export, weekly timesheets with approval.","paths":["app/(dashboard)/projects/[id]/plans/**","app/(dashboard)/projects/[id]/schedule/page.tsx","app/(dashboard)/projects/[id]/tasks/page.tsx","app/(dashboard)/projects/[id]/progress/page.tsx","app/(dashboard)/projects/[id]/daily-logs/page.tsx","app/(dashboard)/projects/[id]/time/page.tsx"]},{"id":"ui-proj-people","label":"Project · People tabs","layer":"ui","order":3,"kind":"page","summary":"Team, Bids, RFIs.","detail":"Team assignment drives assigned-only scoping for field roles. Bids covers packages, invitations, reminders and awards. RFIs can carry change-order proposals.","paths":["app/(dashboard)/projects/[id]/team/page.tsx","app/(dashboard)/projects/[id]/bids/page.tsx","app/(dashboard)/projects/[id]/rfis/page.tsx"]},{"id":"ui-proj-money","label":"Project · Money tabs","layer":"ui","order":4,"kind":"page","summary":"Budget, Invoices, Pay Apps, Payments, Request Quotes, Compare Quotes, Financials, Change Orders.","detail":"Which tabs appear depends on the project's billing_mode: Simple invoicing shows Invoices + Payments, AIA progress billing shows Pay Apps with retainage.","paths":["app/(dashboard)/projects/[id]/budget/page.tsx","app/(dashboard)/projects/[id]/invoices/page.tsx","app/(dashboard)/projects/[id]/pay-apps/page.tsx","app/(dashboard)/projects/[id]/payments/page.tsx","app/(dashboard)/projects/[id]/quotes/page.tsx","app/(dashboard)/projects/[id]/request-quotes/page.tsx","app/(dashboard)/projects/[id]/financials/page.tsx","app/(dashboard)/projects/[id]/change-orders/page.tsx","components/quotes/comparison-block.tsx","components/ui/bid-leveling-modal.tsx"]},{"id":"ui-proj-compliance","label":"Project · Compliance tabs","layer":"ui","order":5,"kind":"page","summary":"Permits, Inspections, Submittals, Compliance, Reports.","paths":["app/(dashboard)/projects/[id]/permits/page.tsx","app/(dashboard)/projects/[id]/inspections/page.tsx","app/(dashboard)/projects/[id]/submittals/page.tsx","app/(dashboard)/projects/[id]/compliance/page.tsx","app/(dashboard)/projects/[id]/reports/page.tsx"]},{"id":"ui-workspace","label":"Workspace tools","layer":"ui","order":6,"kind":"page","summary":"Directory, Customers, Files, Equipment, Materials, Approvals.","detail":"Company-wide, not project-scoped. Approvals is the single inbox for anything awaiting a decision; Materials is the receipt-scanning surface.","paths":["app/(dashboard)/directory/page.tsx","app/(dashboard)/customers/**","app/(dashboard)/files/page.tsx","app/(dashboard)/equipment/page.tsx","app/(dashboard)/materials/page.tsx","app/(dashboard)/approvals/page.tsx","components/materials/materials-view.tsx"]},{"id":"ui-sub","label":"My Bids / My Jobs","layer":"ui","order":7,"kind":"page","summary":"The subcontractor side of the app: incoming invites and awarded work across every GC.","detail":"Subs submit and revise quotes with line items and payment terms, then track scope, schedule and payment stages, and mark work Ready for Inspection.","paths":["app/(dashboard)/my-bids/**","app/(dashboard)/my-jobs/**","components/projects/sub-schedule.tsx"]},{"id":"ui-settings","label":"Settings & permissions","layer":"ui","order":8,"kind":"page","summary":"Company profile and logo, team invites, the permission grid, custom role classes, delete-protection key, budget templates, QuickBooks card, calendar connect.","paths":["app/(dashboard)/settings/page.tsx","app/(dashboard)/budget-templates/page.tsx","components/settings/permissions-panel.tsx","components/settings/quickbooks-card.tsx","components/calendar/connect-calendar.tsx"]},{"id":"ui-help","label":"Help Center","layer":"ui","order":9,"kind":"page","summary":"40+ support articles with client-side keyword search, kept in sync with every feature change.","detail":"Article content is a typed data structure in lib/help/articles.ts, not a CMS.","paths":["app/(dashboard)/help/page.tsx","lib/help/articles.ts"]},{"id":"ui-print","label":"Print / PDF views","layer":"ui","order":10,"kind":"page","summary":"Printable invoice, pay application (G702/G703) and proposal pages.","detail":"Rendered inside the dashboard shell with all chrome hidden by print: variants, so browser print or save-as-PDF gives a clean document.","paths":["app/(dashboard)/projects/[id]/invoices/[invoiceId]/print/page.tsx","app/(dashboard)/projects/[id]/pay-apps/[appId]/print/page.tsx","app/(dashboard)/projects/[id]/proposal/print/page.tsx"]},{"id":"ui-field-pages","label":"Field Mode pages","layer":"ui","order":11,"kind":"page","summary":"Today, Tasks, Log and Me: the four screens a field worker gets.","detail":"Clock card with selfie capture and GPS, task rows with one-tap status, quick daily-log filing.","paths":["app/field/page.tsx","app/field/tasks/page.tsx","app/field/log/page.tsx","app/field/me/page.tsx","app/field/clock-card.tsx","app/field/task-row.tsx","components/ui/camera-capture.tsx"]},{"id":"ui-admin-pages","label":"Admin console pages","layer":"ui","order":12,"kind":"page","summary":"Platform stats, companies, users, projects, access requests, impersonation audit.","paths":["app/admin/page.tsx","app/admin/companies/page.tsx","app/admin/users/page.tsx","app/admin/projects/page.tsx","app/admin/access-requests/page.tsx","app/admin/audit/page.tsx"]},{"id":"hook-permissions","label":"usePermissions + View As","layer":"ui","order":13,"kind":"hook","summary":"Client hook that loads the caller's effective permission map and exposes can(resource, action).","detail":"Reads localStorage keys workos_view_as_role / workos_view_as_user so admins can preview the app as another role or a specific teammate; the preview is resolved server-side by /api/me/permissions.","paths":["lib/use-permissions.ts","components/layout/view-as-switcher.tsx"]},{"id":"hook-viewer","label":"useViewerContext","layer":"ui","order":14,"kind":"hook","summary":"Tells a project screen whether the viewer's company owns the job and what company type they are.","detail":"Switches sub-specific rendering, e.g. a sub's standalone job where quote line items are the budget.","paths":["lib/use-viewer-context.ts"]},{"id":"sb-browser","label":"Supabase browser client","layer":"ui","order":15,"kind":"hook","summary":"createBrowserClient from @supabase/ssr. Owns the session and mints the bearer token every fetch attaches.","paths":["lib/supabase/client.ts","lib/admin-fetch.ts"]},{"id":"api-me","label":"/api/me/*","layer":"api","order":0,"kind":"api","summary":"permissions and tasks for the signed-in user.","detail":"/api/me/permissions is the authoritative permission resolver: role defaults -> company_roles overrides (including custom classes) -> per-user permission_overrides, with admin-only as_user / as preview parameters.","paths":["app/api/me/permissions/route.ts","app/api/me/tasks/route.ts"]},{"id":"api-dashboard","label":"/api/dashboard/*, /api/master/*","layer":"api","order":1,"kind":"api","summary":"Cross-project rollups: overview, stats, activity feed, master calendar, master money.","paths":["app/api/dashboard/overview/route.ts","app/api/dashboard/stats/route.ts","app/api/dashboard/activity/route.ts","app/api/master/calendar/route.ts","app/api/master/money/route.ts"]},{"id":"api-projects-core","label":"/api/projects (core)","layer":"api","order":2,"kind":"api","summary":"Project CRUD, bulk actions, stats, geocoding, per-project activity, viewer context, portal token minting.","detail":"app/api/projects/route.ts is the one handler that fully applies the server-side permission grid via getActor/actorCan.","paths":["app/api/projects/route.ts","app/api/projects/[id]/route.ts","app/api/projects/bulk/route.ts","app/api/projects/stats/route.ts","app/api/projects/geocode/route.ts","app/api/projects/[id]/activity/route.ts","app/api/projects/[id]/viewer-context/route.ts","app/api/projects/[id]/portal-token/route.ts"]},{"id":"api-field","label":"/api/projects/[id] field routes","layer":"api","order":3,"kind":"api","summary":"Plans and folders, plan pins, schedule, job schedule, tasks and notes, daily logs with photos and PDF, time clock.","detail":"Includes the geofenced punch endpoint and the payroll hours export.","paths":["app/api/projects/[id]/plans/**","app/api/projects/[id]/schedule/**","app/api/projects/[id]/job-schedule/route.ts","app/api/projects/[id]/tasks/**","app/api/projects/[id]/daily-logs/**","app/api/projects/[id]/time/**"]},{"id":"api-bidding","label":"Bidding & quotes API","layer":"api","order":4,"kind":"api","summary":"Bid requests and invites, bid packages, remind/revise, award, quote comparisons and awards, subcontracts.","paths":["app/api/projects/[id]/bid-requests/**","app/api/projects/[id]/bids/**","app/api/projects/[id]/quotes/**","app/api/projects/[id]/quote/route.ts","app/api/projects/[id]/subcontracts/**"]},{"id":"api-money","label":"Money API","layer":"api","order":5,"kind":"api","summary":"Budget lines and sign-offs, budget templates, invoices with documents and lien waivers, pay applications, client payments, change orders, financials, materials.","detail":"Pay-app creation carries previous_completed forward from prior applications and defaults retainage from the project or company setting.","paths":["app/api/projects/[id]/budget/**","app/api/budget-templates/**","app/api/projects/[id]/invoices/**","app/api/projects/[id]/pay-apps/**","app/api/projects/[id]/payments/**","app/api/projects/[id]/change-orders/**","app/api/projects/[id]/financials/route.ts","app/api/materials/**"]},{"id":"api-compliance","label":"Compliance API","layer":"api","order":6,"kind":"api","summary":"Permits, inspections and inspection cards, submittals, compliance documents and email requests.","paths":["app/api/projects/[id]/permits/**","app/api/projects/[id]/inspections/**","app/api/projects/[id]/submittals/**","app/api/projects/[id]/compliance/**"]},{"id":"api-workspace","label":"Workspace API","layer":"api","order":7,"kind":"api","summary":"Customers, directory companies and profiles, files and file packets, equipment and assignments, notifications, approvals inbox.","paths":["app/api/customers/**","app/api/directory/**","app/api/files/**","app/api/equipment/**","app/api/notifications/**","app/api/approvals/route.ts"]},{"id":"api-search","label":"/api/search","layer":"api","order":8,"kind":"api","summary":"Global search across projects, customers, companies, files and more, returned as grouped hits with hrefs.","detail":"Escapes PostgREST or() reserved characters so a query containing a comma or percent sign cannot break the filter string.","paths":["app/api/search/route.ts","components/layout/global-search.tsx"]},{"id":"api-sub","label":"/api/my-bids, /api/my-jobs","layer":"api","order":9,"kind":"api","summary":"The subcontractor's cross-GC view of invites and awarded jobs.","paths":["app/api/my-bids/**","app/api/my-jobs/**"]},{"id":"api-settings","label":"Settings & onboarding API","layer":"api","order":10,"kind":"api","summary":"Company settings, logo, teammates, member roles and per-user permission overrides, custom role classes, calendar token, delete-key verification, invites, signup completion, access requests.","detail":"The settings permission endpoints are among the few that re-check authorization on the server.","paths":["app/api/settings/**","app/api/invite/**","app/api/complete-signup/route.ts","app/api/access-request/route.ts"]},{"id":"api-admin","label":"/api/admin/*","layer":"api","order":11,"kind":"api","summary":"Platform stats, companies, users, projects, access requests, audit, PIN verification and impersonation.","detail":"Impersonation mints a one-time magic-link token_hash for the target user so the browser gets a real session. Also hosts /api/dev/seed-demo behind DEMO_SEED_SECRET.","paths":["app/api/admin/**","app/api/dev/seed-demo/route.ts","lib/seed-demo.ts"]},{"id":"api-ai","label":"AI extraction endpoints","layer":"api","order":12,"kind":"api","summary":"The 11 handlers that send a document or photo to Claude and return a reviewable draft.","detail":"Quote scan, bid-request to comparison, quote gap analysis, subcontractor proposal analysis, material receipt scan, permit scan, compliance document scan, inspection card, submittal analysis. All use model claude-opus-4-8 with base64 image or PDF document blocks, strip code fences, and fall back to null on any parse failure rather than throwing.","paths":["app/api/projects/[id]/quote/route.ts","app/api/projects/[id]/quotes/[compId]/analyze/route.ts","app/api/projects/[id]/quotes/[compId]/upload/route.ts","app/api/projects/[id]/bid-requests/[reqId]/to-comparison/route.ts","app/api/projects/[id]/subcontracts/analyze-proposal/route.ts","app/api/materials/scan/route.ts","app/api/projects/[id]/permits/analyze/route.ts","app/api/projects/[id]/compliance/analyze/route.ts","app/api/projects/[id]/inspections/analyze/route.ts","app/api/projects/[id]/inspections/[inspectionId]/card/route.ts","app/api/projects/[id]/submittals/analyze/route.ts"]},{"id":"api-public","label":"Public token API","layer":"api","order":13,"kind":"api","summary":"Unauthenticated endpoints backing the token pages: bid submission, RFI answer, compliance upload.","detail":"Each looks the token up, marks it viewed on first open, and accepts a submission. No session is ever created.","paths":["app/api/bid/[token]/route.ts","app/api/rfi/[token]/route.ts","app/api/compliance/[token]/route.ts"]},{"id":"api-calendar","label":"/api/calendar/[token]","layer":"api","order":14,"kind":"api","summary":"Read-only iCal feed keyed by profiles.calendar_token.","detail":"Emits escaped VEVENTs for project dates so Google/Apple/Outlook can subscribe.","paths":["app/api/calendar/[token]/route.ts","app/api/settings/calendar/route.ts"]},{"id":"api-cron","label":"/api/cron/compliance-reminders","layer":"api","order":15,"kind":"api","summary":"Daily sweep for compliance documents expiring within 30 days.","detail":"Notifies every profile at the owning company, then stamps reminder_sent_at and flips status to expiring_soon so a document only fires once per expiry cycle.","paths":["app/api/cron/compliance-reminders/route.ts"]},{"id":"api-integrations","label":"Integration proxies","layer":"api","order":16,"kind":"api","summary":"QuickBooks OAuth and sync, address autocomplete and details, weather.","detail":"Every third-party key stays server-side; the browser only ever talks to these proxies.","paths":["app/api/quickbooks/**","app/api/geo/autocomplete/route.ts","app/api/geo/details/route.ts","app/api/weather/route.ts"]},{"id":"lib-permissions","label":"lib/permissions.ts","layer":"domain","order":0,"kind":"lib","summary":"The permission model: 32 resources in 6 groups x view/create/edit/delete, plus role defaults for admin, manager, project_manager, office_staff, field_supervisor, worker, member and read_only.","detail":"Also defines ASSIGNED_ONLY_ROLES (field roles see only projects they are on) and FIELD_ROLES (who gets Field Mode). resolveRoleBase layers a company's company_roles row over the hardcoded defaults, or starts from all-none for a brand-new custom class.","paths":["lib/permissions.ts"]},{"id":"lib-server-perms","label":"lib/server-permissions.ts","layer":"domain","order":1,"kind":"lib","summary":"getActor(db, token) resolves a bearer token into { userId, role, companyId, permissions }; actorCan gates an action.","detail":"Mirrors /api/me/permissions exactly so what the UI hides is what the API refuses. Currently wired into app/api/projects/route.ts.","paths":["lib/server-permissions.ts"]},{"id":"lib-activity","label":"lib/log-activity.ts","layer":"domain","order":2,"kind":"lib","summary":"Single writer for the project_activity event log.","detail":"Called from ~40 handlers covering RFIs, change orders, invoices, tasks, awards, permits, inspections, submittals, daily logs, subcontracts, bid packages, receipts, payments, equipment, punches, team changes and budget edits.","paths":["lib/log-activity.ts"]},{"id":"lib-notify","label":"lib/notify.ts","layer":"domain","order":3,"kind":"lib","summary":"Inserts an in-app notification row for a user.","detail":"Feeds the notification bell. Types include task_assigned, bid_awarded, invoice_approved, compliance_expiring.","paths":["lib/notify.ts","components/layout/notification-bell.tsx"]},{"id":"lib-admin-gate","label":"lib/admin-gate.ts","layer":"domain","order":4,"kind":"lib","summary":"HMAC-signs the /admin PIN cookie against the user id so it cannot be forged or reused by another account.","detail":"Verified with timingSafeEqual. Secret is SUPABASE_SERVICE_ROLE_KEY.","paths":["lib/admin-gate.ts"]},{"id":"lib-super-admin","label":"lib/super-admin.ts","layer":"domain","order":5,"kind":"lib","summary":"Hardcoded allowlist of platform-owner emails permitted to impersonate any account.","paths":["lib/super-admin.ts"]},{"id":"lib-delete-key","label":"lib/delete-key.ts","layer":"domain","order":6,"kind":"lib","summary":"SHA-256 of the company's secret delete key, checked before destructive actions when delete protection is on.","paths":["lib/delete-key.ts","components/ui/delete-guard.tsx"]},{"id":"lib-compliance-extract","label":"lib/compliance-extract.ts","layer":"domain","order":7,"kind":"lib","summary":"Normalises AI output for insurance certificates and licences into typed fields plus a human summary.","paths":["lib/compliance-extract.ts"]},{"id":"lib-quickbooks","label":"lib/quickbooks.ts","layer":"domain","order":8,"kind":"lib","summary":"QuickBooks Online OAuth2 and API helper: authorize URL, token exchange and refresh, sandbox/production base URLs, minor version 73.","detail":"Phase 1 is a one-way push from SyteNav to QBO. Requires QBO_CLIENT_ID and QBO_CLIENT_SECRET; qboConfigured() lets the UI degrade gracefully when they are absent.","paths":["lib/quickbooks.ts"]},{"id":"sb-service","label":"Service-role client","layer":"domain","order":9,"kind":"lib","summary":"createClient(URL, SUPABASE_SERVICE_ROLE_KEY) instantiated per handler in 149 of 157 routes.","detail":"Bypasses row-level security, so any tenant scoping must be written into the query. The cookie-based server client (lib/supabase/server.ts) is used by the four server components that need the session.","paths":["lib/supabase/server.ts"]},{"id":"sb-auth","label":"Supabase Auth","layer":"data","order":0,"kind":"store","summary":"Email/password sessions, password reset, magic links (also used to mint impersonation sessions).","detail":"Cookie session refreshed by middleware; route handlers verify the bearer access token.","paths":[]},{"id":"db-identity","label":"Identity & company tables","layer":"data","order":1,"kind":"store","summary":"profiles, companies, company_roles, company_invites, access_requests, impersonation_log, contacts, customers.","detail":"profiles carries role, company_id, permission_overrides (jsonb), phone and calendar_token. company_roles stores per-company overrides of role defaults and custom classes.","tables":["profiles","companies","company_roles","company_invites","access_requests","impersonation_log","contacts","customers"]},{"id":"db-projects","label":"Project tables","layer":"data","order":2,"kind":"store","summary":"projects, project_team_members, project_activity.","detail":"projects holds status, type, address, latitude/longitude, interior/exterior sq ft, billing_mode, default_retainage_pct, quote file and totals, payment_stages and client_portal_token.","tables":["projects","project_team_members","project_activity"]},{"id":"db-field","label":"Field tables","layer":"data","order":3,"kind":"store","summary":"project_plans, plan_folders, plan_pins, tasks, project_tasks, task_notes, schedule_items, daily_logs, daily_log_photos, daily_log_updates, daily_log_attachments, time_entries, equipment, equipment_assignments.","tables":["project_plans","plan_folders","plan_pins","tasks","project_tasks","task_notes","schedule_items","daily_logs","daily_log_photos","daily_log_updates","daily_log_attachments","time_entries","equipment","equipment_assignments"]},{"id":"db-bidding","label":"Bidding tables","layer":"data","order":4,"kind":"store","summary":"bid_packages, bids, bid_invitations, bid_package_attachments, bid_requests, bid_invites, bid_submissions, bid_request_attachments, quotes, quote_comparisons, subcontracts.","detail":"Two generations coexist: the original bid_packages/bids/bid_invitations set and the newer bid_requests/bid_invites/bid_submissions set added in migration 024.","tables":["bid_packages","bids","bid_invitations","bid_package_attachments","bid_requests","bid_invites","bid_submissions","bid_request_attachments","quotes","quote_comparisons","subcontracts"]},{"id":"db-money","label":"Money tables","layer":"data","order":5,"kind":"store","summary":"budget_line_items, budget_templates, budget_template_items, invoices, pay_applications, pay_application_lines, client_payments, change_orders, payment_schedule_items, material_purchases.","detail":"budget_line_items links to subcontracts so Committed auto-fills and Actual accrues from approved invoices plus assigned receipts. pay_application_lines carry scheduled_value, previous_completed, this_period and materials_stored for G703.","tables":["budget_line_items","budget_templates","budget_template_items","invoices","pay_applications","pay_application_lines","client_payments","change_orders","payment_schedule_items","material_purchases"]},{"id":"db-compliance","label":"Compliance tables","layer":"data","order":6,"kind":"store","summary":"permits, inspections, submittals, compliance_documents, compliance_requests, rfis.","detail":"compliance_documents track expiry_date, status and reminder_sent_at for the nightly sweep. rfis carry answer_token for the public answer link.","tables":["permits","inspections","submittals","compliance_documents","compliance_requests","rfis"]},{"id":"db-ops","label":"Ops & integration tables","layer":"data","order":7,"kind":"store","summary":"notifications, company_files, file_packets, quickbooks_connections, quickbooks_oauth_states, quickbooks_sync_log.","tables":["notifications","company_files","file_packets","quickbooks_connections","quickbooks_oauth_states","quickbooks_sync_log"]},{"id":"storage","label":"Supabase Storage","layer":"data","order":8,"kind":"store","summary":"Buckets for plans, photos, receipts, submittals, signatures, logos and generated documents.","detail":"Named buckets in code include daily-log-photos (also used for clock-in selfies), submittals, company-files, plans, signatures, lien-waivers, proposals and rfi-attachments. Files are handed out as long-lived signed URLs.","paths":[]},{"id":"ext-claude","label":"Anthropic Claude API","layer":"external","order":0,"kind":"external","summary":"Reads quotes, receipts, invoices, permits, insurance certificates and submittals from PDFs and phone photos.","detail":"model claude-opus-4-8, max_tokens up to 8192, base64 document/image content blocks. Requires ANTHROPIC_API_KEY.","paths":[]},{"id":"ext-qbo","label":"QuickBooks Online","layer":"external","order":1,"kind":"external","summary":"Intuit OAuth2 plus the accounting API (sandbox or production).","detail":"Scope com.intuit.quickbooks.accounting. Env: QBO_CLIENT_ID, QBO_CLIENT_SECRET, QBO_ENV, QBO_REDIRECT_URI.","paths":[]},{"id":"ext-google-places","label":"Google Places","layer":"external","order":2,"kind":"external","summary":"Primary address autocomplete and place details (US + CA), used because it catches new construction and new roads.","detail":"Behind GOOGLE_MAPS_API_KEY. On REQUEST_DENIED or quota errors the proxy silently falls through to Photon.","paths":[]},{"id":"ext-photon","label":"Photon (OpenStreetMap)","layer":"external","order":3,"kind":"external","summary":"Free autocomplete fallback when no Google key is configured or Google errors.","paths":[]},{"id":"ext-nominatim","label":"Nominatim","layer":"external","order":4,"kind":"external","summary":"Geocodes a job address to lat/lng the first time a worker punches in; the result is cached back onto the project row.","paths":[]},{"id":"ext-open-meteo","label":"Open-Meteo","layer":"external","order":5,"kind":"external","summary":"Current conditions for daily logs. WMO codes are mapped to sunny/cloudy/rainy/snowy, with wind >= 20 mph overriding to windy.","paths":[]},{"id":"ext-vercel","label":"Vercel platform","layer":"external","order":6,"kind":"external","summary":"Hosts the SSR app and serverless route handlers, and fires the single declared cron.","paths":["vercel.json"]}],"edges":[{"id":"e-office-mw","from":"actor-office","to":"middleware","label":"HTTPS","kind":"request"},{"id":"e-field-mw","from":"actor-field","to":"middleware","label":"HTTPS (phone)","kind":"request"},{"id":"e-sub-mw","from":"actor-sub","to":"middleware","label":"HTTPS","kind":"request"},{"id":"e-guest-mw","from":"actor-guest","to":"middleware","label":"token link","kind":"request"},{"id":"e-super-mw","from":"actor-superadmin","to":"middleware","label":"HTTPS","kind":"request"},{"id":"e-native-mw","from":"native-shell","to":"middleware","label":"loads server.url","kind":"request"},{"id":"e-cal-api","from":"calendar-client","to":"api-calendar","label":"GET .ics","kind":"request"},{"id":"e-cron-api","from":"vercel-cron","to":"api-cron","label":"daily 08:07 UTC","kind":"request"},{"id":"e-vercel-cron","from":"ext-vercel","to":"vercel-cron","label":"schedules","kind":"external"},{"id":"e-mw-auth-check","from":"middleware","to":"sb-auth","label":"getUser() / refresh cookies","kind":"query"},{"id":"e-mw-marketing","from":"middleware","to":"shell-marketing","label":"logged-out root","kind":"redirect"},{"id":"e-mw-authshell","from":"middleware","to":"shell-auth","label":"unauthenticated protected route","kind":"redirect"},{"id":"e-mw-dashboard","from":"middleware","to":"shell-dashboard","label":"authenticated","kind":"render"},{"id":"e-mw-field","from":"middleware","to":"shell-field","label":"/field","kind":"render"},{"id":"e-mw-admin","from":"middleware","to":"shell-admin","label":"/admin","kind":"render"},{"id":"e-mw-public","from":"middleware","to":"shell-public","label":"no auth required","kind":"render"},{"id":"e-authshell-auth","from":"shell-auth","to":"sb-browser","label":"signInWithPassword","kind":"fetch"},{"id":"e-sbbrowser-auth","from":"sb-browser","to":"sb-auth","label":"session + access token","kind":"external"},{"id":"e-dash-field-redirect","from":"shell-dashboard","to":"shell-field","label":"FIELD_ROLES redirect","kind":"redirect"},{"id":"e-shell-dashboard-ui","from":"shell-dashboard","to":"ui-dashboard","label":"renders","kind":"render"},{"id":"e-shell-projects","from":"shell-dashboard","to":"ui-projects","label":"renders","kind":"render"},{"id":"e-shell-workspace","from":"shell-dashboard","to":"ui-workspace","label":"renders","kind":"render"},{"id":"e-shell-sub","from":"shell-dashboard","to":"ui-sub","label":"renders","kind":"render"},{"id":"e-shell-settings","from":"shell-dashboard","to":"ui-settings","label":"renders","kind":"render"},{"id":"e-shell-help","from":"shell-dashboard","to":"ui-help","label":"renders","kind":"render"},{"id":"e-shell-print","from":"shell-dashboard","to":"ui-print","label":"renders (chrome hidden)","kind":"render"},{"id":"e-shell-perms","from":"shell-dashboard","to":"hook-permissions","label":"gates nav + tabs","kind":"render"},{"id":"e-projects-tabs-field","from":"ui-projects","to":"ui-proj-field","label":"project tab","kind":"render"},{"id":"e-projects-tabs-people","from":"ui-projects","to":"ui-proj-people","label":"project tab","kind":"render"},{"id":"e-projects-tabs-money","from":"ui-projects","to":"ui-proj-money","label":"project tab","kind":"render"},{"id":"e-projects-tabs-comp","from":"ui-projects","to":"ui-proj-compliance","label":"project tab","kind":"render"},{"id":"e-money-viewer","from":"ui-proj-money","to":"hook-viewer","label":"sub vs GC view","kind":"render"},{"id":"e-shell-field-pages","from":"shell-field","to":"ui-field-pages","label":"renders","kind":"render"},{"id":"e-shell-admin-pages","from":"shell-admin","to":"ui-admin-pages","label":"renders (after PIN)","kind":"render"},{"id":"e-perms-api","from":"hook-permissions","to":"api-me","label":"GET /api/me/permissions","kind":"fetch"},{"id":"e-viewer-api","from":"hook-viewer","to":"api-projects-core","label":"GET viewer-context","kind":"fetch"},{"id":"e-dashboard-api","from":"ui-dashboard","to":"api-dashboard","label":"overview / stats / activity","kind":"fetch"},{"id":"e-projects-api","from":"ui-projects","to":"api-projects-core","label":"CRUD + map data","kind":"fetch"},{"id":"e-projects-geo","from":"ui-projects","to":"api-integrations","label":"address autocomplete","kind":"fetch"},{"id":"e-field-api","from":"ui-proj-field","to":"api-field","label":"plans / tasks / logs / time","kind":"fetch"},{"id":"e-fieldpages-api","from":"ui-field-pages","to":"api-field","label":"punch / tasks / log","kind":"fetch"},{"id":"e-fieldpages-weather","from":"ui-field-pages","to":"api-integrations","label":"weather for the log","kind":"fetch"},{"id":"e-people-api","from":"ui-proj-people","to":"api-bidding","label":"packages / invites / award","kind":"fetch"},{"id":"e-people-comp","from":"ui-proj-people","to":"api-compliance","label":"RFIs","kind":"fetch"},{"id":"e-money-api","from":"ui-proj-money","to":"api-money","label":"budget / invoices / pay apps","kind":"fetch"},{"id":"e-money-bidding","from":"ui-proj-money","to":"api-bidding","label":"quotes + subcontracts","kind":"fetch"},{"id":"e-money-ai","from":"ui-proj-money","to":"api-ai","label":"scan quote / analyze","kind":"fetch"},{"id":"e-comp-api","from":"ui-proj-compliance","to":"api-compliance","label":"permits / inspections / docs","kind":"fetch"},{"id":"e-comp-ai","from":"ui-proj-compliance","to":"api-ai","label":"scan document","kind":"fetch"},{"id":"e-workspace-api","from":"ui-workspace","to":"api-workspace","label":"directory / files / equipment","kind":"fetch"},{"id":"e-workspace-money","from":"ui-workspace","to":"api-money","label":"materials receipts","kind":"fetch"},{"id":"e-workspace-ai","from":"ui-workspace","to":"api-ai","label":"scan receipt","kind":"fetch"},{"id":"e-sub-api","from":"ui-sub","to":"api-sub","label":"my bids / my jobs","kind":"fetch"},{"id":"e-settings-api","from":"ui-settings","to":"api-settings","label":"company / team / roles","kind":"fetch"},{"id":"e-settings-qbo","from":"ui-settings","to":"api-integrations","label":"QuickBooks connect","kind":"fetch"},{"id":"e-settings-cal","from":"ui-settings","to":"api-calendar","label":"mint calendar token","kind":"fetch"},{"id":"e-admin-api","from":"ui-admin-pages","to":"api-admin","label":"stats / users / impersonate","kind":"fetch"},{"id":"e-search-api","from":"shell-dashboard","to":"api-search","label":"global search (cmd-K)","kind":"fetch"},{"id":"e-print-money","from":"ui-print","to":"api-money","label":"invoice / pay-app data","kind":"fetch"},{"id":"e-public-api","from":"shell-public","to":"api-public","label":"token GET/POST","kind":"fetch"},{"id":"e-public-projects","from":"shell-public","to":"api-projects-core","label":"client portal read","kind":"fetch"},{"id":"e-public-ai","from":"api-public","to":"api-ai","label":"scan uploaded doc","kind":"fetch"},{"id":"e-me-perms","from":"api-me","to":"lib-permissions","label":"resolve grid","kind":"query"},{"id":"e-projects-actor","from":"api-projects-core","to":"lib-server-perms","label":"getActor / actorCan","kind":"query"},{"id":"e-serverperms-perms","from":"lib-server-perms","to":"lib-permissions","label":"role defaults + overrides","kind":"query"},{"id":"e-settings-perms","from":"api-settings","to":"lib-permissions","label":"edit role grid","kind":"query"},{"id":"e-admin-gate","from":"api-admin","to":"lib-admin-gate","label":"sign / verify PIN cookie","kind":"query"},{"id":"e-admin-super","from":"api-admin","to":"lib-super-admin","label":"email allowlist","kind":"query"},{"id":"e-money-deletekey","from":"api-money","to":"lib-delete-key","label":"delete protection","kind":"query"},{"id":"e-comp-extract","from":"api-ai","to":"lib-compliance-extract","label":"normalise fields","kind":"query"},{"id":"e-integrations-qbolib","from":"api-integrations","to":"lib-quickbooks","label":"OAuth + API calls","kind":"query"},{"id":"e-bidding-activity","from":"api-bidding","to":"lib-activity","label":"log event","kind":"event"},{"id":"e-money-activity","from":"api-money","to":"lib-activity","label":"log event","kind":"event"},{"id":"e-field-activity","from":"api-field","to":"lib-activity","label":"log event","kind":"event"},{"id":"e-comp-activity","from":"api-compliance","to":"lib-activity","label":"log event","kind":"event"},{"id":"e-bidding-notify","from":"api-bidding","to":"lib-notify","label":"notify","kind":"event"},{"id":"e-money-notify","from":"api-money","to":"lib-notify","label":"notify","kind":"event"},{"id":"e-field-notify","from":"api-field","to":"lib-notify","label":"notify","kind":"event"},{"id":"e-comp-notify","from":"api-compliance","to":"lib-notify","label":"notify","kind":"event"},{"id":"e-cron-notify","from":"api-cron","to":"lib-notify","label":"expiry notices","kind":"event"},{"id":"e-public-activity","from":"api-public","to":"lib-activity","label":"log event","kind":"event"},{"id":"e-api-service","from":"api-projects-core","to":"sb-service","label":"service-role client","kind":"query"},{"id":"e-field-service","from":"api-field","to":"sb-service","label":"service-role client","kind":"query"},{"id":"e-money-service","from":"api-money","to":"sb-service","label":"service-role client","kind":"query"},{"id":"e-bidding-service","from":"api-bidding","to":"sb-service","label":"service-role client","kind":"query"},{"id":"e-public-service","from":"api-public","to":"sb-service","label":"service-role client","kind":"query"},{"id":"e-activity-db","from":"lib-activity","to":"db-projects","label":"insert project_activity","kind":"query"},{"id":"e-notify-db","from":"lib-notify","to":"db-ops","label":"insert notifications","kind":"query"},{"id":"e-service-identity","from":"sb-service","to":"db-identity","label":"profiles / companies","kind":"query"},{"id":"e-service-projects","from":"sb-service","to":"db-projects","label":"projects / team","kind":"query"},{"id":"e-service-field","from":"sb-service","to":"db-field","label":"plans / tasks / logs / time","kind":"query"},{"id":"e-service-bidding","from":"sb-service","to":"db-bidding","label":"bids / quotes / subcontracts","kind":"query"},{"id":"e-service-money","from":"sb-service","to":"db-money","label":"budget / invoices / payments","kind":"query"},{"id":"e-service-compliance","from":"sb-service","to":"db-compliance","label":"permits / docs / RFIs","kind":"query"},{"id":"e-service-ops","from":"sb-service","to":"db-ops","label":"files / notifications / QBO","kind":"query"},{"id":"e-service-storage","from":"sb-service","to":"storage","label":"upload + signed URLs","kind":"storage"},{"id":"e-me-identity","from":"api-me","to":"db-identity","label":"profiles + company_roles","kind":"query"},{"id":"e-cron-compliance","from":"api-cron","to":"db-compliance","label":"expiring docs + stamp reminder","kind":"query"},{"id":"e-calendar-db","from":"api-calendar","to":"db-projects","label":"dates by calendar_token","kind":"query"},{"id":"e-admin-auth","from":"api-admin","to":"sb-auth","label":"generateLink (impersonate)","kind":"query"},{"id":"e-search-db","from":"api-search","to":"db-projects","label":"grouped hits","kind":"query"},{"id":"e-sub-db","from":"api-sub","to":"db-bidding","label":"invites + awarded work","kind":"query"},{"id":"e-dashboard-db","from":"api-dashboard","to":"db-money","label":"cash in / out rollup","kind":"query"},{"id":"e-workspace-db","from":"api-workspace","to":"db-ops","label":"files / equipment / notifications","kind":"query"},{"id":"e-settings-db","from":"api-settings","to":"db-identity","label":"company / roles / invites","kind":"query"},{"id":"e-ai-storage","from":"api-ai","to":"storage","label":"read the uploaded file","kind":"storage"},{"id":"e-ai-claude","from":"api-ai","to":"ext-claude","label":"messages.create (PDF/image)","kind":"external"},{"id":"e-qbo-ext","from":"lib-quickbooks","to":"ext-qbo","label":"OAuth2 + accounting API","kind":"external"},{"id":"e-geo-google","from":"api-integrations","to":"ext-google-places","label":"autocomplete / details","kind":"external"},{"id":"e-geo-photon","from":"api-integrations","to":"ext-photon","label":"fallback autocomplete","kind":"external"},{"id":"e-weather-ext","from":"api-integrations","to":"ext-open-meteo","label":"current conditions","kind":"external"},{"id":"e-punch-nominatim","from":"api-field","to":"ext-nominatim","label":"geocode job site once","kind":"external"},{"id":"e-vercel-host","from":"ext-vercel","to":"middleware","label":"hosts the app","kind":"external"}],"flows":[{"id":"flow-auth","name":"Sign in and session routing","category":"Access","summary":"How a request becomes a session, and where each role lands.","steps":[{"n":1,"node":"actor-office","edge":"e-office-mw","title":"Request arrives","detail":"Any non-asset path matches the middleware matcher."},{"n":2,"node":"middleware","edge":"e-mw-auth-check","title":"Resolve the session","detail":"createServerClient reads the request cookies, calls auth.getUser(), and mirrors any refreshed cookies onto the response."},{"n":3,"node":"sb-auth","edge":"e-mw-authshell","title":"No user on a protected route","detail":"/dashboard, /projects, /directory, /approvals and /settings redirect to /login. A logged-out visitor on / goes to /homepage instead."},{"n":4,"node":"shell-auth","edge":"e-authshell-auth","title":"Sign in","detail":"The login page calls signInWithPassword on the browser client."},{"n":5,"node":"sb-browser","edge":"e-sbbrowser-auth","title":"Session established","detail":"Supabase sets the cookie session; the access token becomes the bearer token every subsequent fetch attaches."},{"n":6,"node":"shell-dashboard","edge":"e-mw-dashboard","title":"Land in the office app","detail":"Middleware sends an authenticated visitor on /, /login or /signup to /dashboard."},{"n":7,"node":"shell-field","edge":"e-dash-field-redirect","title":"Unless they are field crew","detail":"The dashboard layout reads profiles.role and redirects FIELD_ROLES ('worker', 'member') to /field."}]},{"id":"flow-perms","name":"Permission resolution","category":"Access","summary":"Role defaults, company overrides and per-user overrides collapse into one effective grid.","steps":[{"n":1,"node":"hook-permissions","edge":"e-perms-api","title":"Client asks for its grid","detail":"usePermissions fetches /api/me/permissions with the bearer token, appending as_user or as when an admin is previewing."},{"n":2,"node":"api-me","edge":"e-me-identity","title":"Load the profile","detail":"Reads role, permission_overrides and company_id, degrading to role-only if the overrides column is missing."},{"n":3,"node":"db-identity","edge":"e-me-perms","title":"Layer the company's roles","detail":"company_roles rows for this company override the hardcoded defaults and define custom classes."},{"n":4,"node":"lib-permissions","title":"Compute the effective map","detail":"resolveRoleBase picks the base map, then getEffectivePermissions applies per-user overrides resource by resource."},{"n":5,"node":"shell-dashboard","edge":"e-shell-perms","title":"UI hides what you cannot do","detail":"can(resource, action) gates sidebar entries, project tabs and buttons. ASSIGNED_ONLY_ROLES additionally see only projects they are on."},{"n":6,"node":"api-projects-core","edge":"e-projects-actor","title":"Server re-check","detail":"getActor/actorCan mirror the same resolution so the API refuses what the UI hid. Wired into app/api/projects/route.ts and the settings permission endpoints; other handlers authenticate and scope by company rather than consulting the grid."}]},{"id":"flow-quote-scan","name":"AI quote scan builds the job","category":"AI","summary":"A photo or PDF of a contractor's estimate becomes budget lines and a payment schedule.","steps":[{"n":1,"node":"ui-proj-money","edge":"e-money-ai","title":"Upload the quote","detail":"The Quote tab accepts a PDF or a phone photo of the estimate."},{"n":2,"node":"api-ai","edge":"e-ai-storage","title":"Store and read the file","detail":"The file lands in Storage; the handler fetches it back as a buffer and picks a PDF document block or an image block by content type."},{"n":3,"node":"ext-claude","edge":"e-ai-claude","title":"Extract structure","detail":"claude-opus-4-8 returns JSON: total_amount, payment_terms, ordered payment_stages, and line_items with section, quantity, unit_price and amount. Code fences are stripped and the JSON is sliced between the outer braces; any failure returns null rather than throwing."},{"n":4,"node":"api-ai","title":"Backfill older quotes","detail":"parseTerms() splits a free-text payment-terms paragraph into stages, so quotes scanned before structured stages existed still render as a schedule."},{"n":5,"node":"ui-proj-money","title":"User reviews the draft","detail":"Nothing is saved until the numbers are checked and edited on screen."},{"n":6,"node":"db-money","edge":"e-service-money","title":"Write the budget","detail":"Accepted lines become budget_line_items with sort_order; stages become the project's payment_stages."}]},{"id":"flow-bid-request","name":"Request quotes from subs","category":"Bidding","summary":"Build a bid package, invite subs from the Directory, track who looked.","steps":[{"n":1,"node":"ui-proj-people","edge":"e-people-api","title":"Create the package","detail":"Scope, trade, description, due date and attachments."},{"n":2,"node":"api-bidding","edge":"e-bidding-service","title":"Persist it","detail":"bid_requests plus bid_request_attachments (or the older bid_packages set)."},{"n":3,"node":"db-bidding","title":"Invite subs","detail":"One bid_invites row per invited company, each carrying an unguessable token."},{"n":4,"node":"actor-sub","edge":"e-guest-mw","title":"Sub opens the link","detail":"/bid/[token] needs no account."},{"n":5,"node":"api-public","edge":"e-public-api","title":"Mark viewed","detail":"First open flips the invite from 'invited' to 'viewed' and stamps viewed_at, which is what the GC's tracker shows."},{"n":6,"node":"ui-proj-people","title":"Nudge and revise","detail":"Remind and revision-request actions re-notify the sub without recreating the package."}]},{"id":"flow-sub-submit","name":"Sub submits a bid without an account","category":"Bidding","summary":"The public token page is a full quote builder.","steps":[{"n":1,"node":"actor-guest","edge":"e-guest-mw","title":"Open the token link","detail":"Middleware lets it through; no protected prefix matches."},{"n":2,"node":"shell-public","edge":"e-public-api","title":"Load the request","detail":"GET /api/bid/[token] returns the package, project name and address, attachments, and any previous submission by this invite."},{"n":3,"node":"api-public","edge":"e-public-service","title":"Submit","detail":"Line items with quantities, unit prices, sections and payment terms are written as a bid_submissions row."},{"n":4,"node":"db-bidding","edge":"e-public-activity","title":"Tell the GC","detail":"The submission is logged to project_activity and surfaces on the Bids tab."},{"n":5,"node":"ui-sub","edge":"e-sub-api","title":"Registered subs get more","detail":"A sub with an account sees the same invite in My Bids, across every GC they work with."}]},{"id":"flow-award","name":"Award a bid (the cascade)","category":"Bidding","summary":"One click writes the subcontract, the payment schedule, the schedule bar, the notification and the activity entry.","steps":[{"n":1,"node":"ui-proj-people","edge":"e-people-api","title":"Award the winner","detail":"POST /api/projects/[id]/bids/[packageId]/award with the winning bid_id."},{"n":2,"node":"api-bidding","edge":"e-bidding-service","title":"Settle the package","detail":"Winner to 'awarded', every other bid on the package to 'rejected', package to 'awarded' - all three in one Promise.all."},{"n":3,"node":"db-bidding","title":"Create the subcontract","detail":"A subcontracts row inherits scope, trade and contract_amount from the bid."},{"n":4,"node":"db-money","edge":"e-service-money","title":"Stage the payments","detail":"The bid's payment_terms text is split line by line; a percent match becomes a percent stage with its dollar amount, anything else becomes a milestone, ordered by order_index."},{"n":5,"node":"db-field","edge":"e-service-field","title":"Put it on the schedule","detail":"If the bid carried duration_days and earliest_start_date, a schedule_items row is created for the date range."},{"n":6,"node":"lib-notify","edge":"e-bidding-notify","title":"Tell the sub","detail":"A bid_awarded notification lands for the sub company's profile."},{"n":7,"node":"lib-activity","edge":"e-bidding-activity","title":"Record it","detail":"project_activity gets 'Awarded \"scope\" to Company for $amount' with bid, package, company and amount in metadata."}]},{"id":"flow-invoice","name":"Vendor invoice to budget actuals","category":"Money","summary":"Approving (not paying) is what moves the money.","steps":[{"n":1,"node":"ui-proj-money","edge":"e-money-api","title":"Create the invoice","detail":"Against a subcontract, even when the sub has no account, or generated from line-item progress."},{"n":2,"node":"api-money","edge":"e-money-service","title":"Status flow","detail":"draft to approved to sent to paid, with client-paid vs escrow-paid split per invoice."},{"n":3,"node":"db-money","title":"Approval stamps the record","detail":"approved_at and approved_by_name are written, and the linked budget line's Actual accrues."},{"n":4,"node":"lib-notify","edge":"e-money-notify","title":"Notify the sub","detail":"An invoice_approved notification tells them the amount cleared review."},{"n":5,"node":"lib-activity","edge":"e-money-activity","title":"Log it","detail":"'Invoice N approved - $amount' on the project activity feed."},{"n":6,"node":"ui-print","edge":"e-print-money","title":"Print or attach","detail":"A printable invoice view, plus lien waiver attachments stored alongside."}]},{"id":"flow-payapp","name":"AIA pay application (G702/G703)","category":"Money","summary":"Monthly draws against the schedule of values, with retainage carried correctly.","steps":[{"n":1,"node":"ui-proj-money","edge":"e-money-api","title":"Start a draw","detail":"Only on projects whose billing_mode is progress billing; the Simple mode shows Invoices + Payments instead."},{"n":2,"node":"api-money","edge":"e-money-service","title":"Seed the lines","detail":"Every budget line becomes a pay_application_lines row with its scheduled_value."},{"n":3,"node":"db-money","title":"Carry previous work forward","detail":"Prior applications are summed per budget_line_item_id into previous_completed, so this period only asks for new work and stored materials."},{"n":4,"node":"api-money","title":"Compute G702","detail":"completed_to_date = previous + this period + stored; retainage = completed x retainage_pct; current_due = completed less retainage. retainage_pct defaults from projects.default_retainage_pct, then the company default, then 10%."},{"n":5,"node":"ui-print","edge":"e-print-money","title":"Issue it","detail":"Draft to Submitted to Certified to Funded, with a printable G702 + G703 for the architect or bank. Works GC-to-owner and sub-to-GC."}]},{"id":"flow-payments","name":"Client payment and escrow","category":"Money","summary":"Money in, fee out, and what is safe to release to vendors.","steps":[{"n":1,"node":"ui-proj-money","edge":"e-money-api","title":"Record the payment","detail":"Date, amount, method, memo, retainer flag and a QuickBooks-entered flag."},{"n":2,"node":"api-money","edge":"e-money-service","title":"Store it","detail":"client_payments, scoped to the project."},{"n":3,"node":"db-money","title":"Run the math","detail":"Received, contractor fee %, fee earned, available after fee, vendor billed and paid, escrow balance, outstanding to vendors, and projected cost vs invoiced."},{"n":4,"node":"ui-proj-money","title":"Answer the real question","detail":"The summary states what is safe to release to vendors right now given escrow and outstanding balances."},{"n":5,"node":"api-dashboard","edge":"e-dashboard-db","title":"Roll it up","detail":"Master Money aggregates cash in vs out, escrow and outstanding across every job."}]},{"id":"flow-clock","name":"Clock in with selfie and geofence","category":"Field","summary":"A two-tap punch that is verifiable without being punitive.","steps":[{"n":1,"node":"ui-field-pages","edge":"e-fieldpages-api","title":"Tap clock in","detail":"The clock card captures a selfie and requests GPS, then posts multipart form data to /api/projects/[id]/time/punch. A punch without a selfie is rejected outright."},{"n":2,"node":"api-field","edge":"e-punch-nominatim","title":"Locate the job site","detail":"Uses projects.latitude/longitude if set; otherwise geocodes the address through Nominatim once and caches the result back onto the project row."},{"n":3,"node":"ext-nominatim","title":"Measure the distance","detail":"Haversine against a 250 m radius. Beyond it, or with no GPS at all, the punch is flagged for review - never rejected."},{"n":4,"node":"storage","edge":"e-service-storage","title":"Store the selfie","detail":"Uploaded to the daily-log-photos bucket under \u003cprojectId>/time/, then handed back as a long-lived signed URL."},{"n":5,"node":"db-field","edge":"e-service-field","title":"Write the entry","detail":"time_entries records coordinates, distance, the flag and the selfie URL. A second clock-in while one is open returns 409."},{"n":6,"node":"lib-activity","edge":"e-field-activity","title":"Show the office","detail":"A time_clock_in activity entry appears immediately, marked (flagged) when relevant. Weekly totals feed timesheet approval and the payroll export."}]},{"id":"flow-daily-log","name":"Daily log with photos and PDF","category":"Field","summary":"The day's record, filed from a phone in under a minute.","steps":[{"n":1,"node":"ui-field-pages","edge":"e-fieldpages-weather","title":"Prefill the weather","detail":"/api/weather resolves lat/lon or geocodes the address, then maps Open-Meteo WMO codes to sunny/cloudy/rainy/snowy, with wind at or above 20 mph overriding to windy."},{"n":2,"node":"ext-open-meteo","edge":"e-fieldpages-api","title":"File the log","detail":"Crew count, work performed, delays, visitors, and a signature."},{"n":3,"node":"api-field","edge":"e-service-storage","title":"Attach photos","detail":"Photos go to the daily-log-photos bucket with a category, and render as thumbnails that open in a lightbox."},{"n":4,"node":"db-field","edge":"e-service-field","title":"Record the author","detail":"daily_logs stores who filed it; migration 060 backfilled authors on existing rows."},{"n":5,"node":"api-field","title":"Follow-ups and export","detail":"daily_log_updates adds later comments; the PDF route renders the whole log with pdf-lib for sending on."}]},{"id":"flow-plan-pin","name":"Pin a task on the drawing","category":"Field","summary":"Click the exact spot on the plan; the task and the notification follow.","steps":[{"n":1,"node":"ui-proj-field","edge":"e-field-api","title":"Drop the pin","detail":"Click the spot in the plan viewer, describe the work, assign a teammate, set a due date."},{"n":2,"node":"api-field","edge":"e-service-field","title":"Create the task first","detail":"A project_tasks row is inserted, then the plan_pins row is created pointing at it - so removing the pin leaves the task intact."},{"n":3,"node":"db-field","title":"Anchor it","detail":"Pins store normalised coordinates so they stay put while zooming, and are colour-coded per assignee."},{"n":4,"node":"lib-notify","edge":"e-field-notify","title":"Tell the assignee","detail":"A task_assigned notification: 'You have been assigned a task from the plan'."},{"n":5,"node":"ui-field-pages","title":"It shows up in the field","detail":"The task appears in Field Mode's task list and on the project schedule; the pin list jumps the viewer back to the spot."}]},{"id":"flow-rfi","name":"RFI to answer link to change order","category":"Communication","summary":"A field question routed to whoever can actually answer it.","steps":[{"n":1,"node":"ui-proj-people","edge":"e-people-comp","title":"Raise the RFI","detail":"Numbered, with description and photo or file attachments. Subs can raise one through the portal without an account."},{"n":2,"node":"api-compliance","edge":"e-service-compliance","title":"Mint an answer link","detail":"rfis.answer_token backs a one-time public URL for the architect or designer."},{"n":3,"node":"actor-guest","edge":"e-guest-mw","title":"They answer","detail":"GET /api/rfi/[token] shows the question and attachments; the response and responder name are posted back. No account, no login."},{"n":4,"node":"api-public","edge":"e-public-activity","title":"Close the loop","detail":"The RFI flips to answered and the project activity feed records it."},{"n":5,"node":"ui-workspace","edge":"e-workspace-api","title":"Route the cost","detail":"An RFI carrying a change-order proposal (description, items, amount) lands in the Approvals inbox alongside invoices and other pending decisions."}]},{"id":"flow-compliance","name":"Request a COI by email","category":"Compliance","summary":"Ask once, the sub uploads through a link, the AI fills in the details.","steps":[{"n":1,"node":"ui-proj-compliance","edge":"e-comp-api","title":"Request the document","detail":"Pick the sub and the document type: COI, licence, W-9, workers' comp or other."},{"n":2,"node":"api-compliance","edge":"e-service-compliance","title":"Mint the upload link","detail":"A compliance_requests row with a secret token; the sub gets the URL."},{"n":3,"node":"actor-guest","edge":"e-guest-mw","title":"Sub opens it","detail":"First open flips the request from 'pending' to 'viewed'. Partial uploads are allowed - they can come back for the rest."},{"n":4,"node":"api-public","edge":"e-public-ai","title":"Scan the upload","detail":"The document is sent to Claude and lib/compliance-extract.ts normalises carrier, policy number, coverage and expiry into typed fields plus a human summary."},{"n":5,"node":"db-compliance","edge":"e-service-compliance","title":"File it","detail":"compliance_documents stores status (active / expiring_soon / expired) and expiry_date, per sub per project or company-wide."}]},{"id":"flow-compliance-cron","name":"Nightly compliance expiry sweep","category":"Compliance","summary":"The only scheduled job in the system.","steps":[{"n":1,"node":"vercel-cron","edge":"e-cron-api","title":"Fire at 08:07 UTC","detail":"Declared in vercel.json. Authenticated by the x-vercel-cron header, or CRON_SECRET when called by hand."},{"n":2,"node":"api-cron","edge":"e-cron-compliance","title":"Find what is expiring","detail":"compliance_documents with an expiry_date inside the next 30 days and reminder_sent_at still null."},{"n":3,"node":"db-compliance","edge":"e-cron-notify","title":"Notify the owning company","detail":"Every profile at that company gets a compliance_expiring notification naming the document, the company and the days remaining."},{"n":4,"node":"lib-notify","edge":"e-notify-db","title":"Stamp it once","detail":"reminder_sent_at is set and status becomes expiring_soon, so a document fires exactly once per expiry cycle."}]},{"id":"flow-materials","name":"Snap a receipt into the budget","category":"Money","summary":"Photo to structured purchase to budget line, in one pass.","steps":[{"n":1,"node":"ui-workspace","edge":"e-workspace-ai","title":"Photograph the receipt","detail":"From the Materials page or a phone."},{"n":2,"node":"api-ai","edge":"e-ai-claude","title":"Read it","detail":"Claude returns store, date, amounts, tax, category and line items from the image or PDF."},{"n":3,"node":"ext-claude","edge":"e-workspace-money","title":"Assign it","detail":"Pick the job, then link an existing budget line or create a new one on the spot - the same interaction as awarding a quote."},{"n":4,"node":"api-money","edge":"e-service-money","title":"Save the purchase","detail":"material_purchases stores the receipt image, the line items and a client_paid flag."},{"n":5,"node":"db-money","title":"Split the totals","detail":"'Customer already paid' divides amounts into customer-paid vs owed-by-customer on Materials, Financials and Budget. Stores can be saved to the Directory as suppliers."}]},{"id":"flow-portal","name":"Share the client portal","category":"Access","summary":"A read-only window on the job for the person paying for it.","steps":[{"n":1,"node":"ui-projects","edge":"e-projects-api","title":"Generate the link","detail":"POST /api/projects/[id]/portal-token."},{"n":2,"node":"api-projects-core","edge":"e-api-service","title":"Mint the token","detail":"32 random bytes from crypto.getRandomValues, hex-encoded, written to projects.client_portal_token. Regenerating replaces the old link."},{"n":3,"node":"db-projects","edge":"e-guest-mw","title":"Client opens it","detail":"/portal/[token] renders outside every authenticated layout."},{"n":4,"node":"shell-public","edge":"e-public-projects","title":"They see progress and payments","detail":"Job progress and payment stages, with no account and no access to anything else."}]},{"id":"flow-calendar","name":"Subscribe to the calendar feed","category":"Access","summary":"SyteNav dates inside Google, Apple or Outlook.","steps":[{"n":1,"node":"ui-settings","edge":"e-settings-cal","title":"Connect calendar","detail":"Settings mints profiles.calendar_token and shows the subscription URL."},{"n":2,"node":"calendar-client","edge":"e-cal-api","title":"Calendar app polls","detail":"Calendar clients cannot send auth headers, so the secret token in the URL is the only credential. The feed is read-only by design."},{"n":3,"node":"api-calendar","edge":"e-calendar-db","title":"Build the iCal","detail":"Resolves the profile by calendar_token, collects the company's project dates, and emits VEVENTs with values escaped per RFC 5545."}]},{"id":"flow-qbo","name":"Connect QuickBooks","category":"Integrations","summary":"OAuth2 to Intuit, then a one-way push of accounting data.","steps":[{"n":1,"node":"ui-settings","edge":"e-settings-qbo","title":"Click connect","detail":"The card only offers this when qboConfigured() sees both client id and secret."},{"n":2,"node":"api-integrations","edge":"e-integrations-qbolib","title":"Redirect to Intuit","detail":"authorizeUrl() with scope com.intuit.quickbooks.accounting and a state row in quickbooks_oauth_states."},{"n":3,"node":"lib-quickbooks","edge":"e-qbo-ext","title":"Exchange the code","detail":"The callback swaps the code for access and refresh tokens over HTTP Basic, and stores them in quickbooks_connections."},{"n":4,"node":"ext-qbo","edge":"e-service-ops","title":"Sync","detail":"Phase 1 pushes from SyteNav to QBO against API minor version 73, sandbox or production by QBO_ENV, writing quickbooks_sync_log."}]},{"id":"flow-search","name":"Global search","category":"Workspace","summary":"One box across projects, customers, companies and files.","steps":[{"n":1,"node":"shell-dashboard","edge":"e-search-api","title":"Type a query","detail":"The global search component fires at two characters or more."},{"n":2,"node":"api-search","edge":"e-search-db","title":"Escape and fan out","detail":"Reserved PostgREST or() characters are stripped so a query containing a comma or percent sign cannot break the filter string."},{"n":3,"node":"db-projects","title":"Return grouped hits","detail":"Each hit carries a title, subtitle and href, grouped by entity type for the dropdown."}]},{"id":"flow-impersonate","name":"Super-admin impersonation","category":"Access","summary":"Real log-in-as for customer support, gated twice and logged.","steps":[{"n":1,"node":"actor-superadmin","edge":"e-super-mw","title":"Open /admin","detail":"The email must be in SUPER_ADMIN_EMAILS."},{"n":2,"node":"shell-admin","edge":"e-admin-gate","title":"Pass the PIN gate","detail":"ADMIN_PIN is verified server-side, then an HMAC of the user id (keyed by the service-role secret) is set as a cookie and compared with timingSafeEqual - so the gate cannot be forged or replayed by another account."},{"n":3,"node":"api-admin","edge":"e-admin-super","title":"Pick the target","detail":"POST /api/admin/impersonate re-checks isSuperAdmin on every call."},{"n":4,"node":"lib-super-admin","edge":"e-admin-auth","title":"Mint a real session","detail":"auth.admin.generateLink produces a one-time magic-link token_hash the browser verifies, giving a genuine session as the target user rather than a simulated view."},{"n":5,"node":"sb-auth","edge":"e-service-identity","title":"Log and banner it","detail":"impersonation_log records the event and a persistent banner shows who is being impersonated. Distinct from View As, which only previews another role's permissions."}]},{"id":"flow-invite","name":"Invite a teammate","category":"Access","summary":"Email invite to accepted member with a role and a permission grid.","steps":[{"n":1,"node":"ui-settings","edge":"e-settings-api","title":"Send the invite","detail":"Email plus a role, including any custom class the company has defined."},{"n":2,"node":"api-settings","edge":"e-settings-db","title":"Store it","detail":"company_invites holds the pending invite."},{"n":3,"node":"db-identity","edge":"e-authshell-auth","title":"They accept","detail":"/api/invite/accept and /api/complete-signup create the auth user and the profile, stamped with company_id and role."},{"n":4,"node":"hook-permissions","edge":"e-perms-api","title":"Grid applies immediately","detail":"Their first /api/me/permissions call resolves the role's defaults, any company override, and per-user overrides."},{"n":5,"node":"ui-proj-people","title":"Assigned-only roles need a project","detail":"Field supervisors, workers and read-only users see nothing until they are added on a project's Team tab."}]},{"id":"flow-inspection","name":"Ready for inspection to result","category":"Compliance","summary":"The sub raises a hand, the GC books it, the result gates the next stage.","steps":[{"n":1,"node":"ui-sub","edge":"e-sub-api","title":"Sub marks work ready","detail":"From My Jobs, on their own scope."},{"n":2,"node":"api-compliance","edge":"e-comp-notify","title":"Notify the GC","detail":"An in-app notification asks them to book the inspector. Email and SMS for this are on the backlog."},{"n":3,"node":"lib-notify","edge":"e-service-compliance","title":"Schedule it","detail":"The inspection is requested and scheduled; it shows on the Master Calendar."},{"n":4,"node":"db-compliance","edge":"e-comp-ai","title":"Record the result","detail":"Pass or fail, with an AI-read inspection card where a document is supplied."},{"n":5,"node":"ui-proj-money","title":"Gate the money","detail":"A pass can release the next payment stage on the sub's schedule."}]},{"id":"flow-field-mode","name":"Field Mode routing","category":"Field","summary":"Why a worker never sees the office app.","steps":[{"n":1,"node":"actor-field","edge":"e-field-mw","title":"Worker signs in","detail":"Same login as everyone else."},{"n":2,"node":"shell-dashboard","edge":"e-dash-field-redirect","title":"Bounced out of the office app","detail":"The dashboard layout reads profiles.role and redirects FIELD_ROLES to /field before rendering any chrome."},{"n":3,"node":"shell-field","edge":"e-shell-field-pages","title":"Field shell takes over","detail":"No sidebar, no project tabs, no company money. Bottom nav, idle logout, and a preview banner when an admin is looking."},{"n":4,"node":"ui-field-pages","edge":"e-fieldpages-api","title":"Four screens","detail":"Today, Tasks, Log, Me. Office roles that navigate to /field are sent back to /dashboard, except admins and managers previewing it."}]},{"id":"flow-activity","name":"Activity and notification fan-out","category":"Workspace","summary":"The two write paths every feature shares.","steps":[{"n":1,"node":"api-money","edge":"e-money-activity","title":"Any handler with a side effect","detail":"Roughly 40 route handlers call logActivity after they mutate something."},{"n":2,"node":"lib-activity","edge":"e-activity-db","title":"One writer","detail":"project_activity rows carry project_id, actor name and id, type, message and a metadata jsonb."},{"n":3,"node":"db-projects","edge":"e-dashboard-api","title":"Read back two ways","detail":"The dashboard Recent Activity feed and the per-project activity drawer. Non-admins see their own actions; admins see everything."},{"n":4,"node":"lib-notify","edge":"e-notify-db","title":"Notifications are separate","detail":"createNotification writes a per-user row that drives the bell: task_assigned, bid_awarded, invoice_approved, compliance_expiring and more."}]}]}</script>
+<script>
+(() => {
+'use strict';
+const G = JSON.parse(document.getElementById('graph-data').textContent);
+
+/* ── Layout ─────────────────────────────────────────────────────────────
+   Columns by layer (meta.layout.layers), stacked top-to-bottom by node.order,
+   each column vertically centred. Same rule any other renderer can follow.  */
+const NW = 206, NH = 64, VGAP = 11, COLW = 268, PADX = 36, TOPY = 62;
+
+const LAYERS = G.meta.layout.layers;
+const layerIndex = new Map(LAYERS.map((l,i) => [l.id, i]));
+const N = new Map(G.nodes.map(n => [n.id, n]));
+const E = new Map(G.edges.map(e => [e.id, e]));
+
+const byLayer = new Map(LAYERS.map(l => [l.id, []]));
+for (const n of G.nodes) byLayer.get(n.layer).push(n);
+for (const [, arr] of byLayer) arr.sort((a,b) => a.order - b.order);
+
+const maxCount = Math.max(...[...byLayer.values()].map(a => a.length));
+const colH = maxCount * (NH + VGAP) - VGAP;
+for (const [lid, arr] of byLayer) {
+  const h = arr.length * (NH + VGAP) - VGAP;
+  const y0 = TOPY + (colH - h) / 2;
+  arr.forEach((n, i) => {
+    n._x = PADX + layerIndex.get(lid) * COLW;
+    n._y = y0 + i * (NH + VGAP);
+  });
+}
+const W = PADX * 2 + (LAYERS.length - 1) * COLW + NW;
+const H = TOPY + colH + 50;
+
+/* Which edges each node touches, and which flows each node appears in. */
+const nodeEdges = new Map(G.nodes.map(n => [n.id, []]));
+for (const e of G.edges) { nodeEdges.get(e.from).push(e); nodeEdges.get(e.to).push(e); }
+const nodeFlows = new Map(G.nodes.map(n => [n.id, []]));
+for (const f of G.flows) for (const id of new Set(f.steps.map(s => s.node))) nodeFlows.get(id).push(f);
+
+/* ── SVG build ──────────────────────────────────────────────────────── */
+const SVG = 'http://www.w3.org/2000/svg';
+const svg = document.getElementById('canvas');
+const viewport = document.getElementById('viewport');
+const layersG = document.getElementById('layersG');
+const edgesG = document.getElementById('edgesG');
+const nodesG = document.getElementById('nodesG');
+const badgesG = document.getElementById('badgesG');
+const el = (t, a = {}) => { const x = document.createElementNS(SVG, t); for (const k in a) x.setAttribute(k, a[k]); return x; };
+
+/* Column headings */
+LAYERS.forEach((l, i) => {
+  const g = el('g', { class: 'layerlab', 'data-layer': l.id });
+  const t = el('text', { x: PADX + i * COLW, y: 30 });
+  t.textContent = l.label;
+  g.appendChild(t);
+  g.appendChild(el('line', { class: 'layerrule', x1: PADX + i * COLW, y1: 42, x2: PADX + i * COLW + NW, y2: 42 }));
+  layersG.appendChild(g);
+});
+
+/* Edge geometry: exit right, enter left. Backward or same-column hops bow
+   around the columns instead of cutting straight through them. */
+function edgePath(a, b) {
+  const x1 = a._x + NW, y1 = a._y + NH / 2;
+  const x2 = b._x, y2 = b._y + NH / 2;
+  if (x2 >= x1 - 4) {
+    const dx = Math.max(46, (x2 - x1) * 0.46);
+    return `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
+  }
+  const bx1 = a._x + NW + 34, bx2 = b._x - 34;
+  const dip = (y1 + y2) / 2 + (y2 > y1 ? 90 : -90);
+  return `M${x1},${y1} C${bx1},${y1} ${bx1},${dip} ${(x1 + x2) / 2},${dip} C${bx2},${dip} ${bx2},${y2} ${x2},${y2}`;
+}
+
+const edgeEls = new Map();
+for (const e of G.edges) {
+  const a = N.get(e.from), b = N.get(e.to);
+  const g = el('g', { class: 'edge-g', 'data-id': e.id });
+  const p = el('path', { class: `edge kind-${e.kind}`, d: edgePath(a, b) });
+  g.appendChild(p);
+  const mx = (a._x + NW + b._x) / 2, my = (a._y + b._y) / 2 + NH / 2;
+  const lab = el('text', { class: 'elabel', x: mx, y: my - 6, 'text-anchor': 'middle' });
+  lab.textContent = e.label;
+  g.appendChild(lab);
+  edgesG.appendChild(g);
+  edgeEls.set(e.id, { g, p });
+}
+
+const nodeEls = new Map();
+for (const n of G.nodes) {
+  const g = el('g', { class: 'node', 'data-id': n.id, transform: `translate(${n._x},${n._y})` });
+  g.style.setProperty('--lc', `var(--L-${n.layer})`);
+  const fo = el('foreignObject', { width: NW, height: NH });
+  const box = document.createElement('div');
+  box.className = 'box';
+  box.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
+  const t = document.createElement('div'); t.className = 't'; t.textContent = n.label;
+  const k = document.createElement('div'); k.className = 'k'; k.textContent = n.kind;
+  box.append(t, k);
+  fo.appendChild(box);
+  g.appendChild(fo);
+  nodesG.appendChild(g);
+  nodeEls.set(n.id, g);
+}
+
+/* ── Pan / zoom ─────────────────────────────────────────────────────── */
+let tx = 0, ty = 0, k = 1;
+const apply = () => viewport.setAttribute('transform', `translate(${tx},${ty}) scale(${k})`);
+/* On phones the flows drawer covers the lower part of the stage, and fitting
+   74 nodes into 390px would shrink the labels past legibility - so frame into
+   the visible slice and keep a readable floor, letting the user pan instead. */
+const SMALL = () => innerWidth <= 1000;
+function frame() {
+  const r = svg.getBoundingClientRect();
+  return { w: r.width, h: SMALL() ? Math.max(240, r.height * 0.40) : r.height };
+}
+function place(w, h, cx, cy, scale, pad) {
+  const f = frame();
+  k = scale;
+  tx = w * k <= f.w - pad ? f.w / 2 - cx * k : pad / 2;
+  ty = h * k <= f.h - pad ? f.h / 2 - cy * k : pad / 2;
+}
+function fit(pad = 40) {
+  const f = frame();
+  const s = Math.min((f.w - pad * 2) / W, (f.h - pad) / H, 1.35);
+  place(W, H, W / 2, H / 2, Math.max(s, SMALL() ? 0.34 : 0.14), pad);
+  apply();
+}
+let anim = null;
+function smooth() { apply(); }
+function animateTo(nx, ny, nk) {
+  const t0 = { tx, ty, k }, start = performance.now(), dur = 340;
+  cancelAnimationFrame(anim);
+  (function frame(now) {
+    const p = Math.min(1, (now - start) / dur), e = 1 - Math.pow(1 - p, 3);
+    tx = t0.tx + (nx - t0.tx) * e; ty = t0.ty + (ny - t0.ty) * e; k = t0.k + (nk - t0.k) * e;
+    apply();
+    if (p < 1) anim = requestAnimationFrame(frame);
+  })(start);
+}
+function centerOn(n, scale) {
+  const f = frame();
+  const target = scale ?? Math.max(k, SMALL() ? 0.7 : 0.82);
+  animateTo(f.w / 2 - (n._x + NW / 2) * target, f.h / 2 - (n._y + NH / 2) * target, target);
+}
+/* Frame just the nodes a flow touches, so selecting one fills the canvas with
+   that path instead of the whole 74-node map. */
+function fitNodes(ids, pad = 92) {
+  const ns = [...new Set(ids)].map(id => N.get(id)).filter(Boolean);
+  if (!ns.length) return fit();
+  const x0 = Math.min(...ns.map(n => n._x)), x1 = Math.max(...ns.map(n => n._x + NW));
+  const y0 = Math.min(...ns.map(n => n._y)), y1 = Math.max(...ns.map(n => n._y + NH));
+  const f = frame();
+  if (SMALL()) pad = 24;
+  const target = Math.min((f.w - pad * 2) / (x1 - x0), (f.h - pad * 2) / (y1 - y0), 1.15);
+  animateTo(f.w / 2 - (x0 + x1) / 2 * target, f.h / 2 - (y0 + y1) / 2 * target, target);
+}
+const fitFlow = () => activeFlow && fitNodes(activeFlow.steps.map(s => s.node));
+
+svg.addEventListener('wheel', ev => {
+  ev.preventDefault();
+  const r = svg.getBoundingClientRect();
+  zoomAbout(ev.clientX - r.left, ev.clientY - r.top, k * Math.exp(-ev.deltaY * 0.0016), { tx, ty, k });
+}, { passive: false });
+
+/* Pointer capture retargets the follow-up `click` to the <svg>, so selection is
+   driven from pointerdown/up instead: remember what was under the pointer when
+   it went down, and treat a release that barely moved as a click on it. */
+let drag = null, moved = 0, downNode = null, pinch = null;
+const pts = new Map();
+
+function zoomAbout(mx, my, nk, from) {
+  nk = Math.min(2.6, Math.max(0.14, nk));
+  tx = mx - (mx - from.tx) * (nk / from.k);
+  ty = my - (my - from.ty) * (nk / from.k);
+  k = nk; apply();
+}
+
+svg.addEventListener('pointerdown', ev => {
+  if (ev.button !== 0) return;
+  pts.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+  if (pts.size === 2) {                                   // second finger: pinch, not pan
+    drag = null; downNode = null; moved = 999;
+    const [a, b] = [...pts.values()];
+    pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, k, tx, ty, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2 };
+    return;
+  }
+  downNode = ev.target.closest?.('.node')?.dataset.id ?? null;
+  drag = { x: ev.clientX, y: ev.clientY, tx, ty }; moved = 0;
+  try { svg.setPointerCapture(ev.pointerId) } catch { /* pointer already gone */ }
+  svg.classList.add('dragging');
+});
+svg.addEventListener('pointermove', ev => {
+  if (pts.has(ev.pointerId)) pts.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+  if (pinch && pts.size >= 2) {
+    const [a, b] = [...pts.values()];
+    const r = svg.getBoundingClientRect();
+    zoomAbout(pinch.cx - r.left, pinch.cy - r.top, pinch.k * (Math.hypot(a.x - b.x, a.y - b.y) / pinch.d), pinch);
+    return;
+  }
+  if (!drag) return;
+  const dx = ev.clientX - drag.x, dy = ev.clientY - drag.y;
+  moved = Math.max(moved, Math.abs(dx) + Math.abs(dy));
+  tx = drag.tx + dx; ty = drag.ty + dy; apply();
+});
+function endDrag(ev) {
+  drag = null; svg.classList.remove('dragging');
+  if (ev && ev.pointerId != null) {
+    pts.delete(ev.pointerId);
+    if (svg.hasPointerCapture(ev.pointerId)) svg.releasePointerCapture(ev.pointerId);
+  }
+  if (pts.size < 2) pinch = null;
+}
+svg.addEventListener('pointerup', ev => {
+  const hit = downNode, dist = moved;
+  endDrag(ev); downNode = null;
+  if (dist > 5) return;
+  if (hit) selectNode(hit, false);
+  else if (selectedNode || activeFlow) {
+    selectedNode = null; activeFlow = null; activeStep = -1;
+    clearClasses(); renderFlowList(); showTab('flows');
+  }
+});
+svg.addEventListener('pointercancel', ev => { endDrag(ev); downNode = null; });
+
+document.getElementById('zoomIn').onclick = () => { k = Math.min(2.6, k * 1.25); apply(); };
+document.getElementById('zoomOut').onclick = () => { k = Math.max(0.14, k / 1.25); apply(); };
+document.getElementById('fit').onclick = () => fit();
+
+/* ── Tooltip ────────────────────────────────────────────────────────── */
+const tip = document.getElementById('tip');
+function showTip(n, ev) {
+  tip.innerHTML = '';
+  const a = document.createElement('div'); a.className = 'tt'; a.textContent = n.label;
+  const b = document.createElement('div'); b.className = 'tk';
+  b.textContent = `${n.kind} · ${LAYERS[layerIndex.get(n.layer)].label}`;
+  const c = document.createElement('div'); c.className = 'ts'; c.textContent = n.summary;
+  tip.append(a, b, c);
+  if (n.paths && n.paths.length) {
+    const d = document.createElement('div'); d.className = 'tp mono';
+    d.textContent = n.paths.slice(0, 2).join('  ·  ') + (n.paths.length > 2 ? `  +${n.paths.length - 2} more` : '');
+    tip.appendChild(d);
+  }
+  tip.classList.add('on'); moveTip(ev);
+}
+function moveTip(ev) {
+  const r = tip.getBoundingClientRect();
+  let x = ev.clientX + 16, y = ev.clientY + 16;
+  if (x + r.width > innerWidth - 10) x = ev.clientX - r.width - 16;
+  if (y + r.height > innerHeight - 10) y = ev.clientY - r.height - 16;
+  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+}
+const hideTip = () => tip.classList.remove('on');
+
+/* ── Selection state ────────────────────────────────────────────────── */
+let activeFlow = null, activeStep = -1, selectedNode = null;
+
+function clearClasses() {
+  for (const g of nodeEls.values()) g.classList.remove('hl', 'dim', 'active', 'match', 'sel');
+  for (const { g, p } of edgeEls.values()) { g.classList.remove('hl'); p.classList.remove('hl', 'related'); }
+  badgesG.innerHTML = '';
+  svg.classList.remove('dimmed');
+}
+
+function paintFlow() {
+  clearClasses();
+  if (!activeFlow) { if (selectedNode) paintNodeSelection(); return; }
+  svg.classList.add('dimmed');
+  const order = new Map();
+  activeFlow.steps.forEach(s => { if (!order.has(s.node)) order.set(s.node, s.n); });
+  for (const [id, num] of order) {
+    nodeEls.get(id)?.classList.add('hl');
+    const n = N.get(id);
+    const g = el('g', { class: 'badge' });
+    g.appendChild(el('circle', { cx: n._x + 3, cy: n._y + 3, r: 11 }));
+    const t = el('text', { x: n._x + 3, y: n._y + 3 }); t.textContent = num;
+    g.appendChild(t);
+    badgesG.appendChild(g);
+  }
+  for (const s of activeFlow.steps) if (s.edge) {
+    const ee = edgeEls.get(s.edge);
+    if (ee) { ee.g.classList.add('hl'); ee.p.classList.add('hl'); }
+  }
+  if (activeStep >= 0) {
+    const s = activeFlow.steps[activeStep];
+    nodeEls.get(s.node)?.classList.add('active');
+  }
+}
+
+function paintNodeSelection() {
+  clearClasses();
+  if (!selectedNode) return;
+  svg.classList.add('dimmed');
+  nodeEls.get(selectedNode)?.classList.add('hl', 'sel');
+  for (const e of nodeEdges.get(selectedNode)) {
+    const ee = edgeEls.get(e.id);
+    ee.g.classList.add('hl'); ee.p.classList.add('related');
+    nodeEls.get(e.from)?.classList.add('hl');
+    nodeEls.get(e.to)?.classList.add('hl');
+  }
+}
+
+/* ── Panel ──────────────────────────────────────────────────────────── */
+const paneFlows = document.getElementById('pane-flows');
+const paneDetail = document.getElementById('pane-detail');
+const paneLegend = document.getElementById('pane-legend');
+const tabs = [...document.querySelectorAll('.tab')];
+function showTab(id) {
+  tabs.forEach(t => t.setAttribute('aria-selected', String(t.id === 'tab-' + id)));
+  document.querySelectorAll('.pane').forEach(p => p.classList.toggle('on', p.id === 'pane-' + id));
+  if (innerWidth <= 1000) openPanel(true);
+}
+tabs.forEach(t => t.onclick = () => showTab(t.id.replace('tab-', '')));
+
+const h = (tag, cls, txt) => { const x = document.createElement(tag); if (cls) x.className = cls; if (txt != null) x.textContent = txt; return x; };
+
+function renderFlowList(filter = '') {
+  paneFlows.innerHTML = '';
+  const input = h('input', 'flowsearch');
+  input.type = 'search'; input.placeholder = 'Filter flows…'; input.value = filter;
+  input.oninput = () => renderFlowList(input.value);
+  paneFlows.appendChild(input);
+
+  const q = filter.trim().toLowerCase();
+  const list = G.flows.filter(f => !q ||
+    (f.name + ' ' + f.summary + ' ' + f.category + ' ' + f.steps.map(s => s.title + ' ' + s.detail).join(' '))
+      .toLowerCase().includes(q));
+
+  if (!list.length) { paneFlows.appendChild(h('div', 'empty', 'No flow matches that.')); return; }
+
+  let cat = null;
+  for (const f of list) {
+    if (f.category !== cat) { cat = f.category; paneFlows.appendChild(h('div', 'cat', cat)); }
+    const b = h('button', 'flow');
+    b.setAttribute('aria-current', String(activeFlow?.id === f.id));
+    const nm = h('div', 'fn'); nm.append(document.createTextNode(f.name), h('span', 'cnt', f.steps.length + ' steps'));
+    b.append(nm, h('div', 'fs', f.summary));
+    b.onclick = () => selectFlow(f.id);
+    paneFlows.appendChild(b);
+  }
+  if (activeFlow) { requestAnimationFrame(() => renderFlowDetail()); }
+}
+
+function renderFlowDetail() {
+  const f = activeFlow;
+  paneFlows.innerHTML = '';
+  const head = h('div', 'flowhead');
+  head.appendChild(h('h2', null, f.name));
+  const back = h('button', 'btn icon', '✕'); back.title = 'Close flow';
+  back.onclick = () => { activeFlow = null; activeStep = -1; paintFlow(); renderFlowList(); };
+  head.appendChild(back);
+  paneFlows.append(head, h('p', 'lede', f.summary));
+
+  const nav = h('div', 'stepnav');
+  const prev = h('button', 'btn', '← Prev'); prev.onclick = () => step(activeStep - 1);
+  const next = h('button', 'btn', 'Next →'); next.onclick = () => step(activeStep + 1);
+  const all = h('button', 'btn', 'Whole path'); all.onclick = () => { activeStep = -1; paintFlow(); fitFlow(); renderFlowDetail(); };
+  nav.append(prev, next, all);
+  paneFlows.appendChild(nav);
+
+  const ol = h('ol', 'steps');
+  f.steps.forEach((s, i) => {
+    const n = N.get(s.node);
+    const li = h('li', 'step');
+    li.setAttribute('aria-current', String(i === activeStep));
+    li.appendChild(h('div', 'num', String(s.n)));
+    li.appendChild(h('div', 'st', s.title));
+    li.appendChild(h('div', 'sn', n.label + (s.edge ? '  →  ' + E.get(s.edge).label : '')));
+    if (s.detail) li.appendChild(h('div', 'sd', s.detail));
+    li.onclick = () => step(i);
+    ol.appendChild(li);
+  });
+  paneFlows.appendChild(ol);
+}
+
+function step(i) {
+  if (!activeFlow) return;
+  activeStep = Math.max(0, Math.min(activeFlow.steps.length - 1, i));
+  paintFlow();
+  centerOn(N.get(activeFlow.steps[activeStep].node));
+  renderFlowDetail();
+  const cur = paneFlows.querySelector('.step[aria-current="true"]');
+  cur?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+function selectFlow(id) {
+  activeFlow = G.flows.find(f => f.id === id);
+  activeStep = -1; selectedNode = null;
+  paintFlow(); renderFlowDetail(); showTab('flows'); fitFlow();
+}
+
+function renderDetail(id) {
+  const n = N.get(id);
+  paneDetail.innerHTML = '';
+  const root = h('div', 'det');
+  root.style.setProperty('--lc', `var(--L-${n.layer})`);
+  root.appendChild(h('h2', null, n.label));
+  const chips = h('div');
+  chips.append(h('span', 'chip lc', LAYERS[layerIndex.get(n.layer)].label), h('span', 'chip', n.kind));
+  root.appendChild(chips);
+
+  const add = (title, node) => { const s = h('div', 'sect'); s.appendChild(h('h3', null, title)); s.appendChild(node); root.appendChild(s); };
+  add('What it is', h('p', null, n.summary));
+  if (n.detail) add('How it works', h('p', null, n.detail));
+
+  if (n.paths?.length) {
+    const ul = h('ul', 'paths mono');
+    n.paths.forEach(p => ul.appendChild(h('li', null, p)));
+    add('Source', ul);
+  }
+  if (n.tables?.length) {
+    const d = h('div', 'tags');
+    n.tables.forEach(t => d.appendChild(h('span', 'tag mono', t)));
+    add(`Tables (${n.tables.length})`, d);
+  }
+  if (n.tags?.length) {
+    const d = h('div', 'tags');
+    n.tags.forEach(t => d.appendChild(h('span', 'tag', t)));
+    add('Tags', d);
+  }
+
+  const outs = nodeEdges.get(id).filter(e => e.from === id);
+  const ins = nodeEdges.get(id).filter(e => e.to === id);
+  const mkLinks = (arr, dir) => {
+    const d = h('div', 'linkrow');
+    arr.forEach(e => {
+      const other = dir === 'out' ? e.to : e.from;
+      const b = h('button', 'linkbtn', `${dir === 'out' ? '→' : '←'} ${N.get(other).label} · ${e.label}`);
+      b.onclick = () => selectNode(other, true);
+      d.appendChild(b);
+    });
+    return d;
+  };
+  if (outs.length) add(`Calls (${outs.length})`, mkLinks(outs, 'out'));
+  if (ins.length) add(`Called by (${ins.length})`, mkLinks(ins, 'in'));
+
+  const fl = nodeFlows.get(id);
+  if (fl.length) {
+    const d = h('div', 'linkrow');
+    fl.forEach(f => { const b = h('button', 'linkbtn', '▸ ' + f.name); b.onclick = () => selectFlow(f.id); d.appendChild(b); });
+    add(`Appears in ${fl.length} flow${fl.length > 1 ? 's' : ''}`, d);
+  }
+  paneDetail.appendChild(root);
+}
+
+function selectNode(id, recenter) {
+  selectedNode = id; activeFlow = null; activeStep = -1;
+  paintNodeSelection();
+  renderDetail(id);
+  showTab('detail');
+  renderFlowList();
+  if (recenter) centerOn(N.get(id));
+}
+
+/* Node interaction */
+nodesG.addEventListener('pointerover', ev => {
+  const g = ev.target.closest?.('.node'); if (!g) return;
+  showTip(N.get(g.dataset.id), ev);
+});
+nodesG.addEventListener('pointermove', ev => { if (tip.classList.contains('on')) moveTip(ev); });
+nodesG.addEventListener('pointerout', ev => { if (!ev.relatedTarget?.closest?.('.node')) hideTip(); });
+nodesG.addEventListener('pointerdown', hideTip);
+
+/* ── Legend + layer filter ──────────────────────────────────────────── */
+function renderLegend() {
+  paneLegend.innerHTML = '';
+  const add = (title, node) => { const s = h('div', 'sect'); s.appendChild(h('h3', null, title)); s.appendChild(node); paneLegend.appendChild(s); };
+
+  const stats = h('dl', 'kv');
+  const st = G.meta.stats;
+  [['API routes', st.api_routes], ['Pages', st.pages], ['Components', st.components],
+   ['DB tables', st.db_tables], ['SQL migrations', st.sql_migrations], ['TS/TSX lines', st.ts_tsx_loc.toLocaleString()],
+   ['Nodes mapped', G.nodes.length], ['Edges mapped', G.edges.length], ['Flows mapped', G.flows.length]]
+    .forEach(([a, b]) => { stats.appendChild(h('dt', null, a)); stats.appendChild(h('dd', null, String(b))); });
+  add('At a glance', stats);
+
+  const lay = h('div');
+  LAYERS.forEach(l => {
+    const lab = h('label', 'layertoggle');
+    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = true;
+    cb.onchange = () => {
+      byLayer.get(l.id).forEach(n => nodeEls.get(n.id).classList.toggle('hidden', !cb.checked));
+      document.querySelector(`.layerlab[data-layer="${l.id}"]`).classList.toggle('hidden', !cb.checked);
+      for (const e of G.edges) {
+        const hide = N.get(e.from).layer === l.id || N.get(e.to).layer === l.id;
+        if (hide) edgeEls.get(e.id).g.classList.toggle('hidden', !cb.checked);
+      }
+    };
+    const sw = h('span', 'swatch'); sw.style.background = `var(--L-${l.id})`;
+    lab.append(cb, sw, document.createTextNode(`${l.label} (${byLayer.get(l.id).length})`));
+    lay.appendChild(lab);
+  });
+  add('Layers', lay);
+
+  const kinds = h('div');
+  Object.entries(G.meta.legend.edge_kinds).forEach(([kk, vv]) => {
+    const row = h('div', 'legend-item');
+    const ln = h('span', 'legend-line');
+    ln.style.borderTop = `2px ${kk === 'external' ? 'dashed' : kk === 'event' ? 'dotted' : kk === 'redirect' ? 'dashed' : 'solid'} var(--muted-fg)`;
+    row.append(ln, h('span', null, `${kk} — ${vv}`));
+    kinds.appendChild(row);
+  });
+  add('Edge kinds', kinds);
+
+  const conv = h('div');
+  Object.entries(G.meta.conventions).forEach(([kk, vv]) => {
+    const s = h('div'); s.style.marginBottom = '9px';
+    s.appendChild(h('div', null, kk.replace(/_/g, ' '))).style.cssText = 'font-weight:650;font-size:12.5px;text-transform:capitalize';
+    s.appendChild(h('div', null, vv)).style.cssText = 'font-size:12.5px;color:var(--muted-fg);line-height:1.5';
+    conv.appendChild(s);
+  });
+  add('Conventions', conv);
+
+  const note = h('div', 'note', 'Generated from commit ' + G.meta.commit + ' on ' + G.meta.generated +
+    '. Regenerate with: node docs/architecture/build.mjs');
+  paneLegend.appendChild(note);
+}
+
+/* ── Component search ───────────────────────────────────────────────── */
+const q = document.getElementById('q');
+q.addEventListener('input', () => {
+  const s = q.value.trim().toLowerCase();
+  clearClasses();
+  if (!s) { if (activeFlow) paintFlow(); else if (selectedNode) paintNodeSelection(); return; }
+  svg.classList.add('dimmed');
+  let hits = 0, first = null;
+  for (const n of G.nodes) {
+    const hay = [n.label, n.kind, n.summary, n.detail, ...(n.paths || []), ...(n.tables || [])].join(' ').toLowerCase();
+    if (hay.includes(s)) { nodeEls.get(n.id).classList.add('match'); hits++; if (!first) first = n; }
+  }
+  if (hits === 1 && first) centerOn(first);
+});
+q.addEventListener('keydown', ev => { if (ev.key === 'Escape') { q.value = ''; q.dispatchEvent(new Event('input')); q.blur(); } });
+
+/* ── Theme ──────────────────────────────────────────────────────────── */
+const root = document.documentElement;
+document.getElementById('theme').onclick = () => {
+  const order = ['auto', 'light', 'dark'];
+  root.dataset.theme = order[(order.indexOf(root.dataset.theme) + 1) % 3];
+  document.getElementById('theme').title = 'Theme: ' + root.dataset.theme;
+};
+
+/* ── Keyboard ───────────────────────────────────────────────────────── */
+addEventListener('keydown', ev => {
+  if (ev.target.matches('input')) return;
+  if (ev.key === 'f' || ev.key === 'F') fit();
+  if (ev.key === 'Escape') { activeFlow = null; activeStep = -1; selectedNode = null; clearClasses(); renderFlowList(); showTab('flows'); }
+  if (activeFlow && (ev.key === 'ArrowDown' || ev.key === 'j')) { ev.preventDefault(); step(activeStep + 1); }
+  if (activeFlow && (ev.key === 'ArrowUp' || ev.key === 'k')) { ev.preventDefault(); step(activeStep - 1); }
+});
+
+/* ── Mobile drawer ──────────────────────────────────────────────────── */
+const panel = document.getElementById('panel'), toggle = document.getElementById('panelToggle');
+function openPanel(on) { panel.classList.toggle('open', on); toggle.textContent = on ? 'Hide ▼' : 'Flows ▲'; }
+toggle.onclick = () => openPanel(!panel.classList.contains('open'));
+
+/* ── Go ─────────────────────────────────────────────────────────────── */
+document.getElementById('subtitle').textContent =
+  `${G.meta.stats.api_routes} API routes · ${G.meta.stats.pages} pages · ${G.meta.stats.db_tables} tables · ${G.flows.length} flows`;
+renderFlowList();
+renderLegend();
+fit();
+addEventListener('resize', () => fit());
+})();
+</script>
+</body>
+</html>

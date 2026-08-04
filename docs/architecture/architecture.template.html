@@ -1,0 +1,865 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SyteNav · Architecture Map</title>
+<style>
+/* ── SyteNav "Field" tokens ───────────────────────────────────────────── */
+:root{
+  --surface:#F4F4F1; --panel:#FFFFFF; --muted:#EDECE7; --muted2:#E3E1DB;
+  --line:#E7E7E2; --line-soft:#EFEEE9;
+  --ink:#16181B; --ink-soft:#3A3F46; --muted-fg:#6A6E74; --faint:#9A9C96;
+  --accent:#C9F24A; --accent-fg:#5F7A12; --accent-ink:#16181B; --accent-tint:#ECF6C8;
+  --success:#1F8F5F; --danger:#C2341C; --warn:#B57400; --info:#2563EB; --special:#7C3AED;
+  --shadow:0 1px 2px rgba(22,24,27,.06), 0 8px 24px rgba(22,24,27,.06);
+  --L-actors:#2563EB; --L-edge:#B57400; --L-shell:#7C3AED; --L-ui:#5F7A12;
+  --L-api:#1F8F5F; --L-domain:#0E7490; --L-data:#4338CA; --L-external:#6A6E74;
+  --edge-stroke:#C9C9C2; --edge-hl:#16181B;
+}
+@media (prefers-color-scheme: dark){ :root[data-theme="auto"]{ color-scheme:dark;
+  --surface:#0F1113; --panel:#1F2227; --muted:#2A2E34; --muted2:#3A3F46;
+  --line:#2A2E34; --line-soft:#23272D;
+  --ink:#ECEEF0; --ink-soft:#C2C7CE; --muted-fg:#9AA0A8; --faint:#6E747C;
+  --accent:#C9F24A; --accent-fg:#C9F24A; --accent-ink:#0F1113; --accent-tint:#2C3110;
+  --success:#5FD89B; --danger:#FF7A5C; --warn:#FFB02E; --info:#7FB0FF; --special:#C4A2F5;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+  --L-actors:#7FB0FF; --L-edge:#FFB02E; --L-shell:#C4A2F5; --L-ui:#C9F24A;
+  --L-api:#5FD89B; --L-domain:#67E8F9; --L-data:#A5B4FC; --L-external:#9AA0A8;
+  --edge-stroke:#4A5058; --edge-hl:#ECEEF0;
+}}
+:root[data-theme="dark"]{ color-scheme:dark;
+  --surface:#0F1113; --panel:#1F2227; --muted:#2A2E34; --muted2:#3A3F46;
+  --line:#2A2E34; --line-soft:#23272D;
+  --ink:#ECEEF0; --ink-soft:#C2C7CE; --muted-fg:#9AA0A8; --faint:#6E747C;
+  --accent:#C9F24A; --accent-fg:#C9F24A; --accent-ink:#0F1113; --accent-tint:#2C3110;
+  --success:#5FD89B; --danger:#FF7A5C; --warn:#FFB02E; --info:#7FB0FF; --special:#C4A2F5;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+  --L-actors:#7FB0FF; --L-edge:#FFB02E; --L-shell:#C4A2F5; --L-ui:#C9F24A;
+  --L-api:#5FD89B; --L-domain:#67E8F9; --L-data:#A5B4FC; --L-external:#9AA0A8;
+  --edge-stroke:#4A5058; --edge-hl:#ECEEF0;
+}
+:root[data-theme="light"]{ color-scheme:light; }
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--surface); color:var(--ink);
+  font:14px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased; overflow:hidden;
+}
+button{font:inherit;color:inherit}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:var(--muted2);border-radius:99px;border:3px solid transparent;background-clip:content-box}
+
+/* ── Layout ───────────────────────────────────────────────────────────── */
+.app{display:flex;flex-direction:column;height:100dvh}
+header.bar{
+  display:flex;align-items:center;gap:14px;padding:10px 16px;
+  background:var(--panel);border-bottom:1px solid var(--line);flex:none;z-index:30;
+}
+.brand{display:flex;align-items:baseline;gap:10px;min-width:0}
+.brand h1{margin:0;font-size:15px;font-weight:700;letter-spacing:-.01em;white-space:nowrap}
+.brand .sub{color:var(--muted-fg);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.spacer{flex:1}
+.tools{display:flex;align-items:center;gap:8px}
+.search{position:relative}
+.search input{
+  width:210px;padding:7px 10px 7px 30px;border-radius:8px;border:1px solid var(--line);
+  background:var(--surface);color:var(--ink);font-size:13px;outline:none;
+}
+.search input:focus{border-color:var(--accent-fg);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent-fg) 18%,transparent)}
+.search svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);opacity:.5;pointer-events:none}
+.btn{
+  display:inline-flex;align-items:center;gap:6px;padding:7px 11px;border-radius:8px;
+  border:1px solid var(--line);background:var(--surface);cursor:pointer;font-size:13px;
+  white-space:nowrap;transition:background .12s,border-color .12s;
+}
+.btn:hover{background:var(--muted);border-color:var(--muted2)}
+.btn.icon{padding:7px 8px}
+.btn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+
+main{flex:1;display:flex;min-height:0;position:relative}
+.stage{flex:1;position:relative;min-width:0;overflow:hidden;background:
+  radial-gradient(circle at 1px 1px, color-mix(in srgb,var(--muted-fg) 22%,transparent) 1px, transparent 0) 0 0/26px 26px;
+}
+svg#canvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab;touch-action:none}
+svg#canvas.dragging{cursor:grabbing}
+
+/* ── Nodes ────────────────────────────────────────────────────────────── */
+.node{cursor:pointer}
+.node .box{
+  height:100%;border-radius:10px;border:1px solid var(--line);background:var(--panel);
+  box-shadow:var(--shadow);padding:8px 10px 8px 12px;position:relative;overflow:hidden;
+  display:flex;flex-direction:column;justify-content:center;
+  font:inherit;color:var(--ink);transition:border-color .12s, transform .12s;
+}
+.node .box::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--lc)}
+.node .t{font-weight:650;font-size:12.5px;line-height:1.25;letter-spacing:-.005em}
+.node .k{font-size:10.5px;color:var(--muted-fg);margin-top:2px;text-transform:uppercase;letter-spacing:.05em}
+.node:hover .box{border-color:var(--lc);transform:translateY(-1px)}
+.node.sel .box{border-color:var(--lc);box-shadow:0 0 0 2px color-mix(in srgb,var(--lc) 45%,transparent),var(--shadow)}
+.node.dim{opacity:.16}
+.node.hl .box{border-color:var(--lc);box-shadow:0 0 0 2px color-mix(in srgb,var(--lc) 55%,transparent),var(--shadow)}
+.node.active .box{border-color:var(--lc);box-shadow:0 0 0 3px color-mix(in srgb,var(--lc) 70%,transparent),var(--shadow)}
+.node.match .box{border-color:var(--accent-fg);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent-fg) 45%,transparent),var(--shadow)}
+.dimmed .node:not(.hl):not(.match){opacity:.16}
+.node.hidden,.edge.hidden,.layerlab.hidden{display:none}
+
+/* ── Edges ────────────────────────────────────────────────────────────── */
+.edge{fill:none;stroke:var(--edge-stroke);stroke-width:1.4;transition:stroke .12s,stroke-width .12s,opacity .12s}
+.edge.kind-external{stroke-dasharray:5 4}
+.edge.kind-event{stroke-dasharray:2 4}
+.edge.kind-redirect{stroke-dasharray:8 4}
+.dimmed .edge:not(.hl){opacity:.07}
+.edge.hl{stroke:var(--edge-hl);stroke-width:2.4;opacity:1}
+.edge.related{stroke:var(--accent-fg);stroke-width:2}
+.arrow{fill:var(--edge-stroke)}
+.arrow-hl{fill:var(--edge-hl)}
+
+.elabel{font-size:9.5px;fill:var(--muted-fg);paint-order:stroke;stroke:var(--surface);stroke-width:3px;stroke-linejoin:round;pointer-events:none;opacity:0}
+.edge-g.hl .elabel{opacity:1;fill:var(--ink)}
+
+.badge circle{fill:var(--accent);stroke:var(--accent-ink);stroke-width:1}
+.badge text{font-size:11px;font-weight:750;fill:var(--accent-ink);text-anchor:middle;dominant-baseline:central}
+
+.layerlab{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;fill:var(--faint)}
+.layerrule{stroke:var(--line);stroke-width:1}
+
+/* ── Side panel ───────────────────────────────────────────────────────── */
+aside{
+  width:390px;flex:none;background:var(--panel);border-left:1px solid var(--line);
+  display:flex;flex-direction:column;min-height:0;z-index:20;
+}
+.tabs{display:flex;gap:2px;padding:8px 8px 0;border-bottom:1px solid var(--line);flex:none}
+.tab{
+  flex:1;padding:8px 6px;border:none;background:none;cursor:pointer;font-size:12.5px;font-weight:600;
+  color:var(--muted-fg);border-bottom:2px solid transparent;border-radius:6px 6px 0 0;
+}
+.tab:hover{background:var(--muted);color:var(--ink)}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent-fg)}
+.pane{flex:1;overflow-y:auto;padding:12px 14px 40px;display:none}
+.pane.on{display:block}
+
+.flowsearch{width:100%;padding:7px 10px;border-radius:8px;border:1px solid var(--line);
+  background:var(--surface);color:var(--ink);font-size:13px;outline:none;margin-bottom:10px}
+.flowsearch:focus{border-color:var(--accent-fg)}
+.cat{font-size:10.5px;font-weight:750;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin:14px 0 6px}
+.cat:first-child{margin-top:2px}
+.flow{
+  width:100%;text-align:left;padding:9px 11px;border-radius:9px;border:1px solid transparent;
+  background:var(--surface);cursor:pointer;margin-bottom:5px;transition:background .12s,border-color .12s;
+}
+.flow:hover{border-color:var(--muted2);background:var(--muted)}
+.flow[aria-current="true"]{background:var(--accent-tint);border-color:var(--accent-fg)}
+.flow .fn{font-weight:650;font-size:13px;display:flex;align-items:center;gap:7px}
+.flow .fn .cnt{font-size:10.5px;font-weight:700;color:var(--muted-fg);background:var(--muted2);
+  border-radius:99px;padding:1px 6px;flex:none}
+.flow .fs{font-size:12px;color:var(--muted-fg);margin-top:3px;line-height:1.4}
+
+.flowhead{display:flex;align-items:flex-start;gap:8px;margin-bottom:4px}
+.flowhead h2{margin:0;font-size:15px;font-weight:700;letter-spacing:-.01em;flex:1}
+.lede{color:var(--muted-fg);font-size:12.5px;margin:0 0 12px;line-height:1.5}
+.stepnav{display:flex;gap:6px;margin-bottom:12px}
+.steps{list-style:none;margin:0;padding:0;position:relative}
+.steps::before{content:"";position:absolute;left:11px;top:10px;bottom:10px;width:2px;background:var(--line)}
+.step{position:relative;padding:0 0 12px 34px;cursor:pointer}
+.step .num{
+  position:absolute;left:0;top:0;width:23px;height:23px;border-radius:99px;
+  background:var(--muted);color:var(--muted-fg);border:2px solid var(--panel);
+  display:grid;place-items:center;font-size:11.5px;font-weight:750;
+}
+.step[aria-current="true"] .num{background:var(--accent);color:var(--accent-ink)}
+.step .st{font-weight:650;font-size:13px;line-height:1.35}
+.step .sn{font-size:11px;color:var(--muted-fg);margin-top:1px}
+.step .sd{font-size:12.5px;color:var(--muted-fg);margin-top:4px;line-height:1.5}
+.step:hover .st{color:var(--accent-fg)}
+
+.det h2{margin:0 0 2px;font-size:16px;font-weight:700;letter-spacing:-.015em}
+.chip{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  padding:2px 7px;border-radius:99px;background:var(--muted);color:var(--muted-fg);margin-right:5px}
+.chip.lc{background:color-mix(in srgb,var(--lc) 16%,transparent);color:var(--lc)}
+.sect{margin-top:16px}
+.sect h3{margin:0 0 6px;font-size:10.5px;font-weight:750;letter-spacing:.09em;text-transform:uppercase;color:var(--faint)}
+.sect p{margin:0;font-size:13px;line-height:1.55;color:var(--ink-soft)}
+code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11.5px}
+.paths{list-style:none;margin:0;padding:0}
+.paths li{padding:3px 0;border-bottom:1px solid var(--line-soft);color:var(--muted-fg);word-break:break-all}
+.paths li:last-child{border-bottom:none}
+.tags{display:flex;flex-wrap:wrap;gap:5px}
+.tag{font-size:11px;padding:2px 8px;border-radius:99px;background:var(--muted);color:var(--muted-fg)}
+.linkrow{display:flex;flex-direction:column;gap:4px}
+.linkbtn{text-align:left;background:none;border:none;padding:4px 6px;border-radius:6px;cursor:pointer;
+  font-size:12.5px;color:var(--accent-fg);font-weight:600}
+.linkbtn:hover{background:var(--muted)}
+.empty{color:var(--faint);font-size:13px;text-align:center;padding:36px 12px;line-height:1.6}
+
+.legend-item{display:flex;align-items:center;gap:9px;padding:5px 0;font-size:12.5px}
+.swatch{width:13px;height:13px;border-radius:4px;flex:none;border:1px solid rgba(0,0,0,.12)}
+.legend-line{width:26px;height:0;border-top-width:2px;flex:none}
+.layertoggle{display:flex;align-items:center;gap:9px;padding:5px 0;font-size:12.5px;cursor:pointer;user-select:none}
+.layertoggle input{accent-color:var(--accent-fg);width:14px;height:14px;cursor:pointer}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:3px 14px;font-size:12.5px}
+.kv dt{color:var(--muted-fg)}
+.kv dd{margin:0;font-weight:600;text-align:right}
+.note{font-size:12px;color:var(--muted-fg);line-height:1.55;background:var(--surface);
+  border:1px solid var(--line);border-left:3px solid var(--warn);border-radius:8px;padding:9px 11px;margin-top:10px}
+
+/* ── Tooltip ──────────────────────────────────────────────────────────── */
+#tip{
+  position:fixed;z-index:60;max-width:330px;padding:9px 11px;border-radius:9px;
+  background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow);
+  pointer-events:none;opacity:0;transition:opacity .1s;font-size:12.5px;line-height:1.5;
+}
+#tip.on{opacity:1}
+#tip .tt{font-weight:700;margin-bottom:2px;font-size:13px}
+#tip .tk{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted-fg);margin-bottom:5px}
+#tip .ts{color:var(--ink-soft)}
+#tip .tp{margin-top:6px;color:var(--faint);border-top:1px solid var(--line-soft);padding-top:5px}
+
+/* ── Zoom controls ────────────────────────────────────────────────────── */
+.zoom{position:absolute;left:14px;bottom:14px;display:flex;gap:6px;z-index:15}
+.zoom .btn{background:var(--panel);box-shadow:var(--shadow)}
+.hint{position:absolute;right:14px;bottom:14px;z-index:15;font-size:11.5px;color:var(--faint);
+  background:color-mix(in srgb,var(--panel) 82%,transparent);padding:4px 9px;border-radius:7px;
+  border:1px solid var(--line);pointer-events:none}
+#panelToggle{display:none}
+
+/* ── Responsive ───────────────────────────────────────────────────────── */
+@media (max-width:1000px){
+  aside{
+    position:absolute;inset:auto 0 0 0;width:100%;height:62dvh;border-left:none;
+    border-top:1px solid var(--line);border-radius:16px 16px 0 0;box-shadow:var(--shadow);
+    transform:translateY(calc(100% - 0px));transition:transform .22s ease;
+  }
+  aside.open{transform:translateY(0)}
+  #panelToggle{display:inline-flex;position:absolute;right:14px;bottom:14px;z-index:25;
+    background:var(--accent);color:var(--accent-ink);border-color:var(--accent);box-shadow:var(--shadow)}
+  .hint{display:none}
+  .brand .sub{display:none}
+  .search input{width:130px}
+}
+@media (max-width:640px){
+  .brand h1{font-size:13.5px}
+  .tools .btn span{display:none}
+  .search input{width:110px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="bar">
+    <div class="brand">
+      <h1>SyteNav · Architecture Map</h1>
+      <span class="sub" id="subtitle"></span>
+    </div>
+    <div class="spacer"></div>
+    <div class="tools">
+      <div class="search">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="q" type="search" placeholder="Search components…" aria-label="Search components">
+      </div>
+      <button class="btn" id="fit" title="Fit to screen (F)"><span>Fit</span>⤢</button>
+      <button class="btn icon" id="theme" title="Toggle theme" aria-label="Toggle theme">◐</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="stage" id="stage">
+      <svg id="canvas" role="img" aria-label="Interactive architecture diagram">
+        <g id="viewport">
+          <g id="layersG"></g>
+          <g id="edgesG"></g>
+          <g id="nodesG"></g>
+          <g id="badgesG"></g>
+        </g>
+      </svg>
+      <div class="zoom">
+        <button class="btn icon" id="zoomOut" aria-label="Zoom out">−</button>
+        <button class="btn icon" id="zoomIn" aria-label="Zoom in">+</button>
+      </div>
+      <div class="hint">Drag to pan · scroll to zoom · click a node for detail</div>
+      <button class="btn" id="panelToggle">Flows ▲</button>
+    </div>
+
+    <aside id="panel">
+      <div class="tabs" role="tablist">
+        <button class="tab" id="tab-flows" role="tab" aria-selected="true" aria-controls="pane-flows">Flows</button>
+        <button class="tab" id="tab-detail" role="tab" aria-selected="false" aria-controls="pane-detail">Component</button>
+        <button class="tab" id="tab-legend" role="tab" aria-selected="false" aria-controls="pane-legend">Legend</button>
+      </div>
+      <div class="pane on" id="pane-flows" role="tabpanel" aria-labelledby="tab-flows"></div>
+      <div class="pane" id="pane-detail" role="tabpanel" aria-labelledby="tab-detail"></div>
+      <div class="pane" id="pane-legend" role="tabpanel" aria-labelledby="tab-legend"></div>
+    </aside>
+  </main>
+</div>
+
+<div id="tip" role="tooltip"></div>
+
+<script id="graph-data" type="application/json">__GRAPH_JSON__</script>
+<script>
+(() => {
+'use strict';
+const G = JSON.parse(document.getElementById('graph-data').textContent);
+
+/* ── Layout ─────────────────────────────────────────────────────────────
+   Columns by layer (meta.layout.layers), stacked top-to-bottom by node.order,
+   each column vertically centred. Same rule any other renderer can follow.  */
+const NW = 206, NH = 64, VGAP = 11, COLW = 268, PADX = 36, TOPY = 62;
+
+const LAYERS = G.meta.layout.layers;
+const layerIndex = new Map(LAYERS.map((l,i) => [l.id, i]));
+const N = new Map(G.nodes.map(n => [n.id, n]));
+const E = new Map(G.edges.map(e => [e.id, e]));
+
+const byLayer = new Map(LAYERS.map(l => [l.id, []]));
+for (const n of G.nodes) byLayer.get(n.layer).push(n);
+for (const [, arr] of byLayer) arr.sort((a,b) => a.order - b.order);
+
+const maxCount = Math.max(...[...byLayer.values()].map(a => a.length));
+const colH = maxCount * (NH + VGAP) - VGAP;
+for (const [lid, arr] of byLayer) {
+  const h = arr.length * (NH + VGAP) - VGAP;
+  const y0 = TOPY + (colH - h) / 2;
+  arr.forEach((n, i) => {
+    n._x = PADX + layerIndex.get(lid) * COLW;
+    n._y = y0 + i * (NH + VGAP);
+  });
+}
+const W = PADX * 2 + (LAYERS.length - 1) * COLW + NW;
+const H = TOPY + colH + 50;
+
+/* Which edges each node touches, and which flows each node appears in. */
+const nodeEdges = new Map(G.nodes.map(n => [n.id, []]));
+for (const e of G.edges) { nodeEdges.get(e.from).push(e); nodeEdges.get(e.to).push(e); }
+const nodeFlows = new Map(G.nodes.map(n => [n.id, []]));
+for (const f of G.flows) for (const id of new Set(f.steps.map(s => s.node))) nodeFlows.get(id).push(f);
+
+/* ── SVG build ──────────────────────────────────────────────────────── */
+const SVG = 'http://www.w3.org/2000/svg';
+const svg = document.getElementById('canvas');
+const viewport = document.getElementById('viewport');
+const layersG = document.getElementById('layersG');
+const edgesG = document.getElementById('edgesG');
+const nodesG = document.getElementById('nodesG');
+const badgesG = document.getElementById('badgesG');
+const el = (t, a = {}) => { const x = document.createElementNS(SVG, t); for (const k in a) x.setAttribute(k, a[k]); return x; };
+
+/* Column headings */
+LAYERS.forEach((l, i) => {
+  const g = el('g', { class: 'layerlab', 'data-layer': l.id });
+  const t = el('text', { x: PADX + i * COLW, y: 30 });
+  t.textContent = l.label;
+  g.appendChild(t);
+  g.appendChild(el('line', { class: 'layerrule', x1: PADX + i * COLW, y1: 42, x2: PADX + i * COLW + NW, y2: 42 }));
+  layersG.appendChild(g);
+});
+
+/* Edge geometry: exit right, enter left. Backward or same-column hops bow
+   around the columns instead of cutting straight through them. */
+function edgePath(a, b) {
+  const x1 = a._x + NW, y1 = a._y + NH / 2;
+  const x2 = b._x, y2 = b._y + NH / 2;
+  if (x2 >= x1 - 4) {
+    const dx = Math.max(46, (x2 - x1) * 0.46);
+    return `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
+  }
+  const bx1 = a._x + NW + 34, bx2 = b._x - 34;
+  const dip = (y1 + y2) / 2 + (y2 > y1 ? 90 : -90);
+  return `M${x1},${y1} C${bx1},${y1} ${bx1},${dip} ${(x1 + x2) / 2},${dip} C${bx2},${dip} ${bx2},${y2} ${x2},${y2}`;
+}
+
+const edgeEls = new Map();
+for (const e of G.edges) {
+  const a = N.get(e.from), b = N.get(e.to);
+  const g = el('g', { class: 'edge-g', 'data-id': e.id });
+  const p = el('path', { class: `edge kind-${e.kind}`, d: edgePath(a, b) });
+  g.appendChild(p);
+  const mx = (a._x + NW + b._x) / 2, my = (a._y + b._y) / 2 + NH / 2;
+  const lab = el('text', { class: 'elabel', x: mx, y: my - 6, 'text-anchor': 'middle' });
+  lab.textContent = e.label;
+  g.appendChild(lab);
+  edgesG.appendChild(g);
+  edgeEls.set(e.id, { g, p });
+}
+
+const nodeEls = new Map();
+for (const n of G.nodes) {
+  const g = el('g', { class: 'node', 'data-id': n.id, transform: `translate(${n._x},${n._y})` });
+  g.style.setProperty('--lc', `var(--L-${n.layer})`);
+  const fo = el('foreignObject', { width: NW, height: NH });
+  const box = document.createElement('div');
+  box.className = 'box';
+  box.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
+  const t = document.createElement('div'); t.className = 't'; t.textContent = n.label;
+  const k = document.createElement('div'); k.className = 'k'; k.textContent = n.kind;
+  box.append(t, k);
+  fo.appendChild(box);
+  g.appendChild(fo);
+  nodesG.appendChild(g);
+  nodeEls.set(n.id, g);
+}
+
+/* ── Pan / zoom ─────────────────────────────────────────────────────── */
+let tx = 0, ty = 0, k = 1;
+const apply = () => viewport.setAttribute('transform', `translate(${tx},${ty}) scale(${k})`);
+/* On phones the flows drawer covers the lower part of the stage, and fitting
+   74 nodes into 390px would shrink the labels past legibility - so frame into
+   the visible slice and keep a readable floor, letting the user pan instead. */
+const SMALL = () => innerWidth <= 1000;
+function frame() {
+  const r = svg.getBoundingClientRect();
+  return { w: r.width, h: SMALL() ? Math.max(240, r.height * 0.40) : r.height };
+}
+function place(w, h, cx, cy, scale, pad) {
+  const f = frame();
+  k = scale;
+  tx = w * k <= f.w - pad ? f.w / 2 - cx * k : pad / 2;
+  ty = h * k <= f.h - pad ? f.h / 2 - cy * k : pad / 2;
+}
+function fit(pad = 40) {
+  const f = frame();
+  const s = Math.min((f.w - pad * 2) / W, (f.h - pad) / H, 1.35);
+  place(W, H, W / 2, H / 2, Math.max(s, SMALL() ? 0.34 : 0.14), pad);
+  apply();
+}
+let anim = null;
+function smooth() { apply(); }
+function animateTo(nx, ny, nk) {
+  const t0 = { tx, ty, k }, start = performance.now(), dur = 340;
+  cancelAnimationFrame(anim);
+  (function frame(now) {
+    const p = Math.min(1, (now - start) / dur), e = 1 - Math.pow(1 - p, 3);
+    tx = t0.tx + (nx - t0.tx) * e; ty = t0.ty + (ny - t0.ty) * e; k = t0.k + (nk - t0.k) * e;
+    apply();
+    if (p < 1) anim = requestAnimationFrame(frame);
+  })(start);
+}
+function centerOn(n, scale) {
+  const f = frame();
+  const target = scale ?? Math.max(k, SMALL() ? 0.7 : 0.82);
+  animateTo(f.w / 2 - (n._x + NW / 2) * target, f.h / 2 - (n._y + NH / 2) * target, target);
+}
+/* Frame just the nodes a flow touches, so selecting one fills the canvas with
+   that path instead of the whole 74-node map. */
+function fitNodes(ids, pad = 92) {
+  const ns = [...new Set(ids)].map(id => N.get(id)).filter(Boolean);
+  if (!ns.length) return fit();
+  const x0 = Math.min(...ns.map(n => n._x)), x1 = Math.max(...ns.map(n => n._x + NW));
+  const y0 = Math.min(...ns.map(n => n._y)), y1 = Math.max(...ns.map(n => n._y + NH));
+  const f = frame();
+  if (SMALL()) pad = 24;
+  const target = Math.min((f.w - pad * 2) / (x1 - x0), (f.h - pad * 2) / (y1 - y0), 1.15);
+  animateTo(f.w / 2 - (x0 + x1) / 2 * target, f.h / 2 - (y0 + y1) / 2 * target, target);
+}
+const fitFlow = () => activeFlow && fitNodes(activeFlow.steps.map(s => s.node));
+
+svg.addEventListener('wheel', ev => {
+  ev.preventDefault();
+  const r = svg.getBoundingClientRect();
+  zoomAbout(ev.clientX - r.left, ev.clientY - r.top, k * Math.exp(-ev.deltaY * 0.0016), { tx, ty, k });
+}, { passive: false });
+
+/* Pointer capture retargets the follow-up `click` to the <svg>, so selection is
+   driven from pointerdown/up instead: remember what was under the pointer when
+   it went down, and treat a release that barely moved as a click on it. */
+let drag = null, moved = 0, downNode = null, pinch = null;
+const pts = new Map();
+
+function zoomAbout(mx, my, nk, from) {
+  nk = Math.min(2.6, Math.max(0.14, nk));
+  tx = mx - (mx - from.tx) * (nk / from.k);
+  ty = my - (my - from.ty) * (nk / from.k);
+  k = nk; apply();
+}
+
+svg.addEventListener('pointerdown', ev => {
+  if (ev.button !== 0) return;
+  pts.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+  if (pts.size === 2) {                                   // second finger: pinch, not pan
+    drag = null; downNode = null; moved = 999;
+    const [a, b] = [...pts.values()];
+    pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, k, tx, ty, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2 };
+    return;
+  }
+  downNode = ev.target.closest?.('.node')?.dataset.id ?? null;
+  drag = { x: ev.clientX, y: ev.clientY, tx, ty }; moved = 0;
+  try { svg.setPointerCapture(ev.pointerId) } catch { /* pointer already gone */ }
+  svg.classList.add('dragging');
+});
+svg.addEventListener('pointermove', ev => {
+  if (pts.has(ev.pointerId)) pts.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+  if (pinch && pts.size >= 2) {
+    const [a, b] = [...pts.values()];
+    const r = svg.getBoundingClientRect();
+    zoomAbout(pinch.cx - r.left, pinch.cy - r.top, pinch.k * (Math.hypot(a.x - b.x, a.y - b.y) / pinch.d), pinch);
+    return;
+  }
+  if (!drag) return;
+  const dx = ev.clientX - drag.x, dy = ev.clientY - drag.y;
+  moved = Math.max(moved, Math.abs(dx) + Math.abs(dy));
+  tx = drag.tx + dx; ty = drag.ty + dy; apply();
+});
+function endDrag(ev) {
+  drag = null; svg.classList.remove('dragging');
+  if (ev && ev.pointerId != null) {
+    pts.delete(ev.pointerId);
+    if (svg.hasPointerCapture(ev.pointerId)) svg.releasePointerCapture(ev.pointerId);
+  }
+  if (pts.size < 2) pinch = null;
+}
+svg.addEventListener('pointerup', ev => {
+  const hit = downNode, dist = moved;
+  endDrag(ev); downNode = null;
+  if (dist > 5) return;
+  if (hit) selectNode(hit, false);
+  else if (selectedNode || activeFlow) {
+    selectedNode = null; activeFlow = null; activeStep = -1;
+    clearClasses(); renderFlowList(); showTab('flows');
+  }
+});
+svg.addEventListener('pointercancel', ev => { endDrag(ev); downNode = null; });
+
+document.getElementById('zoomIn').onclick = () => { k = Math.min(2.6, k * 1.25); apply(); };
+document.getElementById('zoomOut').onclick = () => { k = Math.max(0.14, k / 1.25); apply(); };
+document.getElementById('fit').onclick = () => fit();
+
+/* ── Tooltip ────────────────────────────────────────────────────────── */
+const tip = document.getElementById('tip');
+function showTip(n, ev) {
+  tip.innerHTML = '';
+  const a = document.createElement('div'); a.className = 'tt'; a.textContent = n.label;
+  const b = document.createElement('div'); b.className = 'tk';
+  b.textContent = `${n.kind} · ${LAYERS[layerIndex.get(n.layer)].label}`;
+  const c = document.createElement('div'); c.className = 'ts'; c.textContent = n.summary;
+  tip.append(a, b, c);
+  if (n.paths && n.paths.length) {
+    const d = document.createElement('div'); d.className = 'tp mono';
+    d.textContent = n.paths.slice(0, 2).join('  ·  ') + (n.paths.length > 2 ? `  +${n.paths.length - 2} more` : '');
+    tip.appendChild(d);
+  }
+  tip.classList.add('on'); moveTip(ev);
+}
+function moveTip(ev) {
+  const r = tip.getBoundingClientRect();
+  let x = ev.clientX + 16, y = ev.clientY + 16;
+  if (x + r.width > innerWidth - 10) x = ev.clientX - r.width - 16;
+  if (y + r.height > innerHeight - 10) y = ev.clientY - r.height - 16;
+  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+}
+const hideTip = () => tip.classList.remove('on');
+
+/* ── Selection state ────────────────────────────────────────────────── */
+let activeFlow = null, activeStep = -1, selectedNode = null;
+
+function clearClasses() {
+  for (const g of nodeEls.values()) g.classList.remove('hl', 'dim', 'active', 'match', 'sel');
+  for (const { g, p } of edgeEls.values()) { g.classList.remove('hl'); p.classList.remove('hl', 'related'); }
+  badgesG.innerHTML = '';
+  svg.classList.remove('dimmed');
+}
+
+function paintFlow() {
+  clearClasses();
+  if (!activeFlow) { if (selectedNode) paintNodeSelection(); return; }
+  svg.classList.add('dimmed');
+  const order = new Map();
+  activeFlow.steps.forEach(s => { if (!order.has(s.node)) order.set(s.node, s.n); });
+  for (const [id, num] of order) {
+    nodeEls.get(id)?.classList.add('hl');
+    const n = N.get(id);
+    const g = el('g', { class: 'badge' });
+    g.appendChild(el('circle', { cx: n._x + 3, cy: n._y + 3, r: 11 }));
+    const t = el('text', { x: n._x + 3, y: n._y + 3 }); t.textContent = num;
+    g.appendChild(t);
+    badgesG.appendChild(g);
+  }
+  for (const s of activeFlow.steps) if (s.edge) {
+    const ee = edgeEls.get(s.edge);
+    if (ee) { ee.g.classList.add('hl'); ee.p.classList.add('hl'); }
+  }
+  if (activeStep >= 0) {
+    const s = activeFlow.steps[activeStep];
+    nodeEls.get(s.node)?.classList.add('active');
+  }
+}
+
+function paintNodeSelection() {
+  clearClasses();
+  if (!selectedNode) return;
+  svg.classList.add('dimmed');
+  nodeEls.get(selectedNode)?.classList.add('hl', 'sel');
+  for (const e of nodeEdges.get(selectedNode)) {
+    const ee = edgeEls.get(e.id);
+    ee.g.classList.add('hl'); ee.p.classList.add('related');
+    nodeEls.get(e.from)?.classList.add('hl');
+    nodeEls.get(e.to)?.classList.add('hl');
+  }
+}
+
+/* ── Panel ──────────────────────────────────────────────────────────── */
+const paneFlows = document.getElementById('pane-flows');
+const paneDetail = document.getElementById('pane-detail');
+const paneLegend = document.getElementById('pane-legend');
+const tabs = [...document.querySelectorAll('.tab')];
+function showTab(id) {
+  tabs.forEach(t => t.setAttribute('aria-selected', String(t.id === 'tab-' + id)));
+  document.querySelectorAll('.pane').forEach(p => p.classList.toggle('on', p.id === 'pane-' + id));
+  if (innerWidth <= 1000) openPanel(true);
+}
+tabs.forEach(t => t.onclick = () => showTab(t.id.replace('tab-', '')));
+
+const h = (tag, cls, txt) => { const x = document.createElement(tag); if (cls) x.className = cls; if (txt != null) x.textContent = txt; return x; };
+
+function renderFlowList(filter = '') {
+  paneFlows.innerHTML = '';
+  const input = h('input', 'flowsearch');
+  input.type = 'search'; input.placeholder = 'Filter flows…'; input.value = filter;
+  input.oninput = () => renderFlowList(input.value);
+  paneFlows.appendChild(input);
+
+  const q = filter.trim().toLowerCase();
+  const list = G.flows.filter(f => !q ||
+    (f.name + ' ' + f.summary + ' ' + f.category + ' ' + f.steps.map(s => s.title + ' ' + s.detail).join(' '))
+      .toLowerCase().includes(q));
+
+  if (!list.length) { paneFlows.appendChild(h('div', 'empty', 'No flow matches that.')); return; }
+
+  let cat = null;
+  for (const f of list) {
+    if (f.category !== cat) { cat = f.category; paneFlows.appendChild(h('div', 'cat', cat)); }
+    const b = h('button', 'flow');
+    b.setAttribute('aria-current', String(activeFlow?.id === f.id));
+    const nm = h('div', 'fn'); nm.append(document.createTextNode(f.name), h('span', 'cnt', f.steps.length + ' steps'));
+    b.append(nm, h('div', 'fs', f.summary));
+    b.onclick = () => selectFlow(f.id);
+    paneFlows.appendChild(b);
+  }
+  if (activeFlow) { requestAnimationFrame(() => renderFlowDetail()); }
+}
+
+function renderFlowDetail() {
+  const f = activeFlow;
+  paneFlows.innerHTML = '';
+  const head = h('div', 'flowhead');
+  head.appendChild(h('h2', null, f.name));
+  const back = h('button', 'btn icon', '✕'); back.title = 'Close flow';
+  back.onclick = () => { activeFlow = null; activeStep = -1; paintFlow(); renderFlowList(); };
+  head.appendChild(back);
+  paneFlows.append(head, h('p', 'lede', f.summary));
+
+  const nav = h('div', 'stepnav');
+  const prev = h('button', 'btn', '← Prev'); prev.onclick = () => step(activeStep - 1);
+  const next = h('button', 'btn', 'Next →'); next.onclick = () => step(activeStep + 1);
+  const all = h('button', 'btn', 'Whole path'); all.onclick = () => { activeStep = -1; paintFlow(); fitFlow(); renderFlowDetail(); };
+  nav.append(prev, next, all);
+  paneFlows.appendChild(nav);
+
+  const ol = h('ol', 'steps');
+  f.steps.forEach((s, i) => {
+    const n = N.get(s.node);
+    const li = h('li', 'step');
+    li.setAttribute('aria-current', String(i === activeStep));
+    li.appendChild(h('div', 'num', String(s.n)));
+    li.appendChild(h('div', 'st', s.title));
+    li.appendChild(h('div', 'sn', n.label + (s.edge ? '  →  ' + E.get(s.edge).label : '')));
+    if (s.detail) li.appendChild(h('div', 'sd', s.detail));
+    li.onclick = () => step(i);
+    ol.appendChild(li);
+  });
+  paneFlows.appendChild(ol);
+}
+
+function step(i) {
+  if (!activeFlow) return;
+  activeStep = Math.max(0, Math.min(activeFlow.steps.length - 1, i));
+  paintFlow();
+  centerOn(N.get(activeFlow.steps[activeStep].node));
+  renderFlowDetail();
+  const cur = paneFlows.querySelector('.step[aria-current="true"]');
+  cur?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+function selectFlow(id) {
+  activeFlow = G.flows.find(f => f.id === id);
+  activeStep = -1; selectedNode = null;
+  paintFlow(); renderFlowDetail(); showTab('flows'); fitFlow();
+}
+
+function renderDetail(id) {
+  const n = N.get(id);
+  paneDetail.innerHTML = '';
+  const root = h('div', 'det');
+  root.style.setProperty('--lc', `var(--L-${n.layer})`);
+  root.appendChild(h('h2', null, n.label));
+  const chips = h('div');
+  chips.append(h('span', 'chip lc', LAYERS[layerIndex.get(n.layer)].label), h('span', 'chip', n.kind));
+  root.appendChild(chips);
+
+  const add = (title, node) => { const s = h('div', 'sect'); s.appendChild(h('h3', null, title)); s.appendChild(node); root.appendChild(s); };
+  add('What it is', h('p', null, n.summary));
+  if (n.detail) add('How it works', h('p', null, n.detail));
+
+  if (n.paths?.length) {
+    const ul = h('ul', 'paths mono');
+    n.paths.forEach(p => ul.appendChild(h('li', null, p)));
+    add('Source', ul);
+  }
+  if (n.tables?.length) {
+    const d = h('div', 'tags');
+    n.tables.forEach(t => d.appendChild(h('span', 'tag mono', t)));
+    add(`Tables (${n.tables.length})`, d);
+  }
+  if (n.tags?.length) {
+    const d = h('div', 'tags');
+    n.tags.forEach(t => d.appendChild(h('span', 'tag', t)));
+    add('Tags', d);
+  }
+
+  const outs = nodeEdges.get(id).filter(e => e.from === id);
+  const ins = nodeEdges.get(id).filter(e => e.to === id);
+  const mkLinks = (arr, dir) => {
+    const d = h('div', 'linkrow');
+    arr.forEach(e => {
+      const other = dir === 'out' ? e.to : e.from;
+      const b = h('button', 'linkbtn', `${dir === 'out' ? '→' : '←'} ${N.get(other).label} · ${e.label}`);
+      b.onclick = () => selectNode(other, true);
+      d.appendChild(b);
+    });
+    return d;
+  };
+  if (outs.length) add(`Calls (${outs.length})`, mkLinks(outs, 'out'));
+  if (ins.length) add(`Called by (${ins.length})`, mkLinks(ins, 'in'));
+
+  const fl = nodeFlows.get(id);
+  if (fl.length) {
+    const d = h('div', 'linkrow');
+    fl.forEach(f => { const b = h('button', 'linkbtn', '▸ ' + f.name); b.onclick = () => selectFlow(f.id); d.appendChild(b); });
+    add(`Appears in ${fl.length} flow${fl.length > 1 ? 's' : ''}`, d);
+  }
+  paneDetail.appendChild(root);
+}
+
+function selectNode(id, recenter) {
+  selectedNode = id; activeFlow = null; activeStep = -1;
+  paintNodeSelection();
+  renderDetail(id);
+  showTab('detail');
+  renderFlowList();
+  if (recenter) centerOn(N.get(id));
+}
+
+/* Node interaction */
+nodesG.addEventListener('pointerover', ev => {
+  const g = ev.target.closest?.('.node'); if (!g) return;
+  showTip(N.get(g.dataset.id), ev);
+});
+nodesG.addEventListener('pointermove', ev => { if (tip.classList.contains('on')) moveTip(ev); });
+nodesG.addEventListener('pointerout', ev => { if (!ev.relatedTarget?.closest?.('.node')) hideTip(); });
+nodesG.addEventListener('pointerdown', hideTip);
+
+/* ── Legend + layer filter ──────────────────────────────────────────── */
+function renderLegend() {
+  paneLegend.innerHTML = '';
+  const add = (title, node) => { const s = h('div', 'sect'); s.appendChild(h('h3', null, title)); s.appendChild(node); paneLegend.appendChild(s); };
+
+  const stats = h('dl', 'kv');
+  const st = G.meta.stats;
+  [['API routes', st.api_routes], ['Pages', st.pages], ['Components', st.components],
+   ['DB tables', st.db_tables], ['SQL migrations', st.sql_migrations], ['TS/TSX lines', st.ts_tsx_loc.toLocaleString()],
+   ['Nodes mapped', G.nodes.length], ['Edges mapped', G.edges.length], ['Flows mapped', G.flows.length]]
+    .forEach(([a, b]) => { stats.appendChild(h('dt', null, a)); stats.appendChild(h('dd', null, String(b))); });
+  add('At a glance', stats);
+
+  const lay = h('div');
+  LAYERS.forEach(l => {
+    const lab = h('label', 'layertoggle');
+    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = true;
+    cb.onchange = () => {
+      byLayer.get(l.id).forEach(n => nodeEls.get(n.id).classList.toggle('hidden', !cb.checked));
+      document.querySelector(`.layerlab[data-layer="${l.id}"]`).classList.toggle('hidden', !cb.checked);
+      for (const e of G.edges) {
+        const hide = N.get(e.from).layer === l.id || N.get(e.to).layer === l.id;
+        if (hide) edgeEls.get(e.id).g.classList.toggle('hidden', !cb.checked);
+      }
+    };
+    const sw = h('span', 'swatch'); sw.style.background = `var(--L-${l.id})`;
+    lab.append(cb, sw, document.createTextNode(`${l.label} (${byLayer.get(l.id).length})`));
+    lay.appendChild(lab);
+  });
+  add('Layers', lay);
+
+  const kinds = h('div');
+  Object.entries(G.meta.legend.edge_kinds).forEach(([kk, vv]) => {
+    const row = h('div', 'legend-item');
+    const ln = h('span', 'legend-line');
+    ln.style.borderTop = `2px ${kk === 'external' ? 'dashed' : kk === 'event' ? 'dotted' : kk === 'redirect' ? 'dashed' : 'solid'} var(--muted-fg)`;
+    row.append(ln, h('span', null, `${kk} — ${vv}`));
+    kinds.appendChild(row);
+  });
+  add('Edge kinds', kinds);
+
+  const conv = h('div');
+  Object.entries(G.meta.conventions).forEach(([kk, vv]) => {
+    const s = h('div'); s.style.marginBottom = '9px';
+    s.appendChild(h('div', null, kk.replace(/_/g, ' '))).style.cssText = 'font-weight:650;font-size:12.5px;text-transform:capitalize';
+    s.appendChild(h('div', null, vv)).style.cssText = 'font-size:12.5px;color:var(--muted-fg);line-height:1.5';
+    conv.appendChild(s);
+  });
+  add('Conventions', conv);
+
+  const note = h('div', 'note', 'Generated from commit ' + G.meta.commit + ' on ' + G.meta.generated +
+    '. Regenerate with: node docs/architecture/build.mjs');
+  paneLegend.appendChild(note);
+}
+
+/* ── Component search ───────────────────────────────────────────────── */
+const q = document.getElementById('q');
+q.addEventListener('input', () => {
+  const s = q.value.trim().toLowerCase();
+  clearClasses();
+  if (!s) { if (activeFlow) paintFlow(); else if (selectedNode) paintNodeSelection(); return; }
+  svg.classList.add('dimmed');
+  let hits = 0, first = null;
+  for (const n of G.nodes) {
+    const hay = [n.label, n.kind, n.summary, n.detail, ...(n.paths || []), ...(n.tables || [])].join(' ').toLowerCase();
+    if (hay.includes(s)) { nodeEls.get(n.id).classList.add('match'); hits++; if (!first) first = n; }
+  }
+  if (hits === 1 && first) centerOn(first);
+});
+q.addEventListener('keydown', ev => { if (ev.key === 'Escape') { q.value = ''; q.dispatchEvent(new Event('input')); q.blur(); } });
+
+/* ── Theme ──────────────────────────────────────────────────────────── */
+const root = document.documentElement;
+document.getElementById('theme').onclick = () => {
+  const order = ['auto', 'light', 'dark'];
+  root.dataset.theme = order[(order.indexOf(root.dataset.theme) + 1) % 3];
+  document.getElementById('theme').title = 'Theme: ' + root.dataset.theme;
+};
+
+/* ── Keyboard ───────────────────────────────────────────────────────── */
+addEventListener('keydown', ev => {
+  if (ev.target.matches('input')) return;
+  if (ev.key === 'f' || ev.key === 'F') fit();
+  if (ev.key === 'Escape') { activeFlow = null; activeStep = -1; selectedNode = null; clearClasses(); renderFlowList(); showTab('flows'); }
+  if (activeFlow && (ev.key === 'ArrowDown' || ev.key === 'j')) { ev.preventDefault(); step(activeStep + 1); }
+  if (activeFlow && (ev.key === 'ArrowUp' || ev.key === 'k')) { ev.preventDefault(); step(activeStep - 1); }
+});
+
+/* ── Mobile drawer ──────────────────────────────────────────────────── */
+const panel = document.getElementById('panel'), toggle = document.getElementById('panelToggle');
+function openPanel(on) { panel.classList.toggle('open', on); toggle.textContent = on ? 'Hide ▼' : 'Flows ▲'; }
+toggle.onclick = () => openPanel(!panel.classList.contains('open'));
+
+/* ── Go ─────────────────────────────────────────────────────────────── */
+document.getElementById('subtitle').textContent =
+  `${G.meta.stats.api_routes} API routes · ${G.meta.stats.pages} pages · ${G.meta.stats.db_tables} tables · ${G.flows.length} flows`;
+renderFlowList();
+renderLegend();
+fit();
+addEventListener('resize', () => fit());
+})();
+</script>
+</body>
+</html>

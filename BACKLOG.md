@@ -64,6 +64,7 @@ move it to **In progress**, and when it ships, move it to **Done** with the PR #
 ---
 
 ## ✅ Recently shipped (for reference)
+- Architecture map: interactive `docs/architecture/architecture.html` + machine-readable `architecture.json` (nodes/edges/25 flows) for AI agents, with a validating build step (#207)
 - Equipment tracking + history (#76, #78)
 - Compliance doc requests by email + AI scan + partial uploads (#79, #80)
 - Money fixes: change orders wired to Financials, single budget number, payments UX, vendor invoice uploads (#81, #82)
