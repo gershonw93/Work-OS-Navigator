@@ -69,6 +69,7 @@
       "authorization": "The permission model lives in lib/permissions.ts (32 resources x view/create/edit/delete). The client resolves it via /api/me/permissions and hides UI; server-side re-checks exist in lib/server-permissions.ts (`getActor`/`actorCan`) but are currently wired into app/api/projects/route.ts plus the settings permission endpoints. Most other handlers authenticate the user and scope queries by company/project rather than consulting the permission grid.",
       "no_account_access": "Subs, clients, architects and inspectors act through unguessable tokens in the URL (bid_invites.token, rfis.answer_token, compliance_requests.token, projects.client_portal_token, profiles.calendar_token). Those routes intentionally skip auth.",
       "activity": "Cross-cutting writes go through lib/log-activity.ts (project_activity) and lib/notify.ts (notifications); the Recent Activity feed and the bell both read those tables.",
+    "notification_fanout": "Two patterns are in use for 'notify the other company', and only one is correct. The reliable one selects every profile at the company and inserts a row per person - app/api/projects/[id]/invoices/[invoiceId]/route.ts and app/api/projects/[id]/bids/route.ts (which uses .in('company_id', ...)) do this. The broken one appends .single() to the same profiles-by-company query; PostgREST returns an error rather than a row whenever the count is not exactly one, so the guarded insert is skipped for any company with two or more users. Two sites currently do this: app/api/projects/[id]/bids/[packageId]/award/route.ts (bid awarded) and app/api/projects/[id]/tasks/route.ts (task assigned to a sub company). Use the fan-out pattern for anything new.",
       "ai_review": "Every AI extraction returns a draft the user reviews and edits before anything is saved."
     }
   },
@@ -222,7 +223,7 @@
     { "id": "e-search-api", "from": "shell-dashboard", "to": "api-search", "label": "global search (cmd-K)", "kind": "fetch" },
     { "id": "e-print-money", "from": "ui-print", "to": "api-money", "label": "invoice / pay-app data", "kind": "fetch" },
     { "id": "e-public-api", "from": "shell-public", "to": "api-public", "label": "token GET/POST", "kind": "fetch" },
-    { "id": "e-public-projects", "from": "shell-public", "to": "api-projects-core", "label": "client portal read", "kind": "fetch" },
+    { "id": "e-public-projects", "from": "shell-public", "to": "sb-service", "label": "portal reads the DB directly (server component)", "kind": "query" },
     { "id": "e-public-ai", "from": "api-public", "to": "api-ai", "label": "scan uploaded doc", "kind": "fetch" },
 
     { "id": "e-me-perms", "from": "api-me", "to": "lib-permissions", "label": "resolve grid", "kind": "query" },
@@ -349,8 +350,8 @@
         { "n": 1, "node": "actor-guest", "edge": "e-guest-mw", "title": "Open the token link", "detail": "Middleware lets it through; no protected prefix matches." },
         { "n": 2, "node": "shell-public", "edge": "e-public-api", "title": "Load the request", "detail": "GET /api/bid/[token] returns the package, project name and address, attachments, and any previous submission by this invite." },
         { "n": 3, "node": "api-public", "edge": "e-public-service", "title": "Submit", "detail": "Line items with quantities, unit prices, sections and payment terms are written as a bid_submissions row." },
-        { "n": 4, "node": "db-bidding", "edge": "e-public-activity", "title": "Tell the GC", "detail": "The submission is logged to project_activity and surfaces on the Bids tab." },
-        { "n": 5, "node": "ui-sub", "edge": "e-sub-api", "title": "Registered subs get more", "detail": "A sub with an account sees the same invite in My Bids, across every GC they work with." }
+        { "n": 4, "node": "db-bidding", "edge": "e-public-activity", "title": "Tell the GC", "detail": "The submission is logged to project_activity and surfaces on the Request Quotes tab, where to-comparison turns the submissions into a quote_comparisons set for side-by-side review." },
+        { "n": 5, "node": "ui-sub", "edge": "e-sub-api", "title": "The link is the only entry point", "detail": "GAP: My Bids reads the older bid_invitations/bids tables, and bid_invites is never served to an authenticated sub, so a registered sub invited through Request Quotes gets no My Bids entry and no in-app notification - only the emailed token link. The older Bids tab path does notify (app/api/projects/[id]/bids/route.ts uses .in('company_id', ...) over every profile at the invited companies)." }
       ]
     },
     {
@@ -364,7 +365,7 @@
         { "n": 3, "node": "db-bidding", "title": "Create the subcontract", "detail": "A subcontracts row inherits scope, trade and contract_amount from the bid." },
         { "n": 4, "node": "db-money", "edge": "e-service-money", "title": "Stage the payments", "detail": "The bid's payment_terms text is split line by line; a percent match becomes a percent stage with its dollar amount, anything else becomes a milestone, ordered by order_index." },
         { "n": 5, "node": "db-field", "edge": "e-service-field", "title": "Put it on the schedule", "detail": "If the bid carried duration_days and earliest_start_date, a schedule_items row is created for the date range." },
-        { "n": 6, "node": "lib-notify", "edge": "e-bidding-notify", "title": "Tell the sub", "detail": "A bid_awarded notification lands for the sub company's profile." },
+        { "n": 6, "node": "lib-notify", "edge": "e-bidding-notify", "title": "Tell the sub", "detail": "A bid_awarded notification lands for the sub company's profile. GAP: the lookup is .from('profiles').select('id').eq('company_id', bid.company_id).single(), and PostgREST's single() errors unless exactly one row comes back - so a sub company with two or more users gets no award notification at all. The result is only truthy for a one-person sub." },
         { "n": 7, "node": "lib-activity", "edge": "e-bidding-activity", "title": "Record it", "detail": "project_activity gets 'Awarded \"scope\" to Company for $amount' with bid, package, company and amount in metadata." }
       ]
     },
@@ -391,7 +392,7 @@
         { "n": 1, "node": "ui-proj-money", "edge": "e-money-api", "title": "Start a draw", "detail": "Only on projects whose billing_mode is progress billing; the Simple mode shows Invoices + Payments instead." },
         { "n": 2, "node": "api-money", "edge": "e-money-service", "title": "Seed the lines", "detail": "Every budget line becomes a pay_application_lines row with its scheduled_value." },
         { "n": 3, "node": "db-money", "title": "Carry previous work forward", "detail": "Prior applications are summed per budget_line_item_id into previous_completed, so this period only asks for new work and stored materials." },
-        { "n": 4, "node": "api-money", "title": "Compute G702", "detail": "completed_to_date = previous + this period + stored; retainage = completed x retainage_pct; current_due = completed less retainage. retainage_pct defaults from projects.default_retainage_pct, then the company default, then 10%." },
+        { "n": 4, "node": "api-money", "title": "Compute G702", "detail": "The detail route does the real thing: completed_to_date = previous + this period + stored, retainage = completed x retainage_pct, earned_less_retainage, then less_previous (prior certificates net of their retainage) to reach current_due, plus balance_to_finish. The list route deliberately skips the previous-certificates subtraction for its summary column, so a draw's current_due reads higher there than on the detail and print views. retainage_pct defaults from projects.default_retainage_pct, then the company default, then 10%." },
         { "n": 5, "node": "ui-print", "edge": "e-print-money", "title": "Issue it", "detail": "Draft to Submitted to Certified to Funded, with a printable G702 + G703 for the architect or bank. Works GC-to-owner and sub-to-GC." }
       ]
     },
@@ -508,7 +509,7 @@
         { "n": 1, "node": "ui-projects", "edge": "e-projects-api", "title": "Generate the link", "detail": "POST /api/projects/[id]/portal-token." },
         { "n": 2, "node": "api-projects-core", "edge": "e-api-service", "title": "Mint the token", "detail": "32 random bytes from crypto.getRandomValues, hex-encoded, written to projects.client_portal_token. Regenerating replaces the old link." },
         { "n": 3, "node": "db-projects", "edge": "e-guest-mw", "title": "Client opens it", "detail": "/portal/[token] renders outside every authenticated layout." },
-        { "n": 4, "node": "shell-public", "edge": "e-public-projects", "title": "They see progress and payments", "detail": "Job progress and payment stages, with no account and no access to anything else." }
+        { "n": 4, "node": "shell-public", "edge": "e-public-projects", "title": "They see progress and payments", "detail": "Job progress and payment stages, with no account and no access to anything else. Unlike the bid, RFI and compliance token pages - which are client components calling their own API routes - the portal is a server component querying Supabase directly with the service-role client, so there is no /api/portal route." }
       ]
     },
     {
@@ -578,7 +579,7 @@
       "summary": "The sub raises a hand, the GC books it, the result gates the next stage.",
       "steps": [
         { "n": 1, "node": "ui-sub", "edge": "e-sub-api", "title": "Sub marks work ready", "detail": "From My Jobs, on their own scope." },
-        { "n": 2, "node": "api-compliance", "edge": "e-comp-notify", "title": "Notify the GC", "detail": "An in-app notification asks them to book the inspector. Email and SMS for this are on the backlog." },
+        { "n": 2, "node": "api-compliance", "edge": "e-comp-notify", "title": "Nothing tells the GC", "detail": "GAP: marking ready PATCHes only ready_marked_by / ready_marked_at, which leaves status unchanged - and the notification block in app/api/projects/[id]/inspections/[inspectionId]/route.ts only fires on status scheduled / passed / failed / pending_reinspection. So no notification and no activity entry is written; the GC sees 'Ready' only if they open the Inspections tab. Notifications do work in the other direction, once the GC schedules or records a result." },
         { "n": 3, "node": "lib-notify", "edge": "e-service-compliance", "title": "Schedule it", "detail": "The inspection is requested and scheduled; it shows on the Master Calendar." },
         { "n": 4, "node": "db-compliance", "edge": "e-comp-ai", "title": "Record the result", "detail": "Pass or fail, with an AI-read inspection card where a document is supplied." },
         { "n": 5, "node": "ui-proj-money", "title": "Gate the money", "detail": "A pass can release the next payment stage on the sub's schedule." }
