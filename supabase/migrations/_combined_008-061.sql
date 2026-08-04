@@ -934,3 +934,23 @@ FROM profiles p
 WHERE dl.created_by = p.id
   AND (dl.created_by_name IS NULL OR btrim(dl.created_by_name) = '')
   AND COALESCE(p.full_name, p.email) IS NOT NULL;
+
+-- ===== 061_daily_log_field_review.sql =====
+-- Field submissions (note + photos from the mobile view) are observations the
+-- site manager reviews, not finished daily logs. Mark where a log came from
+-- and whether it has been reviewed; unreviewed field entries stay out of the
+-- client-facing PDF.
+
+ALTER TABLE daily_logs ADD COLUMN IF NOT EXISTS source text NOT NULL DEFAULT 'office';
+ALTER TABLE daily_logs ADD COLUMN IF NOT EXISTS review_status text NOT NULL DEFAULT 'reviewed';
+ALTER TABLE daily_logs ADD COLUMN IF NOT EXISTS reviewed_by uuid;
+ALTER TABLE daily_logs ADD COLUMN IF NOT EXISTS reviewed_by_name text;
+ALTER TABLE daily_logs ADD COLUMN IF NOT EXISTS reviewed_at timestamptz;
+
+ALTER TABLE project_tasks ADD COLUMN IF NOT EXISTS source_daily_log_id uuid;
+
+UPDATE daily_logs SET source = 'office' WHERE source IS NULL;
+UPDATE daily_logs SET review_status = 'reviewed' WHERE review_status IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_daily_logs_review
+  ON daily_logs (project_id, review_status);

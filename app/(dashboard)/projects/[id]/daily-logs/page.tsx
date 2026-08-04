@@ -13,7 +13,7 @@ import {
   Plus, X, ChevronDown, ChevronUp, BookOpen, AlertTriangle,
   CloudRain, Sun, Cloud, CloudSnow, Wind, Thermometer,
   Users, Building2, Camera, Clock, CheckSquare, Trash2, Flag, Pencil,
-  ShieldAlert, BadgeCheck, Paperclip, FileText, Download, Send, PenLine,
+  ShieldAlert, BadgeCheck, Paperclip, FileText, Download, Send, PenLine, Check,
 } from 'lucide-react'
 
 const SURVEY_QUESTIONS = [
@@ -65,6 +65,10 @@ interface DailyLog {
   signed_by_name?: string | null
   signature_url?: string | null
   signed_at?: string | null
+  source?: string | null            // 'field' when filed from the mobile view
+  review_status?: string | null     // 'pending' until a manager reviews it
+  reviewed_by_name?: string | null
+  reviewed_at?: string | null
   daily_log_updates?: { id: string; body: string; created_by_name: string | null; created_at: string }[]
   daily_log_attachments?: { id: string; file_url: string; file_name: string | null }[]
 }
@@ -132,6 +136,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
       photoCount: entries.reduce(
         (n, e) => n + ((e.daily_log_photos?.length ?? 0) || (e.photos?.length ?? 0)), 0,
       ),
+      pendingCount: entries.filter(e => e.review_status === 'pending').length,
     }))
   }, [logs])
 
@@ -266,6 +271,37 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
       body: JSON.stringify(patch),
     })
     fetchLogs()
+  }
+
+  // ── Field entry review ────────────────────────────────────────────────────
+  const [reviewing, setReviewing] = useState<string | null>(null)
+
+  async function setReviewed(logId: string, reviewed: boolean) {
+    setReviewing(logId)
+    const token = await getToken()
+    const res = await fetch(`/api/projects/${params.id}/daily-logs/${logId}/review`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reviewed }),
+    })
+    setReviewing(null)
+    if (!res.ok) {
+      alert((await res.json().catch(() => ({}))).error ?? 'Could not update review status.')
+      return
+    }
+    fetchLogs()
+  }
+
+  // Open the existing "create task" modal prefilled from a field entry, whose
+  // content lives in notes rather than issue_description.
+  function openTaskFromLog(log: DailyLog) {
+    const firstLine = (log.notes ?? '').trim().split('\n')[0].slice(0, 80)
+    setCreateTaskFromLog(log)
+    setTaskTitle(firstLine || 'Follow up on field log')
+    setTaskDescription(
+      [(log.notes ?? '').trim(), `Filed by ${log.created_by_name ?? 'the field'} on ${new Date(log.created_at).toLocaleString()}.`]
+        .filter(Boolean).join('\n\n'),
+    )
   }
 
   async function deletePhoto(logId: string, photoId: string) {
@@ -529,6 +565,9 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
         assigned_to_member_id,
         assigned_to_company_id,
         assigned_to_name,
+        image_url: createTaskFromLog.daily_log_photos?.[0]?.photo_url
+          ?? createTaskFromLog.photos?.[0]?.url ?? null,
+        source_daily_log_id: createTaskFromLog.id,
       }),
     })
     setCreateTaskFromLog(null)
@@ -1074,6 +1113,9 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
               <div className="flex items-center justify-between gap-3 px-3 pt-1.5 pb-0.5">
                 <p className="font-semibold text-ink">{day.label}</p>
                 <p className="text-xs text-faint flex items-center gap-2">
+                  {day.pendingCount > 0 && (
+                    <span className="text-warn font-medium">{day.pendingCount} to review</span>
+                  )}
                   <span>{day.entries.length} entries</span>
                   {day.photoCount > 0 && (
                     <span className="inline-flex items-center gap-1">
@@ -1115,6 +1157,16 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                           {weatherIcon(log.weather ?? log.weather_condition)}
                           <span className="capitalize">{log.weather ?? log.weather_condition}</span>
                           {log.temperature && <span>· {log.temperature}°F</span>}
+                        </span>
+                      )}
+                      {log.review_status === 'pending' && (
+                        <span className="text-xs font-medium text-warn bg-warn-tint border border-warn/30 rounded-full px-2 py-0.5">
+                          Needs review
+                        </span>
+                      )}
+                      {log.source === 'field' && log.review_status !== 'pending' && (
+                        <span className="text-xs font-medium text-muted-fg bg-muted border border-line rounded-full px-2 py-0.5">
+                          From the field
                         </span>
                       )}
                       {log.has_issues && (
@@ -1173,11 +1225,48 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                       </div>
                     </div>
 
-                    {/* Export */}
-                    <div className="flex justify-end">
-                      <Button size="sm" variant="outline" onClick={() => downloadPdf(log.id)}>
-                        <Download className="h-3.5 w-3.5" /> Download PDF
-                      </Button>
+                    {/* Review banner for field observations awaiting sign-off */}
+                    {log.review_status === 'pending' && (
+                      <div className="rounded-lg border border-warn/30 bg-warn-tint px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+                        <div className="text-sm">
+                          <p className="font-semibold text-ink">Filed from the field, not reviewed yet</p>
+                          <p className="text-xs text-muted-fg mt-0.5">
+                            Kept out of the client PDF until you review it. Turn it into a task if it needs work.
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Button size="sm" variant="outline" onClick={() => openTaskFromLog(log)}>
+                            <CheckSquare className="h-3.5 w-3.5" /> Create task
+                          </Button>
+                          <Button size="sm" disabled={reviewing === log.id}
+                            onClick={() => setReviewed(log.id, true)}>
+                            <Check className="h-3.5 w-3.5" />
+                            {reviewing === log.id ? 'Saving…' : 'Mark reviewed'}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Export + review state */}
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-xs text-faint">
+                        {log.review_status === 'reviewed' && log.reviewed_by_name
+                          ? `Reviewed by ${log.reviewed_by_name}`
+                          : ''}
+                      </p>
+                      <div className="flex gap-2">
+                        {log.source === 'field' && log.review_status !== 'pending' && (
+                          <Button size="sm" variant="outline" disabled={reviewing === log.id}
+                            onClick={() => setReviewed(log.id, false)}>
+                            Undo review
+                          </Button>
+                        )}
+                        <Button size="sm" variant="outline" disabled={log.review_status === 'pending'}
+                          title={log.review_status === 'pending' ? 'Review this entry first' : undefined}
+                          onClick={() => downloadPdf(log.id)}>
+                          <Download className="h-3.5 w-3.5" /> Download PDF
+                        </Button>
+                      </div>
                     </div>
 
                     {/* Safety observation */}

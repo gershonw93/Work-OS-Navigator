@@ -53,6 +53,8 @@ export default function FieldLog() {
       const fd = new FormData()
       fd.append('log_date', new Date().toISOString().slice(0, 10))
       fd.append('notes', note)
+      // Marks this as a field observation for the site manager to review.
+      fd.append('source', 'field')
       photos.forEach(f => fd.append('photos', f))
       const res = await fetch(`/api/projects/${projectId}/daily-logs`, {
         method: 'POST',
