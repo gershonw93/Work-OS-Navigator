@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 import { SignaturePad } from '@/components/ui/signature-pad'
+import { ImageLightbox, type LightboxImage } from '@/components/ui/image-lightbox'
 import {
   Plus, X, ChevronDown, ChevronUp, BookOpen, AlertTriangle,
   CloudRain, Sun, Cloud, CloudSnow, Wind, Thermometer,
@@ -108,6 +109,9 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
   const [moreCats, setMoreCats] = useState<string[]>([])
   const [photoUploading, setPhotoUploading] = useState(false)
   const moreInputRef = useRef<HTMLInputElement>(null)
+
+  // Full-screen photo viewer. Thumbnails stay small; clicking opens this.
+  const [lightbox, setLightbox] = useState<{ images: LightboxImage[]; index: number } | null>(null)
 
   // New field-report model
   const [survey, setSurvey] = useState<Record<string, SurveyAnswer>>(blankSurvey())
@@ -1239,15 +1243,25 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                             Work Log Photos <span className="normal-case font-normal text-faint">({total})</span>
                           </p>
                           {dbPhotos.length > 0 && (
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
-                              {dbPhotos.map(p => (
+                            // auto-fill keeps tiles small on wide screens instead of
+                            // stretching each one to a third of the panel.
+                            <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3 mb-3">
+                              {dbPhotos.map((p, pi) => (
                                 <div key={p.id} className="space-y-1">
                                   <div className="relative group">
-                                    <a href={p.photo_url} target="_blank" rel="noopener noreferrer">
-                                      <div className="aspect-square overflow-hidden rounded-lg border border-line">
+                                    <button
+                                      type="button"
+                                      onClick={() => setLightbox({
+                                        images: dbPhotos.map(x => ({ url: x.photo_url, caption: x.caption })),
+                                        index: pi,
+                                      })}
+                                      className="block w-full"
+                                      aria-label="Expand photo"
+                                    >
+                                      <div className="h-28 overflow-hidden rounded-lg border border-line">
                                         <img src={p.photo_url} alt={p.caption || 'Photo'} className="h-full w-full object-cover group-hover:opacity-90 transition-opacity" />
                                       </div>
-                                    </a>
+                                    </button>
                                     <button onClick={() => deletePhoto(log.id, p.id)} className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-danger-solid text-white flex items-center justify-center opacity-0 group-hover:opacity-100"><X className="h-3 w-3" /></button>
                                   </div>
                                   {/* Tag later: sub + category */}
@@ -1266,11 +1280,20 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                             </div>
                           )}
                           {dbPhotos.length === 0 && legacyPhotos.length > 0 && (
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
+                            <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2 mb-3">
                               {legacyPhotos.map((p, i) => (
-                                <a key={i} href={p.url} target="_blank" rel="noopener noreferrer" className="block aspect-square overflow-hidden rounded-lg border border-line">
+                                <button
+                                  key={i}
+                                  type="button"
+                                  onClick={() => setLightbox({
+                                    images: legacyPhotos.map(x => ({ url: x.url, caption: x.caption })),
+                                    index: i,
+                                  })}
+                                  aria-label="Expand photo"
+                                  className="block h-28 overflow-hidden rounded-lg border border-line hover:opacity-90 transition-opacity"
+                                >
                                   <img src={p.url} alt={p.caption || `Photo ${i + 1}`} className="h-full w-full object-cover" />
-                                </a>
+                                </button>
                               ))}
                             </div>
                           )}
@@ -1384,6 +1407,15 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
             )
           })}
         </div>
+      )}
+
+      {lightbox && (
+        <ImageLightbox
+          images={lightbox.images}
+          index={lightbox.index}
+          onClose={() => setLightbox(null)}
+          onIndexChange={i => setLightbox(prev => (prev ? { ...prev, index: i } : prev))}
+        />
       )}
     </div>
   )
