@@ -179,7 +179,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'request-quotes',
     title: 'Request quotes from subs by email',
     category: 'quotes',
-    keywords: ['quote', 'rfq', 'request', 'bid', 'invite', 'email', 'link'],
+    keywords: ['quote', 'rfq', 'request', 'bid', 'invite', 'email', 'link', 'notification', 'my bids', 'quote requests'],
     summary: 'Send subs a private link to submit a quote - no account needed.',
     blocks: [
       { type: 'steps', items: [
@@ -190,6 +190,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'Watch responses come in as subs submit - the status updates from invited to viewed to submitted.',
       ] },
       { type: 'tip', text: 'Subs do not need a SyteNav account. The link opens a simple page where they enter an amount and attach their quote.' },
+      { type: 'tip', text: 'If you picked the sub from your Directory and they DO have a SyteNav account, they also get a notification and the request shows up under Quote requests on their My Bids page - so it does not get lost in an inbox.' },
     ],
     related: ['compare-quotes', 'award-quote'],
   },
@@ -881,6 +882,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: 'steps', items: [
         'On the Inspections tab, click Request Inspection (a site manager or sub can do this).',
         'Pick the inspection type, the contact/inspector to schedule with, a preferred date and time, and assign who schedules it. That person gets a notification.',
+        'When the work is actually done, the sub hits Mark Ready for Inspection from My Jobs (or anyone can from the Inspections tab). Whoever requested it and whoever schedules it get a notification to book the inspector, and it lands in the job history.',
         'The scheduler books it and marks it Scheduled - the requester is notified back.',
         'After the visit, upload the inspector\'s card/paper on the inspection - AI reads it and fills the details.',
         'Mark it Passed or Failed - the requester (and scheduler) are notified of the result.',

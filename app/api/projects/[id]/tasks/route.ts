@@ -109,10 +109,12 @@ export async function POST(request: Request, { params }: { params: { id: string 
     { task_id: (data as any)?.id }, user.id,
   )
 
-  // Notify assigned team member if they have a profile
+  // Notify assigned team member if they have a profile. Tracked outside the
+  // block so the sub-company fan-out below doesn't notify them twice.
+  let notifyUserId: string | null = null
   if (assigned_to_member_id) {
     const { data: member } = await db.from('project_team_members').select('email, profile_id').eq('id', assigned_to_member_id).maybeSingle()
-    let notifyUserId: string | null = (member as any)?.profile_id ?? null
+    notifyUserId = (member as any)?.profile_id ?? null
     if (!notifyUserId && (member as any)?.email) {
       const { data: p } = await db.from('profiles').select('id').eq('email', (member as any).email).maybeSingle()
       notifyUserId = p?.id ?? null
@@ -127,16 +129,21 @@ export async function POST(request: Request, { params }: { params: { id: string 
     }
   }
 
-  // Also notify sub company if assigned to a company
+  // Also notify the sub company if the task is assigned to one. Everyone at the
+  // company, not .single() - that errors unless there is exactly one user, which
+  // silently dropped the notification for any sub with a second account.
   if (assigned_to_company_id) {
-    const { data: subProfile } = await db.from('profiles').select('id').eq('company_id', assigned_to_company_id).single()
-    if (subProfile) {
-      await db.from('notifications').insert({
-        user_id: subProfile.id,
-        type: 'task_assigned',
-        message: `You have been assigned a task: "${title}"`,
-        read: false,
-      })
+    const { data: subProfiles } = await db.from('profiles').select('id').eq('company_id', assigned_to_company_id)
+    const recipients = (subProfiles ?? []).filter(p => p.id !== notifyUserId)
+    if (recipients.length) {
+      await db.from('notifications').insert(
+        recipients.map(p => ({
+          user_id: p.id,
+          type: 'task_assigned',
+          message: `You have been assigned a task: "${title}"`,
+          read: false,
+        }))
+      )
     }
   }
 

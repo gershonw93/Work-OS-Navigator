@@ -84,6 +84,44 @@ export async function PATCH(
     )
   }
 
+  // A sub marking work ready only writes ready_marked_by/at - it never touches
+  // status, so it falls outside the status-change notifications below. Tell the
+  // GC anyway, otherwise the hand goes up and nobody sees it.
+  if ('ready_marked_by' in updates && updates.ready_marked_by) {
+    const trade = inspection.trade ? ` (${inspection.trade})` : ''
+    const label = inspection.type ? `${inspection.type}${trade}` : 'Inspection'
+    const { data: proj } = await db.from('projects').select('name, gc_company_id').eq('id', params.id).single()
+    const at = proj?.name ? ` at ${proj.name}` : ''
+
+    await logActivity(
+      db, params.id, actorName, 'inspection_ready',
+      `${label} marked ready for inspection${inspection.trade ? '' : at}`,
+      { inspection_id: inspection.id, inspection_type: inspection.type, trade: inspection.trade },
+      user.id,
+    )
+
+    // Whoever asked for it and whoever books it; fall back to the GC's office
+    // when the inspection was raised by the sub side.
+    const recipients = new Set<string>()
+    if (inspection.requested_by_id) recipients.add(inspection.requested_by_id)
+    if (inspection.scheduler_profile_id) recipients.add(inspection.scheduler_profile_id)
+    recipients.delete(user.id)
+    if (!recipients.size && proj?.gc_company_id) {
+      const { data: office } = await db.from('profiles').select('id').eq('company_id', proj.gc_company_id)
+      for (const p of office ?? []) if (p.id !== user.id) recipients.add(p.id)
+    }
+    if (recipients.size) {
+      await db.from('notifications').insert(
+        Array.from(recipients).map(uid => ({
+          user_id: uid,
+          type: 'inspection_ready',
+          message: `${updates.ready_marked_by} marked ${label}${at} ready for inspection. Book the inspector when you can.`,
+          read: false,
+        })),
+      )
+    }
+  }
+
   // Follow-up notifications on status changes: keep the requester (and scheduler)
   // in the loop when the inspection is booked, passes, or fails.
   if (newStatus && ['scheduled', 'passed', 'failed', 'pending_reinspection'].includes(newStatus)) {

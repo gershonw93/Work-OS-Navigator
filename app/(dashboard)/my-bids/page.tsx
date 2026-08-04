@@ -24,11 +24,31 @@ interface Invitation {
   my_bid: { id: string; amount: number; status: string } | null
 }
 
+// Request Quotes invites. These live in the newer bid_requests/bid_invites
+// tables and are answered on the public token page, so they link out to it
+// rather than to /my-bids/[packageId].
+interface QuoteRequest {
+  id: string
+  token: string
+  status: string
+  invited_at: string
+  request: {
+    id: string
+    title: string
+    trade: string | null
+    due_date: string | null
+    status: string
+    projects: { id: string; name: string; address: string } | null
+  } | null
+  my_submission: { id: string; amount: number | null; created_at: string } | null
+}
+
 type Tab = 'new' | 'revisions' | 'awarded'
 
 export default function MyBidsPage() {
   const supabase = createClient()
   const [invitations, setInvitations] = useState<Invitation[]>([])
+  const [quoteRequests, setQuoteRequests] = useState<QuoteRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<Tab>('new')
   const [expandedJob, setExpandedJob] = useState<string | null>(null)
@@ -40,7 +60,8 @@ export default function MyBidsPage() {
       const res = await fetch('/api/my-bids', { headers: { Authorization: `Bearer ${token}` } })
       if (res.ok) {
         const data = await res.json()
-        setInvitations(data.invitations)
+        setInvitations(data.invitations ?? [])
+        setQuoteRequests(data.quote_requests ?? [])
       }
       setLoading(false)
     }
@@ -119,14 +140,56 @@ export default function MyBidsPage() {
         <p className="text-sm text-muted-fg mt-0.5">Bid invitations and your submitted proposals.</p>
       </div>
 
+      {!loading && quoteRequests.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-sm font-semibold text-ink-soft">Quote requests</h2>
+          {quoteRequests.map(qr => {
+            const req = qr.request
+            const answered = !!qr.my_submission
+            return (
+              <a
+                key={qr.id}
+                href={`/bid/${qr.token}`}
+                className="flex items-center gap-3 sm:gap-4 bg-panel rounded-xl border border-line px-4 sm:px-5 py-4 hover:border-accent hover:shadow-sm transition-all group"
+              >
+                <div className="shrink-0">
+                  {answered
+                    ? <CheckCircle2 className="h-5 w-5 text-success" />
+                    : <Clock className="h-5 w-5 text-accent-fg" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-ink">{req?.title ?? 'Quote request'}</span>
+                    {req?.trade && <span className="text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{req.trade}</span>}
+                  </div>
+                  <p className="text-xs text-muted-fg mt-0.5">
+                    {req?.projects?.name ?? 'A project'}
+                    {req?.due_date && ` · due ${new Date(req.due_date).toLocaleDateString()}`}
+                  </p>
+                  {!answered && <p className="text-xs text-accent-fg mt-0.5 font-medium">Open to submit your quote</p>}
+                </div>
+                <div className="shrink-0 flex items-center gap-3">
+                  {qr.my_submission?.amount != null && (
+                    <span className="text-sm font-semibold text-ink-soft">${Number(qr.my_submission.amount).toLocaleString()}</span>
+                  )}
+                  <ChevronRight className="h-4 w-4 text-faint group-hover:text-accent-fg transition-colors" />
+                </div>
+              </a>
+            )
+          })}
+        </div>
+      )}
+
       {loading ? (
         <div className="text-sm text-faint py-12 text-center">Loading...</div>
       ) : invitations.length === 0 ? (
-        <EmptyState
-          icon={Package}
-          title="No bid invitations yet"
-          description="When a general contractor invites you to bid on a project, it will appear here."
-        />
+        quoteRequests.length === 0 && (
+          <EmptyState
+            icon={Package}
+            title="No bid invitations yet"
+            description="When a general contractor invites you to bid on a project, it will appear here."
+          />
+        )
       ) : (
         <>
           {/* Tabs */}
