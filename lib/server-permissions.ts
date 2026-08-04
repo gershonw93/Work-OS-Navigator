@@ -69,3 +69,39 @@ export function actorCan(actor: ActorPerms | null, resource: string, action: Act
   if (!actor) return false
   return can(actor.permissions, resource, action)
 }
+
+/**
+ * Projects a user is explicitly assigned to, plus the project_team_members
+ * rows that represent them (used to scope "my tasks").
+ *
+ * Assignment is recorded by profile_id where available and otherwise by
+ * email/name, so both are checked - same resolution the projects list uses.
+ */
+export async function getAssignment(
+  db: SupabaseClient,
+  userId: string,
+): Promise<{ projectIds: string[]; memberIds: string[] }> {
+  const { data: profile } = await db
+    .from('profiles').select('email, full_name').eq('id', userId).single()
+
+  const { data: byProfileId } = await db
+    .from('project_team_members').select('id, project_id').eq('profile_id', userId)
+
+  let rows = byProfileId ?? []
+
+  if (rows.length === 0 && profile) {
+    const conditions: string[] = []
+    if (profile.email) conditions.push(`email.eq.${profile.email}`)
+    if (profile.full_name) conditions.push(`name.eq.${profile.full_name}`)
+    if (conditions.length > 0) {
+      const { data: byNameEmail } = await db
+        .from('project_team_members').select('id, project_id').or(conditions.join(','))
+      rows = byNameEmail ?? []
+    }
+  }
+
+  return {
+    projectIds: Array.from(new Set(rows.map((r: any) => r.project_id).filter(Boolean))),
+    memberIds: Array.from(new Set(rows.map((r: any) => r.id).filter(Boolean))),
+  }
+}
