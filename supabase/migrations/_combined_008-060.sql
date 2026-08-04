@@ -922,3 +922,15 @@ ALTER TABLE projects ADD COLUMN IF NOT EXISTS labor_rate numeric(12, 2) NOT NULL
 ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
 
 UPDATE profiles SET role = 'read_only' WHERE role IS NULL OR btrim(role) = '';
+
+-- ===== 060_backfill_daily_log_authors.sql =====
+-- daily_logs stored created_by but never created_by_name, the field the log
+-- list and PDF render, so every log showed "Logged by" with nothing after it.
+-- The insert now stamps the name; this backfills older rows.
+
+UPDATE daily_logs dl
+SET created_by_name = COALESCE(p.full_name, p.email)
+FROM profiles p
+WHERE dl.created_by = p.id
+  AND (dl.created_by_name IS NULL OR btrim(dl.created_by_name) = '')
+  AND COALESCE(p.full_name, p.email) IS NOT NULL;
