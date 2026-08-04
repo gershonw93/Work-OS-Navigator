@@ -910,3 +910,15 @@ ALTER TABLE client_payments ADD COLUMN IF NOT EXISTS qbo_synced_at timestamptz;
 -- in which case the UI shows hours only and leaves labor out of the cost).
 
 ALTER TABLE projects ADD COLUMN IF NOT EXISTS labor_rate numeric(12, 2) NOT NULL DEFAULT 0;
+
+-- ===== 059_profiles_role_allow_custom_classes.sql =====
+-- profiles.role had a CHECK constraint listing a fixed set of roles, which
+-- predated both the 'worker' role and custom classes (company_roles), whose
+-- keys are generated at runtime and can never be enumerated in a CHECK.
+-- Assigning either failed with "violates check constraint profiles_role_check".
+-- Validation lives in the API instead (isAssignableRole); unknown values
+-- resolve to no-access via resolveRoleBase(), so they fail closed.
+
+ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
+
+UPDATE profiles SET role = 'read_only' WHERE role IS NULL OR btrim(role) = '';
