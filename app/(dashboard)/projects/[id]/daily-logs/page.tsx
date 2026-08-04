@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
+import { usePermissions } from '@/lib/use-permissions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -77,6 +78,10 @@ interface TeamMember { id: string; name: string; role: string }
 interface SubContract { id: string; company_id: string; trade: string; companies?: { name: string } }
 
 export default function DailyLogsPage({ params }: { params: { id: string } }) {
+  const { can } = usePermissions()
+  const canCreateLog = can('daily-logs', 'create')
+  const canEditLog = can('daily-logs', 'edit')
+  const canDeleteLog = can('daily-logs', 'delete')
   const supabase = createClient()
   const photoInputRef = useRef<HTMLInputElement>(null)
 
@@ -833,9 +838,11 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
           <h1 className="text-2xl font-bold text-ink">Daily Logs</h1>
           <p className="text-sm text-muted-fg mt-0.5">Field reports, site conditions, and crew activity.</p>
         </div>
-        <Button onClick={() => { resetForm(); setShowForm(true) }}>
-          <Plus className="h-4 w-4" /> New Log
-        </Button>
+        {canCreateLog && (
+          <Button onClick={() => { resetForm(); setShowForm(true) }}>
+            <Plus className="h-4 w-4" /> New Log
+          </Button>
+        )}
       </div>
 
       {/* New Log Form */}
@@ -1195,14 +1202,18 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                     </p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0 text-faint">
-                    <button type="button" onClick={e => { e.stopPropagation(); openEditLog(log) }}
-                      className="p-1 text-faint hover:text-muted-fg" title="Edit log">
-                      <Pencil className="h-4 w-4" />
-                    </button>
-                    <button type="button" onClick={e => { e.stopPropagation(); handleDeleteLog(log.id) }}
-                      className="p-1 text-danger hover:text-danger" title="Delete log">
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    {canEditLog && (
+                      <button type="button" onClick={e => { e.stopPropagation(); openEditLog(log) }}
+                        className="p-1 text-faint hover:text-muted-fg" title="Edit log">
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                    )}
+                    {canDeleteLog && (
+                      <button type="button" onClick={e => { e.stopPropagation(); handleDeleteLog(log.id) }}
+                        className="p-1 text-danger hover:text-danger" title="Delete log">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
                     {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                   </div>
                 </button>
@@ -1234,7 +1245,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                             Kept out of the client PDF until you review it. Turn it into a task if it needs work.
                           </p>
                         </div>
-                        <div className="flex flex-wrap gap-2">
+                        <div className={cn('flex flex-wrap gap-2', !canEditLog && 'hidden')}>
                           <Button size="sm" variant="outline" onClick={() => openTaskFromLog(log)}>
                             <CheckSquare className="h-3.5 w-3.5" /> Create task
                           </Button>
