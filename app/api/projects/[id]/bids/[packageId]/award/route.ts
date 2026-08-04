@@ -87,26 +87,28 @@ export async function POST(
     })
   }
 
-  // Send notification to awarded sub
-  const { data: subProfile } = await db
+  // Notify everyone at the awarded sub. Not .single() - that errors unless the
+  // company has exactly one user, which silently dropped the notification for
+  // any sub with a second account.
+  const { data: subProfiles } = await db
     .from('profiles')
     .select('id')
     .eq('company_id', bid.company_id)
-    .single()
 
-  if (subProfile) {
-    await db.from('notifications').insert({
-      user_id: subProfile.id,
-      type: 'bid_awarded',
-      message: `You have been awarded the ${bid.bid_packages?.scope} contract. Check your dashboard for next steps.`,
-      read: false,
-    })
+  if (subProfiles?.length) {
+    await db.from('notifications').insert(
+      subProfiles.map(p => ({
+        user_id: p.id,
+        type: 'bid_awarded',
+        message: `You have been awarded the ${bid.bid_packages?.scope} contract. Check your dashboard for next steps.`,
+        read: false,
+      }))
+    )
   }
 
   // Fetch GC actor name
   const { data: gcProfile } = await db.from('profiles').select('full_name').eq('id', user.id).single()
   const actorName = (gcProfile as any)?.full_name ?? 'Someone'
-  const subName = (bid as any)?.companies?.name ?? '' 
 
   // Fetch company name for the awarded bid
   const { data: awardedCompany } = await db.from('companies').select('name').eq('id', bid.company_id).single()

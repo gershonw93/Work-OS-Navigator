@@ -33,6 +33,29 @@ export async function POST(request: Request, { params }: { params: { id: string;
 
   const { data, error } = await db.from('bid_invites').insert(rows).select()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Invitees who already have an account get the bell too, not just the emailed
+  // link - same as the older Bids tab path does.
+  const companyIds = Array.from(new Set(rows.map(r => r.vendor_company_id).filter(Boolean) as string[]))
+  if (companyIds.length) {
+    const [{ data: profiles }, { data: req }] = await Promise.all([
+      db.from('profiles').select('id').in('company_id', companyIds),
+      db.from('bid_requests').select('title, projects(name)').eq('id', params.reqId).single(),
+    ])
+    if (profiles?.length) {
+      const projectName = (req as any)?.projects?.name
+      const what = (req as any)?.title ?? 'a scope of work'
+      await db.from('notifications').insert(
+        profiles.map(p => ({
+          user_id: p.id,
+          type: 'new_bid',
+          message: `You have been invited to quote ${what}${projectName ? ` for ${projectName}` : ''}.`,
+          read: false,
+        }))
+      )
+    }
+  }
+
   return NextResponse.json({ invites: data })
 }
 
