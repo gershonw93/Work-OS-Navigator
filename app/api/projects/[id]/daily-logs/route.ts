@@ -23,7 +23,23 @@ export async function GET(request: Request, { params }: { params: { id: string }
     .order('created_at', { ascending: false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ logs: logs ?? [] })
+
+  // Resolve the author for any log missing a stamped name (logs written before
+  // created_by_name was set). Looked up from created_by, which has always been
+  // recorded, so historical logs still show who filed them.
+  const rows = logs ?? []
+  const unnamed = Array.from(new Set(
+    rows.filter((l: any) => !l.created_by_name && l.created_by).map((l: any) => l.created_by as string),
+  ))
+  if (unnamed.length > 0) {
+    const { data: authors } = await db.from('profiles').select('id, full_name, email').in('id', unnamed)
+    const nameById = new Map((authors ?? []).map((a: any) => [a.id, a.full_name || a.email]))
+    for (const l of rows as any[]) {
+      if (!l.created_by_name && l.created_by) l.created_by_name = nameById.get(l.created_by) ?? null
+    }
+  }
+
+  return NextResponse.json({ logs: rows })
 }
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
@@ -111,6 +127,9 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const { data: log, error } = await db.from('daily_logs').insert({
     project_id: params.id,
     created_by: user.id,
+    // Stamp the author's name too. Without this the log list and PDF render
+    // "Logged by" with nothing after it, so nobody can tell who filed it.
+    created_by_name: (profile as any)?.full_name ?? user.email ?? null,
     log_date,
     notes: notes || '',
     workers_onsite: totalWorkers,
