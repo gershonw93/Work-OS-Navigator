@@ -8,6 +8,7 @@ import {
   ChevronDown, MessageSquare, Loader2, ImagePlus, CalendarClock, FileText,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { usePermissions } from '@/lib/use-permissions'
 import { SignoffModal } from '@/components/ui/signoff-modal'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -375,6 +376,8 @@ function TaskDetailPanel({ task, notes, notesLoading, onAddNote, projectId, onCh
 // ─── main page ────────────────────────────────────────────────────────────────
 
 export default function TasksPage({ params }: { params: { id: string } }) {
+  const { can } = usePermissions()
+  const canCreateTask = can('tasks', 'create')
   const supabase = createClient()
   const [tasks, setTasks]     = useState<Task[]>([])
   const [members, setMembers] = useState<Member[]>([])
@@ -993,7 +996,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
         <p className="text-sm font-medium text-muted-fg">
           {filterMode === 'all' ? 'No tasks yet' : `No ${filterMode.replace('_', ' ')} tasks`}
         </p>
-        {filterMode === 'all' && (
+        {filterMode === 'all' && canCreateTask && (
           <button onClick={() => openAddForm()} className="mt-2 text-sm text-accent-fg hover:underline">
             Create your first task
           </button>
@@ -1189,7 +1192,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
               <Users className="h-4 w-4" />
             </button>
           </div>
-          <Button onClick={() => openAddForm()}><Plus className="h-4 w-4" />New Task</Button>
+          {canCreateTask && <Button onClick={() => openAddForm()}><Plus className="h-4 w-4" />New Task</Button>}
         </div>
       </div>
 

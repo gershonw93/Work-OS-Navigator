@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { FileText, Folder, FolderPlus, Upload, X, ChevronRight, ArrowLeft, Trash2, FolderInput, MoreVertical } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { usePermissions } from '@/lib/use-permissions'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -26,6 +27,9 @@ const PLAN_TYPES = [
 
 export default function PlansPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
+  const { can } = usePermissions()
+  const canAdd = can('plans', 'create')
+  const canDelete = can('plans', 'delete')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const emptyFileInputRef = useRef<HTMLInputElement>(null)
 
@@ -209,17 +213,19 @@ export default function PlansPage({ params }: { params: { id: string } }) {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {!activeFolderId && (
+          {canAdd && !activeFolderId && (
             <Button variant="outline" onClick={() => setShowNewFolder(true)}>
               <FolderPlus className="h-4 w-4" />
               New Folder
             </Button>
           )}
-          <label className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent text-accent-ink text-sm font-medium cursor-pointer transition-colors">
-            <Upload className="h-4 w-4" />
-            Upload Plan
-            <input ref={fileInputRef} type="file" className="sr-only" accept=".pdf,.dwg,.dxf,.png,.jpg,.jpeg,.svg" onChange={handleFileChange} />
-          </label>
+          {canAdd && (
+            <label className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent text-accent-ink text-sm font-medium cursor-pointer transition-colors">
+              <Upload className="h-4 w-4" />
+              Upload Plan
+              <input ref={fileInputRef} type="file" className="sr-only" accept=".pdf,.dwg,.dxf,.png,.jpg,.jpeg,.svg" onChange={handleFileChange} />
+            </label>
+          )}
         </div>
       </div>
 
@@ -353,13 +359,13 @@ export default function PlansPage({ params }: { params: { id: string } }) {
                         <span className="text-sm font-medium text-ink-soft text-center leading-tight">{folder.name}</span>
                         <span className="text-xs text-faint">{count} {count === 1 ? 'file' : 'files'}</span>
                       </button>
-                      <button
+                      {canDelete && <button
                         onClick={e => { e.stopPropagation(); handleDeleteFolder(folder.id) }}
                         className="absolute top-1.5 right-1.5 p-1 text-danger hover:text-danger opacity-0 group-hover:opacity-100 transition-opacity bg-panel rounded"
                         title="Delete folder"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      </button>}
                     </div>
                   )
                 })}
@@ -408,12 +414,12 @@ export default function PlansPage({ params }: { params: { id: string } }) {
                             <a href={plan.file_url} target="_blank" rel="noopener noreferrer">
                               <Button variant="ghost" size="sm">File</Button>
                             </a>
-                            <button onClick={() => openMove(plan)} className="p-1 text-faint hover:text-accent-fg" title="Move to folder">
+                            {canAdd && <button onClick={() => openMove(plan)} className="p-1 text-faint hover:text-accent-fg" title="Move to folder">
                               <FolderInput className="h-4 w-4" />
-                            </button>
-                            <button onClick={() => handleDeletePlan(plan.id)} className="p-1 text-danger hover:text-danger" title="Delete plan">
+                            </button>}
+                            {canDelete && <button onClick={() => handleDeletePlan(plan.id)} className="p-1 text-danger hover:text-danger" title="Delete plan">
                               <Trash2 className="h-4 w-4" />
-                            </button>
+                            </button>}
                           </div>
                         </td>
                       </tr>
@@ -437,12 +443,12 @@ export default function PlansPage({ params }: { params: { id: string } }) {
                       <Link href={`/projects/${params.id}/plans/${plan.id}`}>
                         <Button variant="ghost" size="sm">Open</Button>
                       </Link>
-                      <button onClick={() => openMove(plan)} className="p-1 text-faint hover:text-accent-fg" title="Move to folder">
+                      {canAdd && <button onClick={() => openMove(plan)} className="p-1 text-faint hover:text-accent-fg" title="Move to folder">
                         <FolderInput className="h-4 w-4" />
-                      </button>
-                      <button onClick={() => handleDeletePlan(plan.id)} className="p-1 text-danger hover:text-danger" title="Delete">
+                      </button>}
+                      {canDelete && <button onClick={() => handleDeletePlan(plan.id)} className="p-1 text-danger hover:text-danger" title="Delete">
                         <Trash2 className="h-4 w-4" />
-                      </button>
+                      </button>}
                     </div>
                   </div>
                 ))}

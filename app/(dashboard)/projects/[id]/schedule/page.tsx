@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Plus, X, CalendarDays, Pencil, Trash2, Building2, Flag, ChevronLeft, ChevronRight, GanttChartSquare, List, CalendarRange } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { usePermissions } from '@/lib/use-permissions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -112,6 +113,8 @@ function monthGrid(year: number, month: number): Date[][] {
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 export default function SchedulePage({ params }: { params: { id: string } }) {
+  const { can } = usePermissions()
+  const canEditSchedule = can('schedule', 'create') || can('schedule', 'edit')
   const supabase = createClient()
   const vc = useViewerContext(params.id)
   const [items, setItems] = useState<ScheduleItem[]>([])
@@ -388,7 +391,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
               </button>
             ))}
           </div>
-          <Button onClick={() => setShowAdd(true)}><Plus className="h-4 w-4" /><span className="hidden sm:inline">Add Milestone</span></Button>
+          {canEditSchedule && <Button onClick={() => setShowAdd(true)}><Plus className="h-4 w-4" /><span className="hidden sm:inline">Add Milestone</span></Button>}
         </div>
       </div>
 
@@ -420,7 +423,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                     <button type="button" onClick={() => setSchedulingSubId(null)} className="text-faint hover:text-muted-fg"><X className="h-4 w-4" /></button>
                   </form>
                 ) : (
-                  <Button size="sm" variant="secondary" className="h-8 shrink-0"
+                  <Button size="sm" variant="secondary" className="h-8 shrink-0" disabled={!canEditSchedule}
                     onClick={() => { setSchedulingSubId(sub.id); setSchedStart(''); setSchedEnd('') }}>
                     <CalendarDays className="h-3.5 w-3.5" /> {isSupplier ? 'Set Delivery' : 'Set Dates'}
                   </Button>
@@ -438,7 +441,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
           <CalendarDays className="h-10 w-10 text-faint mx-auto mb-3" />
           <p className="text-sm font-medium text-muted-fg">No schedule yet</p>
           <p className="text-xs text-faint mt-1 mb-4">Add subcontractors with dates on the Team tab, or add milestones manually.</p>
-          <Button size="sm" onClick={() => setShowAdd(true)}><Plus className="h-4 w-4" />Add Milestone</Button>
+          {canEditSchedule && <Button size="sm" onClick={() => setShowAdd(true)}><Plus className="h-4 w-4" />Add Milestone</Button>}
         </div>
       ) : (
         <div className="space-y-5">
