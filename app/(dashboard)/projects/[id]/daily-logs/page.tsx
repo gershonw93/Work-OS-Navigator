@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -112,6 +112,28 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
 
   // Full-screen photo viewer. Thumbnails stay small; clicking opens this.
   const [lightbox, setLightbox] = useState<{ images: LightboxImage[]; index: number } | null>(null)
+
+  // A day can collect several entries (the site manager's log plus whatever the
+  // crew files from the field), so group them under one date instead of listing
+  // each as its own dated card. `logs` already arrives newest-first.
+  const logDays = useMemo(() => {
+    const byDate = new Map<string, DailyLog[]>()
+    for (const l of logs) {
+      const arr = byDate.get(l.log_date)
+      if (arr) arr.push(l)
+      else byDate.set(l.log_date, [l])
+    }
+    return Array.from(byDate.entries()).map(([date, entries]) => ({
+      date,
+      entries,
+      label: new Date(date + 'T12:00:00').toLocaleDateString('en-US', {
+        weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
+      }),
+      photoCount: entries.reduce(
+        (n, e) => n + ((e.daily_log_photos?.length ?? 0) || (e.photos?.length ?? 0)), 0,
+      ),
+    }))
+  }, [logs])
 
   // New field-report model
   const [survey, setSurvey] = useState<Record<string, SurveyAnswer>>(blankSurvey())
@@ -1044,10 +1066,32 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
           <p className="text-xs text-faint mt-1">Submit your first daily log to track site activity.</p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {logs.map(log => {
+        <div className="space-y-4">
+          {logDays.map(day => (
+          <div key={day.date} className={cn(day.entries.length > 1 && 'rounded-xl border border-line bg-surface/60 p-2 space-y-2')}>
+            {/* Day header, only when the day has more than one entry */}
+            {day.entries.length > 1 && (
+              <div className="flex items-center justify-between gap-3 px-3 pt-1.5 pb-0.5">
+                <p className="font-semibold text-ink">{day.label}</p>
+                <p className="text-xs text-faint flex items-center gap-2">
+                  <span>{day.entries.length} entries</span>
+                  {day.photoCount > 0 && (
+                    <span className="inline-flex items-center gap-1">
+                      <Camera className="h-3 w-3" /> {day.photoCount}
+                    </span>
+                  )}
+                </p>
+              </div>
+            )}
+            <div className="space-y-2">
+          {day.entries.map(log => {
             const isExpanded = expandedLog === log.id
-            const dateLabel = new Date(log.log_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+            const grouped = day.entries.length > 1
+            // Inside a grouped day the date is already in the header, so each
+            // entry leads with the time it was filed instead.
+            const dateLabel = grouped
+              ? new Date(log.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+              : day.label
 
             return (
               <div key={log.id} className={cn('rounded-xl border bg-panel overflow-hidden transition-colors',
@@ -1406,6 +1450,9 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
               </div>
             )
           })}
+            </div>
+          </div>
+          ))}
         </div>
       )}
 
