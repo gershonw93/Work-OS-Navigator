@@ -17,7 +17,9 @@ const admin = () => createClient(
 const BUILTIN_ORDER = ['project_manager', 'office_staff', 'field_supervisor', 'worker', 'read_only']
 const BUILTIN_LABELS: Record<string, string> = {
   project_manager: 'Project Manager', office_staff: 'Office Staff',
-  field_supervisor: 'Field Supervisor', worker: 'Worker', read_only: 'Field Worker',
+  // "Field Worker" is the role that actually gets the mobile field view
+  // (see FIELD_ROLES); read_only is the view-only office account.
+  field_supervisor: 'Field Supervisor', worker: 'Field Worker', read_only: 'Worker',
 }
 
 async function requireAdmin(request: Request) {
