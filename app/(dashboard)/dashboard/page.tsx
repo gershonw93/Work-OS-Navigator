@@ -42,8 +42,13 @@ interface GcStats {
   openRfis: number
   pendingApprovals: number
   openTasks: number
+  myOpenTasks?: number
   expiringCompliance: number
   totalContractValue: number
+  /** Role is limited to its own assigned jobs (crew, supervisors). */
+  assignedOnly?: boolean
+  /** Which figures this user is allowed to see at all. */
+  visible?: { money: boolean; compliance: boolean; rfis: boolean; approvals: boolean }
 }
 
 interface SubStats {
@@ -329,14 +334,23 @@ export default function DashboardPage() {
           <AdminOverview data={ov} />
         </>
       ) : (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
-          <StatCard label="Projects" value={v((stats as GcStats | null)?.activeProjects)} icon={FolderKanban} iconColor="text-accent-fg" />
-          <StatCard label="Open RFIs" value={v((stats as GcStats | null)?.openRfis)} icon={MessageSquare} iconColor="text-info" />
-          <StatCard label="Pending Approvals" value={v((stats as GcStats | null)?.pendingApprovals)} icon={AlertCircle} iconColor="text-yellow-500" />
-          <StatCard label="Open Tasks" value={v((stats as GcStats | null)?.openTasks)} icon={CheckSquare} iconColor="text-purple-500" />
-          <StatCard label="Expiring Compliance" value={v((stats as GcStats | null)?.expiringCompliance)} icon={ShieldAlert} iconColor="text-danger" />
-          <StatCard label="Total Under Contract" value={money((stats as GcStats | null)?.totalContractValue)} icon={DollarSign} iconColor="text-success" />
-        </div>
+        (() => {
+          const g = stats as GcStats | null
+          // Only show a figure the user is actually allowed to see. Without
+          // this a crew member's dashboard shows company money and compliance.
+          const vis = g?.visible ?? { money: true, compliance: true, rfis: true, approvals: true }
+          const mine = !!g?.assignedOnly
+          return (
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
+              <StatCard label={mine ? 'My Jobs' : 'Projects'} value={v(g?.activeProjects)} icon={FolderKanban} iconColor="text-accent-fg" />
+              <StatCard label={mine ? 'My Open Tasks' : 'Open Tasks'} value={v(mine ? g?.myOpenTasks : g?.openTasks)} icon={CheckSquare} iconColor="text-purple-500" />
+              {vis.rfis && <StatCard label="Open RFIs" value={v(g?.openRfis)} icon={MessageSquare} iconColor="text-info" />}
+              {vis.approvals && <StatCard label="Pending Approvals" value={v(g?.pendingApprovals)} icon={AlertCircle} iconColor="text-yellow-500" />}
+              {vis.compliance && <StatCard label="Expiring Compliance" value={v(g?.expiringCompliance)} icon={ShieldAlert} iconColor="text-danger" />}
+              {vis.money && <StatCard label="Total Under Contract" value={money(g?.totalContractValue)} icon={DollarSign} iconColor="text-success" />}
+            </div>
+          )
+        })()
       )}
 
       {/* Master views - admin quick links (hidden when the overview layout covers it) */}
