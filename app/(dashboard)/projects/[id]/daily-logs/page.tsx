@@ -1114,25 +1114,35 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
       ) : (
         <div className="space-y-4">
           {logDays.map(day => (
-          <div key={day.date} className={cn(day.entries.length > 1 && 'rounded-xl border border-line bg-surface/60 p-2 space-y-2')}>
-            {/* Day header, only when the day has more than one entry */}
+          <div key={day.date} className={cn(
+            day.entries.length > 1 && 'rounded-xl border border-line bg-muted/60 overflow-hidden',
+          )}>
+            {/* Day header, only when the day has more than one entry. Solid bar
+                plus a tinted well so the entries below read as one day. */}
             {day.entries.length > 1 && (
-              <div className="flex items-center justify-between gap-3 px-3 pt-1.5 pb-0.5">
-                <p className="font-semibold text-ink">{day.label}</p>
-                <p className="text-xs text-faint flex items-center gap-2">
+              <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-muted border-b border-line">
+                <p className="font-semibold text-ink flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-muted-fg" />
+                  {day.label}
+                </p>
+                <div className="flex items-center gap-2 text-xs">
                   {day.pendingCount > 0 && (
-                    <span className="text-warn font-medium">{day.pendingCount} to review</span>
+                    <span className="rounded-full bg-warn-tint text-warn border border-warn/30 px-2 py-0.5 font-medium">
+                      {day.pendingCount} to review
+                    </span>
                   )}
-                  <span>{day.entries.length} entries</span>
+                  <span className="rounded-full bg-panel border border-line text-muted-fg px-2 py-0.5 font-medium">
+                    {day.entries.length} entries
+                  </span>
                   {day.photoCount > 0 && (
-                    <span className="inline-flex items-center gap-1">
+                    <span className="inline-flex items-center gap-1 text-faint">
                       <Camera className="h-3 w-3" /> {day.photoCount}
                     </span>
                   )}
-                </p>
+                </div>
               </div>
             )}
-            <div className="space-y-2">
+            <div className={cn('space-y-2', day.entries.length > 1 && 'p-2.5')}>
           {day.entries.map(log => {
             const isExpanded = expandedLog === log.id
             const grouped = day.entries.length > 1
