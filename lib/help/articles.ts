@@ -688,7 +688,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: 'steps', items: [
         'Open Settings, go to Team & Users, and find the Roles & Classes section.',
         'Pick a standard role and check/uncheck view, create, edit, delete for each screen - this changes the default for everyone with that role (unless a person has their own override).',
-        'Click "New class" to create a custom role. Give it a name, then set its permissions the same way; it starts out with Field Worker-level access.',
+        'Click "New class" to create a custom role. Give it a name, then set its permissions the same way; it starts out with Worker-level (view-only) access.',
         'The new class shows up alongside the standard roles when inviting someone or changing a teammate\'s role.',
         'To remove a custom class, reassign anyone still on it first, then delete it.',
       ] },

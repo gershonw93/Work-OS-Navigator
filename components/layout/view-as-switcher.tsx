@@ -12,7 +12,7 @@ export const PREVIEW_ROLES = [
   { value: 'office_staff', label: 'Office Staff' },
   { value: 'field_supervisor', label: 'Field Supervisor' },
   { value: 'worker', label: 'Field Worker' },
-  { value: 'read_only', label: 'Read-only viewer' },
+  { value: 'read_only', label: 'Worker' },
 ]
 
 export function roleLabel(value: string) {
