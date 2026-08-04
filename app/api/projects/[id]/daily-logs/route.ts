@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
+import { FIELD_ROLES } from '@/lib/permissions'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -70,6 +71,12 @@ export async function POST(request: Request, { params }: { params: { id: string 
   }
 
   const formData = await request.formData()
+  // The mobile field view flags its submissions. Fall back to the submitter's
+  // role so a field-role user filing any log is still treated as an
+  // observation needing review, even if the flag is missing.
+  const { data: submitterRole } = await db.from('profiles').select('role').eq('id', user.id).single()
+  const isFieldEntry = formData.get('source') === 'field'
+    || FIELD_ROLES.includes((submitterRole?.role as string) ?? '')
   const log_date = formData.get('log_date') as string
   const weather_condition = formData.get('weather_condition') as string | null
   const notes = formData.get('notes') as string | null
@@ -141,6 +148,10 @@ export async function POST(request: Request, { params }: { params: { id: string 
     signed_by_name: signed ? (signed_by_name || null) : null,
     signature_url,
     signed_at: signed ? new Date().toISOString() : null,
+    source: isFieldEntry ? 'field' : 'office',
+    // Field entries are observations until a manager reviews them, and stay
+    // out of the client-facing PDF until then.
+    review_status: isFieldEntry ? 'pending' : 'reviewed',
   }).select().single()
 
   if (error) return NextResponse.json({ error: `Save failed: ${error.message} (code: ${error.code})` }, { status: 500 })

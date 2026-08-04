@@ -35,6 +35,14 @@ export async function GET(request: Request, { params }: { params: { id: string; 
     db.from('subcontracts').select('id, trade, companies(name)').eq('project_id', params.id),
   ])
   if (!log) return NextResponse.json({ error: 'Log not found' }, { status: 404 })
+  // The PDF is the client-facing record, so an unreviewed field observation
+  // stays out of it until a site manager has signed off on it.
+  if ((log as any).review_status === 'pending') {
+    return NextResponse.json(
+      { error: 'This field entry has not been reviewed yet. Mark it reviewed to include it in the PDF.' },
+      { status: 409 },
+    )
+  }
   const subNameById = new Map((projectSubs ?? []).map((s: any) => [s.id, s.companies?.name ?? s.trade ?? 'Sub']))
 
   const pdf = await PDFDocument.create()

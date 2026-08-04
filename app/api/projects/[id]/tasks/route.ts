@@ -73,7 +73,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { title, description, due_date, priority, assigned_to_member_id, assigned_to_company_id, assigned_to_name, image_url, follow_up_date, follow_up_note } = await request.json()
+  const { title, description, due_date, priority, assigned_to_member_id, assigned_to_company_id, assigned_to_name, image_url, follow_up_date, follow_up_note, source_daily_log_id } = await request.json()
   if (!title) return NextResponse.json({ error: 'Title is required' }, { status: 400 })
 
   const { data: profile } = await db.from('profiles').select('full_name').eq('id', user.id).single()
@@ -93,6 +93,8 @@ export async function POST(request: Request, { params }: { params: { id: string 
       image_url: image_url || null,
       follow_up_date: follow_up_date || null,
       follow_up_note: follow_up_note || null,
+      // Set when the task was raised from a field log observation.
+      source_daily_log_id: source_daily_log_id || null,
       created_by: (profile as any)?.full_name ?? 'Unknown',
     })
     .select()
