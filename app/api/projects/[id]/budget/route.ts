@@ -130,7 +130,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { cost_code, category, description, budgeted_amount, committed_amount, actual_amount, notes, subcontract_id, space_type } = body
+  const { cost_code, category, description, budgeted_amount, committed_amount, actual_amount, notes, subcontract_id, space_type, cost_type } = body
 
   if (!description) return NextResponse.json({ error: 'Description is required' }, { status: 400 })
 
@@ -150,6 +150,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     notes: notes || null,
     subcontract_id: subcontract_id || null,
     space_type: space_type === 'interior' || space_type === 'exterior' ? space_type : null,
+    cost_type: cost_type === 'soft' ? 'soft' : 'hard',
     sort_order: count ?? 0,
   }
 

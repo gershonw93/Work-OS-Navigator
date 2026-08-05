@@ -24,6 +24,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     if (key in body) updates[key] = Number(body[key]) || 0
   }
   if ('space_type' in body) updates.space_type = body.space_type === 'interior' || body.space_type === 'exterior' ? body.space_type : null
+  if ('cost_type' in body) updates.cost_type = body.cost_type === 'soft' ? 'soft' : 'hard'
 
   let { data, error } = await db
     .from('budget_line_items')
@@ -33,12 +34,12 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     .select()
     .single()
 
-  // Pre-migration fallback: space_type column may not exist yet.
-  if (error && (error as any).code === '42703' && 'space_type' in updates) {
-    const { space_type: _omit, ...withoutSpaceType } = updates
+  // Pre-migration fallback: space_type / cost_type may not exist yet.
+  if (error && (error as any).code === '42703') {
+    const { space_type: _s, cost_type: _c, ...core } = updates
     const retry = await db
       .from('budget_line_items')
-      .update(withoutSpaceType)
+      .update(core)
       .eq('id', params.lineId)
       .eq('project_id', params.id)
       .select()

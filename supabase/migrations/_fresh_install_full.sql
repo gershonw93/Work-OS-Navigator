@@ -1,7 +1,7 @@
 -- ============================================================
--- SyteNav FULL fresh-install schema (001 → 055).
+-- SyteNav FULL fresh-install schema (001 → 062).
 -- Use ONLY on a brand-new/empty Supabase project. On the
--- original production DB, run _combined_008-058.sql instead.
+-- original production DB, run _combined_008-062.sql instead.
 -- ============================================================
 
 -- ===== 001_initial_schema.sql =====
@@ -1209,3 +1209,193 @@ ALTER TABLE rfis ADD COLUMN IF NOT EXISTS responded_by_name text;
 ALTER TABLE rfis ADD COLUMN IF NOT EXISTS responded_at timestamptz;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_rfis_answer_token ON rfis (answer_token) WHERE answer_token IS NOT NULL;
+
+
+-- ===== 056_companies_rls_policy.sql =====
+-- Security Advisor: "RLS Policy Always True" on public.companies.
+--
+-- The app authorizes everything in the API layer using the service-role key,
+-- which bypasses RLS. Every other table keeps RLS enabled with NO policy, so
+-- the public anon key sees zero rows (deny by default). The companies table had
+-- a permissive USING(true) policy that opened it to anyone holding the anon key
+-- via Supabase's auto REST API. This drops any permissive policies and replaces
+-- them with a company-scoped read policy, matching the rest of the schema.
+
+ALTER TABLE companies ENABLE ROW LEVEL SECURITY;
+
+-- Drop every existing policy on companies (names may vary, incl. dashboard-made).
+DO $$
+DECLARE pol record;
+BEGIN
+  FOR pol IN
+    SELECT policyname FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'companies'
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON companies', pol.policyname);
+  END LOOP;
+END $$;
+
+-- A signed-in user may read only their own company row. Writes stay off for the
+-- anon/authenticated keys - all writes go through the service-role API layer.
+CREATE POLICY "companies_select_own" ON companies
+  FOR SELECT
+  USING (id = (SELECT company_id FROM profiles WHERE id = auth.uid()));
+
+
+-- ===== 057_quickbooks.sql =====
+-- QuickBooks Online integration, phase 1 (SyteNav -> QBO push).
+-- Per-company OAuth2 connection + entity id mapping so we never create
+-- duplicates, plus a sync log for visibility/retry. All access is service-role
+-- from the API layer; RLS stays on with no policy (deny to the public anon key),
+-- matching the rest of the schema. Tokens live here and never touch the client.
+
+CREATE TABLE IF NOT EXISTS quickbooks_connections (
+  company_id uuid PRIMARY KEY REFERENCES companies (id) ON DELETE CASCADE,
+  realm_id text NOT NULL,                 -- QBO company (realm) id
+  qbo_company_name text,
+  environment text NOT NULL DEFAULT 'sandbox', -- 'sandbox' | 'production'
+  access_token text NOT NULL,
+  refresh_token text NOT NULL,
+  access_expires_at timestamptz,          -- access token ~1h
+  refresh_expires_at timestamptz,         -- refresh token ~100d
+  status text NOT NULL DEFAULT 'connected', -- 'connected' | 'expired' | 'revoked'
+  connected_by uuid REFERENCES profiles (id) ON DELETE SET NULL,
+  connected_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE quickbooks_connections ENABLE ROW LEVEL SECURITY;
+
+-- Short-lived state tokens for the OAuth handshake (CSRF + which company).
+CREATE TABLE IF NOT EXISTS quickbooks_oauth_states (
+  state text PRIMARY KEY,
+  company_id uuid REFERENCES companies (id) ON DELETE CASCADE,
+  created_by uuid REFERENCES profiles (id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE quickbooks_oauth_states ENABLE ROW LEVEL SECURITY;
+
+-- What synced, when, and whether it worked - for the Settings sync panel + retry.
+CREATE TABLE IF NOT EXISTS quickbooks_sync_log (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id uuid REFERENCES companies (id) ON DELETE CASCADE,
+  entity_type text NOT NULL,              -- 'customer' | 'vendor' | 'bill' | 'payment'
+  entity_id uuid,                         -- the SyteNav row
+  direction text NOT NULL DEFAULT 'push', -- future: 'pull'
+  action text,                            -- 'create' | 'update'
+  status text NOT NULL,                   -- 'success' | 'error'
+  qbo_id text,
+  message text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE quickbooks_sync_log ENABLE ROW LEVEL SECURITY;
+CREATE INDEX IF NOT EXISTS idx_qbo_sync_log_company ON quickbooks_sync_log (company_id, created_at DESC);
+
+-- Entity id mapping: link each SyteNav row to its QBO counterpart.
+ALTER TABLE customers       ADD COLUMN IF NOT EXISTS qbo_id text;
+ALTER TABLE customers       ADD COLUMN IF NOT EXISTS qbo_synced_at timestamptz;
+ALTER TABLE companies       ADD COLUMN IF NOT EXISTS qbo_vendor_id text;
+ALTER TABLE companies       ADD COLUMN IF NOT EXISTS qbo_vendor_synced_at timestamptz;
+ALTER TABLE invoices        ADD COLUMN IF NOT EXISTS qbo_id text;
+ALTER TABLE invoices        ADD COLUMN IF NOT EXISTS qbo_synced_at timestamptz;
+ALTER TABLE client_payments ADD COLUMN IF NOT EXISTS qbo_id text;
+ALTER TABLE client_payments ADD COLUMN IF NOT EXISTS qbo_synced_at timestamptz;
+
+
+-- ===== 058_sub_job_costing.sql =====
+-- A subcontractor running their own job needs to see whether they're MAKING
+-- money, not just what they quoted. Materials already come from
+-- material_purchases and hours from time_entries, but there was no rate to
+-- turn hours into a labor cost. Optional per-project hourly rate (0 = unset,
+-- in which case the UI shows hours only and leaves labor out of the cost).
+
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS labor_rate numeric(12, 2) NOT NULL DEFAULT 0;
+
+
+-- ===== 059_profiles_role_allow_custom_classes.sql =====
+-- profiles.role had a CHECK constraint listing a fixed set of roles. That
+-- predates two things:
+--   1. the 'worker' role (the mobile field-view role, labeled "Field Worker"),
+--      which was never added to the list, and
+--   2. custom classes (company_roles), whose keys are generated at runtime
+--      as custom_<slug>_<rand> and therefore can never be enumerated here.
+-- Assigning either one failed with "violates check constraint
+-- profiles_role_check".
+--
+-- A static CHECK is fundamentally incompatible with user-defined roles, so
+-- drop it. Validation lives in the API instead (see isAssignableRole in
+-- app/api/settings/members/[memberId]/route.ts): a role must be a built-in
+-- from lib/permissions.ts or a company_roles row belonging to that company.
+-- Anything unrecognized still resolves to no-access via resolveRoleBase(),
+-- so an unexpected value fails closed rather than granting access.
+
+ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
+
+-- Keep a NOT NULL-ish guarantee without constraining the value set: a blank
+-- role should fall back to the view-only default rather than being stored.
+UPDATE profiles SET role = 'read_only' WHERE role IS NULL OR btrim(role) = '';
+
+
+-- ===== 060_backfill_daily_log_authors.sql =====
+-- daily_logs stored created_by (the user id) but the POST never stamped
+-- created_by_name, which is the field the log list and the PDF actually
+-- render. Every log therefore showed "Logged by" with nothing after it, so
+-- there was no way to tell who filed a log - including logs filed from the
+-- mobile field view.
+--
+-- The insert now sets created_by_name, and the list endpoint resolves any
+-- missing name from created_by. This backfills the rows written before that.
+
+UPDATE daily_logs dl
+SET created_by_name = COALESCE(p.full_name, p.email)
+FROM profiles p
+WHERE dl.created_by = p.id
+  AND (dl.created_by_name IS NULL OR btrim(dl.created_by_name) = '')
+  AND COALESCE(p.full_name, p.email) IS NOT NULL;
+
+
+-- ===== 061_daily_log_field_review.sql =====
+-- A crew member filing from the mobile field view can only enter a note and
+-- photos, but that created a full standalone daily log with empty weather,
+-- crew, survey, and signature. Those submissions are really observations the
+-- site manager should review, act on (a task), or fold into the day's record.
+--
+-- Rather than a second table, mark where a log came from and whether it has
+-- been reviewed. Field entries land as 'pending' and are excluded from the
+-- client-facing PDF until a manager reviews them.
+
+ALTER TABLE daily_logs ADD COLUMN IF NOT EXISTS source text NOT NULL DEFAULT 'office';
+ALTER TABLE daily_logs ADD COLUMN IF NOT EXISTS review_status text NOT NULL DEFAULT 'reviewed';
+ALTER TABLE daily_logs ADD COLUMN IF NOT EXISTS reviewed_by uuid;
+ALTER TABLE daily_logs ADD COLUMN IF NOT EXISTS reviewed_by_name text;
+ALTER TABLE daily_logs ADD COLUMN IF NOT EXISTS reviewed_at timestamptz;
+
+-- Link a task back to the field entry it came from, so the observation and
+-- the work it created stay connected.
+ALTER TABLE project_tasks ADD COLUMN IF NOT EXISTS source_daily_log_id uuid;
+
+-- Everything that already exists was filed the old way: treat it as office
+-- and already reviewed so nothing silently drops out of existing exports.
+UPDATE daily_logs SET source = 'office' WHERE source IS NULL;
+UPDATE daily_logs SET review_status = 'reviewed' WHERE review_status IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_daily_logs_review
+  ON daily_logs (project_id, review_status);
+
+
+-- ===== 062_soft_costs.sql =====
+-- Every budget category today is a trade (Plumbing, Framing, Concrete), so
+-- there was nowhere to record the costs a GC carries before and around the
+-- physical work: plans, permit fees, builders risk, survey, loan interest,
+-- contingency. Those are soft costs, and they belong in the same budget so
+-- the job total is the real total.
+--
+-- 'hard' is the default so every existing line keeps its current meaning.
+
+ALTER TABLE budget_line_items
+  ADD COLUMN IF NOT EXISTS cost_type text NOT NULL DEFAULT 'hard';
+
+ALTER TABLE budget_template_items
+  ADD COLUMN IF NOT EXISTS cost_type text NOT NULL DEFAULT 'hard';
+
+CREATE INDEX IF NOT EXISTS idx_budget_line_items_cost_type
+  ON budget_line_items (project_id, cost_type);

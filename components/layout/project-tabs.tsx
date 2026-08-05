@@ -77,6 +77,16 @@ const SUB_AWARDED_ALLOWED = new Set(['plans', 'schedule', 'tasks', 'progress', '
 // artifact) and the RFQ/compare-quotes tabs (their own quote lives on "Quote").
 const SUB_OWN_HIDDEN = new Set(['submittals', 'request-quotes', 'quotes'])
 
+// A job in planning hasn't broken ground: nobody is on site, nothing is built,
+// and there is nothing to bill. Hide the tabs that only mean something once
+// work starts so preconstruction reads as its own stage. They come back the
+// moment the project is set to active.
+const PLANNING_HIDDEN = new Set([
+  'time', 'daily-logs', 'progress',
+  'invoices', 'pay-apps', 'payments', 'change-orders',
+  'materials', 'inspections', 'reports', 'financials',
+])
+
 interface ProjectTabsProps {
   projectId: string
 }
@@ -86,7 +96,7 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const { can, loading } = usePermissions()
-  const [ctx, setCtx] = useState<{ companyType: string; owns: boolean; billingMode?: string } | null>(null)
+  const [ctx, setCtx] = useState<{ companyType: string; owns: boolean; billingMode?: string; status?: string } | null>(null)
 
   useEffect(() => {
     let active = true
@@ -115,10 +125,14 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
     if (slug === 'invoices' || slug === 'payments') return billingMode !== 'aia'
     return true
   }
+  // Preconstruction: planning jobs get the estimating/approvals lane only.
+  const isPlanning = ctx?.status === 'planning'
+  const statusAllows = (slug: string) => !isPlanning || !PLANNING_HIDDEN.has(slug)
+
   // The "Quote" tab is the sub's own-job starting point - only there.
   const tabAllowed = (slug: string) => {
     if (slug === 'quote') return isSub && !!ctx?.owns
-    return can(slug, 'view') && subAllows(slug) && billingAllows(slug)
+    return can(slug, 'view') && subAllows(slug) && billingAllows(slug) && statusAllows(slug)
   }
 
   // Wait for both permissions and viewer-context before deciding (avoids flashing
@@ -133,13 +147,13 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
 
   // Block direct-URL access to a tab a sub isn't allowed to see on this project.
   useEffect(() => {
-    if (!ready || !isSub) return
+    if (!ready) return
     const current = allTabs.find(t => pathname.includes(`/${t.slug}`))
-    if (current && !subAllows(current.slug)) {
+    if (current && (!statusAllows(current.slug) || (isSub && !subAllows(current.slug)))) {
       const fallback = visibleTabs[0]?.slug ?? 'plans'
       router.replace(`/projects/${projectId}/${fallback}`)
     }
-  }, [ready, isSub, pathname])
+  }, [ready, isSub, isPlanning, pathname])
 
   const activeTab = visibleTabs.find(t => pathname.includes(`/${t.slug}`))
   const activeGroup = filteredGroups.find(g => g.tabs.some(t => t.slug === activeTab?.slug))
@@ -197,6 +211,14 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
               </button>
             )
           })}
+          {isPlanning && (
+            <span
+              title="Site, billing and inspection tabs unlock when this job is set to Active."
+              className="ml-auto self-center shrink-0 rounded-full bg-info-tint px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-info"
+            >
+              Preconstruction
+            </span>
+          )}
         </nav>
       </div>
 
@@ -244,6 +266,12 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
             </div>
 
             <div className="px-4 pb-8 space-y-4">
+              {isPlanning && (
+                <p className="rounded-lg bg-info-tint px-3 py-2 text-xs text-info">
+                  <span className="font-semibold uppercase tracking-wide">Preconstruction</span>
+                  {' · '}Site, billing and inspection tabs unlock when this job is set to Active.
+                </p>
+              )}
               {filteredGroups.map(group => (
                 <div key={group.label}>
                   <p className={cn('text-xs font-bold uppercase tracking-widest mb-2 px-1', group.color)}>

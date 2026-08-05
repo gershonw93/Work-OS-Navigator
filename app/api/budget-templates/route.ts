@@ -61,9 +61,16 @@ export async function POST(request: Request) {
       cost_code: i.cost_code || null,
       description: String(i.description).trim(),
       default_amount: i.default_amount != null && i.default_amount !== '' ? Number(i.default_amount) : null,
+      cost_type: i.cost_type === 'soft' ? 'soft' : 'hard',
       sort_order: i.sort_order ?? idx,
     }))
-  if (rows.length) await db.from('budget_template_items').insert(rows)
+  if (rows.length) {
+    const { error: itemsError } = await db.from('budget_template_items').insert(rows)
+    // Pre-migration fallback: cost_type column may not exist yet.
+    if (itemsError && (itemsError as any).code === '42703') {
+      await db.from('budget_template_items').insert(rows.map(({ cost_type: _omit, ...rest }: any) => rest))
+    }
+  }
 
   return NextResponse.json({ template: { ...tpl, budget_template_items: rows } })
 }

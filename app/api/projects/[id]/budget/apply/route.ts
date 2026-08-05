@@ -19,7 +19,8 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const keepAmounts = !!copy_amounts
 
   // Build the line items to insert, from a template or another project
-  let rows: { category: string; cost_code: string | null; description: string; amount: number | null }[] = []
+  const costType = (v: any) => (v === 'soft' ? 'soft' : 'hard')
+  let rows: { category: string; cost_code: string | null; description: string; amount: number | null; cost_type: string }[] = []
 
   if (Array.isArray(items) && items.length) {
     // Direct import (e.g. an uploaded estimate/budget sheet)
@@ -30,6 +31,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
         cost_code: i.cost_code || null,
         description: String(i.description),
         amount: i.default_amount != null ? Number(i.default_amount) : (i.amount != null ? Number(i.amount) : null),
+        cost_type: costType(i.cost_type),
       }))
   } else if (template_id) {
     const { data: items } = await db
@@ -42,6 +44,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
       cost_code: i.cost_code || null,
       description: i.description,
       amount: keepAmounts && i.default_amount != null ? Number(i.default_amount) : null,
+      cost_type: costType(i.cost_type),
     }))
   } else if (source_project_id) {
     const { data: items } = await db
@@ -54,6 +57,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
       cost_code: i.cost_code || null,
       description: i.description,
       amount: keepAmounts ? Number(i.budgeted_amount) || null : null,
+      cost_type: costType(i.cost_type),
     }))
   } else {
     return NextResponse.json({ error: 'Provide items, template_id, or source_project_id' }, { status: 400 })
@@ -115,18 +119,24 @@ export async function POST(request: Request, { params }: { params: { id: string 
   if (rows.length) {
     const { count } = await db.from('budget_line_items').select('*', { count: 'exact', head: true }).eq('project_id', params.id)
     const base = count ?? 0
-    const { data, error } = await db.from('budget_line_items').insert(
-      rows.map((r, idx) => ({
-        project_id: params.id,
-        category: r.category,
-        cost_code: r.cost_code,
-        description: r.description,
-        budgeted_amount: r.amount ?? 0,
-        committed_amount: 0,
-        actual_amount: 0,
-        sort_order: base + idx,
-      }))
-    ).select()
+    const payload = rows.map((r, idx) => ({
+      project_id: params.id,
+      category: r.category,
+      cost_code: r.cost_code,
+      description: r.description,
+      budgeted_amount: r.amount ?? 0,
+      committed_amount: 0,
+      actual_amount: 0,
+      cost_type: r.cost_type,
+      sort_order: base + idx,
+    }))
+    let { data, error } = await db.from('budget_line_items').insert(payload).select()
+    // Pre-migration fallback: cost_type column may not exist yet.
+    if (error && (error as any).code === '42703') {
+      const retry = await db.from('budget_line_items')
+        .insert(payload.map(({ cost_type: _omit, ...rest }) => rest)).select()
+      data = retry.data; error = retry.error
+    }
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     inserted = data?.length ?? 0
   }
