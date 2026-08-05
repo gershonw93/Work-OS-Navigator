@@ -36,6 +36,7 @@ move it to **In progress**, and when it ships, move it to **Done** with the PR #
 ## 💰 Money
 - **Approving a change order optionally bumps the client contract** (we did sub-side; consider explicit client-revenue side too).
 - **Forecasting / cash-flow projections** beyond the current budget × (1+fee).
+- **Full development pro-forma** *(tester request - partially addressed)*. A tester who develops (not just builds) wanted the spreadsheet they use as step one: land purchase, design, approvals, soft costs, then a return projection. We shipped the piece every GC needs - hard/soft cost split on the budget + a planning-stage menu (see Recently shipped). **Not built, deliberately:** land acquisition as its own record, debt/equity stack and draw schedule, carrying-cost-over-time modeling, and ROI / profit-on-cost / IRR outputs. That is a developer pro-forma tool, a different product from a GC's job budget - revisit only if more than one customer asks.
 
 ## 🧾 Materials
 - **Edit existing receipts** - change the job or attach a budget line to a receipt after the fact (currently set at creation).
@@ -72,3 +73,4 @@ move it to **In progress**, and when it ships, move it to **Done** with the PR #
 - Materials: snap receipt → assign job → budget line, project tab (#86, #87, #89, #90)
 - Inspections: request → schedule → notify → result, card-after workflow (#91, #93)
 - Calendar: read-only iCal feed + one-click Connect + day detail view (#99–#101)
+- Preconstruction: hard/soft cost split on the budget (own section + subtotals + standard soft-cost starter list) and a planning-stage project menu that hides the site/billing tabs until the job goes Active

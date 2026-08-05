@@ -26,6 +26,7 @@ interface BudgetItem {
   linked: boolean
   linked_label: string | null
   space_type: 'interior' | 'exterior' | null
+  cost_type?: 'hard' | 'soft' | null
 }
 
 interface SubOption {
@@ -55,8 +56,16 @@ function Field({ label, children, className }: { label: string; children: React.
   )
 }
 
+// The standard soft costs a GC carries alongside the trades. Mirrors the
+// S-codes builders keep in their own spreadsheets.
+const SOFT_COST_CATEGORIES = [
+  'Plans & Design', 'Permit Fees', 'Builders Risk Insurance', 'Taxes',
+  'Loan Origination', 'Loan Interest', 'Survey', 'Legal & Recording',
+  'Broker Fees', 'Engineering', 'Testing & Inspections', 'Contingency',
+]
+
 const blankForm = {
-  cost_code: '', category: 'General', description: '',
+  cost_code: '', category: 'General', description: '', cost_type: 'hard' as 'hard' | 'soft',
   budgeted_amount: '', committed_amount: '', actual_amount: '', notes: '',
   subcontract_id: '', space_type: '',
 }
@@ -106,6 +115,11 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   const [importOnly, setImportOnly] = useState(false)
   const [importName, setImportName] = useState('')
   const [importing, setImporting] = useState(false)
+
+  // Soft-cost starter list
+  const [showSoft, setShowSoft] = useState(false)
+  const [softPicks, setSoftPicks] = useState<Set<string>>(new Set(SOFT_COST_CATEGORIES))
+  const [addingSoft, setAddingSoft] = useState(false)
 
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -257,11 +271,27 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({
         name: tplName, source: 'job',
-        items: items.map(i => ({ category: i.category, cost_code: i.cost_code, description: i.description, default_amount: i.budgeted_amount })),
+        items: items.map(i => ({ category: i.category, cost_code: i.cost_code, description: i.description, default_amount: i.budgeted_amount, cost_type: i.cost_type ?? 'hard' })),
       }),
     })
     setSavingTpl(false)
     if (res.ok) { setShowSave(false); setTplName(''); alert('Saved as template') }
+  }
+
+  // Seed the standard soft costs as blank lines. Goes through the same apply
+  // endpoint as templates, so anything already on the budget is skipped.
+  async function addSoftCosts() {
+    const picks = SOFT_COST_CATEGORIES.filter(c => softPicks.has(c))
+    if (!picks.length) return
+    setAddingSoft(true)
+    const token = await getToken()
+    const res = await fetch(`/api/projects/${params.id}/budget/apply`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ items: picks.map(c => ({ category: c, description: c, cost_type: 'soft' })) }),
+    })
+    setAddingSoft(false)
+    if (res.ok) { setShowSoft(false); load() }
+    else alert((await res.json().catch(() => ({}))).error ?? 'Could not add soft costs')
   }
 
   async function addLine() {
@@ -287,6 +317,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       cost_code: item.cost_code ?? '',
       category: item.category,
       description: item.description,
+      cost_type: item.cost_type === 'soft' ? 'soft' : 'hard',
       budgeted_amount: String(item.budgeted_amount ?? ''),
       committed_amount: String(item.committed_amount ?? ''),
       actual_amount: String(item.actual_amount ?? ''),
@@ -354,6 +385,14 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
     }, { label: `these ${ids.length} budget line${ids.length !== 1 ? 's' : ''}`, protected: true })
   }
 
+  // Soft costs (permits, plans, insurance, interest) sit alongside the trades
+  // so the job total is the real total, but they are summarised separately.
+  const softItems = items.filter(i => i.cost_type === 'soft')
+  const hardItems = items.filter(i => i.cost_type !== 'soft')
+  const sumOf = (rows: BudgetItem[]) => rows.reduce((s, i) => s + Number(i.budgeted_amount || 0), 0)
+  const totalSoft = sumOf(softItems)
+  const totalHard = sumOf(hardItems)
+
   const totalBudgeted = items.reduce((s, i) => s + Number(i.budgeted_amount || 0), 0)
   const totalCommitted = items.reduce((s, i) => s + Number(i.committed_amount || 0), 0)
   const totalActual = items.reduce((s, i) => s + Number(i.actual_amount || 0), 0)
@@ -383,16 +422,32 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
 
   // When sorting by a non-category key, show one flat list instead of category groups
   const flatSort = sortBy !== 'category'
-  const grouped: { category: string; rows: BudgetItem[] }[] = []
-  if (flatSort) {
-    if (filtered.length) grouped.push({ category: 'All line items', rows: sortRows(filtered) })
-  } else {
-    for (const item of filtered) {
-      let g = grouped.find(x => x.category === item.category)
-      if (!g) { g = { category: item.category, rows: [] }; grouped.push(g) }
+  const buildGroups = (rows: BudgetItem[]) => {
+    if (flatSort) return rows.length ? [{ category: 'All line items', rows: sortRows(rows) }] : []
+    const out: { category: string; rows: BudgetItem[] }[] = []
+    for (const item of rows) {
+      let g = out.find(x => x.category === item.category)
+      if (!g) { g = { category: item.category, rows: [] }; out.push(g) }
       g.rows.push(item)
     }
+    return out
   }
+
+  // Hard and soft costs live on one budget but read as two different things,
+  // so they get their own banded section with its own subtotal. On a job still
+  // in planning the soft costs ARE the work, so they lead.
+  const filteredHard = filtered.filter(i => i.cost_type !== 'soft')
+  const filteredSoft = filtered.filter(i => i.cost_type === 'soft')
+  const sectionDefs = {
+    hard: { label: 'Construction · hard costs', rows: filteredHard },
+    soft: { label: 'Preconstruction & soft costs', rows: filteredSoft },
+  }
+  const sectionOrder: ('hard' | 'soft')[] = projectStatus === 'planning' ? ['soft', 'hard'] : ['hard', 'soft']
+  const sections = sectionOrder
+    .map(key => ({ key, ...sectionDefs[key] }))
+    .filter(s => s.rows.length > 0)
+    .map(s => ({ ...s, groups: buildGroups(s.rows), total: sumOf(s.rows) }))
+  const showSectionBands = filteredHard.length > 0 && filteredSoft.length > 0
 
   // Subcontracts not yet linked to any budget line
   const linkedSubIds = new Set(items.map(i => i.subcontract_id).filter(Boolean))
@@ -563,6 +618,50 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
         </div>
       )}
 
+      {/* Standard soft costs picker */}
+      {showSoft && (() => {
+        const already = new Set(items.filter(i => i.cost_type === 'soft').map(i => normDesc(i.description)))
+        return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowSoft(false)}>
+          <div className="bg-panel rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-line-soft flex items-center justify-between">
+              <h2 className="font-semibold text-ink">Add preconstruction &amp; soft costs</h2>
+              <button onClick={() => setShowSoft(false)} className="text-faint hover:text-ink"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="p-5 space-y-4">
+              <p className="text-xs text-muted-fg">
+                Added as blank lines you fill in as numbers firm up. They sit in their own section of the budget, so the trade
+                totals stay clean while the job total stays honest.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5">
+                {SOFT_COST_CATEGORIES.map(c => {
+                  const exists = already.has(normDesc(c))
+                  return (
+                    <label key={c} className={cn('flex items-center gap-2 text-sm', exists ? 'text-faint' : 'text-ink-soft cursor-pointer')}>
+                      <input type="checkbox" className="accent-[#C9F24A]" disabled={exists}
+                        checked={!exists && softPicks.has(c)}
+                        onChange={() => setSoftPicks(s => {
+                          const next = new Set(s)
+                          if (next.has(c)) next.delete(c); else next.add(c)
+                          return next
+                        })} />
+                      {c}{exists && <span className="text-[10px] uppercase tracking-wide">on budget</span>}
+                    </label>
+                  )
+                })}
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button variant="secondary" onClick={() => setShowSoft(false)}>Cancel</Button>
+                <Button onClick={addSoftCosts} disabled={addingSoft || SOFT_COST_CATEGORIES.filter(c => softPicks.has(c) && !already.has(normDesc(c))).length === 0}>
+                  {addingSoft ? 'Adding…' : 'Add selected'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+        )
+      })()}
+
       {/* Save as template modal */}
       {showSave && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowSave(false)}>
@@ -601,6 +700,48 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
           )
         })}
       </div>
+
+      {/* Hard vs soft split. Every job carries costs that aren't a trade -
+          plans, permits, builders risk, survey, loan interest - and they belong
+          in the same budget so the job total is the real total. */}
+      {softItems.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="rounded-xl border border-line bg-panel p-4">
+            <p className="text-xs font-medium text-muted-fg mb-1">Hard costs · construction</p>
+            <p className="text-xl font-bold text-ink">{money(totalHard)}</p>
+            <p className="text-xs text-faint mt-0.5">{hardItems.length} line{hardItems.length !== 1 ? 's' : ''}</p>
+          </div>
+          <div className="rounded-xl border border-info/30 bg-info-tint p-4">
+            <p className="text-xs font-medium text-info mb-1">Soft costs · preconstruction &amp; carrying</p>
+            <p className="text-xl font-bold text-info">{money(totalSoft)}</p>
+            <p className="text-xs text-muted-fg mt-0.5">
+              {softItems.length} line{softItems.length !== 1 ? 's' : ''}
+              {totalBudgeted > 0 && ` · ${((totalSoft / totalBudgeted) * 100).toFixed(0)}% of budget`}
+            </p>
+          </div>
+          <div className="rounded-xl border border-line bg-surface p-4 flex flex-col justify-between">
+            <div>
+              <p className="text-xs font-medium text-muted-fg mb-1">All-in project cost</p>
+              <p className="text-xl font-bold text-ink">{money(totalBudgeted)}</p>
+            </div>
+            <button onClick={() => setShowSoft(true)} className="mt-2 text-xs font-medium text-accent-fg hover:underline text-left">
+              Add more soft costs →
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-dashed border-info/40 bg-info-tint/40 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-ink-soft">No soft costs on this budget yet</p>
+            <p className="text-xs text-muted-fg mt-0.5">
+              Land, plans, permits, builders risk, survey, loan interest, contingency - the money spent before and around the trades.
+            </p>
+          </div>
+          <Button variant="outline" onClick={() => setShowSoft(true)} className="gap-1.5 shrink-0">
+            <Plus className="h-4 w-4" /> Add preconstruction costs
+          </Button>
+        </div>
+      )}
 
       {/* Won job: no markup editing, just reprint the proposal that was sent. */}
       {showProposalLink && (
@@ -723,12 +864,22 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
         <div className="bg-panel rounded-xl border border-accent/40 p-4 sm:p-5 space-y-3">
           <p className="text-sm font-semibold text-ink-soft">New Budget Line</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            <input className="rounded-lg border border-line px-3 py-2 text-sm" placeholder="Cost code (optional)"
-              value={form.cost_code} onChange={e => setForm({ ...form, cost_code: e.target.value })} />
+            <SearchableSelect className="rounded-lg border border-line px-3 py-2 text-sm bg-panel"
+              value={form.cost_type} onChange={e => {
+                const next = e.target.value === 'soft' ? 'soft' : 'hard'
+                const list = next === 'soft' ? SOFT_COST_CATEGORIES : CATEGORIES
+                // Keep the category valid for the list now on screen.
+                setForm(f => ({ ...f, cost_type: next, category: list.includes(f.category) ? f.category : list[0] }))
+              }}>
+              <option value="hard">Hard cost (construction)</option>
+              <option value="soft">Soft cost (preconstruction / carrying)</option>
+            </SearchableSelect>
             <SearchableSelect className="rounded-lg border border-line px-3 py-2 text-sm bg-panel"
               value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
-              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+              {(form.cost_type === 'soft' ? SOFT_COST_CATEGORIES : CATEGORIES).map(c => <option key={c} value={c}>{c}</option>)}
             </SearchableSelect>
+            <input className="rounded-lg border border-line px-3 py-2 text-sm" placeholder="Cost code (optional)"
+              value={form.cost_code} onChange={e => setForm({ ...form, cost_code: e.target.value })} />
             <input className="rounded-lg border border-line px-3 py-2 text-sm sm:col-span-2 lg:col-span-1" placeholder="Description *"
               value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
             <input type="number" className="rounded-lg border border-line px-3 py-2 text-sm" placeholder="Budgeted $"
@@ -825,7 +976,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
           <Wallet className="h-8 w-8 text-faint mx-auto mb-3" />
           <p className="text-sm text-muted-fg">No budget lines yet. Add your first cost line to start tracking.</p>
         </div>
-      ) : grouped.length === 0 ? (
+      ) : sections.length === 0 ? (
         <div className="bg-panel rounded-xl border border-line p-10 text-center">
           <Search className="h-8 w-8 text-faint mx-auto mb-3" />
           <p className="text-sm text-muted-fg">No line items match “{search}”.</p>
@@ -847,7 +998,18 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
             <span />
           </div>
 
-          {grouped.map(group => {
+          {sections.map(section => (
+          <div key={section.key}>
+          {showSectionBands && (
+            <div className={cn('flex items-center justify-between gap-2 px-4 py-2.5 border-y border-line',
+              section.key === 'soft' ? 'bg-info-tint' : 'bg-muted')}>
+              <span className={cn('text-xs font-bold uppercase tracking-wider', section.key === 'soft' ? 'text-info' : 'text-ink-soft')}>
+                {section.label}
+              </span>
+              <span className={cn('text-sm font-bold', section.key === 'soft' ? 'text-info' : 'text-ink-soft')}>{money(section.total)}</span>
+            </div>
+          )}
+          {section.groups.map(group => {
             const gBudget = group.rows.reduce((s, i) => s + Number(i.budgeted_amount || 0), 0)
             return (
               <div key={group.category}>
@@ -870,15 +1032,26 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                       return (
                         <div key={item.id} className="px-4 py-3 bg-accent-tint/40 space-y-2">
                           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                            <Field label="Cost code">
-                              <input className="w-full rounded-lg border border-line px-2.5 py-1.5 text-sm" placeholder="optional"
-                                value={editForm.cost_code} onChange={e => setEditForm({ ...editForm, cost_code: e.target.value })} />
+                            <Field label="Cost type">
+                              <SearchableSelect className="rounded-lg border border-line px-2.5 py-1.5 text-sm bg-panel"
+                                value={editForm.cost_type} onChange={e => {
+                                  const next = e.target.value === 'soft' ? 'soft' : 'hard'
+                                  const list = next === 'soft' ? SOFT_COST_CATEGORIES : CATEGORIES
+                                  setEditForm(f => ({ ...f, cost_type: next, category: list.includes(f.category) ? f.category : list[0] }))
+                                }}>
+                                <option value="hard">Hard cost (construction)</option>
+                                <option value="soft">Soft cost (preconstruction / carrying)</option>
+                              </SearchableSelect>
                             </Field>
                             <Field label="Category">
                               <SearchableSelect className="rounded-lg border border-line px-2.5 py-1.5 text-sm bg-panel"
                                 value={editForm.category} onChange={e => setEditForm({ ...editForm, category: e.target.value })}>
-                                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                                {(editForm.cost_type === 'soft' ? SOFT_COST_CATEGORIES : CATEGORIES).map(c => <option key={c} value={c}>{c}</option>)}
                               </SearchableSelect>
+                            </Field>
+                            <Field label="Cost code">
+                              <input className="w-full rounded-lg border border-line px-2.5 py-1.5 text-sm" placeholder="optional"
+                                value={editForm.cost_code} onChange={e => setEditForm({ ...editForm, cost_code: e.target.value })} />
                             </Field>
                             <Field label="Description" className="sm:col-span-2 lg:col-span-1">
                               <input className="w-full rounded-lg border border-line px-2.5 py-1.5 text-sm" placeholder="What this covers"
@@ -1013,6 +1186,8 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
               </div>
             )
           })}
+          </div>
+          ))}
 
           {/* totals footer */}
           <div className={cn('hidden md:grid gap-2 px-4 py-3 border-t-2 border-line bg-surface text-sm font-bold text-ink-soft',

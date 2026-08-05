@@ -151,7 +151,9 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'Compliance: Permits, Inspections, Submittals, Compliance, Reports.',
       ] },
       { type: 'tip', text: 'Which tabs you see depends on your role and permissions. Admins see everything.' },
+      { type: 'text', text: 'A job still in Planning shows a shorter menu with a "Preconstruction" badge. Nobody is on site yet and there is nothing to bill, so Time Clock, Daily Logs, Progress, Materials, Inspections, Invoices, Pay Apps, Payments, Change Orders, Summary and Reports stay out of the way. They all come back the moment you set the project to Active.' },
     ],
+    related: ['preconstruction-soft-costs'],
   },
 
   {
@@ -234,13 +236,13 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'add-project-budget',
     title: 'Build a project budget',
     category: 'money',
-    keywords: ['budget', 'line item', 'cost', 'estimate', 'committed', 'actual', 'interior', 'exterior', 'square footage', 'sq ft', 'bulk delete', 'select all', 'duplicate'],
+    keywords: ['budget', 'line item', 'cost', 'estimate', 'committed', 'actual', 'interior', 'exterior', 'square footage', 'sq ft', 'bulk delete', 'select all', 'duplicate', 'hard cost', 'soft cost'],
     summary: 'Add budget lines and track budgeted vs committed vs actual.',
     blocks: [
       { type: 'text', text: 'Each budget line tracks three numbers: Budgeted (what you planned), Committed (what you\'ve promised in signed contracts), and Actual (what\'s actually been billed).' },
       { type: 'steps', items: [
         'Open the project and go to the Budget tab.',
-        'Add a line: category, description, and budgeted amount.',
+        'Add a line: cost type (hard or soft), category, description, and budgeted amount.',
         'Pick a Space for the line - Interior or Exterior - to have it roll into that breakdown (leave it unassigned if it doesn\'t apply).',
         'Optionally link the line to a subcontract - then Committed and Actual fill in automatically from that sub\'s contract and approved invoices.',
       ] },
@@ -249,7 +251,34 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: 'text', text: 'Already have the budget in a spreadsheet? Use Import Estimate in the header (.xlsx/.csv). If some rows already exist as lines, you\'ll be asked to either skip those duplicates (only add the new rows) or update them with the sheet\'s amounts - either way nothing already on the budget is ever deleted.' },
       { type: 'text', text: 'Loaded the wrong template or made a mess? Check the box next to any line (or the header checkbox to select a whole category or everything visible), then click Delete - you\'ll be asked to confirm before anything is removed.' },
     ],
-    related: ['budget-templates', 'money-overview', 'create-invoice', 'estimate-proposal'],
+    related: ['preconstruction-soft-costs', 'budget-templates', 'money-overview', 'create-invoice', 'estimate-proposal'],
+  },
+  {
+    slug: 'preconstruction-soft-costs',
+    title: 'Preconstruction and soft costs',
+    category: 'money',
+    keywords: [
+      'soft cost', 'soft costs', 'hard cost', 'hard costs', 'preconstruction', 'pre-construction',
+      'pro forma', 'proforma', 'land', 'plans', 'design', 'architect', 'permit fees', 'builders risk',
+      'insurance', 'survey', 'legal', 'recording', 'broker', 'engineering', 'loan', 'origination',
+      'interest', 'carrying cost', 'contingency', 'taxes', 'approvals', 'planning stage', 'development',
+    ],
+    summary: 'Track the money spent before and around the trades - plans, permits, insurance, loan interest - in the same budget.',
+    blocks: [
+      { type: 'text', text: 'Not every dollar on a job is a trade. Before anyone swings a hammer you are paying for plans and design, permit fees, a survey, builders risk insurance, legal and recording, loan origination and interest, and you are carrying a contingency. Those are soft costs, and they belong on the same budget as the trades - otherwise your job total is not the real job total.' },
+      { type: 'text', text: 'Every budget line is either a Hard cost (the physical construction - framing, concrete, plumbing) or a Soft cost. Existing lines are all hard costs, so nothing changed on jobs you already have.' },
+      { type: 'steps', items: [
+        'Open the project and go to the Budget tab.',
+        'Click "Add preconstruction costs" to drop in the standard soft-cost list (plans, permit fees, builders risk, taxes, loan origination, loan interest, survey, legal, broker fees, engineering, testing, contingency). Uncheck anything that does not apply.',
+        'They come in blank - fill in the amounts as your numbers firm up.',
+        'To add one by hand, click Add Line and set Cost type to "Soft cost". The category list switches to the soft-cost categories.',
+        'To move an existing line, edit it and change its Cost type.',
+      ] },
+      { type: 'text', text: 'The Budget tab then shows three numbers up top: hard costs, soft costs (with what share of the budget they are), and the all-in project cost. The line-item table splits into a Construction section and a Preconstruction & soft costs section, each with its own subtotal, so the trade totals stay clean while the job total stays honest.' },
+      { type: 'tip', text: 'On a project still in Planning, soft costs are listed first - at that stage they are the work. Once the job goes Active, construction leads.' },
+      { type: 'text', text: 'Soft costs behave like any other line everywhere else: they carry into a client proposal with your markup, they are saved and reapplied with budget templates, and they count toward the budget-vs-actual tracking.' },
+    ],
+    related: ['add-project-budget', 'estimate-proposal', 'budget-templates', 'project-tabs-explained'],
   },
   {
     slug: 'estimate-proposal',
