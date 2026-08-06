@@ -19,6 +19,7 @@ import { QuickBooksCard } from '@/components/settings/quickbooks-card'
 import { PasswordInput } from '@/components/ui/password-input'
 import { ConnectCalendarButton } from '@/components/calendar/connect-calendar'
 import { ThemeToggle, useTheme } from '@/components/ui/theme-toggle'
+import { useCanSignUp } from '@/lib/use-native'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -165,6 +166,8 @@ function RoleBadge({ role, label }: { role: string; label?: string }) {
 
 export default function SettingsPage() {
   const { theme } = useTheme()
+  // Anything that leads to buying a plan is hidden in the iOS build.
+  const { allowed: canBuy } = useCanSignUp()
   const [activeTab, setActiveTab] = useState('profile')
   const [loading, setLoading] = useState(true)
 
@@ -1597,9 +1600,15 @@ export default function SettingsPage() {
                       <p className="text-lg font-semibold text-ink">Starter Plan</p>
                       <p className="text-sm text-muted-fg mt-0.5">Free during beta</p>
                     </div>
-                    <Button disabled className="opacity-60 cursor-not-allowed">
-                      Upgrade (Coming Soon)
-                    </Button>
+                    {/* No route to buying anything inside the iOS app - see
+                        lib/use-native.ts. Plan changes happen on the web. */}
+                    {canBuy ? (
+                      <Button disabled className="opacity-60 cursor-not-allowed">
+                        Upgrade (Coming Soon)
+                      </Button>
+                    ) : (
+                      <p className="text-sm text-faint">Manage your plan at sytenav.com</p>
+                    )}
                   </div>
                 </CardContent>
               </Card>

@@ -8,10 +8,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/ui/password-input'
 import { Label } from '@/components/ui/label'
+import { useCanSignUp } from '@/lib/use-native'
 
 export default function LoginPage() {
   const router = useRouter()
   const supabase = createClient()
+  // The iOS build is sign-in only - see lib/use-native.ts.
+  const { allowed: canSignUp, ready } = useCanSignUp()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -93,12 +96,22 @@ export default function LoginPage() {
         </Button>
       </form>
 
-      <p className="mt-6 text-center text-sm text-faint">
-        Don&apos;t have an account?{' '}
-        <Link href="/signup" className="font-medium text-accent-fg hover:text-accent transition-colors">
-          Request access
-        </Link>
-      </p>
+      {/* Hidden until we know the platform, so the link never flashes on iOS. */}
+      {ready && (
+        <p className="mt-6 text-center text-sm text-faint">
+          {canSignUp ? (
+            <>
+              Don&apos;t have an account?{' '}
+              <Link href="/signup" className="font-medium text-accent-fg hover:text-accent transition-colors">
+                Request access
+              </Link>
+            </>
+          ) : (
+            // Plain text, no call to action: an account is set up on the web.
+            <>Need an account? Set one up at sytenav.com, then sign in here.</>
+          )}
+        </p>
+      )}
     </div>
   )
 }
