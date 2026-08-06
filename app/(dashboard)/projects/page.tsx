@@ -94,6 +94,8 @@ function projectHref(p: { id: string; is_site?: boolean | null }) {
 export default function ProjectsPage() {
   const { can } = usePermissions()
   const canCreate = can('projects', 'create')
+  // Edit/delete on a project row. Gates the same thing the API now enforces.
+  const canManage = can('projects', 'edit')
   const supabase = createClient()
   const router = useRouter()
   const [items, setItems] = useState<Project[]>([])
@@ -645,12 +647,12 @@ export default function ProjectsPage() {
                     Open →
                   </Link>
                   <div className="flex items-center gap-1">
-                    <button onClick={() => openEdit(project)} className="p-1.5 text-faint hover:text-muted-fg rounded" title="Edit">
+                    {canManage && <button onClick={() => openEdit(project)} className="p-1.5 text-faint hover:text-muted-fg rounded" title="Edit">
                       <Pencil className="h-4 w-4" />
-                    </button>
-                    <button onClick={() => handleDelete(project)} className="p-1.5 text-faint hover:text-danger rounded" title="Delete">
+                    </button>}
+                    {canManage && <button onClick={() => handleDelete(project)} className="p-1.5 text-faint hover:text-danger rounded" title="Delete">
                       <Trash2 className="h-4 w-4" />
-                    </button>
+                    </button>}
                   </div>
                 </div>
               </div>
@@ -678,12 +680,12 @@ export default function ProjectsPage() {
                     {project.start_date && <span>{fmtDate(project.start_date)}</span>}
                   </div>
                   <div className="mt-2 flex gap-2">
-                    <button onClick={() => openEdit(project)} className="text-faint hover:text-muted-fg">
+                    {canManage && <button onClick={() => openEdit(project)} className="text-faint hover:text-muted-fg">
                       <Pencil className="h-4 w-4" />
-                    </button>
-                    <button onClick={() => handleDelete(project)} className="text-faint hover:text-danger">
+                    </button>}
+                    {canManage && <button onClick={() => handleDelete(project)} className="text-faint hover:text-danger">
                       <Trash2 className="h-4 w-4" />
-                    </button>
+                    </button>}
                   </div>
                 </div>
               ))}
@@ -722,12 +724,12 @@ export default function ProjectsPage() {
                           <Link href={projectHref(project)}>
                             <Button variant="ghost" size="sm">View</Button>
                           </Link>
-                          <button onClick={() => openEdit(project)} className="p-1.5 text-faint hover:text-muted-fg rounded">
+                          {canManage && <button onClick={() => openEdit(project)} className="p-1.5 text-faint hover:text-muted-fg rounded">
                             <Pencil className="h-4 w-4" />
-                          </button>
-                          <button onClick={() => handleDelete(project)} className="p-1.5 text-faint hover:text-danger rounded">
+                          </button>}
+                          {canManage && <button onClick={() => handleDelete(project)} className="p-1.5 text-faint hover:text-danger rounded">
                             <Trash2 className="h-4 w-4" />
-                          </button>
+                          </button>}
                         </div>
                       </TableCell>
                     </TableRow>
