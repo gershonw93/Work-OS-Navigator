@@ -20,6 +20,12 @@ export default async function ProjectLayout({ children, params }: ProjectLayoutP
     .eq('id', params.id)
     .single()
 
+  // A job inside a building needs a way back to it - otherwise the only route
+  // to its 39 siblings is the Projects list, which deliberately hides them.
+  const { data: parent } = project?.parent_project_id
+    ? await supabase.from('projects').select('id, name').eq('id', project.parent_project_id).single()
+    : { data: null }
+
   return (
     <div className="flex flex-col min-h-full">
       {/* Project header */}
@@ -27,11 +33,23 @@ export default async function ProjectLayout({ children, params }: ProjectLayoutP
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
             <div className="min-w-0">
+              {parent && (
+                <a href={`/projects/${parent.id}/units`}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-accent-fg hover:underline">
+                  ← {parent.name}
+                </a>
+              )}
               <h1 className="text-lg sm:text-xl font-bold text-ink truncate">
                 {project?.name ?? 'Project'}
               </h1>
-              {project?.address && (
-                <p className="text-sm text-muted-fg mt-0.5 truncate">{project.address}</p>
+              {(project?.address || project?.unit || project?.floor) && (
+                <p className="text-sm text-muted-fg mt-0.5 truncate">
+                  {[
+                    project?.unit ? `Unit ${project.unit}` : null,
+                    project?.floor ? `Floor ${project.floor}` : null,
+                    project?.address,
+                  ].filter(Boolean).join(' · ')}
+                </p>
               )}
             </div>
             {project?.status && (
@@ -51,6 +69,8 @@ export default async function ProjectLayout({ children, params }: ProjectLayoutP
               customer_id: project?.customer_id,
               interior_sqft: project?.interior_sqft, exterior_sqft: project?.exterior_sqft,
               billing_mode: project?.billing_mode, default_retainage_pct: project?.default_retainage_pct,
+              unit: project?.unit, floor: project?.floor,
+              is_site: project?.is_site, parent_project_id: project?.parent_project_id,
             }} />
           </div>
         </div>

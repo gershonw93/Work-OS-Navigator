@@ -42,6 +42,13 @@ move it to **In progress**, and when it ships, move it to **Done** with the PR #
 - **Edit existing receipts** - change the job or attach a budget line to a receipt after the fact (currently set at creation).
 - **Auto-suggest job/budget line** from the merchant name on the receipt.
 
+## 🏢 Sites (multi-unit / multi-floor jobs)
+Shipped in #218: bulk creation makes a site + a job per unit/floor/house, with a Jobs tab that rolls up budget vs actual. Deferred from that work:
+- **Attach an existing project to a site** (and move one between sites) - today grouping only happens at bulk-create time.
+- **Push down from the site**: apply a budget template, a schedule, or a team assignment to every unit at once. Biggest real time-saver once someone runs a real building through it.
+- **Roll-up beyond budget**: schedule/progress across units, and one client-facing report for the whole building.
+- **Per-unit variations** - unit types (2BR/3BR) with their own budget template, rather than every unit starting identical.
+
 ## 🗓️ Calendar
 - **Week / agenda view** and **filter by project** on the Master Calendar.
 - **Per-project calendar tab** (not just Master).
@@ -73,4 +80,7 @@ move it to **In progress**, and when it ships, move it to **Done** with the PR #
 - Materials: snap receipt → assign job → budget line, project tab (#86, #87, #89, #90)
 - Inspections: request → schedule → notify → result, card-after workflow (#91, #93)
 - Calendar: read-only iCal feed + one-click Connect + day detail view (#99–#101)
+- Bulk project creation rebuilt: sites (parent/child projects), unit + floor as real fields, floor-by-floor mode for commercial, server-side geocoding so batches reach the map, entry point on the Projects page (#218)
+- Budget categories: 49 trades in build order + custom categories that persist across jobs (#217)
+- Project Settings: address-dropdown fix, billing method + square footage editable after setup (#216)
 - Preconstruction: hard/soft cost split on the budget (own section + subtotals + standard soft-cost starter list) and a planning-stage project menu that hides the site/billing tabs until the job goes Active

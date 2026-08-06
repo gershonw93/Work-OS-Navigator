@@ -18,7 +18,9 @@ import { Label } from '@/components/ui/label'
 import { createClient } from '@/lib/supabase/client'
 import { usePermissions } from '@/lib/use-permissions'
 import { ProjectsMap } from '@/components/projects/projects-map'
+import { BulkAddModal } from '@/components/projects/bulk-add-modal'
 import { cn } from '@/lib/utils'
+import { useRouter } from 'next/navigation'
 
 interface Project {
   id: string
@@ -35,6 +37,10 @@ interface Project {
   exterior_sqft?: number | null
   billing_mode?: string | null
   default_retainage_pct?: number | null
+  parent_project_id?: string | null
+  is_site?: boolean | null
+  unit?: string | null
+  floor?: string | null
   created_at: string
 }
 
@@ -80,11 +86,19 @@ function fmtDate(d: string | null) {
   return new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+// A site has no work of its own, so it opens onto its units rather than plans.
+function projectHref(p: { id: string; is_site?: boolean | null }) {
+  return p.is_site ? `/projects/${p.id}/units` : `/projects/${p.id}/plans`
+}
+
 export default function ProjectsPage() {
   const { can } = usePermissions()
   const canCreate = can('projects', 'create')
   const supabase = createClient()
+  const router = useRouter()
   const [items, setItems] = useState<Project[]>([])
+  const [bulkOpen, setBulkOpen] = useState(false)
+  const [bulkToken, setBulkToken] = useState('')
   const [projectStats, setProjectStats] = useState<Record<string, ProjectStat>>({})
   const [loading, setLoading] = useState(true)
   const [editProject, setEditProject] = useState<Project | null>(null)
@@ -118,6 +132,7 @@ export default function ProjectsPage() {
   async function fetchProjects() {
     // Use the API so role-based scoping (assigned-only for field roles) is enforced
     const token = await getToken()
+    setBulkToken(token)
     const res = await fetch('/api/projects', { headers: { Authorization: `Bearer ${token}` } })
     if (res.ok) {
       const data = await res.json()
@@ -202,9 +217,19 @@ export default function ProjectsPage() {
     fetchProjects()
   }
 
+  // How many jobs hang off each site, so its row can say "40 units" instead of
+  // the list showing 40 near-identical rows.
+  const childCount = useMemo(() => {
+    const m: Record<string, number> = {}
+    for (const p of items) if (p.parent_project_id) m[p.parent_project_id] = (m[p.parent_project_id] ?? 0) + 1
+    return m
+  }, [items])
+
   // Derived: filtered + sorted
   const filtered = useMemo(() => {
-    let list = items
+    // A site stands in for its children here - open it to see them. Searching
+    // brings the children back, since that's when you want the specific unit.
+    let list = query.trim() ? items : items.filter(p => !p.parent_project_id)
     const q = query.trim().toLowerCase()
     if (q) {
       list = list.filter(p =>
@@ -348,14 +373,32 @@ export default function ProjectsPage() {
         title="Projects"
         subtitle="Manage all your construction projects."
         action={canCreate ? (
-          <Link href="/projects/new">
-            <Button>
-              <Plus className="h-4 w-4" />
-              New Project
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" onClick={() => setBulkOpen(true)}>Bulk Add</Button>
+            <Link href="/projects/new">
+              <Button>
+                <Plus className="h-4 w-4" />
+                New Project
+              </Button>
+            </Link>
+          </div>
         ) : undefined}
       />
+
+      {bulkOpen && (
+        <BulkAddModal
+          token={bulkToken}
+          onClose={() => setBulkOpen(false)}
+          onSuccess={({ count, located, siteId }) => {
+            setBulkOpen(false)
+            fetchProjects()
+            if (located < count) {
+              alert(`Created ${count} projects. ${count - located} could not be placed on the map - open one and fix its address.`)
+            }
+            if (siteId) router.push(`/projects/${siteId}/units`)
+          }}
+        />
+      )}
 
       {/* Stats bar */}
       {items.length > 0 && (
@@ -509,14 +552,22 @@ export default function ProjectsPage() {
               <div key={project.id} className="group relative rounded-xl border border-line bg-panel overflow-hidden hover:border-accent hover:shadow-md transition-all">
                 {/* Accent strip */}
                 <div className={cn('h-1.5 bg-gradient-to-r', accent)} />
-                <Link href={`/projects/${project.id}/plans`} className="block p-5">
+                <Link href={projectHref(project)} className="block p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <h3 className="font-semibold text-ink truncate group-hover:text-accent-fg transition-colors">
                         {project.name}
                       </h3>
-                      {project.type && (
-                        <span className="text-xs font-medium text-faint capitalize">{project.type.replace('_', ' ')}</span>
+                      {project.is_site ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-info">
+                          <Building2 className="h-3 w-3" />
+                          Site · {childCount[project.id] ?? 0} job{(childCount[project.id] ?? 0) !== 1 ? 's' : ''}
+                        </span>
+                      ) : project.type && (
+                        <span className="text-xs font-medium text-faint capitalize">
+                          {[project.type.replace('_', ' '), project.unit && `Unit ${project.unit}`, project.floor && `Floor ${project.floor}`]
+                            .filter(Boolean).join(' · ')}
+                        </span>
                       )}
                     </div>
                     <Badge variant={getStatusVariant(project.status ?? '')} className="shrink-0 capitalize">
@@ -590,7 +641,7 @@ export default function ProjectsPage() {
 
                 {/* Action bar */}
                 <div className="flex items-center justify-between border-t border-line-soft px-5 py-2.5">
-                  <Link href={`/projects/${project.id}/plans`} className="text-sm font-medium text-accent-fg hover:text-accent-fg">
+                  <Link href={projectHref(project)} className="text-sm font-medium text-accent-fg hover:text-accent-fg">
                     Open →
                   </Link>
                   <div className="flex items-center gap-1">
@@ -615,7 +666,7 @@ export default function ProjectsPage() {
               {filtered.map((project) => (
                 <div key={project.id} className="p-4">
                   <div className="flex items-start justify-between gap-2">
-                    <Link href={`/projects/${project.id}/plans`} className="font-medium text-ink hover:text-accent-fg">
+                    <Link href={projectHref(project)} className="font-medium text-ink hover:text-accent-fg">
                       {project.name}
                     </Link>
                     <Badge variant={getStatusVariant(project.status ?? '')} className="capitalize">
@@ -654,7 +705,7 @@ export default function ProjectsPage() {
                   {filtered.map((project) => (
                     <TableRow key={project.id}>
                       <TableCell className="font-medium">
-                        <Link href={`/projects/${project.id}/plans`} className="text-accent-fg hover:text-accent-fg hover:underline">
+                        <Link href={projectHref(project)} className="text-accent-fg hover:text-accent-fg hover:underline">
                           {project.name}
                         </Link>
                       </TableCell>
@@ -668,7 +719,7 @@ export default function ProjectsPage() {
                       <TableCell>{fmtDate(project.start_date)}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
-                          <Link href={`/projects/${project.id}/plans`}>
+                          <Link href={projectHref(project)}>
                             <Button variant="ghost" size="sm">View</Button>
                           </Link>
                           <button onClick={() => openEdit(project)} className="p-1.5 text-faint hover:text-muted-fg rounded">

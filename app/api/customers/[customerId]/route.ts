@@ -32,12 +32,24 @@ export async function GET(
 
   const { data: customer, error } = await admin()
     .from('customers')
-    .select('*, projects(id, name, status, address, start_date, type)')
+    .select('*, projects(id, name, status, address, start_date, type, parent_project_id, is_site)')
     .eq('id', customerId)
     .eq('gc_company_id', companyId)
     .single()
 
   if (error || !customer) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+  // A site stands in for the jobs underneath it, same as the projects list -
+  // otherwise a 40-unit building buries everything else this customer has.
+  const all = ((customer as any).projects ?? []) as any[]
+  const grouped = all.some(p => p.parent_project_id)
+  if (grouped) {
+    const counts: Record<string, number> = {}
+    for (const p of all) if (p.parent_project_id) counts[p.parent_project_id] = (counts[p.parent_project_id] ?? 0) + 1
+    ;(customer as any).projects = all
+      .filter(p => !p.parent_project_id)
+      .map(p => ({ ...p, child_count: counts[p.id] ?? 0 }))
+  }
 
   return NextResponse.json({ customer })
 }

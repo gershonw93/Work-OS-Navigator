@@ -1,14 +1,18 @@
 # SyteNav - working agreement
 
 ## Ship workflow (IMPORTANT)
-When work is done: **build → commit → push → merge to `main` automatically.**
-Do NOT ask the user to merge or deploy. Vercel auto-deploys `main`.
-- Work on branch `claude/admiring-bohr-DyFVR`, then open/merge a PR into `main` via the GitHub MCP tools.
+When work is done: **build → commit → push → merge to `main` → fast-forward the
+production branch.** Do NOT ask the user to merge or deploy.
+- Work on a `claude/*` branch, then open/merge a PR into `main` via the GitHub MCP tools.
+- **Vercel's production branch is `claude/admiring-bohr-DyFVR`, NOT `main`.** Builds
+  off `main` are previews only. After merging, fast-forward it or nothing ships:
+  `git push origin origin/main:refs/heads/claude/admiring-bohr-DyFVR`
+  (Changing this is one setting: Vercel → project → Git → Production Branch.)
 - The only thing the user must do manually is run new Supabase SQL migrations
   (no DB access from here). Mention those once, briefly - don't nag about deploy.
 
 ## Migrations
-- Combined, idempotent SQL lives at `supabase/migrations/_combined_008-062.sql`
+- Combined, idempotent SQL lives at `supabase/migrations/_combined_008-063.sql`
   (keep the suffix current as new migrations are added). User pastes it into the
   Supabase SQL editor.
 
