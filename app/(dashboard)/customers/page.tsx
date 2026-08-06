@@ -13,6 +13,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
 import { Plus, ChevronDown, ChevronUp, ExternalLink, UserPlus } from 'lucide-react'
 import Link from 'next/link'
+import { BulkAddModal } from '@/components/projects/bulk-add-modal'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -254,204 +255,6 @@ function NewCustomerModal({
   )
 }
 
-// ─── Bulk Create Modal ────────────────────────────────────────────────────────
-
-function BulkCreateModal({
-  onClose,
-  onSuccess,
-  token,
-}: {
-  onClose: () => void
-  onSuccess: () => void
-  token: string
-}) {
-  const today = new Date().toISOString().split('T')[0]
-  const [bulkMode, setBulkMode] = useState<'unit' | 'street'>('unit')
-  const [client, setClient] = useState('')
-  const [type, setType] = useState('residential')
-  const [startDate, setStartDate] = useState(today)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-  const [successMsg, setSuccessMsg] = useState('')
-
-  // Unit mode
-  const [namePrefix, setNamePrefix] = useState('')
-  const [addressPrefix, setAddressPrefix] = useState('')
-  const [unitFrom, setUnitFrom] = useState(1)
-  const [unitTo, setUnitTo] = useState(10)
-
-  // Street mode
-  const [streetNamePrefix, setStreetNamePrefix] = useState('')
-  const [streetName, setStreetName] = useState('')
-  const [firstNumber, setFirstNumber] = useState(1)
-  const [increment, setIncrement] = useState(1)
-  const [streetCount, setStreetCount] = useState(10)
-
-  let previewLines: string[] = []
-  let totalCount = 0
-
-  if (bulkMode === 'unit') {
-    const cappedTo = Math.min(unitTo, unitFrom + 99)
-    totalCount = cappedTo >= unitFrom ? cappedTo - unitFrom + 1 : 0
-    previewLines = Array.from({ length: Math.min(totalCount, 5) }, (_, i) => `${namePrefix || 'Project'} Unit ${unitFrom + i}`)
-  } else {
-    totalCount = Math.min(streetCount, 100)
-    let num = firstNumber
-    for (let i = 0; i < Math.min(totalCount, 5); i++) {
-      previewLines.push(`${streetNamePrefix || 'House'} - ${num} ${streetName || 'Main St'}`)
-      num += increment
-    }
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setSaving(true)
-    setError('')
-    try {
-      const body = bulkMode === 'unit'
-        ? { mode: 'unit', client, name_prefix: namePrefix, address_prefix: addressPrefix, unit_start: unitFrom, unit_end: Math.min(unitTo, unitFrom + 99), type, start_date: startDate }
-        : { mode: 'street', client, name_prefix: streetNamePrefix, street_name: streetName, first_number: firstNumber, increment, count: Math.min(streetCount, 100), type, start_date: startDate }
-
-      const res = await fetch('/api/projects/bulk', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(body),
-      })
-      const json = await res.json()
-      if (!res.ok) { setError(json.error ?? 'Failed'); setSaving(false); return }
-      setSuccessMsg(`Created ${json.count} project${json.count === 1 ? '' : 's'}!`)
-      setTimeout(() => { onSuccess() }, 1500)
-    } catch {
-      setError('Network error')
-      setSaving(false)
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-lg rounded-xl bg-panel shadow-xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between border-b border-line px-6 py-4 sticky top-0 bg-panel z-10">
-          <h2 className="text-base font-semibold text-ink">Bulk Create Projects</h2>
-          <button onClick={onClose} className="text-faint hover:text-muted-fg text-xl leading-none">&times;</button>
-        </div>
-        {successMsg ? (
-          <div className="p-10 text-center">
-            <p className="text-lg font-semibold text-success">{successMsg}</p>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-4 p-6">
-            {/* Mode */}
-            <div>
-              <Label className="mb-2 block">Mode</Label>
-              <div className="flex gap-4">
-                {(['unit', 'street'] as const).map((m) => (
-                  <label key={m} className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="bulk-mode-list" value={m} checked={bulkMode === m} onChange={() => setBulkMode(m)} className="accent-[#C9F24A]" />
-                    <span className="text-sm font-medium text-ink-soft">{m === 'unit' ? 'Unit Numbers' : 'Street Numbers'}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="bc-client">Client Name</Label>
-              <Input id="bc-client" value={client} onChange={(e) => setClient(e.target.value)} required placeholder="e.g. Edgecomb Homes" />
-            </div>
-
-            {bulkMode === 'unit' ? (
-              <>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="bc-name-prefix">Project Name Prefix</Label>
-                    <Input id="bc-name-prefix" value={namePrefix} onChange={(e) => setNamePrefix(e.target.value)} required placeholder="e.g. House" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="bc-addr-prefix">Address Prefix</Label>
-                    <Input id="bc-addr-prefix" value={addressPrefix} onChange={(e) => setAddressPrefix(e.target.value)} placeholder="e.g. 95 Edgecomb Ave Unit" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="bc-from">Unit From</Label>
-                    <Input id="bc-from" type="number" min={1} value={unitFrom} onChange={(e) => setUnitFrom(Number(e.target.value))} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="bc-to">Unit To (max 100)</Label>
-                    <Input id="bc-to" type="number" min={unitFrom} max={unitFrom + 99} value={unitTo} onChange={(e) => setUnitTo(Number(e.target.value))} />
-                  </div>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="bc-street-prefix">Name Prefix</Label>
-                    <Input id="bc-street-prefix" value={streetNamePrefix} onChange={(e) => setStreetNamePrefix(e.target.value)} required placeholder="e.g. House" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="bc-street-name">Street Name</Label>
-                    <Input id="bc-street-name" value={streetName} onChange={(e) => setStreetName(e.target.value)} required placeholder="e.g. Main St" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="bc-first-num">First Number</Label>
-                    <Input id="bc-first-num" type="number" min={1} value={firstNumber} onChange={(e) => setFirstNumber(Number(e.target.value))} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="bc-increment">Increment</Label>
-                    <Select id="bc-increment" value={String(increment)} onChange={(e) => setIncrement(Number(e.target.value))}>
-                      {[1, 2, 3, 4, 5, 10].map((n) => <option key={n} value={n}>{n}</option>)}
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="bc-count">Count (max 100)</Label>
-                    <Input id="bc-count" type="number" min={1} max={100} value={streetCount} onChange={(e) => setStreetCount(Number(e.target.value))} />
-                  </div>
-                </div>
-              </>
-            )}
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="bc-type">Type</Label>
-                <Select id="bc-type" value={type} onChange={(e) => setType(e.target.value)}>
-                  <option value="residential">Residential</option>
-                  <option value="commercial">Commercial</option>
-                  <option value="renovation">Renovation</option>
-                  <option value="mixed_use">Mixed Use</option>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="bc-date">Start Date</Label>
-                <Input id="bc-date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-              </div>
-            </div>
-
-            {totalCount > 0 && (
-              <div className="rounded-lg bg-surface border border-line px-4 py-3 text-sm text-muted-fg">
-                <p className="font-medium text-ink-soft mb-1">Preview ({totalCount} total):</p>
-                <ul className="space-y-0.5">
-                  {previewLines.map((line, i) => <li key={i}>{line}</li>)}
-                  {totalCount > 5 && <li className="text-faint italic">… and {totalCount - 5} more</li>}
-                </ul>
-              </div>
-            )}
-
-            {error && <p className="text-sm text-danger">{error}</p>}
-            <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
-              <Button type="submit" disabled={saving || totalCount === 0}>
-                {saving ? 'Creating…' : `Create ${totalCount} Project${totalCount === 1 ? '' : 's'}`}
-              </Button>
-            </div>
-          </form>
-        )}
-      </div>
-    </div>
-  )
-}
-
 // ─── Customer Card ────────────────────────────────────────────────────────────
 
 function CustomerCard({
@@ -594,7 +397,7 @@ export default function CustomersPage() {
         action={
           <div className="flex items-center gap-2">
             <Button variant="secondary" onClick={() => setBulkOpen(true)}>
-              Bulk Create Units
+              Bulk Add Projects
             </Button>
             <Button onClick={() => setNewCustomerOpen(true)}>
               <Plus className="h-4 w-4 mr-1" />
@@ -637,7 +440,7 @@ export default function CustomersPage() {
       )}
 
       {bulkOpen && (
-        <BulkCreateModal
+        <BulkAddModal
           token={token}
           onClose={() => setBulkOpen(false)}
           onSuccess={() => { setBulkOpen(false); refresh() }}

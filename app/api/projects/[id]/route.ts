@@ -18,7 +18,7 @@ export async function PATCH(
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { name, address, client, type, status, start_date, end_date, customer_id, lat, lng, interior_sqft, exterior_sqft, billing_mode, default_retainage_pct, labor_rate } = body
+  const { name, address, client, type, status, start_date, end_date, customer_id, lat, lng, interior_sqft, exterior_sqft, billing_mode, default_retainage_pct, labor_rate, unit, floor } = body
 
   const updates: Record<string, unknown> = {}
   if (name !== undefined) updates.name = name
@@ -35,6 +35,10 @@ export async function PATCH(
   if (billing_mode !== undefined) updates.billing_mode = billing_mode
   if (default_retainage_pct !== undefined) updates.default_retainage_pct = default_retainage_pct
   if (labor_rate !== undefined) updates.labor_rate = Math.max(0, Number(labor_rate) || 0)
+  // Kept out of `address` on purpose - an address with "Unit 3" on the end
+  // can't be geocoded, which is what stranded bulk-created jobs off the map.
+  if (unit !== undefined) updates.unit = (unit ?? '').toString().trim() || null
+  if (floor !== undefined) updates.floor = (floor ?? '').toString().trim() || null
 
   let { data, error } = await db
     .from('projects')
@@ -47,6 +51,11 @@ export async function PATCH(
   if (error && (error as any).code === '42703' && 'labor_rate' in updates) {
     const { labor_rate: _lr, ...noRate } = updates
     const retry = await db.from('projects').update(noRate).eq('id', params.id).select().single()
+    data = retry.data; error = retry.error
+  }
+  if (error && (error as any).code === '42703' && ('unit' in updates || 'floor' in updates)) {
+    const { unit: _u, floor: _f, ...noUnit } = updates
+    const retry = await db.from('projects').update(noUnit).eq('id', params.id).select().single()
     data = retry.data; error = retry.error
   }
   if (error && (error as any).code === '42703' && ('billing_mode' in updates || 'default_retainage_pct' in updates)) {

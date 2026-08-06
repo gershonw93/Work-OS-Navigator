@@ -10,7 +10,7 @@ import {
   FileText, Users, Calendar, CheckSquare, TrendingUp, BookOpen,
   MessageSquare, Receipt, DollarSign, GitPullRequest, Shield,
   ClipboardCheck, FileCheck, BarChart2, X, LayoutGrid,
-  Wrench, Wallet, Clock, Send, ShoppingCart, FileSpreadsheet,
+  Wrench, Wallet, Clock, Send, ShoppingCart, FileSpreadsheet, Building2,
 } from 'lucide-react'
 
 const groups = [
@@ -56,6 +56,14 @@ const groups = [
     ],
   },
   {
+    label: 'Site',
+    color: 'text-info',
+    bg: 'bg-info-tint',
+    tabs: [
+      { label: 'Jobs', slug: 'units', icon: Building2 },
+    ],
+  },
+  {
     label: 'People',
     color: 'text-special',
     bg: 'bg-special-tint',
@@ -81,6 +89,12 @@ const SUB_OWN_HIDDEN = new Set(['submittals', 'request-quotes', 'quotes'])
 // and there is nothing to bill. Hide the tabs that only mean something once
 // work starts so preconstruction reads as its own stage. They come back the
 // moment the project is set to active.
+// A site is a container - the building or the street, not a job. It holds the
+// address, the client, the plans and the permits; the budget, schedule and
+// crew all live on the units underneath it. Anything else would be a second
+// place to track the same work.
+const SITE_ALLOWED = new Set(['units', 'plans', 'permits', 'submittals', 'compliance', 'team', 'rfis'])
+
 const PLANNING_HIDDEN = new Set([
   'time', 'daily-logs', 'progress',
   'invoices', 'pay-apps', 'payments', 'change-orders',
@@ -96,7 +110,7 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const { can, loading } = usePermissions()
-  const [ctx, setCtx] = useState<{ companyType: string; owns: boolean; billingMode?: string; status?: string } | null>(null)
+  const [ctx, setCtx] = useState<{ companyType: string; owns: boolean; billingMode?: string; status?: string; isSite?: boolean } | null>(null)
 
   useEffect(() => {
     let active = true
@@ -132,7 +146,12 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
   }
   // Preconstruction: planning jobs get the estimating/approvals lane only.
   const isPlanning = ctx?.status === 'planning'
-  const statusAllows = (slug: string) => !isPlanning || !PLANNING_HIDDEN.has(slug)
+  const isSite = !!ctx?.isSite
+  const statusAllows = (slug: string) => {
+    if (isSite) return SITE_ALLOWED.has(slug)
+    if (slug === 'units') return false // only a site has jobs underneath it
+    return !isPlanning || !PLANNING_HIDDEN.has(slug)
+  }
 
   // The "Quote" tab is the sub's own-job starting point - only there.
   const tabAllowed = (slug: string) => {
@@ -158,7 +177,7 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
       const fallback = visibleTabs[0]?.slug ?? 'plans'
       router.replace(`/projects/${projectId}/${fallback}`)
     }
-  }, [ready, isSub, isPlanning, pathname])
+  }, [ready, isSub, isPlanning, isSite, pathname])
 
   const activeTab = visibleTabs.find(t => pathname.includes(`/${t.slug}`))
   const activeGroup = filteredGroups.find(g => g.tabs.some(t => t.slug === activeTab?.slug))
@@ -216,7 +235,15 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
               </button>
             )
           })}
-          {isPlanning && (
+          {isSite && (
+            <span
+              title="This is a site: the building or street itself. Budgets, schedules and crews live on the jobs underneath it."
+              className="ml-auto self-center shrink-0 rounded-full bg-info-tint px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-info"
+            >
+              Site
+            </span>
+          )}
+          {isPlanning && !isSite && (
             <span
               title="Site, billing and inspection tabs unlock when this job is set to Active."
               className="ml-auto self-center shrink-0 rounded-full bg-info-tint px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-info"
@@ -271,7 +298,7 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
             </div>
 
             <div className="px-4 pb-8 space-y-4">
-              {isPlanning && (
+              {isPlanning && !isSite && (
                 <p className="rounded-lg bg-info-tint px-3 py-2 text-xs text-info">
                   <span className="font-semibold uppercase tracking-wide">Preconstruction</span>
                   {' · '}Site, billing and inspection tabs unlock when this job is set to Active.

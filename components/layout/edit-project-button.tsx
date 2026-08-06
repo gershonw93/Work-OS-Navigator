@@ -25,6 +25,10 @@ interface Props {
     exterior_sqft?: number | null
     billing_mode?: string | null
     default_retainage_pct?: number | null
+    unit?: string | null
+    floor?: string | null
+    is_site?: boolean | null
+    parent_project_id?: string | null
   }
 }
 
@@ -48,6 +52,11 @@ export function EditProjectButton({ projectId, project }: Props) {
   const [exteriorSqft, setExteriorSqft] = useState(project.exterior_sqft != null ? String(project.exterior_sqft) : '')
   const [billingMode, setBillingMode] = useState<'simple' | 'aia'>(project.billing_mode === 'aia' ? 'aia' : 'simple')
   const [retainage, setRetainage] = useState(project.default_retainage_pct != null ? String(project.default_retainage_pct) : '10')
+  const [unit, setUnit] = useState(project.unit ?? '')
+  const [floor, setFloor] = useState(project.floor ?? '')
+  // Only worth showing on a job inside a building. A standalone project has no
+  // unit, and a site is the building itself.
+  const showUnitFloor = !project.is_site && (!!project.parent_project_id || !!project.unit || !!project.floor)
 
   useEffect(() => {
     if (!open) return
@@ -70,6 +79,7 @@ export function EditProjectButton({ projectId, project }: Props) {
       body: JSON.stringify({
         name, address, customer_id: customerId || null, client, type, status,
         start_date: startDate || null, end_date: endDate || null,
+        ...(showUnitFloor ? { unit: unit || null, floor: floor || null } : {}),
         interior_sqft: interiorSqft ? Number(interiorSqft) : null,
         exterior_sqft: exteriorSqft ? Number(exteriorSqft) : null,
         billing_mode: billingMode,
@@ -111,6 +121,18 @@ export function EditProjectButton({ projectId, project }: Props) {
                 <Label>Address</Label>
                 <AddressFields value={address} onChange={setAddress} onCoords={(lat, lng) => setCoords({ lat, lng })} />
               </div>
+              {showUnitFloor && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Unit</Label>
+                    <Input value={unit} onChange={e => setUnit(e.target.value)} placeholder="e.g. 3B" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Floor</Label>
+                    <Input value={floor} onChange={e => setFloor(e.target.value)} placeholder="e.g. 4" />
+                  </div>
+                </div>
+              )}
               <div className="space-y-1.5">
                 <Label>Owner / Client</Label>
                 <Select value={customerId} onChange={e => setCustomerId(e.target.value)}>
