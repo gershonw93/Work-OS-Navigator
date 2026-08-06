@@ -26,8 +26,13 @@ export function AddressAutocomplete({
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const skipNext = useRef(false)
   const wrapRef = useRef<HTMLDivElement>(null)
+  // Only an actual keystroke should trigger a lookup. Editing a record that
+  // already has an address mounts this with a full value, which would otherwise
+  // fire a search and drop the suggestion list over the fields on open.
+  const typed = useRef(false)
 
   useEffect(() => {
+    if (!typed.current) return
     if (skipNext.current) { skipNext.current = false; return }
     if (timer.current) clearTimeout(timer.current)
     const q = value.trim()
@@ -65,7 +70,7 @@ export function AddressAutocomplete({
       <Input
         id={id}
         value={value}
-        onChange={e => onChange(e.target.value)}
+        onChange={e => { typed.current = true; onChange(e.target.value) }}
         placeholder={placeholder}
         required={required}
         className={className}
