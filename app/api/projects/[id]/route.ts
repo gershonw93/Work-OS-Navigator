@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { getActor, actorCan } from '@/lib/server-permissions'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -16,6 +17,13 @@ export async function PATCH(
   const db = admin()
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // Enforce what the UI hides. Field roles get view-only on projects, so
+  // without this any signed-in user could rename a job or flip its status.
+  const actor = await getActor(db, token)
+  if (!actorCan(actor, 'projects', 'edit')) {
+    return NextResponse.json({ error: 'You do not have permission to edit this project.' }, { status: 403 })
+  }
 
   const body = await request.json()
   const { name, address, client, type, status, start_date, end_date, customer_id, lat, lng, interior_sqft, exterior_sqft, billing_mode, default_retainage_pct, labor_rate, unit, floor } = body
@@ -84,6 +92,15 @@ export async function DELETE(
   const db = admin()
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // 'edit' rather than 'delete': the Projects list has always offered delete to
+  // anyone who can manage a project, and project_manager has edit without
+  // delete. Gating on 'delete' would take that away from PMs, which is a
+  // separate decision. This closes the actual hole - view-only roles.
+  const actor = await getActor(db, token)
+  if (!actorCan(actor, 'projects', 'edit')) {
+    return NextResponse.json({ error: 'You do not have permission to delete projects.' }, { status: 403 })
+  }
 
   const { error } = await db.from('projects').delete().eq('id', params.id)
 

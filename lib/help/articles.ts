@@ -121,6 +121,32 @@ export const HELP_ARTICLES: HelpArticle[] = [
     related: ['bulk-add-projects', 'project-settings', 'project-tabs-explained', 'add-project-budget'],
   },
   {
+    slug: 'project-status-active',
+    title: 'What Active means, and how to set a job to it',
+    category: 'projects',
+    keywords: [
+      'active', 'status', 'planning', 'go live', 'start job', 'won the job', 'awarded',
+      'deposit', 'under contract', 'on hold', 'completed', 'cancelled', 'checklist',
+      'ready to start', 'set to active', 'change status', 'mobilise', 'mobilize', 'start date',
+    ],
+    summary: 'Active means the job is under contract - won and billable. Set it from the status badge in the project header.',
+    blocks: [
+      { type: 'text', text: 'Active means you have the job under contract. It does NOT mean crews are on site. Your deposit is the reason: contract signed, money in, nobody on site for three weeks - you still need to record that payment, so the job has to be active.' },
+      { type: 'text', text: 'When work actually starts is the project\'s start date, which is a separate field. Use that (and the daily logs) to know whether anyone is on site.' },
+      { type: 'steps', items: [
+        'Open the project.',
+        'Click the status badge at the top, next to the project name.',
+        'Choose Active.',
+        'Going from Planning to Active shows a short pre-flight - read it, set the start date, and confirm.',
+      ] },
+      { type: 'text', text: 'The pre-flight is filled in from the job itself: whether the budget has lines, whether a markup or AIA billing is set, whether a deposit has been recorded, whether subs are lined up, whether insurance docs are in, whether permits are filed. Green means done, amber means not yet - and amber never stops you. Plenty of jobs start before the permit lands.' },
+      { type: 'tip', text: 'Two things change the moment a job goes Active. The markup on the Budget tab locks, because from then on it is the fee you bill. And the tabs that only matter once work starts - daily logs, time clock, invoices, pay apps, payments, materials, inspections, change orders - all switch on.' },
+      { type: 'text', text: 'The other statuses are one click, no pre-flight: On Hold, Completed, Cancelled, or back to Planning. You can also change the status from the Projects list (pencil icon) or in Project Settings.' },
+      { type: 'text', text: 'Changing a project\'s status needs edit permission on Projects. Field roles see the badge but cannot change it.' },
+    ],
+    related: ['project-settings', 'estimate-proposal', 'project-tabs-explained', 'record-client-payment'],
+  },
+  {
     slug: 'bulk-add-projects',
     title: 'Create a batch of projects at once (units, floors, houses)',
     category: 'projects',
@@ -165,7 +191,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: 'steps', items: [
         'Project name, address, and Owner / Client.',
         'Project Type - Residential, Commercial, or Mixed Use.',
-        'Status - Planning, Active, On Hold, Completed, Cancelled.',
+        'Status - Planning, Active, On Hold, Completed, Cancelled. (Faster from the status badge in the project header - see "What Active means".)',
         'Start and end dates.',
         'How you bill the job - Simple invoicing or Progress billing (AIA), plus default retainage % on AIA jobs.',
         'Interior and Exterior Sq Ft, which power the cost-per-square-foot breakdown on the Budget tab.',

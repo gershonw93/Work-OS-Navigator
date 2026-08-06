@@ -1,11 +1,11 @@
 import { ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { ProjectTabs } from '@/components/layout/project-tabs'
-import { Badge, getStatusVariant } from '@/components/ui/badge'
 import { ProjectActivityButton } from '@/components/layout/project-activity-button'
 import { SharePortalButton } from '@/components/layout/share-portal-button'
 import { TeamQuickView } from '@/components/layout/team-quick-view'
 import { EditProjectButton } from '@/components/layout/edit-project-button'
+import { ProjectStatusSwitch } from '@/components/layout/project-status-switch'
 
 interface ProjectLayoutProps {
   children: ReactNode
@@ -53,9 +53,7 @@ export default async function ProjectLayout({ children, params }: ProjectLayoutP
               )}
             </div>
             {project?.status && (
-              <Badge variant={getStatusVariant(project.status)} className="shrink-0">
-                {project.status.replace('_', ' ')}
-              </Badge>
+              <ProjectStatusSwitch projectId={params.id} status={project.status} isSite={!!project.is_site} />
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2 lg:shrink-0">
