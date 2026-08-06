@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/ui/password-input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
+import { useCanSignUp } from '@/lib/use-native'
 
 const inputCls = 'bg-slate-700 border-slate-600 text-white placeholder:text-muted-fg focus:border-accent'
 
@@ -42,6 +43,10 @@ export default function SignupPage() {
 
 // ── Request access (default) ──────────────────────────────────────────────────
 function RequestAccessForm() {
+  // The iOS build is sign-in only - see lib/use-native.ts. An invite link still
+  // works, since that is an account being handed over rather than a sale, and
+  // it renders CreateAccountForm instead of this.
+  const { allowed: canSignUp, ready } = useCanSignUp()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [companyName, setCompanyName] = useState('')
@@ -63,6 +68,22 @@ function RequestAccessForm() {
     setLoading(false)
     if (res.ok) setSent(true)
     else setError((await res.json().catch(() => ({}))).error ?? 'Could not submit. Try again.')
+  }
+
+  // Reached directly inside the iOS shell - a bookmark, or an old link.
+  if (ready && !canSignUp) {
+    return (
+      <div className="text-center py-8">
+        <h1 className="text-2xl font-bold text-white">Accounts are set up on the web</h1>
+        <p className="mt-3 text-sm text-faint max-w-sm mx-auto">
+          Head to sytenav.com on a computer or in your browser to get started. Once you have an
+          account, sign in here.
+        </p>
+        <p className="mt-6 text-sm text-faint">
+          <Link href="/login" className="font-medium text-accent-fg hover:text-accent transition-colors">Sign in</Link>
+        </p>
+      </div>
+    )
   }
 
   if (sent) {

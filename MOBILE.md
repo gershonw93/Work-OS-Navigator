@@ -11,9 +11,19 @@ the cloud via Codemagic - no Mac needed).
 ---
 
 ## 0. Accounts you need
-- **Apple Developer Program** - $99/yr - https://developer.apple.com/programs/
-- **Google Play Console** - $25 one-time - https://play.google.com/console/
-- **Codemagic** account (free tier ok) for Mac-free iOS builds - https://codemagic.io
+Start these FIRST - they involve waiting on other people, and everything else is
+blocked behind them.
+
+| Account | Cost | Notes |
+|---|---|---|
+| **D-U-N-S number** | free | Dun & Bradstreet. Needed to enrol as an *organization* (not an individual) on both Apple and Google. Longest lead time - request it before anything else. |
+| **Apple Developer Program** | $99/yr | https://developer.apple.com/programs/ · Enrol as an Organization so the seller shows as SyteNav, not a personal name. Needs the D-U-N-S + a legal entity. App Store Connect comes with it. |
+| **Google Play Console** | $25 once | https://play.google.com/console/ · Register as an **organization**, not personal - personal accounts have to run a closed test with real testers for a fixed period before they may publish. |
+| **Codemagic** | free tier | https://codemagic.io · Mac-free iOS builds. `codemagic.yaml` is already in the repo. |
+
+Both stores require identity verification (documents, sometimes a phone call), so treat
+the account setup as its own task, not a five-minute form. Verify current fees and
+requirements when you sign up - these change.
 
 Decide your identifiers first (used everywhere):
 - Bundle ID / package name: `com.sytenav.app` (set in `capacitor.config.ts` + `codemagic.yaml`)
@@ -52,6 +62,28 @@ not Safari/Chrome.
    (Ping me and I'll add this magic-link shim to the web app once the platforms exist.)
 
 ---
+
+## 2b. Sign-up is hidden on iOS (DONE - nothing to do)
+Apple takes 15-30% of anything sold inside an iOS app, so the iOS build is **sign-in
+only**: you sign up and pay on the web, then log in on the phone. Same shape Slack and
+Salesforce use. Android and the web are untouched.
+
+Already wired, in `lib/use-native.ts`:
+- `useNativePlatform()` reads `window.Capacitor` at runtime - no npm dependency, reports
+  `'web'` until the native shell exists.
+- `canSignUpHere()` / `useCanSignUp()` is the single switch. Callers: the login page
+  (link becomes plain text), `/signup` (shows "accounts are set up on the web"), and
+  Settings → Billing (Upgrade button becomes a line of text).
+- An **invite link still works on iOS** (`/signup?invite=…`) - that is an account being
+  handed over, not a sale.
+
+**To allow sign-up on iOS later** - if billing moves to In-App Purchase, or the rules on
+linking out settle - flip `IOS_SIGNUP_ALLOWED` to `true` in `lib/use-native.ts`. That is
+the only change; every caller reads that one function.
+
+⚠️ If you later add a link out to buy a plan, it must open in the **system browser**
+(`@capacitor/browser`), not an in-app webview. Apple treats an embedded webview as still
+being inside the app.
 
 ## 3. Native capabilities (so Apple doesn't reject it as "just a website")
 Already configured in `capacitor.config.ts`: **splash screen**, **push notifications**.
