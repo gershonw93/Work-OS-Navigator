@@ -100,14 +100,19 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
 
   useEffect(() => {
     let active = true
-    ;(async () => {
+    async function loadCtx() {
       const supabase = createClient()
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
       const res = await fetch(`/api/projects/${projectId}/viewer-context`, { headers: { Authorization: `Bearer ${session.access_token}` } })
       if (res.ok && active) setCtx(await res.json())
-    })()
-    return () => { active = false }
+    }
+    loadCtx()
+    // Status and billing method decide which tabs exist, and both are editable
+    // from Project Settings - refetch when that saves instead of waiting for a
+    // full page load.
+    window.addEventListener('sytenav:project-updated', loadCtx)
+    return () => { active = false; window.removeEventListener('sytenav:project-updated', loadCtx) }
   }, [projectId])
 
   const isSub = ctx?.companyType === 'subcontractor'

@@ -21,6 +21,10 @@ interface Props {
     start_date?: string | null
     end_date?: string | null
     customer_id?: string | null
+    interior_sqft?: number | null
+    exterior_sqft?: number | null
+    billing_mode?: string | null
+    default_retainage_pct?: number | null
   }
 }
 
@@ -40,6 +44,10 @@ export function EditProjectButton({ projectId, project }: Props) {
   const [startDate, setStartDate] = useState((project.start_date ?? '').slice(0, 10))
   const [endDate, setEndDate] = useState((project.end_date ?? '').slice(0, 10))
   const [coords, setCoords] = useState<{ lat: number | null; lng: number | null } | null>(null)
+  const [interiorSqft, setInteriorSqft] = useState(project.interior_sqft != null ? String(project.interior_sqft) : '')
+  const [exteriorSqft, setExteriorSqft] = useState(project.exterior_sqft != null ? String(project.exterior_sqft) : '')
+  const [billingMode, setBillingMode] = useState<'simple' | 'aia'>(project.billing_mode === 'aia' ? 'aia' : 'simple')
+  const [retainage, setRetainage] = useState(project.default_retainage_pct != null ? String(project.default_retainage_pct) : '10')
 
   useEffect(() => {
     if (!open) return
@@ -62,12 +70,18 @@ export function EditProjectButton({ projectId, project }: Props) {
       body: JSON.stringify({
         name, address, customer_id: customerId || null, client, type, status,
         start_date: startDate || null, end_date: endDate || null,
+        interior_sqft: interiorSqft ? Number(interiorSqft) : null,
+        exterior_sqft: exteriorSqft ? Number(exteriorSqft) : null,
+        billing_mode: billingMode,
+        default_retainage_pct: billingMode === 'aia' ? (Number(retainage) || 0) : null,
         ...(coords ? { lat: coords.lat, lng: coords.lng } : {}),
       }),
     })
     setSaving(false)
     if (!res.ok) { setError((await res.json().catch(() => ({}))).error ?? 'Could not save'); return }
     setOpen(false)
+    // Status/billing changes what the tab bar shows; it caches that on mount.
+    window.dispatchEvent(new Event('sytenav:project-updated'))
     router.refresh()
   }
 
@@ -106,7 +120,7 @@ export function EditProjectButton({ projectId, project }: Props) {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label>Type</Label>
+                  <Label>Project Type</Label>
                   <Select value={type} onChange={e => setType(e.target.value)}>
                     <option value="residential">Residential</option>
                     <option value="commercial">Commercial</option>
@@ -132,6 +146,50 @@ export function EditProjectButton({ projectId, project }: Props) {
                   <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
                 </div>
               </div>
+
+              {/* Billing method decides which money tabs this job shows (AIA =
+                  Pay Apps; simple = Invoices + Payments), so it has to be
+                  changeable after setup - jobs get re-scoped. */}
+              <div className="space-y-1.5">
+                <Label>How will you bill this job?</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button type="button" onClick={() => setBillingMode('simple')}
+                    className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${billingMode === 'simple' ? 'border-accent bg-accent-tint text-accent-fg' : 'border-line text-ink-soft hover:bg-surface'}`}>
+                    <span className="block text-sm font-semibold">Simple invoicing</span>
+                    <span className="block text-xs text-muted-fg mt-0.5">Invoices and client payments. Best for residential and smaller jobs.</span>
+                  </button>
+                  <button type="button" onClick={() => setBillingMode('aia')}
+                    className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${billingMode === 'aia' ? 'border-accent bg-accent-tint text-accent-fg' : 'border-line text-ink-soft hover:bg-surface'}`}>
+                    <span className="block text-sm font-semibold">Progress billing (AIA)</span>
+                    <span className="block text-xs text-muted-fg mt-0.5">Monthly pay applications (G702/G703) with retainage. For commercial and bank-funded jobs.</span>
+                  </button>
+                </div>
+                {billingMode === 'aia' && (
+                  <div className="flex items-center gap-2 pt-1">
+                    <Label className="text-sm font-normal text-muted-fg">Default retainage</Label>
+                    <Input type="number" step="0.1" value={retainage} onChange={e => setRetainage(e.target.value)} className="w-24" />
+                    <span className="text-sm text-muted-fg">%</span>
+                  </div>
+                )}
+                {billingMode !== (project.billing_mode === 'aia' ? 'aia' : 'simple') && (
+                  <p className="text-xs text-warn">
+                    Changing this switches which money tabs appear. Anything already billed the old way stays on the job.
+                  </p>
+                )}
+              </div>
+
+              {/* Drives the cost-per-sq-ft breakdown on the Budget tab. */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Interior Sq Ft <span className="text-faint font-normal">(optional)</span></Label>
+                  <Input type="number" min="0" placeholder="e.g. 2400" value={interiorSqft} onChange={e => setInteriorSqft(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Exterior Sq Ft <span className="text-faint font-normal">(optional)</span></Label>
+                  <Input type="number" min="0" placeholder="e.g. 600" value={exteriorSqft} onChange={e => setExteriorSqft(e.target.value)} />
+                </div>
+              </div>
+
               {error && <p className="text-sm text-danger">{error}</p>}
               <div className="flex justify-end gap-2 pt-1">
                 <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Cancel</Button>
