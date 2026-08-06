@@ -102,6 +102,29 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
   const materials_total = (materials ?? []).reduce((s: number, m: any) => s + Number(m.amount ?? 0), 0)
 
+  // Categories this company has already used anywhere. A category typed by
+  // hand on one job then shows up in the dropdown on the next one, so custom
+  // trades don't have to be retyped. Best-effort - never fail the page over it.
+  let knownCategories: string[] = []
+  try {
+    const { data: profile } = await db.from('profiles').select('company_id').eq('id', user.id).single()
+    const cid = profile?.company_id
+    if (cid) {
+      const { data: companyProjects } = await db
+        .from('projects').select('id')
+        .or(`gc_company_id.eq.${cid},created_by_company_id.eq.${cid}`)
+        .limit(500)
+      const ids = (companyProjects ?? []).map((p: any) => p.id)
+      if (ids.length) {
+        const { data: cats } = await db
+          .from('budget_line_items').select('category').in('project_id', ids).limit(5000)
+        knownCategories = Array.from(new Set(
+          (cats ?? []).map((c: any) => (c.category ?? '').trim()).filter(Boolean)
+        ))
+      }
+    }
+  } catch { /* dropdown falls back to the built-in catalog */ }
+
   const spaceTotals = { interior: 0, exterior: 0, unassigned: 0 }
   for (const it of items) {
     const key = it.space_type === 'interior' ? 'interior' : it.space_type === 'exterior' ? 'exterior' : 'unassigned'
@@ -118,6 +141,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     contractor_fee_pct: Number(projectMeta?.contractor_fee_pct ?? 0),
     project_status: projectMeta?.status ?? null,
     billing_mode: projectMeta?.billing_mode ?? 'simple',
+    known_categories: knownCategories,
   })
 }
 

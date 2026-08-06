@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
 import { Wallet, DollarSign, CheckCircle2, TrendingDown, TrendingUp, Plus, Trash2, Pencil, X, Check, Link as LinkIcon, AlertTriangle, LayoutTemplate, Save, FileSpreadsheet, FolderInput, Search, ShoppingCart, FileText } from 'lucide-react'
@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 import { useViewerContext } from '@/lib/use-viewer-context'
 import { QuoteLineItems } from '@/components/projects/quote-line-items'
+import { HARD_COST_CATEGORIES, SOFT_COST_CATEGORIES, categoryOptions } from '@/lib/budget-categories'
 
 interface BudgetItem {
   id: string
@@ -35,14 +36,7 @@ interface SubOption {
   contract_amount: number
 }
 
-const CATEGORIES = [
-  'General Conditions', 'Permits & Fees', 'Site Work', 'Excavation', 'Foundation',
-  'Concrete', 'Masonry', 'Metals', 'Lumber', 'Framing', 'Roofing', 'Siding',
-  'Windows & Doors', 'Insulation', 'Drywall', 'Flooring', 'Tile', 'Painting',
-  'Trim & Millwork', 'Cabinets & Countertops', 'Plumbing', 'HVAC', 'Electrical',
-  'Appliances', 'Landscaping', 'Concrete Flatwork', 'Cleanup', 'Equipment Rental',
-  'Contingency', 'General',
-]
+const CATEGORIES = HARD_COST_CATEGORIES
 
 const money = (n: number) => `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 
@@ -56,13 +50,47 @@ function Field({ label, children, className }: { label: string; children: React.
   )
 }
 
-// The standard soft costs a GC carries alongside the trades. Mirrors the
-// S-codes builders keep in their own spreadsheets.
-const SOFT_COST_CATEGORIES = [
-  'Plans & Design', 'Permit Fees', 'Builders Risk Insurance', 'Taxes',
-  'Loan Origination', 'Loan Interest', 'Survey', 'Legal & Recording',
-  'Broker Fees', 'Engineering', 'Testing & Inspections', 'Contingency',
-]
+// Category is free text in the database, so the dropdown is a starting point,
+// not a constraint - every GC has a trade nobody else calls by that name.
+// Anything typed here comes back in the list on the next job.
+function CategoryPicker({
+  costType, known, value, onChange, compact,
+}: {
+  costType: 'hard' | 'soft'
+  known: string[]
+  value: string
+  onChange: (v: string) => void
+  compact?: boolean
+}) {
+  const options = useMemo(() => categoryOptions(costType, known), [costType, known])
+  const [custom, setCustom] = useState(() => !!value && !options.includes(value))
+  const cls = compact
+    ? 'w-full rounded-lg border border-line px-2.5 py-1.5 text-sm bg-panel'
+    : 'w-full rounded-lg border border-line px-3 py-2 text-sm bg-panel'
+
+  return (
+    <div className="space-y-1">
+      {custom ? (
+        <input autoFocus className={cls} placeholder="Name your category, e.g. Craning"
+          value={value} onChange={e => onChange(e.target.value)} />
+      ) : (
+        <SearchableSelect className={cls} value={value} onChange={e => onChange(e.target.value)}>
+          {options.map(c => <option key={c} value={c}>{c}</option>)}
+        </SearchableSelect>
+      )}
+      <button
+        type="button"
+        onClick={() => {
+          if (custom && !options.includes(value)) onChange(options[0])
+          setCustom(v => !v)
+        }}
+        className="text-[11px] font-medium text-accent-fg hover:underline"
+      >
+        {custom ? 'Choose from the list' : '+ Use my own category'}
+      </button>
+    </div>
+  )
+}
 
 const blankForm = {
   cost_code: '', category: 'General', description: '', cost_type: 'hard' as 'hard' | 'soft',
@@ -87,6 +115,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   const [markupPct, setMarkupPct] = useState('0')
   const [savingMarkup, setSavingMarkup] = useState(false)
   const [projectStatus, setProjectStatus] = useState<string | null>(null)
+  const [knownCategories, setKnownCategories] = useState<string[]>([])
   const [billingMode, setBillingMode] = useState<string>('simple')
   const [loading, setLoading] = useState(true)
   const [adding, setAdding] = useState(false)
@@ -140,6 +169,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       setMarkupPct(String(Math.round((Number(d.contractor_fee_pct ?? 0)) * 1000) / 10))
       setProjectStatus(d.project_status ?? null)
       setBillingMode(d.billing_mode ?? 'simple')
+      setKnownCategories(d.known_categories ?? [])
     }
     setLoading(false)
   }
@@ -867,17 +897,16 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
             <SearchableSelect className="rounded-lg border border-line px-3 py-2 text-sm bg-panel"
               value={form.cost_type} onChange={e => {
                 const next = e.target.value === 'soft' ? 'soft' : 'hard'
-                const list = next === 'soft' ? SOFT_COST_CATEGORIES : CATEGORIES
+                const list = categoryOptions(next, knownCategories)
                 // Keep the category valid for the list now on screen.
                 setForm(f => ({ ...f, cost_type: next, category: list.includes(f.category) ? f.category : list[0] }))
               }}>
               <option value="hard">Hard cost (construction)</option>
               <option value="soft">Soft cost (preconstruction / carrying)</option>
             </SearchableSelect>
-            <SearchableSelect className="rounded-lg border border-line px-3 py-2 text-sm bg-panel"
-              value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
-              {(form.cost_type === 'soft' ? SOFT_COST_CATEGORIES : CATEGORIES).map(c => <option key={c} value={c}>{c}</option>)}
-            </SearchableSelect>
+            <CategoryPicker
+              costType={form.cost_type} known={knownCategories} value={form.category}
+              onChange={v => setForm(f => ({ ...f, category: v }))} />
             <input className="rounded-lg border border-line px-3 py-2 text-sm" placeholder="Cost code (optional)"
               value={form.cost_code} onChange={e => setForm({ ...form, cost_code: e.target.value })} />
             <input className="rounded-lg border border-line px-3 py-2 text-sm sm:col-span-2 lg:col-span-1" placeholder="Description *"
@@ -1036,7 +1065,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                               <SearchableSelect className="rounded-lg border border-line px-2.5 py-1.5 text-sm bg-panel"
                                 value={editForm.cost_type} onChange={e => {
                                   const next = e.target.value === 'soft' ? 'soft' : 'hard'
-                                  const list = next === 'soft' ? SOFT_COST_CATEGORIES : CATEGORIES
+                                  const list = categoryOptions(next, knownCategories)
                                   setEditForm(f => ({ ...f, cost_type: next, category: list.includes(f.category) ? f.category : list[0] }))
                                 }}>
                                 <option value="hard">Hard cost (construction)</option>
@@ -1044,10 +1073,9 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                               </SearchableSelect>
                             </Field>
                             <Field label="Category">
-                              <SearchableSelect className="rounded-lg border border-line px-2.5 py-1.5 text-sm bg-panel"
-                                value={editForm.category} onChange={e => setEditForm({ ...editForm, category: e.target.value })}>
-                                {(editForm.cost_type === 'soft' ? SOFT_COST_CATEGORIES : CATEGORIES).map(c => <option key={c} value={c}>{c}</option>)}
-                              </SearchableSelect>
+                              <CategoryPicker compact
+                                costType={editForm.cost_type} known={knownCategories} value={editForm.category}
+                                onChange={v => setEditForm(f => ({ ...f, category: v }))} />
                             </Field>
                             <Field label="Cost code">
                               <input className="w-full rounded-lg border border-line px-2.5 py-1.5 text-sm" placeholder="optional"
