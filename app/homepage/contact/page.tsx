@@ -65,7 +65,7 @@ export default function ContactPage() {
                 You don&apos;t need a call to start. Create your company and upload a quote, it takes about four minutes.
               </p>
               <Link href="/signup" className="mt-2.5 inline-flex items-center gap-1.5 text-sm font-semibold text-accent-fg hover:gap-2.5 transition-all">
-                Start free <ArrowRight className="h-4 w-4" />
+                Request access <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
           </div>

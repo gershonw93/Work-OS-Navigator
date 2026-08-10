@@ -26,16 +26,18 @@ export function CtaBand({
               href="/signup"
               className="inline-flex items-center gap-2 rounded-xl bg-ink text-surface font-bold px-7 py-3.5 hover:opacity-90 transition-opacity"
             >
-              Start free <ArrowRight className="h-4 w-4" />
+              Request access <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
               href="/homepage/contact"
               className="inline-flex items-center gap-2 rounded-xl border border-accent-ink/30 font-semibold px-7 py-3.5 hover:bg-accent-ink/10 transition-colors"
             >
-              Talk to us
+              Book a setup
             </Link>
           </div>
-          <p className="mt-5 text-xs text-accent-ink/60">Free to start. No credit card. Bring one job or bring them all.</p>
+          {/* We're an invite-only beta, and the sign-up page says so. Promising
+              a self-serve free start here would just break at the door. */}
+          <p className="mt-5 text-xs text-accent-ink/60">Invite-only beta. Free while you&apos;re in it. Tell us about your company and we&apos;ll get you set up.</p>
         </div>
       </div>
     </section>

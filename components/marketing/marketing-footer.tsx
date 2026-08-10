@@ -29,7 +29,7 @@ const COLUMNS: { title: string; links: [string, string][] }[] = [
       ['About', '/homepage/about'],
       ['Contact', '/homepage/contact'],
       ['Log in', '/login'],
-      ['Start free', '/signup'],
+      ['Request access', '/signup'],
     ],
   },
   {
@@ -58,7 +58,7 @@ export function MarketingFooter() {
           href="/signup"
           className="inline-flex items-center justify-center gap-2 self-start sm:self-center rounded-xl bg-accent text-accent-ink font-bold px-6 py-3 hover:bg-accent/90 transition-colors"
         >
-          Start free <ArrowRight className="h-4 w-4" />
+          Request access <ArrowRight className="h-4 w-4" />
         </Link>
       </div>
 

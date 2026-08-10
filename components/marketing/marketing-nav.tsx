@@ -108,7 +108,7 @@ export function MarketingNav() {
           <ThemeToggle />
           <Link href="/login" className="text-sm font-medium text-ink-soft hover:text-ink">Log in</Link>
           <Link href="/signup" className="rounded-lg bg-accent text-accent-ink text-sm font-semibold px-4 py-2 hover:bg-accent/90 transition-colors">
-            Start free
+            Request access
           </Link>
         </div>
 
@@ -145,7 +145,7 @@ export function MarketingNav() {
               Log in
             </Link>
             <Link href="/signup" onClick={() => setOpen(false)} className="flex-1 text-center rounded-lg bg-accent text-accent-ink text-sm font-semibold py-2.5">
-              Start free
+              Request access
             </Link>
           </div>
         </div>

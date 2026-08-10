@@ -118,7 +118,7 @@ export default function SecurityPage() {
         </Reveal>
       </section>
 
-      <CtaBand title="Build on solid ground" body="Start free and see the roles, protections, and audit trail for yourself." />
+      <CtaBand title="Build on solid ground" body="Get in and see the roles, protections, and audit trail for yourself." />
     </>
   )
 }

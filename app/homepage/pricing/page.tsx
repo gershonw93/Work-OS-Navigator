@@ -9,7 +9,7 @@ import { CtaBand } from '@/components/marketing/cta-band'
 export const metadata: Metadata = marketingMeta({
   title: 'Pricing · SyteNav',
   description:
-    'One system instead of four. Book a setup call and we will scope the right plan for your crew - every plan starts free, and your subs and clients never need paid seats.',
+    'One system instead of four. Book a setup and we will scope the right plan for your crew. SyteNav is in an invite-only beta, free while you are in it, and your subs and clients never need paid seats.',
   path: '/homepage/pricing',
 })
 
@@ -105,8 +105,8 @@ const FAQ = [
     a: 'No. Subs bid on RFQ links without an account, and clients view and approve on a portal link. You only pay for your own team.',
   },
   {
-    q: 'How does the free start work?',
-    a: 'Every plan starts free: your first active project with the full feature set and 10 AI scans a month, no card required. Upgrade when the volume does.',
+    q: 'What does the beta cost?',
+    a: 'Nothing while you are in it. SyteNav is invite-only right now, so you get the full feature set on a real job with no card on file. When we open up, the plan we scoped on your setup call is the one you move onto - no surprise.',
   },
   {
     q: 'Can I cancel anytime?',
@@ -195,7 +195,7 @@ export default function PricingPage() {
           ))}
         </div>
         <p className="mt-8 text-center text-sm text-faint max-w-2xl mx-auto">
-          Every plan starts free: your first active project, full features, and 10 AI scans a month, no card required. Unlimited client and sub links on all plans.
+          Invite-only beta: full features on a real job, no card required, while you are in it. Unlimited client and sub links on every plan.
         </p>
       </section>
 

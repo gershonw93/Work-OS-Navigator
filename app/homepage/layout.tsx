@@ -25,7 +25,9 @@ const jsonLd = {
       operatingSystem: 'Web',
       description:
         'AI-powered construction management: quote scanning, budgets, client payments and escrow, invoices, scheduling, daily logs, time clock, permits, inspections, compliance, and RFIs.',
-      offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD', description: 'Free to start' },
+      // Structured data has to match the page. We don't publish a list price,
+      // so this states availability rather than inventing a number.
+      offers: { '@type': 'Offer', priceCurrency: 'USD', availability: 'https://schema.org/LimitedAvailability', description: 'Invite-only beta, free while in beta' },
       publisher: { '@id': `${SITE_URL}/#organization` },
     },
   ],
