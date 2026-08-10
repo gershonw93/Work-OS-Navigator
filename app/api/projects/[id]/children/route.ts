@@ -22,15 +22,23 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const { data: site } = await db
     .from('projects').select('id, name, address').eq('id', params.id).single()
 
-  const { data: rows, error } = await db
+  let { data: rows, error } = await db
     .from('projects')
-    .select('id, name, status, unit, floor, address')
+    .select('id, name, status, unit, floor, address, sellout_amount')
     .eq('parent_project_id', params.id)
     .order('created_at', { ascending: true })
 
-  // Pre-migration fallback: nothing is grouped yet.
+  // Pre-migration fallbacks: sellout may not exist yet, and before that the
+  // parent link itself may not - in which case nothing is grouped at all.
   if (error && (error as any).code === '42703') {
-    return NextResponse.json({ site: site ?? null, children: [] })
+    const retry = await db
+      .from('projects')
+      .select('id, name, status, unit, floor, address')
+      .eq('parent_project_id', params.id)
+      .order('created_at', { ascending: true })
+    if (retry.error) return NextResponse.json({ site: site ?? null, children: [] })
+    rows = retry.data as any
+    error = null
   }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
@@ -55,6 +63,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       ...r,
       budgeted: budgeted.get(r.id) ?? 0,
       actual: actual.get(r.id) ?? 0,
+      sellout: (r as any).sellout_amount != null ? Number((r as any).sellout_amount) : null,
     }))
     .sort((a, b) => {
       const key = (r: any) => r.unit ?? r.floor ?? r.name ?? ''

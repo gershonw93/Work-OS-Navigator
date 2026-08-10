@@ -337,7 +337,31 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: 'text', text: 'Already have the budget in a spreadsheet? Use Import Estimate in the header (.xlsx/.csv). If some rows already exist as lines, you\'ll be asked to either skip those duplicates (only add the new rows) or update them with the sheet\'s amounts - either way nothing already on the budget is ever deleted.' },
       { type: 'text', text: 'Loaded the wrong template or made a mess? Check the box next to any line (or the header checkbox to select a whole category or everything visible), then click Delete - you\'ll be asked to confirm before anything is removed.' },
     ],
-    related: ['preconstruction-soft-costs', 'budget-templates', 'money-overview', 'create-invoice', 'estimate-proposal'],
+    related: ['sellout-projected-profit', 'preconstruction-soft-costs', 'budget-templates', 'money-overview', 'create-invoice', 'estimate-proposal'],
+  },
+  {
+    slug: 'sellout-projected-profit',
+    title: 'Track your profit on a job (sellout)',
+    category: 'money',
+    keywords: [
+      'sellout', 'sell out', 'profit', 'projected profit', 'margin', 'revenue',
+      'sale price', 'contract value', 'spec build', 'spec home', 'developer',
+      'making money', 'am i making money', 'gross profit', 'profit per unit',
+    ],
+    summary: 'Enter what the job sells for and your profit tracks itself as costs land.',
+    blocks: [
+      { type: 'text', text: 'Sellout is what the job earns you. On a spec build it is what the house or the units sell for. On a fixed-price contract it is your contract value. Either way you usually know it before you know your final costs - so put it in, and the profit updates itself every time a budget line moves.' },
+      { type: 'steps', items: [
+        'Open the project and go to the Budget tab.',
+        'Enter the figure in the Sellout box at the top.',
+        'Projected profit and margin appear next to it: sellout minus what the job is budgeted to cost.',
+        'Once costs start landing you also get profit against actual spend, so you can see the margin moving in real time.',
+      ] },
+      { type: 'tip', text: 'If you leave Sellout blank on a cost-plus job, SyteNav falls back to cost plus your markup - so a GC working off a markup gets the same profit view without entering anything.' },
+      { type: 'text', text: 'On a multi-unit site, set the sellout on each unit. The site\'s Jobs tab then totals sellout against total cost and shows the projected profit for the whole building, with the margin. Units you have not priced yet are marked, and the total says "partial" so you know the number is not final.' },
+      { type: 'text', text: 'This is deliberately just revenue minus cost. SyteNav does not model land acquisition, a loan or equity stack, draw schedules, or an exit - if you run a full development pro-forma, keep doing that in your own model and use this to keep the construction side honest.' },
+    ],
+    related: ['add-project-budget', 'preconstruction-soft-costs', 'estimate-proposal', 'bulk-add-projects'],
   },
   {
     slug: 'preconstruction-soft-costs',

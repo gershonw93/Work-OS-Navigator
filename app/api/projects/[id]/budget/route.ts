@@ -44,7 +44,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .order('purchase_date', { ascending: false, nullsFirst: false }),
     db
       .from('projects')
-      .select('interior_sqft, exterior_sqft, contractor_fee_pct, status, billing_mode')
+      .select('interior_sqft, exterior_sqft, contractor_fee_pct, status, billing_mode, sellout_amount')
       .eq('id', params.id)
       .single(),
   ])
@@ -141,6 +141,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     contractor_fee_pct: Number(projectMeta?.contractor_fee_pct ?? 0),
     project_status: projectMeta?.status ?? null,
     billing_mode: projectMeta?.billing_mode ?? 'simple',
+    sellout_amount: projectMeta?.sellout_amount ?? null,
     known_categories: knownCategories,
   })
 }

@@ -36,6 +36,7 @@ move it to **In progress**, and when it ships, move it to **Done** with the PR #
 ## 💰 Money
 - **Approving a change order optionally bumps the client contract** (we did sub-side; consider explicit client-revenue side too).
 - **Forecasting / cash-flow projections** beyond the current budget × (1+fee).
+- **Bank-facing budget & sellout** *(tester request)*. Abe: "when you create a bank budget and bank sellout they might be presented in a different way." The working budget and the version a lender wants are formatted differently. Needs a lender report format - probably an extension of the proposal PDF rather than a new thing.
 - **Full development pro-forma** *(tester request - partially addressed)*. A tester who develops (not just builds) wanted the spreadsheet they use as step one: land purchase, design, approvals, soft costs, then a return projection. We shipped the piece every GC needs - hard/soft cost split on the budget + a planning-stage menu (see Recently shipped). **Not built, deliberately:** land acquisition as its own record, debt/equity stack and draw schedule, carrying-cost-over-time modeling, and ROI / profit-on-cost / IRR outputs. That is a developer pro-forma tool, a different product from a GC's job budget - revisit only if more than one customer asks.
 
 ## 🧾 Materials
@@ -80,6 +81,8 @@ Shipped in #218: bulk creation makes a site + a job per unit/floor/house, with a
 - Materials: snap receipt → assign job → budget line, project tab (#86, #87, #89, #90)
 - Inspections: request → schedule → notify → result, card-after workflow (#91, #93)
 - Calendar: read-only iCal feed + one-click Connect + day detail view (#99–#101)
+- Sellout → projected profit on the budget, and total sellout vs total cost across a site's units (#221)
+- Status badge is a switch, with a data-driven pre-flight before a job goes Active; project PATCH/DELETE permission-gated (#219)
 - Bulk project creation rebuilt: sites (parent/child projects), unit + floor as real fields, floor-by-floor mode for commercial, server-side geocoding so batches reach the map, entry point on the Projects page (#218)
 - Budget categories: 49 trades in build order + custom categories that persist across jobs (#217)
 - Project Settings: address-dropdown fix, billing method + square footage editable after setup (#216)

@@ -26,7 +26,7 @@ export async function PATCH(
   }
 
   const body = await request.json()
-  const { name, address, client, type, status, start_date, end_date, customer_id, lat, lng, interior_sqft, exterior_sqft, billing_mode, default_retainage_pct, labor_rate, unit, floor } = body
+  const { name, address, client, type, status, start_date, end_date, customer_id, lat, lng, interior_sqft, exterior_sqft, billing_mode, default_retainage_pct, labor_rate, unit, floor, sellout_amount } = body
 
   const updates: Record<string, unknown> = {}
   if (name !== undefined) updates.name = name
@@ -47,6 +47,12 @@ export async function PATCH(
   // can't be geocoded, which is what stranded bulk-created jobs off the map.
   if (unit !== undefined) updates.unit = (unit ?? '').toString().trim() || null
   if (floor !== undefined) updates.floor = (floor ?? '').toString().trim() || null
+  // Projected revenue. Null means "no figure yet", which is different from 0.
+  if (sellout_amount !== undefined) {
+    updates.sellout_amount = sellout_amount === null || sellout_amount === ''
+      ? null
+      : Math.max(0, Number(sellout_amount) || 0)
+  }
 
   let { data, error } = await db
     .from('projects')
@@ -59,6 +65,11 @@ export async function PATCH(
   if (error && (error as any).code === '42703' && 'labor_rate' in updates) {
     const { labor_rate: _lr, ...noRate } = updates
     const retry = await db.from('projects').update(noRate).eq('id', params.id).select().single()
+    data = retry.data; error = retry.error
+  }
+  if (error && (error as any).code === '42703' && 'sellout_amount' in updates) {
+    const { sellout_amount: _s, ...noSellout } = updates
+    const retry = await db.from('projects').update(noSellout).eq('id', params.id).select().single()
     data = retry.data; error = retry.error
   }
   if (error && (error as any).code === '42703' && ('unit' in updates || 'floor' in updates)) {
