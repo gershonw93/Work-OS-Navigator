@@ -88,13 +88,20 @@ export async function POST(request: Request, { params }: { params: { token: stri
       .upload(path, file, { contentType: file.type || 'application/octet-stream', upsert: false })
     if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 })
 
-    const { data: pub } = db.storage.from(BUCKET).getPublicUrl(path)
-    saved.push({ name: file.name, file_url: pub.publicUrl })
+    // Every bucket here is private, so a public URL would 404. Long-lived
+    // signed URL, same as every other upload path in the app.
+    const { data: signed } = await db.storage
+      .from(BUCKET)
+      .createSignedUrl(path, 60 * 60 * 24 * 365 * 10)
+    const fileUrl = signed?.signedUrl
+    if (!fileUrl) return NextResponse.json({ error: 'Could not store that file' }, { status: 500 })
+
+    saved.push({ name: file.name, file_url: fileUrl })
 
     await db.from('file_share_uploads').insert({
       share_id: share.id,
       name: file.name,
-      file_url: pub.publicUrl,
+      file_url: fileUrl,
       file_type: file.type || null,
       size_bytes: file.size,
       note,
