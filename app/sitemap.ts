@@ -7,6 +7,7 @@ const BASE = process.env.NEXT_PUBLIC_SITE_URL || 'https://sytenav.com'
 const PAGES: { path: string; priority: number; changeFrequency: MetadataRoute.Sitemap[number]['changeFrequency'] }[] = [
   { path: '/homepage', priority: 1, changeFrequency: 'weekly' },
   { path: '/homepage/features', priority: 0.9, changeFrequency: 'weekly' },
+  { path: '/homepage/money', priority: 0.9, changeFrequency: 'weekly' },
   { path: '/homepage/ai', priority: 0.9, changeFrequency: 'weekly' },
   { path: '/homepage/mobile', priority: 0.8, changeFrequency: 'weekly' },
   { path: '/homepage/contractors', priority: 0.9, changeFrequency: 'weekly' },

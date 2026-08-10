@@ -5,7 +5,7 @@ import {
   ArrowRight, ScanLine, Scale, Sparkles, FileText, Wallet, Banknote, Receipt, Send,
   GitPullRequest, BarChart2, CalendarDays, BookOpen, CheckSquare, Clock, Camera,
   ShieldCheck, Wrench, ClipboardCheck, UsersRound, FolderOpen, Users, Lock, Smartphone,
-  LayoutDashboard, DollarSign, ReceiptText, CalendarCheck,
+  LayoutDashboard, DollarSign, ReceiptText, CalendarCheck, Layers, TrendingUp, Building2,
 } from 'lucide-react'
 import { marketingMeta } from '@/components/marketing/meta'
 import { BrowserMock } from '@/components/marketing/browser-mock'
@@ -56,6 +56,8 @@ const SECTIONS: {
     lead: 'From the client’s first deposit to the last vendor payment, the money side of the job stays visible, current, and honest. Each job picks its billing style at setup: simple invoicing for residential, or AIA progress billing for commercial and bank-funded work.',
     features: [
       { icon: Wallet, title: 'Budgets & line items', body: 'Budgeted versus committed versus actual for GCs, or quote-driven line items for subs. The budget updates as the job moves.' },
+      { icon: Layers, title: 'Preconstruction & soft costs', body: 'Plans, permit fees, builders risk, survey, loan interest, contingency. The money spent before and around the trades, on the same budget in its own section, so the job total is the real total.' },
+      { icon: TrendingUp, title: 'Sellout & projected profit', body: 'Enter what the job sells for, or what you are contracted at, and profit tracks itself as costs land. Works on a spec build where the sale price has nothing to do with your cost.' },
       { icon: Banknote, title: 'Client payments & escrow', body: 'Track client funds in, your fee earned, the escrow balance held, and what’s still owed to vendors, per stage and per job.' },
       { icon: Receipt, title: 'Invoices & approvals', body: 'Create invoices from progress, route them for approval, and track payment, with the client-versus-escrow split handled for you.' },
       { icon: FileText, title: 'AIA progress billing (G702/G703)', body: 'Monthly pay applications against your schedule of values: previously billed carries forward, retainage is held per draw, and the G702/G703 PDF is ready for the architect and the bank.' },
@@ -91,6 +93,7 @@ const SECTIONS: {
       { icon: Wrench, title: 'Submittals & RFIs', body: 'Submittals routed for approval, questions answered in one thread with the drawings attached. No email archaeology.' },
       { icon: ClipboardCheck, title: 'Insurance & licenses', body: 'COIs and licenses tracked per sub with expiry warnings, so nobody works uncovered.' },
       { icon: UsersRound, title: 'Directory & customers', body: 'Subs, suppliers, and clients in one company-wide address book, linked to their jobs, bids, and paperwork.' },
+      { icon: Building2, title: 'Multi-unit sites', body: 'Set up a whole building or a street in one go: a job per unit, floor, or house, grouped under one site with budget and sellout rolled up across all of them.' },
       { icon: FolderOpen, title: 'Files', body: 'Contracts, drawings, photos, and scans organized by project and searchable in seconds.' },
     ],
   },
