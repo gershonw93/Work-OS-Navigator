@@ -37,6 +37,7 @@ const groups = [
       { label: 'Inspections', slug: 'inspections', icon: ClipboardCheck },
       { label: 'Submittals', slug: 'submittals', icon: Wrench },
       { label: 'Compliance', slug: 'compliance', icon: Shield },
+      { label: 'Sharing', slug: 'sharing', icon: Send },
     ],
   },
   {
@@ -93,13 +94,18 @@ const SUB_OWN_HIDDEN = new Set(['submittals', 'request-quotes', 'quotes'])
 // address, the client, the plans and the permits; the budget, schedule and
 // crew all live on the units underneath it. Anything else would be a second
 // place to track the same work.
-const SITE_ALLOWED = new Set(['units', 'plans', 'permits', 'submittals', 'compliance', 'team', 'rfis'])
+const SITE_ALLOWED = new Set(['units', 'plans', 'permits', 'submittals', 'compliance', 'team', 'rfis', 'sharing'])
 
 const PLANNING_HIDDEN = new Set([
   'time', 'daily-logs', 'progress',
   'invoices', 'pay-apps', 'payments', 'change-orders',
   'materials', 'inspections', 'reports', 'financials',
 ])
+
+// A few tabs aren't their own permission resource. Sending documents out is a
+// files action, so it borrows those rights rather than inventing a new toggle
+// nobody would know to set.
+const PERMISSION_RESOURCE: Record<string, string> = { sharing: 'files' }
 
 interface ProjectTabsProps {
   projectId: string
@@ -156,7 +162,7 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
   // The "Quote" tab is the sub's own-job starting point - only there.
   const tabAllowed = (slug: string) => {
     if (slug === 'quote') return isSub && !!ctx?.owns
-    return can(slug, 'view') && subAllows(slug) && billingAllows(slug) && statusAllows(slug)
+    return can(PERMISSION_RESOURCE[slug] ?? slug, 'view') && subAllows(slug) && billingAllows(slug) && statusAllows(slug)
   }
 
   // Wait for both permissions and viewer-context before deciding (avoids flashing
