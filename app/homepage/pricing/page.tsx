@@ -9,7 +9,7 @@ import { CtaBand } from '@/components/marketing/cta-band'
 export const metadata: Metadata = marketingMeta({
   title: 'Pricing · SyteNav',
   description:
-    'Simple flat pricing: Crew $79/mo, Company $349/mo, Scale $799/mo. Every plan starts free, subs and clients never need paid seats, and one plan replaces a $500+ stack of tools.',
+    'One system instead of four. Book a setup call and we will scope the right plan for your crew - every plan starts free, and your subs and clients never need paid seats.',
   path: '/homepage/pricing',
 })
 
@@ -17,8 +17,6 @@ const TIERS = [
   {
     icon: HardHat,
     name: 'Crew',
-    price: '$79',
-    per: '/mo',
     who: 'For solo subs and small crews',
     blurb: 'Everything you need to turn quotes into running jobs and get paid on time.',
     limits: [
@@ -34,14 +32,12 @@ const TIERS = [
       'Stage invoicing',
       'Time clock for your crew',
     ],
-    cta: 'Start free',
+    cta: 'Book a setup',
     featured: false,
   },
   {
     icon: Building2,
     name: 'Company',
-    price: '$349',
-    per: '/mo',
     who: 'For GCs and growing teams',
     blurb: 'Run multiple jobs and subs with the master views, RFQs, and approvals that keep a company straight.',
     limits: [
@@ -57,14 +53,12 @@ const TIERS = [
       'Roles & approval workflows',
       'Permits, inspections & compliance',
     ],
-    cta: 'Start free',
+    cta: 'Book a setup',
     featured: true,
   },
   {
     icon: Landmark,
     name: 'Scale',
-    price: '$799',
-    per: '/mo',
     who: 'For high-volume operations',
     blurb: 'For companies running serious volume, with the controls, support, and onboarding to match.',
     limits: [
@@ -80,7 +74,7 @@ const TIERS = [
       'Dedicated success contact',
       'Custom scan volume available',
     ],
-    cta: 'Talk to us',
+    cta: 'Book a setup',
     featured: false,
   },
 ]
@@ -94,6 +88,10 @@ const STACK = [
 ]
 
 const FAQ = [
+  {
+    q: 'Why is there no price on this page?',
+    a: 'Because the honest answer depends on your crew size and how many documents you run through the AI, and a number on a page is usually wrong in one direction or the other. Book a setup, tell us how you work, and you get a flat monthly rate the same day. It is a real conversation, not a sales process.',
+  },
   {
     q: 'What counts as an AI scan?',
     a: 'One document read by the AI: a quote, an invoice, a receipt, or a permit. A failed read never counts against you. The caps sit above what a busy month actually uses; on Crew, 50 scans is more than two every working day.',
@@ -123,10 +121,10 @@ export default function PricingPage() {
       <section className="max-w-4xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-12 sm:pb-16 text-center">
         <Eyebrow className="justify-center">Pricing</Eyebrow>
         <h1 className="mt-3 text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-ink leading-[1.04]">
-          One price. Instead of four.
+          One system. Instead of four.
         </h1>
         <p className="mt-6 text-lg text-muted-fg leading-relaxed max-w-2xl mx-auto">
-          SyteNav replaces the PM tool, the field app, the invoicing software, and the storage plan, for less than most crews pay for the first one. Every plan starts free, and your subs and clients never need paid seats.
+          SyteNav replaces the PM tool, the field app, the invoicing software, and the storage plan, for less than most crews pay for the first one. Book a setup and we&apos;ll scope the right plan for how you actually work. Your subs and clients never need paid seats.
         </p>
       </section>
 
@@ -154,12 +152,15 @@ export default function PricingPage() {
                 <h2 className={`text-2xl font-extrabold tracking-tight ${t.featured ? 'text-surface dark:text-ink' : 'text-ink'}`}>{t.name}</h2>
                 <p className={`mt-1 text-sm font-medium ${t.featured ? 'opacity-70' : 'text-muted-fg'}`}>{t.who}</p>
 
-                {/* Price */}
-                <p className="mt-5 flex items-baseline gap-1">
-                  <span className={`font-display font-bold text-5xl tracking-tight ${t.featured ? '' : 'text-ink'}`}>{t.price}</span>
-                  <span className={`text-base font-medium ${t.featured ? 'opacity-60' : 'text-muted-fg'}`}>{t.per}</span>
+                {/* No number here on purpose - what a crew actually needs
+                    varies enough that a quoted list price is usually wrong in
+                    one direction or the other. We scope it on the call. */}
+                <p className={`mt-5 font-display font-bold text-3xl tracking-tight ${t.featured ? '' : 'text-ink'}`}>
+                  Let&apos;s scope it
                 </p>
-                <p className={`mt-1 text-xs ${t.featured ? 'opacity-50' : 'text-faint'}`}>billed monthly · 2 months free on annual</p>
+                <p className={`mt-1 text-xs ${t.featured ? 'opacity-50' : 'text-faint'}`}>
+                  Flat monthly rate · no per-seat billing · cancel anytime
+                </p>
 
                 {/* Limits */}
                 <div className={`mt-5 rounded-xl px-4 py-3 space-y-2 ${t.featured ? 'bg-surface/10 dark:bg-muted' : 'bg-surface border border-line-soft'}`}>
@@ -179,7 +180,7 @@ export default function PricingPage() {
                   ))}
                 </ul>
                 <Link
-                  href={t.cta === 'Talk to us' ? '/homepage/contact' : '/signup'}
+                  href="/homepage/contact"
                   className={[
                     'mt-8 inline-flex items-center justify-center gap-2 rounded-xl font-bold px-6 py-3 transition-colors',
                     t.featured
@@ -230,9 +231,9 @@ export default function PricingPage() {
                 </div>
                 <div className="mt-4 rounded-2xl bg-accent text-accent-ink px-5 py-4 flex flex-wrap items-center justify-between gap-3">
                   <p className="font-bold flex items-center gap-2">
-                    <Check className="h-5 w-5" /> SyteNav Company, all of it in one system
+                    <Check className="h-5 w-5" /> SyteNav, all of it in one system
                   </p>
-                  <p className="font-display font-bold text-2xl shrink-0">$349<span className="text-sm font-sans font-medium opacity-70">/mo</span></p>
+                  <p className="font-display font-bold text-xl shrink-0">Less than the first line on this list</p>
                 </div>
                 <p className="mt-4 text-xs text-muted-fg text-center">
                   And that&apos;s before counting the hours nobody bills for retyping quotes into budgets and progress into invoices.
@@ -264,7 +265,7 @@ export default function PricingPage() {
         </div>
       </section>
 
-      <CtaBand title="Start where you are" body="One free job is all it takes to see whether this replaces the stack." />
+      <CtaBand title="Book a setup" body="Twenty minutes, we scope your plan, and you start on a free job to see whether this replaces the stack." />
     </>
   )
 }
