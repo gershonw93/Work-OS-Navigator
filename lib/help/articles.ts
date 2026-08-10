@@ -616,8 +616,9 @@ export const HELP_ARTICLES: HelpArticle[] = [
     summary: 'Pick documents, pick a contact, send a link. They can send documents back on the same link.',
     blocks: [
       { type: 'text', text: 'Pulling permits is the case this was built for: you send the expeditor a set of plans and forms, and they send the approved permit back. They will never have a SyteNav account, and the files are too big to email. So you send a link instead.' },
+      { type: 'text', text: 'Two ways in. On a job, click Send docs in the project header - that picks up everything on that job, grouped by where it lives: Plans, Permits, Submittals, Compliance, plus your company files. From the Files page, click Share documents for company paperwork like your W-9 or insurance certificate.' },
       { type: 'steps', items: [
-        'Go to Files and click Share documents.',
+        'Click Send docs in the project header (or Share documents on the Files page).',
         'Pick who it is going to from your contacts, or just type a name and email.',
         'Tick the documents to send.',
         'Give it a title (e.g. "Permit package - 19 Shady Nook Ave") and a message if you need one.',

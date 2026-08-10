@@ -6,6 +6,7 @@ import { SharePortalButton } from '@/components/layout/share-portal-button'
 import { TeamQuickView } from '@/components/layout/team-quick-view'
 import { EditProjectButton } from '@/components/layout/edit-project-button'
 import { ProjectStatusSwitch } from '@/components/layout/project-status-switch'
+import { ShareDocsButton } from '@/components/layout/share-docs-button'
 
 interface ProjectLayoutProps {
   children: ReactNode
@@ -59,6 +60,7 @@ export default async function ProjectLayout({ children, params }: ProjectLayoutP
           <div className="flex flex-wrap items-center gap-2 lg:shrink-0">
             <TeamQuickView projectId={params.id} />
             <SharePortalButton projectId={params.id} />
+            <ShareDocsButton projectId={params.id} projectName={project?.name} />
             <ProjectActivityButton projectId={params.id} />
             <EditProjectButton projectId={params.id} project={{
               name: project?.name, address: project?.address, client: project?.client,

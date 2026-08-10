@@ -16,6 +16,8 @@ export interface ShareableFile {
   file_type?: string | null
   size_bytes?: number | null
   category?: string | null
+  /** Which tab it came from, when the list spans several. */
+  source?: string | null
 }
 
 interface Contact { id: string; name: string; email: string | null; company?: string | null; kind: string }
@@ -29,11 +31,12 @@ interface Contact { id: string; name: string; email: string | null; company?: st
  * the return trip is on the same link.
  */
 export function ShareFilesModal({
-  files, preselected, projectId, onClose, onShared,
+  files, preselected, projectId, defaultTitle, onClose, onShared,
 }: {
   files: ShareableFile[]
   preselected?: string[]
   projectId?: string
+  defaultTitle?: string
   onClose: () => void
   onShared?: () => void
 }) {
@@ -47,7 +50,7 @@ export function ShareFilesModal({
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
 
-  const [title, setTitle] = useState('')
+  const [title, setTitle] = useState(defaultTitle ?? '')
   const [message, setMessage] = useState('')
   const [allowUpload, setAllowUpload] = useState(true)
   const [uploadPrompt, setUploadPrompt] = useState('')
@@ -93,8 +96,25 @@ export function ShareFilesModal({
   const shown = useMemo(() => {
     const s = q.trim().toLowerCase()
     if (!s) return files
-    return files.filter(f => f.name.toLowerCase().includes(s) || (f.category ?? '').toLowerCase().includes(s))
+    return files.filter(f =>
+      f.name.toLowerCase().includes(s) ||
+      (f.category ?? '').toLowerCase().includes(s) ||
+      (f.source ?? '').toLowerCase().includes(s))
   }, [files, q])
+
+  // On a project the documents come from Plans, Permits, Submittals and
+  // Compliance, and nobody remembers which tab a file lives on. Group them so
+  // the list reads the way the job does.
+  const groups = useMemo(() => {
+    const bySource = new Map<string, ShareableFile[]>()
+    for (const f of shown) {
+      const key = f.source ?? ''
+      if (!bySource.has(key)) bySource.set(key, [])
+      bySource.get(key)!.push(f)
+    }
+    return Array.from(bySource.entries())
+  }, [shown])
+  const grouped = groups.length > 1
 
   function toggle(id: string) {
     setPicked(p => {
@@ -190,16 +210,25 @@ export function ShareFilesModal({
                   </div>
                 )}
               </div>
-              <div className="rounded-lg border border-line max-h-56 overflow-y-auto divide-y divide-line-soft">
+              <div className="rounded-lg border border-line max-h-56 overflow-y-auto">
                 {shown.length === 0 ? (
-                  <p className="px-3 py-6 text-center text-sm text-faint">No files here yet.</p>
-                ) : shown.map(f => (
-                  <label key={f.id} className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-surface cursor-pointer">
-                    <input type="checkbox" className="accent-[#C9F24A]" checked={picked.has(f.id)} onChange={() => toggle(f.id)} />
-                    <FileText className="h-4 w-4 text-faint shrink-0" />
-                    <span className="flex-1 min-w-0 text-sm text-ink-soft truncate">{f.name}</span>
-                    {f.category && <span className="text-[10px] text-faint shrink-0">{f.category}</span>}
-                  </label>
+                  <p className="px-3 py-6 text-center text-sm text-faint">Nothing here to send yet.</p>
+                ) : groups.map(([source, rows]) => (
+                  <div key={source || 'all'}>
+                    {grouped && source && (
+                      <p className="sticky top-0 bg-surface px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-faint border-b border-line-soft">
+                        {source}
+                      </p>
+                    )}
+                    {rows.map(f => (
+                      <label key={f.id} className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-surface cursor-pointer border-b border-line-soft last:border-0">
+                        <input type="checkbox" className="accent-[#C9F24A]" checked={picked.has(f.id)} onChange={() => toggle(f.id)} />
+                        <FileText className="h-4 w-4 text-faint shrink-0" />
+                        <span className="flex-1 min-w-0 text-sm text-ink-soft truncate">{f.name}</span>
+                        {f.category && <span className="text-[10px] text-faint shrink-0">{f.category}</span>}
+                      </label>
+                    ))}
+                  </div>
                 ))}
               </div>
             </div>
