@@ -11,8 +11,10 @@ import { cn } from '@/lib/utils'
 import {
   Plus, X, FileText, FileImage, File as FileIcon, FolderOpen, Package,
   ExternalLink, Trash2, Pencil, Upload, AlertCircle, Loader2, ShieldCheck,
-  FileBadge, FileSignature, Map, IdCard, FileCheck,
+  FileBadge, FileSignature, Map, IdCard, FileCheck, Share2, Copy, Check, Ban, Inbox,
 } from 'lucide-react'
+
+import { ShareFilesModal } from '@/components/files/share-files-modal'
 
 const CATEGORIES = ['Insurance', 'License', 'W-9', 'Site Plans', 'ID/Legal', 'Permits', 'Other'] as const
 
@@ -72,7 +74,12 @@ export default function FilesPage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const packetFileRef = useRef<HTMLInputElement>(null)
 
-  const [tab, setTab] = useState<'files' | 'packets'>('files')
+  const [tab, setTab] = useState<'files' | 'packets' | 'shares'>('files')
+  // Sending documents out to someone who will never have an account.
+  const [shareOpen, setShareOpen] = useState(false)
+  const [sharePreselect, setSharePreselect] = useState<string[]>([])
+  const [shares, setShares] = useState<any[]>([])
+  const [copiedId, setCopiedId] = useState('')
   const [files, setFiles] = useState<CompanyFile[]>([])
   const [packets, setPackets] = useState<Packet[]>([])
   const [complianceDocs, setComplianceDocs] = useState<any[]>([])
@@ -110,6 +117,23 @@ export default function FilesPage() {
     return session?.access_token ?? ''
   }
 
+  // Kept separate from /api/files: shares are their own record, and a slow or
+  // missing one shouldn't stop the file list rendering.
+  async function loadShares(token: string) {
+    const res = await fetch('/api/file-shares', { headers: { Authorization: `Bearer ${token}` } })
+    if (res.ok) setShares((await res.json()).shares ?? [])
+  }
+
+  async function revokeShare(id: string, revoked: boolean) {
+    const token = await getToken()
+    await fetch(`/api/file-shares/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ revoked }),
+    })
+    loadShares(token)
+  }
+
   async function fetchAll() {
     const token = await getToken()
     const res = await fetch('/api/files', { headers: { Authorization: `Bearer ${token}` } })
@@ -119,6 +143,7 @@ export default function FilesPage() {
       setPackets(json.packets ?? [])
       setComplianceDocs(json.complianceDocs ?? [])
       setFetchError('')
+      loadShares(token)
     } else {
       setFetchError(json.error ?? `Error ${res.status}`)
     }
@@ -446,19 +471,26 @@ export default function FilesPage() {
           <h1 className="text-2xl font-bold text-ink">Files</h1>
           <p className="text-sm text-muted-fg mt-0.5">Company documents and ready-to-go submission packets.</p>
         </div>
-        {tab === 'files'
-          ? <Button onClick={() => setShowUpload(true)} className="self-start sm:self-auto"><Plus className="h-4 w-4" /> Upload File</Button>
-          : <Button onClick={openNewPacket} className="self-start sm:self-auto"><Plus className="h-4 w-4" /> New Packet</Button>}
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          {files.length > 0 && (
+            <Button variant="outline" onClick={() => { setSharePreselect([]); setShareOpen(true) }} className="gap-1.5">
+              <Share2 className="h-4 w-4" /> Share documents
+            </Button>
+          )}
+          {tab === 'packets'
+            ? <Button onClick={openNewPacket}><Plus className="h-4 w-4" /> New Packet</Button>
+            : <Button onClick={() => setShowUpload(true)}><Plus className="h-4 w-4" /> Upload File</Button>}
+        </div>
       </div>
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-line">
-        {([['files', 'All Files', FolderOpen], ['packets', 'Packets', Package]] as const).map(([key, label, Icon]) => (
+        {([['files', 'All Files', FolderOpen], ['packets', 'Packets', Package], ['shares', 'Shared', Share2]] as const).map(([key, label, Icon]) => (
           <button key={key} onClick={() => setTab(key)}
             className={cn('flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors',
               tab === key ? 'border-accent text-accent-fg' : 'border-transparent text-muted-fg hover:text-ink-soft')}>
             <Icon className="h-4 w-4" />{label}
-            <span className="text-xs text-faint ml-0.5">{key === 'files' ? files.length : packets.length}</span>
+            <span className="text-xs text-faint ml-0.5">{key === 'files' ? files.length : key === 'packets' ? packets.length : shares.length}</span>
           </button>
         ))}
       </div>
@@ -652,6 +684,88 @@ export default function FilesPage() {
             </div>
           )}
         </>
+      )}
+
+      {/* Shared - what went out, who opened it, what came back */}
+      {!loading && tab === 'shares' && (
+        shares.length === 0 ? (
+          <div className="rounded-xl border border-line bg-panel p-10 text-center">
+            <Share2 className="h-8 w-8 text-faint mx-auto mb-3" />
+            <p className="text-sm text-muted-fg">You haven&apos;t shared any documents yet.</p>
+            <p className="text-xs text-faint mt-1 max-w-sm mx-auto">
+              Send a permit package to your expeditor, or plans to an architect. They get a link, no account,
+              and can send documents straight back.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {shares.map(sh => {
+              const back = sh.file_share_uploads ?? []
+              const dead = !!sh.revoked_at || (sh.expires_at && new Date(sh.expires_at) < new Date())
+              return (
+                <div key={sh.id} className="rounded-xl border border-line bg-panel p-4 sm:p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-ink truncate">{sh.name}</p>
+                      <p className="text-xs text-muted-fg mt-0.5">
+                        {[
+                          sh.recipient_name && `To ${sh.recipient_name}`,
+                          `${(sh.files ?? []).length} document${(sh.files ?? []).length !== 1 ? 's' : ''}`,
+                          new Date(sh.created_at).toLocaleDateString(),
+                        ].filter(Boolean).join(' · ')}
+                      </p>
+                    </div>
+                    <span className={cn('shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold',
+                      dead ? 'bg-muted text-muted-fg'
+                        : back.length ? 'bg-success-tint text-success'
+                        : sh.viewed_at ? 'bg-info-tint text-info'
+                        : 'bg-warn-tint text-warn')}>
+                      {dead ? 'Closed' : back.length ? 'Replied' : sh.viewed_at ? 'Opened' : 'Not opened yet'}
+                    </span>
+                  </div>
+
+                  {back.length > 0 && (
+                    <div className="mt-3 rounded-lg border border-success/30 bg-success-tint px-3 py-2.5">
+                      <p className="text-xs font-semibold text-success mb-1.5 inline-flex items-center gap-1.5">
+                        <Inbox className="h-3.5 w-3.5" /> Sent back to you
+                      </p>
+                      {back.map((u: any) => (
+                        <a key={u.id} href={u.file_url} target="_blank" rel="noreferrer"
+                          className="block text-sm text-ink-soft hover:underline truncate">
+                          {u.name}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+
+                  {!dead && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <button
+                        onClick={async () => { await navigator.clipboard.writeText(sh.url); setCopiedId(sh.id); setTimeout(() => setCopiedId(''), 2000) }}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink-soft hover:bg-muted"
+                      >
+                        {copiedId === sh.id ? <><Check className="h-3.5 w-3.5 text-success" /> Copied</> : <><Copy className="h-3.5 w-3.5" /> Copy link</>}
+                      </button>
+                      <button onClick={() => revokeShare(sh.id, true)}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-muted-fg hover:text-danger hover:bg-danger-tint">
+                        <Ban className="h-3.5 w-3.5" /> Turn off link
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )
+      )}
+
+      {shareOpen && (
+        <ShareFilesModal
+          files={files}
+          preselected={sharePreselect}
+          onClose={() => setShareOpen(false)}
+          onShared={() => { setTab('shares'); getToken().then(loadShares) }}
+        />
       )}
     </div>
   )
