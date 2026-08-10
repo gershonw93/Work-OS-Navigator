@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
+import { appHref } from '@/lib/hosts'
 
 // The closing CTA used at the bottom of every marketing page.
 export function CtaBand({
@@ -23,7 +24,7 @@ export function CtaBand({
           <p className="mt-4 text-accent-ink/75 max-w-xl mx-auto text-base sm:text-lg">{body}</p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link
-              href="/signup"
+              href={appHref('/signup')}
               className="inline-flex items-center gap-2 rounded-xl bg-ink text-surface font-bold px-7 py-3.5 hover:opacity-90 transition-opacity"
             >
               Request access <ArrowRight className="h-4 w-4" />

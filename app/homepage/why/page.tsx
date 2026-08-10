@@ -9,6 +9,7 @@ import { Reveal } from '@/components/marketing/reveal'
 import { SectionHead, Eyebrow } from '@/components/marketing/section'
 import { CtaBand } from '@/components/marketing/cta-band'
 import { BlueprintGrid } from '@/components/marketing/blueprint'
+import { appHref } from '@/lib/hosts'
 
 export const metadata: Metadata = marketingMeta({
   title: 'Why SyteNav · Replace the spreadsheet stack',
@@ -220,7 +221,7 @@ export default function WhyPage() {
               Switching software usually means a lost weekend and a consultant. SyteNav&apos;s setup is the AI doing what it always does: reading your existing paperwork. Start with one job, upload its quote, and you&apos;re running by the second coffee. Bring the rest when you&apos;re convinced.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
-              <Link href="/signup" className="inline-flex items-center gap-2 rounded-xl bg-accent text-accent-ink font-bold px-6 py-3 hover:bg-accent/90 transition-colors">
+              <Link href={appHref('/signup')} className="inline-flex items-center gap-2 rounded-xl bg-accent text-accent-ink font-bold px-6 py-3 hover:bg-accent/90 transition-colors">
                 Start with one job <ArrowRight className="h-4 w-4" />
               </Link>
             </div>

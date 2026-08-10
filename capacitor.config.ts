@@ -11,11 +11,11 @@ const config = {
   // Required by Capacitor even in remote mode; not used for content.
   webDir: 'public',
   server: {
-    // Production domain the native shell loads.
-    url: 'https://sytenav.com',
+    // The native shell loads the PRODUCT, not the marketing site.
+    url: 'https://app.sytenav.com',
     cleartext: false,
     // Only the app's own origin (+ Supabase for auth) loads in the shell; other links open in the system browser.
-    allowNavigation: ['sytenav.com', 'www.sytenav.com', '*.supabase.co'],
+    allowNavigation: ['app.sytenav.com', 'sytenav.com', 'www.sytenav.com', '*.supabase.co'],
   },
   plugins: {
     SplashScreen: {

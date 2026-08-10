@@ -28,7 +28,7 @@ requirements when you sign up - these change.
 Decide your identifiers first (used everywhere):
 - Bundle ID / package name: `com.sytenav.app` (set in `capacitor.config.ts` + `codemagic.yaml`)
 - App name: `SyteNav`
-- Production URL: `https://sytenav.com` (set as `server.url` in `capacitor.config.ts`)
+- Production URL: `https://app.sytenav.com` (set as `server.url` in `capacitor.config.ts`). The shell loads the PRODUCT, not the marketing site - `sytenav.com` serves marketing only.
 
 ---
 
@@ -55,7 +55,7 @@ not Safari/Chrome.
    `sytenav`; in `android/app/src/main/AndroidManifest.xml` add an intent-filter for
    scheme `sytenav`.
 2. In Supabase → Authentication → URL Configuration, add redirect URLs:
-   `sytenav://auth/callback` (and keep the web `https://sytenav.com/auth/callback`).
+   `sytenav://auth/callback` (and keep the web `https://app.sytenav.com/auth/callback`).
 3. In the web app, when running inside Capacitor, pass `emailRedirectTo: 'sytenav://auth/callback'`
    to `signInWithOtp`, and listen with `@capacitor/app`'s `appUrlOpen` to hand the code to
    `supabase.auth.exchangeCodeForSession`.

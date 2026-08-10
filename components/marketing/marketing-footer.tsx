@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import { SyteNavLogo } from '@/components/ui/logo'
+import { appHref } from '@/lib/hosts'
 
 const COLUMNS: { title: string; links: [string, string][] }[] = [
   {
@@ -29,7 +30,7 @@ const COLUMNS: { title: string; links: [string, string][] }[] = [
       ['About', '/homepage/about'],
       ['Contact', '/homepage/contact'],
       ['Log in', '/login'],
-      ['Request access', '/signup'],
+      ['Request access', appHref('/signup')],
     ],
   },
   {
@@ -55,7 +56,7 @@ export function MarketingFooter() {
           </p>
         </div>
         <Link
-          href="/signup"
+          href={appHref('/signup')}
           className="inline-flex items-center justify-center gap-2 self-start sm:self-center rounded-xl bg-accent text-accent-ink font-bold px-6 py-3 hover:bg-accent/90 transition-colors"
         >
           Request access <ArrowRight className="h-4 w-4" />

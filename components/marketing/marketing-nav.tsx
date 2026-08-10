@@ -7,6 +7,7 @@ import { Menu, X, ChevronDown, Building2, HardHat, Scale } from 'lucide-react'
 import { SyteNavLogo } from '@/components/ui/logo'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { cn } from '@/lib/utils'
+import { appHref } from '@/lib/hosts'
 
 const LINKS = [
   { href: '/homepage/features', label: 'Features' },
@@ -106,8 +107,8 @@ export function MarketingNav() {
 
         <div className="hidden md:flex items-center gap-3">
           <ThemeToggle />
-          <Link href="/login" className="text-sm font-medium text-ink-soft hover:text-ink">Log in</Link>
-          <Link href="/signup" className="rounded-lg bg-accent text-accent-ink text-sm font-semibold px-4 py-2 hover:bg-accent/90 transition-colors">
+          <Link href={appHref('/login')} className="text-sm font-medium text-ink-soft hover:text-ink">Log in</Link>
+          <Link href={appHref('/signup')} className="rounded-lg bg-accent text-accent-ink text-sm font-semibold px-4 py-2 hover:bg-accent/90 transition-colors">
             Request access
           </Link>
         </div>
@@ -141,10 +142,10 @@ export function MarketingNav() {
             </Link>
           ))}
           <div className="flex items-center gap-2 pt-4 pb-1">
-            <Link href="/login" onClick={() => setOpen(false)} className="flex-1 text-center rounded-lg border border-line text-sm font-medium py-2.5 text-ink-soft">
+            <Link href={appHref('/login')} onClick={() => setOpen(false)} className="flex-1 text-center rounded-lg border border-line text-sm font-medium py-2.5 text-ink-soft">
               Log in
             </Link>
-            <Link href="/signup" onClick={() => setOpen(false)} className="flex-1 text-center rounded-lg bg-accent text-accent-ink text-sm font-semibold py-2.5">
+            <Link href={appHref('/signup')} onClick={() => setOpen(false)} className="flex-1 text-center rounded-lg bg-accent text-accent-ink text-sm font-semibold py-2.5">
               Request access
             </Link>
           </div>
