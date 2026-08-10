@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { Send, Copy, Check, Ban, Inbox, Share2, RotateCcw } from 'lucide-react'
+import { Send, Copy, Check, Ban, Inbox, Share2, RotateCcw, Plus } from 'lucide-react'
 import { ShareFilesModal, type ShareableFile } from '@/components/files/share-files-modal'
 
 interface Share {
@@ -12,7 +12,7 @@ interface Share {
   name: string
   url: string
   recipient_name: string | null
-  files: { name: string }[]
+  files: { name: string; url: string; added_at?: string }[]
   created_at: string
   viewed_at: string | null
   revoked_at: string | null
@@ -36,6 +36,7 @@ export default function SharingPage({ params }: { params: { id: string } }) {
   const [projectName, setProjectName] = useState('')
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
+  const [addTo, setAddTo] = useState<Share | null>(null)
   const [copiedId, setCopiedId] = useState('')
 
   const token = useCallback(async () => {
@@ -142,6 +143,12 @@ export default function SharingPage({ params }: { params: { id: string } }) {
 
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   {!dead && (
+                    <button onClick={() => setAddTo(sh)}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink-soft hover:bg-muted">
+                      <Plus className="h-3.5 w-3.5" /> Add documents
+                    </button>
+                  )}
+                  {!dead && (
                     <button
                       onClick={async () => { await navigator.clipboard.writeText(sh.url); setCopiedId(sh.id); setTimeout(() => setCopiedId(''), 2000) }}
                       className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink-soft hover:bg-muted"
@@ -173,6 +180,15 @@ export default function SharingPage({ params }: { params: { id: string } }) {
           projectId={params.id}
           defaultTitle={projectName ? `Documents · ${projectName}` : undefined}
           onClose={() => setOpen(false)}
+          onShared={load}
+        />
+      )}
+
+      {addTo && (
+        <ShareFilesModal
+          files={docs}
+          addTo={{ id: addTo.id, name: addTo.name, alreadySent: (addTo.files ?? []).map(f => f.url) }}
+          onClose={() => setAddTo(null)}
           onShared={load}
         />
       )}

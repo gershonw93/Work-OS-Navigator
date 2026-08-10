@@ -31,12 +31,14 @@ interface Contact { id: string; name: string; email: string | null; company?: st
  * the return trip is on the same link.
  */
 export function ShareFilesModal({
-  files, preselected, projectId, defaultTitle, onClose, onShared,
+  files, preselected, projectId, defaultTitle, addTo, onClose, onShared,
 }: {
   files: ShareableFile[]
   preselected?: string[]
   projectId?: string
   defaultTitle?: string
+  /** Adding to a link already sent, instead of creating a new one. */
+  addTo?: { id: string; name: string; alreadySent: string[] }
   onClose: () => void
   onShared?: () => void
 }) {
@@ -124,6 +126,26 @@ export function ShareFilesModal({
     })
   }
 
+  const asPayload = (f: ShareableFile) => ({
+    name: f.name, url: f.file_url, type: f.file_type ?? null, size: f.size_bytes ?? null,
+  })
+
+  // Append to an existing link rather than minting a new one.
+  async function addToExisting() {
+    const chosen = files.filter(f => picked.has(f.id))
+    if (!chosen.length || !addTo) { setError('Pick at least one document'); return }
+    setSaving(true); setError('')
+    const res = await fetch(`/api/file-shares/${addTo.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await token()}` },
+      body: JSON.stringify({ add_files: chosen.map(asPayload) }),
+    })
+    setSaving(false)
+    if (!res.ok) { setError((await res.json().catch(() => ({}))).error ?? 'Could not add them'); return }
+    onShared?.()
+    onClose()
+  }
+
   async function share() {
     const chosen = files.filter(f => picked.has(f.id))
     if (!chosen.length) { setError('Pick at least one document'); return }
@@ -140,9 +162,7 @@ export function ShareFilesModal({
         allow_upload: allowUpload,
         upload_prompt: allowUpload ? (uploadPrompt.trim() || null) : null,
         expires_days: Number(expires) || null,
-        files: chosen.map(f => ({
-          name: f.name, url: f.file_url, type: f.file_type ?? null, size: f.size_bytes ?? null,
-        })),
+        files: chosen.map(asPayload),
       }),
     })
     setSaving(false)
@@ -169,15 +189,21 @@ export function ShareFilesModal({
       <div className="w-full max-w-2xl rounded-xl bg-panel shadow-xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-line-soft px-5 py-4">
           <h2 className="text-base font-semibold text-ink">
-            {step === 'compose' ? 'Share documents' : 'Link ready'}
+            {addTo ? 'Add documents to this link' : step === 'compose' ? 'Share documents' : 'Link ready'}
           </h2>
           <button onClick={onClose} className="text-faint hover:text-ink"><X className="h-5 w-5" /></button>
         </div>
 
         {step === 'compose' ? (
           <div className="p-5 space-y-5">
+            {addTo && (
+              <p className="rounded-lg border border-line bg-surface px-3 py-2.5 text-sm text-muted-fg">
+                Adding to <span className="font-semibold text-ink">{addTo.name}</span>. Whoever has the link sees the
+                new documents next time they open it - the link itself does not change.
+              </p>
+            )}
             {/* Who */}
-            <div className="grid sm:grid-cols-2 gap-4">
+            {!addTo && <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-1.5 sm:col-span-2">
                 <Label>Send to</Label>
                 <SearchableSelect value={contactId} onChange={e => chooseContact(e.target.value)}>
@@ -197,7 +223,7 @@ export function ShareFilesModal({
                 <Label>Email <span className="text-faint font-normal">(optional)</span></Label>
                 <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="dave@expeditor.com" />
               </div>
-            </div>
+            </div>}
 
             {/* What */}
             <div className="space-y-1.5">
@@ -220,20 +246,26 @@ export function ShareFilesModal({
                         {source}
                       </p>
                     )}
-                    {rows.map(f => (
-                      <label key={f.id} className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-surface cursor-pointer border-b border-line-soft last:border-0">
-                        <input type="checkbox" className="accent-[#C9F24A]" checked={picked.has(f.id)} onChange={() => toggle(f.id)} />
-                        <FileText className="h-4 w-4 text-faint shrink-0" />
-                        <span className="flex-1 min-w-0 text-sm text-ink-soft truncate">{f.name}</span>
-                        {f.category && <span className="text-[10px] text-faint shrink-0">{f.category}</span>}
-                      </label>
-                    ))}
+                    {rows.map(f => {
+                      const already = addTo?.alreadySent.includes(f.file_url) ?? false
+                      return (
+                        <label key={f.id} className={cn('flex items-center gap-2.5 px-3 py-2.5 border-b border-line-soft last:border-0',
+                          already ? 'opacity-50' : 'hover:bg-surface cursor-pointer')}>
+                          <input type="checkbox" className="accent-[#C9F24A]" disabled={already}
+                            checked={already || picked.has(f.id)} onChange={() => toggle(f.id)} />
+                          <FileText className="h-4 w-4 text-faint shrink-0" />
+                          <span className="flex-1 min-w-0 text-sm text-ink-soft truncate">{f.name}</span>
+                          <span className="text-[10px] text-faint shrink-0">{already ? 'on the link' : f.category}</span>
+                        </label>
+                      )
+                    })}
                   </div>
                 ))}
               </div>
             </div>
 
             {/* Context */}
+            {!addTo && <>
             <div className="space-y-1.5">
               <Label>What is this?</Label>
               <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Permit package - 19 Shady Nook Ave" />
@@ -268,13 +300,17 @@ export function ShareFilesModal({
                 <option value="0">Never</option>
               </SearchableSelect>
             </div>
+            </>}
 
             {error && <p className="text-sm text-danger">{error}</p>}
 
             <div className="flex justify-end gap-2">
               <Button variant="secondary" onClick={onClose} disabled={saving}>Cancel</Button>
-              <Button onClick={share} disabled={saving || picked.size === 0} className="gap-1.5">
-                <Send className="h-4 w-4" /> {saving ? 'Creating…' : 'Create link'}
+              <Button onClick={addTo ? addToExisting : share} disabled={saving || picked.size === 0} className="gap-1.5">
+                <Send className="h-4 w-4" />
+                {saving
+                  ? (addTo ? 'Adding…' : 'Creating…')
+                  : addTo ? `Add ${picked.size || ''} to link` : 'Create link'}
               </Button>
             </div>
           </div>

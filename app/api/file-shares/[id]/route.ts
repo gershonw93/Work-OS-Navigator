@@ -23,6 +23,40 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   if (!profile?.company_id) return NextResponse.json({ error: 'Profile not found' }, { status: 400 })
 
   const body = await request.json().catch(() => ({}))
+
+  // Add documents to a link that's already out there - "here's the updated
+  // set". Appending only: what was already sent stays exactly as sent, so the
+  // link never quietly becomes something different, but you can add to it
+  // without making the recipient chase a second URL.
+  if (Array.isArray(body.add_files)) {
+    const incoming = body.add_files.filter((f: any) => f?.url && f?.name)
+    if (incoming.length === 0) return NextResponse.json({ error: 'Nothing to add' }, { status: 400 })
+
+    const { data: existing } = await db
+      .from('file_shares').select('files').eq('id', params.id).eq('company_id', profile.company_id).single()
+    if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+    const current = Array.isArray(existing.files) ? existing.files : []
+    const have = new Set(current.map((f: any) => f.url))
+    const added = incoming
+      .filter((f: any) => !have.has(f.url))
+      .map((f: any) => ({ ...f, added_at: new Date().toISOString() }))
+    if (added.length === 0) {
+      return NextResponse.json({ error: 'Those documents are already on this link' }, { status: 400 })
+    }
+
+    const { data, error } = await db
+      .from('file_shares')
+      .update({ files: [...current, ...added] })
+      .eq('id', params.id)
+      .eq('company_id', profile.company_id)
+      .select()
+      .single()
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ share: data, added: added.length })
+  }
+
   const revoked = body.revoked !== false
 
   const { data, error } = await db

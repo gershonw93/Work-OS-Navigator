@@ -7,7 +7,7 @@ import {
 import { SyteNavLogo } from '@/components/ui/logo'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 
-interface SharedFile { name: string; url: string; type?: string | null; size?: number | null }
+interface SharedFile { name: string; url: string; type?: string | null; size?: number | null; added_at?: string | null }
 interface Data {
   name: string
   message: string | null
@@ -104,7 +104,17 @@ export default function SharePage({ params }: { params: { token: string } }) {
                   className="flex items-center gap-3 px-4 py-3.5 hover:bg-surface transition-colors">
                   <FileText className="h-5 w-5 text-accent-fg shrink-0" />
                   <span className="flex-1 min-w-0">
-                    <span className="block text-sm font-medium text-ink truncate">{f.name}</span>
+                    <span className="block text-sm font-medium text-ink truncate">
+                      {f.name}
+                      {/* Added after the link first went out - worth calling
+                          out, since "here's the updated set" is the reason
+                          anyone adds to a link they already sent. */}
+                      {f.added_at && (
+                        <span className="ml-2 rounded-full bg-accent-tint px-1.5 py-0.5 text-[10px] font-semibold text-accent-fg align-middle">
+                          Added {new Date(f.added_at).toLocaleDateString()}
+                        </span>
+                      )}
+                    </span>
                     {f.size ? <span className="block text-xs text-faint">{prettySize(f.size)}</span> : null}
                   </span>
                   <Download className="h-4 w-4 text-faint shrink-0" />
