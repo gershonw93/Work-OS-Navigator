@@ -6,6 +6,7 @@ import { ArrowRight, Sparkles, ChevronDown } from 'lucide-react'
 import { ProjectsMock } from './projects-mock'
 import { BrowserMock } from './browser-mock'
 import { BlueprintGrid } from './blueprint'
+import { appHref } from '@/lib/hosts'
 
 const HEADLINE = 'Run the whole build from one place.'
 const SUB =
@@ -22,7 +23,7 @@ function Badge() {
 function Ctas({ center = false }: { center?: boolean }) {
   return (
     <div className={`flex flex-wrap items-center gap-3 ${center ? 'justify-center' : ''}`}>
-      <Link href="/signup" className="inline-flex items-center gap-2 rounded-xl bg-accent text-accent-ink font-bold px-6 py-3 hover:bg-accent/90 transition-colors">
+      <Link href={appHref('/signup')} className="inline-flex items-center gap-2 rounded-xl bg-accent text-accent-ink font-bold px-6 py-3 hover:bg-accent/90 transition-colors">
         Request access <ArrowRight className="h-4 w-4" />
       </Link>
       <Link href="/homepage/features" className="inline-flex items-center gap-2 rounded-xl border border-line text-ink-soft font-semibold px-6 py-3 hover:bg-panel transition-colors">
@@ -40,7 +41,7 @@ function StaticHero() {
       <h1 className="text-[2.1rem] font-extrabold tracking-tight text-ink leading-[1.08]">{HEADLINE}</h1>
       <p className="mt-4 text-base text-muted-fg leading-relaxed">{SUB}</p>
       <div className="mt-7 flex flex-col gap-2.5">
-        <Link href="/signup" className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent text-accent-ink font-bold px-6 py-3.5">
+        <Link href={appHref('/signup')} className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent text-accent-ink font-bold px-6 py-3.5">
           Request access <ArrowRight className="h-4 w-4" />
         </Link>
         <Link href="/homepage/features" className="inline-flex items-center justify-center gap-2 rounded-xl border border-line text-ink-soft font-semibold px-6 py-3.5">

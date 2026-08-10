@@ -10,6 +10,7 @@ import { BlueprintGrid } from '@/components/marketing/blueprint'
 import { Reveal } from '@/components/marketing/reveal'
 import { SectionHead, Eyebrow } from '@/components/marketing/section'
 import { CtaBand } from '@/components/marketing/cta-band'
+import { appHref } from '@/lib/hosts'
 
 export const metadata: Metadata = marketingMeta({
   title: 'On the go · SyteNav on the jobsite',
@@ -49,7 +50,7 @@ export default function MobilePage() {
               SyteNav is built for the phone already in your pocket: big targets for gloved hands, screens that read in direct sun, and the two-minute workflows a jobsite actually allows. Every worker on the crew can use it on day one.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
-              <Link href="/signup" className="inline-flex items-center gap-2 rounded-xl bg-accent text-accent-ink font-bold px-6 py-3 hover:bg-accent/90 transition-colors">
+              <Link href={appHref('/signup')} className="inline-flex items-center gap-2 rounded-xl bg-accent text-accent-ink font-bold px-6 py-3 hover:bg-accent/90 transition-colors">
                 Request access <ArrowRight className="h-4 w-4" />
               </Link>
               <Link href="/homepage/features" className="inline-flex items-center gap-2 rounded-xl border border-line text-ink-soft font-semibold px-6 py-3 hover:bg-panel transition-colors">

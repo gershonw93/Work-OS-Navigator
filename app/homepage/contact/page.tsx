@@ -4,6 +4,7 @@ import { Mail, MapPin, MessageSquare, Rocket, ArrowRight } from 'lucide-react'
 import { marketingMeta } from '@/components/marketing/meta'
 import { Eyebrow } from '@/components/marketing/section'
 import { ContactForm } from '@/components/marketing/contact-form'
+import { appHref } from '@/lib/hosts'
 
 export const metadata: Metadata = marketingMeta({
   title: 'Contact · SyteNav',
@@ -64,7 +65,7 @@ export default function ContactPage() {
               <p className="text-sm text-muted-fg mt-1">
                 You don&apos;t need a call to start. Create your company and upload a quote, it takes about four minutes.
               </p>
-              <Link href="/signup" className="mt-2.5 inline-flex items-center gap-1.5 text-sm font-semibold text-accent-fg hover:gap-2.5 transition-all">
+              <Link href={appHref('/signup')} className="mt-2.5 inline-flex items-center gap-1.5 text-sm font-semibold text-accent-fg hover:gap-2.5 transition-all">
                 Request access <ArrowRight className="h-4 w-4" />
               </Link>
             </div>

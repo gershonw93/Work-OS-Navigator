@@ -18,6 +18,7 @@ import { BlueprintGrid } from '@/components/marketing/blueprint'
 import { Reveal } from '@/components/marketing/reveal'
 import { Eyebrow } from '@/components/marketing/section'
 import { CtaBand } from '@/components/marketing/cta-band'
+import { appHref } from '@/lib/hosts'
 
 export const metadata: Metadata = marketingMeta({
   title: 'Features · SyteNav',
@@ -140,7 +141,7 @@ export default function FeaturesPage() {
           Six product areas that share one source of truth: the AI that reads your documents, the money, the field, compliance, your team, and the views that tie every job together.
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <Link href="/signup" className="inline-flex items-center gap-2 rounded-xl bg-accent text-accent-ink font-bold px-6 py-3 hover:bg-accent/90 transition-colors">
+          <Link href={appHref('/signup')} className="inline-flex items-center gap-2 rounded-xl bg-accent text-accent-ink font-bold px-6 py-3 hover:bg-accent/90 transition-colors">
             Request access <ArrowRight className="h-4 w-4" />
           </Link>
           <Link href="/homepage/ai" className="inline-flex items-center gap-2 rounded-xl border border-line text-ink-soft font-semibold px-6 py-3 hover:bg-panel transition-colors">
