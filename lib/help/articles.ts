@@ -605,6 +605,33 @@ export const HELP_ARTICLES: HelpArticle[] = [
     related: ['request-compliance-docs', 'compliance-scan'],
   },
   {
+    slug: 'share-documents',
+    title: 'Send documents to someone outside your company',
+    category: 'compliance',
+    keywords: [
+      'share', 'share documents', 'send files', 'send documents', 'expeditor', 'expediter',
+      'permit', 'permits', 'architect', 'engineer', 'inspector', 'lender', 'bank', 'attorney',
+      'link', 'share link', 'no account', 'send back', 'upload back', 'revoke', 'turn off link',
+    ],
+    summary: 'Pick documents, pick a contact, send a link. They can send documents back on the same link.',
+    blocks: [
+      { type: 'text', text: 'Pulling permits is the case this was built for: you send the expeditor a set of plans and forms, and they send the approved permit back. They will never have a SyteNav account, and the files are too big to email. So you send a link instead.' },
+      { type: 'steps', items: [
+        'Go to Files and click Share documents.',
+        'Pick who it is going to from your contacts, or just type a name and email.',
+        'Tick the documents to send.',
+        'Give it a title (e.g. "Permit package - 19 Shady Nook Ave") and a message if you need one.',
+        'Leave "Let them send documents back" on, and say what you need back.',
+        'Set when the link should expire, then create it. Copy the link, or open it straight in your email.',
+      ] },
+      { type: 'text', text: 'They open the link with no account and no sign-up. They see who sent it, your message, and every document you picked, ready to download. If you left the return trip on, they can attach documents and send them straight back to you.' },
+      { type: 'tip', text: 'The Shared tab on the Files page tracks every link: whether it has been opened, whether anything came back, and what came back. Anything returned is one click away, and you can turn a link off at any time without losing the record of what you sent.' },
+      { type: 'text', text: 'What you send is a snapshot. If you later rename, re-file, or delete the file on your side, the person you sent it to still sees exactly what you sent them - so a link never quietly changes after it has gone out.' },
+      { type: 'text', text: 'This is the opposite of a compliance request. Use a compliance request to collect insurance and licences FROM a sub; use this to send documents TO someone.' },
+    ],
+    related: ['request-compliance-docs', 'compliance-overview', 'create-first-project'],
+  },
+  {
     slug: 'request-compliance-docs',
     title: 'Request compliance docs by email',
     category: 'compliance',

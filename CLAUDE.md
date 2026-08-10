@@ -12,7 +12,7 @@ production branch.** Do NOT ask the user to merge or deploy.
   (no DB access from here). Mention those once, briefly - don't nag about deploy.
 
 ## Migrations
-- Combined, idempotent SQL lives at `supabase/migrations/_combined_008-064.sql`
+- Combined, idempotent SQL lives at `supabase/migrations/_combined_008-065.sql`
   (keep the suffix current as new migrations are added). User pastes it into the
   Supabase SQL editor.
 
