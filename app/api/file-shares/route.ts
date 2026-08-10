@@ -30,12 +30,16 @@ export async function GET(request: Request) {
   const { data: profile } = await db.from('profiles').select('company_id').eq('id', user.id).single()
   if (!profile?.company_id) return NextResponse.json({ shares: [] })
 
-  const { data, error } = await db
+  // ?project_id= scopes to one job, for the Sharing tab inside a project.
+  const projectId = new URL(request.url).searchParams.get('project_id')
+
+  let query = db
     .from('file_shares')
     .select('*, file_share_uploads(id, name, file_url, file_type, created_at)')
     .eq('company_id', profile.company_id)
-    .order('created_at', { ascending: false })
-    .limit(200)
+  if (projectId) query = query.eq('project_id', projectId)
+
+  const { data, error } = await query.order('created_at', { ascending: false }).limit(200)
 
   if (error) return NextResponse.json({ shares: [] })
 

@@ -616,9 +616,10 @@ export const HELP_ARTICLES: HelpArticle[] = [
     summary: 'Pick documents, pick a contact, send a link. They can send documents back on the same link.',
     blocks: [
       { type: 'text', text: 'Pulling permits is the case this was built for: you send the expeditor a set of plans and forms, and they send the approved permit back. They will never have a SyteNav account, and the files are too big to email. So you send a link instead.' },
-      { type: 'text', text: 'Two ways in. On a job, click Send docs in the project header - that picks up everything on that job, grouped by where it lives: Plans, Permits, Submittals, Compliance, plus your company files. From the Files page, click Share documents for company paperwork like your W-9 or insurance certificate.' },
+      { type: 'text', text: 'Two ways in. On a job, open the Sharing tab under Docs & Legal - that picks up everything on that job, grouped by where it lives: Plans, Permits, Submittals, Compliance, plus your company files. From the Files page, click Share documents for company paperwork like your W-9 or insurance certificate.' },
       { type: 'steps', items: [
-        'Click Send docs in the project header (or Share documents on the Files page).',
+        'Open the job and go to Docs & Legal → Sharing (or the Files page for company paperwork).',
+        'Click Send documents.',
         'Pick who it is going to from your contacts, or just type a name and email.',
         'Tick the documents to send.',
         'Give it a title (e.g. "Permit package - 19 Shady Nook Ave") and a message if you need one.',
@@ -626,7 +627,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'Set when the link should expire, then create it. Copy the link, or open it straight in your email.',
       ] },
       { type: 'text', text: 'They open the link with no account and no sign-up. They see who sent it, your message, and every document you picked, ready to download. If you left the return trip on, they can attach documents and send them straight back to you.' },
-      { type: 'tip', text: 'The Shared tab on the Files page tracks every link: whether it has been opened, whether anything came back, and what came back. Anything returned is one click away, and you can turn a link off at any time without losing the record of what you sent.' },
+      { type: 'tip', text: 'The link is not lost when you close the window. Every link you send is listed on the Sharing tab of that job (and on the Files page under Shared), showing whether it has been opened and whether anything came back. Copy the link again any time, download what was returned, or turn the link off - and turn it back on if you turned it off by mistake.' },
       { type: 'text', text: 'What you send is a snapshot. If you later rename, re-file, or delete the file on your side, the person you sent it to still sees exactly what you sent them - so a link never quietly changes after it has gone out.' },
       { type: 'text', text: 'This is the opposite of a compliance request. Use a compliance request to collect insurance and licences FROM a sub; use this to send documents TO someone.' },
     ],

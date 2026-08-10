@@ -35,7 +35,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
     try { return (await fn()).data ?? [] } catch { return [] }
   }
 
-  const [plans, permits, submittals, compliance, companyFiles] = await Promise.all([
+  const [project, plans, permits, submittals, compliance, companyFiles] = await Promise.all([
+    db.from('projects').select('name').eq('id', params.id).single(),
     grab(() => db.from('project_plans').select('id, name, file_url, plan_type, created_at').eq('project_id', params.id)),
     grab(() => db.from('permits').select('id, permit_type, permit_number, file_url, created_at').eq('project_id', params.id)),
     grab(() => db.from('submittals').select('id, title, file_url, type, created_at').eq('project_id', params.id)),
@@ -70,5 +71,5 @@ export async function GET(request: Request, { params }: { params: { id: string }
     })),
   ].filter(d => d.file_url)
 
-  return NextResponse.json({ documents: docs })
+  return NextResponse.json({ documents: docs, project_name: (project as any)?.data?.name ?? null })
 }
