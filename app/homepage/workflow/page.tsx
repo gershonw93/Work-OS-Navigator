@@ -5,7 +5,7 @@ import {
   ArrowRight, Search, Map, ScanLine, Scale, FileCheck2, Wallet, Landmark,
   CalendarDays, ClipboardList, Camera, Clock, MessageSquare, ShieldCheck,
   ScrollText, ClipboardCheck, LayoutDashboard, TrendingUp, CheckCircle2,
-  MousePointerClick, Zap,
+  MousePointerClick, Zap, Layers,
 } from 'lucide-react'
 import { marketingMeta } from '@/components/marketing/meta'
 import { BrowserMock } from '@/components/marketing/browser-mock'
@@ -32,13 +32,14 @@ export const metadata: Metadata = marketingMeta({
 
 const NAV_ITEMS = [
   { id: 'find', label: '1. Find the job' },
-  { id: 'quote', label: '2. Quote & bid' },
-  { id: 'award', label: '3. Award & budget' },
-  { id: 'schedule', label: '4. Schedule the work' },
-  { id: 'field', label: '5. Run the field' },
-  { id: 'money', label: '6. Get paid' },
-  { id: 'compliance', label: '7. Stay compliant' },
-  { id: 'report', label: '8. Close it out' },
+  { id: 'price', label: '2. Price the job' },
+  { id: 'quote', label: '3. Quote & bid' },
+  { id: 'award', label: '4. Award & budget' },
+  { id: 'schedule', label: '5. Schedule the work' },
+  { id: 'field', label: '6. Run the field' },
+  { id: 'money', label: '7. Get paid' },
+  { id: 'compliance', label: '8. Stay compliant' },
+  { id: 'report', label: '9. Close it out' },
 ]
 
 // Who a given automatic effect touches. Rendered as a small chip per line so
@@ -117,7 +118,8 @@ type Step = {
   /** What fires automatically after it, in order, with who it touches. */
   auto: AutoEffect[]
   details: { icon: React.ComponentType<{ className?: string }>; title: string; body: string }[]
-  visual: ReactNode
+  /** Optional: some steps carry the argument in the auto-chain alone. */
+  visual?: ReactNode
   /** Wide app screenshots span the full row; cards and phones sit beside the text. */
   wide?: boolean
   reverse?: boolean
@@ -156,8 +158,30 @@ const STEPS: Step[] = [
     ),
   },
   {
-    id: 'quote',
+    id: 'price',
     step: 'Step 2',
+    eyebrow: 'Pricing the job',
+    title: 'The budget you price with is the budget you build with',
+    lead: 'Before a job is yours, you are guessing at a number and hoping it holds. And the guessing does not start at the trades: plans, permits, builders risk, survey, loan interest are all money out the door before anyone swings a hammer.',
+    without: 'The old way: a takeoff in one spreadsheet, soft costs on a second tab you keep meaning to reconcile, a markup done on a calculator, and a proposal typed fresh in a documents app. Win the job and you rebuild the whole thing as a real budget.',
+    youDo: 'You build the budget once, in hard costs and soft costs, and set what the job sells for.',
+    auto: [
+      { text: 'Soft costs sit in their own section with their own subtotal, so the job total is the real total', who: ['You'] },
+      { text: 'Projected profit and margin update every time a line moves, before you have committed to anything', who: ['You', 'Office'] },
+      { text: 'Your markup becomes the client price, and the proposal PDF is generated from the same numbers', who: ['Client'] },
+      { text: 'A job still in planning hides the tabs that only matter after you break ground', who: ['Office', 'Field crew'] },
+      { text: 'Win it and this budget is already your baseline - nothing to rebuild', who: ['You'] },
+    ],
+    details: [
+      { icon: Layers, title: 'Hard costs and soft costs, one budget', body: 'One click drops in the standard preconstruction list: plans and design, permit fees, builders risk, taxes, loan origination and interest, survey, legal, engineering, contingency. Blank, to fill in as your numbers firm up.' },
+      { icon: TrendingUp, title: 'Sellout and projected profit', body: 'Enter what the job sells for, or what you are contracted at, and profit tracks itself as costs land. On a cost-plus job it falls back to your markup, so there is nothing to enter.' },
+      { icon: ScrollText, title: 'The proposal comes out of it', body: 'Lump sum, by section, or fully itemised, branded, with terms and a signature line. Your raw cost and margin are never printed.' },
+    ],
+    wide: true,
+  },
+  {
+    id: 'quote',
+    step: 'Step 3',
     eyebrow: 'Winning the work',
     title: 'Whip out your phone. Take the picture. Move on.',
     lead: 'Your new job starts as a pile of PDFs: your own estimate, or three sub bids that all describe the same scope differently. Getting them into numbers you can compare used to be your evening.',
@@ -183,7 +207,7 @@ const STEPS: Step[] = [
   },
   {
     id: 'award',
-    step: 'Step 3',
+    step: 'Step 4',
     eyebrow: 'Making it official',
     title: 'You click Award. The whole job assembles itself.',
     lead: 'The moment you accept a bid, someone has to turn it into a budget, a contract, and a payment plan. That handoff is where your numbers used to get retyped for the third time, and where the first errors crept in.',
@@ -210,7 +234,7 @@ const STEPS: Step[] = [
   },
   {
     id: 'schedule',
-    step: 'Step 4',
+    step: 'Step 5',
     eyebrow: 'Putting it on the calendar',
     title: 'One calendar that already knows your whole week',
     lead: 'Scheduling trades is a puzzle where the pieces live in different boxes. Your framer\'s dates are in one thread, your electrician\'s in another, and the conflict between them is invisible until both crews show up Thursday.',
@@ -232,7 +256,7 @@ const STEPS: Step[] = [
   },
   {
     id: 'field',
-    step: 'Step 5',
+    step: 'Step 6',
     eyebrow: 'Where the work actually happens',
     title: 'Your crew taps twice. The record writes itself.',
     lead: 'None of this matters if your field crew won\'t use it. The real record of your job is created on site, in the minute the work happens, or it isn\'t created at all.',
@@ -261,7 +285,7 @@ const STEPS: Step[] = [
   },
   {
     id: 'money',
-    step: 'Step 6',
+    step: 'Step 7',
     eyebrow: 'The part everyone actually cares about',
     title: 'Snap the receipt. The money math is already done.',
     lead: 'Month end is where the tool-hopping gets expensive for you. Progress lives in one place, invoices in another, and the escrow math lives in your head. Reconciling them used to be your Sunday.',
@@ -284,7 +308,7 @@ const STEPS: Step[] = [
   },
   {
     id: 'compliance',
-    step: 'Step 7',
+    step: 'Step 8',
     eyebrow: 'The paperwork nobody enjoys',
     title: 'Store the inspection once. Everything downstream updates.',
     lead: 'A lapsed certificate of insurance or a missed inspection window only gets noticed when it\'s already your problem, and usually an expensive one.',
@@ -323,20 +347,20 @@ const STEPS: Step[] = [
   },
   {
     id: 'report',
-    step: 'Step 8',
+    step: 'Step 9',
     eyebrow: 'The last mile',
     title: 'You ask "how did we do." The answer is already there.',
     lead: 'When the punch list clears and the final invoice goes out, you want to know what the job actually made you. If the data lived in five tools, that answer used to take you a week to assemble.',
     without: 'The old way: you export the accounting app, cross-reference the invoicing app, dig the change orders out of email, and rebuild the job\'s story in a spreadsheet one more time. After the fact.',
     youDo: 'You open the dashboard.',
     auto: [
-      { text: 'Margin is already computed: budgeted vs. committed vs. actual were tracked from day one', who: ['You'] },
+      { text: 'Margin is already computed: sellout against budgeted, committed and actual, tracked from day one', who: ['You'] },
       { text: 'Every log, photo, approval, and payment is attached to the job, a time-stamped record if a dispute ever lands', who: ['You', 'Office'] },
       { text: 'The finished budget is one click away from becoming the template for your next similar job', who: ['You', 'Office'] },
     ],
     details: [
       { icon: LayoutDashboard, title: 'Master views across every job', body: 'Roll every active project up into one dashboard: contract value, progress, and what needs attention, company-wide.' },
-      { icon: TrendingUp, title: 'Real margin, not a guess', body: 'Budgeted, committed, and actual costs were tracked from day one, so final margin is a number you already have, not one you have to reconstruct.' },
+      { icon: TrendingUp, title: 'Real margin, not a guess', body: 'Budgeted, committed, and actual costs were tracked from day one, and the sellout was set before you started, so final margin is a number you already had all the way through, not one you reconstruct at the end.' },
       { icon: CheckCircle2, title: 'A record, if it\'s ever needed', body: 'Every log, photo, approval, and payment stays attached to the job. A time-stamped record if a dispute ever lands.' },
     ],
     wide: true,
@@ -426,7 +450,7 @@ export default function WorkflowPage() {
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link href="/signup" className="inline-flex items-center gap-2 rounded-xl bg-accent text-accent-ink font-bold px-6 py-3 hover:bg-accent/90 transition-colors">
-              Start free <ArrowRight className="h-4 w-4" />
+              Request access <ArrowRight className="h-4 w-4" />
             </Link>
             <Link href="/homepage/features" className="inline-flex items-center gap-2 rounded-xl border border-line text-ink-soft font-semibold px-6 py-3 hover:bg-panel transition-colors">
               See the full feature list
@@ -462,9 +486,11 @@ export default function WorkflowPage() {
                       <AutoChain youDo={s.youDo} auto={s.auto} />
                     </Reveal>
                   </div>
-                  <Reveal delay={140}>
-                    <div className="mt-10">{s.visual}</div>
-                  </Reveal>
+                  {s.visual && (
+                    <Reveal delay={140}>
+                      <div className="mt-10">{s.visual}</div>
+                    </Reveal>
+                  )}
                   <StepDetails details={s.details} cols3 />
                 </>
               ) : (

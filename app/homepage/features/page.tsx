@@ -141,7 +141,7 @@ export default function FeaturesPage() {
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <Link href="/signup" className="inline-flex items-center gap-2 rounded-xl bg-accent text-accent-ink font-bold px-6 py-3 hover:bg-accent/90 transition-colors">
-            Start free <ArrowRight className="h-4 w-4" />
+            Request access <ArrowRight className="h-4 w-4" />
           </Link>
           <Link href="/homepage/ai" className="inline-flex items-center gap-2 rounded-xl border border-line text-ink-soft font-semibold px-6 py-3 hover:bg-panel transition-colors">
             See the AI
@@ -194,7 +194,7 @@ export default function FeaturesPage() {
         </div>
       </div>
 
-      <CtaBand title="See it with your own jobs" body="Start free, upload one quote, and watch the job build itself." />
+      <CtaBand title="See it with your own jobs" body="Ask for access, upload one quote, and watch the job build itself." />
     </>
   )
 }

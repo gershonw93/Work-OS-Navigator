@@ -23,7 +23,7 @@ function Ctas({ center = false }: { center?: boolean }) {
   return (
     <div className={`flex flex-wrap items-center gap-3 ${center ? 'justify-center' : ''}`}>
       <Link href="/signup" className="inline-flex items-center gap-2 rounded-xl bg-accent text-accent-ink font-bold px-6 py-3 hover:bg-accent/90 transition-colors">
-        Start free <ArrowRight className="h-4 w-4" />
+        Request access <ArrowRight className="h-4 w-4" />
       </Link>
       <Link href="/homepage/features" className="inline-flex items-center gap-2 rounded-xl border border-line text-ink-soft font-semibold px-6 py-3 hover:bg-panel transition-colors">
         See everything it does
@@ -41,7 +41,7 @@ function StaticHero() {
       <p className="mt-4 text-base text-muted-fg leading-relaxed">{SUB}</p>
       <div className="mt-7 flex flex-col gap-2.5">
         <Link href="/signup" className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent text-accent-ink font-bold px-6 py-3.5">
-          Start free <ArrowRight className="h-4 w-4" />
+          Request access <ArrowRight className="h-4 w-4" />
         </Link>
         <Link href="/homepage/features" className="inline-flex items-center justify-center gap-2 rounded-xl border border-line text-ink-soft font-semibold px-6 py-3.5">
           See everything it does

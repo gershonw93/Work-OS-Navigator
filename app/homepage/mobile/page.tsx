@@ -50,7 +50,7 @@ export default function MobilePage() {
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link href="/signup" className="inline-flex items-center gap-2 rounded-xl bg-accent text-accent-ink font-bold px-6 py-3 hover:bg-accent/90 transition-colors">
-                Start free <ArrowRight className="h-4 w-4" />
+                Request access <ArrowRight className="h-4 w-4" />
               </Link>
               <Link href="/homepage/features" className="inline-flex items-center gap-2 rounded-xl border border-line text-ink-soft font-semibold px-6 py-3 hover:bg-panel transition-colors">
                 All features
@@ -198,7 +198,7 @@ export default function MobilePage() {
         </Reveal>
       </section>
 
-      <CtaBand title="Put the job in every pocket" body="Start free, invite the crew, and watch the first daily log arrive before lunch." />
+      <CtaBand title="Put the job in every pocket" body="Get set up, invite the crew, and watch the first daily log arrive before lunch." />
     </>
   )
 }
