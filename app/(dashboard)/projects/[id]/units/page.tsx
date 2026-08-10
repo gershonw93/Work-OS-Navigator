@@ -17,6 +17,7 @@ interface Child {
   address: string | null
   budgeted: number
   actual: number
+  sellout: number | null
 }
 
 const money = (n: number) => `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
@@ -53,12 +54,21 @@ export default function UnitsPage({ params }: { params: { id: string } }) {
     return children.filter(c => [c.name, c.unit, c.floor, c.address].some(v => (v ?? '').toLowerCase().includes(s)))
   }, [children, q])
 
-  const totals = useMemo(() => ({
-    budgeted: children.reduce((s, c) => s + Number(c.budgeted || 0), 0),
-    actual: children.reduce((s, c) => s + Number(c.actual || 0), 0),
-    active: children.filter(c => c.status === 'active').length,
-    done: children.filter(c => c.status === 'completed').length,
-  }), [children])
+  const totals = useMemo(() => {
+    const budgeted = children.reduce((s, c) => s + Number(c.budgeted || 0), 0)
+    const sellout = children.reduce((s, c) => s + Number(c.sellout || 0), 0)
+    return {
+      budgeted,
+      actual: children.reduce((s, c) => s + Number(c.actual || 0), 0),
+      sellout,
+      // Only meaningful once at least one unit has a price on it.
+      priced: children.filter(c => c.sellout != null && c.sellout > 0).length,
+      profit: sellout - budgeted,
+      active: children.filter(c => c.status === 'active').length,
+      done: children.filter(c => c.status === 'completed').length,
+    }
+  }, [children])
+  const anyPriced = totals.priced > 0
 
   if (loading) return <div className="text-sm text-faint py-12 text-center">Loading…</div>
 
@@ -82,6 +92,38 @@ export default function UnitsPage({ params }: { params: { id: string } }) {
         </div>
       ) : (
         <>
+          {/* Total sellout against total cost - the number a developer is
+              actually watching across a building. Only shown once units have
+              prices; before that it would just read as zero profit. */}
+          {anyPriced && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="rounded-xl border border-line bg-panel p-4">
+                <p className="text-xs font-medium text-muted-fg mb-1">Total sellout</p>
+                <p className="text-xl font-bold text-ink">{money(totals.sellout)}</p>
+                <p className="text-xs text-faint mt-0.5">
+                  {totals.priced} of {children.length} priced
+                </p>
+              </div>
+              <div className="rounded-xl border border-line bg-panel p-4">
+                <p className="text-xs font-medium text-muted-fg mb-1">Total cost</p>
+                <p className="text-xl font-bold text-ink-soft">{money(totals.budgeted)}</p>
+                <p className="text-xs text-faint mt-0.5">{money(totals.actual)} spent</p>
+              </div>
+              <div className={cn('rounded-xl border p-4', totals.profit < 0 ? 'border-danger/30 bg-danger-tint' : 'border-success/30 bg-success-tint')}>
+                <p className={cn('text-xs font-medium mb-1', totals.profit < 0 ? 'text-danger' : 'text-success')}>Projected profit</p>
+                <p className={cn('text-xl font-bold', totals.profit < 0 ? 'text-danger' : 'text-success')}>
+                  {totals.profit < 0 ? '-' : ''}{money(Math.abs(totals.profit))}
+                </p>
+                {totals.sellout > 0 && (
+                  <p className="text-xs text-muted-fg mt-0.5">
+                    {((totals.profit / totals.sellout) * 100).toFixed(1)}% margin
+                    {totals.priced < children.length ? ' · partial' : ''}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div className="rounded-xl border border-line bg-panel p-4">
               <p className="text-xs font-medium text-muted-fg mb-1">Budgeted across all jobs</p>
@@ -109,16 +151,17 @@ export default function UnitsPage({ params }: { params: { id: string } }) {
           )}
 
           <div className="bg-panel rounded-xl border border-line overflow-hidden">
-            <div className="hidden sm:grid grid-cols-[1fr_6rem_8rem_8rem] gap-2 px-4 py-2.5 border-b border-line-soft text-xs font-semibold text-faint uppercase tracking-wide">
+            <div className="hidden sm:grid grid-cols-[1fr_6rem_8rem_8rem_8rem] gap-2 px-4 py-2.5 border-b border-line-soft text-xs font-semibold text-faint uppercase tracking-wide">
               <span>Job</span>
               <span>Status</span>
+              <span className="text-right">Sellout</span>
               <span className="text-right">Budgeted</span>
               <span className="text-right">Actual</span>
             </div>
             <div className="divide-y divide-line-soft">
               {filtered.map(c => (
                 <Link key={c.id} href={`/projects/${c.id}/plans`}
-                  className="sm:grid sm:grid-cols-[1fr_6rem_8rem_8rem] gap-2 items-center block px-4 py-3 hover:bg-surface transition-colors">
+                  className="sm:grid sm:grid-cols-[1fr_6rem_8rem_8rem_8rem] gap-2 items-center block px-4 py-3 hover:bg-surface transition-colors">
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-ink-soft truncate">{c.name}</p>
                     <p className="text-xs text-faint truncate flex items-center gap-1">
@@ -132,6 +175,12 @@ export default function UnitsPage({ params }: { params: { id: string } }) {
                     </Badge>
                   </div>
                   <div className="flex justify-between sm:block sm:text-right text-sm mt-1 sm:mt-0">
+                    <span className="sm:hidden text-xs text-faint">Sellout</span>
+                    <span className={c.sellout != null ? 'text-ink-soft' : 'text-faint'}>
+                      {c.sellout != null ? money(c.sellout) : '-'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between sm:block sm:text-right text-sm">
                     <span className="sm:hidden text-xs text-faint">Budgeted</span>
                     <span className="text-ink-soft">{money(c.budgeted)}</span>
                   </div>
@@ -144,9 +193,10 @@ export default function UnitsPage({ params }: { params: { id: string } }) {
                 </Link>
               ))}
             </div>
-            <div className="grid grid-cols-[1fr_6rem_8rem_8rem] gap-2 px-4 py-3 border-t-2 border-line bg-surface text-sm font-bold text-ink-soft">
+            <div className="grid grid-cols-[1fr_6rem_8rem_8rem_8rem] gap-2 px-4 py-3 border-t-2 border-line bg-surface text-sm font-bold text-ink-soft">
               <span>Total</span>
               <span />
+              <span className="text-right">{anyPriced ? money(totals.sellout) : '-'}</span>
               <span className="text-right">{money(totals.budgeted)}</span>
               <span className="text-right">{money(totals.actual)}</span>
             </div>

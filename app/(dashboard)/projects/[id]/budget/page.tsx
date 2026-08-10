@@ -114,6 +114,10 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   // here as a whole percent; also drives the client proposal + billing fee.
   const [markupPct, setMarkupPct] = useState('0')
   const [savingMarkup, setSavingMarkup] = useState(false)
+  // What the job earns. On a spec build it's the sale price, on a fixed-price
+  // contract it's the contract value. Blank means fall back to markup on cost.
+  const [sellout, setSellout] = useState('')
+  const [savingSellout, setSavingSellout] = useState(false)
   const [projectStatus, setProjectStatus] = useState<string | null>(null)
   const [knownCategories, setKnownCategories] = useState<string[]>([])
   const [billingMode, setBillingMode] = useState<string>('simple')
@@ -170,6 +174,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       setProjectStatus(d.project_status ?? null)
       setBillingMode(d.billing_mode ?? 'simple')
       setKnownCategories(d.known_categories ?? [])
+      setSellout(d.sellout_amount != null ? String(d.sellout_amount) : '')
     }
     setLoading(false)
   }
@@ -188,6 +193,22 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       })
     } finally {
       setSavingMarkup(false)
+    }
+  }
+
+  // Persist the sellout on the project. Blank clears it back to "no figure yet",
+  // which is different from a sellout of zero.
+  async function saveSellout() {
+    setSavingSellout(true)
+    try {
+      const token = await getToken()
+      await fetch(`/api/projects/${params.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ sellout_amount: sellout.trim() === '' ? null : Number(sellout) || 0 }),
+      })
+    } finally {
+      setSavingSellout(false)
     }
   }
 
@@ -494,6 +515,20 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   const showEstimateBar = estimateApplies && preAward
   const showProposalLink = estimateApplies && !preAward
 
+  // Revenue comes from one of two places. An explicit sellout wins - on a spec
+  // build the sale price has nothing to do with your cost. Otherwise fall back
+  // to markup on cost, which is what a cost-plus GC works from.
+  const selloutNum = sellout.trim() === '' ? null : Number(sellout) || 0
+  const markupRevenue = totalBudgeted * (1 + (Number(markupPct) || 0) / 100)
+  const revenue = selloutNum != null ? selloutNum : (Number(markupPct) > 0 ? markupRevenue : null)
+  const revenueSource = selloutNum != null ? 'sellout' : 'markup'
+  // Profit against committed+actual isn't meaningful until costs land, so this
+  // is deliberately projected: revenue against what the job is budgeted to cost.
+  const projectedProfit = revenue != null ? revenue - totalBudgeted : null
+  const margin = revenue && revenue > 0 && projectedProfit != null ? (projectedProfit / revenue) * 100 : null
+  // Actual spend eating into that profit - the number worth watching mid-job.
+  const profitToDate = revenue != null ? revenue - totalActual : null
+
   const statCards = [
     { label: 'Total Budget', value: totalBudgeted, color: 'text-ink', bg: 'bg-panel', icon: DollarSign },
     { label: 'Committed', value: totalCommitted, color: 'text-info', bg: 'bg-info-tint', icon: TrendingUp },
@@ -730,6 +765,65 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
           )
         })}
       </div>
+
+      {/* Sellout → projected profit. Unlike the markup box below this shows on
+          every job at every stage, because "am I still making money on this"
+          is the question you ask most once work has started. */}
+      {items.length > 0 && (
+        <div className="rounded-xl border border-line bg-panel p-4">
+          <div className="flex flex-wrap items-end gap-x-8 gap-y-4">
+            <div>
+              <label className="block text-xs font-medium text-muted-fg mb-1">
+                Sellout <span className="text-faint font-normal">· sale price or contract value</span>
+              </label>
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm text-muted-fg">$</span>
+                <Input type="number" min="0" step="1000" value={sellout} placeholder="0"
+                  onChange={e => setSellout(e.target.value)} onBlur={saveSellout} className="w-40" />
+                {savingSellout && <span className="text-xs text-faint">saving…</span>}
+              </div>
+              {selloutNum == null && Number(markupPct) > 0 && (
+                <p className="mt-1 text-[11px] text-faint">Using cost + {markupPct}% markup until you set one.</p>
+              )}
+            </div>
+
+            <div>
+              <p className="text-xs font-medium text-muted-fg mb-1">Cost</p>
+              <p className="text-lg font-semibold text-ink-soft">{money(totalBudgeted)}</p>
+              <p className="text-[11px] text-faint">budgeted</p>
+            </div>
+
+            {revenue != null ? (
+              <>
+                <div>
+                  <p className="text-xs font-medium text-muted-fg mb-1">Projected profit</p>
+                  <p className={cn('text-2xl font-bold', (projectedProfit ?? 0) < 0 ? 'text-danger' : 'text-success')}>
+                    {(projectedProfit ?? 0) < 0 ? '-' : ''}{money(Math.abs(projectedProfit ?? 0))}
+                  </p>
+                  <p className="text-[11px] text-faint">
+                    {margin != null ? `${margin.toFixed(1)}% margin` : ''}
+                    {revenueSource === 'markup' ? ' · from markup' : ''}
+                  </p>
+                </div>
+                {totalActual > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-fg mb-1">Against actual spend</p>
+                    <p className={cn('text-lg font-semibold', (profitToDate ?? 0) < 0 ? 'text-danger' : 'text-ink-soft')}>
+                      {(profitToDate ?? 0) < 0 ? '-' : ''}{money(Math.abs(profitToDate ?? 0))}
+                    </p>
+                    <p className="text-[11px] text-faint">{money(totalActual)} spent so far</p>
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="text-xs text-faint max-w-xs">
+                Enter what this job sells for - or what you're contracted at - and your profit tracks itself as the
+                budget fills in.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Hard vs soft split. Every job carries costs that aren't a trade -
           plans, permits, builders risk, survey, loan interest - and they belong
