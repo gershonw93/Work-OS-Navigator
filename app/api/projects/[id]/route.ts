@@ -29,19 +29,29 @@ export async function PATCH(
   const { name, address, client, type, status, start_date, end_date, customer_id, lat, lng, interior_sqft, exterior_sqft, billing_mode, default_retainage_pct, labor_rate, unit, floor, sellout_amount } = body
 
   const updates: Record<string, unknown> = {}
-  if (name !== undefined) updates.name = name
+
+  // name, type, status, billing_mode and default_retainage_pct are NOT NULL in
+  // the schema, so `!= null` rather than `!== undefined`: a client sending null
+  // is asking to unset something that cannot be unset, and Postgres rejects the
+  // WHOLE update with a constraint message no user can act on. Null means
+  // "leave it as it is".
+  //
+  // This is not hypothetical - switching a job to simple invoicing sent
+  // default_retainage_pct: null, and the save died on a job that had never
+  // billed anything.
+  if (name != null) updates.name = name
   if (address !== undefined) updates.address = address
   if (lat !== undefined && lng !== undefined && lat != null && lng != null) { updates.lat = lat; updates.lng = lng; updates.geocoded_address = address }
   if (client !== undefined) updates.client = client
-  if (type !== undefined) updates.type = type
-  if (status !== undefined) updates.status = status
+  if (type != null) updates.type = type
+  if (status != null) updates.status = status
   if (start_date !== undefined) updates.start_date = start_date
   if (end_date !== undefined) updates.end_date = end_date
   if (customer_id !== undefined) updates.customer_id = customer_id || null
   if (interior_sqft !== undefined) updates.interior_sqft = interior_sqft
   if (exterior_sqft !== undefined) updates.exterior_sqft = exterior_sqft
-  if (billing_mode !== undefined) updates.billing_mode = billing_mode
-  if (default_retainage_pct !== undefined) updates.default_retainage_pct = default_retainage_pct
+  if (billing_mode != null) updates.billing_mode = billing_mode
+  if (default_retainage_pct != null) updates.default_retainage_pct = default_retainage_pct
   if (labor_rate !== undefined) updates.labor_rate = Math.max(0, Number(labor_rate) || 0)
   // Kept out of `address` on purpose - an address with "Unit 3" on the end
   // can't be geocoded, which is what stranded bulk-created jobs off the map.
