@@ -7,9 +7,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
-import { Plus, X, Receipt, CheckCircle2, Clock, Send, DollarSign, ChevronDown, ChevronUp, Printer, Upload, AlertTriangle, Pencil, Trash2, FileText, ScanLine, Loader2 } from 'lucide-react'
+import { Plus, X, Receipt, CheckCircle2, Clock, Send, DollarSign, ChevronDown, ChevronUp, Printer, Upload, AlertTriangle, Pencil, Trash2, FileText, ScanLine, Loader2, Wallet } from 'lucide-react'
 import Link from 'next/link'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
+import { BudgetDestinationBox } from '@/components/projects/budget-destination'
+import type { BudgetDestination } from '@/lib/invoice-budget'
+import { HARD_COST_CATEGORIES } from '@/lib/budget-categories'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   pending_approval: { label: 'Pending Approval', color: 'bg-warn-tint border-warn/30 text-warn' },
@@ -29,12 +32,18 @@ interface Invoice {
   payment_schedule_item_id: string | null; subcontracts?: { trade: string; contract_amount: number }
   lien_waiver_url: string | null; lien_waiver_type: string | null; lien_waiver_uploaded_at: string | null
   document_url?: string | null; document_name?: string | null
+  /** The budget line this lands on, resolved through the subcontract. */
+  budget_line?: BudgetDestination | null
 }
 
 export default function InvoicesPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
   const guardDelete = useDeleteGuard()
   const [invoices, setInvoices] = useState<Invoice[]>([])
+  // Budget line per subcontract, so the form can show where the money is going
+  // the moment a sub is picked - before anything is saved.
+  const [destinations, setDestinations] = useState<Record<string, BudgetDestination>>({})
+  const [creatingLineFor, setCreatingLineFor] = useState<string | null>(null)
   const [subcontracts, setSubcontracts] = useState<Subcontract[]>([])
   const [paymentItems, setPaymentItems] = useState<PaymentItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -90,6 +99,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
     if (invRes.ok) {
       const d = await invRes.json()
       setInvoices(d.invoices)
+      setDestinations(d.destinations ?? {})
     }
     if (finRes.ok) {
       const d = await finRes.json()
@@ -131,6 +141,43 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
     : 0
   const remaining = selectedSub ? Math.max(selectedSub.contract_amount - alreadyInvoiced, 0) : 0
   const overBilled = !!selectedSub && billedAmount > remaining + 0.005
+
+  /**
+   * Give a subcontract a budget line so its invoices have somewhere to land.
+   *
+   * Same one-click assignment the Budget tab offers, brought here because this
+   * is where you find out it's missing - at the moment you're about to approve
+   * money against a contract the budget can't see.
+   */
+  async function createBudgetLine(sub: Subcontract) {
+    setCreatingLineFor(sub.id)
+    try {
+      const token = await getToken()
+      const name = (sub.companies as any)?.name ?? sub.trade
+      const trade = (sub.trade ?? '').trim()
+      const category = HARD_COST_CATEGORIES.find(c => c.toLowerCase() === trade.toLowerCase()) || 'General'
+      const res = await fetch(`/api/projects/${params.id}/budget`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          category,
+          description: [name, trade].filter(Boolean).join(' · '),
+          // The contract is the best guess at the budget; it's editable on the
+          // Budget tab if the estimate was meant to be something else.
+          budgeted_amount: sub.contract_amount,
+          subcontract_id: sub.id,
+        }),
+      })
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}))
+        setCreateError(j.error ?? 'Could not add the budget line')
+        return
+      }
+      await fetchData()
+    } finally {
+      setCreatingLineFor(null)
+    }
+  }
 
   /**
    * Read an emailed invoice and fill the form in.
@@ -323,6 +370,17 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
               <span className="text-xs font-mono text-muted-fg">{invoice.invoice_number}</span>
               <span className="font-semibold text-ink break-words">{invoice.company_name}</span>
               <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5', cfg.color)}>{cfg.label}</span>
+              {/* Which line it hits, readable without expanding the card. */}
+              {invoice.budget_line ? (
+                <span className="inline-flex items-center gap-1 text-xs text-faint min-w-0">
+                  <Wallet className="h-3 w-3 shrink-0" />
+                  <span className="truncate">{invoice.budget_line.category}</span>
+                </span>
+              ) : invoice.subcontract_id ? (
+                <span className="inline-flex items-center gap-1 text-xs font-medium rounded-full border border-warn/30 bg-warn-tint text-warn px-2 py-0.5">
+                  <AlertTriangle className="h-3 w-3 shrink-0" /> Not on the budget
+                </span>
+              ) : null}
             </div>
             <p className="text-xs text-faint mt-0.5 break-words">
               ${Number(invoice.amount).toLocaleString()}
@@ -346,6 +404,19 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
               {invoice.sent_at && <div><p className="text-xs text-faint">Sent</p><p className="font-medium text-ink-soft">{new Date(invoice.sent_at).toLocaleDateString()}</p></div>}
             </div>
             {invoice.description && <p className="text-sm text-muted-fg break-words">{invoice.description}</p>}
+
+            {/* The budget line this invoice moves, and what's left on it. */}
+            {invoice.subcontract_id && (() => {
+              const sub = subcontracts.find(s => s.id === invoice.subcontract_id)
+              return (
+                <BudgetDestinationBox
+                  destination={invoice.budget_line}
+                  subName={invoice.company_name}
+                  onCreateLine={sub ? () => createBudgetLine(sub) : undefined}
+                  creating={creatingLineFor === invoice.subcontract_id}
+                />
+              )
+            })()}
 
             {/* Vendor's invoice file - the sub has no account, so the GC attaches it here */}
             <div className="rounded-lg border border-line bg-surface px-4 py-3 flex flex-wrap items-center justify-between gap-3">
@@ -595,6 +666,19 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
                     ))}
                   </SearchableSelect>
                 </div>
+
+                {/* Where this money ends up. Shown before the amount is even
+                    typed, because "which line does this hit?" is the question
+                    you had to leave the page to answer. */}
+                {selectedSub && (
+                  <BudgetDestinationBox
+                    destination={destinations[selectedSub.id]}
+                    subName={(selectedSub.companies as any)?.name ?? selectedSub.trade}
+                    amount={billedAmount > 0 ? billedAmount : undefined}
+                    onCreateLine={() => createBudgetLine(selectedSub)}
+                    creating={creatingLineFor === selectedSub.id}
+                  />
+                )}
 
                 {/* Bill by */}
                 <div className="space-y-1.5">

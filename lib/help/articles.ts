@@ -377,10 +377,13 @@ export const HELP_ARTICLES: HelpArticle[] = [
       'invoice', 'invoices', 'sub invoice', 'subcontractor invoice', 'scan invoice',
       'upload invoice', 'pdf', 'screenshot', 'photo', 'bill', 'vendor invoice',
       'enter invoice', 'ocr', 'read invoice', 'payment schedule', 'approve invoice',
+      'budget line', 'which line', 'what does it go against', 'not on the budget',
+      'money out', 'payable', 'what i owe',
     ],
-    summary: 'Drop the PDF in and it fills the form. You check the amount and save.',
+    summary: 'Drop the PDF in and it fills the form - including which budget line it lands on. You check the amount and save.',
     blocks: [
       { type: 'text', text: 'Invoices live on the project, under Financials. If you cannot see the tab, check the job is not still in Planning - invoices, pay apps, payments and change orders are all hidden until a job goes Active, because none of them can happen before then.' },
+      { type: 'text', text: 'This tab is money going OUT - what your subs and suppliers are billing you. What the client owes YOU is somewhere else entirely: Pay Apps on a job set to AIA billing, or Payments on a job set to simple invoicing. The two never mix, so a sub\'s bill can never turn up as client billing.' },
       { type: 'steps', items: [
         'Open Invoices on the project and click "Scan an invoice" - or drag the file straight onto that button. A PDF, a photo, or a screenshot all work.',
         'It reads the document and opens the form already filled in: who is billing, the amount, the date, and what the work was. The file is attached at the same time.',
@@ -391,9 +394,13 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: 'tip', text: 'The genuinely useful part is not reading the number, it is comparing it. If the invoice is for more than the payment schedule line it matches, the form says so in red before you save - which is the moment to ask about it, rather than after it has been paid.' },
       { type: 'text', text: 'If the read fails entirely - a bad fax, a photo at an angle - the document is still uploaded and attached. You fill in the rest by hand and are no worse off than before.' },
       { type: 'text', text: 'You can still create an invoice from scratch: "Create Invoice", pick the subcontractor, and bill against a payment schedule item, a percent of the contract, or a flat amount. Picking a schedule item fills the amount in for you, so there is nothing to type.' },
+
+      { type: 'text', text: 'WHICH BUDGET LINE IT GOES AGAINST. As soon as you pick the sub - or the scan picks one for you - the form says where the money lands: the line, what is budgeted on it, what has already been billed against it, and what is left. Every invoice card shows the same thing, so you can see which line each one hit without opening the Budget tab.' },
+      { type: 'text', text: 'An invoice does not carry a budget line of its own. It lands wherever its SUBCONTRACT is pointed, which is why there is no per-invoice override - two invoices from one sub hitting two different lines is how a contract total quietly stops adding up. To send them somewhere else, re-point the subcontract on the Budget tab and every invoice on it moves together.' },
+      { type: 'warn', text: 'If the sub has no budget line at all, the invoice says "This won\'t show up on the budget" - and it means it. The invoice would save, the money would go out, and the budget would not move. Use "Add a budget line for this contract" right there on the invoice; it starts the line at the contract amount, which you can change on the Budget tab.' },
       { type: 'tip', text: 'Approving an invoice is what moves the budget - it lands on the committed and actual figures for that line. Uploading the document alone does not.' },
     ],
-    related: ['add-project-budget', 'record-client-payment', 'change-order-basics'],
+    related: ['add-project-budget', 'record-client-payment', 'change-order-basics', 'create-invoice'],
   },
   {
     slug: 'selections',
@@ -590,7 +597,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'create-invoice',
     title: 'Create an invoice (even if the sub has no account)',
     category: 'money',
-    keywords: ['invoice', 'bill', 'create', 'sub', 'vendor', 'no account'],
+    keywords: ['invoice', 'bill', 'create', 'sub', 'vendor', 'no account', 'budget line', 'which line', 'lands on'],
     summary: 'You record the vendor\'s bill yourself and can attach their actual file.',
     blocks: [
       { type: 'text', text: 'Subs never need a SyteNav account. You create the invoice for them on the Invoices tab.' },
@@ -601,6 +608,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'Add a description and due date, then create.',
         'Open the invoice and use Upload invoice to attach the PDF or photo the sub sent you.',
       ] },
+      { type: 'tip', text: 'Picking the sub tells you where the money lands - the budget line, what is left on it, and a warning if this invoice is more than that line can still cover. If the sub has no line yet, add one without leaving the form.' },
       { type: 'tip', text: 'New invoices start as Pending Approval. Approve → Mark Sent → Mark Paid as they move through.' },
       { type: 'tip', text: 'The amount is capped at what\'s still owed on that sub\'s contract, so you can\'t over-bill. Use "Bill full remaining" to invoice the exact balance in one click.' },
     ],
