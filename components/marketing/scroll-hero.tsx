@@ -10,7 +10,7 @@ import { appHref } from '@/lib/hosts'
 
 const HEADLINE = 'Run the whole build from one place.'
 const SUB =
-  'SyteNav turns quotes into budgets, schedules the field, tracks every dollar in and out, and gets you paid. Built for GCs and subs who live on the jobsite, not at a desk.'
+  'Quotes become budgets, the field gets scheduled, every dollar in and out lands where it belongs, and you get paid. You keep the site running - the numbers keep up. Built for GCs and subs who live on the jobsite, not at a desk.'
 
 function Badge() {
   return (

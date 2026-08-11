@@ -54,19 +54,32 @@ export const RELEASES: Release[] = [
       {
         kind: 'new',
         title: 'Selections board',
-        text: 'Every choice the client owes you - paint, tile, flooring, cabinets, fixtures, windows - in one place, each with an allowance and a decide-by date driven by lead time rather than the schedule. They pick on the portal link they already have. When a pick lands over the allowance, one click raises a change order for the difference.',
+        text: 'Every choice the client owes you - paint, tile, flooring, cabinets, fixtures, windows - in one place. Each carries an allowance and a decide-by date driven by lead time rather than the schedule, because a six-week window order decided the week framing finishes is already late. Starting a board asks which categories this job actually has, pre-ticked for the kind of job it is: a commercial fit-out gets 41 selections instead of 71, with no sod, shutters or bathtub.',
+        help: 'selections',
+        href: '/projects',
+      },
+      {
+        kind: 'new',
+        title: 'Your client picks on the link they already have',
+        text: 'Same link as their project portal - no second link to lose, no account needed. They see only what is waiting on them, most urgent first, with the upgrade cost shown against your allowance before they commit. Every option can carry a photo, a brand and a link to the product page, or you can point them at the manufacturer\'s full range and let them write in what they found. Everything decided shows its status in their words, and they can change anything not yet ordered.',
+        help: 'selections',
+      },
+      {
+        kind: 'new',
+        title: 'Allowances, change orders and ordering, all on the budget',
+        text: 'Link a selection to a budget line and the allowance fills in with what is left on that line - and says so when you have gone over. Go over on a pick and one click raises a change order for the difference, against the same line. When you are ready to buy, "Order it" records the supplier from your Directory, the amount already priced from what they chose, and the expected delivery, then books the cost against the budget. A selection cannot be accepted or ordered without a line, because money with nowhere to land is the thing this board exists to prevent.',
         help: 'selections',
       },
       {
         kind: 'new',
         title: 'Item lists on a quote request',
-        text: 'When you are the one buying the material, send the lines and every supplier prices the same ones. Import a takeoff, paste rows out of a spreadsheet, or type them. Their prices come back line by line, and "Compare line by line" shows you the one item that is triple on one bid and missing on another.',
+        text: 'When you are the one buying the material, send the lines and every supplier prices the same ones. Import a takeoff, paste rows out of a spreadsheet, or type them. Their prices come back line by line, and "Compare line by line" shows you the one item that is triple on one bid and missing on another - the thing a total hides.',
         help: 'item-list',
       },
       {
         kind: 'improved',
         title: 'Editing the scope on a quote request',
-        text: 'Click any line to change its wording, or use the move arrows to send it from Included to Not included and back - it used to mean deleting and retyping. The panel also names which trade template filled it in, and the item list now says plainly whether it is needed on this package or not, so it is clear the two are not doing the same job.',
+        text: 'Click any line to change its wording, or use the move arrows to send it from Included to Not included and back - it used to mean deleting and retyping. The panel names which trade template filled it in, and the item list now says plainly whether it is needed on this package, so it is clear the two are not doing the same job.',
         help: 'scope-what-to-send',
       },
       {
@@ -76,33 +89,9 @@ export const RELEASES: Release[] = [
         help: 'scope-what-to-send',
       },
       {
-        kind: 'improved',
-        title: 'Selections you can actually look at',
-        text: 'Drop or upload a real PHOTO on any option - a phone shot of the sample board, a screenshot off the supplier site. The color picker is gone; nobody eyeballs Sherwin Williams Alabaster off a color wheel. Instead each selection takes one link to the manufacturer\'s full range, which the client can open and browse. Brand carries over from the last option so you are not retyping it every line, and suppliers come from your Directory instead of a free-text box.',
-        help: 'selections',
-      },
-      {
-        kind: 'improved',
-        title: 'Allowances that know what is left on the line',
-        text: 'Link a selection to a budget line and the allowance fills in with what is actually left on that line, after everything else already pointing at it - and it tells you when you have gone over. Link one to a line with nothing budgeted and it offers to set the line to the allowance instead. You can no longer mark a selection chosen or ordered without a budget line; if none fits, one click creates one named from the selection.',
-        help: 'selections',
-      },
-      {
         kind: 'new',
-        title: 'Order a selection, and see it on the budget',
-        text: 'Once the client has chosen, "Order it" records the supplier, the amount (already priced from what they picked) and the expected delivery, and books the cost against the budget line. The board also offers to connect each selection to its budget line - it suggests one and you change whatever is wrong before anything saves.',
-        help: 'selections',
-      },
-      {
-        kind: 'improved',
-        title: 'Clients can change their mind, and see where things stand',
-        text: 'Every selection on the client link now shows its status - waiting on you, chosen, ordered, installed. They can change anything not yet ordered, and for something already on order they can send a request instead, which tells them plainly that we will contact them if we cannot make the change.',
-      },
-      {
-        kind: 'improved',
-        title: 'Selections match the job you are on',
-        text: 'Starting a board now asks which categories this job actually has, already ticked for the kind of job it is. A commercial fit-out gets 41 selections instead of 71 - no sod, no shutters, no bathtub. You can reopen the checklist any time to add a category you skipped.',
-        help: 'selections',
+        title: 'This page',
+        text: 'Somewhere to find out what changed. Anything you would notice shows up here the day it ships, with a link through to the Help article that explains it in full.',
       },
       {
         kind: 'fixed',
