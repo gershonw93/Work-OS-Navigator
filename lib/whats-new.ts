@@ -78,6 +78,18 @@ export const RELEASES: Release[] = [
       },
       {
         kind: 'new',
+        title: 'Every sub invoice says which budget line it hits',
+        text: 'Pick the sub - or let the scan pick one - and the invoice tells you where the money lands: the line, what is budgeted, what is already billed against it, and what is left. It warns you in red when the invoice is more than that line can still cover. Every invoice card shows the same thing, so you no longer open the Budget tab and work backwards from the sub\'s name to find out which line moved.',
+        help: 'scan-sub-invoice',
+      },
+      {
+        kind: 'fixed',
+        title: 'An invoice for a sub with no budget line used to vanish',
+        text: 'If a subcontract had no budget line, its invoices saved fine and the budget simply never moved - real money out, flat budget, no warning anywhere. The invoice now says "This won\'t show up on the budget" and offers to add the line on the spot, starting it at the contract amount.',
+        help: 'scan-sub-invoice',
+      },
+      {
+        kind: 'new',
         title: 'Item lists on a quote request',
         text: 'When you are the one buying the material, send the lines and every supplier prices the same ones. Import a takeoff, paste rows out of a spreadsheet, or type them. Their prices come back line by line, and "Compare line by line" shows you the one item that is triple on one bid and missing on another - the thing a total hides.',
         help: 'item-list',

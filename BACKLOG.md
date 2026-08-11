@@ -34,6 +34,7 @@ move it to **In progress**, and when it ships, move it to **Done** with the PR #
 - Maybe later: AI "upload the plan → rough room/fixture counts" helper (approximate, not surveyor-grade).
 
 ## 💰 Money
+- **Split one invoice across budget lines** *(deferred from PR for invoice→budget visibility)*. A supplier bill that covers two trades - lumber and hardware, say - can only land on one line today, because an invoice inherits its line from its subcontract. Wanted: split the amount across several lines on one invoice. **Explicitly NOT wanted: a per-invoice line override.** The single-line-per-contract rule is what keeps a contract's invoices adding up against one line; splitting adds detail within that rule, overriding breaks it.
 - **Approving a change order optionally bumps the client contract** (we did sub-side; consider explicit client-revenue side too).
 - **Forecasting / cash-flow projections** beyond the current budget × (1+fee).
 - **Bank-facing budget & sellout** *(tester request)*. Abe: "when you create a bank budget and bank sellout they might be presented in a different way." The working budget and the version a lender wants are formatted differently. Needs a lender report format - probably an extension of the proposal PDF rather than a new thing.
