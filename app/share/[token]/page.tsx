@@ -6,6 +6,8 @@ import {
 } from 'lucide-react'
 import { SyteNavLogo } from '@/components/ui/logo'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
+import { createClient } from '@/lib/supabase/client'
+import { cn } from '@/lib/utils'
 
 interface SharedFile { name: string; url: string; type?: string | null; size?: number | null; added_at?: string | null }
 interface Data {
@@ -33,6 +35,8 @@ export default function SharePage({ params }: { params: { token: string } }) {
   const [picked, setPicked] = useState<File[]>([])
   const [note, setNote] = useState('')
   const [sending, setSending] = useState(false)
+  const [progress, setProgress] = useState('')
+  const [dragging, setDragging] = useState(false)
   const [sent, setSent] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -46,16 +50,58 @@ export default function SharePage({ params }: { params: { token: string } }) {
     })()
   }, [params.token])
 
+  /** Read an error body that might not be JSON - a platform-level rejection isn't. */
+  async function errText(res: Response, fallback: string) {
+    const raw = await res.text().catch(() => '')
+    try { return JSON.parse(raw).error ?? fallback } catch { return raw.slice(0, 200) || fallback }
+  }
+
+  /**
+   * Upload straight to storage, then tell the API where the files landed.
+   *
+   * Posting the files through the API meant a serverless body limit of about
+   * 4.5MB, which a set of permit drawings blows past without trying.
+   */
   async function send() {
     if (!picked.length) return
     setSending(true); setError('')
-    const form = new FormData()
-    picked.forEach(f => form.append('files', f))
-    if (note.trim()) form.append('note', note.trim())
-    const res = await fetch(`/api/share/${params.token}`, { method: 'POST', body: form })
-    setSending(false)
-    if (!res.ok) { setError((await res.json().catch(() => ({}))).error ?? 'Upload failed'); return }
-    setPicked([]); setNote(''); setSent(true)
+    try {
+      const prep = await fetch(`/api/share/${params.token}/upload-url`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ files: picked.map(f => ({ name: f.name, size: f.size })) }),
+      })
+      if (!prep.ok) { setError(await errText(prep, 'Could not start the upload')); return }
+      const { bucket, targets } = await prep.json()
+
+      const supabase = createClient()
+      const done: any[] = []
+      for (let i = 0; i < picked.length; i++) {
+        const file = picked[i]
+        const t = targets[i]
+        if (!t) continue
+        setProgress(`Uploading ${file.name} (${i + 1} of ${picked.length})…`)
+        const { error: upErr } = await supabase.storage.from(bucket)
+          .uploadToSignedUrl(t.path, t.token, file)
+        if (upErr) { setError(`${file.name}: ${upErr.message}`); return }
+        done.push({ name: file.name, path: t.path, type: file.type || null, size: file.size })
+      }
+
+      setProgress('Finishing…')
+      const res = await fetch(`/api/share/${params.token}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uploads: done, note: note.trim() || undefined }),
+      })
+      if (!res.ok) { setError(await errText(res, 'Upload failed')); return }
+
+      setPicked([]); setNote(''); setSent(true)
+      // Show it in "Already sent back" without a manual refresh.
+      const refreshed = await fetch(`/api/share/${params.token}`)
+      if (refreshed.ok) setData(await refreshed.json())
+    } catch (e: any) {
+      setError(e?.message ?? 'Upload failed')
+    } finally {
+      setSending(false); setProgress('')
+    }
   }
 
   return (
@@ -150,27 +196,44 @@ export default function SharePage({ params }: { params: { token: string } }) {
                   ))}
                 </div>
 
-                <input ref={inputRef} type="file" multiple className="sr-only"
-                  onChange={e => { setPicked(p => [...p, ...Array.from(e.target.files ?? [])]); e.target.value = '' }} />
+                {/* A real label wrapping a real input. The old version called
+                    .click() on a hidden input from a button, which in-app
+                    browsers - the ones that open a link from an email or
+                    WhatsApp - routinely block. Nothing happened and there was
+                    nothing on screen to say why. A label needs no script. */}
+                <label
+                  onDragOver={e => { e.preventDefault(); setDragging(true) }}
+                  onDragLeave={() => setDragging(false)}
+                  onDrop={e => {
+                    e.preventDefault(); setDragging(false)
+                    setPicked(p => [...p, ...Array.from(e.dataTransfer.files ?? [])])
+                  }}
+                  className={cn('mt-3 flex flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed px-4 py-6 cursor-pointer transition-colors',
+                    dragging ? 'border-accent bg-accent-tint' : 'border-muted2 hover:bg-surface')}>
+                  <input ref={inputRef} type="file" multiple className="sr-only"
+                    onChange={e => { setPicked(p => [...p, ...Array.from(e.target.files ?? [])]); e.target.value = '' }} />
+                  <Upload className="h-5 w-5 text-faint" />
+                  <span className="text-sm font-medium text-ink-soft">Choose files</span>
+                  <span className="text-xs text-faint">or drag them here · up to 100MB each</span>
+                </label>
 
-                <button onClick={() => inputRef.current?.click()}
-                  className="mt-3 inline-flex items-center gap-2 rounded-lg border border-dashed border-muted2 px-4 py-2.5 text-sm font-medium text-muted-fg hover:bg-surface">
-                  <Upload className="h-4 w-4" /> Choose files
+                <textarea
+                  value={note} onChange={e => setNote(e.target.value)} rows={2}
+                  placeholder="Add a note (optional)"
+                  className="mt-3 w-full rounded-lg border border-line bg-panel px-3 py-2 text-sm text-ink placeholder:text-faint focus:outline-none focus:ring-2 focus:ring-accent resize-none"
+                />
+
+                {/* Always here, so it is never a mystery where the button went. */}
+                <button onClick={send} disabled={sending || !picked.length}
+                  className="mt-3 inline-flex items-center gap-2 rounded-lg bg-accent text-accent-ink font-semibold px-5 py-2.5 text-sm disabled:opacity-50">
+                  {sending ? <><Loader2 className="h-4 w-4 animate-spin" /> Sending…</>
+                    : picked.length ? <>Send {picked.length} file{picked.length !== 1 ? 's' : ''}</>
+                      : 'Send'}
                 </button>
-
-                {picked.length > 0 && (
-                  <>
-                    <textarea
-                      value={note} onChange={e => setNote(e.target.value)} rows={2}
-                      placeholder="Add a note (optional)"
-                      className="mt-3 w-full rounded-lg border border-line bg-panel px-3 py-2 text-sm text-ink placeholder:text-faint focus:outline-none focus:ring-2 focus:ring-accent resize-none"
-                    />
-                    <button onClick={send} disabled={sending}
-                      className="mt-3 inline-flex items-center gap-2 rounded-lg bg-accent text-accent-ink font-semibold px-5 py-2.5 text-sm disabled:opacity-60">
-                      {sending ? <><Loader2 className="h-4 w-4 animate-spin" /> Sending…</> : <>Send {picked.length} file{picked.length !== 1 ? 's' : ''}</>}
-                    </button>
-                  </>
+                {!picked.length && !sending && (
+                  <span className="ml-3 text-xs text-faint">Pick a file first</span>
                 )}
+                {progress && <p className="mt-2 text-xs text-muted-fg">{progress}</p>}
 
                 {error && <p className="mt-3 text-sm text-danger">{error}</p>}
 

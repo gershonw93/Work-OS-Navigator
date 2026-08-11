@@ -71,6 +71,46 @@ export async function POST(request: Request, { params }: { params: { token: stri
     return NextResponse.json({ error: 'This link is view-only.' }, { status: 403 })
   }
 
+  // The browser uploads straight to storage and then posts the paths back
+  // here. Small JSON, no 4.5MB serverless body ceiling to trip over.
+  if ((request.headers.get('content-type') ?? '').includes('application/json')) {
+    const body = await request.json().catch(() => ({}))
+    const uploads: { name?: string; path?: string; type?: string; size?: number }[] =
+      Array.isArray(body.uploads) ? body.uploads : []
+    const jsonNote = typeof body.note === 'string' && body.note.trim() ? body.note.trim() : null
+    if (!uploads.length) return NextResponse.json({ error: 'Choose at least one file' }, { status: 400 })
+
+    const rows: any[] = []
+    for (const u of uploads) {
+      const path = String(u?.path ?? '')
+      // Only inside this share's own folder - a path is client-supplied, and
+      // without this check it could name any object in the bucket.
+      if (!path.startsWith(`file-shares/${share.id}/`)) {
+        return NextResponse.json({ error: 'That file does not belong to this link.' }, { status: 400 })
+      }
+      const { data: signed } = await db.storage.from(BUCKET)
+        .createSignedUrl(path, 60 * 60 * 24 * 365 * 10)
+      if (!signed?.signedUrl) return NextResponse.json({ error: 'Could not store that file' }, { status: 500 })
+      rows.push({
+        share_id: share.id,
+        name: String(u?.name ?? 'Document').slice(0, 200),
+        file_url: signed.signedUrl,
+        file_type: u?.type || null,
+        size_bytes: u?.size ?? null,
+        note: jsonNote,
+      })
+    }
+
+    const { error: insErr } = await db.from('file_share_uploads').insert(rows)
+    if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 })
+
+    await db.from('file_shares')
+      .update({ status: 'responded', responded_at: new Date().toISOString() })
+      .eq('id', share.id)
+
+    return NextResponse.json({ ok: true, uploaded: rows.length })
+  }
+
   const form = await request.formData()
   const files = form.getAll('files').filter((f): f is File => f instanceof File)
   const note = (form.get('note') as string | null) ?? null
