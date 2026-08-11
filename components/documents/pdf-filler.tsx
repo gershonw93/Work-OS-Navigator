@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { X, Plus, Trash2, Loader2, ChevronLeft, ChevronRight, Type, AlertTriangle } from 'lucide-react'
+import { X, Plus, Trash2, Loader2, ChevronLeft, ChevronRight, Type, AlertTriangle, Move } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   baselineFor, leftFor, sanitizeForPdf, hasUnsupportedChars, filledName,
@@ -303,6 +303,9 @@ export function PdfFiller({
                 style={{ left: `${box.x * 100}%`, top: `${box.y * 100}%` }}
               >
                 <textarea
+                  // A new block is ready to type into. Making the user click
+                  // the thing they just created is a tax on every field.
+                  autoFocus={box.id === activeId && !box.text}
                   value={box.text}
                   onChange={e => update(box.id, { text: e.target.value })}
                   onFocus={() => setActiveId(box.id)}
@@ -321,24 +324,39 @@ export function PdfFiller({
                     width: `${Math.max(6, ...box.text.split('\n').map(l => l.length + 3)) * box.size * pxPerPt * 0.55}px`,
                   }}
                 />
-                <button
-                  type="button"
-                  onPointerDown={e => onHandleDown(e, box)}
-                  onPointerMove={onHandleMove}
-                  onPointerUp={onHandleUp}
-                  title="Drag to move"
-                  className="absolute -left-4 top-0 h-4 w-4 rounded-full bg-accent text-accent-ink text-[9px] leading-none flex items-center justify-center opacity-0 group-hover:opacity-100 focus:opacity-100 cursor-move touch-none"
+                {/* Controls sit ABOVE the block, and are always visible on the
+                    selected one. Hover-only would put them out of reach on a
+                    phone, where there is no hover at all - and beside the block
+                    they fell off the page edge for anything near a margin. */}
+                <div
+                  className={cn(
+                    'absolute left-0 flex items-center gap-1 whitespace-nowrap',
+                    // Flip below when the block is right at the top of the page.
+                    box.y < 0.06 ? 'top-full mt-1' : 'bottom-full mb-1',
+                    activeId === box.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+                  )}
                 >
-                  ✥
-                </button>
-                <button
-                  type="button"
-                  onClick={() => remove(box.id)}
-                  title="Remove this text"
-                  className="absolute -right-4 top-0 h-4 w-4 rounded-full bg-danger text-white flex items-center justify-center opacity-0 group-hover:opacity-100 focus:opacity-100"
-                >
-                  <Trash2 className="h-2.5 w-2.5" />
-                </button>
+                  <button
+                    type="button"
+                    onPointerDown={e => onHandleDown(e, box)}
+                    onPointerMove={onHandleMove}
+                    onPointerUp={onHandleUp}
+                    title="Drag to move"
+                    aria-label="Drag to move this text"
+                    className="h-7 rounded-full bg-accent px-2 text-[11px] font-semibold text-accent-ink flex items-center gap-1 shadow cursor-move touch-none"
+                  >
+                    <Move className="h-3.5 w-3.5" /> Move
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => remove(box.id)}
+                    title="Remove this text"
+                    aria-label="Remove this text"
+                    className="h-7 w-7 rounded-full bg-danger text-white flex items-center justify-center shadow"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
