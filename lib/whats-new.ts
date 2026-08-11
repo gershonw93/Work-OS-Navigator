@@ -79,7 +79,7 @@ export const RELEASES: Release[] = [
       {
         kind: 'new',
         title: 'Type into a PDF instead of printing it',
-        text: 'On the Files page, any PDF now has a "Fill in text" button. Click anywhere on the page to add text, drag it to line up with the box on the form, and save. It is for the pile of one-page forms that get printed, filled by hand and rescanned - permit applications, supplier credit apps, W-9s. The filled version saves as a NEW file marked "(filled)" and shows who filled it; the original is left exactly as it was. To be clear about what this is: it types text onto a document. It is not a signature tool and does not offer signature fields.',
+        text: 'On the Files page, any PDF now has a "Fill in text" button. Click anywhere on the page to add text, drag it to line up with the box on the form, and save. It is for the pile of one-page forms that get printed, filled by hand and rescanned - permit applications, supplier credit apps, W-9s. Saving asks you to name it, suggesting the original name with "(filled)" on the end so you can change it to something useful like "W-9 for Brookstone Flooring". It saves as a NEW file and shows who filled it; the original is left exactly as it was. Your own files also now sit at the top of the Files page, above documents collected from subs. To be clear about what this is: it types text onto a document. It is not a signature tool and does not offer signature fields.',
         help: 'fill-in-pdf',
         href: '/files',
       },
