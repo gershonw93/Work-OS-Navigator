@@ -1,8 +1,10 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { Search, ChevronRight, ArrowLeft, Lightbulb, AlertTriangle, BookOpen, Mail } from 'lucide-react'
+import Link from 'next/link'
+import { Search, ChevronRight, ArrowLeft, Lightbulb, AlertTriangle, BookOpen, Mail, Sparkles } from 'lucide-react'
 
 const SUPPORT_EMAIL = 'sytenav@gmail.com'
 import {
@@ -97,8 +99,21 @@ function ResultRow({ article, onOpen }: { article: HelpArticle; onOpen: (slug: s
 }
 
 export default function HelpPage() {
+  // useSearchParams needs a Suspense boundary at the route level.
+  return <Suspense fallback={null}><HelpPageInner /></Suspense>
+}
+
+function HelpPageInner() {
+  const searchParams = useSearchParams()
   const [query, setQuery] = useState('')
   const [openSlug, setOpenSlug] = useState<string | null>(null)
+
+  // Deep link straight to an article: /help?a=item-list. What's new links here,
+  // so landing on the index and hunting would defeat the point.
+  useEffect(() => {
+    const a = searchParams.get('a')
+    if (a && getArticle(a)) setOpenSlug(a)
+  }, [searchParams])
 
   const results = useMemo(() => searchArticles(query), [query])
   const article = openSlug ? getArticle(openSlug) : null
@@ -112,6 +127,9 @@ export default function HelpPage() {
           <BookOpen className="mx-auto h-8 w-8 text-accent-fg" />
           <h1 className="mt-2 text-2xl font-bold text-ink">How can we help?</h1>
           <p className="mt-1 text-sm text-muted-fg">Search for anything, or browse by topic below.</p>
+          <Link href="/whats-new" className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-accent-fg hover:underline">
+            <Sparkles className="h-3.5 w-3.5" /> See what&apos;s new
+          </Link>
         </div>
       )}
 

@@ -10,7 +10,7 @@ const admin = () => createClient(
 
 async function projectFor(db: ReturnType<typeof admin>, token: string) {
   const { data } = await db.from('projects')
-    .select('id, name, address, client_name, client_portal_token')
+    .select('id, name, address, client, client_portal_token')
     .eq('client_portal_token', token).single()
   return data
 }
@@ -29,7 +29,7 @@ export async function GET(_request: Request, { params }: { params: { token: stri
     .order('sort_order', { ascending: true })
 
   return NextResponse.json({
-    project: { name: project.name, address: project.address, client_name: project.client_name },
+    project: { name: project.name, address: project.address, client_name: project.client },
     selections: selections ?? [],
   })
 }
@@ -56,7 +56,7 @@ export async function POST(request: Request, { params }: { params: { token: stri
   const patch: Record<string, unknown> = {
     status: 'chosen',
     selected_at: new Date().toISOString(),
-    selected_by_name: String(body.name ?? project.client_name ?? '').trim() || null,
+    selected_by_name: String(body.name ?? project.client ?? '').trim() || null,
     updated_at: new Date().toISOString(),
   }
 

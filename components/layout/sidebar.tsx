@@ -5,11 +5,12 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, FolderKanban, Building2, CheckSquare,
   Settings, LogOut, ClipboardList, Briefcase, FolderOpen, X, UsersRound,
-  CalendarDays, DollarSign, Wrench, HelpCircle, ShoppingCart,
+  CalendarDays, DollarSign, Wrench, HelpCircle, ShoppingCart, Sparkles,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { usePermissions } from '@/lib/use-permissions'
+import { SEEN_KEY, unreadCount } from '@/lib/whats-new'
 import { SyteNavLogo } from '@/components/ui/logo'
 import { useEffect, useState } from 'react'
 
@@ -52,6 +53,19 @@ export function Sidebar() {
   const { can, realRole, loading: permsLoading } = usePermissions()
   const [isSubcontractor, setIsSubcontractor] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+
+  // Releases they haven't looked at yet. Read from localStorage after mount so
+  // the server and first client render agree.
+  const [newCount, setNewCount] = useState(0)
+  useEffect(() => {
+    const read = () => {
+      try { setNewCount(unreadCount(localStorage.getItem(SEEN_KEY))) }
+      catch { setNewCount(0) }
+    }
+    read()
+    window.addEventListener('sytenav:whats-new-seen', read)
+    return () => window.removeEventListener('sytenav:whats-new-seen', read)
+  }, [pathname])
 
   // Listen for the open event from TopNav's hamburger
   useEffect(() => {
@@ -147,6 +161,19 @@ export function Sidebar() {
 
       {/* Bottom */}
       <div className="border-t border-line p-3 shrink-0 space-y-1">
+        <Link href="/whats-new"
+          className={cn(
+            'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+            pathname.startsWith('/whats-new') ? 'bg-accent text-accent-ink' : 'text-muted-fg hover:bg-muted hover:text-ink'
+          )}>
+          <Sparkles className="h-4 w-4 shrink-0" />
+          <span className="flex-1">What&apos;s new</span>
+          {newCount > 0 && !pathname.startsWith('/whats-new') && (
+            <span className="shrink-0 rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-bold text-accent-ink">
+              {newCount}
+            </span>
+          )}
+        </Link>
         <Link href="/help"
           className={cn(
             'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
