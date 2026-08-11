@@ -383,7 +383,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: 'text', text: 'You do not pick the paint colour, and you cannot paint without it. Same for tile, flooring, cabinets, fixtures, windows, siding. Every one of those is a decision somebody else owes you, and none of them lives anywhere - so it surfaces as a phone call the week the trade is standing on site asking what colour.' },
       { type: 'text', text: 'The Selections tab is a list of those decisions. Each one carries an allowance (what your budget already assumed) and a decide-by date driven by LEAD TIME, not by the schedule. A six-week window order decided the week framing finishes is already late, even though nobody was late.' },
       { type: 'steps', items: [
-        'Open Selections on the project and click "Start the standard board" - it lays out the usual picks for a house, each with a typical lead time already on it. Delete what does not apply.',
+        'Open Selections on the project and click "Start the standard board". You get a checklist of the 21 categories, already ticked for the kind of job this is - a commercial fit-out does not get roofing shutters, sod or a bathtub, a house gets everything. Untick anything that does not apply and it tells you how many selections you are about to add.',
         'Put an allowance on the ones that have one, and link the budget line if you want them tied together.',
         'Set the decide-by date. Back it up from install by the lead time shown on each category.',
         'Add options where you have them - name, price, vendor, a link. Optional: plenty of picks are "go to the showroom and tell us what you liked".',
@@ -391,6 +391,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       ] },
       { type: 'text', text: 'On their side the client sees only what is still waiting on them, sorted by urgency, with the extra cost shown against your allowance before they commit. They pick an option or write in what they chose. It lands on your board stamped with who decided and when.' },
       { type: 'tip', text: 'When a pick lands over the allowance, the board shows the difference and offers to raise a change order for exactly that amount. That is the whole reason allowances are tracked here rather than in someone\'s head - the difference is real money and it needs a paper trail, not a conversation.' },
+      { type: 'tip', text: 'You do not have to decide everything up front. "Add a category" on the board reopens the same checklist, so you can bring in flooring or tile later without starting over - anything already on the board is marked so nothing gets duplicated.' },
       { type: 'text', text: 'The top of the board answers the three questions worth asking: how many decisions are still owed, how many are already past due, and how far the picks have run over the allowances in total.' },
       { type: 'tip', text: 'Statuses run Not started, Waiting on client, Chosen, Ordered, Installed. Once you mark something Ordered the client can no longer change it on their link - it tells them to call you, because at that point it is a change order and not a choice.' },
     ],
