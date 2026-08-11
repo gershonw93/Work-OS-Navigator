@@ -551,56 +551,6 @@ export default function FilesPage() {
             ))}
           </div>
 
-          {/* Compliance docs pulled from projects */}
-          {complianceDocs.length > 0 && (categoryFilter === 'All' || ['Insurance', 'License', 'W-9'].includes(categoryFilter)) && (
-            <div className="space-y-2">
-              <p className="text-xs font-semibold text-muted-fg uppercase tracking-wide">From Compliance</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {complianceDocs
-                  .filter(d => {
-                    if (categoryFilter === 'All') return true
-                    if (categoryFilter === 'Insurance') return d.type === 'coi' || d.type === 'workers_comp'
-                    if (categoryFilter === 'License') return d.type === 'license'
-                    if (categoryFilter === 'W-9') return d.type === 'w9'
-                    return false
-                  })
-                  .map((doc: any) => {
-                    const typeLabel: Record<string, string> = { coi: 'COI', license: 'License', w9: 'W-9', workers_comp: "Workers' Comp", other: 'Other' }
-                    const isExpired = doc.expiry_date && new Date(doc.expiry_date + 'T00:00:00') < new Date()
-                    const resolvedStatus = (doc.status === 'expired' && doc.expiry_date && !isExpired) ? 'approved' : doc.status
-                    const statusColor = resolvedStatus === 'approved' ? 'text-success' : resolvedStatus === 'expired' ? 'text-danger' : 'text-warn'
-                    return (
-                      <div key={doc.id} className="rounded-xl border border-line bg-panel p-4 flex flex-col gap-2">
-                        <div className="flex items-start gap-3">
-                          <div className="rounded-lg bg-info-tint border border-blue-100 p-2 shrink-0">
-                            <ShieldCheck className="h-5 w-5 text-info" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-semibold text-ink-soft truncate">{typeLabel[doc.type] ?? doc.type}</p>
-                            <p className="text-xs text-faint truncate">{doc.companies?.name ?? ''}</p>
-                          </div>
-                          <span className={cn('text-xs font-medium', statusColor)}>{resolvedStatus}</span>
-                        </div>
-                        {doc.projects?.name && (
-                          <Link href={`/projects/${doc.project_id}/compliance`}
-                            className="inline-flex items-center gap-1 text-xs font-medium text-accent-fg hover:underline w-fit">
-                            <FolderOpen className="h-3 w-3" /> {doc.projects.name}
-                          </Link>
-                        )}
-                        {doc.expiry_date && (
-                          <p className="text-xs text-faint">Exp {new Date(doc.expiry_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
-                        )}
-                        {doc.notes && <p className="text-xs text-muted-fg line-clamp-2">{doc.notes}</p>}
-                        <a href={doc.file_url} target="_blank" rel="noopener noreferrer"
-                          className="mt-auto inline-flex items-center gap-1 text-xs font-medium text-accent-fg hover:underline">
-                          <ExternalLink className="h-3 w-3" /> View Document
-                        </a>
-                      </div>
-                    )
-                  })}
-              </div>
-            </div>
-          )}
 
           {visibleFiles.length === 0 && complianceDocs.length === 0 ? (
             <div className="rounded-xl border-2 border-dashed border-line py-16 text-center">
@@ -610,7 +560,13 @@ export default function FilesPage() {
               </p>
             </div>
           ) : visibleFiles.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="space-y-2">
+              {/* Your own documents come FIRST. Compliance docs are other
+                  people's paperwork collected from subs, and pushing your files
+                  below a stack of them meant the fill-in button - which only
+                  exists on your own files - was off the bottom of a phone. */}
+              <p className="text-xs font-semibold text-muted-fg uppercase tracking-wide">Your files</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {visibleFiles.map(file => {
                 const TypeIcon = fileTypeIcon(file.file_type)
                 return (
@@ -663,8 +619,60 @@ export default function FilesPage() {
                   </div>
                 )
               })}
+              </div>
             </div>
           ) : null}
+
+          {/* Compliance docs pulled from projects */}
+          {complianceDocs.length > 0 && (categoryFilter === 'All' || ['Insurance', 'License', 'W-9'].includes(categoryFilter)) && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-fg uppercase tracking-wide">From Compliance</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {complianceDocs
+                  .filter(d => {
+                    if (categoryFilter === 'All') return true
+                    if (categoryFilter === 'Insurance') return d.type === 'coi' || d.type === 'workers_comp'
+                    if (categoryFilter === 'License') return d.type === 'license'
+                    if (categoryFilter === 'W-9') return d.type === 'w9'
+                    return false
+                  })
+                  .map((doc: any) => {
+                    const typeLabel: Record<string, string> = { coi: 'COI', license: 'License', w9: 'W-9', workers_comp: "Workers' Comp", other: 'Other' }
+                    const isExpired = doc.expiry_date && new Date(doc.expiry_date + 'T00:00:00') < new Date()
+                    const resolvedStatus = (doc.status === 'expired' && doc.expiry_date && !isExpired) ? 'approved' : doc.status
+                    const statusColor = resolvedStatus === 'approved' ? 'text-success' : resolvedStatus === 'expired' ? 'text-danger' : 'text-warn'
+                    return (
+                      <div key={doc.id} className="rounded-xl border border-line bg-panel p-4 flex flex-col gap-2">
+                        <div className="flex items-start gap-3">
+                          <div className="rounded-lg bg-info-tint border border-blue-100 p-2 shrink-0">
+                            <ShieldCheck className="h-5 w-5 text-info" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-ink-soft truncate">{typeLabel[doc.type] ?? doc.type}</p>
+                            <p className="text-xs text-faint truncate">{doc.companies?.name ?? ''}</p>
+                          </div>
+                          <span className={cn('text-xs font-medium', statusColor)}>{resolvedStatus}</span>
+                        </div>
+                        {doc.projects?.name && (
+                          <Link href={`/projects/${doc.project_id}/compliance`}
+                            className="inline-flex items-center gap-1 text-xs font-medium text-accent-fg hover:underline w-fit">
+                            <FolderOpen className="h-3 w-3" /> {doc.projects.name}
+                          </Link>
+                        )}
+                        {doc.expiry_date && (
+                          <p className="text-xs text-faint">Exp {new Date(doc.expiry_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                        )}
+                        {doc.notes && <p className="text-xs text-muted-fg line-clamp-2">{doc.notes}</p>}
+                        <a href={doc.file_url} target="_blank" rel="noopener noreferrer"
+                          className="mt-auto inline-flex items-center gap-1 text-xs font-medium text-accent-fg hover:underline">
+                          <ExternalLink className="h-3 w-3" /> View Document
+                        </a>
+                      </div>
+                    )
+                  })}
+              </div>
+            </div>
+          )}
         </>
       ) : (
         <>
