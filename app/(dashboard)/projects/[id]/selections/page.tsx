@@ -45,6 +45,7 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
   const [loading, setLoading] = useState(true)
   const [origin, setOrigin] = useState('')
   const [copied, setCopied] = useState(false)
+  const [linking, setLinking] = useState(false)
   const [seeding, setSeeding] = useState(false)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [filter, setFilter] = useState<'outstanding' | 'all'>('outstanding')
@@ -143,6 +144,29 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
     }, { label: `the "${sel.item}" selection` })
   }
 
+  // Copy the link the client picks on. A project that has never been shared has
+  // no portal token yet, and hiding the button in that case would quietly
+  // remove the whole point of the board - so mint one.
+  //
+  // Only ever when there ISN'T one: POST regenerates the token, which would
+  // silently kill a portal link already sent.
+  async function copyClientLink() {
+    let tok = portalToken
+    if (!tok) {
+      setLinking(true)
+      const t = await token()
+      const res = await fetch(`/api/projects/${params.id}/portal-token`, {
+        method: 'POST', headers: { Authorization: `Bearer ${t}` },
+      })
+      setLinking(false)
+      if (!res.ok) { alert('Could not create a client link for this project.'); return }
+      tok = (await res.json()).token
+      setPortalToken(tok ?? null)
+    }
+    navigator.clipboard?.writeText(`${origin}/portal/${tok}/selections`)
+    setCopied(true); setTimeout(() => setCopied(false), 1500)
+  }
+
   const toggle = (id: string) => setExpanded(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n })
 
   const shown = useMemo(
@@ -183,13 +207,11 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {portalLink && (
-            <Button variant="outline" className="gap-1.5"
-              onClick={() => { navigator.clipboard?.writeText(portalLink); setCopied(true); setTimeout(() => setCopied(false), 1500) }}>
-              {copied ? <CheckCircle2 className="h-4 w-4 text-success" /> : <Link2 className="h-4 w-4" />}
-              {copied ? 'Copied' : 'Copy client link'}
-            </Button>
-          )}
+          <Button variant="outline" className="gap-1.5" onClick={copyClientLink} disabled={linking}>
+            {linking ? <Loader2 className="h-4 w-4 animate-spin" />
+              : copied ? <CheckCircle2 className="h-4 w-4 text-success" /> : <Link2 className="h-4 w-4" />}
+            {linking ? 'Creating link…' : copied ? 'Copied' : 'Copy client link'}
+          </Button>
           <Button onClick={() => setShowAdd(v => !v)} className="gap-1.5"><Plus className="h-4 w-4" /> Add selection</Button>
         </div>
       </div>
@@ -424,12 +446,16 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
             )
           })}
 
-          {portalLink && (
-            <p className="text-xs text-faint">
-              {clientName ? `${clientName} picks` : 'Your client picks'} at{' '}
-              <span className="font-mono text-muted-fg break-all">{portalLink}</span> - same link as their project portal, no account needed.
-            </p>
-          )}
+          <p className="text-xs text-faint">
+            {portalLink ? (
+              <>
+                {clientName ? `${clientName} picks` : 'Your client picks'} at{' '}
+                <span className="font-mono text-muted-fg break-all">{portalLink}</span> - same link as their project portal, no account needed.
+              </>
+            ) : (
+              <>This project hasn&apos;t been shared with the client yet. &ldquo;Copy client link&rdquo; creates the link and copies it - no account needed on their end.</>
+            )}
+          </p>
         </>
       )}
     </div>

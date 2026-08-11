@@ -387,7 +387,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'Put an allowance on the ones that have one, and link the budget line if you want them tied together.',
         'Set the decide-by date. Back it up from install by the lead time shown on each category.',
         'Add options where you have them - name, price, vendor, a link. Optional: plenty of picks are "go to the showroom and tell us what you liked".',
-        'Copy the client link and send it. It is the same link as their project portal - no second link to lose, no account needed.',
+        'Copy the client link and send it. It is the same link as their project portal - no second link to lose, no account needed. If the project has never been shared, the button creates the link for you.',
       ] },
       { type: 'text', text: 'On their side the client sees only what is still waiting on them, sorted by urgency, with the extra cost shown against your allowance before they commit. They pick an option or write in what they chose. It lands on your board stamped with who decided and when.' },
       { type: 'tip', text: 'When a pick lands over the allowance, the board shows the difference and offers to raise a change order for exactly that amount. That is the whole reason allowances are tracked here rather than in someone\'s head - the difference is real money and it needs a paper trail, not a conversation.' },
