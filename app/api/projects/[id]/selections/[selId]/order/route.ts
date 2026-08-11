@@ -36,6 +36,15 @@ export async function POST(request: Request, { params }: { params: { id: string;
     return NextResponse.json({ error: 'Nothing has been chosen yet, so there is nothing to order.' }, { status: 400 })
   }
 
+  // Ordering spends money. Without a budget line the purchase has nowhere to
+  // land and the cost never reaches the budget at all.
+  if (!sel.budget_line_item_id) {
+    return NextResponse.json({
+      error: 'Link this to a budget line first - or add a new one for it. Ordering books a cost, and it needs a line to book it against.',
+      needs_budget_line: true,
+    }, { status: 409 })
+  }
+
   const body = await request.json().catch(() => ({} as any))
   const supplierId = body.supplier_company_id || sel.supplier_company_id || null
   // What they chose was already priced. Only fall back to the allowance when

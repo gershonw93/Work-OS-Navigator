@@ -40,6 +40,25 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     patch.selected_at = new Date().toISOString()
   }
 
+  // Accepting a selection is a commitment of money, so it has to land somewhere
+  // the money is tracked. A chosen selection with no budget line is a cost the
+  // budget cannot see - which is the exact thing this board exists to prevent.
+  //
+  // The client picking on their own link is NOT blocked by this (that goes
+  // through the portal route) - it is the GC accepting it that needs a home.
+  const ACCEPTED = new Set(['chosen', 'ordered', 'installed'])
+  if (typeof body.status === 'string' && ACCEPTED.has(body.status)) {
+    const { data: current } = await db.from('project_selections')
+      .select('budget_line_item_id').eq('id', params.selId).single()
+    const lineId = 'budget_line_item_id' in patch ? patch.budget_line_item_id : current?.budget_line_item_id
+    if (!lineId) {
+      return NextResponse.json({
+        error: 'Link this to a budget line first - or add a new one for it. An accepted selection is money, and it needs somewhere on the budget to land.',
+        needs_budget_line: true,
+      }, { status: 409 })
+    }
+  }
+
   const { data, error } = await db.from('project_selections')
     .update(patch).eq('id', params.selId).eq('project_id', params.id)
     .select('*, selection_options(*)').single()

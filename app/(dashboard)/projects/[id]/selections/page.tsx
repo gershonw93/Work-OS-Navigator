@@ -81,6 +81,8 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
   const [showLink, setShowLink] = useState(false)
   const [linkChoice, setLinkChoice] = useState<Record<string, string>>({})
   const [linkSaving, setLinkSaving] = useState(false)
+  const [fillPrompt, setFillPrompt] = useState<{ sel: Selection; line: any; amount: number } | null>(null)
+  const [filling, setFilling] = useState(false)
 
   async function token() { const { data: { session } } = await supabase.auth.getSession(); return session?.access_token ?? '' }
 
@@ -321,6 +323,84 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
     return null
   }
 
+  /**
+   * What's left on a budget line once the selections already hanging off it are
+   * accounted for.
+   *
+   * Excludes the selection being edited, or its own allowance would count
+   * against the room it's asking about.
+   */
+  function lineBudget(lineId: string | null, exceptSelId?: string) {
+    const line = budgetLines.find(l => l.id === lineId)
+    if (!line) return null
+    const budgeted = Number(line.budgeted_amount ?? 0)
+    const allocated = rows
+      .filter(r => r.budget_line_item_id === lineId && r.id !== exceptSelId)
+      .reduce((sum, r) => sum + Number(r.allowance_amount ?? 0), 0)
+    return { line, budgeted, allocated, remaining: Math.round((budgeted - allocated) * 100) / 100 }
+  }
+
+  /**
+   * Link a selection to a budget line, and do the obvious follow-on.
+   *
+   * Two things people would otherwise do by hand, in order: if the line has
+   * money on it and this selection has no allowance, the allowance is what's
+   * left. If the line has nothing on it and the selection does, the line is
+   * probably the one that's wrong - so offer to fill it rather than silently
+   * leaving a $0 line with an allowance pointing at it.
+   */
+  async function linkToBudget(sel: Selection, lineId: string) {
+    const info = lineId ? lineBudget(lineId, sel.id) : null
+    const patchBody: any = { budget_line_item_id: lineId || null }
+
+    if (info && sel.allowance_amount == null && info.remaining > 0) {
+      patchBody.allowance_amount = info.remaining
+    }
+    await patch(sel.id, patchBody)
+
+    if (info && info.budgeted === 0 && sel.allowance_amount != null && sel.allowance_amount > 0) {
+      setFillPrompt({ sel, line: info.line, amount: Number(sel.allowance_amount) })
+    }
+  }
+
+  /**
+   * No line fits, so make one.
+   *
+   * Named from the selection itself and seeded with its allowance, because the
+   * alternative is sending someone to the Budget tab to type the same three
+   * things and then come back.
+   */
+  async function createBudgetLine(sel: Selection) {
+    const t = await token()
+    const res = await fetch(`/api/projects/${params.id}/budget`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+      body: JSON.stringify({
+        category: sel.category,
+        description: sel.location ? `${sel.item} (${sel.location})` : sel.item,
+        budgeted_amount: sel.allowance_amount ?? 0,
+        cost_type: 'hard',
+      }),
+    })
+    if (!res.ok) { alert((await res.json().catch(() => ({}))).error ?? 'Could not add a budget line'); return }
+    const newId = (await res.json().catch(() => ({}))).item?.id
+    if (newId) await patch(sel.id, { budget_line_item_id: newId })
+    else load()
+  }
+
+  /** Push the allowance onto the empty budget line it points at. */
+  async function fillBudgetLine() {
+    if (!fillPrompt) return
+    setFilling(true)
+    const t = await token()
+    await fetch(`/api/projects/${params.id}/budget/${fillPrompt.line.id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+      body: JSON.stringify({ budgeted_amount: fillPrompt.amount }),
+    })
+    setFilling(false)
+    setFillPrompt(null)
+    load()
+  }
+
   const toggle = (id: string) => setExpanded(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n })
 
   const shown = useMemo(
@@ -446,6 +526,32 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
           <div className="flex gap-2 justify-end">
             <Button variant="secondary" onClick={() => setShowAdd(false)}>Cancel</Button>
             <Button onClick={add} disabled={saving || !form.item.trim()}>{saving ? 'Adding…' : 'Add'}</Button>
+          </div>
+        </div>
+      )}
+
+      {/* The line it points at has nothing on it, and this selection has a
+          number. Offering to move the number across beats leaving a $0 line
+          with an allowance aimed at it - but it is an offer, since the empty
+          line might be deliberate. */}
+      {fillPrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setFillPrompt(null)}>
+          <div className="w-full max-w-md rounded-xl bg-panel border border-line shadow-xl p-5 space-y-4" onClick={e => e.stopPropagation()}>
+            <div>
+              <h3 className="text-base font-semibold text-ink">That budget line is empty</h3>
+              <p className="text-sm text-muted-fg mt-1">
+                <span className="font-medium text-ink-soft">{fillPrompt.line.category} - {fillPrompt.line.description}</span> has
+                nothing budgeted, and &ldquo;{fillPrompt.sel.item}&rdquo; carries an allowance of{' '}
+                <span className="font-semibold text-ink">{money(fillPrompt.amount)}</span>.
+              </p>
+              <p className="text-sm text-muted-fg mt-2">Set the line to that amount?</p>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="secondary" onClick={() => setFillPrompt(null)}>Leave it</Button>
+              <Button onClick={fillBudgetLine} disabled={filling}>
+                {filling ? <><Loader2 className="h-4 w-4 animate-spin" /> Setting…</> : `Set it to ${money(fillPrompt.amount)}`}
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -746,6 +852,21 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
                                 <Label className="text-xs">Allowance ($)</Label>
                                 <Input type="number" defaultValue={sel.allowance_amount ?? ''} className="h-8 text-sm"
                                   onBlur={e => { const val = e.target.value === '' ? null : Number(e.target.value); if (val !== sel.allowance_amount) patch(sel.id, { allowance_amount: val }) }} />
+                                {/* How much room is actually left on the line this
+                                    hangs off, once its other selections are counted. */}
+                                {(() => {
+                                  const b = lineBudget(sel.budget_line_item_id, sel.id)
+                                  if (!b) return null
+                                  if (b.budgeted === 0) return <p className="text-[11px] text-warn">That budget line has nothing on it yet.</p>
+                                  const over = b.remaining < 0
+                                  return (
+                                    <p className={cn('text-[11px]', over ? 'text-danger' : 'text-faint')}>
+                                      {over
+                                        ? `${money(Math.abs(b.remaining))} over the line's ${money(b.budgeted)}`
+                                        : `${money(b.remaining)} left of ${money(b.budgeted)} on this line`}
+                                    </p>
+                                  )
+                                })()}
                               </div>
                               <div className="space-y-1">
                                 <Label className="text-xs">Decide by</Label>
@@ -905,14 +1026,21 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
                               <div className="space-y-1">
                                 <Label className="text-xs">Budget line</Label>
                                 <Select value={sel.budget_line_item_id ?? ''} className="h-8 text-sm"
-                                  onChange={e => patch(sel.id, { budget_line_item_id: e.target.value || null })}>
+                                  onChange={e => linkToBudget(sel, e.target.value)}>
                                   <option value="">Not linked to the budget</option>
                                   {budgetLines.map(l => <option key={l.id} value={l.id}>{l.category} - {l.description}</option>)}
                                 </Select>
                                 {!sel.budget_line_item_id && (
-                                  <p className="text-[11px] text-warn">
-                                    Link it and the overage lands on this line, and ordering books the cost against it.
-                                  </p>
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <p className="text-[11px] text-warn flex-1 min-w-[12rem]">
+                                      Needed before you can accept or order this - an accepted selection is money, and it
+                                      has to land somewhere the budget can see.
+                                    </p>
+                                    <button type="button" onClick={() => createBudgetLine(sel)}
+                                      className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-line px-2 py-1 text-[11px] font-medium text-ink-soft hover:border-accent hover:text-accent-fg">
+                                      <Plus className="h-3 w-3" /> Add a line for this
+                                    </button>
+                                  </div>
                                 )}
                               </div>
                             )}
