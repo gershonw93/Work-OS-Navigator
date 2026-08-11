@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
-import { Plus, X, Receipt, CheckCircle2, Clock, Send, DollarSign, ChevronDown, ChevronUp, Printer, Upload, AlertTriangle, Pencil, Trash2, FileText } from 'lucide-react'
+import { Plus, X, Receipt, CheckCircle2, Clock, Send, DollarSign, ChevronDown, ChevronUp, Printer, Upload, AlertTriangle, Pencil, Trash2, FileText, ScanLine, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 
@@ -65,6 +65,17 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
   const [dueDate, setDueDate] = useState('')
   const [createError, setCreateError] = useState('')
 
+  // Scanned invoice: the document is already stored, so it rides along with the
+  // create and gets attached without a second upload.
+  const [scanning, setScanning] = useState(false)
+  const [scanDrag, setScanDrag] = useState(false)
+  const [scanned, setScanned] = useState<null | {
+    document_url: string | null; document_name: string
+    confidence: string | null; read_error: string | null
+    matched: string | null; certain: boolean; note: string | null
+  }>(null)
+  const scanRef = useRef<HTMLInputElement>(null)
+
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
     return session?.access_token ?? ''
@@ -121,6 +132,55 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
   const remaining = selectedSub ? Math.max(selectedSub.contract_amount - alreadyInvoiced, 0) : 0
   const overBilled = !!selectedSub && billedAmount > remaining + 0.005
 
+  /**
+   * Read an emailed invoice and fill the form in.
+   *
+   * Everything lands as a draft the user confirms - the file is attached either
+   * way, so even a failed read leaves them better off than starting from blank.
+   */
+  async function scanInvoice(file: File) {
+    setScanning(true); setCreateError(''); setScanned(null)
+    try {
+      const token = await getToken()
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch(`/api/projects/${params.id}/invoices/scan`, {
+        method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd,
+      })
+      const raw = await res.text()
+      let d: any = {}
+      try { d = JSON.parse(raw) } catch { d = { error: raw.slice(0, 200) } }
+      if (!res.ok) { setCreateError(d.error ?? 'Could not read that file'); return }
+
+      const draft = d.draft ?? {}
+      if (d.match?.subcontract_id) {
+        setSubId(d.match.subcontract_id)
+        setScheduleItemId(d.schedule_item?.id ?? '')
+        setBillMode(d.schedule_item?.id ? 'schedule' : 'fixed')
+      } else {
+        setSubId(''); setScheduleItemId(''); setBillMode('fixed')
+      }
+      if (draft.amount != null) setAmount(String(draft.amount))
+      if (draft.description) setDescription(draft.description)
+      if (draft.due_date) setDueDate(draft.due_date)
+
+      setScanned({
+        document_url: d.document_url ?? null,
+        document_name: d.document_name ?? file.name,
+        confidence: draft.confidence ?? null,
+        read_error: d.read_error ?? null,
+        matched: d.match?.company_name ?? null,
+        certain: !!d.match?.certain,
+        note: d.schedule_item?.note ?? null,
+      })
+      setShowForm(true)
+    } catch (e: any) {
+      setCreateError(e?.message ?? 'Could not read that file')
+    } finally {
+      setScanning(false)
+    }
+  }
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
     setCreateError('')
@@ -145,6 +205,9 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
           amount: billedAmount,
           description: description || (billMode === 'percent' ? `${percent}% of contract` : null),
           due_date: dueDate || null,
+          ...(scanned?.document_url
+            ? { document_url: scanned.document_url, document_name: scanned.document_name }
+            : {}),
         }),
       })
       if (!res.ok) {
@@ -154,6 +217,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
         return
       }
       setSubId(''); setScheduleItemId(''); setAmount(''); setPercent(''); setDescription(''); setDueDate('')
+      setScanned(null)
       setShowForm(false); setSubmitting(false); fetchData()
     } catch (err: any) {
       setCreateError(err?.message ? `Failed: ${err.message}` : 'Failed - check your connection.')
@@ -488,11 +552,39 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-panel rounded-xl shadow-xl w-full min-w-0 max-w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between">
-              <h2 className="font-semibold text-ink">Create Invoice</h2>
+              <h2 className="font-semibold text-ink">{scanned ? 'Check this invoice' : 'Create Invoice'}</h2>
               <button onClick={() => setShowForm(false)} className="text-faint hover:text-muted-fg"><X className="h-5 w-5" /></button>
             </div>
             <form onSubmit={handleCreate}>
               <div className="px-4 sm:px-6 py-5 pb-4 space-y-4">
+                {/* What the read produced, and how much to trust it. Filling the
+                    form in silently would be worse than not filling it at all -
+                    the one number nobody checks is the one that is wrong. */}
+                {scanned && (
+                  <div className="rounded-lg border border-line bg-surface p-3 space-y-1.5">
+                    <p className="flex items-center gap-1.5 text-xs font-semibold text-ink">
+                      <FileText className="h-3.5 w-3.5 text-faint" />
+                      {scanned.document_name}
+                      <span className="font-normal text-faint">· attached</span>
+                    </p>
+                    {scanned.read_error ? (
+                      <p className="text-xs text-warn">{scanned.read_error}</p>
+                    ) : (
+                      <p className="text-xs text-muted-fg">
+                        Filled in from the document. Check the amount before you save.
+                        {scanned.confidence === 'low' && ' The scan was unsure about this one.'}
+                      </p>
+                    )}
+                    {scanned.matched && (
+                      <p className={cn('text-xs', scanned.certain ? 'text-success' : 'text-warn')}>
+                        {scanned.certain
+                          ? `Matched to ${scanned.matched}.`
+                          : `Best guess: ${scanned.matched}. Worth confirming that is the right sub.`}
+                      </p>
+                    )}
+                    {scanned.note && <p className="text-xs text-danger font-medium">{scanned.note}</p>}
+                  </div>
+                )}
                 <div className="space-y-1.5">
                   <Label>Subcontractor</Label>
                   <SearchableSelect value={subId} onChange={e => { setSubId(e.target.value); setScheduleItemId('') }} required
@@ -603,7 +695,24 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
               <Clock className="h-4 w-4" />{pending.length} pending approval
             </span>
           )}
-          <Button onClick={() => setShowForm(true)}><Plus className="h-4 w-4" /> Create Invoice</Button>
+          {/* Drop the PDF the sub emailed. Reading it beats retyping it. */}
+          <label
+            onDragOver={e => { e.preventDefault(); setScanDrag(true) }}
+            onDragLeave={() => setScanDrag(false)}
+            onDrop={e => {
+              e.preventDefault(); setScanDrag(false)
+              const f = e.dataTransfer.files?.[0]
+              if (f) scanInvoice(f)
+            }}
+            title="Drop a PDF, photo or screenshot of an invoice"
+            className={cn('inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium cursor-pointer transition-colors',
+              scanDrag ? 'border-accent bg-accent-tint text-accent-fg' : 'border-line text-muted-fg hover:bg-surface',
+              scanning && 'opacity-60 pointer-events-none')}>
+            <input ref={scanRef} type="file" accept="application/pdf,image/*" className="sr-only"
+              onChange={e => { const f = e.target.files?.[0]; if (f) scanInvoice(f); e.target.value = '' }} />
+            {scanning ? <><Loader2 className="h-4 w-4 animate-spin" /> Reading…</> : <><ScanLine className="h-4 w-4" /> Scan an invoice</>}
+          </label>
+          <Button onClick={() => { setScanned(null); setShowForm(true) }}><Plus className="h-4 w-4" /> Create Invoice</Button>
         </div>
       </div>
 

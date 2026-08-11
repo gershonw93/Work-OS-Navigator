@@ -34,7 +34,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { subcontract_id, payment_schedule_item_id, company_id, company_name, amount, description, due_date, client_paid, escrow_paid } = await request.json()
+  const { subcontract_id, payment_schedule_item_id, company_id, company_name, amount, description, due_date, client_paid, escrow_paid, document_url, document_name } = await request.json()
 
   // Count existing invoices for this project to generate invoice number
   const { count } = await db
@@ -59,6 +59,9 @@ export async function POST(request: Request, { params }: { params: { id: string 
       escrow_paid: Number(escrow_paid) || 0,
       invoice_number,
       status: 'pending_approval',
+      // A scanned invoice arrives with its document already stored - attach it
+      // here rather than making the user upload the same file a second time.
+      ...(document_url ? { document_url, document_name: document_name || null } : {}),
     })
     .select()
     .single()

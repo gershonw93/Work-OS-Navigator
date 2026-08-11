@@ -370,6 +370,32 @@ export const HELP_ARTICLES: HelpArticle[] = [
 
   // ── Money: Budget ──────────────────────────────────────────────────────────
   {
+    slug: 'scan-sub-invoice',
+    title: 'Entering an invoice a sub emailed you',
+    category: 'money',
+    keywords: [
+      'invoice', 'invoices', 'sub invoice', 'subcontractor invoice', 'scan invoice',
+      'upload invoice', 'pdf', 'screenshot', 'photo', 'bill', 'vendor invoice',
+      'enter invoice', 'ocr', 'read invoice', 'payment schedule', 'approve invoice',
+    ],
+    summary: 'Drop the PDF in and it fills the form. You check the amount and save.',
+    blocks: [
+      { type: 'text', text: 'Invoices live on the project, under Financials. If you cannot see the tab, check the job is not still in Planning - invoices, pay apps, payments and change orders are all hidden until a job goes Active, because none of them can happen before then.' },
+      { type: 'steps', items: [
+        'Open Invoices on the project and click "Scan an invoice" - or drag the file straight onto that button. A PDF, a photo, or a screenshot all work.',
+        'It reads the document and opens the form already filled in: who is billing, the amount, the date, and what the work was. The file is attached at the same time.',
+        'It also tries to match the invoice to a subcontract on this job and to a line on that sub\'s payment schedule. Check that it picked the right sub.',
+        'Fix anything wrong, then save. Nothing is created until you do.',
+      ] },
+      { type: 'warn', text: 'Always check the amount before saving. A clean PDF reads accurately; a photo of a crumpled page is a different matter. When the scan is unsure it says so at the top of the form - believe it.' },
+      { type: 'tip', text: 'The genuinely useful part is not reading the number, it is comparing it. If the invoice is for more than the payment schedule line it matches, the form says so in red before you save - which is the moment to ask about it, rather than after it has been paid.' },
+      { type: 'text', text: 'If the read fails entirely - a bad fax, a photo at an angle - the document is still uploaded and attached. You fill in the rest by hand and are no worse off than before.' },
+      { type: 'text', text: 'You can still create an invoice from scratch: "Create Invoice", pick the subcontractor, and bill against a payment schedule item, a percent of the contract, or a flat amount. Picking a schedule item fills the amount in for you, so there is nothing to type.' },
+      { type: 'tip', text: 'Approving an invoice is what moves the budget - it lands on the committed and actual figures for that line. Uploading the document alone does not.' },
+    ],
+    related: ['add-project-budget', 'record-client-payment', 'change-order-basics'],
+  },
+  {
     slug: 'selections',
     title: 'Selections - the choices that aren\'t yours to make',
     category: 'money',
