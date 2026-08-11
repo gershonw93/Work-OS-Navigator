@@ -156,9 +156,26 @@ export async function DELETE(
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { error } = await db.from('invoices').delete().eq('id', params.invoiceId)
+  // Scoped to the project in the URL. Deleting by id alone let a request name
+  // any invoice in the database and have it removed, which every other route
+  // here is careful not to allow.
+  const { data: gone, error } = await db.from('invoices')
+    .delete()
+    .eq('id', params.invoiceId)
+    .eq('project_id', params.id)
+    .select('id, invoice_number, amount, company_name, status')
+    .maybeSingle()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (!gone) return NextResponse.json({ error: 'Invoice not found on this project' }, { status: 404 })
+
+  // Deleting an accepted invoice moves the budget, so it belongs in the log
+  // next to the approval it undoes.
+  const { data: profile } = await db.from('profiles').select('full_name').eq('id', user.id).single()
+  await logActivity(
+    db, params.id, (profile as any)?.full_name ?? 'Someone', 'invoice_deleted',
+    `Invoice ${gone.invoice_number ?? ''} deleted - $${Number(gone.amount ?? 0).toLocaleString()}${gone.company_name ? ` to ${gone.company_name}` : ''}`,
+  )
 
   return NextResponse.json({ success: true })
 }

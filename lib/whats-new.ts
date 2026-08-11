@@ -77,6 +77,12 @@ export const RELEASES: Release[] = [
         help: 'scan-sub-invoice',
       },
       {
+        kind: 'improved',
+        title: 'Deleting an invoice, and a clearer Invoices tab',
+        text: 'Delete is now a labelled button instead of a small grey icon, and it works at any status - including paid, which is exactly where a duplicate you already ticked off needs removing and where the button used to disappear. The confirmation tells you what it will do first: how much comes back off which budget line, and whether the bill has already gone to QuickBooks. The tab now says plainly that these are bills your subs sent you - upload one they emailed or enter it yourself - with a link to where you bill your client instead.',
+        help: 'approve-invoice',
+      },
+      {
         kind: 'fixed',
         title: 'Approving a change order now raises the budget line',
         text: 'Approving a change order grew the sub\'s contract but left the budget where it was, so the line went red at the exact moment the extra was approved and paid for. An approved change order now adds to the budget line it belongs to - the one you picked, or the one its subcontract sits on - and the line shows "incl. $X CO" so the budget never grows silently. Your original estimate is kept, and un-approving or deleting the change order takes the money straight back out.',
