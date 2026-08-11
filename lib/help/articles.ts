@@ -620,7 +620,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'approve-invoice',
     title: 'Approve, send, and pay an invoice',
     category: 'money',
-    keywords: ['approve', 'status', 'paid', 'sent', 'invoice', 'workflow', 'sent for payment', 'sent to sub', 'released for payment'],
+    keywords: ['approve', 'status', 'paid', 'sent', 'invoice', 'workflow', 'sent for payment', 'sent to sub', 'released for payment', 'delete', 'delete invoice', 'remove invoice', 'duplicate invoice', 'undo'],
     summary: 'Move an invoice through its lifecycle and record how it was paid.',
     blocks: [
       { type: 'text', text: 'These are bills your subs sent YOU, so every step here is about paying them - nothing gets sent to the sub. (The step that used to read "Mark Sent to Sub" now reads "Mark Sent for Payment", which is what it always did.)' },
@@ -632,6 +632,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'Use Edit to record how it was paid: from escrow vs. paid directly by the client.',
       ] },
       { type: 'warn', text: 'Paying an invoice releases funds - upload an unconditional lien waiver to protect yourself.' },
+      { type: 'text', text: 'DELETING AN INVOICE. Open it and click Delete. It works at any status, including paid - a duplicate you already marked paid is exactly the one you need to remove. The confirmation tells you what it will do first: how much comes back off which budget line, and whether the bill has already gone to QuickBooks (it stays there and has to be voided on that side). Deletions are recorded in the project activity log.' },
     ],
     related: ['create-invoice', 'lien-waiver', 'record-client-payment'],
   },

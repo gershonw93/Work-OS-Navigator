@@ -22,6 +22,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     { data: materials },
     { data: subs },
     { data: changeOrders },
+    { data: projectRow },
   ] = await Promise.all([
     db
       .from('invoices')
@@ -46,6 +47,11 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .from('change_orders')
       .select('amount, status, budget_line_item_id, subcontract_id')
       .eq('project_id', params.id),
+    db
+      .from('projects')
+      .select('billing_mode')
+      .eq('id', params.id)
+      .maybeSingle(),
   ])
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -72,6 +78,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
     // Keyed by subcontract so the create form can show the destination the
     // moment a sub is picked, before anything is saved.
     destinations: Object.fromEntries(dests),
+    // Decides whether "billing your client" points at Pay Apps or Payments.
+    billing_mode: (projectRow as any)?.billing_mode ?? 'simple',
   })
 }
 

@@ -11,7 +11,7 @@ import { Plus, X, Receipt, CheckCircle2, Clock, Send, DollarSign, ChevronDown, C
 import Link from 'next/link'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 import { BudgetDestinationBox } from '@/components/projects/budget-destination'
-import type { BudgetDestination } from '@/lib/invoice-budget'
+import { ACTUAL_STATUSES, type BudgetDestination } from '@/lib/invoice-budget'
 import { HARD_COST_CATEGORIES } from '@/lib/budget-categories'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
@@ -37,6 +37,8 @@ interface Invoice {
   document_url?: string | null; document_name?: string | null
   /** The budget line this lands on, resolved through the subcontract. */
   budget_line?: BudgetDestination | null
+  /** Set once this has been pushed to QuickBooks as a Bill. */
+  qbo_id?: string | null
 }
 
 export default function InvoicesPage({ params }: { params: { id: string } }) {
@@ -47,6 +49,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
   // the moment a sub is picked - before anything is saved.
   const [destinations, setDestinations] = useState<Record<string, BudgetDestination>>({})
   const [creatingLineFor, setCreatingLineFor] = useState<string | null>(null)
+  const [billingMode, setBillingMode] = useState('simple')
   const [subcontracts, setSubcontracts] = useState<Subcontract[]>([])
   const [paymentItems, setPaymentItems] = useState<PaymentItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -103,6 +106,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
       const d = await invRes.json()
       setInvoices(d.invoices)
       setDestinations(d.destinations ?? {})
+      setBillingMode(d.billing_mode ?? 'simple')
     }
     if (finRes.ok) {
       const d = await finRes.json()
@@ -317,14 +321,34 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
   }
 
   function handleDeleteInvoice(invoice: Invoice) {
+    const amount = `$${Number(invoice.amount).toLocaleString()}`
+    const who = invoice.company_name ? ` to ${invoice.company_name}` : ''
+    // An accepted invoice is already counted on the budget, so deleting it
+    // moves money. Say which line and how much rather than asking "are you
+    // sure?" about an amount the reader has to go and look up.
+    const counted = ACTUAL_STATUSES.has(invoice.status)
+    const line = invoice.budget_line?.category ? ` from ${invoice.budget_line.category}` : ''
+    // Deleting here does not reach into QuickBooks - the Bill stays there and
+    // has to be voided on that side. Better said before than discovered at
+    // month end.
+    // The confirm reads "Are you sure you want to delete <label>?", so this
+    // stays a noun phrase with no closing punctuation.
+    const qb = invoice.qbo_id ? ', and the bill already pushed to QuickBooks stays there and has to be voided on that side' : ''
+    const label = counted
+      ? `this ${STATUS_CONFIG[invoice.status]?.label.toLowerCase() ?? ''} invoice (${amount}${who}) - it takes ${amount} back off the budget${line}${qb}`
+      : `this invoice (${amount}${who})${qb}`
     guardDelete(async () => {
       const token = await getToken()
-      await fetch(`/api/projects/${params.id}/invoices/${invoice.id}`, {
+      const res = await fetch(`/api/projects/${params.id}/invoices/${invoice.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       })
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}))
+        alert(j.error ?? 'Could not delete that invoice')
+      }
       fetchData()
-    }, { label: 'this invoice', protected: true })
+    }, { label, protected: true })
   }
 
   async function handleInvoiceDocUpload(invoice: Invoice, file: File) {
@@ -541,15 +565,17 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
                 </Button>
               )}
               <button onClick={() => openEditInvoice(invoice)}
-                className="p-1.5 text-faint hover:text-muted-fg rounded transition-colors" title="Edit invoice">
-                <Pencil className="h-4 w-4" />
+                className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium text-muted-fg hover:text-ink hover:bg-surface transition-colors">
+                <Pencil className="h-3.5 w-3.5" /> Edit
               </button>
-              {(invoice.status === 'pending_approval' || invoice.status === 'approved') && (
-                <button onClick={() => handleDeleteInvoice(invoice)}
-                  className="p-1.5 text-faint hover:text-danger rounded transition-colors" title="Delete invoice">
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              )}
+              {/* Deletable at every status. A duplicate you already marked paid
+                  is exactly the one you need to remove, and hiding the button
+                  there just meant the wrong number stayed on the budget. The
+                  confirm says what it will do to the budget. */}
+              <button onClick={() => handleDeleteInvoice(invoice)}
+                className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium text-muted-fg hover:text-danger hover:bg-danger-tint transition-colors">
+                <Trash2 className="h-3.5 w-3.5" /> Delete
+              </button>
             </div>
           </div>
         )}
@@ -778,7 +804,19 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-ink">Invoices</h1>
-          <p className="text-sm text-muted-fg mt-0.5">Subcontractor invoices - approve, send, and track payments.</p>
+          {/* Says whose bills these are and what to do with them. "Send" used
+              to be in here, which read as if you invoiced the sub. */}
+          <p className="text-sm text-muted-fg mt-0.5">
+            Bills your subs and suppliers sent <span className="font-medium text-ink-soft">you</span> - upload one they
+            emailed, or enter it yourself, then approve and pay.
+          </p>
+          <p className="text-xs text-faint mt-1">
+            Billing your client is separate - that lives on{' '}
+            <Link href={`/projects/${params.id}/${billingMode === 'aia' ? 'pay-apps' : 'payments'}`}
+              className="text-accent-fg hover:underline">
+              {billingMode === 'aia' ? 'Pay Apps' : 'Payments'}
+            </Link>.
+          </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {pending.length > 0 && (
@@ -810,10 +848,48 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
       {loading ? (
         <div className="text-sm text-faint py-12 text-center">Loading...</div>
       ) : invoices.length === 0 ? (
-        <div className="rounded-xl border-2 border-dashed border-line py-16 text-center">
+        <div className="rounded-xl border-2 border-dashed border-line py-12 px-6 text-center">
           <Receipt className="h-8 w-8 text-faint mx-auto mb-3" />
-          <p className="text-sm font-medium text-muted-fg">No invoices yet</p>
-          <p className="text-xs text-faint mt-1">Create invoices from payment schedule milestones or manually.</p>
+          <p className="text-sm font-medium text-ink">No invoices yet</p>
+          <p className="text-sm text-muted-fg mt-1 max-w-md mx-auto">
+            When a sub or supplier bills you, record it here. There are two ways in.
+          </p>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 max-w-xl mx-auto text-left">
+            <label
+              onDragOver={e => { e.preventDefault(); setScanDrag(true) }}
+              onDragLeave={() => setScanDrag(false)}
+              onDrop={e => {
+                e.preventDefault(); setScanDrag(false)
+                const f = e.dataTransfer.files?.[0]
+                if (f) scanInvoice(f)
+              }}
+              className={cn('rounded-lg border p-4 cursor-pointer transition-colors',
+                scanDrag ? 'border-accent bg-accent-tint' : 'border-line hover:bg-surface',
+                scanning && 'opacity-60 pointer-events-none')}>
+              <input type="file" accept="application/pdf,image/*" className="sr-only"
+                onChange={e => { const f = e.target.files?.[0]; if (f) scanInvoice(f); e.target.value = '' }} />
+              <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
+                <ScanLine className="h-4 w-4 text-faint" /> Upload one they sent
+              </p>
+              <p className="text-xs text-muted-fg mt-1">
+                Drop the PDF the sub emailed - a photo or screenshot works too - and it reads the
+                document and fills the form in for you.
+              </p>
+            </label>
+            <button type="button" onClick={() => { setScanned(null); setShowForm(true) }}
+              className="rounded-lg border border-line p-4 text-left hover:bg-surface transition-colors">
+              <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
+                <Plus className="h-4 w-4 text-faint" /> Enter one yourself
+              </p>
+              <p className="text-xs text-muted-fg mt-1">
+                Pick the sub and bill a flat amount, a percent of their contract, or a milestone off
+                their payment schedule.
+              </p>
+            </button>
+          </div>
+          <p className="text-xs text-faint mt-5">
+            Either way it lands on a budget line, and nothing is saved until you confirm it.
+          </p>
         </div>
       ) : (
         <div className="space-y-4">
