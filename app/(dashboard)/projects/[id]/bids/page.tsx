@@ -643,9 +643,8 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                 <ItemListEditor
                   value={itemList}
                   onChange={setItemList}
-                  hint={scopeValue.material_by === 'gc' && itemList.length === 0
-                    ? 'You\u2019re supplying the material on this one. Send the list and they price it line by line.'
-                    : undefined}
+                  materialBy={scopeValue.material_by}
+                  packageType={scopeValue.package_type}
                 />
 
                 {/* Due Date */}

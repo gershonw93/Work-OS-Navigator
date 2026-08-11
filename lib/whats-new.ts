@@ -65,6 +65,12 @@ export const RELEASES: Release[] = [
       },
       {
         kind: 'improved',
+        title: 'Editing the scope on a quote request',
+        text: 'Click any line to change its wording, or use the move arrows to send it from Included to Not included and back - it used to mean deleting and retyping. The panel also names which trade template filled it in, and the item list now says plainly whether it is needed on this package or not, so it is clear the two are not doing the same job.',
+        help: 'scope-what-to-send',
+      },
+      {
+        kind: 'improved',
         title: 'You can see your own quote request again',
         text: 'An expanded request showed who you invited and what you attached, but not the scope you sent or what you asked for back - you had to open the sub\'s link to find out. There is now a "What you sent" panel on the card.',
         help: 'scope-what-to-send',

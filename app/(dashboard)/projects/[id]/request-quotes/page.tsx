@@ -235,9 +235,7 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
               className="w-full rounded-md border border-muted2 px-3 py-2 text-sm focus:border-accent focus:outline-none resize-none" /></div>
           <ScopeBuilder trade={trade || null} value={scopeValue} onChange={setScopeValue} itemCount={itemList.length} />
           <ItemListEditor value={itemList} onChange={setItemList}
-            hint={scopeValue.material_by === 'gc' && itemList.length === 0
-              ? 'You’re supplying the material on this one. Send the list and they price it line by line - that’s the only way two quotes on material actually compare.'
-              : undefined} />
+            materialBy={scopeValue.material_by} packageType={scopeValue.package_type} />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5"><Label>Due date</Label><Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} /></div>
