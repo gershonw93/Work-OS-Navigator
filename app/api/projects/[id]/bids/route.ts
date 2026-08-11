@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { PACKAGE_TYPES } from '@/lib/trade-scopes'
+import { coerceLines } from '@/lib/item-list'
 import { logActivity } from '@/lib/log-activity'
 
 const PACKAGE_TYPE_KEYS: string[] = PACKAGE_TYPES.map(p => p.key)
@@ -95,7 +96,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     included: Array.isArray(included) ? included : [],
     excluded: Array.isArray(excluded) ? excluded : [],
     ask_for: Array.isArray(ask_for) ? ask_for : [],
-    item_list: Array.isArray(item_list) ? item_list : [],
+    item_list: coerceLines(item_list),
   }
 
   let { data: pkg, error } = await db.from('bid_packages').insert(withScope).select().single()

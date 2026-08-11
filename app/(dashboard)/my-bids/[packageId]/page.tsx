@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge, getStatusVariant } from '@/components/ui/badge'
 import { ScopeBuilder, ScopeCategory, scopeTotal } from '@/components/ui/scope-builder'
+import { ItemListView } from '@/components/projects/item-list-editor'
+import { coerceLines } from '@/lib/item-list'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
 
@@ -271,6 +273,51 @@ export default function BidDetailPage({ params }: { params: { packageId: string 
                 <p className="text-ink-soft whitespace-pre-wrap leading-relaxed">{pkg.requirements}</p>
               </div>
             )}
+          </div>
+        )}
+
+        {/* What the GC actually wants priced, when they answered the scope
+            questions or sent an item list. */}
+        {(pkg.material_by || (pkg.included?.length ?? 0) > 0 || (pkg.excluded?.length ?? 0) > 0 || (pkg.ask_for?.length ?? 0) > 0) && (
+          <div className="mt-4 pt-4 border-t border-line-soft space-y-3 text-sm">
+            {pkg.material_by && (
+              <p className="font-semibold text-ink">
+                {pkg.material_by === 'gc'
+                  ? 'Material is supplied by the GC - price your labor only.'
+                  : pkg.material_by === 'na'
+                    ? 'No material on this package.'
+                    : 'You supply the material and the labor.'}
+              </p>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {(pkg.included?.length ?? 0) > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-faint uppercase tracking-wide mb-1">Included</p>
+                  <ul className="space-y-0.5 text-ink-soft">{pkg.included.map((t: string, i: number) => <li key={i}>· {t}</li>)}</ul>
+                </div>
+              )}
+              {(pkg.excluded?.length ?? 0) > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-faint uppercase tracking-wide mb-1">Not included</p>
+                  <ul className="space-y-0.5 text-muted-fg">{pkg.excluded.map((t: string, i: number) => <li key={i}>· {t}</li>)}</ul>
+                </div>
+              )}
+              {(pkg.ask_for?.length ?? 0) > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-accent-fg uppercase tracking-wide mb-1">Include with your bid</p>
+                  <ul className="space-y-0.5 text-ink-soft">{pkg.ask_for.map((t: string, i: number) => <li key={i}>· {t}</li>)}</ul>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {(pkg.item_list?.length ?? 0) > 0 && (
+          <div className="mt-4 pt-4 border-t border-line-soft">
+            <ItemListView items={coerceLines(pkg.item_list)} title="Item list to price" />
+            <p className="text-xs text-faint mt-2">
+              Price these lines in your scope breakdown below so your bid lines up with everyone else&apos;s.
+            </p>
           </div>
         )}
 

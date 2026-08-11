@@ -11,6 +11,9 @@ import { cn } from '@/lib/utils'
 import { ComparisonBlock, type Comparison } from '@/components/quotes/comparison-block'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 import { ScopeBuilder, EMPTY_SCOPE, type ScopeValue } from '@/components/projects/scope-builder'
+import { ItemListEditor } from '@/components/projects/item-list-editor'
+import { LineComparison } from '@/components/quotes/line-comparison'
+import type { ItemLine } from '@/lib/item-list'
 
 const money = (n: number | null) => n == null ? '-' : `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 const STATUS: Record<string, string> = {
@@ -34,6 +37,7 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
   const [title, setTitle] = useState('')
   const [trade, setTrade] = useState('')
   const [scopeValue, setScopeValue] = useState<ScopeValue>(EMPTY_SCOPE)
+  const [itemList, setItemList] = useState<ItemLine[]>([])
   const [description, setDescription] = useState('')
   const [dueDate, setDueDate] = useState('')
   const [files, setFiles] = useState<File[]>([])
@@ -88,11 +92,14 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
     form.append('included', JSON.stringify(scopeValue.included))
     form.append('excluded', JSON.stringify(scopeValue.excluded))
     form.append('ask_for', JSON.stringify(scopeValue.ask_for))
+    // The priced lines, when there are any. Blank descriptions are rows the
+    // user started and abandoned - they'd come back as empty lines on the bid.
+    form.append('item_list', JSON.stringify(itemList.filter(l => l.description.trim())))
     if (chosen.length) form.append('existing_attachments', JSON.stringify(chosen))
     files.forEach(f => form.append('attachments', f))
     const res = await fetch(`/api/projects/${params.id}/bid-requests`, { method: 'POST', headers: { Authorization: `Bearer ${t}` }, body: form })
     setCreating(false)
-    if (res.ok) { setTitle(''); setTrade(''); setDescription(''); setDueDate(''); setFiles([]); setSelectedPlans(new Set()); setShowNew(false); load() }
+    if (res.ok) { setTitle(''); setTrade(''); setDescription(''); setDueDate(''); setFiles([]); setSelectedPlans(new Set()); setScopeValue(EMPTY_SCOPE); setItemList([]); setShowNew(false); load() }
     else alert((await res.json().catch(() => ({}))).error ?? 'Could not create')
   }
 
@@ -223,7 +230,11 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
           <div className="space-y-1.5"><Label>Scope / instructions</Label>
             <textarea rows={3} value={description} onChange={e => setDescription(e.target.value)} placeholder="What you need quoted, requirements, etc."
               className="w-full rounded-md border border-muted2 px-3 py-2 text-sm focus:border-accent focus:outline-none resize-none" /></div>
-          <ScopeBuilder trade={trade || null} value={scopeValue} onChange={setScopeValue} />
+          <ScopeBuilder trade={trade || null} value={scopeValue} onChange={setScopeValue} itemCount={itemList.length} />
+          <ItemListEditor value={itemList} onChange={setItemList}
+            hint={scopeValue.material_by === 'gc' && itemList.length === 0
+              ? 'You’re supplying the material on this one. Send the list and they price it line by line - that’s the only way two quotes on material actually compare.'
+              : undefined} />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5"><Label>Due date</Label><Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} /></div>
@@ -318,6 +329,19 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
                 <div className="flex flex-wrap gap-2">
                   {req.bid_request_attachments.map((a: any) => <a key={a.id} href={a.file_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-xs text-accent-fg hover:bg-surface"><FileText className="h-3.5 w-3.5" />{a.file_name ?? 'Plan'}</a>)}
                 </div>
+              )}
+
+              {/* Line-by-line, when an item list went out with this request */}
+              {(req.item_list?.length ?? 0) > 0 && (
+                <LineComparison
+                  items={req.item_list}
+                  vendors={submissions
+                    .filter((s: any) => (s.priced_items?.length ?? 0) > 0)
+                    .map((s: any) => ({
+                      name: invites.find((i: any) => i.id === s.bid_invite_id)?.vendor_name ?? s.submitted_by_name ?? 'Vendor',
+                      lines: s.priced_items,
+                    }))}
+                />
               )}
 
               {/* Quotes received - visible without opening the AI comparison */}

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { FileText, Upload, CheckCircle2, Calendar, Loader2, AlertTriangle, Check, X } from 'lucide-react'
 import { SyteNavLogo } from '@/components/ui/logo'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
+import { lineTotal, pricedCount, pricedTotal, type ItemLine, type PricedLine } from '@/lib/item-list'
 
 interface Data {
   request: {
@@ -13,10 +14,16 @@ interface Data {
     attachments: { file_url: string; file_name: string | null }[]
     package_type?: string | null; material_by?: string | null
     included?: string[]; excluded?: string[]; ask_for?: string[]
+    item_list?: ItemLine[]
   }
   invite: { vendor_name: string | null; status: string }
-  submission: { amount: number | null; notes: string | null; file_name: string | null; created_at: string } | null
+  submission: {
+    amount: number | null; notes: string | null; file_name: string | null; created_at: string
+    priced_items?: PricedLine[] | null
+  } | null
 }
+
+const money = (n: number) => `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 export default function BidPage({ params }: { params: { token: string } }) {
   const [data, setData] = useState<Data | null>(null)
@@ -28,22 +35,48 @@ export default function BidPage({ params }: { params: { token: string } }) {
   const [file, setFile] = useState<File | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState(false)
+  const [priced, setPriced] = useState<PricedLine[]>([])
   const fileRef = useRef<HTMLInputElement>(null)
 
   async function load() {
     const res = await fetch(`/api/bid/${params.token}`)
-    if (res.ok) { const d = await res.json(); setData(d); setName(d.invite?.vendor_name ?? '') }
+    if (res.ok) {
+      const d: Data = await res.json()
+      setData(d); setName(d.invite?.vendor_name ?? '')
+      // Pick up where they left off if they already priced it once, otherwise
+      // start from the GC's lines with the prices blank.
+      const items = d.request.item_list ?? []
+      const prev = d.submission?.priced_items ?? []
+      setPriced(items.map((l, i) => ({
+        ...l,
+        unit_price: prev[i]?.description === l.description ? prev[i].unit_price ?? null : null,
+        vendor_note: prev[i]?.description === l.description ? prev[i].vendor_note : undefined,
+      })))
+    }
     else setError((await res.json().catch(() => ({}))).error ?? 'This link is no longer valid.')
     setLoading(false)
   }
   useEffect(() => { load() }, [params.token])
 
+  const hasItems = priced.length > 0
+  const lineCount = pricedCount(priced)
+  const lineSum = pricedTotal(priced)
+
+  function setLine(i: number, patch: Partial<PricedLine>) {
+    setPriced(p => p.map((l, j) => (j === i ? { ...l, ...patch } : l)))
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault()
+    if (hasItems && lineCount === 0 && !file) {
+      setError('Price at least one line, or attach your quote as a file.')
+      return
+    }
     setError(''); setSubmitting(true)
     const form = new FormData()
     form.append('name', name)
-    if (amount) form.append('amount', amount)
+    if (hasItems) form.append('priced_items', JSON.stringify(priced))
+    if (amount && !hasItems) form.append('amount', amount)
     if (notes) form.append('notes', notes)
     if (file) form.append('file', file)
     const res = await fetch(`/api/bid/${params.token}`, { method: 'POST', body: form })
@@ -166,7 +199,12 @@ export default function BidPage({ params }: { params: { token: string } }) {
             <div className="rounded-xl bg-success-tint border border-success/30 px-4 py-5 text-center">
               <CheckCircle2 className="h-8 w-8 text-success mx-auto mb-2" />
               <p className="font-semibold text-ink">Quote submitted. Thank you!</p>
-              <p className="text-sm text-muted-fg mt-1">{name || data.invite.vendor_name}{(data.submission?.amount != null || amount) ? ` · $${Number(data.submission?.amount ?? amount).toLocaleString()}` : ''}</p>
+              <p className="text-sm text-muted-fg mt-1">
+                {name || data.invite.vendor_name}
+                {hasItems && lineCount > 0
+                  ? ` · ${money(lineSum)} · ${lineCount} of ${priced.length} lines priced`
+                  : (data.submission?.amount != null || amount) ? ` · $${Number(data.submission?.amount ?? amount).toLocaleString()}` : ''}
+              </p>
               {data.submission?.created_at && <p className="text-xs text-faint mt-1">Received {new Date(data.submission.created_at).toLocaleDateString()}</p>}
             </div>
           ) : null}
@@ -187,10 +225,67 @@ export default function BidPage({ params }: { params: { token: string } }) {
                 <label className="text-sm text-ink-soft">Your name / company</label>
                 <input value={name} onChange={e => setName(e.target.value)} required className={inputCls} />
               </div>
-              <div className="space-y-1.5">
-                <label className="text-sm text-ink-soft">Quote amount ($)</label>
-                <input type="number" inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value)} placeholder="optional if attaching a file" className={inputCls} />
-              </div>
+              {/* Line pricing when the GC sent a list. Put a price against each
+                  line; the total adds itself up so nobody does the arithmetic
+                  twice and gets a different answer. */}
+              {hasItems ? (
+                <div className="space-y-2">
+                  <div>
+                    <label className="text-sm text-ink-soft">Price each line</label>
+                    <p className="text-xs text-faint mt-0.5">
+                      Enter your unit price. Leave a line blank if you don&apos;t carry it and say so in the note.
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-line overflow-hidden">
+                    <div className="divide-y divide-line-soft">
+                      {priced.map((l, i) => {
+                        const total = lineTotal(l)
+                        return (
+                          <div key={i} className="px-3 py-2.5 space-y-1.5">
+                            <div className="flex items-baseline justify-between gap-3">
+                              <span className="text-sm text-ink-soft min-w-0">
+                                {l.description}
+                                {l.notes && <span className="block text-[11px] text-faint">{l.notes}</span>}
+                              </span>
+                              <span className="text-xs text-muted-fg shrink-0 tabular-nums">
+                                {l.qty == null ? '' : `${l.qty.toLocaleString()} `}{l.unit}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="relative flex-1 min-w-0">
+                                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-faint">$</span>
+                                <input type="number" inputMode="decimal" step="0.01"
+                                  value={l.unit_price ?? ''}
+                                  onChange={e => setLine(i, { unit_price: e.target.value === '' ? null : Number(e.target.value) })}
+                                  placeholder={`per ${l.unit}`}
+                                  className="w-full rounded-lg bg-surface border border-line pl-7 pr-3 py-2 text-base text-ink placeholder:text-faint focus:border-accent focus:outline-none" />
+                              </div>
+                              <span className={`w-24 shrink-0 text-right text-sm tabular-nums ${total == null ? 'text-faint' : 'font-semibold text-ink'}`}>
+                                {total == null ? '-' : money(total)}
+                              </span>
+                            </div>
+                            <input value={l.vendor_note ?? ''} onChange={e => setLine(i, { vendor_note: e.target.value })}
+                              placeholder="Note on this line (substitution, lead time, not stocked)"
+                              className="w-full rounded-lg bg-surface border border-line px-3 py-1.5 text-xs text-ink placeholder:text-faint focus:border-accent focus:outline-none" />
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <div className="flex items-center justify-between gap-3 bg-muted px-3 py-2.5">
+                      <span className="text-sm font-semibold text-ink-soft">
+                        Total
+                        <span className="ml-2 text-xs font-normal text-muted-fg">{lineCount} of {priced.length} lines priced</span>
+                      </span>
+                      <span className="text-lg font-bold text-ink tabular-nums">{money(lineSum)}</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <label className="text-sm text-ink-soft">Quote amount ($)</label>
+                  <input type="number" inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value)} placeholder="optional if attaching a file" className={inputCls} />
+                </div>
+              )}
               <div className="space-y-1.5">
                 <label className="text-sm text-ink-soft">Attach your quote (PDF / image)</label>
                 <input ref={fileRef} type="file" accept="application/pdf,image/*" className="sr-only" onChange={e => setFile(e.target.files?.[0] ?? null)} />

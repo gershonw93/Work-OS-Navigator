@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { coerceLines, coercePricedLines, pricedCount, pricedTotal } from '@/lib/item-list'
 
 export const runtime = 'nodejs'
 
@@ -41,6 +42,7 @@ export async function GET(_request: Request, { params }: { params: { token: stri
       included: (req as any).included ?? [],
       excluded: (req as any).excluded ?? [],
       ask_for: (req as any).ask_for ?? [],
+      item_list: coerceLines((req as any).item_list),
     },
     invite: { vendor_name: invite.vendor_name, status: invite.status },
     submission: mySubmission ?? null,
@@ -60,8 +62,17 @@ export async function POST(request: Request, { params }: { params: { token: stri
   }
 
   const amountRaw = form.get('amount') as string | null
-  const amount = amountRaw ? Number(String(amountRaw).replace(/[^0-9.\-]/g, '')) : null
+  let amount = amountRaw ? Number(String(amountRaw).replace(/[^0-9.\-]/g, '')) : null
   const notes = (form.get('notes') as string) || null
+
+  // Line pricing, when the GC sent an item list. The total is computed here,
+  // not trusted from the browser - it has to match the lines the GC compares.
+  let priced_items: ReturnType<typeof coercePricedLines> = []
+  const pricedRaw = form.get('priced_items') as string | null
+  if (pricedRaw) {
+    try { priced_items = coercePricedLines(JSON.parse(pricedRaw)) } catch { priced_items = [] }
+  }
+  if (pricedCount(priced_items) > 0) amount = pricedTotal(priced_items)
   const submitted_by_name = (form.get('name') as string) || invite.vendor_name || null
   const file = form.get('file') as File | null
 
@@ -84,11 +95,17 @@ export async function POST(request: Request, { params }: { params: { token: stri
   // revision.
   await db.from('bid_submissions').delete().eq('bid_invite_id', invite.id)
 
-  const { error } = await db.from('bid_submissions').insert({
+  const base = {
     bid_request_id: invite.bid_request_id,
     bid_invite_id: invite.id,
     amount, notes, file_url, file_name, submitted_by_name,
-  })
+  }
+  let { error } = await db.from('bid_submissions').insert({ ...base, priced_items })
+  // Pre-migration fallback: priced_items may not exist yet. A sub's quote must
+  // never bounce because the GC hasn't run a migration.
+  if (error && (error as any).code === '42703') {
+    error = (await db.from('bid_submissions').insert(base)).error
+  }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   await db.from('bid_invites').update({ status: 'submitted' }).eq('id', invite.id)

@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { coerceLines } from '@/lib/item-list'
 
 export const runtime = 'nodejs'
 
@@ -57,6 +58,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     included: jsonField('included'),
     excluded: jsonField('excluded'),
     ask_for: jsonField('ask_for'),
+    item_list: coerceLines(jsonField('item_list')),
   }
 
   let { data: req, error } = await db.from('bid_requests').insert(withScope).select().single()
