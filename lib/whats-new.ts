@@ -72,6 +72,12 @@ export const RELEASES: Release[] = [
       },
       {
         kind: 'new',
+        title: 'Scan a sub\'s invoice instead of retyping it',
+        text: 'Drag the PDF a sub emailed onto the Invoices tab - a photo or screenshot works too - and it reads the document and fills the form in: who is billing, the amount, the date, what the work was, with the file already attached. It also matches the invoice to a subcontract on that job and to a line on their payment schedule, and tells you in red when the amount does not match the line it looks like. Nothing saves until you confirm it.',
+        help: 'scan-sub-invoice',
+      },
+      {
+        kind: 'new',
         title: 'Item lists on a quote request',
         text: 'When you are the one buying the material, send the lines and every supplier prices the same ones. Import a takeoff, paste rows out of a spreadsheet, or type them. Their prices come back line by line, and "Compare line by line" shows you the one item that is triple on one bid and missing on another - the thing a total hides.',
         help: 'item-list',
