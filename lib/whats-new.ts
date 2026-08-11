@@ -77,6 +77,12 @@ export const RELEASES: Release[] = [
         help: 'scan-sub-invoice',
       },
       {
+        kind: 'fixed',
+        title: 'Commercial jobs had nowhere to put a sub\'s bill',
+        text: 'On a job set to AIA billing the Invoices tab was hidden completely - but that tab holds bills your subs and suppliers send YOU, which has nothing to do with how you bill the owner. The job type with the most subcontractors on it had nowhere to record a single one. It is back. Every money tab now says which direction it points: Invoices is money out, Pay Apps and Payments are money in, each linking to the other.',
+        help: 'money-overview',
+      },
+      {
         kind: 'improved',
         title: 'Deleting an invoice, and a clearer Invoices tab',
         text: 'Delete is now a labelled button instead of a small grey icon, and it works at any status - including paid, which is exactly where a duplicate you already ticked off needs removing and where the button used to disappear. The confirmation tells you what it will do first: how much comes back off which budget line, and whether the bill has already gone to QuickBooks. The tab now says plainly that these are bills your subs sent you - upload one they emailed or enter it yourself - with a link to where you bill your client instead.',

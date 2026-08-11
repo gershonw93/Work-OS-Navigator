@@ -34,6 +34,7 @@ move it to **In progress**, and when it ships, move it to **Done** with the PR #
 - Maybe later: AI "upload the plan → rough room/fixture counts" helper (approximate, not surveyor-grade).
 
 ## 💰 Money
+- **Customer invoice on simple-billing jobs** *(gap found while explaining the money tabs; 43 of 44 projects are simple-billing)*. There is no way to produce a bill to SEND a client on a simple job. Pay Apps covers it for AIA jobs (the G702 is the invoice); Payments & Escrow only records money that already came in; the Proposal PDF is a proposal, not an invoice. Wanted: a client invoice - deposit, % of contract, or milestone; approved change orders included; a print/PDF and a token link the way the portal works; recorded against the contract so Payments reconciles to it.
 - **Split one invoice across budget lines** *(deferred from PR for invoice→budget visibility)*. A supplier bill that covers two trades - lumber and hardware, say - can only land on one line today, because an invoice inherits its line from its subcontract. Wanted: split the amount across several lines on one invoice. **Explicitly NOT wanted: a per-invoice line override.** The single-line-per-contract rule is what keeps a contract's invoices adding up against one line; splitting adds detail within that rule, overriding breaks it.
 - **Approving a change order optionally bumps the client contract** (we did sub-side; consider explicit client-revenue side too).
 - **Forecasting / cash-flow projections** beyond the current budget × (1+fee).

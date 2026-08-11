@@ -61,7 +61,14 @@ export default function PayAppsPage({ params }: { params: { id: string } }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-ink">Applications for Payment</h1>
-          <p className="text-sm text-muted-fg mt-0.5">AIA-style G702 / G703 progress billing and bank draws. Bill the owner for the contract, or a sub bills you.</p>
+          <p className="text-sm text-muted-fg mt-0.5">
+            AIA-style G702 / G703 progress billing and bank draws. <span className="font-medium text-ink-soft">This is how you invoice
+            the owner</span> on this job - the application you print here is the bill you send.
+          </p>
+          <p className="text-xs text-faint mt-1">
+            Bills your subs send <span className="font-medium">you</span> go on{' '}
+            <Link href={`/projects/${params.id}/invoices`} className="text-accent-fg hover:underline">Invoices</Link>.
+          </p>
         </div>
         <Button onClick={() => setShowNew(true)} className="gap-1.5"><Plus className="h-4 w-4" /> New Application</Button>
       </div>
