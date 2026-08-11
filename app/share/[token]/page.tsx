@@ -8,6 +8,7 @@ import { SyteNavLogo } from '@/components/ui/logo'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
+import { DocumentViewer } from '@/components/ui/image-lightbox'
 
 interface SharedFile { name: string; url: string; type?: string | null; size?: number | null; added_at?: string | null }
 interface Data {
@@ -37,6 +38,8 @@ export default function SharePage({ params }: { params: { token: string } }) {
   const [sending, setSending] = useState(false)
   const [progress, setProgress] = useState('')
   const [dragging, setDragging] = useState(false)
+  // Which document the viewer is open on. Null means closed.
+  const [viewing, setViewing] = useState<number | null>(null)
   const [sent, setSent] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -146,8 +149,11 @@ export default function SharePage({ params }: { params: { token: string } }) {
             </h2>
             <div className="mt-3 rounded-2xl border border-line bg-panel divide-y divide-line-soft overflow-hidden">
               {data.files.map((f, i) => (
-                <a key={i} href={f.url} target="_blank" rel="noreferrer"
-                  className="flex items-center gap-3 px-4 py-3.5 hover:bg-surface transition-colors">
+                // Opens in the viewer rather than a new tab. On a phone the tab
+                // meant leaving this page and coming back once per document;
+                // here you swipe from one to the next.
+                <button key={i} type="button" onClick={() => setViewing(i)}
+                  className="w-full text-left flex items-center gap-3 px-4 py-3.5 hover:bg-surface transition-colors">
                   <FileText className="h-5 w-5 text-accent-fg shrink-0" />
                   <span className="flex-1 min-w-0">
                     <span className="block text-sm font-medium text-ink truncate">
@@ -164,9 +170,12 @@ export default function SharePage({ params }: { params: { token: string } }) {
                     {f.size ? <span className="block text-xs text-faint">{prettySize(f.size)}</span> : null}
                   </span>
                   <Download className="h-4 w-4 text-faint shrink-0" />
-                </a>
+                </button>
               ))}
             </div>
+            {data.files.length > 1 && (
+              <p className="mt-2 text-xs text-faint">Open one and swipe to move through the rest.</p>
+            )}
 
             {/* Send something back */}
             {data.allow_upload && (
@@ -256,6 +265,15 @@ export default function SharePage({ params }: { params: { token: string } }) {
           </>
         ) : null}
       </main>
+
+      {viewing != null && data && (
+        <DocumentViewer
+          images={data.files.map(f => ({ url: f.url, name: f.name }))}
+          index={viewing}
+          onIndexChange={setViewing}
+          onClose={() => setViewing(null)}
+        />
+      )}
     </div>
   )
 }
