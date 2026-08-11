@@ -21,7 +21,8 @@ async function auth(request: Request) {
 const FIELDS = [
   'category', 'item', 'location', 'allowance_amount', 'budget_line_item_id',
   'needed_by', 'lead_time_days', 'status', 'selected_option_id', 'selected_name',
-  'selected_price', 'notes', 'sort_order',
+  'selected_price', 'notes', 'sort_order', 'reference_url', 'reference_label',
+  'change_requested_at', 'change_request_note', 'supplier_company_id', 'expected_delivery',
 ]
 
 export async function PATCH(request: Request, { params }: { params: { id: string; selId: string } }) {

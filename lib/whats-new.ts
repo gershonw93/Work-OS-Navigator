@@ -78,7 +78,7 @@ export const RELEASES: Release[] = [
       {
         kind: 'improved',
         title: 'Selections you can actually look at',
-        text: 'Options now carry a color swatch, a photo, the brand and a link to the product page - you cannot choose a paint color off a text label. Paste a whole list at once (a fan deck, a spec sheet) and it works out which bit is the color, the price and the link. Suppliers come from your Directory instead of a free-text box.',
+        text: 'Drop or upload a real PHOTO on any option - a phone shot of the sample board, a screenshot off the supplier site. The color picker is gone; nobody eyeballs Sherwin Williams Alabaster off a color wheel. Instead each selection takes one link to the manufacturer\'s full range, which the client can open and browse. Brand carries over from the last option so you are not retyping it every line, and suppliers come from your Directory instead of a free-text box.',
         help: 'selections',
       },
       {

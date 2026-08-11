@@ -85,7 +85,7 @@ export const SELECTION_CATEGORIES: SelectionCategory[] = [
     items: ['Switch and outlet color', 'Plate style', 'Thermostat'] },
   { category: 'Interior Doors & Hardware', lead_time_days: 28, blocks: 'Trim',
     items: ['Door style', 'Door hardware finish', 'Hinges'] },
-  { category: 'Trim & Moulding', lead_time_days: 14, blocks: 'Trim',
+  { category: 'Trim & Molding', lead_time_days: 14, blocks: 'Trim',
     items: ['Base profile', 'Casing profile', 'Crown', 'Stair parts'] },
   { category: 'Flooring', lead_time_days: 28, blocks: 'Flooring',
     items: ['Main floor product', 'Bedroom product', 'Stair treads', 'Transitions'],
@@ -137,7 +137,7 @@ export function isHomeType(type: string | null | undefined): boolean {
 
 const INTERIOR_FINISHES = [
   'Cabinets', 'Countertops', 'Plumbing Fixtures', 'Light Fixtures', 'Electrical Devices',
-  'Interior Doors & Hardware', 'Trim & Moulding', 'Flooring', 'Tile', 'Interior Paint',
+  'Interior Doors & Hardware', 'Trim & Molding', 'Flooring', 'Tile', 'Interior Paint',
   'HVAC & Comfort',
 ]
 

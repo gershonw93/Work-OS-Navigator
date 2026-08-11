@@ -52,3 +52,9 @@ ALTER TABLE change_orders
   ADD COLUMN IF NOT EXISTS budget_line_item_id uuid REFERENCES budget_line_items (id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS idx_change_orders_budget_line
   ON change_orders (budget_line_item_id) WHERE budget_line_item_id IS NOT NULL;
+
+-- Where the client can go and look at the whole range. One link per selection,
+-- not per option - "here is the color chart" is a single fact about the
+-- category, and repeating it on every row would be noise.
+ALTER TABLE project_selections ADD COLUMN IF NOT EXISTS reference_url text;
+ALTER TABLE project_selections ADD COLUMN IF NOT EXISTS reference_label text;

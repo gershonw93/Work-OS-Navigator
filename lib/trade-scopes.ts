@@ -168,10 +168,10 @@ export const TRADE_SCOPES: TradeScope[] = [
     included: ['Install base, casing, doors', 'Hardware install'],
     excluded: ['Material supply', 'Paint', 'Stairs unless noted'],
     ask_for: [
-      'THE MOULDING LIST - profiles and footage you need ordered',
+      'THE MOLDING LIST - profiles and footage you need ordered',
       'Whether they measure on site first',
     ],
-    note: 'Either they price from plans and measure later, or they hand you a moulding list to price. Ask which.',
+    note: 'Either they price from plans and measure later, or they hand you a molding list to price. Ask which.',
   },
   {
     trade: 'Cabinets & Countertops',
@@ -184,8 +184,8 @@ export const TRADE_SCOPES: TradeScope[] = [
     trade: 'Flooring',
     package_type: 'turnkey', material_by: 'sub',
     included: ['Material', 'Underlayment', 'Install', 'Transitions', 'Clean-up'],
-    excluded: ['Subfloor prep and levelling', 'Base moulding'],
-    ask_for: ['Product priced', 'Unit price for floor levelling'],
+    excluded: ['Subfloor prep and leveling', 'Base molding'],
+    ask_for: ['Product priced', 'Unit price for floor leveling'],
   },
   {
     trade: 'Tile',

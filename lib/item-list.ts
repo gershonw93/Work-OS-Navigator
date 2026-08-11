@@ -3,7 +3,7 @@
 // Most packages don't need one. A foundation sub brings his own material and
 // quotes off the plans; an electrician prices per opening. You only need a list
 // when YOU are buying the material and somebody has to count it - lumber,
-// trusses, mouldings, windows, fixtures.
+// trusses, moldings, windows, fixtures.
 //
 // When a list goes out, every bidder prices the same lines, so the quotes come
 // back comparable to the penny instead of comparable in spirit.

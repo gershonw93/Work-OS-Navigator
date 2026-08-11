@@ -107,7 +107,7 @@ export function ItemListEditor({
                 ? 'Not needed here - they bring their own material and quote off the plans. The scope above is what makes those quotes comparable.'
                 : needed === 'yes'
                   ? 'You’re buying the material on this one, so somebody has to count it. Send the lines and every supplier prices the same ones.'
-                  : 'Add one when you’re buying the material - lumber, trusses, mouldings, windows. Skip it otherwise.'}
+                  : 'Add one when you’re buying the material - lumber, trusses, moldings, windows. Skip it otherwise.'}
           </span>
         </span>
       </button>

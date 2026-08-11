@@ -11,7 +11,7 @@ import { useDeleteGuard } from '@/components/ui/delete-guard'
 import {
   Palette, Plus, Trash2, Link2, CheckCircle2, AlertTriangle, Clock, X,
   ChevronDown, ChevronRight, ExternalLink, Sparkles, GitPullRequest, Loader2,
-  ClipboardPaste, Truck, MessageSquareWarning, Wallet,
+  ClipboardPaste, Truck, MessageSquareWarning, Wallet, ImagePlus,
 } from 'lucide-react'
 import {
   SELECTION_CATEGORIES, SELECTION_STATUSES, STATUS_TINT, PROJECT_TYPE_LABEL,
@@ -36,6 +36,7 @@ interface Selection {
   status: SelectionStatus; selected_name: string | null; selected_price: number | null
   selected_at: string | null; selected_by_name: string | null
   change_order_id: string | null; notes: string | null
+  reference_url: string | null; reference_label: string | null
   supplier_company_id: string | null; ordered_at: string | null; expected_delivery: string | null
   change_requested_at: string | null; change_request_note: string | null
   selection_options: Option[]
@@ -69,6 +70,8 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
   type OptDraft = { name: string; brand: string; price: string; color_hex: string; link_url: string; image_url: string }
   const BLANK_OPT: OptDraft = { name: '', brand: '', price: '', color_hex: '', link_url: '', image_url: '' }
   const [optDraft, setOptDraft] = useState<Record<string, OptDraft>>({})
+  const [uploading, setUploading] = useState<string | null>(null)
+  const [dragOver, setDragOver] = useState<string | null>(null)
   const [pasteFor, setPasteFor] = useState<string | null>(null)
   const [pasteText, setPasteText] = useState('')
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([])
@@ -201,8 +204,34 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
         color_hex: d.color_hex || null, link_url: d.link_url || null, image_url: d.image_url || null,
       }),
     })
-    if (res.ok) { setOptDraft(p => ({ ...p, [selId]: { ...BLANK_OPT } })); load() }
+    // Keep the brand. You're entering a fan deck or a product line, so it's the
+    // same manufacturer line after line - retyping it every row is the kind of
+    // small tax that stops people adding options at all. Change it when it changes.
+    if (res.ok) { setOptDraft(p => ({ ...p, [selId]: { ...BLANK_OPT, brand: d.brand } })); load() }
     else alert((await res.json().catch(() => ({}))).error ?? 'Could not add that option')
+  }
+
+  /**
+   * A photo of the actual thing, dropped or picked.
+   *
+   * `optionId` attaches it to an option that already exists; without one it
+   * comes back as a URL for the row being drafted.
+   */
+  async function uploadPhoto(selId: string, file: File, optionId?: string): Promise<string | null> {
+    if (!file.type.startsWith('image/')) { alert('That needs to be an image.'); return null }
+    setUploading(optionId ?? selId)
+    const t = await token()
+    const form = new FormData()
+    form.append('file', file)
+    if (optionId) form.append('optionId', optionId)
+    const res = await fetch(`/api/projects/${params.id}/selections/${selId}/options/upload`, {
+      method: 'POST', headers: { Authorization: `Bearer ${t}` }, body: form,
+    })
+    setUploading(null)
+    const body = await res.json().catch(() => ({}))
+    if (!res.ok) { alert(body.error ?? 'Could not upload that image'); return null }
+    if (optionId) load()
+    return body.image_url ?? null
   }
 
   // A fan deck has twelve colors on it. Nobody is filling in twelve forms.
@@ -281,6 +310,15 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
     }
     navigator.clipboard?.writeText(`${origin}/portal/${tok}/selections`)
     setCopied(true); setTimeout(() => setCopied(false), 1500)
+  }
+
+  /** The manufacturer already used on this selection, for one-click refill. */
+  const lastBrand = (sel: Selection): string | null => {
+    for (let i = sel.selection_options.length - 1; i >= 0; i--) {
+      const b = sel.selection_options[i]?.brand
+      if (b) return b
+    }
+    return null
   }
 
   const toggle = (id: string) => setExpanded(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n })
@@ -730,6 +768,21 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
 
                             {/* Options the client picks from */}
                             <div className="space-y-1.5">
+                              {/* One link for the whole selection, not one per
+                                  option. "Here's the color chart, go look" is a
+                                  single fact about the category - repeating it on
+                                  every row would be noise. */}
+                              <div className="space-y-1">
+                                <Label className="text-xs">Where they can browse the range <span className="text-faint font-normal">- optional</span></Label>
+                                <Input className="h-8 text-sm" defaultValue={sel.reference_url ?? ''}
+                                  placeholder="e.g. the manufacturer's color chart or product page"
+                                  onBlur={e => { if (e.target.value !== (sel.reference_url ?? '')) patch(sel.id, { reference_url: e.target.value || null }) }} />
+                                <p className="text-[11px] text-faint">
+                                  Shown at the top of this selection on the client&apos;s link, so they can see the full
+                                  range and then tell you what they picked.
+                                </p>
+                              </div>
+
                               <div className="flex items-center justify-between gap-2">
                                 <Label className="text-xs">Options the client picks from</Label>
                                 <button type="button" onClick={() => { setPasteFor(pasteFor === sel.id ? null : sel.id); setPasteText('') }}
@@ -743,14 +796,28 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
                                   {sel.selection_options.map(o => (
                                     <div key={o.id} className="flex items-center gap-2.5 px-3 py-2">
                                       {/* What the client will actually look at */}
-                                      {o.image_url ? (
-                                        // eslint-disable-next-line @next/next/no-img-element
-                                        <img src={o.image_url} alt="" className="h-8 w-8 shrink-0 rounded border border-line object-cover" />
-                                      ) : o.color_hex ? (
-                                        <span className="h-8 w-8 shrink-0 rounded border border-line" style={{ backgroundColor: o.color_hex }} />
-                                      ) : (
-                                        <span className="h-8 w-8 shrink-0 rounded border border-dashed border-muted2" />
-                                      )}
+                                      {/* Drop a photo straight onto it, or click. */}
+                                      <label
+                                        onDragOver={e => { e.preventDefault(); setDragOver(o.id) }}
+                                        onDragLeave={() => setDragOver(null)}
+                                        onDrop={e => {
+                                          e.preventDefault(); setDragOver(null)
+                                          const f = e.dataTransfer.files?.[0]
+                                          if (f) uploadPhoto(sel.id, f, o.id)
+                                        }}
+                                        title="Drop or click to add a photo"
+                                        className={cn('h-8 w-8 shrink-0 rounded border overflow-hidden cursor-pointer flex items-center justify-center',
+                                          dragOver === o.id ? 'border-accent bg-accent-tint' : 'border-line')}>
+                                        <input type="file" accept="image/*" className="sr-only"
+                                          onChange={e => { const f = e.target.files?.[0]; if (f) uploadPhoto(sel.id, f, o.id); e.target.value = '' }} />
+                                        {uploading === o.id ? <Loader2 className="h-3.5 w-3.5 animate-spin text-faint" />
+                                          : o.image_url ? (
+                                            // eslint-disable-next-line @next/next/no-img-element
+                                            <img src={o.image_url} alt="" className="h-full w-full object-cover" />
+                                          ) : o.color_hex ? (
+                                            <span className="h-full w-full" style={{ backgroundColor: o.color_hex }} />
+                                          ) : <ImagePlus className="h-3.5 w-3.5 text-faint" />}
+                                      </label>
                                       <span className="flex-1 min-w-0 text-sm text-ink-soft truncate">
                                         {o.brand && <span className="text-faint">{o.brand} </span>}{o.name}
                                       </span>
@@ -778,25 +845,54 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
                                 </div>
                               ) : (
                                 <div className="flex flex-wrap gap-1.5 items-center">
-                                  <Input className="h-8 text-sm w-28" placeholder="Brand"
-                                    value={optDraft[sel.id]?.brand ?? ''}
-                                    onChange={e => setOptDraft(p => ({ ...p, [sel.id]: { ...(p[sel.id] ?? BLANK_OPT), brand: e.target.value } }))} />
+                                  <div className="relative">
+                                    <Input className="h-8 text-sm w-28" placeholder="Brand"
+                                      value={optDraft[sel.id]?.brand ?? ''}
+                                      onChange={e => setOptDraft(p => ({ ...p, [sel.id]: { ...(p[sel.id] ?? BLANK_OPT), brand: e.target.value } }))} />
+                                    {/* Cleared it and want it back - one click rather than retyping. */}
+                                    {!optDraft[sel.id]?.brand && lastBrand(sel) && (
+                                      <button type="button"
+                                        onClick={() => setOptDraft(p => ({ ...p, [sel.id]: { ...(p[sel.id] ?? BLANK_OPT), brand: lastBrand(sel)! } }))}
+                                        className="absolute inset-y-0 right-1 my-auto h-5 max-w-[6rem] truncate rounded bg-muted px-1.5 text-[10px] font-medium text-muted-fg hover:bg-accent-tint hover:text-accent-fg"
+                                        title={`Use ${lastBrand(sel)}`}>
+                                        {lastBrand(sel)}
+                                      </button>
+                                    )}
+                                  </div>
                                   <Input className="h-8 text-sm flex-1 min-w-[9rem]" placeholder="Option name"
                                     value={optDraft[sel.id]?.name ?? ''}
                                     onChange={e => setOptDraft(p => ({ ...p, [sel.id]: { ...(p[sel.id] ?? BLANK_OPT), name: e.target.value } }))} />
                                   <Input className="h-8 text-sm w-20" type="number" placeholder="Price"
                                     value={optDraft[sel.id]?.price ?? ''}
                                     onChange={e => setOptDraft(p => ({ ...p, [sel.id]: { ...(p[sel.id] ?? BLANK_OPT), price: e.target.value } }))} />
-                                  <input type="color" title="Color swatch" aria-label="Color swatch"
-                                    value={optDraft[sel.id]?.color_hex || '#cccccc'}
-                                    onChange={e => setOptDraft(p => ({ ...p, [sel.id]: { ...(p[sel.id] ?? BLANK_OPT), color_hex: e.target.value } }))}
-                                    className="h-8 w-9 shrink-0 rounded border border-line bg-surface p-0.5 cursor-pointer" />
                                   <Input className="h-8 text-sm w-36" placeholder="Link to product"
                                     value={optDraft[sel.id]?.link_url ?? ''}
                                     onChange={e => setOptDraft(p => ({ ...p, [sel.id]: { ...(p[sel.id] ?? BLANK_OPT), link_url: e.target.value } }))} />
-                                  <Input className="h-8 text-sm w-36" placeholder="Photo URL"
-                                    value={optDraft[sel.id]?.image_url ?? ''}
-                                    onChange={e => setOptDraft(p => ({ ...p, [sel.id]: { ...(p[sel.id] ?? BLANK_OPT), image_url: e.target.value } }))} />
+                                  {/* A photo of the real thing, not a color wheel. */}
+                                  <label
+                                    onDragOver={e => { e.preventDefault(); setDragOver(sel.id) }}
+                                    onDragLeave={() => setDragOver(null)}
+                                    onDrop={async e => {
+                                      e.preventDefault(); setDragOver(null)
+                                      const f = e.dataTransfer.files?.[0]
+                                      if (!f) return
+                                      const url = await uploadPhoto(sel.id, f)
+                                      if (url) setOptDraft(p => ({ ...p, [sel.id]: { ...(p[sel.id] ?? BLANK_OPT), image_url: url } }))
+                                    }}
+                                    title="Drop a photo here, or click to pick one"
+                                    className={cn('h-8 shrink-0 inline-flex items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium cursor-pointer',
+                                      dragOver === sel.id ? 'border-accent bg-accent-tint text-accent-fg'
+                                        : optDraft[sel.id]?.image_url ? 'border-success text-success' : 'border-line text-muted-fg hover:bg-muted')}>
+                                    <input type="file" accept="image/*" className="sr-only"
+                                      onChange={async e => {
+                                        const f = e.target.files?.[0]; e.target.value = ''
+                                        if (!f) return
+                                        const url = await uploadPhoto(sel.id, f)
+                                        if (url) setOptDraft(p => ({ ...p, [sel.id]: { ...(p[sel.id] ?? BLANK_OPT), image_url: url } }))
+                                      }} />
+                                    {uploading === sel.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
+                                    {optDraft[sel.id]?.image_url ? 'Photo added' : 'Photo'}
+                                  </label>
                                   <Button size="sm" variant="outline" onClick={() => addOption(sel.id)}><Plus className="h-3.5 w-3.5" /></Button>
                                 </div>
                               )}
