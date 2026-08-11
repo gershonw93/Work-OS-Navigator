@@ -24,7 +24,7 @@ export default function WhatsNewPage() {
   }, [])
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-ink flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-accent-fg" /> What&apos;s new

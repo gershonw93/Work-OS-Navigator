@@ -50,7 +50,9 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   if (body.create_change_order && data) {
     const over = variance(data)
     if (over != null && over !== 0) {
-      const { data: co } = await db.from('change_orders').insert({
+      // Onto the SAME budget line the allowance came out of. An overage that
+      // floats free of its line is money the budget cannot see.
+      const co_row: Record<string, unknown> = {
         project_id: params.id,
         title: `Selection: ${data.item}${data.location ? ` (${data.location})` : ''}`,
         description: `Client selected "${data.selected_name ?? 'an upgrade'}" at $${Number(data.selected_price).toLocaleString()} against an allowance of $${Number(data.allowance_amount).toLocaleString()}.`,
@@ -58,7 +60,14 @@ export async function PATCH(request: Request, { params }: { params: { id: string
         reason: 'Allowance variance on a client selection',
         requested_by_type: 'gc',
         status: 'pending',
-      }).select('id').single()
+        budget_line_item_id: data.budget_line_item_id ?? null,
+      }
+      let co = (await db.from('change_orders').insert(co_row).select('id').single()).data
+      // Pre-migration fallback: the link column may not exist yet.
+      if (!co) {
+        delete co_row.budget_line_item_id
+        co = (await db.from('change_orders').insert(co_row).select('id').single()).data
+      }
       if (co) {
         await db.from('project_selections').update({ change_order_id: co.id }).eq('id', params.selId)
         return NextResponse.json({ selection: { ...data, change_order_id: co.id }, change_order_id: co.id })

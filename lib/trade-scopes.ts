@@ -108,7 +108,7 @@ export const TRADE_SCOPES: TradeScope[] = [
     package_type: 'turnkey', material_by: 'sub',
     included: ['House wrap', 'Siding', 'Trim and corners', 'Caulking'],
     excluded: ['Sheathing', 'Paint', 'Soffit and fascia unless noted'],
-    ask_for: ['Product and colour priced', 'Whether paint is included'],
+    ask_for: ['Product and color priced', 'Whether paint is included'],
   },
   {
     trade: 'Windows & Doors',
@@ -158,9 +158,9 @@ export const TRADE_SCOPES: TradeScope[] = [
     trade: 'Painting',
     package_type: 'turnkey', material_by: 'sub',
     included: ['Prep and caulk', 'Prime', 'Coats as specified', 'Clean-up'],
-    excluded: ['Colour selections (allowance)', 'Repairs beyond touch-up'],
-    ask_for: ['Number of coats priced', 'Product line', 'Number of colours included'],
-    note: 'Colours are a homeowner selection - price it on a standard count and note extras.',
+    excluded: ['Color selections (allowance)', 'Repairs beyond touch-up'],
+    ask_for: ['Number of coats priced', 'Product line', 'Number of colors included'],
+    note: 'Colors are a homeowner selection - price it on a standard count and note extras.',
   },
   {
     trade: 'Trim & Millwork',

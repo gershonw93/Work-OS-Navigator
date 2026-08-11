@@ -71,6 +71,23 @@ export const RELEASES: Release[] = [
       },
       {
         kind: 'improved',
+        title: 'Selections you can actually look at',
+        text: 'Options now carry a color swatch, a photo, the brand and a link to the product page - you cannot choose a paint color off a text label. Paste a whole list at once (a fan deck, a spec sheet) and it works out which bit is the color, the price and the link. Suppliers come from your Directory instead of a free-text box.',
+        help: 'selections',
+      },
+      {
+        kind: 'new',
+        title: 'Order a selection, and see it on the budget',
+        text: 'Once the client has chosen, "Order it" records the supplier, the amount (already priced from what they picked) and the expected delivery, and books the cost against the budget line. The board also offers to connect each selection to its budget line - it suggests one and you change whatever is wrong before anything saves.',
+        help: 'selections',
+      },
+      {
+        kind: 'improved',
+        title: 'Clients can change their mind, and see where things stand',
+        text: 'Every selection on the client link now shows its status - waiting on you, chosen, ordered, installed. They can change anything not yet ordered, and for something already on order they can send a request instead, which tells them plainly that we will contact them if we cannot make the change.',
+      },
+      {
+        kind: 'improved',
         title: 'Selections match the job you are on',
         text: 'Starting a board now asks which categories this job actually has, already ticked for the kind of job it is. A commercial fit-out gets 41 selections instead of 71 - no sod, no shutters, no bathtub. You can reopen the checklist any time to add a category you skipped.',
         help: 'selections',
