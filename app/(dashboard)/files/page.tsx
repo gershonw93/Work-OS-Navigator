@@ -11,8 +11,9 @@ import { cn } from '@/lib/utils'
 import {
   Plus, X, FileText, FileImage, File as FileIcon, FolderOpen, Package,
   ExternalLink, Trash2, Pencil, Upload, AlertCircle, Loader2, ShieldCheck,
-  FileBadge, FileSignature, Map, IdCard, FileCheck, Share2, Copy, Check, Ban, Inbox,
+  FileBadge, FileSignature, Map, IdCard, FileCheck, Share2, Copy, Check, Ban, Inbox, PenLine,
 } from 'lucide-react'
+import { PdfFiller } from '@/components/documents/pdf-filler'
 
 import { ShareFilesModal } from '@/components/files/share-files-modal'
 
@@ -46,7 +47,14 @@ interface CompanyFile {
   file_type: string | null
   size_bytes: number | null
   created_at: string
+  /** Set when this file is a filled copy of another one. */
+  filled_from_id?: string | null
+  filled_by?: string | null
 }
+
+/** Signed URLs carry a query string, so read the extension off the path. */
+const isPdf = (f: CompanyFile) =>
+  f.file_type === 'application/pdf' || /\.pdf$/i.test(f.name.split('?')[0])
 
 interface Packet {
   id: string
@@ -96,6 +104,8 @@ export default function FilesPage() {
   const [uploadError, setUploadError] = useState('')
 
   // Edit file modal
+  /** The PDF currently open in the fill-in editor. */
+  const [filling, setFilling] = useState<CompanyFile | null>(null)
   const [editingFile, setEditingFile] = useState<CompanyFile | null>(null)
   const [editName, setEditName] = useState('')
   const [editCategory, setEditCategory] = useState<string>('Other')
@@ -176,6 +186,28 @@ export default function FilesPage() {
     setUploading(false)
     resetUpload()
     setShowUpload(false)
+    fetchAll()
+  }
+
+  /**
+   * Store a filled PDF as a NEW file. The original is never touched - see the
+   * note in lib/pdf-fill.ts. Same category, so it files itself next to its
+   * parent.
+   */
+  async function saveFilled(source: CompanyFile, bytes: Uint8Array, name: string) {
+    const token = await getToken()
+    const form = new FormData()
+    // A fresh copy so the Blob owns plain bytes, not a view into a larger buffer.
+    form.append('file', new File([new Uint8Array(bytes)], name, { type: 'application/pdf' }))
+    form.append('name', name)
+    form.append('category', source.category)
+    form.append('filled_from_id', source.id)
+    const res = await fetch('/api/files', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form })
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}))
+      throw new Error(json.error ?? `Could not save the filled copy (${res.status})`)
+    }
+    setFilling(null)
     fetchAll()
   }
 
@@ -593,6 +625,11 @@ export default function FilesPage() {
                           {new Date(file.created_at).toLocaleDateString()}
                           {file.size_bytes ? ` · ${formatSize(file.size_bytes)}` : ''}
                         </p>
+                        {file.filled_from_id && (
+                          <p className="text-[11px] text-info mt-0.5">
+                            Filled in{file.filled_by ? ` by ${file.filled_by}` : ''}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center justify-between gap-2">
@@ -600,6 +637,15 @@ export default function FilesPage() {
                         {file.category}
                       </span>
                       <div className="flex items-center gap-1">
+                        {/* Only PDFs can be typed on. Everything else has no
+                            page to place text against. */}
+                        {isPdf(file) && (
+                          <button onClick={() => setFilling(file)}
+                            className="p-1.5 rounded-md text-faint hover:text-accent-fg hover:bg-accent-tint transition-colors"
+                            title="Fill in text">
+                            <PenLine className="h-4 w-4" />
+                          </button>
+                        )}
                         <a href={file.file_url} target="_blank" rel="noopener noreferrer"
                           className="p-1.5 rounded-md text-faint hover:text-accent-fg hover:bg-accent-tint transition-colors" title="Open">
                           <ExternalLink className="h-4 w-4" />
@@ -765,6 +811,15 @@ export default function FilesPage() {
           preselected={sharePreselect}
           onClose={() => setShareOpen(false)}
           onShared={() => { setTab('shares'); getToken().then(loadShares) }}
+        />
+      )}
+
+      {filling && (
+        <PdfFiller
+          fileUrl={filling.file_url}
+          fileName={filling.name}
+          onCancel={() => setFilling(null)}
+          onSave={(bytes, name) => saveFilled(filling, bytes, name)}
         />
       )}
     </div>

@@ -743,6 +743,32 @@ export const HELP_ARTICLES: HelpArticle[] = [
     related: ['request-compliance-docs', 'compliance-scan'],
   },
   {
+    slug: 'fill-in-pdf',
+    title: 'Type into a PDF instead of printing it out',
+    category: 'compliance',
+    keywords: [
+      'fill', 'fill in', 'fill out', 'form', 'forms', 'pdf', 'type on pdf', 'edit pdf',
+      'w-9', 'w9', 'credit application', 'permit application', 'application',
+      'handwrite', 'print and scan', 'rescan', 'filled', 'sign', 'signature',
+    ],
+    summary: 'Add text to any PDF and save a filled copy. The original is never changed.',
+    blocks: [
+      { type: 'text', text: 'One-page forms are the annoying case: a permit application, a supplier credit application, a W-9. They arrive as a PDF, and the usual routine is print it, fill it by hand, scan it back in. This skips all three steps.' },
+      { type: 'steps', items: [
+        'Go to Files and find the PDF. Any PDF has a "Fill in text" button (the pen icon).',
+        'Click anywhere on the page to drop a block of text, then type.',
+        'Drag the handle on the left of a block to line it up with the box on the form. Use the − and + at the top to size the text.',
+        'Multi-page form? Use the arrows at the top to move between pages. Text stays where you put it on each one.',
+        'Click "Save filled copy".',
+      ] },
+      { type: 'text', text: 'The filled version is saved as a NEW file, named the same with "(filled)" on the end and filed in the same category. It records who filled it. Your original is left exactly as it was - which matters when the blank form is something you reuse, or something somebody else sent you.' },
+      { type: 'warn', text: 'This types text onto a document. It is NOT a signature tool, and it deliberately has no signature field, no script font and no "sign here". If you need a signature that will stand up when someone disputes it, that needs an audit trail and a tamper-evident record this does not have - use a proper e-signature service for contracts, change orders and lien waivers.' },
+      { type: 'tip', text: 'A couple of limits worth knowing. Emoji and non-Latin text (Hebrew, Chinese) cannot be written into a PDF this way and are left out - you get a warning at the top when that would happen. And a page that has been saved rotated cannot be filled accurately yet, so it tells you rather than putting the text in the wrong place.' },
+      { type: 'text', text: 'Once it is filled, send it on the same way as anything else - tick it into a share link from the Files page or the Sharing tab on a job.' },
+    ],
+    related: ['share-documents', 'compliance-overview'],
+  },
+  {
     slug: 'share-documents',
     title: 'Send documents to someone outside your company',
     category: 'compliance',
