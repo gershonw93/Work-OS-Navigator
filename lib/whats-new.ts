@@ -78,6 +78,13 @@ export const RELEASES: Release[] = [
       },
       {
         kind: 'new',
+        title: 'Type into a PDF instead of printing it',
+        text: 'On the Files page, any PDF now has a "Fill in text" button. Click anywhere on the page to add text, drag it to line up with the box on the form, and save. It is for the pile of one-page forms that get printed, filled by hand and rescanned - permit applications, supplier credit apps, W-9s. The filled version saves as a NEW file marked "(filled)" and shows who filled it; the original is left exactly as it was. To be clear about what this is: it types text onto a document. It is not a signature tool and does not offer signature fields.',
+        help: 'fill-in-pdf',
+        href: '/files',
+      },
+      {
+        kind: 'new',
         title: 'Swipe between documents on your phone',
         text: 'Open a document on a share link and swipe left or right to move to the next one, instead of tapping each file open in a new tab and coming back. Photos, PDFs and anything else all page through the same way, with a counter so you know where you are. Daily log photos swipe too. Arrows and arrow keys still work on a laptop, and pinch-to-zoom on a photo is untouched.',
       },

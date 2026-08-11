@@ -76,6 +76,9 @@ export async function POST(request: Request) {
   const file = formData.get('file') as File | null
   const name = (formData.get('name') as string | null) || file?.name || 'Untitled'
   const category = (formData.get('category') as string | null) || 'Other'
+  // Set when this is a filled copy of another document. The original is never
+  // modified, so the pair only makes sense if the link is recorded.
+  const filledFromId = (formData.get('filled_from_id') as string | null) || null
 
   if (!file || file.size === 0) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
 
@@ -98,18 +101,38 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: signError?.message ?? 'Could not create file URL' }, { status: 500 })
   }
 
-  const { data: companyFile, error } = await db
-    .from('company_files')
-    .insert({
-      company_id,
-      name,
-      category,
-      file_url: signed.signedUrl,
-      file_type: file.type || null,
-      size_bytes: file.size,
-    })
-    .select()
-    .single()
+  const row: Record<string, unknown> = {
+    company_id,
+    name,
+    category,
+    file_url: signed.signedUrl,
+    file_type: file.type || null,
+    size_bytes: file.size,
+  }
+
+  if (filledFromId) {
+    // Only accept a parent this company actually owns - the id arrives from the
+    // browser, and a file should never be able to claim descent from someone
+    // else's document.
+    const { data: parent } = await db.from('company_files')
+      .select('id').eq('id', filledFromId).eq('company_id', company_id).maybeSingle()
+    if (parent) {
+      const { data: profile } = await db.from('profiles')
+        .select('full_name').eq('id', (await db.auth.getUser(token)).data.user!.id).maybeSingle()
+      row.filled_from_id = parent.id
+      row.filled_by = (profile as any)?.full_name ?? null
+      row.filled_at = new Date().toISOString()
+    }
+  }
+
+  let { data: companyFile, error } = await db.from('company_files').insert(row).select().single()
+
+  // Pre-migration fallback: the fill columns may not be there yet.
+  if (error && (error as any).code === '42703') {
+    delete row.filled_from_id; delete row.filled_by; delete row.filled_at
+    const retry = await db.from('company_files').insert(row).select().single()
+    companyFile = retry.data; error = retry.error
+  }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ file: companyFile }, { status: 201 })
