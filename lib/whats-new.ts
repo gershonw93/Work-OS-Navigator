@@ -82,6 +82,12 @@ export const RELEASES: Release[] = [
         help: 'selections',
       },
       {
+        kind: 'improved',
+        title: 'Allowances that know what is left on the line',
+        text: 'Link a selection to a budget line and the allowance fills in with what is actually left on that line, after everything else already pointing at it - and it tells you when you have gone over. Link one to a line with nothing budgeted and it offers to set the line to the allowance instead. You can no longer mark a selection chosen or ordered without a budget line; if none fits, one click creates one named from the selection.',
+        help: 'selections',
+      },
+      {
         kind: 'new',
         title: 'Order a selection, and see it on the budget',
         text: 'Once the client has chosen, "Order it" records the supplier, the amount (already priced from what they picked) and the expected delivery, and books the cost against the budget line. The board also offers to connect each selection to its budget line - it suggests one and you change whatever is wrong before anything saves.',
