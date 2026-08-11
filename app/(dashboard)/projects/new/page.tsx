@@ -90,7 +90,7 @@ export default function NewProjectPage() {
         interior_sqft: interiorSqft ? Number(interiorSqft) : null,
         exterior_sqft: exteriorSqft ? Number(exteriorSqft) : null,
         billing_mode: billingMode,
-        default_retainage_pct: billingMode === 'aia' ? (Number(retainage) || 0) : null,
+        ...(billingMode === 'aia' ? { default_retainage_pct: Number(retainage) || 0 } : {}),
       }),
     })
 

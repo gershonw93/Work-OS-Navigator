@@ -83,7 +83,9 @@ export function EditProjectButton({ projectId, project }: Props) {
         interior_sqft: interiorSqft ? Number(interiorSqft) : null,
         exterior_sqft: exteriorSqft ? Number(exteriorSqft) : null,
         billing_mode: billingMode,
-        default_retainage_pct: billingMode === 'aia' ? (Number(retainage) || 0) : null,
+        // Only meaningful on AIA billing. Omitted rather than nulled on simple -
+        // the column is NOT NULL, and the old value does no harm sitting there.
+        ...(billingMode === 'aia' ? { default_retainage_pct: Number(retainage) || 0 } : {}),
         ...(coords ? { lat: coords.lat, lng: coords.lng } : {}),
       }),
     })
