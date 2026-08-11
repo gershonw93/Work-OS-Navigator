@@ -24,7 +24,10 @@ export async function GET(_request: Request, { params }: { params: { token: stri
 
   const { data: selections } = await db
     .from('project_selections')
-    .select('id, category, item, location, allowance_amount, needed_by, status, selected_option_id, selected_name, selected_price, selected_at, notes, sort_order, selection_options(*)')
+    .select(`id, category, item, location, allowance_amount, needed_by, status,
+      selected_option_id, selected_name, selected_price, selected_at, notes, sort_order,
+      ordered_at, expected_delivery, change_requested_at, change_request_note,
+      selection_options (id, name, description, price, brand, model_number, color_hex, image_url, link_url, is_allowance, sort_order)`)
     .eq('project_id', project.id)
     .order('sort_order', { ascending: true })
 
@@ -49,8 +52,25 @@ export async function POST(request: Request, { params }: { params: { token: stri
   const { data: sel } = await db.from('project_selections')
     .select('id, status, project_id').eq('id', selectionId).eq('project_id', project.id).single()
   if (!sel) return NextResponse.json({ error: 'Selection not found' }, { status: 404 })
+
+  // Already ordered. Not a silent edit - it's a request somebody has to answer,
+  // and pretending otherwise would have the client believe a change happened
+  // when the truck is already loaded.
   if (sel.status === 'ordered' || sel.status === 'installed') {
-    return NextResponse.json({ error: 'This one is already ordered. Call us and we\'ll sort it out.' }, { status: 409 })
+    const note = String(body.selected_name ?? body.note ?? '').trim()
+    const { error: reqErr } = await db.from('project_selections').update({
+      change_requested_at: new Date().toISOString(),
+      change_request_note: note ? note.slice(0, 500) : 'Client asked to change this after it was ordered.',
+      updated_at: new Date().toISOString(),
+    }).eq('id', selectionId)
+    if (reqErr) return NextResponse.json({ error: reqErr.message }, { status: 500 })
+    return NextResponse.json({
+      ok: true,
+      change_requested: true,
+      message: sel.status === 'installed'
+        ? "This one is already installed. We've passed your note on and we'll call you."
+        : "This one is already on order. We've passed your request on - we'll contact you if we can't make the change.",
+    })
   }
 
   const patch: Record<string, unknown> = {
@@ -78,7 +98,15 @@ export async function POST(request: Request, { params }: { params: { token: stri
 
   if (body.note != null) patch.notes = String(body.note).slice(0, 1000)
 
+  const changing = sel.status === 'chosen'
   const { error } = await db.from('project_selections').update(patch).eq('id', selectionId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({
+    ok: true,
+    // Nothing is ordered yet, but the GC may already have started - promise the
+    // change, not the outcome.
+    message: changing
+      ? "Updated. If we can't make the change we'll contact you."
+      : 'Thanks - got it.',
+  })
 }

@@ -11,11 +11,12 @@ import { useDeleteGuard } from '@/components/ui/delete-guard'
 import {
   Palette, Plus, Trash2, Link2, CheckCircle2, AlertTriangle, Clock, X,
   ChevronDown, ChevronRight, ExternalLink, Sparkles, GitPullRequest, Loader2,
+  ClipboardPaste, Truck, MessageSquareWarning, Wallet,
 } from 'lucide-react'
 import {
   SELECTION_CATEGORIES, SELECTION_STATUSES, STATUS_TINT, PROJECT_TYPE_LABEL,
   categoryDef, daysUntil, isOutstanding, urgency, variance,
-  recommendedCategories, seedRowCount, itemsForType, isHomeType,
+  recommendedCategories, seedRowCount, itemsForType, isHomeType, matchBudgetLine,
   type SelectionStatus,
 } from '@/lib/selections'
 
@@ -24,7 +25,9 @@ const money = (n: number | null | undefined) =>
 
 interface Option {
   id: string; name: string; description: string | null; price: number | null
-  vendor: string | null; link_url: string | null; is_allowance: boolean
+  brand: string | null; model_number: string | null
+  color_hex: string | null; image_url: string | null; link_url: string | null
+  vendor: string | null; vendor_company_id: string | null; is_allowance: boolean
 }
 interface Selection {
   id: string; category: string; item: string; location: string | null
@@ -33,6 +36,8 @@ interface Selection {
   status: SelectionStatus; selected_name: string | null; selected_price: number | null
   selected_at: string | null; selected_by_name: string | null
   change_order_id: string | null; notes: string | null
+  supplier_company_id: string | null; ordered_at: string | null; expected_delivery: string | null
+  change_requested_at: string | null; change_request_note: string | null
   selection_options: Option[]
 }
 
@@ -61,13 +66,34 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
   const [saving, setSaving] = useState(false)
 
   // option drafts, per selection
-  const [optDraft, setOptDraft] = useState<Record<string, { name: string; price: string; vendor: string; link_url: string }>>({})
+  type OptDraft = { name: string; brand: string; price: string; color_hex: string; link_url: string; image_url: string }
+  const BLANK_OPT: OptDraft = { name: '', brand: '', price: '', color_hex: '', link_url: '', image_url: '' }
+  const [optDraft, setOptDraft] = useState<Record<string, OptDraft>>({})
+  const [pasteFor, setPasteFor] = useState<string | null>(null)
+  const [pasteText, setPasteText] = useState('')
+  const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([])
+  const [ordering, setOrdering] = useState<string | null>(null)
+  const [orderFor, setOrderFor] = useState<Selection | null>(null)
+  const [orderForm, setOrderForm] = useState({ supplier_company_id: '', expected_delivery: '', amount: '' })
+  const [showLink, setShowLink] = useState(false)
+  const [linkChoice, setLinkChoice] = useState<Record<string, string>>({})
+  const [linkSaving, setLinkSaving] = useState(false)
 
   async function token() { const { data: { session } } = await supabase.auth.getSession(); return session?.access_token ?? '' }
 
   async function load() {
     const t = await token()
-    const res = await fetch(`/api/projects/${params.id}/selections`, { headers: { Authorization: `Bearer ${t}` } })
+    const [res, dir] = await Promise.all([
+      fetch(`/api/projects/${params.id}/selections`, { headers: { Authorization: `Bearer ${t}` } }),
+      fetch('/api/directory', { headers: { Authorization: `Bearer ${t}` } }),
+    ])
+    if (dir.ok) {
+      // Suppliers come from the Directory rather than a free-text box - this is
+      // who the order actually goes to.
+      setSuppliers(((await dir.json()).companies ?? [])
+        .filter((c: any) => c.type === 'supplier' || c.type === 'subcontractor')
+        .map((c: any) => ({ id: c.id, name: c.name })))
+    }
     if (res.ok) {
       const d = await res.json()
       setRows(d.selections ?? [])
@@ -89,6 +115,41 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
     })
     if (res.ok) load()
     else alert((await res.json().catch(() => ({}))).error ?? 'Could not save')
+  }
+
+  // What the app thinks each unlinked selection belongs to. A suggestion, shown
+  // and changeable - never applied behind the user's back, because a wrong link
+  // puts a client's upgrade on somebody else's line.
+  const suggestions = useMemo(() => {
+    if (!budgetLines.length) return []
+    return rows
+      .filter(r => !r.budget_line_item_id)
+      .map(r => ({ sel: r, line: matchBudgetLine(r.category, budgetLines) }))
+      .filter(x => x.line)
+  }, [rows, budgetLines])
+
+  function openLinkReview() {
+    const seed: Record<string, string> = {}
+    for (const r of rows.filter(x => !x.budget_line_item_id)) {
+      seed[r.id] = matchBudgetLine(r.category, budgetLines)?.id ?? ''
+    }
+    setLinkChoice(seed)
+    setShowLink(true)
+  }
+
+  async function applyLinks() {
+    setLinkSaving(true)
+    const t = await token()
+    const links = Object.entries(linkChoice)
+      .filter(([, lineId]) => lineId)
+      .map(([id, budget_line_item_id]) => ({ id, budget_line_item_id }))
+    await fetch(`/api/projects/${params.id}/selections/link-budget`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+      body: JSON.stringify({ links }),
+    })
+    setLinkSaving(false)
+    setShowLink(false)
+    load()
   }
 
   function openSeed() {
@@ -134,9 +195,53 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
     const t = await token()
     const res = await fetch(`/api/projects/${params.id}/selections/${selId}/options`, {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
-      body: JSON.stringify({ name: d.name, price: d.price === '' ? null : Number(d.price), vendor: d.vendor || null, link_url: d.link_url || null }),
+      body: JSON.stringify({
+        name: d.name, brand: d.brand || null,
+        price: d.price === '' ? null : Number(d.price),
+        color_hex: d.color_hex || null, link_url: d.link_url || null, image_url: d.image_url || null,
+      }),
     })
-    if (res.ok) { setOptDraft(p => ({ ...p, [selId]: { name: '', price: '', vendor: '', link_url: '' } })); load() }
+    if (res.ok) { setOptDraft(p => ({ ...p, [selId]: { ...BLANK_OPT } })); load() }
+    else alert((await res.json().catch(() => ({}))).error ?? 'Could not add that option')
+  }
+
+  // A fan deck has twelve colors on it. Nobody is filling in twelve forms.
+  async function pasteOptions(selId: string) {
+    if (!pasteText.trim()) return
+    const t = await token()
+    const res = await fetch(`/api/projects/${params.id}/selections/${selId}/options`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+      body: JSON.stringify({ paste: pasteText }),
+    })
+    if (res.ok) { setPasteText(''); setPasteFor(null); load() }
+    else alert((await res.json().catch(() => ({}))).error ?? 'Could not read those')
+  }
+
+  function openOrder(sel: Selection) {
+    setOrderFor(sel)
+    setOrderForm({
+      supplier_company_id: (sel as any).supplier_company_id ?? '',
+      expected_delivery: '',
+      // Already priced when it was put in front of them - nobody retypes it.
+      amount: String(sel.selected_price ?? sel.allowance_amount ?? ''),
+    })
+  }
+
+  async function placeOrder() {
+    if (!orderFor) return
+    setOrdering(orderFor.id)
+    const t = await token()
+    const res = await fetch(`/api/projects/${params.id}/selections/${orderFor.id}/order`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+      body: JSON.stringify({
+        supplier_company_id: orderForm.supplier_company_id || null,
+        expected_delivery: orderForm.expected_delivery || null,
+        amount: orderForm.amount === '' ? null : Number(orderForm.amount),
+      }),
+    })
+    setOrdering(null)
+    if (res.ok) { setOrderFor(null); load() }
+    else alert((await res.json().catch(() => ({}))).error ?? 'Could not place the order')
   }
 
   async function removeOption(selId: string, optionId: string) {
@@ -200,7 +305,8 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
     const late = outstanding.filter(r => urgency(r) === 'late')
     const over = rows.reduce((sum, r) => sum + Math.max(0, variance(r) ?? 0), 0)
     const under = rows.reduce((sum, r) => sum + Math.min(0, variance(r) ?? 0), 0)
-    return { outstanding: outstanding.length, late: late.length, net: over + under, total: rows.length }
+    const linked = rows.filter(r => r.budget_line_item_id).length
+    return { outstanding: outstanding.length, late: late.length, net: over + under, total: rows.length, linked }
   }, [rows])
 
   const portalLink = portalToken ? `${origin}/portal/${portalToken}/selections` : null
@@ -231,16 +337,30 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
         <p className="flex items-start gap-2 rounded-xl border border-warn/40 bg-warn-tint px-4 py-3 text-sm text-warn">
           <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
           Selections needs one database migration before it can save anything. Run
-          <code className="mx-1 font-mono text-xs">_combined_008-068.sql</code> in the Supabase SQL editor.
+          <code className="mx-1 font-mono text-xs">_combined_008-069.sql</code> in the Supabase SQL editor.
         </p>
       )}
 
+      {suggestions.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-accent/40 bg-accent-tint px-4 py-3">
+          <p className="text-sm text-accent-fg">
+            <span className="font-semibold">{suggestions.length}</span> selection{suggestions.length === 1 ? '' : 's'} look
+            like {suggestions.length === 1 ? 'it belongs' : 'they belong'} on a budget line. Want to connect
+            {suggestions.length === 1 ? ' it' : ' them'}? You can change any of the suggestions first.
+          </p>
+          <Button size="sm" onClick={openLinkReview} className="gap-1.5 shrink-0">
+            <Wallet className="h-3.5 w-3.5" /> Review &amp; connect
+          </Button>
+        </div>
+      )}
+
       {rows.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           <Stat label="Still owed" value={String(stats.outstanding)} tone={stats.outstanding ? 'warn' : 'ok'} />
           <Stat label="Past due" value={String(stats.late)} tone={stats.late ? 'danger' : 'ok'} />
           <Stat label="Decided" value={`${stats.total - stats.outstanding} of ${stats.total}`} tone="ok" />
           <Stat label="Over allowance" value={stats.net === 0 ? '-' : money(stats.net)} tone={stats.net > 0 ? 'danger' : 'ok'} />
+          <Stat label="On the budget" value={`${stats.linked} of ${stats.total}`} tone={stats.linked < stats.total ? 'warn' : 'ok'} />
         </div>
       )}
 
@@ -288,6 +408,127 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
           <div className="flex gap-2 justify-end">
             <Button variant="secondary" onClick={() => setShowAdd(false)}>Cancel</Button>
             <Button onClick={add} disabled={saving || !form.item.trim()}>{saving ? 'Adding…' : 'Add'}</Button>
+          </div>
+        </div>
+      )}
+
+      {/* Recommend, don't decide. Each row arrives pre-set to the app's best
+          guess with the reasoning visible - the category it matched on - and
+          every one is changeable before anything saves. */}
+      {showLink && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setShowLink(false)}>
+          <div className="w-full max-w-2xl max-h-[85vh] flex flex-col rounded-xl bg-panel border border-line shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-2 p-5 pb-3">
+              <div>
+                <h3 className="text-base font-semibold text-ink">Connect selections to the budget</h3>
+                <p className="text-xs text-muted-fg mt-0.5">
+                  Each one is set to our best guess. Change anything that&apos;s wrong, or set it to
+                  &ldquo;Don&apos;t link&rdquo; - nothing saves until you hit Connect.
+                </p>
+              </div>
+              <button onClick={() => setShowLink(false)} className="p-1 rounded-lg text-faint hover:bg-surface"><X className="h-4 w-4" /></button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-5 space-y-1.5">
+              {rows.filter(r => !r.budget_line_item_id).map(r => {
+                const guess = matchBudgetLine(r.category, budgetLines)
+                const chosen = linkChoice[r.id] ?? ''
+                return (
+                  <div key={r.id} className="grid sm:grid-cols-2 gap-2 items-center rounded-lg border border-line px-3 py-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-ink-soft truncate">{r.item}</p>
+                      <p className="text-[11px] text-faint">{r.category}</p>
+                    </div>
+                    <div className="min-w-0">
+                      <Select value={chosen} className="h-8 text-sm"
+                        onChange={e => setLinkChoice(p => ({ ...p, [r.id]: e.target.value }))}>
+                        <option value="">Don&apos;t link</option>
+                        {budgetLines.map(l => <option key={l.id} value={l.id}>{l.category} - {l.description}</option>)}
+                      </Select>
+                      {guess && chosen === guess.id && (
+                        <p className="text-[11px] text-accent-fg mt-0.5">Suggested from &ldquo;{r.category}&rdquo;</p>
+                      )}
+                      {!guess && <p className="text-[11px] text-faint mt-0.5">No obvious match - pick one if it belongs somewhere.</p>}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2 p-5 pt-3 border-t border-line-soft">
+              <p className="text-xs text-muted-fg">
+                Connecting <span className="font-semibold text-ink">{Object.values(linkChoice).filter(Boolean).length}</span> of{' '}
+                {rows.filter(r => !r.budget_line_item_id).length}.
+              </p>
+              <div className="flex gap-2 ml-auto">
+                <Button variant="secondary" onClick={() => setShowLink(false)}>Cancel</Button>
+                <Button onClick={applyLinks} disabled={linkSaving}>
+                  {linkSaving ? <><Loader2 className="h-4 w-4 animate-spin" /> Connecting…</> : 'Connect'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Placing the order. The amount is already known - it was priced when
+          the option went in front of the client - so this is about who it goes
+          to and when it lands, not retyping a number. */}
+      {orderFor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setOrderFor(null)}>
+          <div className="w-full max-w-md rounded-xl bg-panel border border-line shadow-xl p-5 space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <h3 className="text-base font-semibold text-ink">Order {orderFor.item}</h3>
+                <p className="text-xs text-muted-fg mt-0.5">
+                  {orderFor.selected_name ?? 'Nothing chosen yet'}
+                  {orderFor.location ? ` · ${orderFor.location}` : ''}
+                </p>
+              </div>
+              <button onClick={() => setOrderFor(null)} className="p-1 rounded-lg text-faint hover:bg-surface"><X className="h-4 w-4" /></button>
+            </div>
+
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Supplier</Label>
+                <Select value={orderForm.supplier_company_id}
+                  onChange={e => setOrderForm(p => ({ ...p, supplier_company_id: e.target.value }))}>
+                  <option value="">Pick from your Directory…</option>
+                  {suppliers.map(sup => <option key={sup.id} value={sup.id}>{sup.name}</option>)}
+                </Select>
+                {suppliers.length === 0 && (
+                  <p className="text-[11px] text-faint">No suppliers in your Directory yet - add them there and they show up here.</p>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Amount</Label>
+                  <Input type="number" value={orderForm.amount}
+                    onChange={e => setOrderForm(p => ({ ...p, amount: e.target.value }))} />
+                  <p className="text-[11px] text-faint">Already priced from what they chose.</p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Expected delivery</Label>
+                  <Input type="date" value={orderForm.expected_delivery}
+                    onChange={e => setOrderForm(p => ({ ...p, expected_delivery: e.target.value }))} />
+                </div>
+              </div>
+            </div>
+
+            <p className="rounded-lg bg-surface border border-line px-3 py-2 text-[11px] text-muted-fg">
+              This books the cost against{' '}
+              {orderFor.budget_line_item_id
+                ? <span className="font-medium text-ink-soft">{budgetLines.find(l => l.id === orderFor.budget_line_item_id)?.description ?? 'the linked budget line'}</span>
+                : <span className="text-warn">no budget line - link one first if you want it on the budget</span>}
+              , and the client&apos;s link will show it as Ordered.
+            </p>
+
+            <div className="flex gap-2 justify-end">
+              <Button variant="secondary" onClick={() => setOrderFor(null)}>Cancel</Button>
+              <Button onClick={placeOrder} disabled={ordering === orderFor.id}>
+                {ordering === orderFor.id ? <><Loader2 className="h-4 w-4 animate-spin" /> Ordering…</> : 'Mark ordered'}
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -429,6 +670,11 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
                                 {sel.allowance_amount != null ? `Allowance ${money(sel.allowance_amount)}` : 'No allowance set'}
                                 {sel.selected_name ? ` · chose ${sel.selected_name}` : ''}
                                 {sel.selected_price != null ? ` at ${money(sel.selected_price)}` : ''}
+                                {/* Where it lands in the budget - the answer to
+                                    "so which line does this show up on?" */}
+                                {sel.budget_line_item_id
+                                  ? <span className="text-muted-fg"> · {budgetLines.find(l => l.id === sel.budget_line_item_id)?.description ?? 'budget line'}</span>
+                                  : <span className="text-warn"> · no budget line</span>}
                               </span>
                             </span>
                           </button>
@@ -484,35 +730,122 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
 
                             {/* Options the client picks from */}
                             <div className="space-y-1.5">
-                              <Label className="text-xs">Options offered</Label>
+                              <div className="flex items-center justify-between gap-2">
+                                <Label className="text-xs">Options the client picks from</Label>
+                                <button type="button" onClick={() => { setPasteFor(pasteFor === sel.id ? null : sel.id); setPasteText('') }}
+                                  className="inline-flex items-center gap-1 text-[11px] font-medium text-accent-fg hover:underline">
+                                  <ClipboardPaste className="h-3 w-3" /> Paste a list
+                                </button>
+                              </div>
+
                               {sel.selection_options?.length > 0 && (
                                 <div className="rounded-lg border border-line divide-y divide-line-soft">
                                   {sel.selection_options.map(o => (
-                                    <div key={o.id} className="flex items-center gap-2 px-3 py-2">
+                                    <div key={o.id} className="flex items-center gap-2.5 px-3 py-2">
+                                      {/* What the client will actually look at */}
+                                      {o.image_url ? (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img src={o.image_url} alt="" className="h-8 w-8 shrink-0 rounded border border-line object-cover" />
+                                      ) : o.color_hex ? (
+                                        <span className="h-8 w-8 shrink-0 rounded border border-line" style={{ backgroundColor: o.color_hex }} />
+                                      ) : (
+                                        <span className="h-8 w-8 shrink-0 rounded border border-dashed border-muted2" />
+                                      )}
                                       <span className="flex-1 min-w-0 text-sm text-ink-soft truncate">
-                                        {o.name}
-                                        {o.vendor && <span className="text-faint"> · {o.vendor}</span>}
+                                        {o.brand && <span className="text-faint">{o.brand} </span>}{o.name}
                                       </span>
-                                      {o.link_url && <a href={o.link_url} target="_blank" rel="noreferrer" className="text-faint hover:text-accent-fg"><ExternalLink className="h-3.5 w-3.5" /></a>}
+                                      {o.link_url && <a href={o.link_url} target="_blank" rel="noreferrer" title="Product page" className="text-faint hover:text-accent-fg"><ExternalLink className="h-3.5 w-3.5" /></a>}
                                       <span className="text-sm tabular-nums text-ink shrink-0">{money(o.price)}</span>
                                       <button onClick={() => removeOption(sel.id, o.id)} className="text-faint hover:text-danger"><X className="h-3.5 w-3.5" /></button>
                                     </div>
                                   ))}
                                 </div>
                               )}
-                              <div className="flex flex-wrap gap-1.5">
-                                <Input className="h-8 text-sm flex-1 min-w-[10rem]" placeholder="Option name"
-                                  value={optDraft[sel.id]?.name ?? ''}
-                                  onChange={e => setOptDraft(p => ({ ...p, [sel.id]: { ...(p[sel.id] ?? { name: '', price: '', vendor: '', link_url: '' }), name: e.target.value } }))} />
-                                <Input className="h-8 text-sm w-24" type="number" placeholder="Price"
-                                  value={optDraft[sel.id]?.price ?? ''}
-                                  onChange={e => setOptDraft(p => ({ ...p, [sel.id]: { ...(p[sel.id] ?? { name: '', price: '', vendor: '', link_url: '' }), price: e.target.value } }))} />
-                                <Input className="h-8 text-sm w-32" placeholder="Vendor"
-                                  value={optDraft[sel.id]?.vendor ?? ''}
-                                  onChange={e => setOptDraft(p => ({ ...p, [sel.id]: { ...(p[sel.id] ?? { name: '', price: '', vendor: '', link_url: '' }), vendor: e.target.value } }))} />
-                                <Button size="sm" variant="outline" onClick={() => addOption(sel.id)}><Plus className="h-3.5 w-3.5" /></Button>
-                              </div>
+
+                              {pasteFor === sel.id ? (
+                                <div className="space-y-1.5 rounded-lg border border-accent/40 bg-surface p-2.5">
+                                  <p className="text-[11px] text-muted-fg">
+                                    One per line. It works out which bit is which - a <span className="font-mono">#hex</span> is a
+                                    swatch, a link is a link, a number is the price, the rest is the name.
+                                  </p>
+                                  <textarea rows={4} value={pasteText} onChange={e => setPasteText(e.target.value)}
+                                    placeholder={'Sherwin Williams | Alabaster | #edeae3 | 62\nSherwin Williams | Repose Gray | #cbc7c0 | 62\nBenjamin Moore | Chantilly Lace | #f4f4ef | 78'}
+                                    className="w-full rounded-md border border-muted2 bg-panel px-2.5 py-2 font-mono text-[11px] text-ink placeholder:text-faint focus:border-accent focus:outline-none resize-none" />
+                                  <div className="flex gap-1.5">
+                                    <Button size="sm" onClick={() => pasteOptions(sel.id)} disabled={!pasteText.trim()}>Add them</Button>
+                                    <Button size="sm" variant="secondary" onClick={() => { setPasteFor(null); setPasteText('') }}>Cancel</Button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex flex-wrap gap-1.5 items-center">
+                                  <Input className="h-8 text-sm w-28" placeholder="Brand"
+                                    value={optDraft[sel.id]?.brand ?? ''}
+                                    onChange={e => setOptDraft(p => ({ ...p, [sel.id]: { ...(p[sel.id] ?? BLANK_OPT), brand: e.target.value } }))} />
+                                  <Input className="h-8 text-sm flex-1 min-w-[9rem]" placeholder="Option name"
+                                    value={optDraft[sel.id]?.name ?? ''}
+                                    onChange={e => setOptDraft(p => ({ ...p, [sel.id]: { ...(p[sel.id] ?? BLANK_OPT), name: e.target.value } }))} />
+                                  <Input className="h-8 text-sm w-20" type="number" placeholder="Price"
+                                    value={optDraft[sel.id]?.price ?? ''}
+                                    onChange={e => setOptDraft(p => ({ ...p, [sel.id]: { ...(p[sel.id] ?? BLANK_OPT), price: e.target.value } }))} />
+                                  <input type="color" title="Color swatch" aria-label="Color swatch"
+                                    value={optDraft[sel.id]?.color_hex || '#cccccc'}
+                                    onChange={e => setOptDraft(p => ({ ...p, [sel.id]: { ...(p[sel.id] ?? BLANK_OPT), color_hex: e.target.value } }))}
+                                    className="h-8 w-9 shrink-0 rounded border border-line bg-surface p-0.5 cursor-pointer" />
+                                  <Input className="h-8 text-sm w-36" placeholder="Link to product"
+                                    value={optDraft[sel.id]?.link_url ?? ''}
+                                    onChange={e => setOptDraft(p => ({ ...p, [sel.id]: { ...(p[sel.id] ?? BLANK_OPT), link_url: e.target.value } }))} />
+                                  <Input className="h-8 text-sm w-36" placeholder="Photo URL"
+                                    value={optDraft[sel.id]?.image_url ?? ''}
+                                    onChange={e => setOptDraft(p => ({ ...p, [sel.id]: { ...(p[sel.id] ?? BLANK_OPT), image_url: e.target.value } }))} />
+                                  <Button size="sm" variant="outline" onClick={() => addOption(sel.id)}><Plus className="h-3.5 w-3.5" /></Button>
+                                </div>
+                              )}
                             </div>
+
+                            {/* Which budget line this comes out of. Without it the
+                                allowance is a number in a vacuum and the order
+                                lands nowhere. */}
+                            {budgetLines.length > 0 && (
+                              <div className="space-y-1">
+                                <Label className="text-xs">Budget line</Label>
+                                <Select value={sel.budget_line_item_id ?? ''} className="h-8 text-sm"
+                                  onChange={e => patch(sel.id, { budget_line_item_id: e.target.value || null })}>
+                                  <option value="">Not linked to the budget</option>
+                                  {budgetLines.map(l => <option key={l.id} value={l.id}>{l.category} - {l.description}</option>)}
+                                </Select>
+                                {!sel.budget_line_item_id && (
+                                  <p className="text-[11px] text-warn">
+                                    Link it and the overage lands on this line, and ordering books the cost against it.
+                                  </p>
+                                )}
+                              </div>
+                            )}
+
+                            {/* A client asking to change something already ordered */}
+                            {sel.change_requested_at && (
+                              <div className="rounded-lg border border-warn/40 bg-warn-tint px-3 py-2">
+                                <p className="text-xs font-semibold text-warn inline-flex items-center gap-1.5">
+                                  <MessageSquareWarning className="h-3.5 w-3.5" /> Client asked to change this
+                                </p>
+                                {sel.change_request_note && <p className="text-xs text-warn mt-1">{sel.change_request_note}</p>}
+                                <button onClick={() => patch(sel.id, { change_requested_at: null, change_request_note: null })}
+                                  className="text-[11px] text-warn underline mt-1">Mark handled</button>
+                              </div>
+                            )}
+
+                            {/* Ordering it */}
+                            {sel.status === 'chosen' && (
+                              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => openOrder(sel)}>
+                                <Truck className="h-3.5 w-3.5" /> Order it
+                              </Button>
+                            )}
+                            {sel.ordered_at && (
+                              <p className="text-xs text-success inline-flex items-center gap-1.5">
+                                <Truck className="h-3.5 w-3.5" />
+                                Ordered {new Date(sel.ordered_at).toLocaleDateString()}
+                                {sel.expected_delivery ? ` · due ${new Date(sel.expected_delivery + 'T00:00:00').toLocaleDateString()}` : ''}
+                              </p>
+                            )}
 
                             {/* The overage, made real */}
                             {v != null && v > 0 && (
