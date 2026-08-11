@@ -2,7 +2,7 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 import {
   ArrowRight, Wallet, Landmark, Receipt, FileSpreadsheet, GitPullRequest, Send,
-  ShoppingCart, TrendingUp, Layers, Building2, ScanLine, Check, ShieldCheck, BarChart2,
+  ShoppingCart, TrendingUp, Layers, Building2, ScanLine, Check, ShieldCheck, BarChart2, Palette,
 } from 'lucide-react'
 import { marketingMeta } from '@/components/marketing/meta'
 import { Reveal } from '@/components/marketing/reveal'
@@ -16,13 +16,24 @@ import { MoneyMock } from '@/components/marketing/money-mock'
 export const metadata: Metadata = marketingMeta({
   title: 'The money side · SyteNav',
   description:
-    'Preconstruction and soft costs, hard cost budgets, sellout and projected profit, buy-out, invoices, AIA pay applications, client payments and escrow - one system where every number carries from the estimate to the bank.',
+    'Preconstruction and soft costs, hard cost budgets, sellout and projected profit, buy-out and line-by-line bid comparison, client selections and allowances, invoices, AIA pay applications, client payments and escrow - one system where every number carries from the estimate to the bank.',
   path: '/homepage/money',
 })
 
 // The money side is the part contractors are most burned by and most sceptical
 // about, so this page is organised the way the money actually moves rather than
 // by feature name.
+
+// Concrete enough that a GC recognises their own week in it. Every one of these
+// is a thing the app does off work already being done, not a new chore.
+const HOOKS = [
+  'Snap a receipt - it lands on the right budget line, coded',
+  'Your profit today, not a number you find out at the end',
+  'Two lumber quotes compared line by line, not total against total',
+  'The client picks their own finishes on a link, no account',
+  'An upgrade over allowance becomes a change order in one click',
+  'Pay apps print as a real G702 and G703 with retainage carried',
+]
 
 const STAGES = [
   {
@@ -68,9 +79,22 @@ const STAGES = [
     body:
       'Send an RFQ and subs bid on a link with no account. The AI reads what came back and tells you where the gaps are, so the cheapest number is not mistaken for the best one. Award it and the subcontract writes itself onto the budget line.',
     points: [
-      'AI bid comparison that flags exclusions, not just totals',
+      'Trade templates so every bidder answers the same questions - no takeoff needed',
+      'Buying the material yourself? Send the item list and compare line by line',
       'Awarding a bid creates the subcontract and links it to the budget',
       'Insurance and licence expiry tracked per sub, with reminders',
+    ],
+  },
+  {
+    icon: Palette,
+    kicker: 'Allowances',
+    title: 'The choices that are not yours to make',
+    body:
+      'Paint, tile, cabinets, fixtures, windows. You cannot start until somebody else decides, and the decision has a deadline set by lead time rather than your schedule. Your client picks on a link with no account, sees what each upgrade costs against your allowance before they commit, and the moment they go over you raise the change order in one click.',
+    points: [
+      'Decide-by dates driven by lead time, so a six-week window order is not decided in week five',
+      'Every allowance hangs off a budget line - the overage lands where it belongs',
+      'Order it and the cost books itself against the budget, priced from what they chose',
     ],
   },
   {
@@ -127,14 +151,25 @@ export default function MoneyPage() {
       <section className="max-w-5xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-10 sm:pb-14 text-center">
         <Eyebrow className="justify-center">The money side</Eyebrow>
         <h1 className="mt-3 text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-ink leading-[1.04]">
-          Every number carries.
-          <br className="hidden sm:block" /> Estimate to bank.
+          You run the job.
+          <br className="hidden sm:block" /> The numbers keep up.
         </h1>
         <p className="mt-6 text-lg text-muted-fg leading-relaxed max-w-2xl mx-auto">
-          The money is the part of a job most software gets half right: a budget over here, invoices
-          over there, and a spreadsheet in the middle holding it together. SyteNav runs the whole
-          thing on one set of numbers, from the first soft cost to the final payment.
+          Construction money is genuinely complicated - soft costs, buy-out, allowances, retainage,
+          change orders, escrow. Most software hands you that complexity as data entry. SyteNav does
+          the bookkeeping in the background off the work you were already doing, so you can stay on
+          the site and still know exactly where the job stands.
         </p>
+
+        {/* The specifics, because a promise this size needs receipts. */}
+        <ul className="mt-8 grid sm:grid-cols-2 gap-x-8 gap-y-3 max-w-3xl mx-auto text-left">
+          {HOOKS.map(h => (
+            <li key={h} className="flex items-start gap-2.5">
+              <Check className="h-4 w-4 text-accent-fg shrink-0 mt-0.5" />
+              <span className="text-sm text-ink-soft leading-snug">{h}</span>
+            </li>
+          ))}
+        </ul>
       </section>
 
       {/* Animated pipeline */}
