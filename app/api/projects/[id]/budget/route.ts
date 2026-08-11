@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
-import { rollupBudgetLines } from '@/lib/invoice-budget'
+import { budgetTotals, rollupBudgetLines } from '@/lib/invoice-budget'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -22,6 +22,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     { data: invoices },
     { data: materials },
     { data: projectRow },
+    { data: changeOrders },
   ] = await Promise.all([
     db
       .from('budget_line_items')
@@ -48,6 +49,10 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .select('interior_sqft, exterior_sqft, contractor_fee_pct, status, billing_mode, sellout_amount')
       .eq('id', params.id)
       .single(),
+    db
+      .from('change_orders')
+      .select('amount, status, budget_line_item_id, subcontract_id')
+      .eq('project_id', params.id),
   ])
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -69,7 +74,9 @@ export async function GET(request: Request, { params }: { params: { id: string }
     invoices: (invoices ?? []) as any,
     materials: (materials ?? []) as any,
     subs: (subcontracts ?? []) as any,
+    changeOrders: (changeOrders ?? []) as any,
   })
+  const totals = budgetTotals(items)
 
   const subOptions = (subcontracts ?? []).map((s: any) => ({
     id: s.id,
@@ -110,6 +117,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
   return NextResponse.json({
     items,
+    totals,
     subcontracts: subOptions,
     materials: materials ?? [],
     materials_total,

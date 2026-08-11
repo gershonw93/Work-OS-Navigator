@@ -21,6 +21,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     { data: lines },
     { data: materials },
     { data: subs },
+    { data: changeOrders },
   ] = await Promise.all([
     db
       .from('invoices')
@@ -41,6 +42,10 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .from('subcontracts')
       .select('id, trade, contract_amount, companies(name)')
       .eq('project_id', params.id),
+    db
+      .from('change_orders')
+      .select('amount, status, budget_line_item_id, subcontract_id')
+      .eq('project_id', params.id),
   ])
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -53,6 +58,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     invoices: (data ?? []) as any,
     materials: (materials ?? []) as any,
     subs: (subs ?? []) as any,
+    changeOrders: (changeOrders ?? []) as any,
   })
   const dests = destinationsBySubcontract(rolled)
 

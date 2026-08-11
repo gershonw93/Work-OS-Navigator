@@ -79,7 +79,10 @@ export function BudgetDestinationBox({
       </p>
       <p className="text-sm font-medium text-ink break-words">{label || 'Budget line'}</p>
       <p className="text-xs text-muted-fg">
-        {money(destination.budgeted_amount)} budgeted · {money(destination.billed_amount)} already billed ·{' '}
+        {money(destination.budgeted_amount)} budgeted
+        {destination.change_orders_amount !== 0 && (
+          <span className="text-faint"> (incl. {money(destination.change_orders_amount)} approved changes)</span>
+        )} · {money(destination.billed_amount)} already billed ·{' '}
         <span className={cn('font-semibold', left < 0 ? 'text-danger' : 'text-ink-soft')}>
           {left < 0 ? `${money(Math.abs(left))} over` : `${money(left)} left`}
         </span>

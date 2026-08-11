@@ -77,6 +77,24 @@ export const RELEASES: Release[] = [
         help: 'scan-sub-invoice',
       },
       {
+        kind: 'fixed',
+        title: 'Approving a change order now raises the budget line',
+        text: 'Approving a change order grew the sub\'s contract but left the budget where it was, so the line went red at the exact moment the extra was approved and paid for. An approved change order now adds to the budget line it belongs to - the one you picked, or the one its subcontract sits on - and the line shows "incl. $X CO" so the budget never grows silently. Your original estimate is kept, and un-approving or deleting the change order takes the money straight back out.',
+        help: 'change-order-basics',
+      },
+      {
+        kind: 'fixed',
+        title: '"Remaining" was telling you that you had more money than you did',
+        text: 'The tile counted only invoices that had arrived, not the contracts you had already signed. Budget $500k, signed $450k, billed $200k, and it told you $300k was left - it was $50k. It now counts signed contracts, and is labelled "Left to spend". The Committed tile says how much is signed but not yet billed, which is the money that used to hide.',
+        help: 'add-project-budget',
+      },
+      {
+        kind: 'fixed',
+        title: '"Mark Sent to Sub" had the invoice going the wrong way',
+        text: 'These are bills your subs send YOU. The button now reads "Mark Sent for Payment" - which is what it always did: released to be paid, handed to a bookkeeper or queued in the next payment run. You can also go straight from Approved to Paid now, instead of being made to click through a step that did not apply. The sub gets told their invoice was released for payment, rather than being asked to review an invoice they wrote.',
+        help: 'approve-invoice',
+      },
+      {
         kind: 'new',
         title: 'Every sub invoice says which budget line it hits',
         text: 'Pick the sub - or let the scan pick one - and the invoice tells you where the money lands: the line, what is budgeted, what is already billed against it, and what is left. It warns you in red when the invoice is more than that line can still cover. Every invoice card shows the same thing, so you no longer open the Budget tab and work backwards from the sub\'s name to find out which line moved.',

@@ -17,7 +17,10 @@ import { HARD_COST_CATEGORIES } from '@/lib/budget-categories'
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   pending_approval: { label: 'Pending Approval', color: 'bg-warn-tint border-warn/30 text-warn' },
   approved: { label: 'Approved', color: 'bg-info-tint border-info/30 text-info' },
-  sent: { label: 'Sent to Sub', color: 'bg-special-tint border-special/30 text-special' },
+  // The sub sent this invoice TO you - it is a bill you owe, not something you
+  // send them. This step is releasing it to be paid (handed to bookkeeping, put
+  // in the next payment run), which is what "sent" always meant here.
+  sent: { label: 'Sent for Payment', color: 'bg-special-tint border-special/30 text-special' },
   paid: { label: 'Paid', color: 'bg-success-tint border-success/30 text-success' },
 }
 
@@ -401,7 +404,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
               <div><p className="text-xs text-faint">Created</p><p className="font-medium text-ink-soft">{new Date(invoice.created_at).toLocaleDateString()}</p></div>
               {invoice.approved_by_name && <div><p className="text-xs text-faint">Approved By</p><p className="font-medium text-ink-soft">{invoice.approved_by_name}</p></div>}
               {invoice.approved_at && <div><p className="text-xs text-faint">Approved</p><p className="font-medium text-ink-soft">{new Date(invoice.approved_at).toLocaleDateString()}</p></div>}
-              {invoice.sent_at && <div><p className="text-xs text-faint">Sent</p><p className="font-medium text-ink-soft">{new Date(invoice.sent_at).toLocaleDateString()}</p></div>}
+              {invoice.sent_at && <div><p className="text-xs text-faint">Sent for payment</p><p className="font-medium text-ink-soft">{new Date(invoice.sent_at).toLocaleDateString()}</p></div>}
             </div>
             {invoice.description && <p className="text-sm text-muted-fg break-words">{invoice.description}</p>}
 
@@ -524,12 +527,16 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
                 </Button>
               )}
               {invoice.status === 'approved' && (
-                <Button size="sm" disabled={updating === invoice.id} onClick={() => updateStatus(invoice, 'sent')}>
-                  <Send className="h-3.5 w-3.5" />{updating === invoice.id ? '...' : 'Mark Sent to Sub'}
+                <Button size="sm" variant="outline" disabled={updating === invoice.id} onClick={() => updateStatus(invoice, 'sent')}
+                  title="Released to be paid - handed to bookkeeping or queued in the next payment run">
+                  <Send className="h-3.5 w-3.5" />{updating === invoice.id ? '...' : 'Mark Sent for Payment'}
                 </Button>
               )}
-              {invoice.status === 'sent' && (
-                <Button size="sm" variant="outline" disabled={updating === invoice.id} onClick={() => updateStatus(invoice, 'paid')}>
+              {/* Paying straight from Approved is normal - plenty of shops
+                  approve a bill and cut the check the same day, and forcing a
+                  middle step just to record that made the status a lie. */}
+              {(invoice.status === 'approved' || invoice.status === 'sent') && (
+                <Button size="sm" disabled={updating === invoice.id} onClick={() => updateStatus(invoice, 'paid')}>
                   <DollarSign className="h-3.5 w-3.5" />{updating === invoice.id ? '...' : 'Mark Paid'}
                 </Button>
               )}
