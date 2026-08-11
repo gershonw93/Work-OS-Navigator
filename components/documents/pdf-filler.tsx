@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { X, Plus, Trash2, Loader2, ChevronLeft, ChevronRight, Type, AlertTriangle, Move } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
-  baselineFor, leftFor, sanitizeForPdf, hasUnsupportedChars, filledName,
+  baselineFor, leftFor, sanitizeForPdf, hasUnsupportedChars, filledName, ensurePdfExt,
   LINE_HEIGHT_RATIO, type FillBox,
 } from '@/lib/pdf-fill'
 
@@ -49,6 +49,9 @@ export function PdfFiller({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [rendering, setRendering] = useState(false)
+  /** The name-it step shown before the file is written. */
+  const [naming, setNaming] = useState(false)
+  const [saveName, setSaveName] = useState('')
   /** Live pixel size of the rendered page, for placing the overlay. */
   const [stage, setStage] = useState({ w: 0, h: 0 })
 
@@ -180,6 +183,22 @@ export function PdfFiller({
   }
   function onHandleUp() { drag.current = null }
 
+  /**
+   * Naming happens here rather than after the fact. "W-9 (filled).pdf" is a
+   * fine default and a poor final answer - the useful name is usually who or
+   * what it is for, and making someone save, find the file, then rename it is
+   * three steps for something they already know at this moment.
+   */
+  function startSave() {
+    if (!boxes.some(b => b.text.trim())) {
+      setError('Add some text first - click the page where you want it.')
+      return
+    }
+    setError('')
+    setSaveName(filledName(fileName))
+    setNaming(true)
+  }
+
   async function save() {
     const bytes = bytesRef.current
     if (!bytes) return
@@ -210,10 +229,11 @@ export function PdfFiller({
       }
 
       const out = await pdf.save()
-      await onSave(out, filledName(fileName))
+      await onSave(out, ensurePdfExt(saveName))
     } catch (e: any) {
       setError(e?.message ?? 'Could not save the filled copy')
       setSaving(false)
+      setNaming(false)
     }
   }
 
@@ -251,7 +271,7 @@ export function PdfFiller({
           className="rounded-lg border border-line px-3 py-1.5 text-sm font-medium text-muted-fg hover:bg-surface disabled:opacity-50">
           Cancel
         </button>
-        <button type="button" onClick={save} disabled={saving || loading}
+        <button type="button" onClick={startSave} disabled={saving || loading}
           className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink hover:opacity-90 disabled:opacity-50">
           {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</> : 'Save filled copy'}
         </button>
@@ -362,6 +382,55 @@ export function PdfFiller({
           </div>
         )}
       </div>
+
+      {naming && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => !saving && setNaming(false)}>
+          <form
+            onClick={e => e.stopPropagation()}
+            onSubmit={e => { e.preventDefault(); save() }}
+            className="w-full max-w-sm rounded-xl bg-panel p-5 space-y-3 shadow-xl"
+          >
+            <div>
+              <p className="font-semibold text-ink">Save the filled copy</p>
+              <p className="text-xs text-muted-fg mt-0.5">
+                Saved as a new file. <span className="font-medium text-ink-soft">{fileName}</span> is left as it is.
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="filled-name" className="text-sm font-medium text-ink-soft">File name</label>
+              <input
+                id="filled-name"
+                autoFocus
+                value={saveName}
+                onChange={e => setSaveName(e.target.value)}
+                onFocus={e => {
+                  // Select just the stem so typing replaces the name without
+                  // eating the .pdf - renaming is the common case here.
+                  const dot = e.target.value.lastIndexOf('.')
+                  e.target.setSelectionRange(0, dot > 0 ? dot : e.target.value.length)
+                }}
+                className="w-full rounded-md border border-muted2 bg-panel px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                placeholder="Name this file"
+              />
+              <p className="text-xs text-faint">
+                Saves as <span className="font-medium text-muted-fg">{ensurePdfExt(saveName || filledName(fileName))}</span>
+              </p>
+            </div>
+            {error && <p className="text-sm text-danger">{error}</p>}
+            <div className="flex justify-end gap-2 pt-1">
+              <button type="button" onClick={() => setNaming(false)} disabled={saving}
+                className="rounded-lg border border-line px-3 py-2 text-sm font-medium text-muted-fg hover:bg-surface disabled:opacity-50">
+                Back
+              </button>
+              <button type="submit" disabled={saving}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-accent-ink hover:opacity-90 disabled:opacity-50">
+                {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</> : 'Save'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       <div className="px-3 py-2 bg-panel border-t border-line flex items-center justify-between gap-3">
         <p className="text-xs text-faint">

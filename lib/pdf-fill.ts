@@ -99,6 +99,19 @@ export function hasUnsupportedChars(input: string): boolean {
     .replace(/\n/g, '')
 }
 
+/**
+ * Keep the .pdf on a name the user typed.
+ *
+ * People delete the extension while renaming, and a PDF called "W-9 signed
+ * copy" with no extension downloads as a file the operating system doesn't
+ * know how to open.
+ */
+export function ensurePdfExt(name: string): string {
+  const trimmed = name.trim()
+  if (!trimmed) return 'document.pdf'
+  return /\.pdf$/i.test(trimmed) ? trimmed : `${trimmed}.pdf`
+}
+
 /** "Permit application.pdf" → "Permit application (filled).pdf" */
 export function filledName(original: string): string {
   const dot = original.lastIndexOf('.')
