@@ -144,13 +144,17 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
     if (!isSub) return true
     return ctx?.owns ? !SUB_OWN_HIDDEN.has(slug) : SUB_AWARDED_ALLOWED.has(slug)
   }
-  // Billing mode set at project setup decides which money flow is shown, so a
-  // job isn't cluttered with both. AIA jobs bill via Pay Apps; simple jobs use
-  // Invoices + Payments.
+  // Billing mode decides how you bill the CLIENT, so it only hides the
+  // client-facing tabs: AIA jobs bill via Pay Apps, simple jobs via Payments.
+  //
+  // Invoices is not one of them. That tab holds bills your subs and suppliers
+  // sent YOU - money out, nothing to do with how money comes in - and hiding it
+  // on AIA jobs left the job type with the most subcontractors on it with
+  // nowhere to record a single sub's bill.
   const billingMode = ctx?.billingMode ?? 'simple'
   const billingAllows = (slug: string) => {
     if (slug === 'pay-apps') return billingMode === 'aia'
-    if (slug === 'invoices' || slug === 'payments') return billingMode !== 'aia'
+    if (slug === 'payments') return billingMode !== 'aia'
     return true
   }
   // Preconstruction: planning jobs get the estimating/approvals lane only.

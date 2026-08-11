@@ -581,10 +581,12 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'money-overview',
     title: 'How the money side fits together',
     category: 'money',
-    keywords: ['money', 'overview', 'financials', 'escrow', 'fee', 'cost plus', 'how it works'],
+    keywords: ['money', 'overview', 'financials', 'escrow', 'fee', 'cost plus', 'how it works', 'which tab', 'customer invoice', 'client invoice', 'bill the client', 'money in', 'money out', 'where do i'],
     summary: 'The big picture: money in from the client, money out to vendors, and your fee.',
     blocks: [
       { type: 'text', text: 'Money flows two ways. IN from your client (recorded as client payments) and OUT to vendors (subcontracts → invoices → payments). Your profit is a cost-plus fee: a percentage on top of vendor costs.' },
+      { type: 'text', text: 'WHICH TAB IS WHICH. Money OUT - the bills your subs and suppliers send you - lives on INVOICES, one per bill, each landing on a budget line. Money IN depends on how the job bills: an AIA job invoices the owner from PAY APPS (the G702 application you print is the bill you send), and a simple job records what the client has paid on PAYMENTS & ESCROW.' },
+      { type: 'warn', text: 'On a simple-billing job there is no customer invoice document yet. Payments & Escrow records money that has come in; it does not produce a bill to send. The closest thing today is the client Proposal PDF off the Budget tab. If you need to send a customer an invoice, that gap is known.' },
       { type: 'steps', items: [
         'Award a quote → creates a subcontract (Committed) and optionally a budget line.',
         'The sub bills you → you create an invoice; approving it makes it a real cost (Actual/Billed).',

@@ -121,7 +121,15 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-ink">Payments &amp; Escrow</h1>
-          <p className="text-sm text-muted-fg mt-0.5">Client funds in, your fee, and what's left to pay vendors - the cash side of the job.</p>
+          <p className="text-sm text-muted-fg mt-0.5">
+            Money <span className="font-medium text-ink-soft">in</span> from the client - deposits and draws you have
+            received - your fee, and what is left to pay vendors.
+          </p>
+          <p className="text-xs text-faint mt-1">
+            Bills your subs sent <span className="font-medium">you</span> go on{' '}
+            <a href={`/projects/${params.id}/invoices`} className="text-accent-fg hover:underline">Invoices</a>. This tab
+            records what the client has paid; it does not produce an invoice to send them.
+          </p>
         </div>
         <Button onClick={() => setAdding(v => !v)} className="gap-1.5"><Plus className="h-4 w-4" /> Record Payment</Button>
       </div>
