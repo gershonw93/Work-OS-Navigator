@@ -281,6 +281,31 @@ export const HELP_ARTICLES: HelpArticle[] = [
     related: ['compare-quotes', 'award-quote'],
   },
   {
+    slug: 'scope-what-to-send',
+    title: 'What to send each sub when you ask for a price',
+    category: 'money',
+    keywords: [
+      'scope', 'what to send', 'rfq', 'request quote', 'apples to apples', 'compare',
+      'takeoff', 'material list', 'who supplies material', 'labor only', 'turnkey',
+      'framer', 'lumber', 'electrician', 'plumber', 'measure', 'exclusions', 'included',
+    ],
+    summary: 'The question is not the trade - it is who supplies the material. Pick the trade and the scope fills itself in.',
+    blocks: [
+      { type: 'text', text: 'You do not need a takeoff to compare bids fairly. You need every bidder to answer the same questions. That is what the scope section of a quote request does, and it works on a job where all you have is a set of plans.' },
+      { type: 'text', text: 'The thing that decides what you send is not the trade - it is who supplies the material. A foundation sub brings his own, so the plans are enough. A framer prices labor and tells you what lumber to order. A lumber yard needs a list to price. A door supplier comes and measures first.' },
+      { type: 'steps', items: [
+        'Start a quote request and pick the trade.',
+        'The scope fills in from that trade: whether it is labor + material, labor only, material only, or measure & quote; who supplies the material; what is included; what is excluded; and what you need back besides a price.',
+        'Edit any of it - the defaults are a starting point, not a rule.',
+        'Attach the plans and send. Every bidder sees the same scope on their link.',
+      ] },
+      { type: 'tip', text: 'On a labor-only package, the most valuable thing you ask for is the material list. That list is what you send the lumber yard to price, so ask for it in writing with the bid.' },
+      { type: 'text', text: 'The panel tells you how the bids will compare. Send plans and a scope and you get totals that compare because the questions matched. Send an item list and you get line-by-line pricing that compares exactly. Both are fine - it just should not be a surprise.' },
+      { type: 'text', text: 'Excluded lines matter as much as included ones. Most change orders come from something nobody said out loud - rock excavation, deck repair, fixture allowances. The defaults already list the usual suspects per trade.' },
+    ],
+    related: ['request-quotes', 'compare-quotes', 'award-quote', 'add-project-budget'],
+  },
+  {
     slug: 'compare-quotes',
     title: 'Compare quotes (with AI analysis)',
     category: 'quotes',

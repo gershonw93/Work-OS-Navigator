@@ -19,9 +19,14 @@ export async function GET(_request: Request, { params }: { params: { token: stri
     await db.from('bid_invites').update({ status: 'viewed', viewed_at: new Date().toISOString() }).eq('id', invite.id)
   }
 
-  const { data: req } = await db.from('bid_requests')
-    .select('id, title, trade, description, due_date, status, project_id, projects(name, address), bid_request_attachments(file_url, file_name)')
-    .eq('id', invite.bid_request_id).single()
+  const SCOPE_COLS = 'package_type, material_by, included, excluded, ask_for, item_list, '
+  const CORE = 'id, title, trade, description, due_date, status, project_id, projects(name, address), bid_request_attachments(file_url, file_name)'
+  let req: any = (await db.from('bid_requests').select(SCOPE_COLS + CORE).eq('id', invite.bid_request_id).single()).data
+  // Pre-migration fallback: scope columns may not exist yet - the bid link
+  // must keep working either way.
+  if (!req) {
+    req = (await db.from('bid_requests').select(CORE).eq('id', invite.bid_request_id).single()).data
+  }
   if (!req) return NextResponse.json({ error: 'Request not found' }, { status: 404 })
 
   const { data: mySubmission } = await db.from('bid_submissions').select('*').eq('bid_invite_id', invite.id).order('created_at', { ascending: false }).limit(1).maybeSingle()
@@ -31,6 +36,11 @@ export async function GET(_request: Request, { params }: { params: { token: stri
       title: req.title, trade: req.trade, description: req.description, due_date: req.due_date,
       status: req.status, project_name: (req as any).projects?.name, project_address: (req as any).projects?.address,
       attachments: (req as any).bid_request_attachments ?? [],
+      package_type: (req as any).package_type ?? null,
+      material_by: (req as any).material_by ?? null,
+      included: (req as any).included ?? [],
+      excluded: (req as any).excluded ?? [],
+      ask_for: (req as any).ask_for ?? [],
     },
     invite: { vendor_name: invite.vendor_name, status: invite.status },
     submission: mySubmission ?? null,

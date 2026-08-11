@@ -10,6 +10,7 @@ import { Plus, X, FileText, Send, Link2, Copy, Trash2, Scale, Loader2, CheckCirc
 import { cn } from '@/lib/utils'
 import { ComparisonBlock, type Comparison } from '@/components/quotes/comparison-block'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
+import { ScopeBuilder, EMPTY_SCOPE, type ScopeValue } from '@/components/projects/scope-builder'
 
 const money = (n: number | null) => n == null ? '-' : `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 const STATUS: Record<string, string> = {
@@ -32,6 +33,7 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
   // new request form
   const [title, setTitle] = useState('')
   const [trade, setTrade] = useState('')
+  const [scopeValue, setScopeValue] = useState<ScopeValue>(EMPTY_SCOPE)
   const [description, setDescription] = useState('')
   const [dueDate, setDueDate] = useState('')
   const [files, setFiles] = useState<File[]>([])
@@ -79,6 +81,13 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
     form.append('title', title); if (trade) form.append('trade', trade)
     if (description) form.append('description', description); if (dueDate) form.append('due_date', dueDate)
     const chosen = savedPlans.filter(p => selectedPlans.has(p.id)).map(p => ({ file_url: p.file_url, file_name: p.name }))
+    // The scope questions every bidder answers - this is what makes the
+    // quotes comparable without a takeoff.
+    form.append('package_type', scopeValue.package_type)
+    form.append('material_by', scopeValue.material_by)
+    form.append('included', JSON.stringify(scopeValue.included))
+    form.append('excluded', JSON.stringify(scopeValue.excluded))
+    form.append('ask_for', JSON.stringify(scopeValue.ask_for))
     if (chosen.length) form.append('existing_attachments', JSON.stringify(chosen))
     files.forEach(f => form.append('attachments', f))
     const res = await fetch(`/api/projects/${params.id}/bid-requests`, { method: 'POST', headers: { Authorization: `Bearer ${t}` }, body: form })
@@ -214,6 +223,8 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
           <div className="space-y-1.5"><Label>Scope / instructions</Label>
             <textarea rows={3} value={description} onChange={e => setDescription(e.target.value)} placeholder="What you need quoted, requirements, etc."
               className="w-full rounded-md border border-muted2 px-3 py-2 text-sm focus:border-accent focus:outline-none resize-none" /></div>
+          <ScopeBuilder trade={trade || null} value={scopeValue} onChange={setScopeValue} />
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5"><Label>Due date</Label><Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} /></div>
             <div className="space-y-1.5"><Label>Upload new files <span className="text-faint font-normal">(optional)</span></Label>

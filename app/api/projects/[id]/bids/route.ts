@@ -1,6 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { PACKAGE_TYPES } from '@/lib/trade-scopes'
 import { logActivity } from '@/lib/log-activity'
+
+const PACKAGE_TYPE_KEYS: string[] = PACKAGE_TYPES.map(p => p.key)
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -66,7 +69,10 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { scope, description, due_date, trade, invited_company_ids, plan_ids } = await request.json()
+  const {
+    scope, description, due_date, trade, invited_company_ids, plan_ids,
+    package_type, material_by, included, excluded, ask_for, item_list,
+  } = await request.json()
 
   if (!scope || !description) {
     return NextResponse.json({ error: 'Scope and description are required' }, { status: 400 })
@@ -75,11 +81,29 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const { data: profile } = await db.from('profiles').select('full_name, companies(name)').eq('id', user.id).single()
   const actorName = (profile as any)?.full_name ?? 'Someone'
 
-  const { data: pkg, error } = await db
-    .from('bid_packages')
-    .insert({ project_id: params.id, scope, description, due_date: due_date || null, trade: trade || null, status: 'open' })
-    .select()
-    .single()
+  // The scope questions are stored ON the package, not looked up from the
+  // trade defaults later: a package has to keep saying what it said when it
+  // went out, even after those defaults are edited.
+  const base = {
+    project_id: params.id, scope, description,
+    due_date: due_date || null, trade: trade || null, status: 'open',
+  }
+  const withScope = {
+    ...base,
+    package_type: PACKAGE_TYPE_KEYS.includes(package_type) ? package_type : 'turnkey',
+    material_by: ['sub', 'gc', 'na'].includes(material_by) ? material_by : 'sub',
+    included: Array.isArray(included) ? included : [],
+    excluded: Array.isArray(excluded) ? excluded : [],
+    ask_for: Array.isArray(ask_for) ? ask_for : [],
+    item_list: Array.isArray(item_list) ? item_list : [],
+  }
+
+  let { data: pkg, error } = await db.from('bid_packages').insert(withScope).select().single()
+  // Pre-migration fallback: the scope columns may not exist yet.
+  if (error && (error as any).code === '42703') {
+    const retry = await db.from('bid_packages').insert(base).select().single()
+    pkg = retry.data; error = retry.error
+  }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 

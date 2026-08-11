@@ -35,14 +35,36 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const title = form.get('title') as string
   if (!title) return NextResponse.json({ error: 'Title is required' }, { status: 400 })
 
-  const { data: req, error } = await db.from('bid_requests').insert({
+  // The scope questions, sent as JSON in the multipart form. Stored on the
+  // request so it keeps saying what it said when it went out.
+  const jsonField = (k: string) => {
+    try { const v = JSON.parse((form.get(k) as string) || '[]'); return Array.isArray(v) ? v : [] }
+    catch { return [] }
+  }
+
+  const base = {
     project_id: params.id,
     title,
     trade: (form.get('trade') as string) || null,
     description: (form.get('description') as string) || null,
     due_date: (form.get('due_date') as string) || null,
     created_by: user.id,
-  }).select().single()
+  }
+  const withScope = {
+    ...base,
+    package_type: (form.get('package_type') as string) || 'turnkey',
+    material_by: (form.get('material_by') as string) || 'sub',
+    included: jsonField('included'),
+    excluded: jsonField('excluded'),
+    ask_for: jsonField('ask_for'),
+  }
+
+  let { data: req, error } = await db.from('bid_requests').insert(withScope).select().single()
+  // Pre-migration fallback: scope columns may not exist yet.
+  if (error && (error as any).code === '42703') {
+    const retry = await db.from('bid_requests').insert(base).select().single()
+    req = retry.data; error = retry.error
+  }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   // Attach already-saved project plans (no re-upload)

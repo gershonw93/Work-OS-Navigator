@@ -2,12 +2,18 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { FileText, Upload, CheckCircle2, Calendar, Loader2, AlertTriangle } from 'lucide-react'
+import { FileText, Upload, CheckCircle2, Calendar, Loader2, AlertTriangle, Check, X } from 'lucide-react'
 import { SyteNavLogo } from '@/components/ui/logo'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 
 interface Data {
-  request: { title: string; trade: string | null; description: string | null; due_date: string | null; status: string; project_name?: string; project_address?: string; attachments: { file_url: string; file_name: string | null }[] }
+  request: {
+    title: string; trade: string | null; description: string | null; due_date: string | null; status: string
+    project_name?: string; project_address?: string
+    attachments: { file_url: string; file_name: string | null }[]
+    package_type?: string | null; material_by?: string | null
+    included?: string[]; excluded?: string[]; ask_for?: string[]
+  }
   invite: { vendor_name: string | null; status: string }
   submission: { amount: number | null; notes: string | null; file_name: string | null; created_at: string } | null
 }
@@ -88,6 +94,60 @@ export default function BidPage({ params }: { params: { token: string } }) {
 
         <div className="px-5 py-5 space-y-5">
           {r.description && <div><p className="text-xs uppercase tracking-wide text-faint font-semibold mb-1">Scope</p><p className="text-sm text-ink-soft whitespace-pre-wrap">{r.description}</p></div>}
+
+          {/* What we're asking them to price. Every bidder sees the same
+              questions, which is the whole reason the answers compare. */}
+          {(r.material_by || (r.included?.length ?? 0) > 0 || (r.excluded?.length ?? 0) > 0 || (r.ask_for?.length ?? 0) > 0) && (
+            <div className="rounded-xl border border-line bg-surface p-4 space-y-4">
+              {r.material_by && (
+                <p className="text-sm font-semibold text-ink">
+                  {r.material_by === 'gc'
+                    ? 'Material is supplied by the GC - price your labor only.'
+                    : r.material_by === 'na'
+                      ? 'No material on this package.'
+                      : 'You supply the material and the labor.'}
+                  {r.package_type === 'measure_quote' && ' Please measure on site before quoting.'}
+                </p>
+              )}
+
+              {(r.included?.length ?? 0) > 0 && (
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-faint font-semibold mb-1.5">Included in this package</p>
+                  <ul className="space-y-1">
+                    {r.included!.map((t, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-ink-soft">
+                        <Check className="h-3.5 w-3.5 shrink-0 mt-0.5 text-success" /> {t}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {(r.excluded?.length ?? 0) > 0 && (
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-faint font-semibold mb-1.5">Not included</p>
+                  <ul className="space-y-1">
+                    {r.excluded!.map((t, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-muted-fg">
+                        <X className="h-3.5 w-3.5 shrink-0 mt-0.5 text-danger" /> {t}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {(r.ask_for?.length ?? 0) > 0 && (
+                <div className="rounded-lg border border-accent/30 bg-accent-tint px-3 py-2.5">
+                  <p className="text-xs uppercase tracking-wide font-semibold text-accent-fg mb-1.5">Please include with your bid</p>
+                  <ul className="space-y-1">
+                    {r.ask_for!.map((t, i) => (
+                      <li key={i} className="text-sm text-ink-soft">· {t}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
 
           {r.attachments.length > 0 && (
             <div>
