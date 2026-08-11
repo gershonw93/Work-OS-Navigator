@@ -121,8 +121,8 @@ export default async function PortalPage({ params }: { params: { token: string }
             <div>
               <h1 className="text-2xl font-bold text-ink">{project.name}</h1>
               {project.address && <p className="text-muted-fg mt-1">{project.address}</p>}
-              {project.client_name && (
-                <p className="text-sm text-muted-fg mt-1">Client: <span className="font-medium text-ink-soft">{project.client_name}</span></p>
+              {project.client && (
+                <p className="text-sm text-muted-fg mt-1">Client: <span className="font-medium text-ink-soft">{project.client}</span></p>
               )}
             </div>
             <div className="flex flex-col items-end gap-1">

@@ -30,7 +30,7 @@ export function siteHref(path: string): string {
 // leaking onto the marketing domain.
 export const APP_PATH_PREFIXES = [
   '/dashboard', '/projects', '/directory', '/approvals', '/settings',
-  '/customers', '/files', '/help', '/equipment', '/materials',
+  '/customers', '/files', '/help', '/whats-new', '/equipment', '/materials',
   '/budget-templates', '/master-calendar', '/master-money', '/my-bids', '/my-jobs',
   '/admin', '/field', '/auth', '/login', '/signup', '/forgot-password', '/reset-password',
   // Token links handed to people without accounts. They are served by the app,

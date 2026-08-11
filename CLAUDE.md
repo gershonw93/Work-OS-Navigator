@@ -8,13 +8,25 @@ production branch.** Do NOT ask the user to merge or deploy.
   off `main` are previews only. After merging, fast-forward it or nothing ships:
   `git push origin origin/main:refs/heads/claude/admiring-bohr-DyFVR`
   (Changing this is one setting: Vercel → project → Git → Production Branch.)
-- The only thing the user must do manually is run new Supabase SQL migrations
-  (no DB access from here). Mention those once, briefly - don't nag about deploy.
+- Migrations are applied directly via the Supabase MCP (`apply_migration`) as
+  part of shipping - the user does NOT paste SQL by hand. Verify the schema
+  landed, then say what ran. Don't nag about deploy.
 
 ## Migrations
-- Combined, idempotent SQL lives at `supabase/migrations/_combined_008-068.sql`
-  (keep the suffix current as new migrations are added). User pastes it into the
-  Supabase SQL editor.
+- Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
+  (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
+- Combined, idempotent SQL is still kept current at
+  `supabase/migrations/_combined_008-068.sql` (bump the suffix as you add
+  migrations) as the fallback for a fresh environment.
+- IMPORTANT: verify every column you `.select()` actually exists - Supabase
+  returns `data: null` for an unknown column, so a typo reads as "not found"
+  rather than an error. `projects` has `client`, NOT `client_name`.
+
+## What's new (KEEP CURRENT)
+- User-facing release notes live in `lib/whats-new.ts`, shown at `/whats-new`.
+- IMPORTANT: when you ship something a user would NOTICE, add an entry in the
+  SAME change. Internal refactors and build fixes do not belong there.
+- Newest first; `date` drives the unread badge in the sidebar, so keep it real.
 
 ## Help Center (KEEP CURRENT)
 - User-facing support articles live in `lib/help/articles.ts`, shown at `/help`.

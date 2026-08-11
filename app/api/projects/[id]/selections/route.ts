@@ -40,14 +40,14 @@ export async function GET(request: Request, { params }: { params: { id: string }
   // offer "send this to the client" without a second place to look it up.
   const [{ data: lines }, { data: project }] = await Promise.all([
     db.from('budget_line_items').select('id, category, description, budgeted_amount').eq('project_id', params.id).order('sort_order'),
-    db.from('projects').select('client_portal_token, client_name, start_date').eq('id', params.id).single(),
+    db.from('projects').select('client_portal_token, client, start_date').eq('id', params.id).single(),
   ])
 
   return NextResponse.json({
     selections: data ?? [],
     budget_lines: lines ?? [],
     portal_token: project?.client_portal_token ?? null,
-    client_name: project?.client_name ?? null,
+    client_name: project?.client ?? null,
     project_start: project?.start_date ?? null,
   })
 }
