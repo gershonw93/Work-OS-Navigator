@@ -77,6 +77,11 @@ export const RELEASES: Release[] = [
         help: 'scan-sub-invoice',
       },
       {
+        kind: 'new',
+        title: 'Swipe between documents on your phone',
+        text: 'Open a document on a share link and swipe left or right to move to the next one, instead of tapping each file open in a new tab and coming back. Photos, PDFs and anything else all page through the same way, with a counter so you know where you are. Daily log photos swipe too. Arrows and arrow keys still work on a laptop, and pinch-to-zoom on a photo is untouched.',
+      },
+      {
         kind: 'fixed',
         title: 'Commercial jobs had nowhere to put a sub\'s bill',
         text: 'On a job set to AIA billing the Invoices tab was hidden completely - but that tab holds bills your subs and suppliers send YOU, which has nothing to do with how you bill the owner. The job type with the most subcontractors on it had nowhere to record a single one. It is back. Every money tab now says which direction it points: Invoices is money out, Pay Apps and Payments are money in, each linking to the other.',
