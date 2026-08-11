@@ -33,6 +33,7 @@ interface Selection {
   selected_option_id: string | null; selected_name: string | null; selected_price: number | null
   selected_at: string | null; notes: string | null
   ordered_at: string | null; expected_delivery: string | null
+  reference_url: string | null; reference_label: string | null
   change_requested_at: string | null
   selection_options: Option[]
 }
@@ -168,6 +169,16 @@ export default function PortalSelectionsPage({ params }: { params: { token: stri
                     <p className="text-xs text-info mt-1.5">
                       You currently have <span className="font-semibold">{sel.selected_name}</span> - picking again replaces it.
                     </p>
+                  )}
+                  {/* The full range lives on the manufacturer's site. Nobody is
+                      choosing a paint color off three thumbnails, so send them
+                      to look and let them write in what they found. */}
+                  {sel.reference_url && (
+                    <a href={sel.reference_url} target="_blank" rel="noreferrer"
+                      className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-accent px-3 py-1.5 text-xs font-semibold text-accent-fg hover:bg-accent-tint">
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      {sel.reference_label || 'See the full range'}
+                    </a>
                   )}
                 </div>
 

@@ -27,6 +27,7 @@ export async function GET(_request: Request, { params }: { params: { token: stri
     .select(`id, category, item, location, allowance_amount, needed_by, status,
       selected_option_id, selected_name, selected_price, selected_at, notes, sort_order,
       ordered_at, expected_delivery, change_requested_at, change_request_note,
+      reference_url, reference_label,
       selection_options (id, name, description, price, brand, model_number, color_hex, image_url, link_url, is_allowance, sort_order)`)
     .eq('project_id', project.id)
     .order('sort_order', { ascending: true })
