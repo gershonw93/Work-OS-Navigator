@@ -12,6 +12,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { BidLevelingModal } from '@/components/ui/bid-leveling-modal'
 import { SignaturePad } from '@/components/signature-pad'
 import { cn } from '@/lib/utils'
+import { ScopeBuilder, EMPTY_SCOPE, type ScopeValue } from '@/components/projects/scope-builder'
 
 const TRADES = [
   'All Trades', 'Demolition', 'Concrete', 'Masonry', 'Structural Steel', 'Framing',
@@ -91,6 +92,7 @@ export default function BidsPage({ params }: { params: { id: string } }) {
   // New package form
   const [showNewPkg, setShowNewPkg] = useState(false)
   const [scope, setScope] = useState('')
+  const [scopeValue, setScopeValue] = useState<ScopeValue>(EMPTY_SCOPE)
   const [description, setDescription] = useState('')
   const [dueDate, setDueDate] = useState('')
   const [trade, setTrade] = useState('All Trades')
@@ -219,7 +221,7 @@ export default function BidsPage({ params }: { params: { id: string } }) {
   }
 
   function resetForm() {
-    setScope(''); setDescription(''); setDueDate(''); setTrade('All Trades')
+    setScope(''); setDescription(''); setDueDate(''); setTrade('All Trades'); setScopeValue(EMPTY_SCOPE)
     setSelectedCompanies([]); setSelectedPlans([]); setCompanySearch('')
     setPkgError(null)
   }
@@ -237,6 +239,7 @@ export default function BidsPage({ params }: { params: { id: string } }) {
         trade: trade === 'All Trades' ? null : trade,
         invited_company_ids: selectedCompanies,
         plan_ids: selectedPlans,
+        ...scopeValue,
       }),
     })
     if (!res.ok) {
@@ -622,6 +625,13 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                     className="w-full rounded-md border border-muted2 px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent resize-none"
                   />
                 </div>
+
+                {/* What they're actually pricing - loads that trade's template */}
+                <ScopeBuilder
+                  trade={trade === 'All Trades' ? null : trade}
+                  value={scopeValue}
+                  onChange={setScopeValue}
+                />
 
                 {/* Due Date */}
                 <div className="space-y-1.5 max-w-xs">
