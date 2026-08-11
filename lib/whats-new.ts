@@ -70,6 +70,17 @@ export const RELEASES: Release[] = [
         help: 'scope-what-to-send',
       },
       {
+        kind: 'improved',
+        title: 'Selections match the job you are on',
+        text: 'Starting a board now asks which categories this job actually has, already ticked for the kind of job it is. A commercial fit-out gets 41 selections instead of 71 - no sod, no shutters, no bathtub. You can reopen the checklist any time to add a category you skipped.',
+        help: 'selections',
+      },
+      {
+        kind: 'fixed',
+        title: 'The client link on a project never shared',
+        text: 'On a project that had never been shared with a client, the "Copy client link" button on the Selections board was missing entirely. It now creates the link for you.',
+      },
+      {
         kind: 'fixed',
         title: 'The client name on the portal',
         text: 'The project portal was reading the wrong field, so the "Client:" line never appeared even when the name was filled in.',

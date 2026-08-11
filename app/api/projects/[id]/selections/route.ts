@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { SELECTION_CATEGORIES, categoryDef } from '@/lib/selections'
+import { SELECTION_CATEGORIES, categoryDef, itemsForType } from '@/lib/selections'
 
 export const runtime = 'nodejs'
 
@@ -40,7 +40,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
   // offer "send this to the client" without a second place to look it up.
   const [{ data: lines }, { data: project }] = await Promise.all([
     db.from('budget_line_items').select('id, category, description, budgeted_amount').eq('project_id', params.id).order('sort_order'),
-    db.from('projects').select('client_portal_token, client, start_date').eq('id', params.id).single(),
+    db.from('projects').select('client_portal_token, client, start_date, type').eq('id', params.id).single(),
   ])
 
   return NextResponse.json({
@@ -49,6 +49,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
     portal_token: project?.client_portal_token ?? null,
     client_name: project?.client ?? null,
     project_start: project?.start_date ?? null,
+    // Drives which categories arrive pre-ticked on the seed checklist.
+    project_type: project?.type ?? null,
   })
 }
 
@@ -67,6 +69,11 @@ export async function POST(request: Request, { params }: { params: { id: string 
       ? body.categories
       : SELECTION_CATEGORIES.map(c => c.category)
 
+    // The kind of job also decides which ITEMS make sense. A medical suite that
+    // asked for Cabinets still shouldn't get laundry cabinets.
+    const { data: proj } = await db.from('projects').select('type').eq('id', params.id).single()
+    const type = proj?.type ?? null
+
     const { data: existing } = await db.from('project_selections')
       .select('category, item').eq('project_id', params.id)
     const seen = new Set((existing ?? []).map(e => `${e.category}|${e.item}`.toLowerCase()))
@@ -75,7 +82,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     let order = (existing?.length ?? 0) * 10
     for (const cat of SELECTION_CATEGORIES) {
       if (!wanted.includes(cat.category)) continue
-      for (const item of cat.items) {
+      for (const item of itemsForType(cat, type)) {
         if (seen.has(`${cat.category}|${item}`.toLowerCase())) continue
         rows.push({
           project_id: params.id, company_id, category: cat.category, item,
