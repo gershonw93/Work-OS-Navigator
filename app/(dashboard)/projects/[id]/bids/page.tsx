@@ -13,6 +13,8 @@ import { BidLevelingModal } from '@/components/ui/bid-leveling-modal'
 import { SignaturePad } from '@/components/signature-pad'
 import { cn } from '@/lib/utils'
 import { ScopeBuilder, EMPTY_SCOPE, type ScopeValue } from '@/components/projects/scope-builder'
+import { ItemListEditor } from '@/components/projects/item-list-editor'
+import type { ItemLine } from '@/lib/item-list'
 
 const TRADES = [
   'All Trades', 'Demolition', 'Concrete', 'Masonry', 'Structural Steel', 'Framing',
@@ -93,6 +95,7 @@ export default function BidsPage({ params }: { params: { id: string } }) {
   const [showNewPkg, setShowNewPkg] = useState(false)
   const [scope, setScope] = useState('')
   const [scopeValue, setScopeValue] = useState<ScopeValue>(EMPTY_SCOPE)
+  const [itemList, setItemList] = useState<ItemLine[]>([])
   const [description, setDescription] = useState('')
   const [dueDate, setDueDate] = useState('')
   const [trade, setTrade] = useState('All Trades')
@@ -221,7 +224,7 @@ export default function BidsPage({ params }: { params: { id: string } }) {
   }
 
   function resetForm() {
-    setScope(''); setDescription(''); setDueDate(''); setTrade('All Trades'); setScopeValue(EMPTY_SCOPE)
+    setScope(''); setDescription(''); setDueDate(''); setTrade('All Trades'); setScopeValue(EMPTY_SCOPE); setItemList([])
     setSelectedCompanies([]); setSelectedPlans([]); setCompanySearch('')
     setPkgError(null)
   }
@@ -240,6 +243,7 @@ export default function BidsPage({ params }: { params: { id: string } }) {
         invited_company_ids: selectedCompanies,
         plan_ids: selectedPlans,
         ...scopeValue,
+        item_list: itemList.filter(l => l.description.trim()),
       }),
     })
     if (!res.ok) {
@@ -631,6 +635,17 @@ export default function BidsPage({ params }: { params: { id: string } }) {
                   trade={trade === 'All Trades' ? null : trade}
                   value={scopeValue}
                   onChange={setScopeValue}
+                  itemCount={itemList.length}
+                />
+
+                {/* The lines a supplier prices one by one - only when we're
+                    buying the material. */}
+                <ItemListEditor
+                  value={itemList}
+                  onChange={setItemList}
+                  hint={scopeValue.material_by === 'gc' && itemList.length === 0
+                    ? 'You\u2019re supplying the material on this one. Send the list and they price it line by line.'
+                    : undefined}
                 />
 
                 {/* Due Date */}

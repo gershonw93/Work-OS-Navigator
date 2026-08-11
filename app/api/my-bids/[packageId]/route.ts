@@ -19,18 +19,22 @@ export async function GET(request: Request, { params }: { params: { packageId: s
   const { data: profile } = await db.from('profiles').select('company_id').eq('id', user.id).single()
   if (!profile) return NextResponse.json({ error: 'Profile not found' }, { status: 400 })
 
-  const { data: pkg } = await db
-    .from('bid_packages')
-    .select(`
+  const CORE = `
       id, scope, description, trade, due_date, status, requirements, specifications,
       projects ( id, name, address, type, start_date ),
       bid_package_attachments (
         id,
         project_plans ( id, name, plan_type, file_url )
       )
-    `)
-    .eq('id', params.packageId)
-    .single()
+    `
+  // The scope answers and the item list the GC sent. Pre-migration fallback:
+  // these columns may not exist yet, and the package has to open either way.
+  let pkg: any = (await db.from('bid_packages')
+    .select(`package_type, material_by, included, excluded, ask_for, item_list, ${CORE}`)
+    .eq('id', params.packageId).single()).data
+  if (!pkg) {
+    pkg = (await db.from('bid_packages').select(CORE).eq('id', params.packageId).single()).data
+  }
 
   if (!pkg) return NextResponse.json({ error: 'Package not found' }, { status: 404 })
 
