@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
+import Link from 'next/link'
 import { cn } from '@/lib/utils'
+import { daysUntil, isOutstanding } from '@/lib/selections'
 
 const admin = () =>
   createClient(
@@ -69,12 +71,20 @@ export default async function PortalPage({ params }: { params: { token: string }
     { data: milestones },
     { data: permits },
     { data: dailyLogs },
+    { data: selections },
   ] = await Promise.all([
     db.from('subcontracts').select('*').eq('project_id', project.id),
     db.from('schedule_items').select('*').eq('project_id', project.id).order('start_date', { ascending: true }),
     db.from('permits').select('*').eq('project_id', project.id).order('created_at', { ascending: false }),
     db.from('daily_logs').select('*').eq('project_id', project.id).order('log_date', { ascending: false }).limit(5),
+    db.from('project_selections').select('id, item, location, status, needed_by').eq('project_id', project.id),
   ])
+
+  // The one place in an otherwise read-only portal where the client owes US
+  // something. Surfaced first, with the count, because a soft "have a look
+  // sometime" is how selections end up late.
+  const owed = (selections ?? []).filter(s => isOutstanding(s.status))
+  const owedLate = owed.filter(s => { const d = daysUntil(s.needed_by); return d != null && d < 0 }).length
 
   const overallPct =
     subcontracts && subcontracts.length > 0
@@ -180,6 +190,27 @@ export default async function PortalPage({ params }: { params: { token: string }
             <p className="text-sm text-faint">No schedule items on record.</p>
           )}
         </div>
+
+        {/* Selections the client still owes us */}
+        {(selections?.length ?? 0) > 0 && (
+          <Link href={`/portal/${params.token}/selections`}
+            className={cn('block rounded-xl border p-4 sm:p-6 transition-colors hover:border-accent',
+              owed.length ? 'bg-accent-tint border-accent/40' : 'bg-panel border-line')}>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold text-ink">Your selections</h2>
+                <p className="text-sm text-muted-fg mt-0.5">
+                  {owed.length === 0
+                    ? 'Everything is decided - nothing is waiting on you.'
+                    : `${owed.length} choice${owed.length === 1 ? '' : 's'} still needed from you${owedLate ? `, ${owedLate} past due` : ''}.`}
+                </p>
+              </div>
+              <span className="rounded-lg bg-accent text-accent-ink text-sm font-semibold px-4 py-2 shrink-0">
+                {owed.length ? 'Make your picks' : 'View selections'}
+              </span>
+            </div>
+          </Link>
+        )}
 
         {/* Permits */}
         <div className="bg-panel rounded-xl border border-line p-4 sm:p-6">

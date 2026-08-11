@@ -14,6 +14,7 @@ import { ScopeBuilder, EMPTY_SCOPE, type ScopeValue } from '@/components/project
 import { ItemListEditor } from '@/components/projects/item-list-editor'
 import { LineComparison } from '@/components/quotes/line-comparison'
 import type { ItemLine } from '@/lib/item-list'
+import { MATERIAL_BY_LABEL, PACKAGE_TYPE_LABEL, type MaterialBy, type PackageType } from '@/lib/trade-scopes'
 
 const money = (n: number | null) => n == null ? '-' : `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 const STATUS: Record<string, string> = {
@@ -54,6 +55,8 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
   const [pulling, setPulling] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const toggleCollapse = (id: string) => setExpanded(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  const [sentOpen, setSentOpen] = useState<Set<string>>(new Set())
+  const toggleSent = (id: string) => setSentOpen(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
   // Add-to-directory after inviting a new (non-directory) sub
   const [pendingContact, setPendingContact] = useState<{ name: string; email: string } | null>(null)
   const [contactForm, setContactForm] = useState({ name: '', email: '', phone: '', trade: '', type: 'subcontractor' })
@@ -325,6 +328,56 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
             </div>
 
             {!isCollapsed && <div className="p-4 space-y-3">
+              {/* What actually went out. Without this the card shows who you
+                  invited but not what you asked them - and you can't answer
+                  "what did I send this guy?" without opening his link. */}
+              {(req.description || req.material_by || (req.included?.length ?? 0) > 0 || (req.excluded?.length ?? 0) > 0 || (req.ask_for?.length ?? 0) > 0) && (
+                <div className="rounded-lg border border-line bg-surface">
+                  <button onClick={() => toggleSent(req.id)}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-muted/40 rounded-lg">
+                    <span className="text-faint shrink-0">{sentOpen.has(req.id) ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}</span>
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-sm font-semibold text-ink">What you sent</span>
+                      <span className="block text-xs text-muted-fg">
+                        {req.package_type ? PACKAGE_TYPE_LABEL[req.package_type as PackageType] ?? req.package_type : 'Scope'}
+                        {req.material_by ? ` · ${MATERIAL_BY_LABEL[req.material_by as MaterialBy] ?? req.material_by}` : ''}
+                      </span>
+                    </span>
+                  </button>
+
+                  {sentOpen.has(req.id) && (
+                    <div className="px-3 pb-3 pt-1 space-y-3 border-t border-line-soft">
+                      {req.description && (
+                        <div>
+                          <p className="text-[11px] uppercase tracking-wide text-faint font-semibold mb-1">Scope / instructions</p>
+                          <p className="text-sm text-ink-soft whitespace-pre-wrap">{req.description}</p>
+                        </div>
+                      )}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {(req.included?.length ?? 0) > 0 && (
+                          <div>
+                            <p className="text-[11px] uppercase tracking-wide text-faint font-semibold mb-1">Included</p>
+                            <ul className="space-y-0.5 text-sm text-ink-soft">{req.included.map((t: string, i: number) => <li key={i}>· {t}</li>)}</ul>
+                          </div>
+                        )}
+                        {(req.excluded?.length ?? 0) > 0 && (
+                          <div>
+                            <p className="text-[11px] uppercase tracking-wide text-faint font-semibold mb-1">Not included</p>
+                            <ul className="space-y-0.5 text-sm text-muted-fg">{req.excluded.map((t: string, i: number) => <li key={i}>· {t}</li>)}</ul>
+                          </div>
+                        )}
+                        {(req.ask_for?.length ?? 0) > 0 && (
+                          <div>
+                            <p className="text-[11px] uppercase tracking-wide text-accent-fg font-semibold mb-1">Asked for back</p>
+                            <ul className="space-y-0.5 text-sm text-ink-soft">{req.ask_for.map((t: string, i: number) => <li key={i}>· {t}</li>)}</ul>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {(req.bid_request_attachments?.length ?? 0) > 0 && (
                 <div className="flex flex-wrap gap-2">
                   {req.bid_request_attachments.map((a: any) => <a key={a.id} href={a.file_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-xs text-accent-fg hover:bg-surface"><FileText className="h-3.5 w-3.5" />{a.file_name ?? 'Plan'}</a>)}
