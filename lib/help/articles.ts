@@ -296,10 +296,11 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: 'steps', items: [
         'Start a quote request and pick the trade.',
         'The scope fills in from that trade: whether it is labor + material, labor only, material only, or measure & quote; who supplies the material; what is included; what is excluded; and what you need back besides a price.',
-        'Edit any of it - the defaults are a starting point, not a rule.',
+        'Edit any of it - the defaults are a starting point, not a rule. Click a line to change its wording, or use the move arrows to send it from Included to Not included and back. Trades that work the same way start out looking alike (plumbing and electrical are both priced per point with fixtures on allowance) - that is the trade, not a mistake.',
         'Attach the plans and send. Every bidder sees the same scope on their link.',
       ] },
       { type: 'tip', text: 'On a labor-only package, the most valuable thing you ask for is the material list. That list is what you send the lumber yard to price, so ask for it in writing with the bid.' },
+      { type: 'text', text: 'The scope and the item list do NOT overlap. The scope says what work is in and out of the package, and it applies to every job - it needs nothing but a set of plans. The item list says what quantities to price, and it is only for material YOU are buying. On a plumbing package the plumber brings his own rough material, so the item list stays empty; on a lumber package it is the whole point. The item list panel tells you which case you are in.' },
       { type: 'text', text: 'The panel tells you how the bids will compare. Send plans and a scope and you get totals that compare because the questions matched. Send an item list and you get line-by-line pricing that compares exactly. Both are fine - it just should not be a surprise.' },
       { type: 'text', text: 'Excluded lines matter as much as included ones. Most change orders come from something nobody said out loud - rock excavation, deck repair, fixture allowances. The defaults already list the usual suspects per trade.' },
     ],

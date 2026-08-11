@@ -18,15 +18,24 @@ import { UNITS, emptyLine, parsePastedRows, type ItemLine } from '@/lib/item-lis
  * quote is useless.
  */
 export function ItemListEditor({
-  value, onChange, hint,
+  value, onChange, materialBy, packageType,
 }: {
   value: ItemLine[]
   onChange: (next: ItemLine[]) => void
-  /** Extra nudge from the trade template, e.g. "you're supplying the material". */
-  hint?: string
+  /** Who's buying the material - the only thing that decides if a list is needed. */
+  materialBy?: 'sub' | 'gc' | 'na'
+  packageType?: 'turnkey' | 'labor_only' | 'material_only' | 'measure_quote'
 }) {
   const supabase = createClient()
   const [open, setOpen] = useState(value.length > 0)
+
+  // Whether a list is actually called for. The trade template already answered
+  // this by choosing who supplies the material - no reason to make the user
+  // work it out again.
+  const needed: 'yes' | 'no' | 'maybe' =
+    materialBy === 'gc' || packageType === 'material_only' ? 'yes'
+      : materialBy === 'sub' && (packageType === 'turnkey' || packageType === 'measure_quote') ? 'no'
+        : 'maybe'
   const [importing, setImporting] = useState(false)
   const [error, setError] = useState('')
   const [showPaste, setShowPaste] = useState(false)
@@ -94,16 +103,28 @@ export function ItemListEditor({
           <span className="block text-xs text-muted-fg mt-0.5">
             {value.length > 0
               ? 'Every bidder prices these same lines, so the quotes compare exactly.'
-              : 'Add one when you’re buying the material - lumber, trusses, mouldings, windows. Skip it otherwise.'}
+              : needed === 'no'
+                ? 'Not needed here - they bring their own material and quote off the plans. The scope above is what makes those quotes comparable.'
+                : needed === 'yes'
+                  ? 'You’re buying the material on this one, so somebody has to count it. Send the lines and every supplier prices the same ones.'
+                  : 'Add one when you’re buying the material - lumber, trusses, mouldings, windows. Skip it otherwise.'}
           </span>
         </span>
       </button>
 
       {open && (
         <div className="px-4 pb-4 space-y-3">
-          {hint && (
-            <p className="rounded-lg bg-warn-tint px-3 py-2 text-xs text-warn">{hint}</p>
-          )}
+          {/* The question people ask here is whether this duplicates the scope
+              above. It doesn't: the scope says what work is in and out, this
+              says what quantities to price. Only one of them is ever optional. */}
+          <p className={cn('rounded-lg px-3 py-2 text-xs',
+            needed === 'no' ? 'bg-muted text-muted-fg' : 'bg-warn-tint text-warn')}>
+            {needed === 'no'
+              ? 'The scope above already covers what’s in and out of this package - that’s what makes the bids comparable. An item list is only for material YOU are buying, so this one can stay empty.'
+              : needed === 'yes'
+                ? 'You’re supplying the material, so the scope alone won’t compare - two suppliers can quote wildly different quantities. Send the lines.'
+                : 'The scope above says what work is in and out. This says what quantities to price. They don’t overlap - and this one is only needed when you’re buying the material.'}
+          </p>
 
           <div className="flex flex-wrap gap-2">
             <Button type="button" size="sm" variant="outline" onClick={() => fileRef.current?.click()} disabled={importing} className="gap-1.5">
