@@ -12,6 +12,7 @@ import { useDeleteGuard } from '@/components/ui/delete-guard'
 import { useViewerContext } from '@/lib/use-viewer-context'
 import { QuoteLineItems } from '@/components/projects/quote-line-items'
 import { HARD_COST_CATEGORIES, SOFT_COST_CATEGORIES, categoryOptions } from '@/lib/budget-categories'
+import type { BudgetTotals } from '@/lib/invoice-budget'
 
 interface BudgetItem {
   id: string
@@ -21,6 +22,11 @@ interface BudgetItem {
   budgeted_amount: number
   committed_amount: number
   actual_amount: number
+  materials_amount?: number
+  /** Approved change orders on this line. */
+  change_orders_amount: number
+  /** budgeted + approved changes - what this line is judged against. */
+  revised_budget: number
   notes: string | null
   sort_order: number
   subcontract_id: string | null
@@ -105,6 +111,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   const guardDelete = useDeleteGuard()
   const vc = useViewerContext(params.id)
   const [items, setItems] = useState<BudgetItem[]>([])
+  const [totals, setTotals] = useState<BudgetTotals | null>(null)
   const [subOptions, setSubOptions] = useState<SubOption[]>([])
   const [materials, setMaterials] = useState<any[]>([])
   const [materialsTotal, setMaterialsTotal] = useState(0)
@@ -165,6 +172,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
     if (res.ok) {
       const d = await res.json()
       setItems(d.items ?? [])
+      setTotals(d.totals ?? null)
       setSubOptions(d.subcontracts ?? [])
       setMaterials(d.materials ?? [])
       setMaterialsTotal(d.materials_total ?? 0)
@@ -440,15 +448,33 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   // so the job total is the real total, but they are summarised separately.
   const softItems = items.filter(i => i.cost_type === 'soft')
   const hardItems = items.filter(i => i.cost_type !== 'soft')
-  const sumOf = (rows: BudgetItem[]) => rows.reduce((s, i) => s + Number(i.budgeted_amount || 0), 0)
+  // Section subtotals use the REVISED budget so they add up to the headline.
+  const sumOf = (rows: BudgetItem[]) => rows.reduce((s, i) => s + revisedOf(i), 0)
   const totalSoft = sumOf(softItems)
   const totalHard = sumOf(hardItems)
 
-  const totalBudgeted = items.reduce((s, i) => s + Number(i.budgeted_amount || 0), 0)
-  const totalCommitted = items.reduce((s, i) => s + Number(i.committed_amount || 0), 0)
-  const totalActual = items.reduce((s, i) => s + Number(i.actual_amount || 0), 0)
-  const remaining = totalBudgeted - totalActual
+  // Computed server-side from the same rollup the Invoices tab uses. The
+  // fallbacks keep the page honest if an older response arrives without them.
+  const totalBudgeted = totals?.revised_budget ?? items.reduce((s, i) => s + revisedOf(i), 0)
+  const originalBudget = totals?.original_budget ?? totalBudgeted
+  const approvedChanges = totals?.approved_changes ?? 0
+  const totalCommitted = totals?.committed ?? items.reduce((s, i) => s + Number(i.committed_amount || 0), 0)
+  const totalActual = totals?.actual ?? items.reduce((s, i) => s + Number(i.actual_amount || 0), 0)
+  const committedNotBilled = totals?.committed_not_billed ?? 0
+  // Remaining now counts signed contracts, not just invoices. Budget minus
+  // Actual told a GC with $450k signed and $200k billed that $300k was still
+  // theirs to spend; it never was.
+  const remaining = totals?.remaining ?? (totalBudgeted - totalActual)
   const overBudget = remaining < 0
+
+  // Everything a line is judged against uses budget + approved change orders.
+  // Judging against the original made a line look over budget at the exact
+  // moment the overage was approved and paid for.
+  function revisedOf(i: BudgetItem) {
+    return i.revised_budget != null
+      ? Number(i.revised_budget)
+      : Number(i.budgeted_amount || 0) + Number(i.change_orders_amount || 0)
+  }
 
   // Search filter
   const q = search.trim().toLowerCase()
@@ -458,12 +484,12 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
     : items
 
   // Sort within whatever grouping is applied
-  const variance = (i: BudgetItem) => Number(i.budgeted_amount || 0) - Number(i.actual_amount || 0)
+  const variance = (i: BudgetItem) => revisedOf(i) - Number(i.actual_amount || 0)
   const sortRows = (rows: BudgetItem[]) => {
     const r = [...rows]
     switch (sortBy) {
       case 'description': r.sort((a, b) => a.description.localeCompare(b.description)); break
-      case 'budgeted': r.sort((a, b) => Number(b.budgeted_amount || 0) - Number(a.budgeted_amount || 0)); break
+      case 'budgeted': r.sort((a, b) => revisedOf(b) - revisedOf(a)); break
       case 'committed': r.sort((a, b) => Number(b.committed_amount || 0) - Number(a.committed_amount || 0)); break
       case 'actual': r.sort((a, b) => Number(b.actual_amount || 0) - Number(a.actual_amount || 0)); break
       case 'variance': r.sort((a, b) => variance(a) - variance(b)); break
@@ -530,15 +556,27 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   const profitToDate = revenue != null ? revenue - totalActual : null
 
   const statCards = [
-    { label: 'Total Budget', value: totalBudgeted, color: 'text-ink', bg: 'bg-panel', icon: DollarSign },
-    { label: 'Committed', value: totalCommitted, color: 'text-info', bg: 'bg-info-tint', icon: TrendingUp },
+    {
+      label: 'Total Budget', value: totalBudgeted, color: 'text-ink', bg: 'bg-panel', icon: DollarSign,
+      // A budget that grew because of approved change orders should say so.
+      note: approvedChanges !== 0
+        ? `${money(originalBudget)} original + ${money(approvedChanges)} approved changes`
+        : undefined,
+    },
+    {
+      label: 'Committed', value: totalCommitted, color: 'text-info', bg: 'bg-info-tint', icon: TrendingUp,
+      note: committedNotBilled > 0 ? `${money(committedNotBilled)} signed, not yet billed` : undefined,
+    },
     { label: 'Actual Spent', value: totalActual, color: 'text-success', bg: 'bg-success-tint', icon: CheckCircle2 },
     {
-      label: overBudget ? 'Over Budget' : 'Remaining',
+      label: overBudget ? 'Over Budget' : 'Left to spend',
       value: Math.abs(remaining),
       color: overBudget ? 'text-danger' : 'text-warn',
       bg: overBudget ? 'bg-danger-tint' : 'bg-warn-tint',
       icon: overBudget ? TrendingDown : Wallet,
+      // The whole point of the fix: this counts contracts you have signed, not
+      // just invoices you have received.
+      note: 'After signed contracts, not just invoices',
     },
   ]
 
@@ -761,6 +799,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                 <p className="text-xs font-medium text-muted-fg">{s.label}</p>
               </div>
               <p className={cn('text-2xl font-bold', s.color)}>{money(s.value)}</p>
+              {s.note && <p className="text-[11px] text-faint mt-1 leading-snug">{s.note}</p>}
             </div>
           )
         })}
@@ -1133,7 +1172,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
             </div>
           )}
           {section.groups.map(group => {
-            const gBudget = group.rows.reduce((s, i) => s + Number(i.budgeted_amount || 0), 0)
+            const gBudget = group.rows.reduce((s, i) => s + revisedOf(i), 0)
             return (
               <div key={group.category}>
                 <div className="bg-surface px-4 py-2 flex items-center justify-between gap-2">
@@ -1148,9 +1187,11 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                 </div>
                 <div className="divide-y divide-line-soft">
                   {group.rows.map(item => {
-                    const variance = Number(item.budgeted_amount || 0) - Number(item.actual_amount || 0)
+                    const revised = revisedOf(item)
+                    const changes = Number(item.change_orders_amount || 0)
+                    const variance = revised - Number(item.actual_amount || 0)
                     const over = variance < 0
-                    const overCommitted = Number(item.budgeted_amount || 0) > 0 && (Number(item.committed_amount || 0) - Number(item.budgeted_amount || 0)) >= 1
+                    const overCommitted = revised > 0 && (Number(item.committed_amount || 0) - revised) >= 1
                     if (editingId === item.id) {
                       return (
                         <div key={item.id} className="px-4 py-3 bg-accent-tint/40 space-y-2">
@@ -1271,12 +1312,23 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                         </div>
                         <div className="flex justify-between md:block md:text-right mt-2 md:mt-0 text-sm">
                           <span className="md:hidden text-xs text-faint">Budgeted</span>
-                          <span className="text-ink-soft">{money(item.budgeted_amount)}</span>
+                          {/* Revised, with the change orders spelled out - a
+                              budget that grew silently is worse than one that
+                              never grew. */}
+                          <span className="md:inline-flex md:flex-col md:items-end">
+                            <span className="text-ink-soft">{money(revised)}</span>
+                            {changes !== 0 && (
+                              <span className="ml-1 md:ml-0 text-[11px] text-info"
+                                title={`${money(item.budgeted_amount)} original + ${money(changes)} approved change orders`}>
+                                incl. {money(changes)} CO
+                              </span>
+                            )}
+                          </span>
                         </div>
                         <div className="flex justify-between md:block md:text-right text-sm">
                           <span className="md:hidden text-xs text-faint">Committed</span>
                           <span
-                            title={overCommitted ? `Committed ${money(item.committed_amount)} exceeds budget ${money(item.budgeted_amount)} by ${money(Number(item.committed_amount) - Number(item.budgeted_amount))}` : undefined}
+                            title={overCommitted ? `Committed ${money(item.committed_amount)} exceeds budget ${money(revised)} by ${money(Number(item.committed_amount) - revised)}` : undefined}
                             className={cn('inline-flex items-center gap-1 justify-end',
                               overCommitted ? 'text-danger font-semibold' : (item.linked ? 'text-ink-soft' : 'text-muted-fg'))}>
                             {overCommitted && <AlertTriangle className="h-3 w-3 shrink-0" />}

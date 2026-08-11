@@ -73,9 +73,11 @@ export async function PATCH(
     updates.sent_at = new Date().toISOString()
 
     const { data: gcProfile } = await db.from('profiles').select('full_name').eq('id', user.id).single()
-    await logActivity(db, params.id, (gcProfile as any)?.full_name ?? 'GC', 'invoice_sent', `Invoice ${invoice.invoice_number} sent to sub - $${Number(invoice.amount).toLocaleString()}`)
+    // This is a bill the sub sent US - "sent" here means released to be paid,
+    // not sent to them. The old wording described the flow backwards.
+    await logActivity(db, params.id, (gcProfile as any)?.full_name ?? 'GC', 'invoice_sent', `Invoice ${invoice.invoice_number} released for payment - $${Number(invoice.amount).toLocaleString()}`)
 
-    // Notify sub company
+    // Tell the sub their invoice cleared - which is the news they want.
     if (invoice.company_id) {
       const { data: subProfiles } = await db
         .from('profiles')
@@ -87,8 +89,8 @@ export async function PATCH(
             createNotification(
               db,
               p.id,
-              `Invoice Sent`,
-              `Invoice ${invoice.invoice_number} - $${Number(invoice.amount).toLocaleString()}. Please review.`,
+              `Invoice released for payment`,
+              `Invoice ${invoice.invoice_number} - $${Number(invoice.amount).toLocaleString()} has been approved and released for payment.`,
               `/projects/${params.id}/invoices`,
               'invoice_sent',
             )

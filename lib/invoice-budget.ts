@@ -54,10 +54,21 @@ export interface RollupSub {
   companies?: { name?: string | null } | null
 }
 
+export interface RollupChangeOrder {
+  amount?: unknown
+  status?: string | null
+  budget_line_item_id?: string | null
+  subcontract_id?: string | null
+}
+
 export interface RolledLine extends RollupLine {
   committed_amount: number
   actual_amount: number
   materials_amount: number
+  /** Approved change orders landing on this line. Zero, or signed. */
+  change_orders_amount: number
+  /** budgeted + approved changes. THE number to judge this line against. */
+  revised_budget: number
   linked: boolean
   linked_label: string | null
 }
@@ -75,8 +86,35 @@ export function rollupBudgetLines(input: {
   invoices: RollupInvoice[]
   materials: RollupMaterial[]
   subs: RollupSub[]
+  changeOrders?: RollupChangeOrder[]
 }): RolledLine[] {
-  const { lines, invoices, materials, subs } = input
+  const { lines, invoices, materials, subs, changeOrders = [] } = input
+
+  // Approved change orders raise the budget of the line they belong to.
+  //
+  // Derived, never written back to budgeted_amount. Approving, un-approving or
+  // deleting a change order is then self-correcting - there is no "applied"
+  // flag to get out of step and no way to double-count - and the original
+  // budget survives, which is the number you want when asking how well the
+  // job was estimated.
+  //
+  // Most change orders name a subcontract rather than a budget line, so a
+  // sub-linked one is followed through to whichever line that contract sits on.
+  // Without that hop approving a change order raised the contract (and so the
+  // line's Committed) while leaving its budget alone, which showed as a line
+  // going over budget at the exact moment the overage was approved and funded.
+  const lineIdForSub = new Map<string, string>()
+  for (const l of lines) {
+    if (l.subcontract_id && !lineIdForSub.has(l.subcontract_id)) lineIdForSub.set(l.subcontract_id, l.id)
+  }
+  const changesByLine = new Map<string, number>()
+  for (const co of changeOrders) {
+    if (co.status !== 'approved') continue
+    const target = co.budget_line_item_id
+      ?? (co.subcontract_id ? lineIdForSub.get(co.subcontract_id) ?? null : null)
+    if (!target) continue
+    changesByLine.set(target, (changesByLine.get(target) ?? 0) + n(co.amount))
+  }
 
   const actualBySub = new Map<string, number>()
   for (const inv of invoices) {
@@ -94,6 +132,8 @@ export function rollupBudgetLines(input: {
 
   return lines.map(line => {
     const materials_amount = materialsByLine.get(line.id) ?? 0
+    const change_orders_amount = changesByLine.get(line.id) ?? 0
+    const revised_budget = n(line.budgeted_amount) + change_orders_amount
     const sub = line.subcontract_id ? subById.get(line.subcontract_id) : undefined
     if (sub) {
       return {
@@ -101,6 +141,8 @@ export function rollupBudgetLines(input: {
         committed_amount: n(sub.contract_amount),
         actual_amount: (actualBySub.get(line.subcontract_id!) ?? 0) + materials_amount,
         materials_amount,
+        change_orders_amount,
+        revised_budget,
         linked: true,
         linked_label: sub.companies?.name ?? sub.trade ?? 'Subcontract',
       }
@@ -110,10 +152,67 @@ export function rollupBudgetLines(input: {
       committed_amount: n(line.committed_amount),
       actual_amount: n(line.actual_amount) + materials_amount,
       materials_amount,
+      change_orders_amount,
+      revised_budget,
       linked: false,
       linked_label: null,
     }
   })
+}
+
+/**
+ * What this line is really going to cost, as best anyone can tell today.
+ *
+ * A signed contract is money gone whether or not the sub has invoiced yet, so
+ * the commitment sets the floor. Billing above the commitment (extras, an
+ * invoice that outran its contract) raises it. Receipts are separate spend
+ * rather than billing against the contract, so they add on top rather than
+ * competing with it.
+ *
+ * The old Remaining ignored commitments entirely - Budget minus Actual - which
+ * told a GC with $500k budgeted, $200k billed and $450k signed that they had
+ * $300k left to spend. They had $50k.
+ */
+export function lineExposure(line: RolledLine): number {
+  const receipts = line.materials_amount
+  const billed = line.actual_amount - receipts
+  return Math.max(line.committed_amount, billed) + receipts
+}
+
+export interface BudgetTotals {
+  /** Before any change orders - what the job was estimated at. */
+  original_budget: number
+  approved_changes: number
+  /** original + approved changes. Everything is judged against this. */
+  revised_budget: number
+  committed: number
+  actual: number
+  /** Signed but not yet invoiced - the money that used to hide. */
+  committed_not_billed: number
+  /** Best estimate of final cost given what is signed and billed. */
+  projected_cost: number
+  /** Revised budget still free to spend. Negative means the job is over. */
+  remaining: number
+}
+
+export function budgetTotals(lines: RolledLine[]): BudgetTotals {
+  const t: BudgetTotals = {
+    original_budget: 0, approved_changes: 0, revised_budget: 0,
+    committed: 0, actual: 0, committed_not_billed: 0,
+    projected_cost: 0, remaining: 0,
+  }
+  for (const line of lines) {
+    t.original_budget += n(line.budgeted_amount)
+    t.approved_changes += line.change_orders_amount
+    t.committed += line.committed_amount
+    t.actual += line.actual_amount
+    t.projected_cost += lineExposure(line)
+    const billed = line.actual_amount - line.materials_amount
+    t.committed_not_billed += Math.max(0, line.committed_amount - billed)
+  }
+  t.revised_budget = t.original_budget + t.approved_changes
+  t.remaining = t.revised_budget - t.projected_cost
+  return t
 }
 
 /** What an invoice screen needs to say about the line the money is going to. */
@@ -122,7 +221,10 @@ export interface BudgetDestination {
   cost_code: string | null
   category: string
   description: string
+  /** Original budget plus approved change orders - what the line is worth now. */
   budgeted_amount: number
+  /** How much of that came from approved change orders. Zero, or signed. */
+  change_orders_amount: number
   /** Accepted invoices + receipts already against this line. */
   billed_amount: number
   /** Budget less what has already landed. Negative once the line is blown. */
@@ -139,7 +241,10 @@ export function destinationsBySubcontract(rolled: RolledLine[]): Map<string, Bud
     // invoices into its Actual - the two screens saying different things about
     // the same money is the whole thing this file exists to stop.
     if (!line.linked || !line.subcontract_id) continue
-    const budgeted = n(line.budgeted_amount)
+    // The REVISED budget. An approved change order is budget, so measuring an
+    // invoice against the original would flag an approved, funded overage as
+    // an overage.
+    const budgeted = line.revised_budget
     // A sub pointed at two lines shouldn't happen, but if it does, the first
     // one wins rather than the last - stable, and it matches the budget sheet's
     // own ordering.
@@ -150,6 +255,7 @@ export function destinationsBySubcontract(rolled: RolledLine[]): Map<string, Bud
       category: String(line.category ?? 'General'),
       description: String(line.description ?? ''),
       budgeted_amount: budgeted,
+      change_orders_amount: line.change_orders_amount,
       billed_amount: line.actual_amount,
       remaining: budgeted - line.actual_amount,
     })
