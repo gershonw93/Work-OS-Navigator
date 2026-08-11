@@ -10,7 +10,7 @@ import {
   FileText, Users, Calendar, CheckSquare, TrendingUp, BookOpen,
   MessageSquare, Receipt, DollarSign, GitPullRequest, Shield,
   ClipboardCheck, FileCheck, BarChart2, X, LayoutGrid,
-  Wrench, Wallet, Clock, Send, ShoppingCart, FileSpreadsheet, Building2,
+  Wrench, Wallet, Clock, Send, ShoppingCart, FileSpreadsheet, Building2, Palette,
 } from 'lucide-react'
 
 const groups = [
@@ -47,6 +47,7 @@ const groups = [
     tabs: [
       { label: 'Budget', slug: 'budget', icon: Wallet },
       { label: 'Materials', slug: 'materials', icon: ShoppingCart },
+      { label: 'Selections', slug: 'selections', icon: Palette },
       { label: 'Quotes', slug: 'request-quotes', icon: Send },
       { label: 'Invoices', slug: 'invoices', icon: Receipt },
       { label: 'Pay Apps', slug: 'pay-apps', icon: FileSpreadsheet },
@@ -105,7 +106,9 @@ const PLANNING_HIDDEN = new Set([
 // A few tabs aren't their own permission resource. Sending documents out is a
 // files action, so it borrows those rights rather than inventing a new toggle
 // nobody would know to set.
-const PERMISSION_RESOURCE: Record<string, string> = { sharing: 'files' }
+// Client selections are allowances against budget lines - whoever can see the
+// money can see what the client has and hasn't picked.
+const PERMISSION_RESOURCE: Record<string, string> = { sharing: 'files', selections: 'budget' }
 
 interface ProjectTabsProps {
   projectId: string

@@ -369,6 +369,34 @@ export const HELP_ARTICLES: HelpArticle[] = [
 
   // ── Money: Budget ──────────────────────────────────────────────────────────
   {
+    slug: 'selections',
+    title: 'Selections - the choices that aren\'t yours to make',
+    category: 'money',
+    keywords: [
+      'selections', 'selection board', 'allowance', 'allowances', 'homeowner', 'client picks',
+      'paint color', 'paint colour', 'tile', 'flooring', 'cabinets', 'countertops', 'fixtures',
+      'windows', 'siding', 'roofing', 'appliances', 'lead time', 'decide by', 'client portal',
+      'change order', 'over allowance', 'upgrade', 'showroom', 'finishes',
+    ],
+    summary: 'Track every choice the client owes you, with an allowance and a date set by lead time - not by when the trade shows up.',
+    blocks: [
+      { type: 'text', text: 'You do not pick the paint colour, and you cannot paint without it. Same for tile, flooring, cabinets, fixtures, windows, siding. Every one of those is a decision somebody else owes you, and none of them lives anywhere - so it surfaces as a phone call the week the trade is standing on site asking what colour.' },
+      { type: 'text', text: 'The Selections tab is a list of those decisions. Each one carries an allowance (what your budget already assumed) and a decide-by date driven by LEAD TIME, not by the schedule. A six-week window order decided the week framing finishes is already late, even though nobody was late.' },
+      { type: 'steps', items: [
+        'Open Selections on the project and click "Start the standard board" - it lays out the usual picks for a house, each with a typical lead time already on it. Delete what does not apply.',
+        'Put an allowance on the ones that have one, and link the budget line if you want them tied together.',
+        'Set the decide-by date. Back it up from install by the lead time shown on each category.',
+        'Add options where you have them - name, price, vendor, a link. Optional: plenty of picks are "go to the showroom and tell us what you liked".',
+        'Copy the client link and send it. It is the same link as their project portal - no second link to lose, no account needed.',
+      ] },
+      { type: 'text', text: 'On their side the client sees only what is still waiting on them, sorted by urgency, with the extra cost shown against your allowance before they commit. They pick an option or write in what they chose. It lands on your board stamped with who decided and when.' },
+      { type: 'tip', text: 'When a pick lands over the allowance, the board shows the difference and offers to raise a change order for exactly that amount. That is the whole reason allowances are tracked here rather than in someone\'s head - the difference is real money and it needs a paper trail, not a conversation.' },
+      { type: 'text', text: 'The top of the board answers the three questions worth asking: how many decisions are still owed, how many are already past due, and how far the picks have run over the allowances in total.' },
+      { type: 'tip', text: 'Statuses run Not started, Waiting on client, Chosen, Ordered, Installed. Once you mark something Ordered the client can no longer change it on their link - it tells them to call you, because at that point it is a change order and not a choice.' },
+    ],
+    related: ['add-project-budget', 'change-order-basics', 'materials-client-paid'],
+  },
+  {
     slug: 'add-project-budget',
     title: 'Build a project budget',
     category: 'money',
@@ -389,7 +417,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: 'text', text: 'Already have the budget in a spreadsheet? Use Import Estimate in the header (.xlsx/.csv). If some rows already exist as lines, you\'ll be asked to either skip those duplicates (only add the new rows) or update them with the sheet\'s amounts - either way nothing already on the budget is ever deleted.' },
       { type: 'text', text: 'Loaded the wrong template or made a mess? Check the box next to any line (or the header checkbox to select a whole category or everything visible), then click Delete - you\'ll be asked to confirm before anything is removed.' },
     ],
-    related: ['sellout-projected-profit', 'preconstruction-soft-costs', 'budget-templates', 'money-overview', 'create-invoice', 'estimate-proposal'],
+    related: ['sellout-projected-profit', 'preconstruction-soft-costs', 'budget-templates', 'selections', 'money-overview', 'create-invoice', 'estimate-proposal'],
   },
   {
     slug: 'sellout-projected-profit',
