@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
-import { Wallet, DollarSign, CheckCircle2, TrendingDown, TrendingUp, Plus, Trash2, Pencil, X, Check, Link as LinkIcon, AlertTriangle, LayoutTemplate, Save, FileSpreadsheet, FolderInput, Search, ShoppingCart, FileText, HelpCircle } from 'lucide-react'
+import { Wallet, DollarSign, CheckCircle2, TrendingDown, TrendingUp, Plus, Trash2, Pencil, X, Check, Link as LinkIcon, AlertTriangle, LayoutTemplate, Save, FileSpreadsheet, FolderInput, Search, ShoppingCart, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,6 +13,7 @@ import { useViewerContext } from '@/lib/use-viewer-context'
 import { QuoteLineItems } from '@/components/projects/quote-line-items'
 import { HARD_COST_CATEGORIES, SOFT_COST_CATEGORIES, categoryOptions } from '@/lib/budget-categories'
 import type { BudgetTotals } from '@/lib/invoice-budget'
+import { InfoHint } from '@/components/ui/info-hint'
 
 interface BudgetItem {
   id: string
@@ -866,24 +867,16 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
         {statCards.map(s => {
           const Icon = s.icon
           return (
-            <div key={s.label} className={cn('group relative rounded-xl border border-line p-4', s.bg)}>
+            <div key={s.label} className={cn('rounded-xl border border-line p-4', s.bg)}>
               <div className="flex items-center gap-2 mb-2">
                 <Icon className={cn('h-4 w-4', s.color)} />
                 <p className="text-xs font-medium text-muted-fg">{s.label}</p>
-                {s.help && <HelpCircle className="h-3 w-3 text-faint ml-auto shrink-0" />}
+                {/* These four are the numbers people argue about. "How is that
+                    worked out?" should not require asking someone. */}
+                {s.help && <InfoHint text={s.help} align="right" className="ml-auto" />}
               </div>
               <p className={cn('text-2xl font-bold', s.color)}>{money(s.value)}</p>
               {s.note && <p className="text-[11px] text-faint mt-1 leading-snug">{s.note}</p>}
-              {/* Plain-language explainer on hover. These four numbers are the
-                  ones people argue about, and "how is that worked out?" should
-                  not require asking someone. */}
-              {s.help && (
-                <div className="pointer-events-none absolute left-3 right-3 top-full z-30 mt-1 hidden group-hover:block group-focus-within:block">
-                  <div className="rounded-lg border border-line bg-panel p-3 shadow-xl text-xs text-muted-fg whitespace-pre-line leading-relaxed">
-                    {s.help}
-                  </div>
-                </div>
-              )}
             </div>
           )
         })}
@@ -986,22 +979,27 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
             <Plus className="h-4 w-4" /> Add preconstruction costs
           </Button>
         </div>
-      ) : (
-        // Once the job is running, the full pitch for soft costs is clutter -
-        // that decision was made at planning. Keep the way in, drop the lecture.
-        <button onClick={() => setShowSoft(true)}
-          className="text-xs font-medium text-accent-fg hover:underline w-fit">
-          + Add preconstruction / soft costs
-        </button>
-      )}
+      ) : null}
 
-      {/* Won job: no markup editing, just reprint the proposal that was sent. */}
-      {showProposalLink && (
-        <a href={`/projects/${params.id}/proposal/print`} target="_blank" rel="noreferrer"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-accent-fg hover:underline">
-          <FileText className="h-4 w-4" /> View proposal
-        </a>
-      )}
+      {/* Secondary actions on one row. They used to be separate inline siblings
+          and ran into each other on the same line. */}
+      {(totalSoft === 0 && projectStatus !== 'planning') || showProposalLink ? (
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
+          {totalSoft === 0 && projectStatus !== 'planning' && (
+            <button onClick={() => setShowSoft(true)}
+              className="inline-flex items-center gap-1.5 font-medium text-accent-fg hover:underline">
+              <Plus className="h-3.5 w-3.5" /> Add preconstruction / soft costs
+            </button>
+          )}
+          {/* Won job: no markup editing, just reprint the proposal that was sent. */}
+          {showProposalLink && (
+            <a href={`/projects/${params.id}/proposal/print`} target="_blank" rel="noreferrer"
+              className="inline-flex items-center gap-1.5 font-medium text-accent-fg hover:underline">
+              <FileText className="h-4 w-4" /> View proposal
+            </a>
+          )}
+        </div>
+      ) : null}
 
       {/* Estimate → Proposal: markup + client price + generate a client PDF.
           Pre-award only, simple-billing jobs only. */}
@@ -1048,34 +1046,25 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
           ignored approved change orders. Dropped; the unassigned remainder is
           the only part that was not already on screen. */}
       {(spaceTotals.interior > 0 || spaceTotals.exterior > 0) && (
-        <div className="rounded-xl border border-line bg-panel px-4 py-3 flex flex-wrap items-center gap-x-8 gap-y-2">
-          <div>
-            <p className="text-xs font-medium text-info">
-              Interior {projectSqft.interior ? `· ${Number(projectSqft.interior).toLocaleString()} sq ft` : ''}
-            </p>
-            <p className="text-lg font-bold text-info">{money(spaceTotals.interior)}
-              {projectSqft.interior
-                ? <span className="ml-1.5 text-xs font-normal text-muted-fg">{money(spaceTotals.interior / Number(projectSqft.interior))} / sq ft</span>
-                : null}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs font-medium text-warn">
-              Exterior {projectSqft.exterior ? `· ${Number(projectSqft.exterior).toLocaleString()} sq ft` : ''}
-            </p>
-            <p className="text-lg font-bold text-warn">{money(spaceTotals.exterior)}
-              {projectSqft.exterior
-                ? <span className="ml-1.5 text-xs font-normal text-muted-fg">{money(spaceTotals.exterior / Number(projectSqft.exterior))} / sq ft</span>
-                : null}
-            </p>
-          </div>
+        // A line of text, not a panel. It is a breakdown of a number already on
+        // screen, so it should not carry the same weight as one.
+        <p className="flex flex-wrap items-baseline gap-x-5 gap-y-1 text-sm text-muted-fg">
+          <span>
+            <span className="font-semibold text-ink-soft">{money(spaceTotals.interior)}</span> interior
+            {projectSqft.interior
+              ? <span className="text-faint"> · {money(spaceTotals.interior / Number(projectSqft.interior))}/sq ft</span>
+              : null}
+          </span>
+          <span>
+            <span className="font-semibold text-ink-soft">{money(spaceTotals.exterior)}</span> exterior
+            {projectSqft.exterior
+              ? <span className="text-faint"> · {money(spaceTotals.exterior / Number(projectSqft.exterior))}/sq ft</span>
+              : null}
+          </span>
           {spaceTotals.unassigned > 0 && (
-            <div>
-              <p className="text-xs font-medium text-muted-fg">Not assigned to a space</p>
-              <p className="text-lg font-bold text-muted-fg">{money(spaceTotals.unassigned)}</p>
-            </div>
+            <span className="text-faint">{money(spaceTotals.unassigned)} not assigned to a space</span>
           )}
-        </div>
+        </p>
       )}
 
       {/* Unbudgeted subcontracts hint */}
@@ -1258,10 +1247,23 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                 onChange={() => toggleSelectAll(filtered)} title="Select all" />
             )}
             <span>Line Item</span>
-            <span className="text-right">Budgeted</span>
-            <span className="text-right">Committed</span>
-            <span className="text-right">Actual</span>
-            <span className="text-right">Variance</span>
+            {/* Same explainers as the tiles, on the columns they describe. */}
+            <span className="text-right inline-flex items-center justify-end gap-1">
+              Budgeted
+              <InfoHint align="right" text={'What this line is budgeted at.\n\nWhat you estimated, plus any approved change orders that landed on it. A line that grew shows "incl. $X CO" underneath, so the budget never changes silently.'} />
+            </span>
+            <span className="text-right inline-flex items-center justify-end gap-1">
+              Committed
+              <InfoHint align="right" text={'What you have signed for on this line.\n\nThe contract amount of the subcontract linked to it. On an unlinked line it is whatever you typed. Turns red when it is more than the line is budgeted at.'} />
+            </span>
+            <span className="text-right inline-flex items-center justify-end gap-1">
+              Actual
+              <InfoHint align="right" text={'What has actually been billed on this line.\n\nInvoices from the linked sub that are approved, sent for payment or paid, plus any material receipts assigned here. An invoice awaiting approval does not count yet.'} />
+            </span>
+            <span className="text-right inline-flex items-center justify-end gap-1">
+              Variance
+              <InfoHint align="right" text={'Budget left on this line.\n\nBudgeted less whichever is bigger: what you have signed, or what you have already been billed. Green is under, red is over.\n\nIt is NOT committed minus actual - that is how much of the contract is still to be invoiced, which is on the hover over the number itself.'} />
+            </span>
             <span />
           </div>
 
