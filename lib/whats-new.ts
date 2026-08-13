@@ -83,6 +83,18 @@ export const RELEASES: Release[] = [
         help: 'selections',
       },
       {
+        kind: 'improved',
+        title: '"Sellout" is now called what it is on your kind of job',
+        text: 'Sellout is developer language - it is what a spec house SELLS for. On a custom home or a fit-out you are not selling anything, you are charging a client a contract value, and calling it a sellout made the whole panel read as though it was meant for somebody else. A job with a client on it now asks "What are you charging for this job?" and labels the figure Contract value; a job with no client - one you are building to sell - still says Sellout. Same number, called the right thing.',
+        help: 'sellout-projected-profit',
+      },
+      {
+        kind: 'improved',
+        title: 'The markup box no longer disappears once a job is won',
+        text: 'Markup showed while a job was in Planning and then vanished when it went Active, which looked like it had been taken away - especially as the same number stayed editable on Payments & Escrow as your contractor fee rate. It is now on the Budget tab at every stage: the full estimate bar with client price and proposal before the job is won, and a compact percent box after, with a note on where that number is still used. It is hidden only on AIA jobs, where progress billing replaces it.',
+        help: 'add-project-budget',
+      },
+      {
         kind: 'fixed',
         title: 'Projected profit was made up until you set a sale price',
         text: 'With no sellout entered, the budget screen fell back to an assumed markup and printed a confident green "projected profit" with a margin percentage - for a job whose sale price nobody had told it. It now asks for the figure on a single line instead of reporting on one it invented, and profit only appears once you have actually set what the job sells for. It still shows at every stage, not just planning: "am I still making money on this" is the question you ask most once work has started, and profit against actual spend only means anything once costs have landed. Leave it empty on a cost-plus job, where your markup is the profit.',
