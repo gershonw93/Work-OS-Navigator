@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { InfoHint } from '@/components/ui/info-hint'
-import { FileText, Plus, Printer, Loader2, Trash2, Check } from 'lucide-react'
+import { FileText, Plus, Printer, Loader2, Trash2, Check, Copy, Mail, Eye } from 'lucide-react'
 
 const money = (n: unknown) => `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
 
@@ -40,6 +40,8 @@ interface Bill {
   issue_date: string
   due_date: string | null
   show_markup: boolean
+  token: string | null
+  viewed_at: string | null
   client_invoice_lines: BillLine[]
 }
 
@@ -69,6 +71,9 @@ export function ClientInvoices({ projectId }: { projectId: string }) {
   const [showMarkup, setShowMarkup] = useState(false)
   const [dueDate, setDueDate] = useState('')
   const [error, setError] = useState('')
+  const [copied, setCopied] = useState('')
+  const [clientName, setClientName] = useState<string | null>(null)
+  const [projectName, setProjectName] = useState<string | null>(null)
 
   const token = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession()
@@ -83,6 +88,8 @@ export function ClientInvoices({ projectId }: { projectId: string }) {
       setBills(d.invoices ?? [])
       setBillable(d.billable ?? [])
       setMarkupPct(Number(d.markup_pct) || 0)
+      setClientName(d.client ?? null)
+      setProjectName(d.project_name ?? null)
     }
     setLoading(false)
   }, [projectId, token])
@@ -123,6 +130,40 @@ export function ClientInvoices({ projectId }: { projectId: string }) {
       body: JSON.stringify({ status }),
     })
     load()
+  }
+
+  const linkFor = (b: Bill) =>
+    typeof window === 'undefined' || !b.token ? '' : `${window.location.origin}/bill/${b.token}`
+
+  async function copyLink(b: Bill) {
+    const url = linkFor(b)
+    if (!url) return
+    await navigator.clipboard.writeText(url)
+    setCopied(b.id)
+    setTimeout(() => setCopied(''), 1800)
+  }
+
+  /**
+   * Open it in whatever mail client they already use.
+   *
+   * Not a "send" button that pretends to deliver - there is no transactional
+   * email configured, and a button that silently sends nothing is worse than
+   * one that plainly hands the link over.
+   */
+  function mailtoFor(b: Bill) {
+    const total = (b.client_invoice_lines ?? []).reduce((s, l) => s + Number(l.amount || 0), 0)
+    const subject = `Invoice ${b.invoice_number}${projectName ? ` - ${projectName}` : ''}`
+    const body = [
+      `Hi${clientName ? ` ${clientName}` : ''},`,
+      '',
+      `Invoice ${b.invoice_number} for ${money(total)} is ready${b.due_date ? `, due ${new Date(b.due_date + 'T00:00:00').toLocaleDateString()}` : ''}.`,
+      '',
+      'You can view it here:',
+      linkFor(b),
+      '',
+      'Thanks,',
+    ].join('\n')
+    return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
   }
 
   async function remove(bill: Bill) {
@@ -247,6 +288,7 @@ export function ClientInvoices({ projectId }: { projectId: string }) {
                   <span className="block text-[11px] text-faint">
                     {(b.client_invoice_lines ?? []).length} line{(b.client_invoice_lines ?? []).length !== 1 ? 's' : ''}
                     {' · '}{b.show_markup ? 'markup shown' : 'flat amounts'}
+                    {b.viewed_at ? ' · opened by the client' : b.status === 'sent' ? ' · not opened yet' : ''}
                     {b.due_date ? ` · due ${new Date(b.due_date + 'T00:00:00').toLocaleDateString()}` : ''}
                   </span>
                 </span>
@@ -260,9 +302,22 @@ export function ClientInvoices({ projectId }: { projectId: string }) {
                 </Link>
                 {b.status === 'draft' && (
                   <button onClick={() => setStatus(b, 'sent')}
-                    className="shrink-0 rounded-md border border-line px-2 py-1 text-xs font-medium text-muted-fg hover:bg-surface">
-                    Mark sent
+                    className="shrink-0 rounded-md border border-line px-2 py-1 text-xs font-medium text-muted-fg hover:bg-surface"
+                    title="Issues it and creates the client's link">
+                    Issue &amp; get link
                   </button>
+                )}
+                {b.token && b.status !== 'draft' && (
+                  <>
+                    <button onClick={() => copyLink(b)}
+                      className="shrink-0 inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-xs font-medium text-muted-fg hover:bg-surface">
+                      <Copy className="h-3 w-3" /> {copied === b.id ? 'Copied' : 'Copy link'}
+                    </button>
+                    <a href={mailtoFor(b)}
+                      className="shrink-0 inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-xs font-medium text-muted-fg hover:bg-surface">
+                      <Mail className="h-3 w-3" /> Email
+                    </a>
+                  </>
                 )}
                 {b.status === 'sent' && (
                   <button onClick={() => setStatus(b, 'paid')}

@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
+import { randomBytes } from 'crypto'
 
 export const runtime = 'nodejs'
 
@@ -28,7 +29,14 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
   for (const f of FIELDS) if (f in body) patch[f] = body[f] === '' ? null : body[f]
 
-  if (body.status === 'sent') patch.sent_at = new Date().toISOString()
+  // Sending mints the client's link, once. Regenerating it on every send would
+  // break a link already in somebody's inbox.
+  if (body.status === 'sent') {
+    patch.sent_at = new Date().toISOString()
+    const { data: current } = await db.from('client_invoices')
+      .select('token').eq('id', params.billId).maybeSingle()
+    if (!current?.token) patch.token = randomBytes(24).toString('hex')
+  }
   if (body.status === 'paid') patch.paid_at = new Date().toISOString()
 
   const { data, error } = await db.from('client_invoices')
