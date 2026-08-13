@@ -489,6 +489,9 @@ export const HELP_ARTICLES: HelpArticle[] = [
     ],
     summary: 'Enter what the job sells for and your profit tracks itself as costs land.',
     blocks: [
+      { type: 'text', text: 'Profit is only ever shown against a sellout you have actually set. It used to fall back to cost plus your markup and print that as "projected profit", which meant a job whose sale price nobody had entered still showed a confident green number - one the app had made up. Now it asks for the figure until you give it one.' },
+      { type: 'text', text: 'It stays on the screen at every stage, not just while planning. "Am I still making money on this" is the question you ask MOST once work has started, and the "against actual spend" figure only means anything once costs have landed.' },
+      { type: 'tip', text: 'On a cost-plus job, leave it empty. Your profit there is the markup, which has its own box - a sellout would be the wrong frame for it.' },
       { type: 'text', text: 'Sellout is what the job earns you. On a spec build it is what the house or the units sell for. On a fixed-price contract it is your contract value. Either way you usually know it before you know your final costs - so put it in, and the profit updates itself every time a budget line moves.' },
       { type: 'steps', items: [
         'Open the project and go to the Budget tab.',
