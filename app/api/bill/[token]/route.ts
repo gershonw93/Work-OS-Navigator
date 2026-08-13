@@ -33,15 +33,18 @@ export async function GET(_request: Request, { params }: { params: { token: stri
     return NextResponse.json({ error: 'This invoice has not been issued yet.' }, { status: 404 })
   }
 
-  const [{ data: project }, { data: company }] = await Promise.all([
-    db.from('projects').select('name, address, client, gc_company_id').eq('id', bill.project_id).maybeSingle(),
-    db.from('client_invoices').select('project_id').eq('id', bill.id).maybeSingle()
-      .then(async () => {
-        const { data: p } = await db.from('projects').select('gc_company_id').eq('id', bill.project_id).maybeSingle()
-        if (!p?.gc_company_id) return { data: null }
-        return db.from('companies').select('name, phone, email, address').eq('id', p.gc_company_id).maybeSingle()
-      }),
-  ])
+  const { data: project } = await db
+    .from('projects').select('name, address, client, gc_company_id')
+    .eq('id', bill.project_id).maybeSingle()
+
+  // The letterhead - who the client is paying. `contact_email` is the column;
+  // there is no `companies.email`, and selecting one would quietly return null
+  // for the whole row rather than erroring.
+  const { data: company } = project?.gc_company_id
+    ? await db.from('companies')
+      .select('name, phone, contact_email, address')
+      .eq('id', project.gc_company_id).maybeSingle()
+    : { data: null }
 
   // First open is worth knowing - "did they even get it" is the question behind
   // most chasing phone calls.
@@ -79,6 +82,13 @@ export async function GET(_request: Request, { params }: { params: { token: stri
       }
       : {}),
     project: { name: project?.name ?? null, address: (project as any)?.address ?? null, client: project?.client ?? null },
-    from: company ?? null,
+    from: company
+      ? {
+        name: company.name ?? null,
+        phone: company.phone ?? null,
+        email: (company as any).contact_email ?? null,
+        address: company.address ?? null,
+      }
+      : null,
   })
 }
