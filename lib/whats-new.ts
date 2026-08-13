@@ -78,6 +78,18 @@ export const RELEASES: Release[] = [
       },
       {
         kind: 'new',
+        title: 'Every invoice shows what you are actually being charged for',
+        text: 'An invoice used to keep only its total - the scan read the line items off the PDF and threw them away, so the one question that matters, what am I paying for, meant reopening the document. The breakdown is now kept and shown on the invoice: every line with its quantity and rate where the vendor printed one, then the lines total, tax, retainage withheld, and the invoice total. It checks that they add up and says so plainly when they do not, and by how much - a breakdown that looks like detail but does not reconcile is where a quiet extra hides. Typed invoices get the same treatment: add lines by hand and it reconciles those too. Lines the quote check flagged are highlighted in the table with what was quoted.',
+        help: 'scan-sub-invoice',
+      },
+      {
+        kind: 'new',
+        title: 'Not every sub needs every compliance document',
+        text: 'Required documents were fixed by vendor type, so a one-man sub with no workers\' comp, or a trade that cannot hold a licence in the state, sat as Missing forever and turned the job red over paperwork that was never coming. Any document can now be marked "Not needed" for a vendor, and put back just as easily. Requests only ask for what that vendor actually owes and has not already sent - asking for a waived licence, or for a COI you already hold, is how these requests get ignored.',
+        help: 'compliance-overview',
+      },
+      {
+        kind: 'new',
         title: 'A sub\'s invoice is checked against what they quoted',
         text: 'Scan an invoice from a sub whose contract has priced lines on it, and it now tells you either "Matches their quote" or exactly what does not: a line billed for more than it was quoted (showing both figures), a line that is not on the quote at all, or an invoice that takes the running total past the contract. The contract total is the check most people already do in their head - the two that actually cost money are a rate nobody agreed to and work that was never quoted, and both look completely ordinary on an invoice that comes in under the contract. It never blocks the invoice; it just means you see it before you approve rather than after.',
         help: 'scan-sub-invoice',

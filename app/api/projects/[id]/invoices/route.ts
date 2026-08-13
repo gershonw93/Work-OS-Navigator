@@ -91,7 +91,11 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { subcontract_id, payment_schedule_item_id, company_id, company_name, amount, description, due_date, client_paid, escrow_paid, document_url, document_name } = await request.json()
+  const {
+    subcontract_id, payment_schedule_item_id, company_id, company_name, amount,
+    description, due_date, client_paid, escrow_paid, document_url, document_name,
+    line_items, subtotal, tax, retainage, quote_check,
+  } = await request.json()
 
   // Count existing invoices for this project to generate invoice number
   const { count } = await db
@@ -101,7 +105,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   const invoice_number = `INV-${params.id.slice(0, 4).toUpperCase()}-${String((count ?? 0) + 1).padStart(3, '0')}`
 
-  const { data, error } = await db
+  let { data, error } = await db
     .from('invoices')
     .insert({
       project_id: params.id,
@@ -119,9 +123,37 @@ export async function POST(request: Request, { params }: { params: { id: string 
       // A scanned invoice arrives with its document already stored - attach it
       // here rather than making the user upload the same file a second time.
       ...(document_url ? { document_url, document_name: document_name || null } : {}),
+      // The breakdown, kept. Every invoice should be able to say what it is
+      // charging for without reopening the PDF.
+      line_items: Array.isArray(line_items) ? line_items : [],
+      subtotal: subtotal ?? null,
+      tax: tax ?? null,
+      retainage: retainage ?? null,
+      quote_check: quote_check ?? null,
     })
     .select()
     .single()
+
+  // Pre-migration fallback: the breakdown columns may not exist yet.
+  if (error && (error as any).code === '42703') {
+    const retry = await db.from('invoices').insert({
+      project_id: params.id,
+      subcontract_id: subcontract_id || null,
+      payment_schedule_item_id: payment_schedule_item_id || null,
+      company_id: company_id || null,
+      company_name: company_name || null,
+      amount,
+      description: description || null,
+      due_date: due_date || null,
+      client_paid: Number(client_paid) || 0,
+      escrow_paid: Number(escrow_paid) || 0,
+      invoice_number,
+      status: 'pending_approval',
+      ...(document_url ? { document_url, document_name: document_name || null } : {}),
+    }).select().single()
+    data = retry.data as any
+    error = retry.error as any
+  }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
