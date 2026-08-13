@@ -77,6 +77,12 @@ export const RELEASES: Release[] = [
         help: 'scan-sub-invoice',
       },
       {
+        kind: 'fixed',
+        title: 'Importing a budget sheet brought the lines in at zero',
+        text: 'The importer only accepted amounts that were stored as plain numbers, so a sheet with "$24,000.00", "24,000", a CSV, or any column formatted as text came in with every line at zero - and looked completely correct until you opened the budget. It now reads currency symbols, thousands separators, cents and accounting negatives like (500), takes the line total rather than the unit price, and no longer turns a cost-code column into the line-item name. The confirmation screen says how many amounts it actually read before you commit, and there is now a "Bring the amounts in too" tick box so you can import just the line items when that is what you wanted.',
+        help: 'add-project-budget',
+      },
+      {
         kind: 'new',
         title: 'Type into a PDF instead of printing it',
         text: 'On the Files page, any PDF now has a "Fill in text" button. Click anywhere on the page to add text, drag it to line up with the box on the form, and save. It is for the pile of one-page forms that get printed, filled by hand and rescanned - permit applications, supplier credit apps, W-9s. Saving asks you to name it, suggesting the original name with "(filled)" on the end so you can change it to something useful like "W-9 for Brookstone Flooring". It saves as a NEW file and shows who filled it; the original is left exactly as it was. Your own files also now sit at the top of the Files page, above documents collected from subs. To be clear about what this is: it types text onto a document. It is not a signature tool and does not offer signature fields.',

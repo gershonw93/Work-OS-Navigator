@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
+import { parseBudgetRows } from '@/lib/budget-import'
 
 export const runtime = 'nodejs'
 
@@ -31,30 +32,18 @@ export async function POST(request: Request) {
   }
 
   const ws = wb.Sheets[wb.SheetNames[0]]
+  // raw:false would hand back pre-formatted display strings; raw values keep
+  // real numbers as numbers and leave parseAmount to deal with the rest.
   const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, blankrows: false })
 
-  const SKIP = /^(total|subtotal|grand total|contractor fee|line item|amount|property address|phase\b|description$|item$|category$|qty$|quantity$|unit price$|price$|cost$|notes?$)/i
-  const items: { description: string; default_amount: number | null }[] = []
-  const seen = new Set<string>()
-  for (const row of rows) {
-    if (!Array.isArray(row)) continue
-    let label: string | null = null
-    let amount: number | null = null
-    for (const cell of row) {
-      if (cell == null) continue
-      if (label == null && typeof cell === 'string' && cell.trim()) label = cell.trim()
-      else if (amount == null && typeof cell === 'number' && isFinite(cell)) amount = cell
-    }
-    if (!label || SKIP.test(label)) continue
-    if (label.length > 120) continue
-    const key = label.toLowerCase().replace(/\s+/g, ' ')
-    if (seen.has(key)) continue   // same line twice in the sheet
-    seen.add(key)
-    items.push({ description: label, default_amount: amount })
-  }
+  const items = parseBudgetRows(rows)
 
   return NextResponse.json({
     suggested_name: file.name.replace(/\.(xlsx|xls|csv)$/i, ''),
     items,
+    // So the confirmation screen can say plainly how many amounts it actually
+    // read. A sheet that imports at zero used to look identical to one that
+    // imported correctly, right up until you opened the budget.
+    with_amounts: items.filter(i => i.default_amount != null).length,
   })
 }

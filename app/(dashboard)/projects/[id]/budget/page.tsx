@@ -153,6 +153,9 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   const [importItems, setImportItems] = useState<{ description: string; default_amount: number | null }[] | null>(null)
   const importInputRef = useRef<HTMLInputElement>(null)
   const [importOnly, setImportOnly] = useState(false)
+  // Whether an imported sheet brings its amounts. Defaults on - someone who
+  // uploaded a priced budget meant the prices.
+  const [importAmounts, setImportAmounts] = useState(true)
   const [importName, setImportName] = useState('')
   const [importing, setImporting] = useState(false)
 
@@ -263,7 +266,9 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
     const token = await getToken()
     const res = await fetch(`/api/projects/${params.id}/budget/apply`, {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ ...body, copy_amounts: copyAmounts }),
+      // An explicit copy_amounts on the call wins - the import flow has its own
+      // toggle, and the template checkbox is not even on screen there.
+      body: JSON.stringify({ copy_amounts: copyAmounts, ...body }),
     })
     setApplying(false)
     if (res.ok) {
@@ -296,7 +301,13 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
     const token = await getToken()
     const res = await fetch(`/api/projects/${params.id}/budget/apply`, {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ items: importItems, merge: true, skip_duplicates: skipDuplicates }),
+      body: JSON.stringify({
+        // Strip the amounts here rather than server-side, so what is sent is
+        // exactly what the confirmation screen showed.
+        items: importAmounts ? importItems : importItems.map(i => ({ ...i, default_amount: null })),
+        merge: true,
+        skip_duplicates: skipDuplicates,
+      }),
     })
     setApplying(false)
     if (res.ok) {
@@ -318,7 +329,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
     })
     if (createRes.ok) {
       const { template } = await createRes.json()
-      await applyTemplate({ template_id: template.id })
+      await applyTemplate({ template_id: template.id, copy_amounts: importAmounts })
     } else { setApplying(false); alert('Could not save template') }
   }
 
@@ -672,10 +683,33 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                     const fresh = importItems.length - matches
                     return (
                   <div className="rounded-lg border border-line p-3 space-y-2">
-                    <p className="text-sm text-ink-soft">
-                      {importItems.length} line items found
-                      {items.length > 0 && matches > 0 && <span className="text-muted-fg"> - {matches} match existing lines, {fresh} new</span>}
-                    </p>
+                    {(() => {
+                      const withAmt = importItems.filter(i => i.default_amount != null).length
+                      return (
+                        <>
+                          <p className="text-sm text-ink-soft">
+                            {importItems.length} line items found
+                            {items.length > 0 && matches > 0 && <span className="text-muted-fg"> - {matches} match existing lines, {fresh} new</span>}
+                          </p>
+                          {/* Say how many amounts were actually read. A sheet that
+                              imports at zero used to look exactly like one that
+                              worked, until you opened the budget. */}
+                          <p className={cn('text-xs', withAmt === 0 ? 'text-warn' : 'text-muted-fg')}>
+                            {withAmt === 0
+                              ? 'No amounts could be read from this sheet - the lines will come in blank for you to fill.'
+                              : `${withAmt} of ${importItems.length} lines have an amount.`}
+                          </p>
+                          {withAmt > 0 && (
+                            <label className="flex items-center gap-2 text-sm text-ink-soft">
+                              <input type="checkbox" className="accent-[#C9F24A]" checked={importAmounts}
+                                onChange={e => setImportAmounts(e.target.checked)} />
+                              Bring the amounts in too
+                              <span className="text-xs text-faint">(uncheck to import the line items only)</span>
+                            </label>
+                          )}
+                        </>
+                      )
+                    })()}
                     <div className="max-h-32 overflow-y-auto text-xs space-y-0.5">
                       {importItems.slice(0, 30).map((i, idx) => {
                         const isMatch = existingDescs.has(normDesc(i.description))
