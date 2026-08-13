@@ -70,6 +70,8 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
   type OptDraft = { name: string; brand: string; price: string; color_hex: string; link_url: string; image_url: string }
   const BLANK_OPT: OptDraft = { name: '', brand: '', price: '', color_hex: '', link_url: '', image_url: '' }
   const [optDraft, setOptDraft] = useState<Record<string, OptDraft>>({})
+  /** Which selection's option row is mid-save, so Enter cannot double-add. */
+  const [savingOpt, setSavingOpt] = useState<string | null>(null)
   const [uploading, setUploading] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState<string | null>(null)
   const [pasteFor, setPasteFor] = useState<string | null>(null)
@@ -196,7 +198,8 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
 
   async function addOption(selId: string) {
     const d = optDraft[selId]
-    if (!d?.name?.trim()) return
+    if (!d?.name?.trim() || savingOpt === selId) return
+    setSavingOpt(selId)
     const t = await token()
     const res = await fetch(`/api/projects/${params.id}/selections/${selId}/options`, {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
@@ -209,6 +212,7 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
     // Keep the brand. You're entering a fan deck or a product line, so it's the
     // same manufacturer line after line - retyping it every row is the kind of
     // small tax that stops people adding options at all. Change it when it changes.
+    setSavingOpt(null)
     if (res.ok) { setOptDraft(p => ({ ...p, [selId]: { ...BLANK_OPT, brand: d.brand } })); load() }
     else alert((await res.json().catch(() => ({}))).error ?? 'Could not add that option')
   }
@@ -969,6 +973,7 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
                                   <div className="relative">
                                     <Input className="h-8 text-sm w-28" placeholder="Brand"
                                       value={optDraft[sel.id]?.brand ?? ''}
+                                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addOption(sel.id) } }}
                                       onChange={e => setOptDraft(p => ({ ...p, [sel.id]: { ...(p[sel.id] ?? BLANK_OPT), brand: e.target.value } }))} />
                                     {/* Cleared it and want it back - one click rather than retyping. */}
                                     {!optDraft[sel.id]?.brand && lastBrand(sel) && (
@@ -982,12 +987,15 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
                                   </div>
                                   <Input className="h-8 text-sm flex-1 min-w-[9rem]" placeholder="Option name"
                                     value={optDraft[sel.id]?.name ?? ''}
+                                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addOption(sel.id) } }}
                                     onChange={e => setOptDraft(p => ({ ...p, [sel.id]: { ...(p[sel.id] ?? BLANK_OPT), name: e.target.value } }))} />
                                   <Input className="h-8 text-sm w-20" type="number" placeholder="Price"
                                     value={optDraft[sel.id]?.price ?? ''}
+                                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addOption(sel.id) } }}
                                     onChange={e => setOptDraft(p => ({ ...p, [sel.id]: { ...(p[sel.id] ?? BLANK_OPT), price: e.target.value } }))} />
                                   <Input className="h-8 text-sm w-36" placeholder="Link to product"
                                     value={optDraft[sel.id]?.link_url ?? ''}
+                                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addOption(sel.id) } }}
                                     onChange={e => setOptDraft(p => ({ ...p, [sel.id]: { ...(p[sel.id] ?? BLANK_OPT), link_url: e.target.value } }))} />
                                   {/* A photo of the real thing, not a color wheel. */}
                                   <label
@@ -1014,8 +1022,25 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
                                     {uploading === sel.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
                                     {optDraft[sel.id]?.image_url ? 'Photo added' : 'Photo'}
                                   </label>
-                                  <Button size="sm" variant="outline" onClick={() => addOption(sel.id)}><Plus className="h-3.5 w-3.5" /></Button>
+                                  {/* Said "+" and was the ONLY way to save the
+                                      row - so a typed option that was never
+                                      followed by another one just sat there
+                                      looking saved. Now it says Add, Enter does
+                                      the same from any field, and it greys out
+                                      until there is something to add. */}
+                                  <Button size="sm" variant="outline"
+                                    disabled={!optDraft[sel.id]?.name?.trim() || savingOpt === sel.id}
+                                    onClick={() => addOption(sel.id)}>
+                                    {savingOpt === sel.id
+                                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                      : <><Plus className="h-3.5 w-3.5" /> Add</>}
+                                  </Button>
                                 </div>
+                              )}
+                              {optDraft[sel.id]?.name?.trim() && (
+                                <p className="text-[11px] text-warn mt-1">
+                                  Not added yet - press Enter or click Add.
+                                </p>
                               )}
                             </div>
 

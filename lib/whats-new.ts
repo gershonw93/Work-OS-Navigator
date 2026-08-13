@@ -77,6 +77,12 @@ export const RELEASES: Release[] = [
         help: 'scan-sub-invoice',
       },
       {
+        kind: 'fixed',
+        title: 'A typed option was only saved by adding another one',
+        text: 'On the selections board, the row where you type an option - brand, name, price, link, photo - was only saved by clicking the small "+" at the end of it. Type one option and move on and it looked entered but never was. Enter now adds it from any field in the row, the button says Add rather than just "+", and while there is something typed the row says "Not added yet" so a half-finished line cannot pass for a saved one.',
+        help: 'selections',
+      },
+      {
         kind: 'improved',
         title: 'The budget screen explains itself, and repeats itself less',
         text: 'Hover any of the four figures at the top and it says in plain words what the number means and how it is worked out - including why Left to spend is not simply budget minus invoices. The variance column on a line now counts signed contracts the same way that tile does; the two used to disagree, and hovering shows how much of a contract is signed but not yet invoiced. Three tiles that printed the same figure as Total Budget are gone, the interior/exterior split no longer carries a Grand Total that contradicted the one above it (it was ignoring approved change orders), and the soft-costs pitch shrinks to a single link once a job is active.',
