@@ -14,6 +14,7 @@ import {
   FileBadge, FileSignature, Map, IdCard, FileCheck, Share2, Copy, Check, Ban, Inbox, PenLine,
 } from 'lucide-react'
 import { PdfFiller } from '@/components/documents/pdf-filler'
+import { uploadCompanyFile } from '@/lib/upload-company-file'
 
 import { ShareFilesModal } from '@/components/files/share-files-modal'
 
@@ -101,6 +102,7 @@ export default function FilesPage() {
   const [uploadName, setUploadName] = useState('')
   const [uploadCategory, setUploadCategory] = useState<string>('Other')
   const [uploading, setUploading] = useState(false)
+  const [uploadStage, setUploadStage] = useState<'signing' | 'uploading' | 'saving' | null>(null)
   const [uploadError, setUploadError] = useState('')
 
   // Edit file modal
@@ -171,22 +173,23 @@ export default function FilesPage() {
     e.preventDefault()
     if (!uploadFile) { setUploadError('Please choose a file'); return }
     setUploading(true)
-    const token = await getToken()
-    const form = new FormData()
-    form.append('file', uploadFile)
-    form.append('name', uploadName || uploadFile.name)
-    form.append('category', uploadCategory)
-    const res = await fetch('/api/files', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form })
-    if (!res.ok) {
-      const json = await res.json().catch(() => ({}))
-      setUploadError(json.error ?? `Upload failed (${res.status})`)
+    setUploadError('')
+    try {
+      await uploadCompanyFile({
+        file: uploadFile,
+        name: uploadName || uploadFile.name,
+        category: uploadCategory,
+        onStage: s => setUploadStage(s),
+      })
+      resetUpload()
+      setShowUpload(false)
+      fetchAll()
+    } catch (err: any) {
+      setUploadError(err?.message ?? 'Upload failed')
+    } finally {
       setUploading(false)
-      return
+      setUploadStage(null)
     }
-    setUploading(false)
-    resetUpload()
-    setShowUpload(false)
-    fetchAll()
   }
 
   /**
@@ -195,18 +198,13 @@ export default function FilesPage() {
    * parent.
    */
   async function saveFilled(source: CompanyFile, bytes: Uint8Array, name: string) {
-    const token = await getToken()
-    const form = new FormData()
-    // A fresh copy so the Blob owns plain bytes, not a view into a larger buffer.
-    form.append('file', new File([new Uint8Array(bytes)], name, { type: 'application/pdf' }))
-    form.append('name', name)
-    form.append('category', source.category)
-    form.append('filled_from_id', source.id)
-    const res = await fetch('/api/files', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form })
-    if (!res.ok) {
-      const json = await res.json().catch(() => ({}))
-      throw new Error(json.error ?? `Could not save the filled copy (${res.status})`)
-    }
+    await uploadCompanyFile({
+      // A fresh copy so the File owns plain bytes, not a view into a larger buffer.
+      file: new File([new Uint8Array(bytes)], name, { type: 'application/pdf' }),
+      name,
+      category: source.category,
+      filledFromId: source.id,
+    })
     setFilling(null)
     fetchAll()
   }
@@ -278,15 +276,13 @@ export default function FilesPage() {
   async function uploadIntoPacket(file: File) {
     setPacketUploading(true)
     setPacketError('')
-    const token = await getToken()
-    const form = new FormData()
-    form.append('file', file)
-    form.append('name', file.name.replace(/\.[^.]+$/, ''))
-    form.append('category', 'Other')
-    const res = await fetch('/api/files', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form })
-    const json = await res.json().catch(() => ({}))
-    if (!res.ok) {
-      setPacketError(json.error ?? `Upload failed (${res.status})`)
+    let json: any
+    try {
+      json = await uploadCompanyFile({
+        file, name: file.name.replace(/\.[^.]+$/, ''), category: 'Other',
+      })
+    } catch (err: any) {
+      setPacketError(err?.message ?? 'Upload failed')
       setPacketUploading(false)
       return
     }
@@ -393,7 +389,13 @@ export default function FilesPage() {
                 <div className="flex gap-2 justify-end">
                   <Button type="button" variant="secondary" onClick={() => { setShowUpload(false); resetUpload() }}>Cancel</Button>
                   <Button type="submit" disabled={uploading}>
-                    {uploading ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading...</> : 'Upload'}
+                    {uploading
+                      ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> {
+                          uploadStage === 'saving' ? 'Finishing…'
+                            : uploadStage === 'signing' ? 'Starting…'
+                              : 'Uploading…'
+                        }</>
+                      : 'Upload'}
                   </Button>
                 </div>
               </div>
