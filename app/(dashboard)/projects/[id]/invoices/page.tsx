@@ -12,6 +12,7 @@ import Link from 'next/link'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 import { BudgetDestinationBox } from '@/components/projects/budget-destination'
 import { ACTUAL_STATUSES, type BudgetDestination } from '@/lib/invoice-budget'
+import type { QuoteCheck } from '@/lib/invoice-check'
 import { HARD_COST_CATEGORIES } from '@/lib/budget-categories'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
@@ -88,6 +89,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
     document_url: string | null; document_name: string
     confidence: string | null; read_error: string | null
     matched: string | null; certain: boolean; note: string | null
+    quoteCheck: QuoteCheck & { summary: string } | null
   }>(null)
   const scanRef = useRef<HTMLInputElement>(null)
 
@@ -226,6 +228,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
         matched: d.match?.company_name ?? null,
         certain: !!d.match?.certain,
         note: d.schedule_item?.note ?? null,
+        quoteCheck: d.quote_check ?? null,
       })
       setShowForm(true)
     } catch (e: any) {
@@ -687,6 +690,45 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
                       </p>
                     )}
                     {scanned.note && <p className="text-xs text-danger font-medium">{scanned.note}</p>}
+                  </div>
+                )}
+
+                {/* Against what they quoted. The contract total is the check
+                    everyone already does; a rate nobody agreed to, or a line
+                    that was never quoted, is the one that gets paid by
+                    accident. */}
+                {scanned?.quoteCheck && scanned.quoteCheck.verdict !== 'no_quote' && (
+                  <div className={cn('rounded-lg border p-3 space-y-1.5',
+                    scanned.quoteCheck.verdict === 'matches'
+                      ? 'border-success/30 bg-success-tint'
+                      : 'border-warn/30 bg-warn-tint')}>
+                    <p className={cn('flex items-center gap-1.5 text-xs font-semibold',
+                      scanned.quoteCheck.verdict === 'matches' ? 'text-success' : 'text-warn')}>
+                      {scanned.quoteCheck.verdict === 'matches'
+                        ? <><CheckCircle2 className="h-3.5 w-3.5" /> Matches their quote</>
+                        : <><AlertTriangle className="h-3.5 w-3.5" /> Worth checking against their quote</>}
+                    </p>
+                    {scanned.quoteCheck.findings.map((f, i) => (
+                      <p key={i} className="text-xs text-warn/90">
+                        {f.kind === 'over_quoted_line' ? (
+                          <>
+                            <span className="font-medium">{f.description}</span> — billed ${Number(f.invoiced).toLocaleString()},
+                            quoted ${Number(f.quoted).toLocaleString()} (${Math.round(f.over ?? 0).toLocaleString()} more)
+                          </>
+                        ) : (
+                          <>
+                            <span className="font-medium">{f.description}</span> — ${Number(f.invoiced).toLocaleString()},
+                            not on their quote
+                          </>
+                        )}
+                      </p>
+                    ))}
+                    {scanned.quoteCheck.over_contract != null && (
+                      <p className="text-xs font-medium text-danger">
+                        This takes the total ${Math.round(scanned.quoteCheck.over_contract).toLocaleString()} past
+                        their ${Number(scanned.quoteCheck.contract_amount).toLocaleString()} contract.
+                      </p>
+                    )}
                   </div>
                 )}
                 <div className="space-y-1.5">

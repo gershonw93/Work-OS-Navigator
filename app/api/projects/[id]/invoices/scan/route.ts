@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { checkInvoiceAgainstQuote, checkSummary } from '@/lib/invoice-check'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -140,7 +141,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const vendor = String(parsed.vendor_name ?? '').trim()
   const { data: subs } = await db
     .from('subcontracts')
-    .select('id, trade, contract_amount, company_id, companies(name)')
+    .select('id, trade, contract_amount, company_id, line_items, companies(name)')
     .eq('project_id', params.id)
 
   let match: any = null
@@ -155,6 +156,27 @@ export async function POST(request: Request, { params }: { params: { id: string 
     if (score > matchScore) { matchScore = score; match = s }
   }
   const subcontract = matchScore >= 0.5 ? match : null
+
+  // Check what they are billing against what they quoted. The contract total is
+  // the check everyone already does; the expensive surprises are a rate nobody
+  // agreed to, or a line that was never on the quote and has no change order
+  // behind it - both of which look ordinary on an invoice under the contract.
+  let quoteCheck: any = null
+  if (subcontract) {
+    const { data: prior } = await db.from('invoices')
+      .select('amount, status').eq('project_id', params.id).eq('subcontract_id', subcontract.id)
+    const alreadyBilled = (prior ?? [])
+      .filter(i => i.status !== 'rejected')
+      .reduce((s, i) => s + (Number(i.amount) || 0), 0)
+
+    quoteCheck = checkInvoiceAgainstQuote({
+      invoiceLines: Array.isArray(parsed.line_items) ? parsed.line_items : [],
+      quoteLines: Array.isArray((subcontract as any).line_items) ? (subcontract as any).line_items : [],
+      invoiceAmount: num(parsed.amount),
+      contractAmount: Number((subcontract as any).contract_amount ?? 0) || null,
+      alreadyBilled,
+    })
+  }
 
   let scheduleItem: any = null
   let scheduleNote: string | null = null
@@ -210,6 +232,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
       // Below 0.8 the name only partly overlapped - worth showing, not worth trusting.
       certain: matchScore >= 0.8,
     } : null,
+    quote_check: quoteCheck ? { ...quoteCheck, summary: checkSummary(quoteCheck) } : null,
     schedule_item: scheduleItem ? {
       id: scheduleItem.id,
       label: scheduleItem.label,
