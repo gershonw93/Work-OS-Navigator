@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { markupTotals } from '@/lib/markup'
 import { logActivity } from '@/lib/log-activity'
 
 export const runtime = 'nodejs'
@@ -27,7 +28,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const [{ data: project }, { data: payments }, { data: invoices }, { data: budgetLines }] = await Promise.all([
     db.from('projects').select('contractor_fee_pct').eq('id', params.id).single(),
     db.from('client_payments').select('*').eq('project_id', params.id).order('paid_date', { ascending: true }),
-    db.from('invoices').select('amount, status, client_paid, escrow_paid').eq('project_id', params.id),
+    db.from('invoices').select('amount, status, client_paid, escrow_paid, markup_pct, markup_excluded').eq('project_id', params.id),
     db.from('budget_line_items').select('budgeted_amount').eq('project_id', params.id),
   ])
 
@@ -46,9 +47,16 @@ export async function GET(request: Request, { params }: { params: { id: string }
   }
   const vendorPaid = escrowPaid + clientPaidDirect
 
-  // Fee earned = vendor cost × fee%. Escrow holds client cash minus escrow
-  // disbursements minus the fee taken (client-direct payments don't touch escrow).
-  const feeEarned = vendorBilled * feePct
+  // Fee earned, item by item rather than one multiplication over the total.
+  // An invoice can be excluded from markup (a permit, a pass-through) or carry
+  // a rate of its own, and a flat multiply silently ignored both.
+  const feeEarned = markupTotals(
+    inv.filter(i => VENDOR_BILLED.has(i.status)).map(i => ({ ...i, cost: i.amount })),
+    feePct * 100,
+  ).markup
+
+  // Escrow holds client cash minus escrow disbursements minus the fee taken
+  // (client-direct payments don't touch escrow).
   const escrowBalance = received - escrowPaid - feeEarned
   const availableAfterFee = received - feeEarned
   const outstandingToVendors = Math.max(vendorBilled - vendorPaid, 0)

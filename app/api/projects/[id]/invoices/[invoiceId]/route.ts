@@ -20,7 +20,10 @@ export async function PATCH(
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { status, due_date, description, invoice_number, amount, client_paid, escrow_paid } = body
+  const {
+    status, due_date, description, invoice_number, amount, client_paid, escrow_paid,
+    markup_pct, markup_excluded, markup_note, line_items, subtotal, tax, retainage,
+  } = body
 
   // Fetch existing invoice
   const { data: invoice, error: fetchError } = await db
@@ -40,6 +43,18 @@ export async function PATCH(
   if (amount !== undefined) updates.amount = amount
   if (client_paid !== undefined) updates.client_paid = Number(client_paid) || 0
   if (escrow_paid !== undefined) updates.escrow_paid = Number(escrow_paid) || 0
+  // Cost-plus markup on this one item. null is meaningful and different from 0:
+  // it means "follow the project rate", so the item keeps tracking a later
+  // change to it, where 0 would freeze it at no markup.
+  if (markup_pct !== undefined) {
+    updates.markup_pct = markup_pct === '' || markup_pct === null ? null : Number(markup_pct)
+  }
+  if (markup_excluded !== undefined) updates.markup_excluded = !!markup_excluded
+  if (markup_note !== undefined) updates.markup_note = markup_note || null
+  if (line_items !== undefined) updates.line_items = Array.isArray(line_items) ? line_items : []
+  if (subtotal !== undefined) updates.subtotal = subtotal === '' ? null : subtotal
+  if (tax !== undefined) updates.tax = tax === '' ? null : tax
+  if (retainage !== undefined) updates.retainage = retainage === '' ? null : retainage
 
   if (status === 'approved') {
     const { data: profile } = await db.from('profiles').select('full_name').eq('id', user.id).single()

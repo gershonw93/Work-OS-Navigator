@@ -13,6 +13,7 @@ import { useDeleteGuard } from '@/components/ui/delete-guard'
 import { BudgetDestinationBox } from '@/components/projects/budget-destination'
 import { ACTUAL_STATUSES, type BudgetDestination } from '@/lib/invoice-budget'
 import type { QuoteCheck } from '@/lib/invoice-check'
+import { markUp, markupLabel, markupTotals } from '@/lib/markup'
 import {
   reconcile, reconciliationNote, lineAmount, linesTotal,
   type InvoiceLine as InvoiceLineItem,
@@ -49,6 +50,9 @@ interface Invoice {
   quote_check?: (QuoteCheck & { summary?: string }) | null
   /** Set once this has been pushed to QuickBooks as a Bill. */
   qbo_id?: string | null
+  /** Cost-plus: own rate as a percent, null follows the project rate. */
+  markup_pct?: number | null
+  markup_excluded?: boolean | null
 }
 
 export default function InvoicesPage({ params }: { params: { id: string } }) {
@@ -60,6 +64,9 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
   const [destinations, setDestinations] = useState<Record<string, BudgetDestination>>({})
   const [creatingLineFor, setCreatingLineFor] = useState<string | null>(null)
   const [billingMode, setBillingMode] = useState('simple')
+  /** The project's markup rate as a percent. 0 means cost-plus is not in use. */
+  const [projectMarkup, setProjectMarkup] = useState(0)
+  const [savingMarkup, setSavingMarkup] = useState<string | null>(null)
   const [subcontracts, setSubcontracts] = useState<Subcontract[]>([])
   const [paymentItems, setPaymentItems] = useState<PaymentItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -122,6 +129,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
       setInvoices(d.invoices)
       setDestinations(d.destinations ?? {})
       setBillingMode(d.billing_mode ?? 'simple')
+      setProjectMarkup(Number(d.markup_pct) || 0)
     }
     if (finRes.ok) {
       const d = await finRes.json()
@@ -308,6 +316,18 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
     }
   }
 
+  /** Change the markup on one invoice: exclude it, or give it its own rate. */
+  async function saveMarkup(invoice: Invoice, patch: { markup_pct?: number | null; markup_excluded?: boolean }) {
+    setSavingMarkup(invoice.id)
+    const token = await getToken()
+    await fetch(`/api/projects/${params.id}/invoices/${invoice.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(patch),
+    })
+    setSavingMarkup(null); fetchData()
+  }
+
   async function updateStatus(invoice: Invoice, newStatus: string) {
     setUpdating(invoice.id)
     const token = await getToken()
@@ -460,6 +480,60 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
               {invoice.sent_at && <div><p className="text-xs text-faint">Sent for payment</p><p className="font-medium text-ink-soft">{new Date(invoice.sent_at).toLocaleDateString()}</p></div>}
             </div>
             {invoice.description && <p className="text-sm text-muted-fg break-words">{invoice.description}</p>}
+
+            {/* Cost-plus: what to bill the client for this one. The electrician
+                invoices $35,000, your 15% goes on, the client owes $40,250.
+                Only shown when a markup rate is actually in use, so a
+                fixed-price job never sees it. */}
+            {(projectMarkup > 0 || invoice.markup_pct != null || invoice.markup_excluded) && (() => {
+              const m = markUp(invoice.amount, invoice, projectMarkup)
+              return (
+                <div className="rounded-lg border border-accent/30 bg-accent-tint/30 px-4 py-3 space-y-2">
+                  <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
+                    <span className="text-muted-fg">Cost</span>
+                    <span className="font-semibold text-ink-soft tabular-nums">${Number(m.cost).toLocaleString()}</span>
+                    <span className="text-faint">+</span>
+                    <span className="text-muted-fg">{m.excluded ? 'no markup' : `${m.pct}%`}</span>
+                    <span className="font-semibold text-ink-soft tabular-nums">${m.markup.toLocaleString()}</span>
+                    <span className="text-faint">=</span>
+                    <span className="text-muted-fg">bill the client</span>
+                    <span className="text-lg font-bold text-accent-fg tabular-nums">${m.clientPrice.toLocaleString()}</span>
+                    <span className="ml-auto text-[11px] text-faint">{markupLabel(m)}</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+                    <label className="inline-flex items-center gap-1.5 cursor-pointer text-muted-fg">
+                      <input type="checkbox" className="accent-[#C9F24A]"
+                        checked={!!invoice.markup_excluded}
+                        disabled={savingMarkup === invoice.id}
+                        onChange={e => saveMarkup(invoice, { markup_excluded: e.target.checked })} />
+                      Bill this at cost - no markup
+                    </label>
+                    {!invoice.markup_excluded && (
+                      <span className="inline-flex items-center gap-1.5 text-muted-fg">
+                        Markup on this one
+                        <input
+                          type="number" min="0" step="0.5"
+                          defaultValue={invoice.markup_pct ?? ''}
+                          placeholder={String(projectMarkup)}
+                          disabled={savingMarkup === invoice.id}
+                          onBlur={e => {
+                            const raw = e.target.value.trim()
+                            const next = raw === '' ? null : Number(raw)
+                            if (next !== (invoice.markup_pct ?? null)) saveMarkup(invoice, { markup_pct: next })
+                          }}
+                          className="w-16 rounded-md border border-muted2 bg-panel px-2 py-1 text-xs text-ink tabular-nums focus:border-accent focus:outline-none"
+                        />
+                        %
+                        {/* Empty is not zero. Empty follows the project rate, so
+                            changing that rate still moves this invoice. */}
+                        <span className="text-faint">leave blank to follow the project&apos;s {projectMarkup}%</span>
+                      </span>
+                    )}
+                    {savingMarkup === invoice.id && <span className="text-faint">saving…</span>}
+                  </div>
+                </div>
+              )
+            })()}
 
             {/* The breakdown, on every invoice that has one. */}
             {(() => {
@@ -1035,6 +1109,26 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
             Bills your subs and suppliers sent <span className="font-medium text-ink-soft">you</span> - upload one they
             emailed, or enter it yourself, then approve and pay.
           </p>
+          {/* Cost-plus roll-up: cost, your fee, what the client owes. Only when
+              a markup is actually in use. */}
+          {projectMarkup > 0 && invoices.length > 0 && (() => {
+            const t = markupTotals(
+              invoices.filter(i => ACTUAL_STATUSES.has(i.status)).map(i => ({ ...i, cost: i.amount })),
+              projectMarkup,
+            )
+            if (t.cost === 0) return null
+            return (
+              <p className="text-xs text-muted-fg mt-1.5">
+                Approved so far: <span className="font-semibold text-ink-soft">${t.cost.toLocaleString()}</span> cost
+                {' + '}<span className="font-semibold text-ink-soft">${t.markup.toLocaleString()}</span> your markup
+                {' = '}<span className="font-semibold text-accent-fg">${t.clientPrice.toLocaleString()}</span> to bill the client
+                {t.excludedCount > 0 && (
+                  <span className="text-faint"> · {t.excludedCount} at cost (${t.excludedCost.toLocaleString()})</span>
+                )}
+                {t.customCount > 0 && <span className="text-faint"> · {t.customCount} on a different rate</span>}
+              </p>
+            )
+          })()}
           <p className="text-xs text-faint mt-1">
             Billing your client is separate - that lives on{' '}
             <Link href={`/projects/${params.id}/${billingMode === 'aia' ? 'pay-apps' : 'payments'}`}
