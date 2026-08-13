@@ -83,6 +83,12 @@ export const RELEASES: Release[] = [
         help: 'selections',
       },
       {
+        kind: 'new',
+        title: 'Markup on each invoice, with a tick to bill something at cost',
+        text: 'Cost-plus is billed invoice by invoice: the electrician sends $35,000, your 15% goes on, the client owes $40,250. Every sub invoice now shows exactly that - cost, markup, what to bill - and the Invoices tab totals it across everything approved so far. Two controls per invoice: tick "Bill this at cost" for a permit fee or anything you pass through, or type a different percent for one you negotiated. Leave the percent blank and it follows the project rate, so changing that rate still moves everything you have not given its own answer. The contractor fee on Payments & Escrow is now worked out the same way, item by item - it used to be one flat percentage multiplied over the job total, which silently ignored both of these.',
+        help: 'money-overview',
+      },
+      {
         kind: 'improved',
         title: '"Sellout" is now called what it is on your kind of job',
         text: 'Sellout is developer language - it is what a spec house SELLS for. On a custom home or a fit-out you are not selling anything, you are charging a client a contract value, and calling it a sellout made the whole panel read as though it was meant for somebody else. A job with a client on it now asks "What are you charging for this job?" and labels the figure Contract value; a job with no client - one you are building to sell - still says Sellout. Same number, called the right thing.',

@@ -49,7 +49,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .eq('project_id', params.id),
     db
       .from('projects')
-      .select('billing_mode')
+      .select('billing_mode, contractor_fee_pct')
       .eq('id', params.id)
       .maybeSingle(),
   ])
@@ -80,6 +80,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
     destinations: Object.fromEntries(dests),
     // Decides whether "billing your client" points at Pay Apps or Payments.
     billing_mode: (projectRow as any)?.billing_mode ?? 'simple',
+    // Stored as a fraction; the markup helpers work in percent.
+    markup_pct: Number((projectRow as any)?.contractor_fee_pct ?? 0) * 100,
   })
 }
 
