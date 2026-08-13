@@ -427,7 +427,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'Open Selections on the project and click "Start the standard board". You get a checklist of the 21 categories, already ticked for the kind of job this is - a commercial fit-out does not get sod, shutters or a bathtub; a house gets everything. Untick what does not apply and it tells you how many selections you are about to add.',
         'Connect each one to a budget line. The board suggests a line for every selection and you change whatever is wrong before it saves - it never links silently, because a wrong link puts a client\'s upgrade on somebody else\'s line. If nothing fits, "Add a line for this" creates one.',
         'Set the decide-by date, backed up from install by the lead time shown on each category.',
-        'Add options where you have them - brand, price, a link to the product page, and a photo you drop or upload.',
+        'Add options where you have them - brand, price, a link to the product page, and a photo you drop or upload. Press Enter or click Add to save each one; the row tells you while something is still unsaved. The brand carries to the next row, since you are usually entering one manufacturer line after line.',
         'Copy the client link and send it. Same link as their project portal - no second link to lose, no account needed. If the project has never been shared, the button creates the link.',
       ] },
 
