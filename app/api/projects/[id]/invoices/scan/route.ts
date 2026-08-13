@@ -27,7 +27,7 @@ Return ONLY a JSON object, no prose and no code fences:
   "retainage": 0,
   "description": "one short line on what the work was",
   "trade": "the trade if you can tell - plumbing, electrical, framing... otherwise null",
-  "line_items": [{ "description": "", "amount": 0 }],
+  "line_items": [{ "description": "", "qty": 0, "unit": "", "unit_price": 0, "amount": 0 }],
   "confidence": "high | medium | low"
 }
 
@@ -38,6 +38,12 @@ Rules that matter here:
 - Never invent a number. Anything you cannot read is null, not a guess.
 - The vendor is whoever is ASKING to be paid. Construction invoices print both
   companies; the GC is usually under "Bill To". Do not return the GC.
+- line_items is the WHOLE breakdown, every charge line on the document, in the
+  order printed. Include qty, unit and unit_price whenever the invoice shows
+  them - a rate is what makes a line checkable against a quote. Use null for any
+  part that is not printed rather than working it out yourself. Do NOT include
+  the subtotal, tax, retainage or total rows as line items; they have their own
+  fields, and repeating them makes the breakdown add up to double.
 - Set confidence to "low" if the document is a blurry photo, is cut off, or you
   are unsure which number is the total. The user is going to check your work,
   and saying you are unsure is more useful than being confidently wrong.`
@@ -221,7 +227,13 @@ export async function POST(request: Request, { params }: { params: { id: string 
       amount,
       description: parsed.description ?? null,
       trade: parsed.trade ?? null,
+      // Kept and stored, not just shown. The breakdown is the answer to "what
+      // am I being charged for?", and throwing it away meant that question
+      // could only ever be answered by reopening the PDF.
       line_items: Array.isArray(parsed.line_items) ? parsed.line_items : [],
+      subtotal: num(parsed.subtotal),
+      tax: num(parsed.tax),
+      retainage: num(parsed.retainage),
       confidence: parsed.confidence ?? null,
     },
     match: subcontract ? {

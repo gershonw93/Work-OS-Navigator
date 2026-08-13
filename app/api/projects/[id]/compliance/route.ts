@@ -60,7 +60,75 @@ export async function GET(
     requests = reqs ?? []
   }
 
-  return NextResponse.json({ subcontracts: subs, docs, requests })
+  // Per-vendor decisions about what they actually owe. Company-wide rows and
+  // rows for this job; the resolver picks which one wins.
+  let requirements: any[] = []
+  if (companyIds.length > 0) {
+    const { data: reqs } = await db
+      .from('compliance_requirements')
+      .select('company_id, project_id, type, required, note')
+      .in('company_id', companyIds)
+      .or(`project_id.eq.${params.id},project_id.is.null`)
+    requirements = reqs ?? []
+  }
+
+  return NextResponse.json({ subcontracts: subs, docs, requests, requirements })
+}
+
+/**
+ * Mark a document as required or not for one vendor.
+ *
+ * Company-wide by default - "this sub has no employees" is a fact about the
+ * sub, not about one job. Pass scope:'project' when a particular job insists on
+ * something the vendor is otherwise excused from.
+ */
+export async function PUT(request: Request, { params }: { params: { id: string } }) {
+  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const db = admin()
+  const { data: { user } } = await db.auth.getUser(token)
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const body = await request.json().catch(() => ({}))
+  const { company_id, type, required, note, scope } = body
+  if (!company_id || !type) {
+    return NextResponse.json({ error: 'company_id and type are required' }, { status: 400 })
+  }
+
+  // Only vendors actually on this job, so a project id in the URL cannot be
+  // used to edit requirements for a company that has nothing to do with it.
+  const { data: onJob } = await db.from('subcontracts')
+    .select('id').eq('project_id', params.id).eq('company_id', company_id).limit(1)
+  if (!onJob?.length) {
+    return NextResponse.json({ error: 'That vendor is not on this project' }, { status: 403 })
+  }
+
+  const project_id = scope === 'project' ? params.id : null
+  const row = {
+    company_id, project_id, type,
+    required: required !== false,
+    note: note || null,
+    updated_by: user.id,
+    updated_at: new Date().toISOString(),
+  }
+
+  // The unique indexes are partial (one for project_id IS NULL, one for NOT
+  // NULL), so onConflict cannot name a single constraint covering both scopes.
+  // Look the row up and decide.
+  const base = db.from('compliance_requirements').select('id')
+    .eq('company_id', company_id).eq('type', type)
+  const { data: match } = project_id === null
+    ? await base.is('project_id', null).maybeSingle()
+    : await base.eq('project_id', project_id).maybeSingle()
+
+  let error
+  if (match) {
+    ({ error } = await db.from('compliance_requirements').update(row).eq('id', (match as any).id))
+  } else {
+    ({ error } = await db.from('compliance_requirements').insert(row))
+  }
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ ok: true })
 }
 
 export async function POST(

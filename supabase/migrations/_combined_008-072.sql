@@ -1282,3 +1282,59 @@ ALTER TABLE company_files
 
 CREATE INDEX IF NOT EXISTS idx_company_files_filled_from
   ON company_files (filled_from_id) WHERE filled_from_id IS NOT NULL;
+-- ===== 071_compliance_requirements.sql =====
+-- Which compliance documents a given vendor actually has to produce.
+--
+-- Until now this was hardcoded off the company type: a supplier needed a W-9,
+-- everyone else needed COI + license + W-9 + workers' comp. Real vendors do not
+-- fit that. A one-man sub with no employees has no workers' comp to give, and a
+-- trade that is not licensed in the state has no license - and both sat as
+-- "Missing" forever, dragging the job's compliance status red over a document
+-- that was never coming.
+--
+-- A row here overrides the default for one document type. project_id NULL means
+-- "this vendor, on every job"; set means just that job, and wins over the
+-- company-wide row.
+
+CREATE TABLE IF NOT EXISTS compliance_requirements (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id uuid NOT NULL REFERENCES companies (id) ON DELETE CASCADE,
+  project_id uuid REFERENCES projects (id) ON DELETE CASCADE,
+  type text NOT NULL,
+  required boolean NOT NULL DEFAULT true,
+  /** Why it was waived - "no employees", "not licensed in NJ". */
+  note text,
+  updated_by uuid REFERENCES profiles (id) ON DELETE SET NULL,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- One row per vendor+type company-wide, and one per vendor+type per job.
+-- Partial indexes because NULL project_id would not otherwise collide.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_compliance_req_company
+  ON compliance_requirements (company_id, type) WHERE project_id IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_compliance_req_project
+  ON compliance_requirements (company_id, project_id, type) WHERE project_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_compliance_req_company ON compliance_requirements (company_id);
+-- ===== 072_invoice_breakdown.sql =====
+-- Keep an invoice's breakdown, not just its total.
+--
+-- The scan already reads line items, subtotal, tax and retainage off the
+-- document and then threw all of it away, storing a single `amount`. So the
+-- most useful question about an invoice - what am I actually being charged for?
+-- - could only be answered by opening the PDF, and the quote check could only
+-- run at the moment of scanning, never afterwards.
+--
+-- line_items is [{ description, qty, unit, unit_price, amount }]; the same
+-- shape subcontracts already use for quoted lines, so the two compare directly.
+
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS line_items jsonb NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS subtotal numeric(15, 2);
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS tax numeric(15, 2);
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS retainage numeric(15, 2);
+
+-- The quote comparison as it stood when the invoice was recorded. Kept rather
+-- than recomputed so the card still shows what was flagged at the time, even
+-- after the contract is revised by a change order.
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS quote_check jsonb;

@@ -13,6 +13,10 @@ import { useDeleteGuard } from '@/components/ui/delete-guard'
 import { BudgetDestinationBox } from '@/components/projects/budget-destination'
 import { ACTUAL_STATUSES, type BudgetDestination } from '@/lib/invoice-budget'
 import type { QuoteCheck } from '@/lib/invoice-check'
+import {
+  reconcile, reconciliationNote, lineAmount, linesTotal,
+  type InvoiceLine as InvoiceLineItem,
+} from '@/lib/invoice-lines'
 import { HARD_COST_CATEGORIES } from '@/lib/budget-categories'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
@@ -38,6 +42,11 @@ interface Invoice {
   document_url?: string | null; document_name?: string | null
   /** The budget line this lands on, resolved through the subcontract. */
   budget_line?: BudgetDestination | null
+  line_items?: InvoiceLineItem[] | null
+  subtotal?: number | null
+  tax?: number | null
+  retainage?: number | null
+  quote_check?: (QuoteCheck & { summary?: string }) | null
   /** Set once this has been pushed to QuickBooks as a Bill. */
   qbo_id?: string | null
 }
@@ -80,6 +89,9 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
   const [description, setDescription] = useState('')
   const [dueDate, setDueDate] = useState('')
   const [createError, setCreateError] = useState('')
+  // The breakdown. Filled by a scan, or typed - an invoice entered by hand
+  // deserves the same detail as one that was read off a PDF.
+  const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([])
 
   // Scanned invoice: the document is already stored, so it rides along with the
   // create and gets attached without a second upload.
@@ -90,6 +102,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
     confidence: string | null; read_error: string | null
     matched: string | null; certain: boolean; note: string | null
     quoteCheck: QuoteCheck & { summary: string } | null
+    lineItems: InvoiceLineItem[]; subtotal: number | null; tax: number | null; retainage: number | null
   }>(null)
   const scanRef = useRef<HTMLInputElement>(null)
 
@@ -219,6 +232,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
       if (draft.amount != null) setAmount(String(draft.amount))
       if (draft.description) setDescription(draft.description)
       if (draft.due_date) setDueDate(draft.due_date)
+      setLineItems(Array.isArray(draft.line_items) ? draft.line_items : [])
 
       setScanned({
         document_url: d.document_url ?? null,
@@ -229,6 +243,10 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
         certain: !!d.match?.certain,
         note: d.schedule_item?.note ?? null,
         quoteCheck: d.quote_check ?? null,
+        lineItems: [],
+        subtotal: draft.subtotal ?? null,
+        tax: draft.tax ?? null,
+        retainage: draft.retainage ?? null,
       })
       setShowForm(true)
     } catch (e: any) {
@@ -265,6 +283,13 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
           ...(scanned?.document_url
             ? { document_url: scanned.document_url, document_name: scanned.document_name }
             : {}),
+          // The breakdown travels with the invoice rather than being read once
+          // and thrown away.
+          line_items: lineItems,
+          subtotal: scanned?.subtotal ?? null,
+          tax: scanned?.tax ?? null,
+          retainage: scanned?.retainage ?? null,
+          quote_check: scanned?.quoteCheck ?? null,
         }),
       })
       if (!res.ok) {
@@ -274,6 +299,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
         return
       }
       setSubId(''); setScheduleItemId(''); setAmount(''); setPercent(''); setDescription(''); setDueDate('')
+      setLineItems([])
       setScanned(null)
       setShowForm(false); setSubmitting(false); fetchData()
     } catch (err: any) {
@@ -434,6 +460,94 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
               {invoice.sent_at && <div><p className="text-xs text-faint">Sent for payment</p><p className="font-medium text-ink-soft">{new Date(invoice.sent_at).toLocaleDateString()}</p></div>}
             </div>
             {invoice.description && <p className="text-sm text-muted-fg break-words">{invoice.description}</p>}
+
+            {/* The breakdown, on every invoice that has one. */}
+            {(() => {
+              const lines = Array.isArray(invoice.line_items) ? invoice.line_items : []
+              const rec = reconcile({
+                lines, tax: invoice.tax, retainage: invoice.retainage, amount: invoice.amount,
+              })
+              const note = reconciliationNote(rec)
+              if (rec.noBreakdown) {
+                return (
+                  <div className="rounded-lg border border-line bg-surface px-4 py-3">
+                    <p className="text-xs font-semibold text-muted-fg uppercase tracking-wide">Breakdown</p>
+                    <p className="text-xs text-faint mt-1">
+                      No breakdown on this one - just the total. Scanning the vendor&apos;s PDF reads the
+                      lines off it, or you can add them with Edit.
+                    </p>
+                  </div>
+                )
+              }
+              return (
+                <div className="rounded-lg border border-line bg-surface overflow-hidden">
+                  <div className="flex items-center justify-between px-4 py-2 border-b border-line-soft">
+                    <p className="text-xs font-semibold text-muted-fg uppercase tracking-wide">Breakdown</p>
+                    <span className={cn('text-xs font-medium', rec.balanced ? 'text-success' : 'text-warn')}>
+                      {rec.balanced ? 'Adds up to the total' : 'Does not add up'}
+                    </span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <tbody className="divide-y divide-line-soft">
+                        {lines.map((li, i) => {
+                          const amt = lineAmount(li)
+                          // A line the quote check flagged, matched by its text.
+                          const flag = invoice.quote_check?.findings?.find(f => f.description === li.description)
+                          return (
+                            <tr key={i} className={flag ? 'bg-warn-tint/40' : undefined}>
+                              <td className="px-4 py-2 text-ink-soft">
+                                <span className="break-words">{li.description || '—'}</span>
+                                {flag && (
+                                  <span className="block text-[11px] text-warn mt-0.5">
+                                    {flag.kind === 'over_quoted_line'
+                                      ? `Quoted $${Number(flag.quoted).toLocaleString()} — $${Math.round(flag.over ?? 0).toLocaleString()} more`
+                                      : 'Not on their quote'}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-4 py-2 text-right text-xs text-faint whitespace-nowrap tabular-nums">
+                                {li.qty != null && li.unit_price != null
+                                  ? `${li.qty}${li.unit ? ` ${li.unit}` : ''} × $${Number(li.unit_price).toLocaleString()}`
+                                  : ''}
+                              </td>
+                              <td className="px-4 py-2 text-right text-ink whitespace-nowrap tabular-nums">
+                                {amt != null ? `$${amt.toLocaleString()}` : <span className="text-faint">—</span>}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                      <tfoot className="border-t border-line text-xs">
+                        <tr>
+                          <td className="px-4 py-1.5 text-muted-fg" colSpan={2}>Lines</td>
+                          <td className="px-4 py-1.5 text-right text-ink-soft tabular-nums">${rec.linesTotal.toLocaleString()}</td>
+                        </tr>
+                        {invoice.tax != null && Number(invoice.tax) !== 0 && (
+                          <tr>
+                            <td className="px-4 py-1.5 text-muted-fg" colSpan={2}>Tax</td>
+                            <td className="px-4 py-1.5 text-right text-ink-soft tabular-nums">${Number(invoice.tax).toLocaleString()}</td>
+                          </tr>
+                        )}
+                        {invoice.retainage != null && Number(invoice.retainage) !== 0 && (
+                          <tr>
+                            <td className="px-4 py-1.5 text-muted-fg" colSpan={2}>Retainage withheld</td>
+                            <td className="px-4 py-1.5 text-right text-ink-soft tabular-nums">−${Number(invoice.retainage).toLocaleString()}</td>
+                          </tr>
+                        )}
+                        <tr className="font-semibold">
+                          <td className="px-4 py-2 text-ink" colSpan={2}>Invoice total</td>
+                          <td className={cn('px-4 py-2 text-right tabular-nums', rec.balanced ? 'text-ink' : 'text-warn')}>
+                            ${Number(invoice.amount).toLocaleString()}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                  {note && <p className="px-4 py-2 text-xs text-warn border-t border-line-soft">{note}</p>}
+                </div>
+              )
+            })()}
 
             {/* The budget line this invoice moves, and what's left on it. */}
             {invoice.subcontract_id && (() => {
@@ -820,6 +934,75 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
                     )}
                   </div>
                 )}
+
+                {/* The breakdown. Scanned invoices arrive with it filled in;
+                    typed ones can have it too, because "what am I paying for?"
+                    is the same question either way. */}
+                {(() => {
+                  const rec = reconcile({
+                    lines: lineItems, tax: scanned?.tax, retainage: scanned?.retainage, amount: billedAmount,
+                  })
+                  const note = reconciliationNote(rec)
+                  return (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <Label>What is being charged for</Label>
+                        <button type="button"
+                          onClick={() => setLineItems(l => [...l, { description: '', amount: null }])}
+                          className="text-xs font-medium text-accent-fg hover:underline">
+                          + Add a line
+                        </button>
+                      </div>
+                      {lineItems.length === 0 ? (
+                        <p className="text-xs text-faint">
+                          No breakdown. Add lines to record what the charges are - or leave it and the
+                          invoice keeps just its total.
+                        </p>
+                      ) : (
+                        <div className="rounded-lg border border-line divide-y divide-line-soft">
+                          {lineItems.map((li, idx) => (
+                            <div key={idx} className="flex items-center gap-2 px-2 py-1.5">
+                              <input
+                                value={li.description ?? ''}
+                                onChange={e => setLineItems(l => l.map((x, i) => i === idx ? { ...x, description: e.target.value } : x))}
+                                placeholder="What it is"
+                                className="flex-1 min-w-0 bg-transparent text-sm text-ink outline-none placeholder:text-faint"
+                              />
+                              {li.qty != null && li.unit_price != null && (
+                                <span className="text-[11px] text-faint shrink-0 tabular-nums">
+                                  {li.qty}{li.unit ? ` ${li.unit}` : ''} × ${li.unit_price}
+                                </span>
+                              )}
+                              <input
+                                type="number" step="0.01"
+                                value={li.amount ?? ''}
+                                onChange={e => setLineItems(l => l.map((x, i) => i === idx ? { ...x, amount: e.target.value === '' ? null : Number(e.target.value) } : x))}
+                                placeholder="0.00"
+                                className="w-24 shrink-0 bg-transparent text-sm text-ink text-right outline-none tabular-nums placeholder:text-faint"
+                              />
+                              <button type="button" onClick={() => setLineItems(l => l.filter((_, i) => i !== idx))}
+                                className="shrink-0 p-1 text-faint hover:text-danger" title="Remove this line">
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                          <div className="flex items-center justify-between px-2 py-1.5 bg-surface text-xs">
+                            <span className="text-muted-fg">
+                              {lineItems.length} line{lineItems.length !== 1 ? 's' : ''}
+                              {scanned?.tax ? ` + $${Number(scanned.tax).toLocaleString()} tax` : ''}
+                              {scanned?.retainage ? ` − $${Number(scanned.retainage).toLocaleString()} retainage` : ''}
+                            </span>
+                            <span className={cn('font-semibold tabular-nums', rec.balanced ? 'text-success' : 'text-ink')}>
+                              ${linesTotal(lineItems).toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      {note && <p className="text-xs text-warn">{note}</p>}
+                      {rec.balanced && <p className="text-xs text-success">The breakdown adds up to the total.</p>}
+                    </div>
+                  )
+                })()}
 
                 <div className="space-y-1.5">
                   <Label>Description</Label>

@@ -8,12 +8,15 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { StatCard } from '@/components/ui/stat-card'
 import { cn } from '@/lib/utils'
-import { ShieldCheck, Upload, RefreshCw, X, AlertTriangle, CheckCircle2, FileWarning, ExternalLink, ChevronDown, ChevronUp, Mail, Copy, Link2, Send } from 'lucide-react'
+import { ShieldCheck, Upload, RefreshCw, X, AlertTriangle, CheckCircle2, FileWarning, ExternalLink, ChevronDown, ChevronUp, Mail, Copy, Link2, Send, MinusCircle, PlusCircle } from 'lucide-react'
+import {
+  DOC_LABELS, docTypesFor, requiredDocsFor, overrideFor, typesToRequest,
+  type DocType, type RequirementOverride,
+} from '@/lib/compliance-requirements'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type DocType = 'coi' | 'license' | 'w9' | 'workers_comp' | 'other'
-type DocStatus = 'missing' | 'pending' | 'approved' | 'expired' | 'expiring_soon' | 'optional'
+type DocStatus = 'missing' | 'pending' | 'approved' | 'expired' | 'expiring_soon' | 'optional' | 'not_required'
 
 interface ComplianceDoc {
   id: string
@@ -44,27 +47,11 @@ interface DocRequest {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const DOC_TYPES: DocType[] = ['coi', 'license', 'w9', 'workers_comp', 'other']
-
-// Which docs each vendor type needs. Suppliers (materials) usually only need a W-9.
-function docTypesFor(companyType?: string): DocType[] {
-  if (companyType === 'supplier') return ['w9', 'coi', 'other']
-  return DOC_TYPES
-}
-function requiredDocsFor(companyType?: string): DocType[] {
-  if (companyType === 'supplier') return ['w9']                 // COI/Other optional
-  return ['coi', 'license', 'w9', 'workers_comp']               // Other optional
-}
-
-const DOC_LABELS: Record<DocType, string> = {
-  coi: 'COI',
-  license: 'License',
-  w9: 'W-9',
-  workers_comp: "Workers' Comp",
-  other: 'Other',
-}
+// Defaults, resolution and labels all live in lib/compliance-requirements, so
+// the card status, the row badges and what a request asks for cannot drift.
 
 const STATUS_CONFIG: Record<DocStatus, { label: string; classes: string }> = {
+  not_required:  { label: 'Not required',   classes: 'bg-surface text-faint' },
   missing:       { label: 'Missing',        classes: 'bg-danger-tint text-danger' },
   pending:       { label: 'Pending',        classes: 'bg-warn-tint text-warn' },
   approved:      { label: 'Approved',       classes: 'bg-success-tint text-success' },
@@ -515,14 +502,23 @@ interface RequestDocsBarProps {
   contactEmail?: string | null
   missingTypes: DocType[]
   allTypes: DocType[]
+  /** What this vendor actually owes, after any waivers. */
+  requiredTypes: DocType[]
   pendingRequest: DocRequest | null
   token: string
   onRefresh: () => void
 }
 
-function RequestDocsBar({ projectId, companyId, companyName, contactEmail, missingTypes, allTypes, pendingRequest, token, onRefresh }: RequestDocsBarProps) {
+function RequestDocsBar({ projectId, companyId, companyName, contactEmail, missingTypes, allTypes, requiredTypes, pendingRequest, token, onRefresh }: RequestDocsBarProps) {
   const [open, setOpen] = useState(false)
-  const [selected, setSelected] = useState<DocType[]>(missingTypes.length ? missingTypes : allTypes)
+  // Only what this vendor owes and has not already produced. It used to fall
+  // back to EVERY document type when nothing was outstanding, so opening the
+  // panel on a compliant sub pre-ticked things they were never asked for.
+  const [selected, setSelected] = useState<DocType[]>(missingTypes)
+  // Waiving a document while this panel is open has to change what is ticked,
+  // otherwise the request still goes out asking for it.
+  const missingKey = missingTypes.join(',')
+  useEffect(() => { setSelected(missingTypes) }, [missingKey])   // eslint-disable-line react-hooks/exhaustive-deps
   const [creating, setCreating] = useState(false)
   const [link, setLink] = useState('')
   const [email, setEmail] = useState<string | null>(null)
@@ -588,13 +584,19 @@ function RequestDocsBar({ projectId, companyId, companyName, contactEmail, missi
           <div>
             <p className="text-xs font-semibold text-ink-soft mb-1.5">Which documents?</p>
             <div className="flex flex-wrap gap-1.5">
-              {allTypes.map((t) => (
-                <button key={t} type="button" onClick={() => toggle(t)}
-                  className={cn('rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
-                    selected.includes(t) ? 'border-accent bg-accent-tint text-accent-fg' : 'border-line text-muted-fg hover:border-muted2')}>
-                  {DOC_LABELS[t]}
-                </button>
-              ))}
+              {allTypes.map((t) => {
+                const owed = requiredTypes.includes(t)
+                return (
+                  <button key={t} type="button" onClick={() => toggle(t)}
+                    title={owed ? undefined : 'Not required for this vendor - tick it to ask anyway'}
+                    className={cn('rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
+                      selected.includes(t) ? 'border-accent bg-accent-tint text-accent-fg'
+                        : owed ? 'border-line text-muted-fg hover:border-muted2'
+                          : 'border-dashed border-line text-faint hover:border-muted2')}>
+                    {DOC_LABELS[t]}
+                  </button>
+                )
+              })}
             </div>
           </div>
 
@@ -628,19 +630,36 @@ interface SubCardProps {
   sub: Sub
   docs: ComplianceDoc[]
   requests: DocRequest[]
+  requirements: RequirementOverride[]
   projectId: string
   token: string
   onRefresh: () => void
 }
 
-function SubCard({ sub, docs, requests, projectId, token, onRefresh }: SubCardProps) {
+function SubCard({ sub, docs, requests, requirements, projectId, token, onRefresh }: SubCardProps) {
   const [openForm, setOpenForm] = useState<DocType | null>(null)
   const [expandedType, setExpandedType] = useState<DocType | null>(null)
   const companyId = sub.companies?.id ?? ''
   const companyName = sub.companies?.name ?? 'Unknown'
   const companyType = sub.companies?.type
   const visibleDocs = docTypesFor(companyType)
-  const requiredDocs = requiredDocsFor(companyType)
+  const requiredDocs = requiredDocsFor({ companyType, companyId, projectId, overrides: requirements })
+  const [savingReq, setSavingReq] = useState<DocType | null>(null)
+
+  /** Turn a document on or off for this vendor. */
+  async function setRequired(type: DocType, required: boolean) {
+    setSavingReq(type)
+    try {
+      await fetch(`/api/projects/${projectId}/compliance`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ company_id: companyId, type, required }),
+      })
+      onRefresh()
+    } finally {
+      setSavingReq(null)
+    }
+  }
 
   function getDoc(type: DocType): ComplianceDoc | null {
     return docs.find((d) => d.company_id === companyId && d.type === type) ?? null
@@ -648,6 +667,11 @@ function SubCard({ sub, docs, requests, projectId, token, onRefresh }: SubCardPr
 
   function resolveStatus(type: DocType): DocStatus {
     const doc = getDoc(type)
+    // Waived beats everything: a document this vendor does not owe should never
+    // read as Missing, which is the whole point of being able to turn it off.
+    if (!requiredDocs.includes(type) && overrideFor({ companyId, projectId, type, overrides: requirements })?.required === false) {
+      return 'not_required'
+    }
     if (!doc) return requiredDocs.includes(type) ? 'missing' : 'optional'
     if (doc.status === 'expired' && doc.expiry_date && new Date(doc.expiry_date + 'T00:00:00') > new Date()) return isExpiringSoon(doc.expiry_date) ? 'expiring_soon' : 'approved'
     if (doc.status === 'approved' && isExpiringSoon(doc.expiry_date)) return 'expiring_soon'
@@ -659,8 +683,10 @@ function SubCard({ sub, docs, requests, projectId, token, onRefresh }: SubCardPr
   const worst = worstStatus(allStatuses)
   const chip = cardChip(worst)
 
-  // Docs still missing/expired - the sensible default to request from the vendor
-  const missingTypes = visibleDocs.filter((t) => ['missing', 'expired', 'expiring_soon'].includes(resolveStatus(t)))
+  // What to ask this vendor for: only documents they actually owe, and only
+  // the ones not already in hand. Asking for a waived licence, or for a COI
+  // that is current, is how these requests get ignored.
+  const missingTypes = typesToRequest({ required: requiredDocs, statusOf: resolveStatus })
   const pendingRequest = requests
     .filter((r) => r.company_id === companyId)
     .sort((a, b) => b.created_at.localeCompare(a.created_at))[0] ?? null
@@ -683,6 +709,7 @@ function SubCard({ sub, docs, requests, projectId, token, onRefresh }: SubCardPr
         contactEmail={sub.companies?.contact_email}
         missingTypes={missingTypes}
         allTypes={visibleDocs}
+        requiredTypes={requiredDocs}
         pendingRequest={pendingRequest}
         token={token}
         onRefresh={onRefresh}
@@ -731,14 +758,42 @@ function SubCard({ sub, docs, requests, projectId, token, onRefresh }: SubCardPr
                     ? <a href={doc.file_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1 text-xs text-accent-fg hover:underline font-medium"><ExternalLink className="h-3 w-3" /> View</a>
                     : <span className="text-xs text-faint">-</span>}
                 </td>
-                <td className="px-5 py-3 text-right">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setOpenForm(openForm === type ? null : type) }}
-                    className={cn('flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ml-auto',
-                      openForm === type ? 'border-accent bg-accent-tint text-accent-fg' : 'border-line text-muted-fg hover:border-muted2')}
-                  >
-                    {doc ? <><RefreshCw className="h-3 w-3" /> Update</> : <><Upload className="h-3 w-3" /> Upload</>}
-                  </button>
+                <td className="px-5 py-3">
+                  <div className="flex items-center justify-end gap-1">
+                    {/* Turn a document off for this vendor. A one-man sub has no
+                        workers' comp and a licence they cannot hold is never
+                        arriving - left required, both sit as Missing forever
+                        and turn the job red over nothing. */}
+                    {status !== 'not_required' ? (
+                      // Only worth offering while there is nothing on file -
+                      // hiding a document you already hold would just lose it.
+                      !doc && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setRequired(type, false) }}
+                          disabled={savingReq === type}
+                          title={`${companyName} does not have to provide this`}
+                          className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-faint hover:text-muted-fg hover:bg-surface disabled:opacity-50"
+                        >
+                          <MinusCircle className="h-3 w-3" /> Not needed
+                        </button>
+                      )
+                    ) : (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setRequired(type, true) }}
+                        disabled={savingReq === type}
+                        className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-accent-fg hover:bg-accent-tint disabled:opacity-50"
+                      >
+                        <PlusCircle className="h-3 w-3" /> Require it
+                      </button>
+                    )}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setOpenForm(openForm === type ? null : type) }}
+                      className={cn('flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors',
+                        openForm === type ? 'border-accent bg-accent-tint text-accent-fg' : 'border-line text-muted-fg hover:border-muted2')}
+                    >
+                      {doc ? <><RefreshCw className="h-3 w-3" /> Update</> : <><Upload className="h-3 w-3" /> Upload</>}
+                    </button>
+                  </div>
                 </td>
               </tr>
               {isExpanded && doc && (
@@ -789,6 +844,7 @@ export default function CompliancePage({ params }: { params: { id: string } }) {
   const [subs, setSubs] = useState<Sub[]>([])
   const [docs, setDocs] = useState<ComplianceDoc[]>([])
   const [requests, setRequests] = useState<DocRequest[]>([])
+  const [requirements, setRequirements] = useState<RequirementOverride[]>([])
   const [token, setToken] = useState('')
   const [loading, setLoading] = useState(true)
 
@@ -810,6 +866,7 @@ export default function CompliancePage({ params }: { params: { id: string } }) {
       setSubs(json.subcontracts ?? [])
       setDocs(json.docs ?? [])
       setRequests(json.requests ?? [])
+      setRequirements(json.requirements ?? [])
     }
     setLoading(false)
   }
@@ -826,7 +883,14 @@ export default function CompliancePage({ params }: { params: { id: string } }) {
   }
 
   const totalSubs = subs.length
-  const reqFor = (s: Sub) => requiredDocsFor(s.companies?.type)
+  // Same resolver the cards use, so the roll-up counts cannot disagree with
+  // what a card shows.
+  const reqFor = (s: Sub) => requiredDocsFor({
+    companyType: s.companies?.type,
+    companyId: s.companies?.id ?? '',
+    projectId: params.id,
+    overrides: requirements,
+  })
   const allCompliant = subs.filter((s) => {
     const id = s.companies?.id ?? ''
     return reqFor(s).every((t) => resolveStatus(id, t) === 'approved')
@@ -937,6 +1001,7 @@ export default function CompliancePage({ params }: { params: { id: string } }) {
                 sub={sub}
                 docs={docs}
                 requests={requests}
+                requirements={requirements}
                 projectId={params.id}
                 token={token}
                 onRefresh={fetchData}
