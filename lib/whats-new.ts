@@ -83,6 +83,12 @@ export const RELEASES: Release[] = [
         help: 'selections',
       },
       {
+        kind: 'fixed',
+        title: 'Projected profit was made up until you set a sale price',
+        text: 'With no sellout entered, the budget screen fell back to an assumed markup and printed a confident green "projected profit" with a margin percentage - for a job whose sale price nobody had told it. It now asks for the figure on a single line instead of reporting on one it invented, and profit only appears once you have actually set what the job sells for. It still shows at every stage, not just planning: "am I still making money on this" is the question you ask most once work has started, and profit against actual spend only means anything once costs have landed. Leave it empty on a cost-plus job, where your markup is the profit.',
+        help: 'sellout-projected-profit',
+      },
+      {
         kind: 'improved',
         title: 'The budget screen explains itself, and repeats itself less',
         text: 'Hover any of the four figures at the top - or any column heading on the lines below: Budgeted, Committed, Actual, Variance - and it says in plain words what the number means and how it is worked out, including why Left to spend is not simply budget minus invoices. The explainers wait a moment and fade in, so they do not flash open as the pointer crosses the screen. The variance column on a line now counts signed contracts the same way that tile does; the two used to disagree, and hovering shows how much of a contract is signed but not yet invoiced. Three tiles that printed the same figure as Total Budget are gone, the interior/exterior split no longer carries a Grand Total that contradicted the one above it (it was ignoring approved change orders), and the soft-costs pitch shrinks to a single link once a job is active.',

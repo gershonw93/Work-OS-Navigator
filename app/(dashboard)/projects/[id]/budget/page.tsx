@@ -571,13 +571,13 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   const showEstimateBar = estimateApplies && preAward
   const showProposalLink = estimateApplies && !preAward
 
-  // Revenue comes from one of two places. An explicit sellout wins - on a spec
-  // build the sale price has nothing to do with your cost. Otherwise fall back
-  // to markup on cost, which is what a cost-plus GC works from.
   const selloutNum = sellout.trim() === '' ? null : Number(sellout) || 0
-  const markupRevenue = totalBudgeted * (1 + (Number(markupPct) || 0) / 100)
-  const revenue = selloutNum != null ? selloutNum : (Number(markupPct) > 0 ? markupRevenue : null)
-  const revenueSource = selloutNum != null ? 'sellout' : 'markup'
+  // Profit is only shown against a sellout you actually set. Falling back to
+  // cost + markup printed a confident green "projected profit" for a job whose
+  // sale price nobody had told us - a number the app made up, presented as
+  // fact. The markup still drives the client price on the estimate bar, where
+  // it is explicitly a calculation rather than a result.
+  const revenue = selloutNum
   // Profit against committed+actual isn't meaningful until costs land, so this
   // is deliberately projected: revenue against what the job is budgeted to cost.
   const projectedProfit = revenue != null ? revenue - totalBudgeted : null
@@ -882,10 +882,26 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
         })}
       </div>
 
-      {/* Sellout → projected profit. Unlike the markup box below this shows on
-          every job at every stage, because "am I still making money on this"
-          is the question you ask most once work has started. */}
-      {items.length > 0 && (
+      {/* Sellout → projected profit.
+          Shown at every stage on purpose: "am I still making money on this" is
+          the question you ask MOST once work has started, not least - and
+          "against actual spend" only means anything once costs have landed.
+          But only once a sellout is actually set. Until then it is one line
+          asking for the figure, not a panel reporting on a figure nobody gave
+          it. */}
+      {items.length > 0 && selloutNum == null ? (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+          <label htmlFor="sellout" className="text-muted-fg">
+            What does this job sell for?
+            <InfoHint className="ml-1 align-middle" text={'The sale price on a spec build, or the contract value on a fixed-price job.\n\nSet it and projected profit tracks itself as the budget fills in, and again against what has actually been spent.\n\nOn a cost-plus job your profit is the markup instead, so you can leave this empty.'} />
+          </label>
+          <span className="text-muted-fg">$</span>
+          <Input id="sellout" type="number" min="0" step="1000" value={sellout} placeholder="0"
+            onChange={e => setSellout(e.target.value)} onBlur={saveSellout} className="w-36 h-8" />
+          {savingSellout && <span className="text-xs text-faint">saving…</span>}
+          <span className="text-xs text-faint">Leave it empty on cost-plus.</span>
+        </div>
+      ) : items.length > 0 ? (
         <div className="rounded-xl border border-line bg-panel p-4">
           <div className="flex flex-wrap items-end gap-x-8 gap-y-4">
             <div>
@@ -898,9 +914,6 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                   onChange={e => setSellout(e.target.value)} onBlur={saveSellout} className="w-40" />
                 {savingSellout && <span className="text-xs text-faint">saving…</span>}
               </div>
-              {selloutNum == null && Number(markupPct) > 0 && (
-                <p className="mt-1 text-[11px] text-faint">Using cost + {markupPct}% markup until you set one.</p>
-              )}
             </div>
 
             <div>
@@ -916,10 +929,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                   <p className={cn('text-2xl font-bold', (projectedProfit ?? 0) < 0 ? 'text-danger' : 'text-success')}>
                     {(projectedProfit ?? 0) < 0 ? '-' : ''}{money(Math.abs(projectedProfit ?? 0))}
                   </p>
-                  <p className="text-[11px] text-faint">
-                    {margin != null ? `${margin.toFixed(1)}% margin` : ''}
-                    {revenueSource === 'markup' ? ' · from markup' : ''}
-                  </p>
+                  <p className="text-[11px] text-faint">{margin != null ? `${margin.toFixed(1)}% margin` : ''}</p>
                 </div>
                 {totalActual > 0 && (
                   <div>
@@ -931,15 +941,10 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                   </div>
                 )}
               </>
-            ) : (
-              <p className="text-xs text-faint max-w-xs">
-                Enter what this job sells for - or what you're contracted at - and your profit tracks itself as the
-                budget fills in.
-              </p>
-            )}
+            ) : null}
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* Hard vs soft split. Every job carries costs that aren't a trade -
           plans, permits, builders risk, survey, loan interest - and they belong
