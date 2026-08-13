@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
-import { Wallet, DollarSign, CheckCircle2, TrendingDown, TrendingUp, Plus, Trash2, Pencil, X, Check, Link as LinkIcon, AlertTriangle, LayoutTemplate, Save, FileSpreadsheet, FolderInput, Search, ShoppingCart, FileText } from 'lucide-react'
+import { Wallet, DollarSign, CheckCircle2, TrendingDown, TrendingUp, Plus, Trash2, Pencil, X, Check, Link as LinkIcon, AlertTriangle, LayoutTemplate, Save, FileSpreadsheet, FolderInput, Search, ShoppingCart, FileText, HelpCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -495,7 +495,25 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
     : items
 
   // Sort within whatever grouping is applied
-  const variance = (i: BudgetItem) => revisedOf(i) - Number(i.actual_amount || 0)
+  /**
+   * Budget left on a line, counting signed contracts.
+   *
+   * NOT committed − actual: that is how much of the contract is still to be
+   * invoiced, which is a real number but a different question. Variance asks
+   * "will this line beat or blow its budget", and the best answer today is the
+   * budget less whichever is bigger, what you have signed or what you have
+   * already been billed. Same basis as the Left to spend tile, which used to
+   * disagree with this column.
+   */
+  const exposureOf = (i: BudgetItem) => {
+    const receipts = Number(i.materials_amount || 0)
+    const billed = Number(i.actual_amount || 0) - receipts
+    return Math.max(Number(i.committed_amount || 0), billed) + receipts
+  }
+  const variance = (i: BudgetItem) => revisedOf(i) - exposureOf(i)
+  /** Contract signed but not yet invoiced - the money that has no bill yet. */
+  const toBill = (i: BudgetItem) =>
+    Math.max(0, Number(i.committed_amount || 0) - (Number(i.actual_amount || 0) - Number(i.materials_amount || 0)))
   const sortRows = (rows: BudgetItem[]) => {
     const r = [...rows]
     switch (sortBy) {
@@ -566,6 +584,8 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   // Actual spend eating into that profit - the number worth watching mid-job.
   const profitToDate = revenue != null ? revenue - totalActual : null
 
+  // `help` is the hover explainer: what the number means and how it is worked
+  // out, in the words someone would use out loud.
   const statCards = [
     {
       label: 'Total Budget', value: totalBudgeted, color: 'text-ink', bg: 'bg-panel', icon: DollarSign,
@@ -573,12 +593,19 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       note: approvedChanges !== 0
         ? `${money(originalBudget)} original + ${money(approvedChanges)} approved changes`
         : undefined,
+      help: approvedChanges !== 0
+        ? `What this job is budgeted at now.\n\nEvery line's budget added up (${money(originalBudget)}), plus ${money(approvedChanges)} of approved change orders. Rejected and pending change orders are not counted.`
+        : 'What this job is budgeted at.\n\nEvery line\'s budget added up. Approved change orders are added on top as they land; nothing pending counts.',
     },
     {
       label: 'Committed', value: totalCommitted, color: 'text-info', bg: 'bg-info-tint', icon: TrendingUp,
       note: committedNotBilled > 0 ? `${money(committedNotBilled)} signed, not yet billed` : undefined,
+      help: `What you have promised in signed contracts.\n\nEvery subcontract on the job added up. This is money that is gone whether or not the sub has invoiced yet.${committedNotBilled > 0 ? `\n\n${money(committedNotBilled)} of it has not been invoiced yet - that is the bit that catches people out.` : ''}`,
     },
-    { label: 'Actual Spent', value: totalActual, color: 'text-success', bg: 'bg-success-tint', icon: CheckCircle2 },
+    {
+      label: 'Actual Spent', value: totalActual, color: 'text-success', bg: 'bg-success-tint', icon: CheckCircle2,
+      help: 'What has actually been billed to you.\n\nEvery invoice that is approved, sent for payment, or paid - plus material receipts assigned to a line. An invoice sitting in Pending Approval does NOT count yet; approving it is what moves this number.',
+    },
     {
       label: overBudget ? 'Over Budget' : 'Left to spend',
       value: Math.abs(remaining),
@@ -588,6 +615,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       // The whole point of the fix: this counts contracts you have signed, not
       // just invoices you have received.
       note: 'After signed contracts, not just invoices',
+      help: `Budget you have not spoken for yet.\n\nTotal budget, less whichever is bigger on each line: what you have signed, or what you have already been billed.\n\nIt is deliberately NOT budget minus invoices. If you have budgeted ${money(totalBudgeted)}, signed ${money(totalCommitted)} and been billed ${money(totalActual)}, the money still free to spend is ${money(Math.max(remaining, 0))} - not ${money(Math.max(totalBudgeted - totalActual, 0))}.`,
     },
   ]
 
@@ -838,13 +866,24 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
         {statCards.map(s => {
           const Icon = s.icon
           return (
-            <div key={s.label} className={cn('rounded-xl border border-line p-4', s.bg)}>
+            <div key={s.label} className={cn('group relative rounded-xl border border-line p-4', s.bg)}>
               <div className="flex items-center gap-2 mb-2">
                 <Icon className={cn('h-4 w-4', s.color)} />
                 <p className="text-xs font-medium text-muted-fg">{s.label}</p>
+                {s.help && <HelpCircle className="h-3 w-3 text-faint ml-auto shrink-0" />}
               </div>
               <p className={cn('text-2xl font-bold', s.color)}>{money(s.value)}</p>
               {s.note && <p className="text-[11px] text-faint mt-1 leading-snug">{s.note}</p>}
+              {/* Plain-language explainer on hover. These four numbers are the
+                  ones people argue about, and "how is that worked out?" should
+                  not require asking someone. */}
+              {s.help && (
+                <div className="pointer-events-none absolute left-3 right-3 top-full z-30 mt-1 hidden group-hover:block group-focus-within:block">
+                  <div className="rounded-lg border border-line bg-panel p-3 shadow-xl text-xs text-muted-fg whitespace-pre-line leading-relaxed">
+                    {s.help}
+                  </div>
+                </div>
+              )}
             </div>
           )
         })}
@@ -912,32 +951,30 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       {/* Hard vs soft split. Every job carries costs that aren't a trade -
           plans, permits, builders risk, survey, loan interest - and they belong
           in the same budget so the job total is the real total. */}
-      {softItems.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="rounded-xl border border-line bg-panel p-4">
-            <p className="text-xs font-medium text-muted-fg mb-1">Hard costs · construction</p>
-            <p className="text-xl font-bold text-ink">{money(totalHard)}</p>
-            <p className="text-xs text-faint mt-0.5">{hardItems.length} line{hardItems.length !== 1 ? 's' : ''}</p>
-          </div>
-          <div className="rounded-xl border border-info/30 bg-info-tint p-4">
-            <p className="text-xs font-medium text-info mb-1">Soft costs · preconstruction &amp; carrying</p>
-            <p className="text-xl font-bold text-info">{money(totalSoft)}</p>
-            <p className="text-xs text-muted-fg mt-0.5">
-              {softItems.length} line{softItems.length !== 1 ? 's' : ''}
-              {totalBudgeted > 0 && ` · ${((totalSoft / totalBudgeted) * 100).toFixed(0)}% of budget`}
+      {/* Only worth its own row once soft costs carry money. With none, all
+          three tiles printed the same figure as Total Budget directly above
+          them - three ways of saying one number. */}
+      {totalSoft > 0 ? (
+        <div className="rounded-xl border border-line bg-panel px-4 py-3 flex flex-wrap items-center gap-x-8 gap-y-2">
+          <div>
+            <p className="text-xs font-medium text-muted-fg">Hard costs · construction</p>
+            <p className="text-lg font-bold text-ink">{money(totalHard)}
+              <span className="ml-1.5 text-xs font-normal text-faint">{hardItems.length} line{hardItems.length !== 1 ? 's' : ''}</span>
             </p>
           </div>
-          <div className="rounded-xl border border-line bg-surface p-4 flex flex-col justify-between">
-            <div>
-              <p className="text-xs font-medium text-muted-fg mb-1">All-in project cost</p>
-              <p className="text-xl font-bold text-ink">{money(totalBudgeted)}</p>
-            </div>
-            <button onClick={() => setShowSoft(true)} className="mt-2 text-xs font-medium text-accent-fg hover:underline text-left">
-              Add more soft costs →
-            </button>
+          <div>
+            <p className="text-xs font-medium text-info">Soft costs · preconstruction &amp; carrying</p>
+            <p className="text-lg font-bold text-info">{money(totalSoft)}
+              <span className="ml-1.5 text-xs font-normal text-muted-fg">
+                {totalBudgeted > 0 ? `${((totalSoft / totalBudgeted) * 100).toFixed(0)}% of budget` : `${softItems.length} lines`}
+              </span>
+            </p>
           </div>
+          <button onClick={() => setShowSoft(true)} className="ml-auto text-xs font-medium text-accent-fg hover:underline">
+            Add more soft costs →
+          </button>
         </div>
-      ) : (
+      ) : projectStatus === 'planning' ? (
         <div className="rounded-xl border border-dashed border-info/40 bg-info-tint/40 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-sm font-medium text-ink-soft">No soft costs on this budget yet</p>
@@ -949,6 +986,13 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
             <Plus className="h-4 w-4" /> Add preconstruction costs
           </Button>
         </div>
+      ) : (
+        // Once the job is running, the full pitch for soft costs is clutter -
+        // that decision was made at planning. Keep the way in, drop the lecture.
+        <button onClick={() => setShowSoft(true)}
+          className="text-xs font-medium text-accent-fg hover:underline w-fit">
+          + Add preconstruction / soft costs
+        </button>
       )}
 
       {/* Won job: no markup editing, just reprint the proposal that was sent. */}
@@ -999,22 +1043,38 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       )}
 
       {/* Interior / Exterior breakdown */}
-      {(spaceTotals.interior > 0 || spaceTotals.exterior > 0 || projectSqft.interior || projectSqft.exterior) && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="rounded-xl border border-info/30 bg-info-tint p-4">
-            <p className="text-xs font-medium text-info mb-1">Interior {projectSqft.interior ? `· ${Number(projectSqft.interior).toLocaleString()} sq ft` : ''}</p>
-            <p className="text-xl font-bold text-info">{money(spaceTotals.interior)}</p>
-            {projectSqft.interior ? <p className="text-xs text-muted-fg mt-0.5">{money(spaceTotals.interior / Number(projectSqft.interior))} / sq ft</p> : null}
+      {/* Interior/exterior split. The old Grand Total tile here was Total
+          Budget a third time - and it disagreed with it, because the split
+          ignored approved change orders. Dropped; the unassigned remainder is
+          the only part that was not already on screen. */}
+      {(spaceTotals.interior > 0 || spaceTotals.exterior > 0) && (
+        <div className="rounded-xl border border-line bg-panel px-4 py-3 flex flex-wrap items-center gap-x-8 gap-y-2">
+          <div>
+            <p className="text-xs font-medium text-info">
+              Interior {projectSqft.interior ? `· ${Number(projectSqft.interior).toLocaleString()} sq ft` : ''}
+            </p>
+            <p className="text-lg font-bold text-info">{money(spaceTotals.interior)}
+              {projectSqft.interior
+                ? <span className="ml-1.5 text-xs font-normal text-muted-fg">{money(spaceTotals.interior / Number(projectSqft.interior))} / sq ft</span>
+                : null}
+            </p>
           </div>
-          <div className="rounded-xl border border-warn/30 bg-warn-tint p-4">
-            <p className="text-xs font-medium text-warn mb-1">Exterior {projectSqft.exterior ? `· ${Number(projectSqft.exterior).toLocaleString()} sq ft` : ''}</p>
-            <p className="text-xl font-bold text-warn">{money(spaceTotals.exterior)}</p>
-            {projectSqft.exterior ? <p className="text-xs text-muted-fg mt-0.5">{money(spaceTotals.exterior / Number(projectSqft.exterior))} / sq ft</p> : null}
+          <div>
+            <p className="text-xs font-medium text-warn">
+              Exterior {projectSqft.exterior ? `· ${Number(projectSqft.exterior).toLocaleString()} sq ft` : ''}
+            </p>
+            <p className="text-lg font-bold text-warn">{money(spaceTotals.exterior)}
+              {projectSqft.exterior
+                ? <span className="ml-1.5 text-xs font-normal text-muted-fg">{money(spaceTotals.exterior / Number(projectSqft.exterior))} / sq ft</span>
+                : null}
+            </p>
           </div>
-          <div className="rounded-xl border border-line bg-panel p-4">
-            <p className="text-xs font-medium text-muted-fg mb-1">Grand Total{spaceTotals.unassigned > 0 ? ` · ${money(spaceTotals.unassigned)} unassigned` : ''}</p>
-            <p className="text-xl font-bold text-ink">{money(spaceTotals.interior + spaceTotals.exterior + spaceTotals.unassigned)}</p>
-          </div>
+          {spaceTotals.unassigned > 0 && (
+            <div>
+              <p className="text-xs font-medium text-muted-fg">Not assigned to a space</p>
+              <p className="text-lg font-bold text-muted-fg">{money(spaceTotals.unassigned)}</p>
+            </div>
+          )}
         </div>
       )}
 
@@ -1234,7 +1294,9 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                   {group.rows.map(item => {
                     const revised = revisedOf(item)
                     const changes = Number(item.change_orders_amount || 0)
-                    const variance = revised - Number(item.actual_amount || 0)
+                    // Counts the signed contract, not only what has been billed.
+                    const variance = revised - exposureOf(item)
+                    const stillToBill = toBill(item)
                     const over = variance < 0
                     const overCommitted = revised > 0 && (Number(item.committed_amount || 0) - revised) >= 1
                     if (editingId === item.id) {
@@ -1386,7 +1448,12 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                         </div>
                         <div className="flex justify-between md:block md:text-right text-sm font-medium">
                           <span className="md:hidden text-xs text-faint">Variance</span>
-                          <span className={variance === 0 ? 'text-faint' : over ? 'text-danger' : 'text-success'}>
+                          <span
+                            title={
+                              `Budget ${money(revised)} less ${money(exposureOf(item))} committed-or-billed` +
+                              (stillToBill > 0 ? ` · ${money(stillToBill)} of the contract is signed but not yet invoiced` : '')
+                            }
+                            className={variance === 0 ? 'text-faint' : over ? 'text-danger' : 'text-success'}>
                             {variance === 0 ? '-' : `${over ? '-' : ''}${money(Math.abs(variance))}`}
                           </span>
                         </div>
