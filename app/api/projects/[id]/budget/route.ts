@@ -109,10 +109,13 @@ export async function GET(request: Request, { params }: { params: { id: string }
     }
   } catch { /* dropdown falls back to the built-in catalog */ }
 
+  // Revised, not original - otherwise the interior/exterior split adds up to a
+  // different number than the Total Budget tile right above it, off by exactly
+  // the approved change orders.
   const spaceTotals = { interior: 0, exterior: 0, unassigned: 0 }
   for (const it of items) {
     const key = it.space_type === 'interior' ? 'interior' : it.space_type === 'exterior' ? 'exterior' : 'unassigned'
-    spaceTotals[key] += Number(it.budgeted_amount ?? 0)
+    spaceTotals[key] += it.revised_budget
   }
 
   return NextResponse.json({

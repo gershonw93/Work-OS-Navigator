@@ -77,6 +77,12 @@ export const RELEASES: Release[] = [
         help: 'scan-sub-invoice',
       },
       {
+        kind: 'improved',
+        title: 'The budget screen explains itself, and repeats itself less',
+        text: 'Hover any of the four figures at the top and it says in plain words what the number means and how it is worked out - including why Left to spend is not simply budget minus invoices. The variance column on a line now counts signed contracts the same way that tile does; the two used to disagree, and hovering shows how much of a contract is signed but not yet invoiced. Three tiles that printed the same figure as Total Budget are gone, the interior/exterior split no longer carries a Grand Total that contradicted the one above it (it was ignoring approved change orders), and the soft-costs pitch shrinks to a single link once a job is active.',
+        help: 'add-project-budget',
+      },
+      {
         kind: 'new',
         title: 'Every invoice shows what you are actually being charged for',
         text: 'An invoice used to keep only its total - the scan read the line items off the PDF and threw them away, so the one question that matters, what am I paying for, meant reopening the document. The breakdown is now kept and shown on the invoice: every line with its quantity and rate where the vendor printed one, then the lines total, tax, retainage withheld, and the invoice total. It checks that they add up and says so plainly when they do not, and by how much - a breakdown that looks like detail but does not reconcile is where a quiet extra hides. Typed invoices get the same treatment: add lines by hand and it reconciles those too. Lines the quote check flagged are highlighted in the table with what was quoted.',
