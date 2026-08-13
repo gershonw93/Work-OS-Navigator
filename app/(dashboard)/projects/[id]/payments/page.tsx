@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { ClientInvoices } from '@/components/projects/client-invoices'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -127,8 +128,8 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
           </p>
           <p className="text-xs text-faint mt-1">
             Bills your subs sent <span className="font-medium">you</span> go on{' '}
-            <a href={`/projects/${params.id}/invoices`} className="text-accent-fg hover:underline">Invoices</a>. This tab
-            records what the client has paid; it does not produce an invoice to send them.
+            <a href={`/projects/${params.id}/invoices`} className="text-accent-fg hover:underline">Invoices</a>. Raise
+            what the client owes below, then record their payments against it here.
           </p>
         </div>
         <Button onClick={() => setAdding(v => !v)} className="gap-1.5"><Plus className="h-4 w-4" /> Record Payment</Button>
@@ -194,6 +195,10 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
           )}
         </div>
       </div>
+
+      {/* Billing the client. This is the half that was missing: Payments only
+          ever recorded money that had already arrived. */}
+      <ClientInvoices projectId={params.id} />
 
       {/* Projections */}
       <div className="bg-panel rounded-xl border border-line p-4">

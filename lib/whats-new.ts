@@ -84,6 +84,12 @@ export const RELEASES: Release[] = [
       },
       {
         kind: 'new',
+        title: 'Invoice your client - open book, or a flat number',
+        text: 'There was no way to produce a bill to SEND a client on a job that is not AIA, which is nearly every job. Payments & Escrow only recorded money that had already arrived. Now: pick the costs you want to bill for - approved sub invoices and receipts, each already carrying its markup - and it raises an invoice. Nothing is retyped and a cost can only ever be on one invoice, so the same electrician\'s bill cannot go out twice. One tick box decides what the client sees: cost, your percentage and the total on every line for an open-book cost-plus job, or a single amount per line where your margin is nobody else\'s business. It defaults to hidden, because a client who was never shown your margin cannot be un-shown it. Print or save as PDF from the invoice.',
+        help: 'money-overview',
+      },
+      {
+        kind: 'new',
         title: 'Markup on each invoice, with a tick to bill something at cost',
         text: 'Cost-plus is billed invoice by invoice: the electrician sends $35,000, your 15% goes on, the client owes $40,250. Every sub invoice now shows exactly that - cost, markup, what to bill - and the Invoices tab totals it across everything approved so far. Two controls per invoice: tick "Bill this at cost" for a permit fee or anything you pass through, or type a different percent for one you negotiated. Leave the percent blank and it follows the project rate, so changing that rate still moves everything you have not given its own answer. The contractor fee on Payments & Escrow is now worked out the same way, item by item - it used to be one flat percentage multiplied over the job total, which silently ignored both of these.',
         help: 'money-overview',
