@@ -77,6 +77,12 @@ export const RELEASES: Release[] = [
         help: 'scan-sub-invoice',
       },
       {
+        kind: 'new',
+        title: 'A sub\'s invoice is checked against what they quoted',
+        text: 'Scan an invoice from a sub whose contract has priced lines on it, and it now tells you either "Matches their quote" or exactly what does not: a line billed for more than it was quoted (showing both figures), a line that is not on the quote at all, or an invoice that takes the running total past the contract. The contract total is the check most people already do in their head - the two that actually cost money are a rate nobody agreed to and work that was never quoted, and both look completely ordinary on an invoice that comes in under the contract. It never blocks the invoice; it just means you see it before you approve rather than after.',
+        help: 'scan-sub-invoice',
+      },
+      {
         kind: 'fixed',
         title: 'Importing a budget sheet brought the lines in at zero',
         text: 'On a brand new job the only button on an imported sheet was "Add all as new (save template)" - and that route quietly dropped every amount, so the preview showed your prices and the budget came in at zero. There is now a plain "Add these lines to this budget" that puts the sheet straight on the job without going near a template, and the template route keeps its amounts too. Separately, the reader only understood amounts stored as plain numbers, so "$24,000.00", "24,000" or any CSV read as no amount at all; it now handles currency symbols, separators, cents and credits like (500), takes the line total rather than the unit price, and stops turning a cost-code column into the line-item name. The confirmation screen tells you how many amounts it actually read before you commit, and a "Bring the amounts in too" tick box lets you import just the line items when that is what you wanted.',
