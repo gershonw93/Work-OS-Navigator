@@ -730,17 +730,28 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                     </div>
                     <div className="flex flex-wrap gap-2 justify-end">
                       <Button size="sm" variant="outline" onClick={() => setImportItems(null)}>Choose another</Button>
-                      {items.length > 0 && matches > 0 && (
-                        <>
-                          <Button size="sm" variant="outline" disabled={applying} onClick={() => applyImportMerge(true)}>
-                            {applying ? 'Applying…' : `Skip ${matches} duplicate${matches !== 1 ? 's' : ''}, add ${fresh} new`}
-                          </Button>
-                          <Button size="sm" disabled={applying} onClick={() => applyImportMerge(false)}>
-                            {applying ? 'Applying…' : `Update ${matches} matching${fresh > 0 ? ` + add ${fresh} new` : ''}`}
-                          </Button>
-                        </>
+                      {matches > 0 && (
+                        <Button size="sm" variant="outline" disabled={applying} onClick={() => applyImportMerge(true)}>
+                          {applying ? 'Applying…' : `Skip ${matches} duplicate${matches !== 1 ? 's' : ''}, add ${fresh} new`}
+                        </Button>
                       )}
-                      <Button size="sm" variant={matches > 0 ? 'outline' : 'default'} disabled={applying} onClick={saveImportedAsTemplateAndApply}>{applying ? 'Applying…' : 'Add all as new (save template)'}</Button>
+                      {/* Straight onto the budget, without going near a
+                          template. On an empty budget this used to be the one
+                          thing you could NOT do - the only button saved a
+                          template first and applied that, and the template path
+                          drops its amounts unless asked to keep them. */}
+                      <Button size="sm" disabled={applying} onClick={() => applyImportMerge(false)}>
+                        {applying ? 'Applying…'
+                          : matches > 0
+                            ? `Update ${matches} matching${fresh > 0 ? ` + add ${fresh} new` : ''}`
+                            : `Add ${importItems.length} line${importItems.length !== 1 ? 's' : ''} to this budget`}
+                      </Button>
+                    </div>
+                    <div className="flex justify-end">
+                      <button type="button" disabled={applying} onClick={saveImportedAsTemplateAndApply}
+                        className="text-xs text-accent-fg hover:underline disabled:opacity-50">
+                        Add them and save this sheet as a reusable template
+                      </button>
                     </div>
                     {items.length > 0 && matches > 0 && (
                       <p className="text-xs text-faint">Neither option deletes anything - lines not in the sheet are left untouched.</p>
