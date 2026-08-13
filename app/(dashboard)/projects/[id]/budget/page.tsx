@@ -127,6 +127,8 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   const [sellout, setSellout] = useState('')
   const [savingSellout, setSavingSellout] = useState(false)
   const [projectStatus, setProjectStatus] = useState<string | null>(null)
+  /** Building for a client, or building to sell - it changes what to call it. */
+  const [hasClient, setHasClient] = useState(false)
   const [knownCategories, setKnownCategories] = useState<string[]>([])
   const [billingMode, setBillingMode] = useState<string>('simple')
   const [loading, setLoading] = useState(true)
@@ -184,6 +186,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       setProjectSqft(d.project_sqft ?? { interior: null, exterior: null })
       setMarkupPct(String(Math.round((Number(d.contractor_fee_pct ?? 0)) * 1000) / 10))
       setProjectStatus(d.project_status ?? null)
+      setHasClient(!!d.has_client)
       setBillingMode(d.billing_mode ?? 'simple')
       setKnownCategories(d.known_categories ?? [])
       setSellout(d.sellout_amount != null ? String(d.sellout_amount) : '')
@@ -572,6 +575,15 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   const showProposalLink = estimateApplies && !preAward
 
   const selloutNum = sellout.trim() === '' ? null : Number(sellout) || 0
+  // "Sellout" is developer language - it is what a spec house SELLS for. On a
+  // custom home or a fit-out you are not selling anything; you are charging a
+  // client a contract value. Same number, and calling it the wrong thing makes
+  // the whole panel read as though it is meant for somebody else.
+  const revenueLabel = hasClient ? 'Contract value' : 'Sellout'
+  const revenueHint = hasClient ? 'what you are charging the client' : 'what it sells for'
+  const revenueAsk = hasClient
+    ? 'What are you charging for this job?'
+    : 'What will this job sell for?'
   // Profit is only shown against a sellout you actually set. Falling back to
   // cost + markup printed a confident green "projected profit" for a job whose
   // sale price nobody had told us - a number the app made up, presented as
@@ -892,8 +904,13 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       {items.length > 0 && selloutNum == null ? (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
           <label htmlFor="sellout" className="text-muted-fg">
-            What does this job sell for?
-            <InfoHint className="ml-1 align-middle" text={'The sale price on a spec build, or the contract value on a fixed-price job.\n\nSet it and projected profit tracks itself as the budget fills in, and again against what has actually been spent.\n\nOn a cost-plus job your profit is the markup instead, so you can leave this empty.'} />
+            {revenueAsk}
+            <InfoHint className="ml-1 align-middle" text={
+              (hasClient
+                ? 'Your contract value - the fixed price this client is paying for the job.'
+                : 'The sale price. This job has no client on it, so it reads as one you are building to sell.')
+              + '\n\nSet it and projected profit tracks itself as the budget fills in, and again against what has actually been spent.\n\nOn a cost-plus job, leave it empty - your profit there is the markup, which has its own box.'
+            } />
           </label>
           <span className="text-muted-fg">$</span>
           <Input id="sellout" type="number" min="0" step="1000" value={sellout} placeholder="0"
@@ -906,7 +923,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
           <div className="flex flex-wrap items-end gap-x-8 gap-y-4">
             <div>
               <label className="block text-xs font-medium text-muted-fg mb-1">
-                Sellout <span className="text-faint font-normal">· sale price or contract value</span>
+                {revenueLabel} <span className="text-faint font-normal">· {revenueHint}</span>
               </label>
               <div className="flex items-center gap-1.5">
                 <span className="text-sm text-muted-fg">$</span>
@@ -996,7 +1013,23 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
               <Plus className="h-3.5 w-3.5" /> Add preconstruction / soft costs
             </button>
           )}
-          {/* Won job: no markup editing, just reprint the proposal that was sent. */}
+          {/* Markup, once the job is won. The full estimate bar is gone by then
+              - the client price it produced is settled - but the number itself
+              is NOT dead: on a cost-plus job it is the fee you actually bill,
+              and it stayed editable on Payments & Escrow while vanishing from
+              here, so it looked like it had been taken away. */}
+          {showProposalLink && (
+            <span className="inline-flex items-center gap-1.5 text-muted-fg">
+              <span>Markup</span>
+              <Input type="number" min="0" step="0.5" value={markupPct}
+                onChange={e => setMarkupPct(e.target.value)} onBlur={saveMarkup}
+                className="w-16 h-8 text-sm" />
+              <span>%</span>
+              {savingMarkup && <span className="text-xs text-faint">saving…</span>}
+              <InfoHint text={'The fee you add on top of cost.\n\nBefore the job is won this drives the client price on your proposal. After it is won the price is settled, but the number is still what a cost-plus job bills as your fee - it is the same figure as the contractor fee rate on Payments & Escrow.\n\nOn a fixed-price job it no longer affects what you are paid; set the contract value instead and profit is measured against that.'} />
+            </span>
+          )}
+          {/* Won job: reprint the proposal that was sent. */}
           {showProposalLink && (
             <a href={`/projects/${params.id}/proposal/print`} target="_blank" rel="noreferrer"
               className="inline-flex items-center gap-1.5 font-medium text-accent-fg hover:underline">

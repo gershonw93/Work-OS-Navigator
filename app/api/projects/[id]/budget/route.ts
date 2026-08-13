@@ -46,7 +46,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .order('purchase_date', { ascending: false, nullsFirst: false }),
     db
       .from('projects')
-      .select('interior_sqft, exterior_sqft, contractor_fee_pct, status, billing_mode, sellout_amount')
+      .select('interior_sqft, exterior_sqft, contractor_fee_pct, status, billing_mode, sellout_amount, client')
       .eq('id', params.id)
       .single(),
     db
@@ -130,6 +130,10 @@ export async function GET(request: Request, { params }: { params: { id: string }
     project_status: projectMeta?.status ?? null,
     billing_mode: projectMeta?.billing_mode ?? 'simple',
     sellout_amount: projectMeta?.sellout_amount ?? null,
+    // Decides what to CALL the revenue figure. A job with a client is being
+    // built for someone, so it has a contract value; a job with none is being
+    // built to sell, which is the only case where "sellout" is the right word.
+    has_client: !!(projectMeta as any)?.client,
     known_categories: knownCategories,
   })
 }
