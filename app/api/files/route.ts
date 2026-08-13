@@ -72,26 +72,64 @@ export async function POST(request: Request) {
   const company_id = await getCompanyId(db, token)
   if (!company_id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const formData = await request.formData()
-  const file = formData.get('file') as File | null
-  const name = (formData.get('name') as string | null) || file?.name || 'Untitled'
-  const category = (formData.get('category') as string | null) || 'Other'
-  // Set when this is a filled copy of another document. The original is never
-  // modified, so the pair only makes sense if the link is recorded.
-  const filledFromId = (formData.get('filled_from_id') as string | null) || null
+  // Two ways in. The browser normally uploads straight to storage (see
+  // /api/files/upload-url) and posts JSON naming the path it wrote to - that
+  // is the only way a file over ~4.5MB can get here at all, since the platform
+  // rejects a bigger request body before this function runs. Multipart is kept
+  // for small files and older callers.
+  const isJson = (request.headers.get('content-type') ?? '').includes('application/json')
 
-  if (!file || file.size === 0) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
+  let name: string
+  let category: string
+  let filledFromId: string | null
+  let storagePath: string
+  let fileType: string | null
+  let fileSize: number | null
 
-  const timestamp = Date.now()
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-  const storagePath = `${company_id}/${timestamp}-${safeName}`
-  const arrayBuffer = await file.arrayBuffer()
+  if (isJson) {
+    const body = await request.json().catch(() => ({}))
+    storagePath = String(body?.storage_path ?? '')
+    name = String(body?.name ?? '').trim() || 'Untitled'
+    category = String(body?.category ?? 'Other')
+    filledFromId = body?.filled_from_id ? String(body.filled_from_id) : null
+    fileType = body?.file_type ? String(body.file_type) : null
+    fileSize = Number(body?.size ?? 0) || null
 
-  const { error: uploadError } = await db.storage
-    .from('company-files')
-    .upload(storagePath, arrayBuffer, { contentType: file.type, upsert: true })
+    if (!storagePath) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
+    // The path comes from the browser, so confirm it is this company's own
+    // folder and that something was actually written there.
+    if (!storagePath.startsWith(`${company_id}/`)) {
+      return NextResponse.json({ error: 'That upload does not belong to this company' }, { status: 403 })
+    }
+    const folder = storagePath.slice(0, storagePath.lastIndexOf('/'))
+    const leaf = storagePath.slice(storagePath.lastIndexOf('/') + 1)
+    const { data: found } = await db.storage.from('company-files').list(folder, { search: leaf, limit: 1 })
+    if (!found?.length) {
+      return NextResponse.json({ error: 'The upload did not finish - try again.' }, { status: 400 })
+    }
+    fileSize = fileSize ?? (found[0] as any)?.metadata?.size ?? null
+  } else {
+    const formData = await request.formData()
+    const file = formData.get('file') as File | null
+    name = (formData.get('name') as string | null) || file?.name || 'Untitled'
+    category = (formData.get('category') as string | null) || 'Other'
+    // Set when this is a filled copy of another document. The original is never
+    // modified, so the pair only makes sense if the link is recorded.
+    filledFromId = (formData.get('filled_from_id') as string | null) || null
 
-  if (uploadError) return NextResponse.json({ error: uploadError.message }, { status: 500 })
+    if (!file || file.size === 0) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
+
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+    storagePath = `${company_id}/${Date.now()}-${safeName}`
+    fileType = file.type || null
+    fileSize = file.size
+
+    const { error: uploadError } = await db.storage
+      .from('company-files')
+      .upload(storagePath, await file.arrayBuffer(), { contentType: file.type, upsert: true })
+
+    if (uploadError) return NextResponse.json({ error: uploadError.message }, { status: 500 })
+  }
 
   const { data: signed, error: signError } = await db.storage
     .from('company-files')
@@ -106,8 +144,8 @@ export async function POST(request: Request) {
     name,
     category,
     file_url: signed.signedUrl,
-    file_type: file.type || null,
-    size_bytes: file.size,
+    file_type: fileType,
+    size_bytes: fileSize,
   }
 
   if (filledFromId) {
