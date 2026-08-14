@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
-import { ACTUAL_STATUSES } from '@/lib/invoice-budget'
+import { ACTUAL_STATUSES, lineExposure, rollupBudgetLines } from '@/lib/invoice-budget'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -33,42 +33,61 @@ export async function GET(request: Request, { params }: { params: { id: string; 
     .eq('id', params.lineId).eq('project_id', params.id).maybeSingle()
   if (!line) return NextResponse.json({ error: 'Budget line not found' }, { status: 404 })
 
-  const [{ data: allocations }, { data: subInvoices }, { data: changeOrders }, { data: materials }, { data: sub }] =
-    await Promise.all([
-      db.from('invoice_allocations')
-        .select('id, amount, note, invoices(id, invoice_number, company_name, description, amount, status, created_at)')
-        .eq('budget_line_item_id', params.lineId),
-      // Only when linked - otherwise this would pull the whole job.
-      line.subcontract_id
-        ? db.from('invoices')
-          .select('id, invoice_number, company_name, description, amount, status, created_at')
-          .eq('subcontract_id', line.subcontract_id)
-          .order('created_at', { ascending: false })
-        : Promise.resolve({ data: [] as any[] }),
-      db.from('change_orders')
-        .select('id, co_number, title, amount, status, created_at, budget_line_item_id, subcontract_id')
-        .eq('project_id', params.id),
-      db.from('material_purchases')
-        .select('id, store_name, category, amount, purchase_date, receipt_url')
-        .eq('budget_line_id', params.lineId)
-        .order('purchase_date', { ascending: false, nullsFirst: false }),
-      line.subcontract_id
-        ? db.from('subcontracts').select('id, trade, contract_amount, status, companies(name)')
-          .eq('id', line.subcontract_id).maybeSingle()
-        : Promise.resolve({ data: null }),
-    ])
+  // The SAME rollup the budget sheet runs, then this line picked out of it.
+  //
+  // This panel first hand-rolled its own arithmetic and immediately disagreed
+  // with the row that opened it: it computed "Left" as budget - billed -
+  // receipts, which ignores the signed contract and is the exact mistake
+  // lineExposure() exists to prevent. Two screens deriving the same money two
+  // ways is what lib/invoice-budget.ts is for. Derive once.
+  const [
+    { data: allLines }, { data: allInvoices }, { data: allMaterials },
+    { data: allSubs }, { data: changeOrders }, { data: allocations },
+  ] = await Promise.all([
+    db.from('budget_line_items').select('*').eq('project_id', params.id),
+    db.from('invoices')
+      .select('id, subcontract_id, invoice_number, company_name, description, amount, status, created_at')
+      .eq('project_id', params.id),
+    db.from('material_purchases')
+      .select('id, budget_line_id, amount, store_name, category, purchase_date, receipt_url')
+      .eq('project_id', params.id),
+    db.from('subcontracts').select('id, trade, contract_amount, status, companies(name)').eq('project_id', params.id),
+    // NO co_number - that column does not exist, and selecting it returned
+    // null for the WHOLE query, so every change order silently vanished and
+    // this panel reported a budget $8,000 short of the row above it.
+    db.from('change_orders')
+      .select('id, title, amount, status, created_at, budget_line_item_id, subcontract_id')
+      .eq('project_id', params.id),
+    db.from('invoice_allocations')
+      .select('id, invoice_id, budget_line_item_id, amount, note, invoices!inner(project_id)')
+      .eq('invoices.project_id', params.id),
+  ])
+
+  const rolled = rollupBudgetLines({
+    lines: (allLines ?? []) as any,
+    invoices: (allInvoices ?? []) as any,
+    materials: (allMaterials ?? []) as any,
+    subs: (allSubs ?? []) as any,
+    changeOrders: (changeOrders ?? []) as any,
+    allocations: (allocations ?? []) as any,
+  })
+  const rolledLine = rolled.find(l => l.id === params.lineId)
+  if (!rolledLine) return NextResponse.json({ error: 'Budget line not found' }, { status: 404 })
+
+  const sub = line.subcontract_id
+    ? (allSubs ?? []).find((x: any) => x.id === line.subcontract_id) ?? null
+    : null
+  const materials = (allMaterials ?? []).filter((m: any) => m.budget_line_id === params.lineId)
+  const mine = (allocations ?? []).filter((a: any) => a.budget_line_item_id === params.lineId)
+  const invById = new Map((allInvoices ?? []).map((i: any) => [i.id, i]))
 
   // A bill that has been split is accounted for by its splits. Listing it again
   // under its contract would double it on screen exactly the way the rollup
   // refuses to double it in the maths.
-  const subIds = (subInvoices ?? []).map((i: any) => i.id)
-  const { data: splitsOnThose } = subIds.length
-    ? await db.from('invoice_allocations').select('invoice_id').in('invoice_id', subIds)
-    : { data: [] as any[] }
-  const anySplit = new Set((splitsOnThose ?? []).map((a: any) => a.invoice_id))
+  const anySplit = new Set((allocations ?? []).map((a: any) => a.invoice_id))
 
-  const viaContract = (subInvoices ?? [])
-    .filter((i: any) => !anySplit.has(i.id))
+  const viaContract = (allInvoices ?? [])
+    .filter((i: any) => line.subcontract_id && i.subcontract_id === line.subcontract_id && !anySplit.has(i.id))
     .map((i: any) => ({
       id: i.id, invoice_number: i.invoice_number, company_name: i.company_name,
       description: i.description, amount: Number(i.amount ?? 0), invoice_total: Number(i.amount ?? 0),
@@ -76,25 +95,47 @@ export async function GET(request: Request, { params }: { params: { id: string; 
       via: 'contract', counts: ACTUAL_STATUSES.has(i.status),
     }))
 
-  const viaSplit = (allocations ?? [])
-    .filter((a: any) => a.invoices)
-    .map((a: any) => ({
-      id: a.invoices.id, invoice_number: a.invoices.invoice_number,
-      company_name: a.invoices.company_name, description: a.invoices.description,
-      /** The SLICE landing here, not the invoice total. */
-      amount: Number(a.amount ?? 0), invoice_total: Number(a.invoices.amount ?? 0),
-      status: a.invoices.status, created_at: a.invoices.created_at, note: a.note ?? null,
-      via: 'split', counts: ACTUAL_STATUSES.has(a.invoices.status),
-    }))
+  const viaSplit = mine
+    .map((a: any) => {
+      const i: any = invById.get(a.invoice_id)
+      if (!i) return null
+      return {
+        id: i.id, invoice_number: i.invoice_number, company_name: i.company_name,
+        description: i.description,
+        /** The SLICE landing here, not the invoice total. */
+        amount: Number(a.amount ?? 0), invoice_total: Number(i.amount ?? 0),
+        status: i.status, created_at: i.created_at, note: a.note ?? null,
+        via: 'split', counts: ACTUAL_STATUSES.has(i.status),
+      }
+    })
+    .filter((x): x is NonNullable<typeof x> => x != null)
 
   // Same rule the rollup uses: a change order names a line, or names a
   // subcontract and is followed through to whichever line that contract sits on.
-  const cos = (changeOrders ?? []).filter((co: any) =>
-    co.budget_line_item_id === params.lineId
-    || (!co.budget_line_item_id && line.subcontract_id && co.subcontract_id === line.subcontract_id))
+  const firstLineForSub = new Map<string, string>()
+  for (const l of (allLines ?? []) as any[]) {
+    if (l.subcontract_id && !firstLineForSub.has(l.subcontract_id)) firstLineForSub.set(l.subcontract_id, l.id)
+  }
+  const cos = (changeOrders ?? []).filter((co: any) => {
+    const target = co.budget_line_item_id
+      ?? (co.subcontract_id ? firstLineForSub.get(co.subcontract_id) ?? null : null)
+    return target === params.lineId
+  })
 
   return NextResponse.json({
     line,
+    // Straight off the rollup, so this panel and the row that opened it cannot
+    // print different numbers for the same line.
+    rollup: {
+      revised_budget: rolledLine.revised_budget,
+      original_budget: Number(rolledLine.budgeted_amount ?? 0),
+      change_orders_amount: rolledLine.change_orders_amount,
+      committed_amount: rolledLine.committed_amount,
+      actual_amount: rolledLine.actual_amount,
+      materials_amount: rolledLine.materials_amount,
+      exposure: lineExposure(rolledLine),
+      variance: rolledLine.revised_budget - lineExposure(rolledLine),
+    },
     subcontract: sub ?? null,
     invoices: [...viaSplit, ...viaContract]
       .sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? ''))),

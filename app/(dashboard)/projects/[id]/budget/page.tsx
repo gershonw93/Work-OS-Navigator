@@ -910,6 +910,13 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
           onClose={() => setDetailLineId(null)}
           // A rate changed in there moves the fee earned on this screen.
           onChanged={load}
+          // Editing the line itself reuses the row's own form rather than
+          // building a second one that could drift from it.
+          onEdit={() => {
+            const item = items.find(i => i.id === detailLineId)
+            setDetailLineId(null)
+            if (item) startEdit(item)
+          }}
         />
       )}
 
@@ -1554,20 +1561,22 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                       )
                     }
                     return (
-                      <div key={item.id} className={cn('group md:grid md:gap-2 md:items-center px-4 py-3 hover:bg-surface transition-colors',
+                      <div key={item.id}
+                        // The whole row opens the line. In select mode it toggles
+                        // the tick instead, which is what a click means there.
+                        // Buttons and links inside stop the event themselves.
+                        onClick={() => selectMode ? toggleSelect(item.id) : setDetailLineId(item.id)}
+                        className={cn('group cursor-pointer md:grid md:gap-2 md:items-center px-4 py-3 hover:bg-surface transition-colors',
                         selectMode ? 'md:grid-cols-[1.5rem_1fr_repeat(4,minmax(0,7rem))_3rem]' : 'md:grid-cols-[1fr_repeat(4,minmax(0,7rem))_3rem]',
                         selectMode && selected.has(item.id) && 'bg-danger-tint/40')}>
                         {selectMode && (
                           <div className="flex items-center mb-2 md:mb-0">
-                            <input type="checkbox" className="accent-danger" checked={selected.has(item.id)} onChange={() => toggleSelect(item.id)} />
+                            <input type="checkbox" className="accent-danger" checked={selected.has(item.id)}
+                              onClick={e => e.stopPropagation()} onChange={() => toggleSelect(item.id)} />
                           </div>
                         )}
                         <div className="min-w-0">
-                          {/* The name opens what is behind the line. Not the
-                              whole row - that would fight the select-mode
-                              checkbox and the edit pencil sitting in it. */}
-                          <button type="button" onClick={() => setDetailLineId(item.id)}
-                            className="block max-w-full truncate text-left text-sm font-medium text-ink-soft hover:text-accent-fg hover:underline">
+                          <p className="block max-w-full truncate text-sm font-medium text-ink-soft group-hover:text-accent-fg">
                             {item.cost_code && <span className="text-faint font-normal mr-1.5">{item.cost_code}</span>}
                             {item.description}
                             {item.space_type && (
@@ -1576,7 +1585,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                                 {SPACE_LABELS[item.space_type]}
                               </span>
                             )}
-                          </button>
+                          </p>
                           {item.linked ? (
                             <a href={`/projects/${params.id}/team`} onClick={e => e.stopPropagation()}
                               className="text-xs text-accent-fg truncate flex items-center gap-1 hover:underline w-fit">
@@ -1627,10 +1636,10 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                           </span>
                         </div>
                         <div className="flex justify-end gap-1 mt-2 md:mt-0 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => startEdit(item)} className="p-1.5 rounded-lg text-faint hover:bg-muted hover:text-muted-fg">
+                          <button onClick={e => { e.stopPropagation(); startEdit(item) }} className="p-1.5 rounded-lg text-faint hover:bg-muted hover:text-muted-fg">
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
-                          <button onClick={() => remove(item.id)} className="p-1.5 rounded-lg text-faint hover:bg-danger-tint hover:text-danger">
+                          <button onClick={e => { e.stopPropagation(); remove(item.id) }} className="p-1.5 rounded-lg text-faint hover:bg-danger-tint hover:text-danger">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>

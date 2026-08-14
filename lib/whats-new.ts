@@ -73,7 +73,7 @@ export const RELEASES: Release[] = [
       {
         kind: 'new',
         title: 'Click a budget line to see what is actually behind it',
-        text: 'The sheet could tell you a line was at $47,700 and nothing at all about what made it that - answering "why" meant opening three other tabs and matching things up by the sub\'s name. Click the line\'s name now and a panel shows its contract, every bill against it, every change order, and every receipt, each one clickable through to where it lives. Anything not yet approved is listed too, greyed, with what it is waiting on - so you can see what is coming as well as what has landed.',
+        text: 'The sheet could tell you a line was at $47,700 and nothing at all about what made it that - answering "why" meant opening three other tabs and matching things up by the sub\'s name. Click anywhere on the line now and a panel shows its contract, every bill against it, every change order, and every receipt, each one clickable through to where it lives. Anything not yet approved is listed too, greyed, with what it is waiting on - so you can see what is coming as well as what has landed. It carries the same four figures as the row you clicked, from the same calculation, and an Edit line button for the line itself.',
         help: 'add-project-budget',
         href: '/projects',
       },
