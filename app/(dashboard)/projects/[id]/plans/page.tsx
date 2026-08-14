@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { FileText, Folder, FolderPlus, Upload, X, ChevronRight, ArrowLeft, Trash2, FolderInput, Search, ExternalLink } from 'lucide-react'
+import { FileText, Folder, FolderPlus, Upload, X, ChevronRight, ArrowLeft, Trash2, FolderInput, Search, ExternalLink, UploadCloud, AlertTriangle, Check, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { usePermissions } from '@/lib/use-permissions'
 import { PageHeader } from '@/components/ui/page-header'
@@ -12,9 +12,20 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { EmptyState } from '@/components/ui/empty-state'
 import { cn } from '@/lib/utils'
+import { uploadPlan, guessPlanType, baseName } from '@/lib/upload-plan'
 
 interface PlanFolder { id: string; name: string; project_id: string; created_at: string }
 interface Plan { id: string; name: string; plan_type: string; file_url: string; folder_id: string | null; created_at: string }
+
+interface QueuedPlan {
+  id: string
+  file: File
+  name: string
+  planType: string
+  folderId: string | null
+  status: 'waiting' | 'uploading' | 'done' | 'failed'
+  error: string | null
+}
 
 const PLAN_TYPES = [
   { value: 'architectural', label: 'Architectural' },
@@ -50,6 +61,13 @@ export default function PlansPage({ params }: { params: { id: string } }) {
   const [showNewFolder, setShowNewFolder] = useState(false)
   const [folderName, setFolderName] = useState('')
   const [search, setSearch] = useState('')
+  // Files waiting to be uploaded - one row each, named and typed before they go.
+  const [queue, setQueue] = useState<QueuedPlan[]>([])
+  const [queueBusy, setQueueBusy] = useState(false)
+  const [dragging, setDragging] = useState(false)
+  // Nested dragenter/dragleave fire constantly as the cursor crosses children,
+  // so the overlay is counted in rather than toggled or it flickers.
+  const dragDepth = useRef(0)
   const [folderLoading, setFolderLoading] = useState(false)
   const [folderError, setFolderError] = useState<string | null>(null)
 
@@ -57,13 +75,6 @@ export default function PlansPage({ params }: { params: { id: string } }) {
   const [moveTargetFolderId, setMoveTargetFolderId] = useState<string>('__root__')
   const [moveLoading, setMoveLoading] = useState(false)
 
-  const [showUpload, setShowUpload] = useState(false)
-  const [uploadFile, setUploadFile] = useState<File | null>(null)
-  const [uploadName, setUploadName] = useState('')
-  const [uploadType, setUploadType] = useState('architectural')
-  const [uploadLoading, setUploadLoading] = useState(false)
-  const [uploadError, setUploadError] = useState<string | null>(null)
-  const [uploadProgress, setUploadProgress] = useState(false)
 
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -153,49 +164,63 @@ export default function PlansPage({ params }: { params: { id: string } }) {
     fetchData()
   }
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setUploadFile(file)
-    setUploadName(file.name.replace(/\.[^/.]+$/, ''))
-    setShowUpload(true)
+  function queueFiles(files: FileList | File[], folderId: string | null) {
+    const list = Array.from(files).filter(f => f.size > 0)
+    if (!list.length) return
+    setQueue(prev => [
+      ...prev,
+      ...list.map(file => ({
+        id: `${file.name}-${file.size}-${Math.random().toString(36).slice(2, 8)}`,
+        file,
+        name: baseName(file.name),
+        planType: guessPlanType(file.name),
+        folderId,
+        status: 'waiting' as const,
+        error: null as string | null,
+      })),
+    ])
   }
 
-  async function handleUpload(e: React.FormEvent) {
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    if (e.target.files?.length) queueFiles(e.target.files, activeFolderId)
+    e.target.value = ''
+  }
+
+  /** Drop straight onto the tab - or onto a folder tile to file it as it lands. */
+  function handleDrop(e: React.DragEvent, folderId: string | null) {
     e.preventDefault()
-    if (!uploadFile) return
-    setUploadError(null)
-    setUploadLoading(true)
-    setUploadProgress(true)
+    dragDepth.current = 0
+    setDragging(false)
+    if (!canAdd) return
+    if (e.dataTransfer?.files?.length) queueFiles(e.dataTransfer.files, folderId)
+  }
 
-    const token = await getToken()
-    const form = new FormData()
-    form.append('file', uploadFile)
-    form.append('name', uploadName)
-    form.append('plan_type', uploadType)
-    if (activeFolderId) form.append('folder_id', activeFolderId)
-
-    const res = await fetch(`/api/projects/${params.id}/plans/upload`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-      body: form,
-    })
-
-    setUploadProgress(false)
-    setUploadLoading(false)
-
-    if (!res.ok) {
-      const body = await res.json()
-      setUploadError(body.error)
-      return
+  async function uploadQueue() {
+    setQueueBusy(true)
+    // One at a time on purpose: a phone on site uploading five drawing sets at
+    // once is how you get five timeouts instead of five plans.
+    for (const item of queue) {
+      if (item.status === 'done') continue
+      setQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'uploading', error: null } : q))
+      try {
+        await uploadPlan({
+          projectId: params.id,
+          file: item.file,
+          name: item.name.trim() || baseName(item.file.name),
+          planType: item.planType,
+          folderId: item.folderId,
+        })
+        setQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'done' } : q))
+      } catch (err: any) {
+        // One bad file must not abandon the rest - it keeps its own error and
+        // the run carries on.
+        setQueue(prev => prev.map(q => q.id === item.id
+          ? { ...q, status: 'failed', error: err?.message ?? 'Upload failed' } : q))
+      }
     }
-
-    setShowUpload(false)
-    setUploadFile(null)
-    setUploadName('')
-    setUploadType('architectural')
-    if (fileInputRef.current) fileInputRef.current.value = ''
-    fetchData()
+    setQueueBusy(false)
+    await fetchData()
+    setQueue(prev => prev.filter(q => q.status === 'failed'))
   }
 
   const activeFolder = folders.find(f => f.id === activeFolderId)
@@ -226,7 +251,32 @@ export default function PlansPage({ params }: { params: { id: string } }) {
   const filedCount = plans.length - plans.filter(p => !p.folder_id).length
 
   return (
-    <div className="p-4 sm:p-6">
+    <div className="relative p-4 sm:p-6"
+      onDragEnter={e => {
+        if (!canAdd || !e.dataTransfer?.types?.includes('Files')) return
+        dragDepth.current += 1
+        setDragging(true)
+      }}
+      onDragOver={e => { if (canAdd && e.dataTransfer?.types?.includes('Files')) e.preventDefault() }}
+      onDragLeave={() => {
+        dragDepth.current = Math.max(0, dragDepth.current - 1)
+        if (dragDepth.current === 0) setDragging(false)
+      }}
+      onDrop={e => handleDrop(e, activeFolderId)}
+    >
+      {/* Drop anywhere on the tab. Having to click Upload first, then pick one
+          file, then repeat - five times - is the thing this replaces. */}
+      {dragging && (
+        <div className="pointer-events-none absolute inset-2 z-40 flex items-center justify-center rounded-2xl border-2 border-dashed border-accent bg-accent-tint/70 backdrop-blur-sm">
+          <div className="text-center">
+            <UploadCloud className="mx-auto h-10 w-10 text-accent-fg" />
+            <p className="mt-2 text-sm font-semibold text-ink">
+              Drop to add {activeFolder ? `to ${activeFolder.name}` : 'plans'}
+            </p>
+            <p className="text-xs text-muted-fg">As many at once as you like</p>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -253,8 +303,8 @@ export default function PlansPage({ params }: { params: { id: string } }) {
           {canAdd && (
             <label className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent text-accent-ink text-sm font-medium cursor-pointer transition-colors">
               <Upload className="h-4 w-4" />
-              Upload Plan
-              <input ref={fileInputRef} type="file" className="sr-only" accept=".pdf,.dwg,.dxf,.png,.jpg,.jpeg,.svg" onChange={handleFileChange} />
+              Upload Plans
+              <input ref={fileInputRef} type="file" multiple className="sr-only" accept=".pdf,.dwg,.dxf,.png,.jpg,.jpeg,.svg" onChange={handleFileChange} />
             </label>
           )}
         </div>
@@ -283,50 +333,73 @@ export default function PlansPage({ params }: { params: { id: string } }) {
         </div>
       )}
 
-      {/* Upload Modal */}
-      {showUpload && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-panel rounded-xl shadow-xl w-full max-w-md mx-4 min-w-0 px-4 sm:px-6 py-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-ink">Upload Plan</h2>
-              <button onClick={() => { setShowUpload(false); setUploadFile(null); setUploadError(null) }} className="text-faint hover:text-muted-fg"><X className="h-5 w-5" /></button>
-            </div>
-            <form onSubmit={handleUpload} className="space-y-4">
-              {uploadFile && (
-                <div className="flex items-center gap-3 rounded-lg bg-surface border border-line px-3 py-2.5">
-                  <FileText className="h-5 w-5 text-faint shrink-0" />
-                  <span className="text-sm text-ink-soft truncate min-w-0">{uploadFile.name}</span>
-                  <span className="text-xs text-faint shrink-0 ml-auto">{(uploadFile.size / 1024 / 1024).toFixed(1)} MB</span>
-                </div>
+      {/* The upload queue. Replaces a modal that took one file at a time and
+          asked for its name and type before you could pick the next one. */}
+      {queue.length > 0 && (
+        <div className="mb-5 rounded-xl border border-accent/40 bg-accent-tint/20 p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-ink">
+              {queue.length} file{queue.length === 1 ? '' : 's'} ready to add
+              {activeFolder && <span className="font-normal text-muted-fg"> to {activeFolder.name}</span>}
+            </p>
+            <div className="flex items-center gap-2">
+              {!queueBusy && (
+                <button onClick={() => setQueue([])} className="text-xs font-medium text-muted-fg hover:text-danger">
+                  Clear
+                </button>
               )}
-              <div className="space-y-1.5">
-                <Label htmlFor="uploadName">Plan Name</Label>
-                <Input id="uploadName" placeholder="e.g. Floor Plan - Level 1" value={uploadName} onChange={e => setUploadName(e.target.value)} required />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="uploadType">Plan Type</Label>
-                <Select id="uploadType" value={uploadType} onChange={e => setUploadType(e.target.value)}>
+              <Button size="sm" onClick={uploadQueue} disabled={queueBusy}>
+                {queueBusy ? 'Uploading…' : `Add ${queue.length} plan${queue.length === 1 ? '' : 's'}`}
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            {queue.map(item => (
+              <div key={item.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-line bg-panel px-3 py-2">
+                <span className="shrink-0">
+                  {item.status === 'done' ? <Check className="h-4 w-4 text-success" />
+                    : item.status === 'failed' ? <AlertTriangle className="h-4 w-4 text-danger" />
+                    : item.status === 'uploading' ? <Loader2 className="h-4 w-4 animate-spin text-accent-fg" />
+                    : <FileText className="h-4 w-4 text-faint" />}
+                </span>
+
+                <Input
+                  value={item.name}
+                  disabled={queueBusy}
+                  onChange={e => setQueue(prev => prev.map(q => q.id === item.id ? { ...q, name: e.target.value } : q))}
+                  className="h-8 min-w-0 flex-1 text-sm"
+                />
+
+                <Select
+                  value={item.planType}
+                  disabled={queueBusy}
+                  onChange={e => setQueue(prev => prev.map(q => q.id === item.id ? { ...q, planType: e.target.value } : q))}
+                  className="h-8 w-36 text-sm"
+                >
                   {PLAN_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </Select>
+
+                <span className="w-16 shrink-0 text-right text-xs tabular-nums text-faint">
+                  {(item.file.size / 1024 / 1024).toFixed(1)}MB
+                </span>
+
+                {!queueBusy && (
+                  <button onClick={() => setQueue(prev => prev.filter(q => q.id !== item.id))}
+                    aria-label="Remove from the queue"
+                    className="shrink-0 p-1 text-faint hover:text-danger">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+
+                {item.error && <p className="w-full text-xs text-danger">{item.error}</p>}
               </div>
-              {activeFolder && (
-                <div className="flex items-center gap-2 text-sm text-muted-fg">
-                  <Folder className="h-4 w-4" />
-                  Uploading into <span className="font-medium text-ink-soft">{activeFolder.name}</span>
-                </div>
-              )}
-              {uploadError && <p className="text-sm text-danger">{uploadError}</p>}
-              {uploadProgress && (
-                <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                  <div className="h-full bg-accent rounded-full animate-pulse w-2/3" />
-                </div>
-              )}
-              <div className="flex flex-wrap gap-2 justify-end">
-                <Button type="button" variant="secondary" onClick={() => { setShowUpload(false); setUploadFile(null) }}>Cancel</Button>
-                <Button type="submit" disabled={uploadLoading}>{uploadLoading ? 'Uploading...' : 'Upload'}</Button>
-              </div>
-            </form>
+            ))}
           </div>
+
+          <p className="mt-2.5 text-[11px] text-faint">
+            The type is guessed from the file name - change any that guessed wrong before adding.
+          </p>
         </div>
       )}
 
@@ -391,12 +464,12 @@ export default function PlansPage({ params }: { params: { id: string } }) {
         <div className="text-sm text-faint py-12 text-center">Loading...</div>
       ) : !searching && visibleFolders.length === 0 && visiblePlans.length === 0 && plans.length === 0 ? (
         <>
-          <input ref={emptyFileInputRef} type="file" className="sr-only" accept=".pdf,.dwg,.dxf,.png,.jpg,.jpeg,.svg" onChange={handleFileChange} />
+          <input ref={emptyFileInputRef} type="file" multiple className="sr-only" accept=".pdf,.dwg,.dxf,.png,.jpg,.jpeg,.svg" onChange={handleFileChange} />
           <EmptyState
             icon={FileText}
             title={activeFolderId ? 'No plans in this folder' : 'No plans yet'}
-            description={activeFolderId ? 'Upload a plan into this folder.' : 'Create folders to organize your drawings, then upload plans.'}
-            action={{ label: 'Upload Plan', onClick: () => emptyFileInputRef.current?.click() }}
+            description={activeFolderId ? 'Drop drawings here, or upload them, and they land in this folder.' : 'Drag drawings straight onto this tab - as many at once as you like - or create folders first to organise them.'}
+            action={{ label: 'Upload plans', onClick: () => emptyFileInputRef.current?.click() }}
           />
         </>
       ) : (
@@ -412,6 +485,10 @@ export default function PlansPage({ params }: { params: { id: string } }) {
                     <div key={folder.id} className="relative group">
                       <button
                         onClick={() => setActiveFolderId(folder.id)}
+                        // Dropping onto a folder files it as it lands, instead
+                        // of dropping at root and then moving it.
+                        onDragOver={e => { if (canAdd) e.preventDefault() }}
+                        onDrop={e => { e.stopPropagation(); handleDrop(e, folder.id) }}
                         className="flex w-full items-center gap-3 rounded-xl border border-line bg-panel p-3 text-left transition-colors hover:border-accent hover:bg-accent-tint/40"
                       >
                         <span className="shrink-0 rounded-lg border border-line-soft bg-surface p-2">

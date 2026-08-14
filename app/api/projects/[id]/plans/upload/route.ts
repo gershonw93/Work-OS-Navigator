@@ -16,35 +16,64 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const { data: { user } } = await admin.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const formData = await request.formData()
-  const file = formData.get('file') as File | null
-  const name = formData.get('name') as string
-  const planType = formData.get('plan_type') as string
-  const folderId = formData.get('folder_id') as string | null
+  // Two ways in.
+  //
+  // JSON { storage_path } - the browser has ALREADY put the bytes in storage
+  // through a signed URL, and this call only records it. That is the path the
+  // Plans tab uses now, because posting a drawing through here means a ~4.5MB
+  // body cap the platform enforces before any of this runs.
+  //
+  // multipart - the old path, still accepted so nothing that already calls it
+  // breaks. Fine for a small file; it is the one with the ceiling.
+  const contentType = request.headers.get('content-type') ?? ''
+  let name: string, planType: string, folderId: string | null, storagePath: string
+  let file: File | null = null
 
-  if (!file || !name || !planType) {
-    return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
-  }
+  if (contentType.includes('application/json')) {
+    const body = await request.json().catch(() => ({} as any))
+    name = String(body?.name ?? '')
+    planType = String(body?.plan_type ?? '')
+    folderId = body?.folder_id ? String(body.folder_id) : null
+    storagePath = String(body?.storage_path ?? '')
+    if (!name || !planType || !storagePath) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    }
+    // The signed URL was issued for this project's prefix; refuse anything
+    // claiming a path outside it rather than trusting the client's word.
+    if (!storagePath.startsWith(`${params.id}/`)) {
+      return NextResponse.json({ error: 'That file does not belong to this project.' }, { status: 400 })
+    }
+    if (!PLAN_TYPES.includes(planType as typeof PLAN_TYPES[number])) {
+      return NextResponse.json({ error: 'Invalid plan type' }, { status: 400 })
+    }
+  } else {
+    const formData = await request.formData()
+    file = formData.get('file') as File | null
+    name = formData.get('name') as string
+    planType = formData.get('plan_type') as string
+    folderId = formData.get('folder_id') as string | null
 
-  if (!PLAN_TYPES.includes(planType as typeof PLAN_TYPES[number])) {
-    return NextResponse.json({ error: 'Invalid plan type' }, { status: 400 })
-  }
+    if (!file || !name || !planType) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    }
+    if (!PLAN_TYPES.includes(planType as typeof PLAN_TYPES[number])) {
+      return NextResponse.json({ error: 'Invalid plan type' }, { status: 400 })
+    }
 
-  // Build storage path: project_id/folder_id/filename or project_id/filename
-  const ext = file.name.split('.').pop()
-  const timestamp = Date.now()
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-  const storagePath = folderId
-    ? `${params.id}/${folderId}/${timestamp}-${safeName}`
-    : `${params.id}/${timestamp}-${safeName}`
+    const timestamp = Date.now()
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+    storagePath = folderId
+      ? `${params.id}/${folderId}/${timestamp}-${safeName}`
+      : `${params.id}/${timestamp}-${safeName}`
 
-  const arrayBuffer = await file.arrayBuffer()
-  const { error: uploadError } = await admin.storage
-    .from('plans')
-    .upload(storagePath, arrayBuffer, { contentType: file.type, upsert: false })
+    const arrayBuffer = await file.arrayBuffer()
+    const { error: uploadError } = await admin.storage
+      .from('plans')
+      .upload(storagePath, arrayBuffer, { contentType: file.type, upsert: false })
 
-  if (uploadError) {
-    return NextResponse.json({ error: uploadError.message }, { status: 500 })
+    if (uploadError) {
+      return NextResponse.json({ error: uploadError.message }, { status: 500 })
+    }
   }
 
   // Get a long-lived signed URL (10 years)
