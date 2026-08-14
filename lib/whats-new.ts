@@ -96,6 +96,17 @@ export const RELEASES: Release[] = [
         help: 'add-project-budget',
       },
       {
+        kind: 'new',
+        title: 'Drag drawings straight onto the Plans tab',
+        text: 'Drop as many as you like anywhere on the tab - or onto a folder to file them as they land. They queue up with the name already filled in from the file and the drawing type guessed from it (A-101 reads as architectural, M-301 as MEP), so five drawings is one review and one click rather than five trips through an upload box. Anything that guessed wrong you just change in the row. The Upload button takes several at once now too. If one file fails the rest still go, and only the failure stays on screen with its reason.',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
+        title: 'Big drawings could not be uploaded at all',
+        text: 'A plan went through our server on its way to storage, and that has a hard 4.5MB ceiling imposed before any of our code runs - so a real drawing set was rejected with no error to show and the page simply hung. Plans are the likeliest thing in the app to be large, so this was the worst place for that limit to be. Uploads now go straight to storage, with a 200MB limit and a proper message if something goes wrong.',
+      },
+      {
         kind: 'fixed',
         title: 'Plans filed in a folder no longer show up twice',
         text: 'The Plans tab listed your folders and then, underneath, every plan on the job - including the ones already inside those folders. Filing something away left it in exactly the place you filed it away from. The list under the folders is now what is NOT in a folder, which is what filing is for. The tab also has a search box that looks across the whole job rather than just the folder you are standing in, tells you what is there (12 plans, 3 folders, 9 filed away), shows the drawing type as a coloured tag, and no longer renders a blank screen when you open an empty folder.',
