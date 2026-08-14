@@ -16,6 +16,7 @@ import {
   Users, Building2, Camera, Clock, CheckSquare, Trash2, Flag, Pencil,
   ShieldAlert, BadgeCheck, Paperclip, FileText, Download, Send, PenLine, Check,
 } from 'lucide-react'
+import { ACCEPT_DOCS } from '@/lib/file-accept'
 
 const SURVEY_QUESTIONS = [
   { key: 'accidents', label: 'Safety incidents or injuries today?' },
@@ -983,7 +984,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
               )}
               <label className="inline-flex items-center gap-1.5 text-xs text-accent-fg hover:underline cursor-pointer w-fit">
                 <Paperclip className="h-3.5 w-3.5" /> Attach a file
-                <input ref={attachInputRef} type="file" multiple className="sr-only"
+                <input ref={attachInputRef} type="file" multiple accept={ACCEPT_DOCS} className="sr-only"
                   onChange={e => { if (e.target.files) setAttachments(prev => [...prev, ...Array.from(e.target.files!)]) }} />
               </label>
             </div>

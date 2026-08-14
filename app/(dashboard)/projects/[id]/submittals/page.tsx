@@ -11,6 +11,7 @@ import {
   Plus, X, FileText, Paperclip, CheckCircle2, XCircle, Clock, RefreshCw,
   ChevronDown, ChevronUp, Trash2, ExternalLink, Sparkles, Loader2,
 } from 'lucide-react'
+import { ACCEPT_DOCS } from '@/lib/file-accept'
 
 const SUBMITTAL_TYPES = ['Tech Sheet', 'Shop Drawing', 'Product Data', 'Sample', 'Other']
 
@@ -299,7 +300,7 @@ export default function SubmittalsPage({ params }: { params: { id: string } }) {
                 </div>
                 <div className="space-y-1.5">
                   <Label><Paperclip className="inline h-3.5 w-3.5 mr-1 text-faint" />File <span className="text-faint font-normal">(tech sheet, drawing, product data)</span></Label>
-                  <Input type="file" onChange={e => setFile(e.target.files?.[0] ?? null)} />
+                  <Input type="file" accept={ACCEPT_DOCS} onChange={e => setFile(e.target.files?.[0] ?? null)} />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Notes</Label>
