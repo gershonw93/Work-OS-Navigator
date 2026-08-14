@@ -28,6 +28,7 @@ interface Props {
     exterior_sqft?: number | null
     billing_mode?: string | null
     contract_type?: string | null
+    contractor_fee_pct?: number | null
     default_retainage_pct?: number | null
     unit?: string | null
     floor?: string | null
@@ -56,6 +57,10 @@ export function EditProjectButton({ projectId, project }: Props) {
   const [exteriorSqft, setExteriorSqft] = useState(project.exterior_sqft != null ? String(project.exterior_sqft) : '')
   const [billingMode, setBillingMode] = useState<'simple' | 'aia'>(project.billing_mode === 'aia' ? 'aia' : 'simple')
   const [contractType, setContractType] = useState<ContractType | null>(asContractType(project.contract_type))
+  // Stored on the project as a fraction; shown here as a whole percent.
+  const [markupPct, setMarkupPct] = useState(
+    project.contractor_fee_pct != null ? String(Math.round(Number(project.contractor_fee_pct) * 1000) / 10) : '0',
+  )
   const [retainage, setRetainage] = useState(project.default_retainage_pct != null ? String(project.default_retainage_pct) : '10')
   const [unit, setUnit] = useState(project.unit ?? '')
   const [floor, setFloor] = useState(project.floor ?? '')
@@ -91,6 +96,9 @@ export function EditProjectButton({ projectId, project }: Props) {
         // Only sent once answered - undefined leaves it alone, and null here
         // would mean "unset it", which is never what a save is asking for.
         ...(contractType ? { contract_type: contractType } : {}),
+        // Same field as the contractor fee rate on Billing the client. Stored
+        // as a fraction, entered here as a percent.
+        ...(contractType === 'cost_plus' ? { contractor_fee_pct: Math.max(0, (Number(markupPct) || 0) / 100) } : {}),
         // Only meaningful on AIA billing. Omitted rather than nulled on simple -
         // the column is NOT NULL, and the old value does no harm sitting there.
         ...(billingMode === 'aia' ? { default_retainage_pct: Number(retainage) || 0 } : {}),
@@ -228,6 +236,20 @@ export function EditProjectButton({ projectId, project }: Props) {
                 <p className="text-xs text-muted-fg">
                   Decides what the Budget tab tracks: your markup on cost-plus, or a contract value on the other two.
                 </p>
+                {/* The rate itself, where the rest of the job's settings are.
+                    It is the same field as the contractor fee on Billing the
+                    client - one number, one source of truth. */}
+                {contractType === 'cost_plus' && (
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <Label className="text-sm font-normal text-muted-fg">Markup</Label>
+                    <Input type="number" min="0" step="0.5" value={markupPct}
+                      onChange={e => setMarkupPct(e.target.value)} className="w-24" />
+                    <span className="text-sm text-muted-fg">%</span>
+                    <span className="text-xs text-faint">
+                      The default. A budget line or a single bill can still differ.
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Drives the cost-per-sq-ft breakdown on the Budget tab. */}

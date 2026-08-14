@@ -67,7 +67,7 @@ export const RELEASES: Release[] = [
       {
         kind: 'improved',
         title: 'Markup lives in one place instead of three',
-        text: 'The markup box had ended up sitting on the Budget tab next to "Add preconstruction / soft costs" - a setting parked beside a button, on the same row purely because of how the layout had grown. It is now with the money it decides: in the cost-plus panel, and in Edit project. The pre-award estimate bar still prices your proposal, and on a cost-plus job it reads the rate rather than offering a second box that writes the same field.',
+        text: 'The markup box had ended up sitting on the Budget tab next to "Add preconstruction / soft costs" - a setting parked beside a button, on the same row purely because of how the layout had grown. It is now with the money it decides: in the cost-plus panel, and in Project Settings. The pre-award estimate bar still prices your proposal, and on a cost-plus job it reads the rate rather than offering a second box that writes the same field.',
         help: 'add-project-budget',
       },
       {
@@ -88,6 +88,12 @@ export const RELEASES: Release[] = [
         title: 'Set the markup on a budget line, not on every invoice',
         text: 'The rate could only live on the whole job or on one bill, so "permits at cost, electrical at 15%" meant remembering to set it on every invoice as it arrived, forever. Each budget line now carries its own answer, and every bill landing there follows it. Open a line and set its rate, or tick it to bill at cost. A single invoice can still overrule it when one bill genuinely differs. Blank means follow the job, so changing the project rate still moves everything you have not given its own answer - and a bill split across a line at 15% and a line at cost now earns the right fee for each part.',
         help: 'money-overview',
+      },
+      {
+        kind: 'improved',
+        title: 'Your markup no longer sits live under the cursor',
+        text: 'The rate and the contract value were permanently-open input boxes on a screen you scroll through all day to READ - one stray click and a keystroke away from moving a number that decides what your client is billed. They now read as plain text with a small pencil beside them. Click it to edit, tick to confirm, Escape to abandon; nothing saves just because you clicked away mid-edit. The rate is also in Project Settings, alongside the contract type, for anyone who would rather change it there.',
+        help: 'add-project-budget',
       },
       {
         kind: 'improved',
