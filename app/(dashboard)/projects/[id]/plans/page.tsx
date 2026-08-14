@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { FileText, Folder, FolderPlus, Upload, X, ChevronRight, ArrowLeft, Trash2, FolderInput, MoreVertical } from 'lucide-react'
+import { FileText, Folder, FolderPlus, Upload, X, ChevronRight, ArrowLeft, Trash2, FolderInput, Search, ExternalLink } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { usePermissions } from '@/lib/use-permissions'
 import { PageHeader } from '@/components/ui/page-header'
@@ -25,6 +25,15 @@ const PLAN_TYPES = [
   { value: 'other', label: 'Other' },
 ]
 
+const PLAN_TYPE_TINT: Record<string, string> = {
+  architectural: 'bg-accent-tint text-accent-fg',
+  structural: 'bg-info-tint text-info',
+  mep: 'bg-warn-tint text-warn',
+  civil: 'bg-success-tint text-success',
+  landscape: 'bg-success-tint text-success',
+  other: 'bg-surface text-muted-fg',
+}
+
 export default function PlansPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
   const { can } = usePermissions()
@@ -40,6 +49,7 @@ export default function PlansPage({ params }: { params: { id: string } }) {
 
   const [showNewFolder, setShowNewFolder] = useState(false)
   const [folderName, setFolderName] = useState('')
+  const [search, setSearch] = useState('')
   const [folderLoading, setFolderLoading] = useState(false)
   const [folderError, setFolderError] = useState<string | null>(null)
 
@@ -189,10 +199,31 @@ export default function PlansPage({ params }: { params: { id: string } }) {
   }
 
   const activeFolder = folders.find(f => f.id === activeFolderId)
-  const visiblePlans = activeFolderId
+  // Folders step aside while searching - a result list interrupted by folder
+  // tiles is not a result list.
+  const visibleFolders = activeFolderId || search.trim() ? [] : folders
+
+  // A file inside a folder belongs INSIDE it. The root used to list every plan
+  // on the job as well as the folders holding them, so anything filed away
+  // appeared twice - once as a count on its folder and again in the list
+  // underneath, which is the opposite of what filing something is for.
+  const inScope = activeFolderId
     ? plans.filter(p => p.folder_id === activeFolderId)
-    : plans // root shows all files; folder badge shows which folder each belongs to
-  const visibleFolders = activeFolderId ? [] : folders
+    : plans.filter(p => !p.folder_id)
+
+  // Search looks across the WHOLE job, not just the folder you happen to be
+  // standing in - "where is the roof detail" is the question, and having to
+  // remember which folder you filed it in defeats the point of searching.
+  const q = search.trim().toLowerCase()
+  const searching = q.length > 0
+  const visiblePlans = searching
+    ? plans.filter(p =>
+      p.name.toLowerCase().includes(q)
+      || p.plan_type.toLowerCase().includes(q)
+      || (folders.find(f => f.id === p.folder_id)?.name ?? '').toLowerCase().includes(q))
+    : inScope
+
+  const filedCount = plans.length - plans.filter(p => !p.folder_id).length
 
   return (
     <div className="p-4 sm:p-6">
@@ -327,10 +358,38 @@ export default function PlansPage({ params }: { params: { id: string } }) {
         </div>
       )}
 
+      {/* One line that says what is here and lets you find it. The tab had no
+          search at all, so a job with forty drawings across six folders was a
+          hunt through folders you had to remember the names of. */}
+      {!loading && plans.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <div className="relative min-w-0 flex-1 sm:max-w-xs">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
+            <Input value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="Search every plan on this job…" className="h-9 pl-8" />
+            {search && (
+              <button onClick={() => setSearch('')} aria-label="Clear search"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-faint hover:text-ink">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+          <p className="text-xs text-faint">
+            {searching
+              ? `${visiblePlans.length} match${visiblePlans.length === 1 ? '' : 'es'}`
+              : <>
+                {plans.length} plan{plans.length === 1 ? '' : 's'}
+                {folders.length > 0 && ` · ${folders.length} folder${folders.length === 1 ? '' : 's'}`}
+                {!activeFolderId && filedCount > 0 && ` · ${filedCount} filed away`}
+              </>}
+          </p>
+        </div>
+      )}
+
       {/* Content */}
       {loading ? (
         <div className="text-sm text-faint py-12 text-center">Loading...</div>
-      ) : visibleFolders.length === 0 && visiblePlans.length === 0 ? (
+      ) : !searching && visibleFolders.length === 0 && visiblePlans.length === 0 && plans.length === 0 ? (
         <>
           <input ref={emptyFileInputRef} type="file" className="sr-only" accept=".pdf,.dwg,.dxf,.png,.jpg,.jpeg,.svg" onChange={handleFileChange} />
           <EmptyState
@@ -353,11 +412,17 @@ export default function PlansPage({ params }: { params: { id: string } }) {
                     <div key={folder.id} className="relative group">
                       <button
                         onClick={() => setActiveFolderId(folder.id)}
-                        className="w-full flex flex-col items-center gap-2 rounded-xl border border-line bg-panel p-4 hover:border-accent hover:bg-accent-tint transition-colors"
+                        className="flex w-full items-center gap-3 rounded-xl border border-line bg-panel p-3 text-left transition-colors hover:border-accent hover:bg-accent-tint/40"
                       >
-                        <Folder className="h-10 w-10 text-amber-400 group-hover:text-warn" />
-                        <span className="text-sm font-medium text-ink-soft text-center leading-tight">{folder.name}</span>
-                        <span className="text-xs text-faint">{count} {count === 1 ? 'file' : 'files'}</span>
+                        <span className="shrink-0 rounded-lg border border-line-soft bg-surface p-2">
+                          <Folder className="h-5 w-5 text-warn" />
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-medium text-ink-soft">{folder.name}</span>
+                          <span className="block text-xs text-faint">
+                            {count === 0 ? 'Empty' : `${count} ${count === 1 ? 'plan' : 'plans'}`}
+                          </span>
+                        </span>
                       </button>
                       {canDelete && <button
                         onClick={e => { e.stopPropagation(); handleDeleteFolder(folder.id) }}
@@ -373,88 +438,82 @@ export default function PlansPage({ params }: { params: { id: string } }) {
             </div>
           )}
 
-          {/* Plans */}
-          {visiblePlans.length > 0 && (
+          {/* Plans. One list, not a desktop table plus a separate mobile card
+              list saying the same thing twice in two different shapes. */}
+          {visiblePlans.length > 0 ? (
             <div>
-              {visibleFolders.length > 0 && <p className="text-xs font-semibold text-faint uppercase tracking-wider mb-3">Files</p>}
-              {/* Desktop table */}
-              <div className="hidden md:block rounded-lg border border-line overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="bg-surface border-b border-line">
-                    <tr>
-                      <th className="text-left px-4 py-3 font-medium text-muted-fg">Name</th>
-                      <th className="text-left px-4 py-3 font-medium text-muted-fg">Type</th>
-                      <th className="text-left px-4 py-3 font-medium text-muted-fg">Uploaded</th>
-                      <th className="px-4 py-3" />
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-line-soft">
-                    {visiblePlans.map(plan => (
-                      <tr key={plan.id} className="hover:bg-surface">
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2.5">
-                            <FileText className="h-4 w-4 text-faint shrink-0" />
-                            <span className="font-medium text-ink-soft">{plan.name}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-muted-fg">
-                          <span className="capitalize">{plan.plan_type}</span>
-                          {!activeFolderId && plan.folder_id && (
-                            <span className="ml-2 inline-flex items-center gap-0.5 text-xs text-faint">
-                              <Folder className="h-3 w-3" />{folders.find(f => f.id === plan.folder_id)?.name}
+              {(visibleFolders.length > 0 || searching) && (
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-faint">
+                  {searching ? 'Matches' : activeFolderId ? 'Files' : 'Not in a folder'}
+                </p>
+              )}
+              <div className="divide-y divide-line-soft overflow-hidden rounded-xl border border-line bg-panel">
+                {visiblePlans.map(plan => {
+                  const folder = folders.find(f => f.id === plan.folder_id)
+                  return (
+                    <div key={plan.id} className="group flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-surface sm:px-4">
+                      <span className="shrink-0 rounded-lg border border-line-soft bg-surface p-2">
+                        <FileText className="h-4 w-4 text-muted-fg" />
+                      </span>
+
+                      <Link href={`/projects/${params.id}/plans/${plan.id}`} className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-ink-soft group-hover:text-accent-fg">{plan.name}</p>
+                        <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-faint">
+                          <span className={cn('rounded-full px-1.5 py-0 font-medium', PLAN_TYPE_TINT[plan.plan_type] ?? PLAN_TYPE_TINT.other)}>
+                            {PLAN_TYPES.find(t => t.value === plan.plan_type)?.label ?? plan.plan_type}
+                          </span>
+                          <span>{new Date(plan.created_at).toLocaleDateString()}</span>
+                          {/* Only while searching - search spans the whole job,
+                              so where a match actually lives is the useful bit. */}
+                          {searching && folder && (
+                            <span className="inline-flex items-center gap-0.5">
+                              <Folder className="h-3 w-3" />{folder.name}
                             </span>
                           )}
-                        </td>
-                        <td className="px-4 py-3 text-muted-fg">{new Date(plan.created_at).toLocaleDateString()}</td>
-                        <td className="px-4 py-3 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <Link href={`/projects/${params.id}/plans/${plan.id}`}>
-                              <Button variant="ghost" size="sm">Open</Button>
-                            </Link>
-                            <a href={plan.file_url} target="_blank" rel="noopener noreferrer">
-                              <Button variant="ghost" size="sm">File</Button>
-                            </a>
-                            {canAdd && <button onClick={() => openMove(plan)} className="p-1 text-faint hover:text-accent-fg" title="Move to folder">
-                              <FolderInput className="h-4 w-4" />
-                            </button>}
-                            {canDelete && <button onClick={() => handleDeletePlan(plan.id)} className="p-1 text-danger hover:text-danger" title="Delete plan">
-                              <Trash2 className="h-4 w-4" />
-                            </button>}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Mobile card list */}
-              <div className="md:hidden rounded-lg border border-line overflow-hidden divide-y divide-line-soft bg-panel">
-                {visiblePlans.map(plan => (
-                  <div key={plan.id} className="flex items-center gap-3 px-4 py-3">
-                    <FileText className="h-4 w-4 text-faint shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-ink-soft truncate">{plan.name}</p>
-                      <p className="text-xs text-muted-fg">
-                        <span className="capitalize">{plan.plan_type}</span> · {new Date(plan.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <Link href={`/projects/${params.id}/plans/${plan.id}`}>
-                        <Button variant="ghost" size="sm">Open</Button>
+                        </p>
                       </Link>
-                      {canAdd && <button onClick={() => openMove(plan)} className="p-1 text-faint hover:text-accent-fg" title="Move to folder">
-                        <FolderInput className="h-4 w-4" />
-                      </button>}
-                      {canDelete && <button onClick={() => handleDeletePlan(plan.id)} className="p-1 text-danger hover:text-danger" title="Delete">
-                        <Trash2 className="h-4 w-4" />
-                      </button>}
+
+                      <div className="flex shrink-0 items-center gap-0.5">
+                        <a href={plan.file_url} target="_blank" rel="noopener noreferrer"
+                          className="rounded-md p-1.5 text-faint transition-colors hover:bg-accent-tint hover:text-accent-fg"
+                          title="Open the original file">
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
+                        {canAdd && (
+                          <button onClick={() => openMove(plan)}
+                            className="rounded-md p-1.5 text-faint transition-colors hover:bg-accent-tint hover:text-accent-fg"
+                            title="Move to a folder">
+                            <FolderInput className="h-4 w-4" />
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button onClick={() => handleDeletePlan(plan.id)}
+                            className="rounded-md p-1.5 text-faint transition-colors hover:bg-danger-tint hover:text-danger"
+                            title="Delete plan">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
-          )}
+          ) : searching ? (
+            <p className="rounded-xl border border-dashed border-line py-10 text-center text-sm text-faint">
+              Nothing on this job matches &ldquo;{search}&rdquo;.
+            </p>
+          ) : activeFolderId ? (
+            // An opened folder with nothing in it used to render absolutely
+            // nothing - a blank screen that reads as broken rather than empty.
+            <p className="rounded-xl border border-dashed border-line py-10 text-center text-sm text-faint">
+              This folder is empty. Upload a plan and it lands here.
+            </p>
+          ) : folders.length > 0 ? (
+            <p className="rounded-xl border border-dashed border-line py-8 text-center text-sm text-faint">
+              Every plan is filed in a folder. Open one above.
+            </p>
+          ) : null}
         </div>
       )}
     </div>
