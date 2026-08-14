@@ -1171,7 +1171,9 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                 <p className="text-lg font-semibold text-ink-soft">{money(totalBudgeted)}</p>
               </div>
               <div>
-                <p className="text-xs font-medium text-muted-fg mb-1">Client price</p>
+                {/* On cost-plus this is not a price - it is what the job is
+                    estimated to come to. The proposal says the same. */}
+                <p className="text-xs font-medium text-muted-fg mb-1">{showMarkupPanel ? 'Estimated total' : 'Client price'}</p>
                 <p className="text-2xl font-bold text-accent-fg">{money(totalBudgeted * (1 + (Number(markupPct) || 0) / 100))}</p>
               </div>
             </div>

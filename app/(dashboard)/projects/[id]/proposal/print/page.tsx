@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { asContractType, usesMarkup } from '@/lib/contract-type'
 import { Printer } from 'lucide-react'
 
 type Detail = 'lump' | 'category' | 'line'
@@ -20,15 +21,31 @@ interface BudgetItem {
 
 const money = (n: number) => `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
-// Client-facing proposal built from the internal budget/estimate. Applies the
-// project's markup (contractor_fee_pct) to produce SELL prices - the raw cost
-// is never shown. Detail level is a live toggle; print to save as PDF.
+/**
+ * Client-facing proposal built from the internal budget/estimate.
+ *
+ * It comes in TWO SHAPES, because a proposal is a promise and the two kinds of
+ * job promise different things.
+ *
+ * FIXED PRICE / SPEC - the markup is applied to produce SELL prices and the raw
+ * cost is never shown. The total is a price: "this job costs you $863,400."
+ *
+ * COST-PLUS - there is no such number, and printing one was the bug. What you
+ * are actually agreeing is a METHOD: bill actual cost, plus a fee. So the
+ * amounts shown ARE the estimated costs, the fee is broken out as its own line
+ * at its own percentage, and the total is labelled an ESTIMATE rather than a
+ * price - because a client who reads a bold total as a fixed quote will hold
+ * you to it.
+ *
+ * Detail level is a live toggle; print to save as PDF.
+ */
 export default function ProposalPrintPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
   const [items, setItems] = useState<BudgetItem[]>([])
   const [project, setProject] = useState<any>(null)
   const [company, setCompany] = useState<any>(null)
   const [markup, setMarkup] = useState(0) // fraction, e.g. 0.15
+  const [costPlus, setCostPlus] = useState(false)
   const [detail, setDetail] = useState<Detail>('category')
   const [loading, setLoading] = useState(true)
 
@@ -57,12 +74,17 @@ export default function ProposalPrintPage({ params }: { params: { id: string } }
       setProject(proj)
       setCompany((proj as any)?.companies)
       setMarkup(Number((proj as any)?.contractor_fee_pct ?? 0))
+      setCostPlus(usesMarkup(asContractType((proj as any)?.contract_type)))
       setLoading(false)
     }
     load()
   }, [params.id])
 
-  const sell = (cost: number) => Number(cost || 0) * (1 + markup)
+  // On cost-plus the figures ARE the costs - that is the basis of the deal, and
+  // the fee sits on its own line rather than being folded invisibly into every
+  // number. Everywhere else the markup is baked in and the cost never shown.
+  const sell = (cost: number) =>
+    costPlus ? Number(cost || 0) : Number(cost || 0) * (1 + markup)
 
   const byCategory = useMemo(() => {
     const map = new Map<string, BudgetItem[]>()
@@ -78,7 +100,12 @@ export default function ProposalPrintPage({ params }: { params: { id: string } }
     }))
   }, [items, markup])
 
-  const total = items.reduce((s, i) => s + sell(i.budgeted_amount), 0)
+  // On cost-plus `subtotal` is the estimated cost of work and `fee` is charged
+  // on top; elsewhere the fee is already inside subtotal and total equals it.
+  const subtotal = items.reduce((s, i) => s + sell(i.budgeted_amount), 0)
+  const fee = costPlus ? subtotal * markup : 0
+  const total = subtotal + fee
+  const feePctLabel = `${(markup * 100).toFixed(markup * 100 % 1 === 0 ? 0 : 2)}%`
   const validUntil = useMemo(() => {
     const d = new Date(); d.setDate(d.getDate() + 30)
     return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
@@ -124,8 +151,13 @@ export default function ProposalPrintPage({ params }: { params: { id: string } }
           </div>
           <div className="text-right">
             <p className="text-3xl font-black text-ink">PROPOSAL</p>
+            {costPlus && (
+              <p className="text-sm font-semibold text-muted-fg mt-0.5">Cost plus {feePctLabel}</p>
+            )}
             <p className="text-sm text-muted-fg mt-2">Date: {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
-            <p className="text-sm text-muted-fg">Valid until: {validUntil}</p>
+            <p className="text-sm text-muted-fg">
+              {costPlus ? 'Estimate dated' : 'Valid until'}: {costPlus ? new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : validUntil}
+            </p>
           </div>
         </div>
 
@@ -144,19 +176,35 @@ export default function ProposalPrintPage({ params }: { params: { id: string } }
           </div>
         </div>
 
+        {/* On cost-plus, say what the document IS before any number appears.
+            The single most expensive misreading of this page is a client
+            treating the total as a fixed quote. */}
+        {costPlus && (
+          <div className="rounded-lg border border-ink/20 bg-surface px-5 py-4 mb-8 text-sm text-ink-soft">
+            <p className="font-semibold text-ink">This is an estimate, not a fixed price.</p>
+            <p className="mt-1 text-muted-fg">
+              Work on this project is billed on a cost-plus basis: you pay the actual cost of the work,
+              plus a contractor&apos;s fee of {feePctLabel}. The figures below are our best estimate of
+              those costs today. The final amount will be based on what the work actually costs.
+            </p>
+          </div>
+        )}
+
         {/* Scope / line items */}
         <table className="w-full mb-8">
           <thead>
             <tr className="bg-surface border-y border-line">
               <th className="text-left px-4 py-3 text-xs font-semibold text-muted-fg uppercase tracking-wide">Scope of Work</th>
-              <th className="text-right px-4 py-3 text-xs font-semibold text-muted-fg uppercase tracking-wide">Price</th>
+              <th className="text-right px-4 py-3 text-xs font-semibold text-muted-fg uppercase tracking-wide">
+                {costPlus ? 'Estimated cost' : 'Price'}
+              </th>
             </tr>
           </thead>
           <tbody>
             {detail === 'lump' && (
               <tr className="border-b border-line-soft">
                 <td className="px-4 py-4 text-ink-soft">Complete scope of work for {project?.name} as discussed.</td>
-                <td className="px-4 py-4 text-right font-semibold text-ink">{money(total)}</td>
+                <td className="px-4 py-4 text-right font-semibold text-ink">{money(subtotal)}</td>
               </tr>
             )}
 
@@ -187,19 +235,56 @@ export default function ProposalPrintPage({ params }: { params: { id: string } }
             ))}
           </tbody>
           <tfoot>
-            <tr className="border-t-2 border-ink">
-              <td className="px-4 py-4 text-right font-semibold text-ink-soft">Total</td>
+            {/* Cost-plus shows the arithmetic of the deal: cost, the fee at its
+                stated rate, and an estimated total that says so. */}
+            {costPlus && (
+              <>
+                <tr className="border-t-2 border-ink">
+                  <td className="px-4 py-3 text-right font-semibold text-ink-soft">Estimated cost of work</td>
+                  <td className="px-4 py-3 text-right font-semibold text-ink">{money(subtotal)}</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-3 text-right font-semibold text-ink-soft">
+                    Contractor&apos;s fee <span className="font-normal text-muted-fg">({feePctLabel})</span>
+                  </td>
+                  <td className="px-4 py-3 text-right font-semibold text-ink">{money(fee)}</td>
+                </tr>
+              </>
+            )}
+            <tr className={costPlus ? 'border-t border-ink' : 'border-t-2 border-ink'}>
+              <td className="px-4 py-4 text-right font-semibold text-ink-soft">
+                {costPlus ? 'Estimated total' : 'Total'}
+              </td>
               <td className="px-4 py-4 text-right text-2xl font-black text-ink">{money(total)}</td>
             </tr>
+            {costPlus && (
+              <tr>
+                <td className="px-4 pb-2 text-right text-xs text-muted-fg" colSpan={2}>
+                  Estimate only - the final amount is the actual cost of the work plus {feePctLabel}.
+                </td>
+              </tr>
+            )}
           </tfoot>
         </table>
 
         {/* Terms */}
         <div className="rounded-lg border border-line px-5 py-4 mb-8 text-sm text-muted-fg space-y-1.5">
           <p className="text-xs font-semibold text-faint uppercase tracking-widest mb-1">Terms</p>
-          <p>This proposal is valid for 30 days from the date above.</p>
-          <p>Pricing covers the scope described here; changes to scope may adjust the price via a written change order.</p>
-          <p>A payment schedule will be agreed upon acceptance.</p>
+          {costPlus ? (
+            <>
+              <p>Work is billed at actual cost plus a contractor&apos;s fee of {feePctLabel}.</p>
+              <p>The figures above are an estimate of costs, not a fixed price or a cap. The amount invoiced will reflect the cost of the work actually performed.</p>
+              <p>Invoices are supported by the underlying costs they are based on.</p>
+              <p>Changes to scope are handled the same way - at cost plus the fee - and recorded in writing.</p>
+              <p>A payment schedule will be agreed upon acceptance.</p>
+            </>
+          ) : (
+            <>
+              <p>This proposal is valid for 30 days from the date above.</p>
+              <p>Pricing covers the scope described here; changes to scope may adjust the price via a written change order.</p>
+              <p>A payment schedule will be agreed upon acceptance.</p>
+            </>
+          )}
         </div>
 
         {/* Signature */}
@@ -213,7 +298,7 @@ export default function ProposalPrintPage({ params }: { params: { id: string } }
         </div>
 
         <div className="border-t border-line pt-6 mt-10 text-center text-xs text-faint">
-          <p>Thank you for the opportunity to bid on your project.</p>
+          <p>Thank you for the opportunity to {costPlus ? 'work on' : 'bid on'} your project.</p>
           {company?.contact_email && <p className="mt-1">Questions? Contact us at {company.contact_email}</p>}
         </div>
       </div>
