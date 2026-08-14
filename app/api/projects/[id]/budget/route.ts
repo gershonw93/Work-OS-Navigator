@@ -1,7 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
-import { budgetTotals, rollupBudgetLines } from '@/lib/invoice-budget'
+import { ACTUAL_STATUSES, budgetTotals, rollupBudgetLines } from '@/lib/invoice-budget'
+import { markupTotals } from '@/lib/markup'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -37,7 +38,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .order('created_at', { ascending: false }),
     db
       .from('invoices')
-      .select('subcontract_id, amount, status')
+      .select('subcontract_id, amount, status, markup_pct, markup_excluded')
       .eq('project_id', params.id),
     db
       .from('material_purchases')
@@ -46,7 +47,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .order('purchase_date', { ascending: false, nullsFirst: false }),
     db
       .from('projects')
-      .select('interior_sqft, exterior_sqft, contractor_fee_pct, status, billing_mode, sellout_amount, client')
+      .select('interior_sqft, exterior_sqft, contractor_fee_pct, status, billing_mode, sellout_amount, client, contract_type')
       .eq('id', params.id)
       .single(),
     db
@@ -85,6 +86,17 @@ export async function GET(request: Request, { params }: { params: { id: string }
   }))
 
   const materials_total = (materials ?? []).reduce((s: number, m: any) => s + Number(m.amount ?? 0), 0)
+
+  // Cost-plus fee earned to date. Same item-by-item rule as Payments & Escrow,
+  // so the two screens cannot report different fees for the same work: an
+  // invoice ticked "bill at cost" earns nothing, one given its own percent uses
+  // that percent, and only the rest follow the project rate.
+  const markupEarned = markupTotals(
+    (invoices ?? [])
+      .filter((i: any) => ACTUAL_STATUSES.has(i.status))
+      .map((i: any) => ({ cost: i.amount, markup_pct: i.markup_pct, markup_excluded: i.markup_excluded })),
+    Number(projectMeta?.contractor_fee_pct ?? 0) * 100,
+  ).markup
 
   // Categories this company has already used anywhere. A category typed by
   // hand on one job then shows up in the dropdown on the next one, so custom
@@ -130,10 +142,17 @@ export async function GET(request: Request, { params }: { params: { id: string }
     project_status: projectMeta?.status ?? null,
     billing_mode: projectMeta?.billing_mode ?? 'simple',
     sellout_amount: projectMeta?.sellout_amount ?? null,
-    // Decides what to CALL the revenue figure. A job with a client is being
-    // built for someone, so it has a contract value; a job with none is being
-    // built to sell, which is the only case where "sellout" is the right word.
+    // How the job PAYS - decides whether the screen asks for a contract value
+    // or for a markup rate, instead of showing both and hedging. Null until
+    // answered; the budget screen asks once.
+    contract_type: (projectMeta as any)?.contract_type ?? null,
+    // Only still used to pre-select that picker. It was never enough on its own
+    // - it separates spec from not-spec and nothing else.
     has_client: !!(projectMeta as any)?.client,
+    // The cost-plus fee actually earned so far, worked out invoice by invoice.
+    // Deliberately not rate x spend: per-invoice overrides and at-cost
+    // pass-throughs make those two different numbers.
+    markup_earned: markupEarned,
     known_categories: knownCategories,
   })
 }

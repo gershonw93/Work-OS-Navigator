@@ -66,7 +66,8 @@ export default async function ProjectLayout({ children, params }: ProjectLayoutP
               start_date: project?.start_date, end_date: project?.end_date,
               customer_id: project?.customer_id,
               interior_sqft: project?.interior_sqft, exterior_sqft: project?.exterior_sqft,
-              billing_mode: project?.billing_mode, default_retainage_pct: project?.default_retainage_pct,
+              billing_mode: project?.billing_mode, contract_type: project?.contract_type,
+              default_retainage_pct: project?.default_retainage_pct,
               unit: project?.unit, floor: project?.floor,
               is_site: project?.is_site, parent_project_id: project?.parent_project_id,
             }} />

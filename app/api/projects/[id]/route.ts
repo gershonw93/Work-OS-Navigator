@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { getActor, actorCan } from '@/lib/server-permissions'
+import { asContractType } from '@/lib/contract-type'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -26,7 +27,7 @@ export async function PATCH(
   }
 
   const body = await request.json()
-  const { name, address, client, type, status, start_date, end_date, customer_id, lat, lng, interior_sqft, exterior_sqft, billing_mode, default_retainage_pct, labor_rate, unit, floor, sellout_amount } = body
+  const { name, address, client, type, status, start_date, end_date, customer_id, lat, lng, interior_sqft, exterior_sqft, billing_mode, default_retainage_pct, labor_rate, unit, floor, sellout_amount, contract_type } = body
 
   const updates: Record<string, unknown> = {}
 
@@ -57,6 +58,11 @@ export async function PATCH(
   // can't be geocoded, which is what stranded bulk-created jobs off the map.
   if (unit !== undefined) updates.unit = (unit ?? '').toString().trim() || null
   if (floor !== undefined) updates.floor = (floor ?? '').toString().trim() || null
+  // How the job pays. Validated against the same list the CHECK constraint
+  // uses, so a bad value is a no-op rather than a 500 the user cannot act on.
+  if (contract_type !== undefined) {
+    updates.contract_type = asContractType(contract_type)
+  }
   // Projected revenue. Null means "no figure yet", which is different from 0.
   if (sellout_amount !== undefined) {
     updates.sellout_amount = sellout_amount === null || sellout_amount === ''
@@ -80,6 +86,11 @@ export async function PATCH(
   if (error && (error as any).code === '42703' && 'sellout_amount' in updates) {
     const { sellout_amount: _s, ...noSellout } = updates
     const retry = await db.from('projects').update(noSellout).eq('id', params.id).select().single()
+    data = retry.data; error = retry.error
+  }
+  if (error && (error as any).code === '42703' && 'contract_type' in updates) {
+    const { contract_type: _c, ...noContract } = updates
+    const retry = await db.from('projects').update(noContract).eq('id', params.id).select().single()
     data = retry.data; error = retry.error
   }
   if (error && (error as any).code === '42703' && ('unit' in updates || 'floor' in updates)) {

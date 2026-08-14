@@ -8,6 +8,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { AddressFields } from '@/components/ui/address-fields'
+import {
+  type ContractType, CONTRACT_TYPES, CONTRACT_LABEL, CONTRACT_BLURB, asContractType,
+} from '@/lib/contract-type'
 import { Settings, X } from 'lucide-react'
 
 interface Props {
@@ -24,6 +27,7 @@ interface Props {
     interior_sqft?: number | null
     exterior_sqft?: number | null
     billing_mode?: string | null
+    contract_type?: string | null
     default_retainage_pct?: number | null
     unit?: string | null
     floor?: string | null
@@ -51,6 +55,7 @@ export function EditProjectButton({ projectId, project }: Props) {
   const [interiorSqft, setInteriorSqft] = useState(project.interior_sqft != null ? String(project.interior_sqft) : '')
   const [exteriorSqft, setExteriorSqft] = useState(project.exterior_sqft != null ? String(project.exterior_sqft) : '')
   const [billingMode, setBillingMode] = useState<'simple' | 'aia'>(project.billing_mode === 'aia' ? 'aia' : 'simple')
+  const [contractType, setContractType] = useState<ContractType | null>(asContractType(project.contract_type))
   const [retainage, setRetainage] = useState(project.default_retainage_pct != null ? String(project.default_retainage_pct) : '10')
   const [unit, setUnit] = useState(project.unit ?? '')
   const [floor, setFloor] = useState(project.floor ?? '')
@@ -83,6 +88,9 @@ export function EditProjectButton({ projectId, project }: Props) {
         interior_sqft: interiorSqft ? Number(interiorSqft) : null,
         exterior_sqft: exteriorSqft ? Number(exteriorSqft) : null,
         billing_mode: billingMode,
+        // Only sent once answered - undefined leaves it alone, and null here
+        // would mean "unset it", which is never what a save is asking for.
+        ...(contractType ? { contract_type: contractType } : {}),
         // Only meaningful on AIA billing. Omitted rather than nulled on simple -
         // the column is NOT NULL, and the old value does no harm sitting there.
         ...(billingMode === 'aia' ? { default_retainage_pct: Number(retainage) || 0 } : {}),
@@ -200,6 +208,26 @@ export function EditProjectButton({ projectId, project }: Props) {
                     Changing this switches which money tabs appear. Anything already billed the old way stays on the job.
                   </p>
                 )}
+              </div>
+
+              {/* How the job PAYS, which is a different question from how it
+                  bills. Without it the Budget tab could not tell a cost-plus
+                  job from a fixed-price one, so it showed a contract-value box
+                  AND a markup box and told you to leave one empty. */}
+              <div className="space-y-1.5">
+                <Label>How does this job pay you?</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {CONTRACT_TYPES.map(t => (
+                    <button key={t} type="button" onClick={() => setContractType(t)}
+                      className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${contractType === t ? 'border-accent bg-accent-tint text-accent-fg' : 'border-line text-ink-soft hover:bg-surface'}`}>
+                      <span className="block text-sm font-semibold">{CONTRACT_LABEL[t]}</span>
+                      <span className="block text-xs text-muted-fg mt-0.5">{CONTRACT_BLURB[t]}</span>
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-fg">
+                  Decides what the Budget tab tracks: your markup on cost-plus, or a contract value on the other two.
+                </p>
               </div>
 
               {/* Drives the cost-per-sq-ft breakdown on the Budget tab. */}

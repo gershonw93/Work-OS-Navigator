@@ -66,6 +66,12 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
   const [billingMode, setBillingMode] = useState('simple')
   /** The project's markup rate as a percent. 0 means cost-plus is not in use. */
   const [projectMarkup, setProjectMarkup] = useState(0)
+  /** Cost-plus jobs always get the per-invoice markup controls. */
+  const [contractType, setContractType] = useState<string | null>(null)
+  // On a cost-plus job the markup controls belong on every invoice regardless
+  // of the default rate - otherwise a job billed line-by-line, with no project
+  // rate set, had nowhere to mark up its first invoice at all.
+  const costPlus = contractType === 'cost_plus'
   const [savingMarkup, setSavingMarkup] = useState<string | null>(null)
   const [subcontracts, setSubcontracts] = useState<Subcontract[]>([])
   const [paymentItems, setPaymentItems] = useState<PaymentItem[]>([])
@@ -130,6 +136,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
       setDestinations(d.destinations ?? {})
       setBillingMode(d.billing_mode ?? 'simple')
       setProjectMarkup(Number(d.markup_pct) || 0)
+      setContractType(d.contract_type ?? null)
     }
     if (finRes.ok) {
       const d = await finRes.json()
@@ -483,9 +490,9 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
 
             {/* Cost-plus: what to bill the client for this one. The electrician
                 invoices $35,000, your 15% goes on, the client owes $40,250.
-                Only shown when a markup rate is actually in use, so a
-                fixed-price job never sees it. */}
-            {(projectMarkup > 0 || invoice.markup_pct != null || invoice.markup_excluded) && (() => {
+                Always on a cost-plus job; otherwise only once a rate is in use,
+                so a fixed-price job never sees it. */}
+            {(costPlus || projectMarkup > 0 || invoice.markup_pct != null || invoice.markup_excluded) && (() => {
               const m = markUp(invoice.amount, invoice, projectMarkup)
               return (
                 <div className="rounded-lg border border-accent/30 bg-accent-tint/30 px-4 py-3 space-y-2">
@@ -526,7 +533,11 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
                         %
                         {/* Empty is not zero. Empty follows the project rate, so
                             changing that rate still moves this invoice. */}
-                        <span className="text-faint">leave blank to follow the project&apos;s {projectMarkup}%</span>
+                        <span className="text-faint">
+                          {projectMarkup > 0
+                            ? <>leave blank to follow the project&apos;s {projectMarkup}%</>
+                            : <>no project rate set - give this one its own</>}
+                        </span>
                       </span>
                     )}
                     {savingMarkup === invoice.id && <span className="text-faint">saving…</span>}
@@ -1111,7 +1122,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
           </p>
           {/* Cost-plus roll-up: cost, your fee, what the client owes. Only when
               a markup is actually in use. */}
-          {projectMarkup > 0 && invoices.length > 0 && (() => {
+          {(costPlus || projectMarkup > 0) && invoices.length > 0 && (() => {
             const t = markupTotals(
               invoices.filter(i => ACTUAL_STATUSES.has(i.status)).map(i => ({ ...i, cost: i.amount })),
               projectMarkup,

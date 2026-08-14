@@ -20,6 +20,8 @@ move it to **In progress**, and when it ships, move it to **Done** with the PR #
 - **CompanyCam** - jobsite photos.
 - **Procore / Autodesk Construction Cloud** - for GCs who also run Procore.
 
+- **Cost-plus proposal PDF** *(deferred, PR #267)* - the "Generate Proposal" PDF prices a job as a lump sum: cost x (1 + markup) = one client price. That is a fixed-price bid, and it is the wrong document for a cost-plus job, where what you send is a RATE plus an estimate of costs. Now that projects carry a `contract_type`, the proposal could switch shape on cost-plus: estimated cost of work, the fee percent, and an estimated total marked clearly as an estimate rather than a price. Left alone for now because it is a document-design job, not a wiring one.
+
 ## 📣 Notifications & comms
 - **Transactional email (Resend/SendGrid)** - biggest "feels unfinished" gap. Quote/compliance/inspection flows already produce messages; today they're in-app + mailto. Make them real emails.
 - **SMS reminders (Twilio)** - "text a receipt" for Materials, "inspection ready" to the scheduler, payment receipts to clients. Universal alternative to Ramp's receipt-texts. Smaller build, works for everyone.
