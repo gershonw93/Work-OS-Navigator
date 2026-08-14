@@ -1,14 +1,25 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Where a sub's invoice lands on the budget.
 //
-// An invoice does NOT carry a budget line of its own. It attaches to a
-// subcontract, and the budget line linked to that subcontract is where the
-// money lands. That indirection is deliberate - the contract is the agreement,
-// the budget line is where the agreement is tracked, and one contract belongs
-// to one line. There is no per-invoice override: if an invoice is landing in
-// the wrong place, the fix is to point the SUBCONTRACT at the right line on the
-// Budget tab, which moves every invoice on it at once. Two invoices from one
-// sub silently hitting two different lines is exactly the mess this prevents.
+// TWO ROUTES, never both for the same bill.
+//
+// 1. ALLOCATIONS. An invoice can be split across as many budget lines as it
+//    needs, at whatever amounts - a supplier bill covering lumber and windows,
+//    or a bill only partly belonging to a line. When an invoice has any
+//    allocations, they are the whole story for it.
+//
+// 2. ITS SUBCONTRACT. With no allocations, an invoice lands on the line linked
+//    to its contract, exactly as before. The contract is the agreement, the
+//    line is where the agreement is tracked, and one contract belongs to one
+//    line. Every invoice that exists today takes this route and is unaffected.
+//
+// Deliberately SPLIT, never OVERRIDE: there is no single budget_line_item_id on
+// an invoice that could quietly redirect a whole bill away from where its
+// contract says it belongs. Either it divides explicitly, or it follows the
+// contract.
+//
+// The two routes are mutually exclusive per invoice, which is what stops a bill
+// being counted once through its allocations and again through its contract.
 //
 // The rollup below is the single source of truth for a line's Actual. The
 // Budget tab and the Invoices tab both read it, so the "already billed" number
@@ -37,9 +48,17 @@ export interface RollupLine {
 }
 
 export interface RollupInvoice {
+  id?: string
   subcontract_id?: string | null
   amount?: unknown
   status?: string | null
+}
+
+/** A slice of one invoice landing on one budget line. */
+export interface RollupAllocation {
+  invoice_id: string
+  budget_line_item_id: string
+  amount?: unknown
 }
 
 export interface RollupMaterial {
@@ -65,6 +84,8 @@ export interface RolledLine extends RollupLine {
   committed_amount: number
   actual_amount: number
   materials_amount: number
+  /** Invoice money landing here by an explicit split rather than via a contract. */
+  allocated_amount: number
   /** Approved change orders landing on this line. Zero, or signed. */
   change_orders_amount: number
   /** budgeted + approved changes. THE number to judge this line against. */
@@ -87,8 +108,9 @@ export function rollupBudgetLines(input: {
   materials: RollupMaterial[]
   subs: RollupSub[]
   changeOrders?: RollupChangeOrder[]
+  allocations?: RollupAllocation[]
 }): RolledLine[] {
-  const { lines, invoices, materials, subs, changeOrders = [] } = input
+  const { lines, invoices, materials, subs, changeOrders = [], allocations = [] } = input
 
   // Approved change orders raise the budget of the line they belong to.
   //
@@ -116,8 +138,33 @@ export function rollupBudgetLines(input: {
     changesByLine.set(target, (changesByLine.get(target) ?? 0) + n(co.amount))
   }
 
+  // An allocated invoice is accounted for entirely by its allocations. Any
+  // amount it has NOT allocated is deliberately dropped rather than falling
+  // back to the contract: a half-allocated bill routing its remainder somewhere
+  // the user never named would be a silent surprise, and the editor shows the
+  // unallocated remainder so it is never invisible.
+  const allocatedInvoiceIds = new Set<string>()
+  for (const a of allocations) if (a.invoice_id) allocatedInvoiceIds.add(a.invoice_id)
+
+  const acceptedInvoiceIds = new Set<string>()
+  for (const inv of invoices) {
+    if (inv.id && ACTUAL_STATUSES.has(String(inv.status))) acceptedInvoiceIds.add(inv.id)
+  }
+
+  const allocByLine = new Map<string, number>()
+  for (const a of allocations) {
+    // A split only counts once the bill it belongs to has been accepted, same
+    // rule as every other route onto the budget.
+    if (!acceptedInvoiceIds.has(a.invoice_id)) continue
+    allocByLine.set(
+      a.budget_line_item_id,
+      (allocByLine.get(a.budget_line_item_id) ?? 0) + n(a.amount),
+    )
+  }
+
   const actualBySub = new Map<string, number>()
   for (const inv of invoices) {
+    if (inv.id && allocatedInvoiceIds.has(inv.id)) continue
     if (inv.subcontract_id && ACTUAL_STATUSES.has(String(inv.status))) {
       actualBySub.set(inv.subcontract_id, (actualBySub.get(inv.subcontract_id) ?? 0) + n(inv.amount))
     }
@@ -132,6 +179,7 @@ export function rollupBudgetLines(input: {
 
   return lines.map(line => {
     const materials_amount = materialsByLine.get(line.id) ?? 0
+    const allocated_amount = allocByLine.get(line.id) ?? 0
     const change_orders_amount = changesByLine.get(line.id) ?? 0
     const revised_budget = n(line.budgeted_amount) + change_orders_amount
     const sub = line.subcontract_id ? subById.get(line.subcontract_id) : undefined
@@ -139,8 +187,9 @@ export function rollupBudgetLines(input: {
       return {
         ...line,
         committed_amount: n(sub.contract_amount),
-        actual_amount: (actualBySub.get(line.subcontract_id!) ?? 0) + materials_amount,
+        actual_amount: (actualBySub.get(line.subcontract_id!) ?? 0) + allocated_amount + materials_amount,
         materials_amount,
+        allocated_amount,
         change_orders_amount,
         revised_budget,
         linked: true,
@@ -150,8 +199,12 @@ export function rollupBudgetLines(input: {
     return {
       ...line,
       committed_amount: n(line.committed_amount),
-      actual_amount: n(line.actual_amount) + materials_amount,
+      // A line with real invoice splits on it derives its Actual from them, the
+      // same way a linked line derives its own - the record beats a number
+      // somebody typed. Only a line with neither keeps the typed figure.
+      actual_amount: (allocByLine.has(line.id) ? allocated_amount : n(line.actual_amount)) + materials_amount,
       materials_amount,
+      allocated_amount,
       change_orders_amount,
       revised_budget,
       linked: false,

@@ -71,6 +71,25 @@ export const RELEASES: Release[] = [
         help: 'add-project-budget',
       },
       {
+        kind: 'new',
+        title: 'Click a budget line to see what is actually behind it',
+        text: 'The sheet could tell you a line was at $47,700 and nothing at all about what made it that - answering "why" meant opening three other tabs and matching things up by the sub\'s name. Click the line\'s name now and a panel shows its contract, every bill against it, every change order, and every receipt, each one clickable through to where it lives. Anything not yet approved is listed too, greyed, with what it is waiting on - so you can see what is coming as well as what has landed.',
+        help: 'add-project-budget',
+        href: '/projects',
+      },
+      {
+        kind: 'new',
+        title: 'Split one bill across several budget lines',
+        text: 'A supplier invoice covers lumber AND windows. A sub\'s bill is half one line and half another. Until now a bill could only land where its subcontract pointed, all of it, in one place. Open any bill and "Split this across budget lines" lets you put parts of it wherever they belong, at whatever amounts. It does not have to add up to the invoice total - whatever is left is shown as unassigned rather than quietly sent somewhere - and it can never add up to more than the invoice, which is the one mistake that would overstate what has landed on your budget. While a bill has a split on it, the split is the whole story: it stops following its subcontract, so nothing is ever counted twice.',
+        help: 'add-project-budget',
+      },
+      {
+        kind: 'new',
+        title: 'Set the markup on a budget line, not on every invoice',
+        text: 'The rate could only live on the whole job or on one bill, so "permits at cost, electrical at 15%" meant remembering to set it on every invoice as it arrived, forever. Each budget line now carries its own answer, and every bill landing there follows it. Open a line and set its rate, or tick it to bill at cost. A single invoice can still overrule it when one bill genuinely differs. Blank means follow the job, so changing the project rate still moves everything you have not given its own answer - and a bill split across a line at 15% and a line at cost now earns the right fee for each part.',
+        help: 'money-overview',
+      },
+      {
         kind: 'improved',
         title: 'The money tabs now say which direction the money goes',
         text: '"Invoices" and "Payments" never told you WHOSE invoices or whose payments, and the bills a sub sends you versus the bills you send a client were the two things people most often could not find. They are now "Bills from subs" and "Billing the client". Same screens, same data - the label just answers the question you were asking when you went looking.',

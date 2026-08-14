@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
 import { createNotification } from '@/lib/notify'
+import { validateAllocations } from '@/lib/allocations'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -23,6 +24,7 @@ export async function PATCH(
   const {
     status, due_date, description, invoice_number, amount, client_paid, escrow_paid,
     markup_pct, markup_excluded, markup_note, line_items, subtotal, tax, retainage,
+    allocations,
   } = body
 
   // Fetch existing invoice
@@ -55,6 +57,29 @@ export async function PATCH(
   if (subtotal !== undefined) updates.subtotal = subtotal === '' ? null : subtotal
   if (tax !== undefined) updates.tax = tax === '' ? null : tax
   if (retainage !== undefined) updates.retainage = retainage === '' ? null : retainage
+
+  // Splitting this bill across budget lines. Replace-in-full rather than
+  // patch-by-row: the editor sends the whole set, so a row deleted there has to
+  // disappear here, and reconciling row-by-row would leave orphans behind.
+  //
+  // Validated server-side as well as in the form - over-allocating is the one
+  // mistake that would quietly overstate what has landed on the budget.
+  let allocationRows: { budget_line_item_id: string; amount: number; note: string | null }[] | null = null
+  if (allocations !== undefined) {
+    const rows = (Array.isArray(allocations) ? allocations : [])
+      .filter((a: any) => a?.budget_line_item_id)
+      .map((a: any) => ({
+        budget_line_item_id: String(a.budget_line_item_id),
+        amount: Number(a.amount) || 0,
+        note: a.note ? String(a.note) : null,
+      }))
+    const nextAmount = amount !== undefined && amount !== '' ? Number(amount) : Number(invoice.amount ?? 0)
+    const problems = validateAllocations(nextAmount, rows)
+    if (problems.length) {
+      return NextResponse.json({ error: problems.map(p => p.message).join(' ') }, { status: 400 })
+    }
+    allocationRows = rows
+  }
 
   if (status === 'approved') {
     const { data: profile } = await db.from('profiles').select('full_name').eq('id', user.id).single()
@@ -157,7 +182,22 @@ export async function PATCH(
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  return NextResponse.json({ invoice: data })
+  // After the invoice itself saves, so a rejected update never leaves the split
+  // pointing at an amount that was not written.
+  if (allocationRows) {
+    await db.from('invoice_allocations').delete().eq('invoice_id', params.invoiceId)
+    if (allocationRows.length) {
+      const { error: allocError } = await db.from('invoice_allocations')
+        .insert(allocationRows.map(r => ({ ...r, invoice_id: params.invoiceId })))
+      if (allocError) return NextResponse.json({ error: allocError.message }, { status: 500 })
+    }
+  }
+
+  const { data: saved } = await db.from('invoice_allocations')
+    .select('id, budget_line_item_id, amount, note')
+    .eq('invoice_id', params.invoiceId)
+
+  return NextResponse.json({ invoice: data, allocations: saved ?? [] })
 }
 
 export async function DELETE(

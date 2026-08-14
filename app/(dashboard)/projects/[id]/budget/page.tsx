@@ -14,6 +14,7 @@ import { QuoteLineItems } from '@/components/projects/quote-line-items'
 import { HARD_COST_CATEGORIES, SOFT_COST_CATEGORIES, categoryOptions } from '@/lib/budget-categories'
 import type { BudgetTotals } from '@/lib/invoice-budget'
 import { InfoHint } from '@/components/ui/info-hint'
+import { BudgetLineDetail } from '@/components/projects/budget-line-detail'
 import {
   type ContractType, type Profit, CONTRACT_TYPES, CONTRACT_LABEL, CONTRACT_BLURB,
   asContractType, usesMarkup, usesRevenue, profitFor, revenueLabel, revenueHint, revenueAsk,
@@ -186,6 +187,8 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   const [savingContract, setSavingContract] = useState(false)
   /** Cost-plus fee actually earned so far, invoice by invoice. */
   const [markupEarned, setMarkupEarned] = useState(0)
+  /** Which line's detail popup is open - what is actually behind the number. */
+  const [detailLineId, setDetailLineId] = useState<string | null>(null)
   const [projectStatus, setProjectStatus] = useState<string | null>(null)
   /** Only used to pre-select the contract-type picker. */
   const [hasClient, setHasClient] = useState(false)
@@ -891,6 +894,18 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       )}
 
       {/* Standard soft costs picker */}
+      {detailLineId && (
+        <BudgetLineDetail
+          projectId={params.id}
+          lineId={detailLineId}
+          projectMarkup={Number(markupPct) || 0}
+          costPlus={usesMarkup(contractType)}
+          onClose={() => setDetailLineId(null)}
+          // A rate changed in there moves the fee earned on this screen.
+          onChanged={load}
+        />
+      )}
+
       {showSoft && (() => {
         const already = new Set(items.filter(i => i.cost_type === 'soft').map(i => normDesc(i.description)))
         return (
@@ -1530,7 +1545,11 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                           </div>
                         )}
                         <div className="min-w-0">
-                          <p className="text-sm font-medium text-ink-soft truncate">
+                          {/* The name opens what is behind the line. Not the
+                              whole row - that would fight the select-mode
+                              checkbox and the edit pencil sitting in it. */}
+                          <button type="button" onClick={() => setDetailLineId(item.id)}
+                            className="block max-w-full truncate text-left text-sm font-medium text-ink-soft hover:text-accent-fg hover:underline">
                             {item.cost_code && <span className="text-faint font-normal mr-1.5">{item.cost_code}</span>}
                             {item.description}
                             {item.space_type && (
@@ -1539,7 +1558,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                                 {SPACE_LABELS[item.space_type]}
                               </span>
                             )}
-                          </p>
+                          </button>
                           {item.linked ? (
                             <a href={`/projects/${params.id}/team`} onClick={e => e.stopPropagation()}
                               className="text-xs text-accent-fg truncate flex items-center gap-1 hover:underline w-fit">

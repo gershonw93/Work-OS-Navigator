@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
 import { ACTUAL_STATUSES, budgetTotals, rollupBudgetLines } from '@/lib/invoice-budget'
-import { markupTotals } from '@/lib/markup'
+import { feeForInvoice } from '@/lib/allocations'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -24,6 +24,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     { data: materials },
     { data: projectRow },
     { data: changeOrders },
+    { data: allocations },
   ] = await Promise.all([
     db
       .from('budget_line_items')
@@ -38,7 +39,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .order('created_at', { ascending: false }),
     db
       .from('invoices')
-      .select('subcontract_id, amount, status, markup_pct, markup_excluded')
+      .select('id, subcontract_id, amount, status, markup_pct, markup_excluded')
       .eq('project_id', params.id),
     db
       .from('material_purchases')
@@ -54,6 +55,13 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .from('change_orders')
       .select('amount, status, budget_line_item_id, subcontract_id')
       .eq('project_id', params.id),
+    // Invoice splits. Filtered to this project through the invoices that own
+    // them - allocations have no project_id of their own, deliberately: the
+    // invoice already answers that question and duplicating it invites drift.
+    db
+      .from('invoice_allocations')
+      .select('id, invoice_id, budget_line_item_id, amount, invoices!inner(project_id)')
+      .eq('invoices.project_id', params.id),
   ])
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -76,6 +84,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     materials: (materials ?? []) as any,
     subs: (subcontracts ?? []) as any,
     changeOrders: (changeOrders ?? []) as any,
+    allocations: (allocations ?? []) as any,
   })
   const totals = budgetTotals(items)
 
@@ -91,12 +100,23 @@ export async function GET(request: Request, { params }: { params: { id: string }
   // so the two screens cannot report different fees for the same work: an
   // invoice ticked "bill at cost" earns nothing, one given its own percent uses
   // that percent, and only the rest follow the project rate.
-  const markupEarned = markupTotals(
-    (invoices ?? [])
-      .filter((i: any) => ACTUAL_STATUSES.has(i.status))
-      .map((i: any) => ({ cost: i.amount, markup_pct: i.markup_pct, markup_excluded: i.markup_excluded })),
-    Number(projectMeta?.contractor_fee_pct ?? 0) * 100,
-  ).markup
+  const projectPct = Number(projectMeta?.contractor_fee_pct ?? 0) * 100
+  const lineRates = (data ?? []).map((l: any) => ({
+    id: l.id, markup_pct: l.markup_pct, markup_excluded: l.markup_excluded,
+  }))
+  const allocsByInvoice = new Map<string, any[]>()
+  for (const a of (allocations ?? []) as any[]) {
+    if (!allocsByInvoice.has(a.invoice_id)) allocsByInvoice.set(a.invoice_id, [])
+    allocsByInvoice.get(a.invoice_id)!.push(a)
+  }
+  const markupEarned = (invoices ?? [])
+    .filter((i: any) => ACTUAL_STATUSES.has(i.status))
+    .reduce((sum: number, i: any) => sum + feeForInvoice({
+      invoice: i,
+      allocations: allocsByInvoice.get(i.id) ?? [],
+      lines: lineRates,
+      projectPct,
+    }).markup, 0)
 
   // Categories this company has already used anywhere. A category typed by
   // hand on one job then shows up in the dropdown on the next one, so custom
