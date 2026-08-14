@@ -24,6 +24,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     { data: changeOrders },
     { data: projectRow },
     { data: clientBills },
+    { data: allocations },
   ] = await Promise.all([
     db
       .from('invoices')
@@ -60,6 +61,10 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .from('client_invoices')
       .select('client_invoice_lines(source_invoice_id)')
       .eq('project_id', params.id),
+    db
+      .from('invoice_allocations')
+      .select('id, invoice_id, budget_line_item_id, amount, note, invoices!inner(project_id)')
+      .eq('invoices.project_id', params.id),
   ])
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -73,6 +78,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     materials: (materials ?? []) as any,
     subs: (subs ?? []) as any,
     changeOrders: (changeOrders ?? []) as any,
+    allocations: (allocations ?? []) as any,
   })
   const dests = destinationsBySubcontract(rolled)
 
@@ -83,9 +89,21 @@ export async function GET(request: Request, { params }: { params: { id: string }
     }
   }
 
+  const allocsByInvoice = new Map<string, any[]>()
+  for (const a of (allocations ?? []) as any[]) {
+    if (!allocsByInvoice.has(a.invoice_id)) allocsByInvoice.set(a.invoice_id, [])
+    allocsByInvoice.get(a.invoice_id)!.push({
+      id: a.id, budget_line_item_id: a.budget_line_item_id,
+      amount: Number(a.amount ?? 0), note: a.note ?? null,
+    })
+  }
+
   const invoices = (data ?? []).map((inv: any) => ({
     ...inv,
+    // The contract route, still what most invoices use. An invoice WITH
+    // allocations ignores this - its splits are the whole story.
     budget_line: inv.subcontract_id ? dests.get(inv.subcontract_id) ?? null : null,
+    allocations: allocsByInvoice.get(inv.id) ?? [],
     client_billed: clientBilled.has(inv.id),
   }))
 
@@ -94,6 +112,18 @@ export async function GET(request: Request, { params }: { params: { id: string }
     // Keyed by subcontract so the create form can show the destination the
     // moment a sub is picked, before anything is saved.
     destinations: Object.fromEntries(dests),
+    // Every line on the job, so a bill can be split across any of them - not
+    // only the one its contract happens to sit on.
+    budget_lines: rolled.map((l: any) => ({
+      id: l.id,
+      cost_code: l.cost_code ?? null,
+      category: String(l.category ?? 'General'),
+      description: String(l.description ?? ''),
+      revised_budget: l.revised_budget,
+      billed_amount: l.actual_amount,
+      markup_pct: l.markup_pct ?? null,
+      markup_excluded: !!l.markup_excluded,
+    })),
     // Decides whether "billing your client" points at Pay Apps or Payments.
     billing_mode: (projectRow as any)?.billing_mode ?? 'simple',
     // Stored as a fraction; the markup helpers work in percent.

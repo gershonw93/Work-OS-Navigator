@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { markupTotals } from '@/lib/markup'
+import { feeForInvoice } from '@/lib/allocations'
 import { ACTUAL_STATUSES } from '@/lib/invoice-budget'
 import { logActivity } from '@/lib/log-activity'
 
@@ -30,11 +30,14 @@ export async function GET(request: Request, { params }: { params: { id: string }
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()
 
-  const [{ data: project }, { data: payments }, { data: invoices }, { data: budgetLines }] = await Promise.all([
+  const [{ data: project }, { data: payments }, { data: invoices }, { data: budgetLines }, { data: allocations }] = await Promise.all([
     db.from('projects').select('contractor_fee_pct').eq('id', params.id).single(),
     db.from('client_payments').select('*').eq('project_id', params.id).order('paid_date', { ascending: true }),
-    db.from('invoices').select('amount, status, client_paid, escrow_paid, markup_pct, markup_excluded').eq('project_id', params.id),
-    db.from('budget_line_items').select('budgeted_amount').eq('project_id', params.id),
+    db.from('invoices').select('id, amount, status, client_paid, escrow_paid, markup_pct, markup_excluded').eq('project_id', params.id),
+    db.from('budget_line_items').select('id, budgeted_amount, markup_pct, markup_excluded').eq('project_id', params.id),
+    db.from('invoice_allocations')
+      .select('invoice_id, budget_line_item_id, amount, invoices!inner(project_id)')
+      .eq('invoices.project_id', params.id),
   ])
 
   const feePct = Number(project?.contractor_fee_pct ?? 0)
@@ -55,10 +58,23 @@ export async function GET(request: Request, { params }: { params: { id: string }
   // Fee earned, item by item rather than one multiplication over the total.
   // An invoice can be excluded from markup (a permit, a pass-through) or carry
   // a rate of its own, and a flat multiply silently ignored both.
-  const feeEarned = markupTotals(
-    inv.filter(i => VENDOR_BILLED.has(i.status)).map(i => ({ ...i, cost: i.amount })),
-    feePct * 100,
-  ).markup
+  //
+  // Split-aware since 077: one bill divided across a line at 15% and a line at
+  // cost earns the right fee for each part. Same helper the Budget tab uses, so
+  // the two screens cannot report different fees for the same work.
+  const allocsByInvoice = new Map<string, any[]>()
+  for (const a of (allocations ?? []) as any[]) {
+    if (!allocsByInvoice.has(a.invoice_id)) allocsByInvoice.set(a.invoice_id, [])
+    allocsByInvoice.get(a.invoice_id)!.push(a)
+  }
+  const feeEarned = inv
+    .filter(i => VENDOR_BILLED.has(i.status))
+    .reduce((sum, i: any) => sum + feeForInvoice({
+      invoice: i,
+      allocations: allocsByInvoice.get(i.id) ?? [],
+      lines: (budgetLines ?? []) as any,
+      projectPct: feePct * 100,
+    }).markup, 0)
 
   // Escrow holds client cash minus escrow disbursements minus the fee taken
   // (client-direct payments don't touch escrow).

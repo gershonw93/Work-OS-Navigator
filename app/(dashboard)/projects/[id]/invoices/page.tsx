@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import { Plus, X, Receipt, CheckCircle2, Clock, Send, DollarSign, ChevronDown, ChevronUp, Printer, Upload, AlertTriangle, Pencil, Trash2, FileText, ScanLine, Loader2, Wallet } from 'lucide-react'
 import Link from 'next/link'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
+import { InvoiceSplit, type SplitLineOption, type AllocationRow } from '@/components/projects/invoice-split'
 import { BudgetDestinationBox } from '@/components/projects/budget-destination'
 import { ACTUAL_STATUSES, type BudgetDestination } from '@/lib/invoice-budget'
 import type { QuoteCheck } from '@/lib/invoice-check'
@@ -55,6 +56,8 @@ interface Invoice {
   markup_excluded?: boolean | null
   /** Already passed on to the client on a client invoice. */
   client_billed?: boolean
+  /** How this bill divides across budget lines, when it does. */
+  allocations?: { id: string; budget_line_item_id: string; amount: number; note: string | null }[]
 }
 
 export default function InvoicesPage({ params }: { params: { id: string } }) {
@@ -70,6 +73,10 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
   const [projectMarkup, setProjectMarkup] = useState(0)
   /** Cost-plus jobs always get the per-invoice markup controls. */
   const [contractType, setContractType] = useState<string | null>(null)
+  const [budgetLines, setBudgetLines] = useState<SplitLineOption[]>([])
+  /** Draft split per invoice, keyed by invoice id. */
+  const [splits, setSplits] = useState<Record<string, AllocationRow[]>>({})
+  const [savingSplit, setSavingSplit] = useState<string | null>(null)
   // On a cost-plus job the markup controls belong on every invoice regardless
   // of the default rate - otherwise a job billed line-by-line, with no project
   // rate set, had nowhere to mark up its first invoice at all.
@@ -139,6 +146,14 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
       setBillingMode(d.billing_mode ?? 'simple')
       setProjectMarkup(Number(d.markup_pct) || 0)
       setContractType(d.contract_type ?? null)
+      setBudgetLines(d.budget_lines ?? [])
+      // Seed each editor from what is saved, so opening one shows the real
+      // split rather than an empty form over the top of it.
+      setSplits(Object.fromEntries((d.invoices ?? []).map((i: any) => [
+        i.id, (i.allocations ?? []).map((a: any) => ({
+          budget_line_item_id: a.budget_line_item_id, amount: String(a.amount ?? ''),
+        })),
+      ])))
     }
     if (finRes.ok) {
       const d = await finRes.json()
@@ -322,6 +337,29 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
     } catch (err: any) {
       setCreateError(err?.message ? `Failed: ${err.message}` : 'Failed - check your connection.')
       setSubmitting(false)
+    }
+  }
+
+  /** Save how one bill divides across budget lines. */
+  async function saveSplit(invoice: Invoice) {
+    setSavingSplit(invoice.id)
+    try {
+      const token = await getToken()
+      const rows = (splits[invoice.id] ?? [])
+        .filter(r => r.budget_line_item_id)
+        .map(r => ({ budget_line_item_id: r.budget_line_item_id, amount: Number(r.amount) || 0 }))
+      const res = await fetch(`/api/projects/${params.id}/invoices/${invoice.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ allocations: rows }),
+      })
+      if (!res.ok) {
+        alert((await res.json().catch(() => ({}))).error ?? 'Could not save the split.')
+        return
+      }
+      await fetchData()
+    } finally {
+      setSavingSplit(null)
     }
   }
 
@@ -669,6 +707,21 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
                 />
               )
             })()}
+
+            {/* Splitting this bill across lines. Offered on every invoice, not
+                only contract-linked ones - a supplier bill covering two trades
+                usually has no subcontract at all. */}
+            {budgetLines.length > 0 && (
+              <InvoiceSplit
+                invoiceAmount={Number(invoice.amount) || 0}
+                lines={budgetLines}
+                value={splits[invoice.id] ?? []}
+                onChange={rows => setSplits(prev => ({ ...prev, [invoice.id]: rows }))}
+                onSave={() => saveSplit(invoice)}
+                saving={savingSplit === invoice.id}
+                hasContractRoute={!!invoice.budget_line}
+              />
+            )}
 
             {/* Vendor's invoice file - the sub has no account, so the GC attaches it here */}
             <div className="rounded-lg border border-line bg-surface px-4 py-3 flex flex-wrap items-center justify-between gap-3">
