@@ -96,6 +96,12 @@ export const RELEASES: Release[] = [
         help: 'add-project-budget',
       },
       {
+        kind: 'fixed',
+        title: 'Plans filed in a folder no longer show up twice',
+        text: 'The Plans tab listed your folders and then, underneath, every plan on the job - including the ones already inside those folders. Filing something away left it in exactly the place you filed it away from. The list under the folders is now what is NOT in a folder, which is what filing is for. The tab also has a search box that looks across the whole job rather than just the folder you are standing in, tells you what is there (12 plans, 3 folders, 9 filed away), shows the drawing type as a coloured tag, and no longer renders a blank screen when you open an empty folder.',
+        href: '/projects',
+      },
+      {
         kind: 'improved',
         title: 'The money tabs now say which direction the money goes',
         text: '"Invoices" and "Payments" never told you WHOSE invoices or whose payments, and the bills a sub sends you versus the bills you send a client were the two things people most often could not find. They are now "Bills from subs" and "Billing the client". Same screens, same data - the label just answers the question you were asking when you went looking.',
