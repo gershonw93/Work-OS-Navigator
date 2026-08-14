@@ -96,6 +96,12 @@ export const RELEASES: Release[] = [
         help: 'add-project-budget',
       },
       {
+        kind: 'fixed',
+        title: 'Adding photos to a daily log could lock up your machine',
+        text: 'Every photo you picked was converted into a text copy of itself and kept in the page - about two and a half times the size of the original, per photo, on top of the photo. Twenty pictures off a phone could run to a gigabyte of memory, and a computer that runs out of memory stops responding entirely rather than just showing a slow page. Previews now point at the photo the browser already has instead of copying it, and are released when you remove one. A side effect worth knowing: thumbnails could previously end up against the wrong photo, because the copies finished in whatever order they finished. They cannot now.',
+        href: '/projects',
+      },
+      {
         kind: 'new',
         title: 'Drag drawings straight onto the Plans tab',
         text: 'Drop as many as you like anywhere on the tab - or onto a folder to file them as they land. They queue up with the name already filled in from the file and the drawing type guessed from it (A-101 reads as architectural, M-301 as MEP), so five drawings is one review and one click rather than five trips through an upload box. Anything that guessed wrong you just change in the row. The Upload button takes several at once now too. If one file fails the rest still go, and only the failure stays on screen with its reason.',
