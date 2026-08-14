@@ -15,6 +15,7 @@ import { ItemListEditor } from '@/components/projects/item-list-editor'
 import { LineComparison } from '@/components/quotes/line-comparison'
 import type { ItemLine } from '@/lib/item-list'
 import { MATERIAL_BY_LABEL, PACKAGE_TYPE_LABEL, type MaterialBy, type PackageType } from '@/lib/trade-scopes'
+import { ACCEPT_PLANS } from '@/lib/file-accept'
 
 const money = (n: number | null) => n == null ? '-' : `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 const STATUS: Record<string, string> = {
@@ -208,7 +209,7 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
 
   return (
     <div className="space-y-6">
-      <input ref={planRef} type="file" multiple className="sr-only" onChange={e => { if (e.target.files) setFiles(p => [...p, ...Array.from(e.target.files!)]) }} />
+      <input ref={planRef} type="file" multiple accept={ACCEPT_PLANS} className="sr-only" onChange={e => { if (e.target.files) setFiles(p => [...p, ...Array.from(e.target.files!)]) }} />
       <input ref={newRef} type="file" accept="application/pdf,image/*" multiple className="sr-only"
         onChange={e => { if (e.target.files?.length) uploadNewSet(e.target.files); e.target.value = '' }} />
       <div className="flex flex-wrap items-start justify-between gap-3">

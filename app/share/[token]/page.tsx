@@ -9,6 +9,7 @@ import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { DocumentViewer } from '@/components/ui/image-lightbox'
+import { ACCEPT_DOCS } from '@/lib/file-accept'
 
 interface SharedFile { name: string; url: string; type?: string | null; size?: number | null; added_at?: string | null }
 interface Data {
@@ -219,7 +220,7 @@ export default function SharePage({ params }: { params: { token: string } }) {
                   }}
                   className={cn('mt-3 flex flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed px-4 py-6 cursor-pointer transition-colors',
                     dragging ? 'border-accent bg-accent-tint' : 'border-muted2 hover:bg-surface')}>
-                  <input ref={inputRef} type="file" multiple className="sr-only"
+                  <input ref={inputRef} type="file" multiple accept={ACCEPT_DOCS} className="sr-only"
                     onChange={e => { setPicked(p => [...p, ...Array.from(e.target.files ?? [])]); e.target.value = '' }} />
                   <Upload className="h-5 w-5 text-faint" />
                   <span className="text-sm font-medium text-ink-soft">Choose files</span>
