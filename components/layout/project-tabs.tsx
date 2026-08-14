@@ -49,9 +49,13 @@ const groups = [
       { label: 'Materials', slug: 'materials', icon: ShoppingCart },
       { label: 'Selections', slug: 'selections', icon: Palette },
       { label: 'Quotes', slug: 'request-quotes', icon: Send },
-      { label: 'Invoices', slug: 'invoices', icon: Receipt },
+      // Money OUT and money IN, said in the label. "Invoices" and "Payments"
+      // never told you whose invoices or whose payments, and the bills a sub
+      // sends you and the bills you send a client are the two things people
+      // most often cannot find.
+      { label: 'Bills from subs', slug: 'invoices', icon: Receipt },
       { label: 'Pay Apps', slug: 'pay-apps', icon: FileSpreadsheet },
-      { label: 'Payments', slug: 'payments', icon: Wallet },
+      { label: 'Billing the client', slug: 'payments', icon: Wallet },
       { label: 'Summary', slug: 'financials', icon: DollarSign },
       { label: 'Change Orders', slug: 'change-orders', icon: GitPullRequest },
       { label: 'Reports', slug: 'reports', icon: BarChart2 },

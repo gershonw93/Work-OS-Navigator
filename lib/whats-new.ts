@@ -61,7 +61,7 @@ export const RELEASES: Release[] = [
       {
         kind: 'improved',
         title: 'Real profit on a cost-plus job',
-        text: 'A cost-plus job has no contract value, so the profit panel had nothing to measure against and simply did not appear. It now shows what it should: your fee across the budget, and - once costs land - the fee actually earned, worked out invoice by invoice. That second number follows anything you billed at cost or gave its own percent, so it is the fee you will really collect rather than the rate multiplied by your spend. It is the same figure Payments & Escrow reports, from the same calculation, so the two screens cannot disagree.',
+        text: 'A cost-plus job has no contract value, so the profit panel had nothing to measure against and simply did not appear. It now shows what it should: your fee across the budget, and - once costs land - the fee actually earned, worked out invoice by invoice. That second number follows anything you billed at cost or gave its own percent, so it is the fee you will really collect rather than the rate multiplied by your spend. It is the same figure the Billing the client tab reports, from the same calculation, so the two screens cannot disagree.',
         help: 'money-overview',
       },
       {
@@ -72,6 +72,18 @@ export const RELEASES: Release[] = [
       },
       {
         kind: 'improved',
+        title: 'The money tabs now say which direction the money goes',
+        text: '"Invoices" and "Payments" never told you WHOSE invoices or whose payments, and the bills a sub sends you versus the bills you send a client were the two things people most often could not find. They are now "Bills from subs" and "Billing the client". Same screens, same data - the label just answers the question you were asking when you went looking.',
+        help: 'money-overview',
+      },
+      {
+        kind: 'new',
+        title: 'Pass a sub\'s bill straight on to the client',
+        text: 'Approve a bill from a sub and there is now a "Bill the client for this" link right on it, showing what the client owes with your markup already on. It opens a new client invoice with that cost ticked. Before, you approved the bill and then had to go to another tab and find the same cost again in a list - which is the step that quietly got dropped. If a cost has already gone out to the client it says so instead, so nothing can be billed twice.',
+        help: 'money-overview',
+      },
+      {
+        kind: 'improved',
         title: 'The proposal reads like a cost-plus proposal on a cost-plus job',
         text: 'Generate Proposal took every budget line, added your markup and printed one bold total at the bottom - which is exactly right for a fixed price, where that number is a promise. On cost-plus you are not promising a number, you are promising a method: actual cost, plus your fee. A client who reads a bold total as a fixed quote will hold you to it. A cost-plus job now prints the estimated cost of work, your contractor\'s fee on its own line at its stated percent, and an estimated total that says it is an estimate - with a line at the top spelling out the basis before any figure appears, and cost-plus terms instead of "pricing covers the scope described here". The bottom line is the same number either way; only what the document claims about it has changed.',
         help: 'estimate-proposal',
@@ -79,7 +91,7 @@ export const RELEASES: Release[] = [
       {
         kind: 'fixed',
         title: 'Per-invoice markup was hidden on jobs with no default rate',
-        text: 'The "bill this at cost" tick and the custom percent on each sub invoice only appeared once a project markup rate was set. On a cost-plus job priced line by line - where you set each one deliberately and have no house rate - there was no way to mark up the first invoice at all. They now show on every cost-plus job whatever the default is. The Budget tab also points at where they live, which is the Invoices tab: you mark up a real cost, not a budget line, because a budget line is a forecast and nobody bills a forecast.',
+        text: 'The "bill this at cost" tick and the custom percent on each sub invoice only appeared once a project markup rate was set. On a cost-plus job priced line by line - where you set each one deliberately and have no house rate - there was no way to mark up the first invoice at all. They now show on every cost-plus job whatever the default is. The Budget tab also points at where they live, which is Bills from subs: you mark up a real cost, not a budget line, because a budget line is a forecast and nobody bills a forecast.',
         help: 'money-overview',
       },
     ],

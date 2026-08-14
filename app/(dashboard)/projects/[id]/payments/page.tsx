@@ -121,14 +121,14 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Payments &amp; Escrow</h1>
+          <h1 className="text-2xl font-bold text-ink">Billing the client</h1>
           <p className="text-sm text-muted-fg mt-0.5">
             Money <span className="font-medium text-ink-soft">in</span> from the client - deposits and draws you have
             received - your fee, and what is left to pay vendors.
           </p>
           <p className="text-xs text-faint mt-1">
             Bills your subs sent <span className="font-medium">you</span> go on{' '}
-            <a href={`/projects/${params.id}/invoices`} className="text-accent-fg hover:underline">Invoices</a>. Raise
+            <a href={`/projects/${params.id}/invoices`} className="text-accent-fg hover:underline">Bills from subs</a>. Raise
             what the client owes below, then record their payments against it here.
           </p>
         </div>

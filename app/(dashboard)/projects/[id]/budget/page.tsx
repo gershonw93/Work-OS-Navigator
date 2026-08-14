@@ -36,22 +36,24 @@ function ProfitFigures({ profit, totalActual }: { profit: Profit; totalActual: n
   return (
     <>
       <div>
-        <p className="text-xs font-medium text-muted-fg mb-1">
+        <p className="text-xs font-medium text-muted-fg">
           {earned ? 'Your fee' : 'Projected profit'}
           <InfoHint className="ml-1 align-middle" text={earned
             ? 'Your markup across the whole budget, if the job lands where it is budgeted.\n\nOn cost-plus this is the profit - there is no contract value to measure against, because what you are paid IS the fee.'
             : 'What is left after costs, if the job lands on budget.\n\nThe figure you set, less every budget line added up. Approved change orders are already in that cost.'} />
         </p>
-        <p className={cn('text-2xl font-bold', profit.projected < 0 ? 'text-danger' : 'text-success')}>
+        <p className={cn('text-lg font-bold', profit.projected < 0 ? 'text-danger' : 'text-success')}>
           {profit.projected < 0 ? '-' : ''}{money(Math.abs(profit.projected))}
-        </p>
-        <p className="text-[11px] text-faint">
-          {profit.projectedMargin != null ? `${profit.projectedMargin.toFixed(1)}% margin` : ''}
+          {profit.projectedMargin != null && (
+            <span className="ml-1.5 text-[11px] font-normal text-faint">
+              {profit.projectedMargin.toFixed(1)}% margin
+            </span>
+          )}
         </p>
       </div>
       {totalActual > 0 && profit.toDate != null && (
         <div>
-          <p className="text-xs font-medium text-muted-fg mb-1">
+          <p className="text-xs font-medium text-muted-fg">
             {earned ? 'Earned so far' : 'Against actual spend'}
             <InfoHint className="ml-1 align-middle" text={earned
               ? 'The fee on costs actually booked, worked out invoice by invoice.\n\nNot the rate multiplied by what you have spent: an invoice billed at cost earns nothing, and one given its own percent uses that percent. This is the same figure as the fee on Payments & Escrow.'
@@ -59,8 +61,8 @@ function ProfitFigures({ profit, totalActual }: { profit: Profit; totalActual: n
           </p>
           <p className={cn('text-lg font-semibold', profit.toDate < 0 ? 'text-danger' : 'text-ink-soft')}>
             {profit.toDate < 0 ? '-' : ''}{money(Math.abs(profit.toDate))}
+            <span className="ml-1.5 text-[11px] font-normal text-faint">of {money(totalActual)} spent</span>
           </p>
-          <p className="text-[11px] text-faint">{money(totalActual)} spent so far</p>
         </div>
       )}
     </>
@@ -1008,9 +1010,27 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
             You can change it later in Edit project.
           </p>
         </div>
-      ) : showRevenuePanel ? (
-        <div className="rounded-xl border border-line bg-panel p-4">
-          <div className="flex flex-wrap items-end gap-x-8 gap-y-4">
+      ) : showRevenuePanel || showMarkupPanel ? (
+        /* A row, not a panel. This was a bordered card carrying the same weight
+           as the stat tiles directly above it, and repeating one of them -
+           "Cost / budgeted" is Total Budget under another name. Dropped, along
+           with the footnote paragraph, which is now on the hover where the rest
+           of the explaining already lives. */
+        <div className="flex flex-wrap items-end gap-x-8 gap-y-3 border-y border-line-soft py-3">
+          {showMarkupPanel ? (
+            <div>
+              <label className="block text-xs font-medium text-muted-fg mb-1">
+                Markup <span className="text-faint font-normal">· your fee on cost</span>
+                <InfoHint className="ml-1 align-middle" text={'The percentage you add on top of every cost.\n\nOn a cost-plus job this IS what you are paid, so it is the only revenue figure this screen needs.\n\nIt is the default rate. Any single invoice can be billed at cost or given its own percent on the Invoices tab - a permit fee or a pass-through does not have to follow it - and the fee earned here follows those, not this.'} />
+              </label>
+              <div className="flex items-center gap-1.5">
+                <Input type="number" min="0" step="0.5" value={markupPct}
+                  onChange={e => setMarkupPct(e.target.value)} onBlur={saveMarkup} className="w-20 h-9" />
+                <span className="text-sm font-medium text-muted-fg">%</span>
+                {savingMarkup && <span className="text-xs text-faint">saving…</span>}
+              </div>
+            </div>
+          ) : (
             <div>
               <label className="block text-xs font-medium text-muted-fg mb-1">
                 {revLabel} <span className="text-faint font-normal">· {revHint}</span>
@@ -1024,52 +1044,13 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
               <div className="flex items-center gap-1.5">
                 <span className="text-sm text-muted-fg">$</span>
                 <Input type="number" min="0" step="1000" value={sellout} placeholder={revAsk}
-                  onChange={e => setSellout(e.target.value)} onBlur={saveSellout} className="w-40" />
+                  onChange={e => setSellout(e.target.value)} onBlur={saveSellout} className="w-36 h-9" />
                 {savingSellout && <span className="text-xs text-faint">saving…</span>}
               </div>
             </div>
+          )}
 
-            <div>
-              <p className="text-xs font-medium text-muted-fg mb-1">Cost</p>
-              <p className="text-lg font-semibold text-ink-soft">{money(totalBudgeted)}</p>
-              <p className="text-[11px] text-faint">budgeted</p>
-            </div>
-
-            <ProfitFigures profit={profit} totalActual={totalActual} />
-          </div>
-        </div>
-      ) : showMarkupPanel ? (
-        /* Cost-plus. There is no contract value on this kind of job, so the
-           screen asks for the one number that IS the pay - and reports profit
-           from the fee actually earned rather than from a price nobody set. */
-        <div className="rounded-xl border border-line bg-panel p-4">
-          <div className="flex flex-wrap items-end gap-x-8 gap-y-4">
-            <div>
-              <label className="block text-xs font-medium text-muted-fg mb-1">
-                Markup <span className="text-faint font-normal">· your fee on cost</span>
-                <InfoHint className="ml-1 align-middle" text={'The percentage you add on top of every cost.\n\nOn a cost-plus job this IS what you are paid, so it is the only revenue figure this screen needs.\n\nIt is the default rate. Any single invoice can be billed at cost or given its own percent on the Invoices tab, and the fee earned below follows those, not this.'} />
-              </label>
-              <div className="flex items-center gap-1.5">
-                <Input type="number" min="0" step="0.5" value={markupPct}
-                  onChange={e => setMarkupPct(e.target.value)} onBlur={saveMarkup} className="w-24" />
-                <span className="text-sm font-medium text-muted-fg">%</span>
-                {savingMarkup && <span className="text-xs text-faint">saving…</span>}
-              </div>
-            </div>
-
-            <div>
-              <p className="text-xs font-medium text-muted-fg mb-1">Cost</p>
-              <p className="text-lg font-semibold text-ink-soft">{money(totalBudgeted)}</p>
-              <p className="text-[11px] text-faint">budgeted</p>
-            </div>
-
-            <ProfitFigures profit={profit} totalActual={totalActual} />
-          </div>
-          <p className="mt-3 border-t border-line-soft pt-2.5 text-[11px] text-faint">
-            Billing something at cost, or at a different percent? That is set per invoice on the{' '}
-            <a href={`/projects/${params.id}/invoices`} className="font-medium text-accent-fg hover:underline">Invoices</a>{' '}
-            tab - a permit fee or a pass-through does not have to follow this rate.
-          </p>
+          <ProfitFigures profit={profit} totalActual={totalActual} />
         </div>
       ) : null}
 
