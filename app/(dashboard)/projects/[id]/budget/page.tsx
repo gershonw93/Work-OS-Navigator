@@ -14,6 +14,58 @@ import { QuoteLineItems } from '@/components/projects/quote-line-items'
 import { HARD_COST_CATEGORIES, SOFT_COST_CATEGORIES, categoryOptions } from '@/lib/budget-categories'
 import type { BudgetTotals } from '@/lib/invoice-budget'
 import { InfoHint } from '@/components/ui/info-hint'
+import {
+  type ContractType, type Profit, CONTRACT_TYPES, CONTRACT_LABEL, CONTRACT_BLURB,
+  asContractType, usesMarkup, usesRevenue, profitFor, revenueLabel, revenueHint, revenueAsk,
+} from '@/lib/contract-type'
+
+const money = (n: number) => `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+
+/**
+ * Projected profit, and where it stands against money already spent.
+ *
+ * Draws nothing when there is nothing to report. On a fixed-price job that
+ * means no contract value entered; on cost-plus it means no rate and no fee
+ * earned. Either way an absent panel is the honest answer - this used to fall
+ * back to markup-on-cost and print a confident green margin for a job whose
+ * price nobody had ever given it.
+ */
+function ProfitFigures({ profit, totalActual }: { profit: Profit; totalActual: number }) {
+  if (profit.projected == null) return null
+  const earned = profit.basis === 'markup'
+  return (
+    <>
+      <div>
+        <p className="text-xs font-medium text-muted-fg mb-1">
+          {earned ? 'Your fee' : 'Projected profit'}
+          <InfoHint className="ml-1 align-middle" text={earned
+            ? 'Your markup across the whole budget, if the job lands where it is budgeted.\n\nOn cost-plus this is the profit - there is no contract value to measure against, because what you are paid IS the fee.'
+            : 'What is left after costs, if the job lands on budget.\n\nThe figure you set, less every budget line added up. Approved change orders are already in that cost.'} />
+        </p>
+        <p className={cn('text-2xl font-bold', profit.projected < 0 ? 'text-danger' : 'text-success')}>
+          {profit.projected < 0 ? '-' : ''}{money(Math.abs(profit.projected))}
+        </p>
+        <p className="text-[11px] text-faint">
+          {profit.projectedMargin != null ? `${profit.projectedMargin.toFixed(1)}% margin` : ''}
+        </p>
+      </div>
+      {totalActual > 0 && profit.toDate != null && (
+        <div>
+          <p className="text-xs font-medium text-muted-fg mb-1">
+            {earned ? 'Earned so far' : 'Against actual spend'}
+            <InfoHint className="ml-1 align-middle" text={earned
+              ? 'The fee on costs actually booked, worked out invoice by invoice.\n\nNot the rate multiplied by what you have spent: an invoice billed at cost earns nothing, and one given its own percent uses that percent. This is the same figure as the fee on Payments & Escrow.'
+              : 'Where profit stands against money genuinely spent, rather than against the budget.\n\nThe gap between this and projected profit is what is still to come.'} />
+          </p>
+          <p className={cn('text-lg font-semibold', profit.toDate < 0 ? 'text-danger' : 'text-ink-soft')}>
+            {profit.toDate < 0 ? '-' : ''}{money(Math.abs(profit.toDate))}
+          </p>
+          <p className="text-[11px] text-faint">{money(totalActual)} spent so far</p>
+        </div>
+      )}
+    </>
+  )
+}
 
 interface BudgetItem {
   id: string
@@ -44,8 +96,6 @@ interface SubOption {
 }
 
 const CATEGORIES = HARD_COST_CATEGORIES
-
-const money = (n: number) => `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 
 // Small labeled wrapper for compact inline form fields
 function Field({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
@@ -123,11 +173,19 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   const [markupPct, setMarkupPct] = useState('0')
   const [savingMarkup, setSavingMarkup] = useState(false)
   // What the job earns. On a spec build it's the sale price, on a fixed-price
-  // contract it's the contract value. Blank means fall back to markup on cost.
+  // contract it's the contract value. Not asked at all on cost-plus, where the
+  // markup IS the pay and there is no such figure.
   const [sellout, setSellout] = useState('')
   const [savingSellout, setSavingSellout] = useState(false)
+  // How the job PAYS. Null until answered - which is asked here, once, instead
+  // of showing the revenue box and the markup box together and telling the
+  // reader to leave one of them empty.
+  const [contractType, setContractType] = useState<ContractType | null>(null)
+  const [savingContract, setSavingContract] = useState(false)
+  /** Cost-plus fee actually earned so far, invoice by invoice. */
+  const [markupEarned, setMarkupEarned] = useState(0)
   const [projectStatus, setProjectStatus] = useState<string | null>(null)
-  /** Building for a client, or building to sell - it changes what to call it. */
+  /** Only used to pre-select the contract-type picker. */
   const [hasClient, setHasClient] = useState(false)
   const [knownCategories, setKnownCategories] = useState<string[]>([])
   const [billingMode, setBillingMode] = useState<string>('simple')
@@ -190,8 +248,27 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       setBillingMode(d.billing_mode ?? 'simple')
       setKnownCategories(d.known_categories ?? [])
       setSellout(d.sellout_amount != null ? String(d.sellout_amount) : '')
+      setContractType(asContractType(d.contract_type))
+      setMarkupEarned(Number(d.markup_earned) || 0)
     }
     setLoading(false)
+  }
+
+  /** Answer "how does this job pay" - asked once, then the screen settles. */
+  async function saveContractType(next: ContractType) {
+    setSavingContract(true)
+    setContractType(next)
+    try {
+      const token = await getToken()
+      await fetch(`/api/projects/${params.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ contract_type: next }),
+      })
+      await load()
+    } finally {
+      setSavingContract(false)
+    }
   }
 
   // Persist the markup % (as a fraction) on the project. Reuses the payments
@@ -576,26 +653,30 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
 
   const selloutNum = sellout.trim() === '' ? null : Number(sellout) || 0
   // "Sellout" is developer language - it is what a spec house SELLS for. On a
-  // custom home or a fit-out you are not selling anything; you are charging a
-  // client a contract value. Same number, and calling it the wrong thing makes
-  // the whole panel read as though it is meant for somebody else.
-  const revenueLabel = hasClient ? 'Contract value' : 'Sellout'
-  const revenueHint = hasClient ? 'what you are charging the client' : 'what it sells for'
-  const revenueAsk = hasClient
-    ? 'What are you charging for this job?'
-    : 'What will this job sell for?'
-  // Profit is only shown against a sellout you actually set. Falling back to
-  // cost + markup printed a confident green "projected profit" for a job whose
-  // sale price nobody had told us - a number the app made up, presented as
-  // fact. The markup still drives the client price on the estimate bar, where
-  // it is explicitly a calculation rather than a result.
-  const revenue = selloutNum
-  // Profit against committed+actual isn't meaningful until costs land, so this
-  // is deliberately projected: revenue against what the job is budgeted to cost.
-  const projectedProfit = revenue != null ? revenue - totalBudgeted : null
-  const margin = revenue && revenue > 0 && projectedProfit != null ? (projectedProfit / revenue) * 100 : null
-  // Actual spend eating into that profit - the number worth watching mid-job.
-  const profitToDate = revenue != null ? revenue - totalActual : null
+  // custom home you are not selling anything; you are charging a contract
+  // value. Both come off the contract type now rather than off a guess about
+  // whether somebody typed a client name.
+  const revLabel = revenueLabel(contractType)
+  const revHint = revenueHint(contractType)
+  const revAsk = revenueAsk(contractType)
+  const askContract = items.length > 0 && contractType == null
+  const showRevenuePanel = items.length > 0 && usesRevenue(contractType)
+  const showMarkupPanel = items.length > 0 && usesMarkup(contractType) && billingMode !== 'aia'
+
+  // Profit, or nothing at all. On cost-plus the fee IS the profit, so it is
+  // measured from the markup rather than from a contract value the job does not
+  // have; on a fixed-price or spec job it is revenue less cost. If the figure
+  // it needs was never entered, every field comes back null and the panel does
+  // not draw - which is what stops the app inventing a confident green margin
+  // for a job whose price nobody ever told it.
+  const profit = profitFor({
+    contractType,
+    revenue: selloutNum,
+    budgetedCost: totalBudgeted,
+    actualCost: totalActual,
+    markupEarned,
+    markupPct: Number(markupPct) || 0,
+  })
 
   // `help` is the hover explainer: what the number means and how it is worked
   // out, in the words someone would use out loud.
@@ -894,40 +975,55 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
         })}
       </div>
 
-      {/* Sellout → projected profit.
-          Shown at every stage on purpose: "am I still making money on this" is
-          the question you ask MOST once work has started, not least - and
-          "against actual spend" only means anything once costs have landed.
-          But only once a sellout is actually set. Until then it is one line
-          asking for the figure, not a panel reporting on a figure nobody gave
-          it. */}
-      {items.length > 0 && selloutNum == null ? (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-          <label htmlFor="sellout" className="text-muted-fg">
-            {revenueAsk}
-            <InfoHint className="ml-1 align-middle" text={
-              (hasClient
-                ? 'Your contract value - the fixed price this client is paying for the job.'
-                : 'The sale price. This job has no client on it, so it reads as one you are building to sell.')
-              + '\n\nSet it and projected profit tracks itself as the budget fills in, and again against what has actually been spent.\n\nOn a cost-plus job, leave it empty - your profit there is the markup, which has its own box.'
-            } />
-          </label>
-          <span className="text-muted-fg">$</span>
-          <Input id="sellout" type="number" min="0" step="1000" value={sellout} placeholder="0"
-            onChange={e => setSellout(e.target.value)} onBlur={saveSellout} className="w-36 h-8" />
-          {savingSellout && <span className="text-xs text-faint">saving…</span>}
-          <span className="text-xs text-faint">Leave it empty on cost-plus.</span>
+      {/* How the job pays → what it earns.
+          Asked ONCE. Before this the screen showed the revenue box and the
+          markup box together and told you to leave one empty, because it had no
+          idea which kind of job this was - and on a cost-plus custom home the
+          revenue box is asking a question with no answer. */}
+      {askContract ? (
+        <div className="rounded-xl border border-dashed border-accent/40 bg-accent-tint/20 p-4">
+          <p className="text-sm font-medium text-ink">How does this job pay you?</p>
+          <p className="mt-0.5 text-xs text-muted-fg">
+            Asked once. It decides whether this screen tracks your markup or a contract value - and it is the
+            difference between a real profit figure and a made-up one.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {CONTRACT_TYPES.map(t => (
+              <button
+                key={t}
+                type="button"
+                disabled={savingContract}
+                onClick={() => saveContractType(t)}
+                className="rounded-lg border border-line bg-panel px-3 py-2 text-left transition-colors hover:border-accent hover:bg-accent-tint/40 disabled:opacity-50"
+              >
+                <span className="block text-sm font-semibold text-ink">{CONTRACT_LABEL[t]}</span>
+                <span className="block text-[11px] text-muted-fg">{CONTRACT_BLURB[t]}</span>
+              </button>
+            ))}
+          </div>
+          <p className="mt-2.5 text-[11px] text-faint">
+            {hasClient
+              ? 'This job has a client on it, so it is most likely one of the first two.'
+              : 'No client is named on this job, which usually means you are building it to sell.'}{' '}
+            You can change it later in Edit project.
+          </p>
         </div>
-      ) : items.length > 0 ? (
+      ) : showRevenuePanel ? (
         <div className="rounded-xl border border-line bg-panel p-4">
           <div className="flex flex-wrap items-end gap-x-8 gap-y-4">
             <div>
               <label className="block text-xs font-medium text-muted-fg mb-1">
-                {revenueLabel} <span className="text-faint font-normal">· {revenueHint}</span>
+                {revLabel} <span className="text-faint font-normal">· {revHint}</span>
+                <InfoHint className="ml-1 align-middle" text={
+                  (contractType === 'spec'
+                    ? 'The sale price - what you expect this to sell for.'
+                    : 'Your contract value - the agreed price this client is paying for the job.')
+                  + '\n\nProfit is measured against it: as the budget fills in, and again against what has actually been spent.'
+                } />
               </label>
               <div className="flex items-center gap-1.5">
                 <span className="text-sm text-muted-fg">$</span>
-                <Input type="number" min="0" step="1000" value={sellout} placeholder="0"
+                <Input type="number" min="0" step="1000" value={sellout} placeholder={revAsk}
                   onChange={e => setSellout(e.target.value)} onBlur={saveSellout} className="w-40" />
                 {savingSellout && <span className="text-xs text-faint">saving…</span>}
               </div>
@@ -939,27 +1035,41 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
               <p className="text-[11px] text-faint">budgeted</p>
             </div>
 
-            {revenue != null ? (
-              <>
-                <div>
-                  <p className="text-xs font-medium text-muted-fg mb-1">Projected profit</p>
-                  <p className={cn('text-2xl font-bold', (projectedProfit ?? 0) < 0 ? 'text-danger' : 'text-success')}>
-                    {(projectedProfit ?? 0) < 0 ? '-' : ''}{money(Math.abs(projectedProfit ?? 0))}
-                  </p>
-                  <p className="text-[11px] text-faint">{margin != null ? `${margin.toFixed(1)}% margin` : ''}</p>
-                </div>
-                {totalActual > 0 && (
-                  <div>
-                    <p className="text-xs font-medium text-muted-fg mb-1">Against actual spend</p>
-                    <p className={cn('text-lg font-semibold', (profitToDate ?? 0) < 0 ? 'text-danger' : 'text-ink-soft')}>
-                      {(profitToDate ?? 0) < 0 ? '-' : ''}{money(Math.abs(profitToDate ?? 0))}
-                    </p>
-                    <p className="text-[11px] text-faint">{money(totalActual)} spent so far</p>
-                  </div>
-                )}
-              </>
-            ) : null}
+            <ProfitFigures profit={profit} totalActual={totalActual} />
           </div>
+        </div>
+      ) : showMarkupPanel ? (
+        /* Cost-plus. There is no contract value on this kind of job, so the
+           screen asks for the one number that IS the pay - and reports profit
+           from the fee actually earned rather than from a price nobody set. */
+        <div className="rounded-xl border border-line bg-panel p-4">
+          <div className="flex flex-wrap items-end gap-x-8 gap-y-4">
+            <div>
+              <label className="block text-xs font-medium text-muted-fg mb-1">
+                Markup <span className="text-faint font-normal">· your fee on cost</span>
+                <InfoHint className="ml-1 align-middle" text={'The percentage you add on top of every cost.\n\nOn a cost-plus job this IS what you are paid, so it is the only revenue figure this screen needs.\n\nIt is the default rate. Any single invoice can be billed at cost or given its own percent on the Invoices tab, and the fee earned below follows those, not this.'} />
+              </label>
+              <div className="flex items-center gap-1.5">
+                <Input type="number" min="0" step="0.5" value={markupPct}
+                  onChange={e => setMarkupPct(e.target.value)} onBlur={saveMarkup} className="w-24" />
+                <span className="text-sm font-medium text-muted-fg">%</span>
+                {savingMarkup && <span className="text-xs text-faint">saving…</span>}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs font-medium text-muted-fg mb-1">Cost</p>
+              <p className="text-lg font-semibold text-ink-soft">{money(totalBudgeted)}</p>
+              <p className="text-[11px] text-faint">budgeted</p>
+            </div>
+
+            <ProfitFigures profit={profit} totalActual={totalActual} />
+          </div>
+          <p className="mt-3 border-t border-line-soft pt-2.5 text-[11px] text-faint">
+            Billing something at cost, or at a different percent? That is set per invoice on the{' '}
+            <a href={`/projects/${params.id}/invoices`} className="font-medium text-accent-fg hover:underline">Invoices</a>{' '}
+            tab - a permit fee or a pass-through does not have to follow this rate.
+          </p>
         </div>
       ) : null}
 
@@ -1003,8 +1113,11 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
         </div>
       ) : null}
 
-      {/* Secondary actions on one row. They used to be separate inline siblings
-          and ran into each other on the same line. */}
+      {/* Secondary ACTIONS. Markup used to sit in this row too, which put a
+          persistent project setting next to a button that opens a modal - two
+          unrelated things sharing a line for layout reasons rather than because
+          they belong together. It now lives with the money it decides: in the
+          cost-plus panel above, and in Edit project. */}
       {(totalSoft === 0 && projectStatus !== 'planning') || showProposalLink ? (
         <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
           {totalSoft === 0 && projectStatus !== 'planning' && (
@@ -1012,22 +1125,6 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
               className="inline-flex items-center gap-1.5 font-medium text-accent-fg hover:underline">
               <Plus className="h-3.5 w-3.5" /> Add preconstruction / soft costs
             </button>
-          )}
-          {/* Markup, once the job is won. The full estimate bar is gone by then
-              - the client price it produced is settled - but the number itself
-              is NOT dead: on a cost-plus job it is the fee you actually bill,
-              and it stayed editable on Payments & Escrow while vanishing from
-              here, so it looked like it had been taken away. */}
-          {showProposalLink && (
-            <span className="inline-flex items-center gap-1.5 text-muted-fg">
-              <span>Markup</span>
-              <Input type="number" min="0" step="0.5" value={markupPct}
-                onChange={e => setMarkupPct(e.target.value)} onBlur={saveMarkup}
-                className="w-16 h-8 text-sm" />
-              <span>%</span>
-              {savingMarkup && <span className="text-xs text-faint">saving…</span>}
-              <InfoHint text={'The fee you add on top of cost.\n\nBefore the job is won this drives the client price on your proposal. After it is won the price is settled, but the number is still what a cost-plus job bills as your fee - it is the same figure as the contractor fee rate on Payments & Escrow.\n\nOn a fixed-price job it no longer affects what you are paid; set the contract value instead and profit is measured against that.'} />
-            </span>
           )}
           {/* Won job: reprint the proposal that was sent. */}
           {showProposalLink && (
@@ -1045,18 +1142,30 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
         <div className="rounded-xl border border-accent/30 bg-accent-tint/30 p-4">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div className="flex flex-wrap items-end gap-5">
-              <div>
-                <label className="block text-xs font-medium text-muted-fg mb-1">Markup</label>
-                <div className="flex items-center gap-1.5">
-                  <Input type="number" min="0" step="0.5" value={markupPct}
-                    onChange={e => setMarkupPct(e.target.value)}
-                    onBlur={saveMarkup}
-                    className="w-24" />
-                  <span className="text-sm font-medium text-muted-fg">%</span>
-                  {savingMarkup && <span className="text-xs text-faint">saving…</span>}
+              {/* On a cost-plus job the rate is already editable in the panel
+                  above, where it is the pay rather than a bid input. Two boxes
+                  writing the same field on one screen is how it got confusing
+                  in the first place. */}
+              {showMarkupPanel ? (
+                <div>
+                  <p className="text-xs font-medium text-muted-fg mb-1">Markup</p>
+                  <p className="text-lg font-semibold text-ink-soft">{Number(markupPct) || 0}%</p>
+                  <p className="mt-1 text-[11px] text-faint">Set above.</p>
                 </div>
-                <p className="mt-1 text-[11px] text-faint">Added on top of cost. Also your billed fee.</p>
-              </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-medium text-muted-fg mb-1">Markup</label>
+                  <div className="flex items-center gap-1.5">
+                    <Input type="number" min="0" step="0.5" value={markupPct}
+                      onChange={e => setMarkupPct(e.target.value)}
+                      onBlur={saveMarkup}
+                      className="w-24" />
+                    <span className="text-sm font-medium text-muted-fg">%</span>
+                    {savingMarkup && <span className="text-xs text-faint">saving…</span>}
+                  </div>
+                  <p className="mt-1 text-[11px] text-faint">Added on top of cost, to price the proposal.</p>
+                </div>
+              )}
               <div>
                 <p className="text-xs font-medium text-muted-fg mb-1">Cost (internal)</p>
                 <p className="text-lg font-semibold text-ink-soft">{money(totalBudgeted)}</p>

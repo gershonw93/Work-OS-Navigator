@@ -10,6 +10,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { AddressFields } from '@/components/ui/address-fields'
+import {
+  type ContractType, CONTRACT_TYPES, CONTRACT_LABEL, CONTRACT_BLURB, asContractType,
+} from '@/lib/contract-type'
 
 export default function NewProjectPage() {
   const router = useRouter()
@@ -39,6 +42,8 @@ export default function NewProjectPage() {
         const c = (await s.json()).company
         if (c?.default_billing_mode === 'aia') setBillingMode('aia')
         if (c?.default_retainage_pct != null) setRetainage(String(c.default_retainage_pct))
+        const ct = asContractType(c?.default_contract_type)
+        if (ct) setContractType(ct)
       }
     })()
   }, [])
@@ -46,6 +51,10 @@ export default function NewProjectPage() {
   const [interiorSqft, setInteriorSqft] = useState('')
   const [exteriorSqft, setExteriorSqft] = useState('')
   const [billingMode, setBillingMode] = useState<'simple' | 'aia'>('simple')
+  // How the job pays. Left null rather than defaulted to anything - a wrong
+  // guess here hides the control the job actually needs on the Budget tab, and
+  // the Budget tab asks for it if it is still unanswered.
+  const [contractType, setContractType] = useState<ContractType | null>(null)
   const [retainage, setRetainage] = useState('10')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
@@ -90,6 +99,7 @@ export default function NewProjectPage() {
         interior_sqft: interiorSqft ? Number(interiorSqft) : null,
         exterior_sqft: exteriorSqft ? Number(exteriorSqft) : null,
         billing_mode: billingMode,
+        ...(contractType ? { contract_type: contractType } : {}),
         ...(billingMode === 'aia' ? { default_retainage_pct: Number(retainage) || 0 } : {}),
       }),
     })
@@ -192,6 +202,23 @@ export default function NewProjectPage() {
                   <span className="text-sm text-muted-fg">%</span>
                 </div>
               )}
+            </div>
+
+            {/* How the job PAYS - a different question from how it bills, and
+                the one the Budget tab needs to know whether to track a markup
+                or a contract value. Optional here; the Budget tab asks if it
+                was skipped. */}
+            <div className="space-y-1.5">
+              <Label>How does this job pay you? <span className="text-faint font-normal">(optional)</span></Label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {CONTRACT_TYPES.map(t => (
+                  <button key={t} type="button" onClick={() => setContractType(contractType === t ? null : t)}
+                    className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${contractType === t ? 'border-accent bg-accent-tint text-accent-fg' : 'border-line text-ink-soft hover:bg-panel'}`}>
+                    <span className="block text-sm font-semibold">{CONTRACT_LABEL[t]}</span>
+                    <span className="block text-xs text-muted-fg mt-0.5">{CONTRACT_BLURB[t]}</span>
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

@@ -49,7 +49,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .eq('project_id', params.id),
     db
       .from('projects')
-      .select('billing_mode, contractor_fee_pct')
+      .select('billing_mode, contractor_fee_pct, contract_type')
       .eq('id', params.id)
       .maybeSingle(),
   ])
@@ -82,6 +82,10 @@ export async function GET(request: Request, { params }: { params: { id: string }
     billing_mode: (projectRow as any)?.billing_mode ?? 'simple',
     // Stored as a fraction; the markup helpers work in percent.
     markup_pct: Number((projectRow as any)?.contractor_fee_pct ?? 0) * 100,
+    // Cost-plus jobs get the per-invoice markup controls whatever the default
+    // rate is. They used to appear only once a project rate was set, so on a
+    // job billed line-by-line there was no way to mark up the FIRST invoice.
+    contract_type: (projectRow as any)?.contract_type ?? null,
   })
 }
 

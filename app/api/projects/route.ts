@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { getActor, actorCan } from '@/lib/server-permissions'
+import { asContractType } from '@/lib/contract-type'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -150,7 +151,7 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json()
-  const { name, address, client, type, start_date, end_date, customer_id, lat, lng, interior_sqft, exterior_sqft, billing_mode, default_retainage_pct } = body
+  const { name, address, client, type, start_date, end_date, customer_id, lat, lng, interior_sqft, exterior_sqft, billing_mode, default_retainage_pct, contract_type } = body
 
   const base = {
     name, address, client, type, start_date,
@@ -164,12 +165,21 @@ export async function POST(request: Request) {
   const withSqft = (interior_sqft != null || exterior_sqft != null)
     ? { ...withGeo, interior_sqft: interior_sqft ?? null, exterior_sqft: exterior_sqft ?? null }
     : withGeo
-  const full = billing_mode
+  const withBilling = billing_mode
     ? { ...withSqft, billing_mode, ...(default_retainage_pct != null ? { default_retainage_pct } : {}) }
     : withSqft
+  // Optional at creation. Left off entirely when unanswered so the column stays
+  // null and the Budget tab knows to ask, rather than being defaulted to a
+  // guess that hides the control the job needs.
+  const ct = asContractType(contract_type)
+  const full = ct ? { ...withBilling, contract_type: ct } : withBilling
 
   let { data: project, error: insertError } = await admin.from('projects').insert(full).select().single()
   // Pre-migration fallback: billing_mode / sqft / geo columns may not exist yet.
+  if (insertError && (insertError as any).code === '42703') {
+    const retryContract = await admin.from('projects').insert(withBilling).select().single()
+    project = retryContract.data; insertError = retryContract.error
+  }
   if (insertError && (insertError as any).code === '42703') {
     const retryBilling = await admin.from('projects').insert(withSqft).select().single()
     project = retryBilling.data; insertError = retryBilling.error

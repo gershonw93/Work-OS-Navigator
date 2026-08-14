@@ -48,6 +48,37 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    date: '2026-08-14',
+    title: 'The budget screen stops guessing what kind of job this is',
+    items: [
+      {
+        kind: 'new',
+        title: 'Tell it how the job pays, once',
+        text: 'Cost-plus, fixed price, or building to sell. The Budget tab used to show a "what are you charging for this job?" box AND a markup box at the same time, with "leave it empty on cost-plus" underneath - because it genuinely did not know which kind of job it was looking at, and was leaving you to work it out. On a cost-plus custom home that box was asking a question the job has no answer to. Now you answer it once and the screen settles: cost-plus tracks your markup, fixed price and spec track a contract value or a sale price. Set it on a new job, change it any time in Edit project, or set what you mostly do in Settings so new jobs start there.',
+        help: 'add-project-budget',
+        href: '/projects',
+      },
+      {
+        kind: 'improved',
+        title: 'Real profit on a cost-plus job',
+        text: 'A cost-plus job has no contract value, so the profit panel had nothing to measure against and simply did not appear. It now shows what it should: your fee across the budget, and - once costs land - the fee actually earned, worked out invoice by invoice. That second number follows anything you billed at cost or gave its own percent, so it is the fee you will really collect rather than the rate multiplied by your spend. It is the same figure Payments & Escrow reports, from the same calculation, so the two screens cannot disagree.',
+        help: 'money-overview',
+      },
+      {
+        kind: 'improved',
+        title: 'Markup lives in one place instead of three',
+        text: 'The markup box had ended up sitting on the Budget tab next to "Add preconstruction / soft costs" - a setting parked beside a button, on the same row purely because of how the layout had grown. It is now with the money it decides: in the cost-plus panel, and in Edit project. The pre-award estimate bar still prices your proposal, and on a cost-plus job it reads the rate rather than offering a second box that writes the same field.',
+        help: 'add-project-budget',
+      },
+      {
+        kind: 'fixed',
+        title: 'Per-invoice markup was hidden on jobs with no default rate',
+        text: 'The "bill this at cost" tick and the custom percent on each sub invoice only appeared once a project markup rate was set. On a cost-plus job priced line by line - where you set each one deliberately and have no house rate - there was no way to mark up the first invoice at all. They now show on every cost-plus job whatever the default is. The Budget tab also points at where they live, which is the Invoices tab: you mark up a real cost, not a budget line, because a budget line is a forecast and nobody bills a forecast.',
+        help: 'money-overview',
+      },
+    ],
+  },
+  {
     date: '2026-08-11',
     title: 'Selections, item lists, and seeing what you sent',
     items: [

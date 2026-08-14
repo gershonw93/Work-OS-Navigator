@@ -14,6 +14,9 @@ import {
   Check, X, SlidersHorizontal, Plug, Palette, Camera, RefreshCw, Ban, Lock,
   LayoutTemplate,
 } from 'lucide-react'
+import {
+  type ContractType, CONTRACT_TYPES, CONTRACT_LABEL, CONTRACT_BLURB, asContractType,
+} from '@/lib/contract-type'
 import { PermissionsPanel } from '@/components/settings/permissions-panel'
 import { QuickBooksCard } from '@/components/settings/quickbooks-card'
 import { PasswordInput } from '@/components/ui/password-input'
@@ -42,6 +45,7 @@ interface Company {
   license_number: string
   default_payment_terms?: string
   default_billing_mode?: string
+  default_contract_type?: string | null
   default_retainage_pct?: number
   auto_logout_minutes?: number
 }
@@ -204,6 +208,8 @@ export default function SettingsPage() {
   const [licenseNumber, setLicenseNumber] = useState('')
   const [defaultPaymentTerms, setDefaultPaymentTerms] = useState('')
   const [defaultBillingMode, setDefaultBillingMode] = useState<'simple' | 'aia'>('simple')
+  /** Pre-selected on new jobs. Null = ask per job. */
+  const [defaultContractType, setDefaultContractType] = useState<ContractType | null>(null)
   const [autoLogout, setAutoLogout] = useState('0')
   const [autoLogoutSaving, setAutoLogoutSaving] = useState(false)
   const [autoLogoutMsg, setAutoLogoutMsg] = useState<{ ok: boolean; text: string } | null>(null)
@@ -351,6 +357,7 @@ export default function SettingsPage() {
           setLicenseNumber(c.license_number ?? '')
           setDefaultPaymentTerms(c.default_payment_terms ?? '')
           setDefaultBillingMode(c.default_billing_mode === 'aia' ? 'aia' : 'simple')
+          setDefaultContractType(asContractType(c.default_contract_type))
           setAutoLogout(c.auto_logout_minutes != null ? String(c.auto_logout_minutes) : '0')
           setDefaultRetainage(c.default_retainage_pct != null ? String(c.default_retainage_pct) : '10')
           setLogoUrl(c.logo_url ?? null)
@@ -501,6 +508,7 @@ export default function SettingsPage() {
             license_number: licenseNumber,
             default_payment_terms: defaultPaymentTerms,
             default_billing_mode: defaultBillingMode,
+            default_contract_type: defaultContractType,
             default_retainage_pct: Number(defaultRetainage) || 0,
           },
         }),
@@ -1058,6 +1066,23 @@ export default function SettingsPage() {
                         </div>
                       )}
                       <p className="text-xs text-faint mt-1">New projects start with this. You can still change it per job.</p>
+                    </div>
+                    <div>
+                      <Label>Default contract type for new projects</Label>
+                      <div className="mt-1 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        {CONTRACT_TYPES.map(t => (
+                          <button key={t} type="button"
+                            onClick={() => setDefaultContractType(defaultContractType === t ? null : t)}
+                            className={`rounded-lg border px-3 py-2 text-left text-sm ${defaultContractType === t ? 'border-accent bg-accent-tint text-accent-fg' : 'border-line text-ink-soft'}`}>
+                            <span className="font-semibold">{CONTRACT_LABEL[t]}</span>
+                            <span className="block text-xs text-muted-fg">{CONTRACT_BLURB[t]}</span>
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-xs text-faint mt-1">
+                        How your jobs usually pay - it decides whether the Budget tab tracks your markup or a contract
+                        value. Leave it unset and each job is asked. Click a selected one again to clear it.
+                      </p>
                     </div>
                     <div className="flex items-center gap-3 pt-2">
                       <Button onClick={saveCompany} disabled={companySaving}>

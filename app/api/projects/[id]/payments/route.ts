@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { markupTotals } from '@/lib/markup'
+import { ACTUAL_STATUSES } from '@/lib/invoice-budget'
 import { logActivity } from '@/lib/log-activity'
 
 export const runtime = 'nodejs'
@@ -17,7 +18,11 @@ async function auth(request: Request) {
   return user
 }
 
-const VENDOR_BILLED = new Set(['approved', 'sent', 'paid'])
+// "A real cost", same definition the Budget tab and the Invoices tab use. This
+// was a second hand-written copy of the same three statuses; the Budget tab now
+// reports the fee earned too, so the two drifting apart would have them printing
+// different fees for the same work.
+const VENDOR_BILLED = ACTUAL_STATUSES
 
 // Client payments ledger + escrow summary for a project.
 export async function GET(request: Request, { params }: { params: { id: string } }) {
