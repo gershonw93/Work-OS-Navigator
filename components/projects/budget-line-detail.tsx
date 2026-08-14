@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { X, Receipt, GitPullRequest, ShoppingCart, FileText, ExternalLink } from 'lucide-react'
+import { X, Receipt, GitPullRequest, ShoppingCart, FileText, ExternalLink, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { InfoHint } from '@/components/ui/info-hint'
 
@@ -36,7 +36,7 @@ interface TiedInvoice {
  * 15%" is a fact about the trade, not about each bill as it happens to arrive.
  */
 export function BudgetLineDetail({
-  projectId, lineId, projectMarkup, costPlus, onClose, onChanged,
+  projectId, lineId, projectMarkup, costPlus, onClose, onChanged, onEdit,
 }: {
   projectId: string
   lineId: string
@@ -45,6 +45,8 @@ export function BudgetLineDetail({
   costPlus: boolean
   onClose: () => void
   onChanged?: () => void
+  /** Opens the row's own edit form - cost code, description, amounts. */
+  onEdit?: () => void
 }) {
   const supabase = createClient()
   const [data, setData] = useState<any>(null)
@@ -91,12 +93,12 @@ export function BudgetLineDetail({
   const changeOrders = data?.change_orders ?? []
   const materials = data?.materials ?? []
 
-  const billed = invoices.filter(i => i.counts).reduce((s, i) => s + i.amount, 0)
+  // Every figure comes off the shared rollup rather than being re-added here.
+  // Adding them up locally is how this panel came to disagree with the row that
+  // opened it - it worked out "Left" as budget less what had been billed, which
+  // ignores a signed contract entirely.
+  const r = data?.rollup
   const pending = invoices.filter(i => !i.counts).reduce((s, i) => s + i.amount, 0)
-  const approvedCos = changeOrders.filter((c: any) => c.status === 'approved')
-    .reduce((s: number, c: any) => s + c.amount, 0)
-  const materialsTotal = materials.reduce((s: number, m: any) => s + m.amount, 0)
-  const revised = Number(line?.budgeted_amount ?? 0) + approvedCos
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 sm:p-6"
@@ -109,23 +111,39 @@ export function BudgetLineDetail({
             </p>
             <h2 className="truncate text-lg font-semibold text-ink">{line?.description || 'Budget line'}</h2>
           </div>
-          <button onClick={onClose} className="shrink-0 text-faint hover:text-ink"><X className="h-5 w-5" /></button>
+          <div className="flex shrink-0 items-center gap-1">
+            {onEdit && (
+              <button onClick={onEdit}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-xs font-medium text-muted-fg transition-colors hover:border-accent hover:text-accent-fg">
+                <Pencil className="h-3.5 w-3.5" /> Edit line
+              </button>
+            )}
+            <button onClick={onClose} className="text-faint hover:text-ink"><X className="h-5 w-5" /></button>
+          </div>
         </div>
 
         {loading ? (
           <p className="px-5 py-8 text-sm text-faint">Loading…</p>
         ) : (
           <div className="max-h-[75vh] space-y-5 overflow-y-auto px-5 py-4">
-            {/* The numbers, and where each came from. */}
+            {/* The same four columns as the row on the sheet, in the same
+                order, from the same rollup - so they cannot disagree. */}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <Figure label="Budget" value={money(revised)}
-                note={approvedCos ? `${money(line?.budgeted_amount)} + ${money(approvedCos)} CO` : 'as estimated'} />
-              <Figure label="Billed" value={money(billed)} tone="text-success"
-                note={pending > 0 ? `${money(pending)} not yet approved` : undefined} />
-              <Figure label="Receipts" value={money(materialsTotal)}
-                note={materials.length ? `${materials.length} purchase${materials.length !== 1 ? 's' : ''}` : 'none'} />
-              <Figure label="Left" value={money(revised - billed - materialsTotal)}
-                tone={revised - billed - materialsTotal < 0 ? 'text-danger' : 'text-ink'} />
+              <Figure label="Budgeted" value={money(r?.revised_budget)}
+                note={r?.change_orders_amount
+                  ? `${money(r.original_budget)} + ${money(r.change_orders_amount)} CO`
+                  : 'as estimated'} />
+              <Figure label="Committed" value={money(r?.committed_amount)} tone="text-info"
+                note={r && r.committed_amount > r.actual_amount
+                  ? `${money(r.committed_amount - r.actual_amount)} signed, not billed`
+                  : undefined} />
+              <Figure label="Actual" value={money(r?.actual_amount)} tone="text-success"
+                note={pending > 0
+                  ? `${money(pending)} not yet approved`
+                  : (r?.materials_amount ? `incl. ${money(r.materials_amount)} receipts` : undefined)} />
+              <Figure label="Variance" value={money(r?.variance)}
+                tone={(r?.variance ?? 0) < 0 ? 'text-danger' : 'text-success'}
+                note="budget less the bigger of signed or billed" />
             </div>
 
             {data?.subcontract && (
@@ -161,7 +179,7 @@ export function BudgetLineDetail({
               empty={changeOrders.length === 0 ? 'No change orders against this line.' : undefined}>
               {changeOrders.map((c: any) => (
                 <Row key={c.id}
-                  left={c.title || `CO ${c.co_number ?? ''}`}
+                  left={c.title || 'Change order'}
                   sub={c.status === 'approved' ? 'approved - raises this budget' : `${c.status} - not counted`}
                   right={money(c.amount)}
                   dim={c.status !== 'approved'}
