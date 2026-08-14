@@ -506,6 +506,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'Cost-plus: set your markup percent. Fixed price or building to sell: enter the contract value or sale price.',
         'Projected profit and margin appear next to it, and profit against actual spend once costs start landing.',
       ] },
+      { type: 'tip', text: 'THE RATE AND THE CONTRACT VALUE DO NOT SIT LIVE. They read as plain text with a small pencil beside them - click it to edit, tick to confirm, Escape to abandon. Nothing is saved just because you clicked away mid-edit. These decide what a client is billed, and the Budget tab is a screen people scroll through to read far more often than to change anything.' },
       { type: 'tip', text: 'Change the answer any time in Edit project. If you mostly do one kind of work, set it once in Settings → Company and new jobs start there.' },
       { type: 'text', text: 'MARKUP is the rate, and on a cost-plus job it is the default rather than the last word. Any single invoice can be billed at cost or given its own percent on the Bills from subs tab - a permit fee or a pass-through does not have to follow the job rate. That is set per invoice on purpose: you mark up a real cost, not a budget line, because a budget line is a forecast and nobody bills a forecast.' },
       { type: 'text', text: 'Before a job is won the markup also drives the client price on your proposal. On a cost-plus job that estimate bar reads the rate you set above rather than offering a second box writing the same field.' },

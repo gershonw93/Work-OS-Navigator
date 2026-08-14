@@ -14,6 +14,7 @@ import { QuoteLineItems } from '@/components/projects/quote-line-items'
 import { HARD_COST_CATEGORIES, SOFT_COST_CATEGORIES, categoryOptions } from '@/lib/budget-categories'
 import type { BudgetTotals } from '@/lib/invoice-budget'
 import { InfoHint } from '@/components/ui/info-hint'
+import { LockedField } from '@/components/ui/locked-field'
 import { BudgetLineDetail } from '@/components/projects/budget-line-detail'
 import {
   type ContractType, type Profit, CONTRACT_TYPES, CONTRACT_LABEL, CONTRACT_BLURB,
@@ -278,11 +279,15 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
 
   // Persist the markup % (as a fraction) on the project. Reuses the payments
   // fee endpoint - markup and the billed contractor fee are the same number.
-  async function saveMarkup() {
+  async function saveMarkup() { return saveMarkupValue(markupPct) }
+
+  // Takes the value rather than reading state: the locked field hands over the
+  // committed draft, and state set in the same tick would still be the old one.
+  async function saveMarkupValue(raw: string) {
     setSavingMarkup(true)
     try {
       const token = await getToken()
-      const frac = Math.max(0, (Number(markupPct) || 0) / 100)
+      const frac = Math.max(0, (Number(raw) || 0) / 100)
       await fetch(`/api/projects/${params.id}/payments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -295,14 +300,16 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
 
   // Persist the sellout on the project. Blank clears it back to "no figure yet",
   // which is different from a sellout of zero.
-  async function saveSellout() {
+  async function saveSellout() { return saveSelloutValue(sellout) }
+
+  async function saveSelloutValue(raw: string) {
     setSavingSellout(true)
     try {
       const token = await getToken()
       await fetch(`/api/projects/${params.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ sellout_amount: sellout.trim() === '' ? null : Number(sellout) || 0 }),
+        body: JSON.stringify({ sellout_amount: raw.trim() === '' ? null : Number(raw) || 0 }),
       })
     } finally {
       setSavingSellout(false)
@@ -1038,12 +1045,18 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                 Markup <span className="text-faint font-normal">· your fee on cost</span>
                 <InfoHint className="ml-1 align-middle" text={'The percentage you add on top of every cost.\n\nOn a cost-plus job this IS what you are paid, so it is the only revenue figure this screen needs.\n\nIt is the default rate. Any single invoice can be billed at cost or given its own percent on the Invoices tab - a permit fee or a pass-through does not have to follow it - and the fee earned here follows those, not this.'} />
               </label>
-              <div className="flex items-center gap-1.5">
-                <Input type="number" min="0" step="0.5" value={markupPct}
-                  onChange={e => setMarkupPct(e.target.value)} onBlur={saveMarkup} className="w-20 h-9" />
-                <span className="text-sm font-medium text-muted-fg">%</span>
-                {savingMarkup && <span className="text-xs text-faint">saving…</span>}
-              </div>
+              {/* Read-only until you ask to change it. This drives what the
+                  client is billed, and as a live input it sat one stray click
+                  away from moving on a screen people scroll through to READ. */}
+              <LockedField
+                ariaLabel="markup percent"
+                value={markupPct}
+                display={`${Number(markupPct) || 0}%`}
+                suffix="%"
+                inputClassName="w-20"
+                saving={savingMarkup}
+                onSave={next => { setMarkupPct(next); saveMarkupValue(next) }}
+              />
             </div>
           ) : (
             <div>
@@ -1056,12 +1069,17 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                   + '\n\nProfit is measured against it: as the budget fills in, and again against what has actually been spent.'
                 } />
               </label>
-              <div className="flex items-center gap-1.5">
-                <span className="text-sm text-muted-fg">$</span>
-                <Input type="number" min="0" step="1000" value={sellout} placeholder={revAsk}
-                  onChange={e => setSellout(e.target.value)} onBlur={saveSellout} className="w-36 h-9" />
-                {savingSellout && <span className="text-xs text-faint">saving…</span>}
-              </div>
+              {/* Same reasoning as the markup: this is what profit is measured
+                  against, so it does not sit live under the cursor. */}
+              <LockedField
+                ariaLabel={revLabel.toLowerCase()}
+                value={sellout}
+                display={selloutNum != null ? money(selloutNum) : 'Not set'}
+                prefix="$"
+                inputClassName="w-36"
+                saving={savingSellout}
+                onSave={next => { setSellout(next); saveSelloutValue(next) }}
+              />
             </div>
           )}
 
