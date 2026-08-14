@@ -20,8 +20,6 @@ move it to **In progress**, and when it ships, move it to **Done** with the PR #
 - **CompanyCam** - jobsite photos.
 - **Procore / Autodesk Construction Cloud** - for GCs who also run Procore.
 
-- **Cost-plus proposal PDF** *(deferred, PR #267)* - the "Generate Proposal" PDF prices a job as a lump sum: cost x (1 + markup) = one client price. That is a fixed-price bid, and it is the wrong document for a cost-plus job, where what you send is a RATE plus an estimate of costs. Now that projects carry a `contract_type`, the proposal could switch shape on cost-plus: estimated cost of work, the fee percent, and an estimated total marked clearly as an estimate rather than a price. Left alone for now because it is a document-design job, not a wiring one.
-
 ## 📣 Notifications & comms
 - **Transactional email (Resend/SendGrid)** - biggest "feels unfinished" gap. Quote/compliance/inspection flows already produce messages; today they're in-app + mailto. Make them real emails.
 - **SMS reminders (Twilio)** - "text a receipt" for Materials, "inspection ready" to the scheduler, payment receipts to clients. Universal alternative to Ramp's receipt-texts. Smaller build, works for everyone.
@@ -82,6 +80,8 @@ Shipped in #218: bulk creation makes a site + a job per unit/floor/house, with a
 ---
 
 ## ✅ Recently shipped (for reference)
+- Contract type on projects (cost-plus / fixed price / building to sell): the Budget tab stops showing a contract-value box AND a markup box with "leave it empty on cost-plus" under them; real profit on cost-plus from the fee actually earned; per-invoice markup controls no longer hidden when the project rate is 0 (#267)
+- Cost-plus proposal PDF: on a cost-plus job the proposal now prints estimated cost of work + contractor's fee at its stated percent + an estimated total, plainly labelled an estimate rather than a fixed price, with cost-plus terms (#268)
 - Selections board: homeowner choices with allowances and lead-time-driven decide-by dates, a 21-category starter board, options with prices, client picks on the existing portal link, over-allowance → one-click change order (#232)
 - Item lists: priced line items on an RFQ - takeoff/paste/manual entry, header-scoring importer verified against two real takeoffs, sub prices each line on their link, GC compares line by line (#231)
 - Architecture map: interactive `docs/architecture/architecture.html` + machine-readable `architecture.json` (nodes/edges/25 flows) for AI agents, with a validating build step (#207)

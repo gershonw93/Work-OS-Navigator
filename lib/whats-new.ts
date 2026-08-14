@@ -71,6 +71,12 @@ export const RELEASES: Release[] = [
         help: 'add-project-budget',
       },
       {
+        kind: 'improved',
+        title: 'The proposal reads like a cost-plus proposal on a cost-plus job',
+        text: 'Generate Proposal took every budget line, added your markup and printed one bold total at the bottom - which is exactly right for a fixed price, where that number is a promise. On cost-plus you are not promising a number, you are promising a method: actual cost, plus your fee. A client who reads a bold total as a fixed quote will hold you to it. A cost-plus job now prints the estimated cost of work, your contractor\'s fee on its own line at its stated percent, and an estimated total that says it is an estimate - with a line at the top spelling out the basis before any figure appears, and cost-plus terms instead of "pricing covers the scope described here". The bottom line is the same number either way; only what the document claims about it has changed.',
+        help: 'estimate-proposal',
+      },
+      {
         kind: 'fixed',
         title: 'Per-invoice markup was hidden on jobs with no default rate',
         text: 'The "bill this at cost" tick and the custom percent on each sub invoice only appeared once a project markup rate was set. On a cost-plus job priced line by line - where you set each one deliberately and have no house rate - there was no way to mark up the first invoice at all. They now show on every cost-plus job whatever the default is. The Budget tab also points at where they live, which is the Invoices tab: you mark up a real cost, not a budget line, because a budget line is a forecast and nobody bills a forecast.',
