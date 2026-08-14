@@ -17,6 +17,7 @@ import {
   ShieldAlert, BadgeCheck, Paperclip, FileText, Download, Send, PenLine, Check,
 } from 'lucide-react'
 import { ACCEPT_DOCS } from '@/lib/file-accept'
+import { usePreviewUrls } from '@/lib/use-preview-urls'
 
 const SURVEY_QUESTIONS = [
   { key: 'accidents', label: 'Safety incidents or injuries today?' },
@@ -108,13 +109,11 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
   const [subsOnSite, setSubsOnSite] = useState<{ id: string; company_id: string; name: string; workers: number }[]>([])
   const [workersOnSite, setWorkersOnSite] = useState<{ name: string; role: string }[]>([])
   const [photos, setPhotos] = useState<File[]>([])
-  const [photoPreviews, setPhotoPreviews] = useState<string[]>([])
   const [photoSubs, setPhotoSubs] = useState<string[]>([]) // subcontract id per photo index
   const [photoCats, setPhotoCats] = useState<string[]>([]) // category per photo index
 
   // Add-photos-to-existing-log (per expanded log)
   const [moreFiles, setMoreFiles] = useState<File[]>([])
-  const [morePreviews, setMorePreviews] = useState<string[]>([])
   const [moreSubs, setMoreSubs] = useState<string[]>([])
   const [moreCats, setMoreCats] = useState<string[]>([])
   const [photoUploading, setPhotoUploading] = useState(false)
@@ -233,22 +232,21 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
     fetchContext()
   }, [params.id])
 
+  // Derived from the files themselves - no second copy to keep in sync, and no
+  // base64 duplicate of every photo sitting in memory.
+  const photoPreviews = usePreviewUrls(photos)
+  const morePreviews = usePreviewUrls(moreFiles)
+
   function addPhoto(files: FileList | null) {
     if (!files) return
     const newFiles = Array.from(files)
     setPhotos(prev => [...prev, ...newFiles])
     setPhotoSubs(prev => [...prev, ...newFiles.map(() => '')])
     setPhotoCats(prev => [...prev, ...newFiles.map(() => '')])
-    newFiles.forEach(f => {
-      const reader = new FileReader()
-      reader.onload = e => setPhotoPreviews(prev => [...prev, e.target?.result as string])
-      reader.readAsDataURL(f)
-    })
   }
 
   function removePhoto(idx: number) {
     setPhotos(prev => prev.filter((_, i) => i !== idx))
-    setPhotoPreviews(prev => prev.filter((_, i) => i !== idx))
     setPhotoSubs(prev => prev.filter((_, i) => i !== idx))
     setPhotoCats(prev => prev.filter((_, i) => i !== idx))
   }
@@ -259,15 +257,10 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
     setMoreFiles(prev => [...prev, ...arr])
     setMoreSubs(prev => [...prev, ...arr.map(() => '')])
     setMoreCats(prev => [...prev, ...arr.map(() => '')])
-    arr.forEach(f => {
-      const reader = new FileReader()
-      reader.onload = e => setMorePreviews(prev => [...prev, e.target?.result as string])
-      reader.readAsDataURL(f)
-    })
   }
 
   function clearMorePhotos() {
-    setMoreFiles([]); setMorePreviews([]); setMoreSubs([]); setMoreCats([])
+    setMoreFiles([]); setMoreSubs([]); setMoreCats([])
   }
 
   async function tagPhoto(logId: string, photoId: string, patch: { subcontract_id?: string | null; category?: string | null }) {
@@ -390,7 +383,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
     setWeatherCondition(''); setTemperature(''); setNotes('')
     setHasIssues(false); setIssueDescription('')
     setDelays([]); setSubsOnSite([]); setWorkersOnSite([])
-    setPhotos([]); setPhotoPreviews([]); setPhotoSubs([]); setPhotoCats([]); setError(null)
+    setPhotos([]); setPhotoSubs([]); setPhotoCats([]); setError(null)
     setWeatherChip(null)
     setSurvey(blankSurvey()); setSafetyObs(''); setQualityObs('')
     setAttachments([]); setSigBlob(null); setSigName(''); setSigMode('draw')
@@ -1047,7 +1040,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                   {photoPreviews.map((src, i) => (
                     <div key={i} className="space-y-1.5">
                       <div className="relative group">
-                        <img src={src} alt="" className="h-24 w-full object-cover rounded-lg border border-line" />
+                        <img src={src} alt="" loading="lazy" decoding="async" className="h-24 w-full object-cover rounded-lg border border-line" />
                         <button type="button" onClick={() => removePhoto(i)}
                           className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-danger-solid text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                           <X className="h-3 w-3" />
@@ -1461,9 +1454,9 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                                   {morePreviews.map((src, i) => (
                                     <div key={i} className="space-y-1.5">
                                       <div className="relative group">
-                                        <img src={src} alt="" className="h-24 w-full object-cover rounded-lg border border-line" />
+                                        <img src={src} alt="" loading="lazy" decoding="async" className="h-24 w-full object-cover rounded-lg border border-line" />
                                         <button type="button" onClick={() => {
-                                          setMoreFiles(p => p.filter((_, j) => j !== i)); setMorePreviews(p => p.filter((_, j) => j !== i))
+                                          setMoreFiles(p => p.filter((_, j) => j !== i))
                                           setMoreSubs(p => p.filter((_, j) => j !== i)); setMoreCats(p => p.filter((_, j) => j !== i))
                                         }} className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-danger-solid text-white flex items-center justify-center opacity-0 group-hover:opacity-100"><X className="h-3 w-3" /></button>
                                       </div>

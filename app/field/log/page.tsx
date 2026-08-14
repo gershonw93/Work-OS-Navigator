@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Camera, Loader2, X, MapPin, Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
+import { usePreviewUrls } from '@/lib/use-preview-urls'
 
 interface Project { id: string; name: string }
 
@@ -37,6 +38,11 @@ export default function FieldLog() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  // Made once per file and revoked when it goes. This was
+  // URL.createObjectURL(f) inline in render, which minted a fresh blob URL on
+  // EVERY render and never revoked one - on the phone that takes the photos.
+  const previews = usePreviewUrls(photos)
 
   function addPhotos(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
@@ -116,7 +122,7 @@ export default function FieldLog() {
           {photos.map((f, i) => (
             <div key={i} className="relative aspect-square overflow-hidden rounded-xl border border-line">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={URL.createObjectURL(f)} alt="" className="h-full w-full object-cover" />
+              <img src={previews[i]} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
               <button
                 onClick={() => setPhotos(p => p.filter((_, j) => j !== i))}
                 className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white"
