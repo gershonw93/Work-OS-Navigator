@@ -53,6 +53,8 @@ interface Invoice {
   /** Cost-plus: own rate as a percent, null follows the project rate. */
   markup_pct?: number | null
   markup_excluded?: boolean | null
+  /** Already passed on to the client on a client invoice. */
+  client_billed?: boolean
 }
 
 export default function InvoicesPage({ params }: { params: { id: string } }) {
@@ -542,6 +544,27 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
                     )}
                     {savingMarkup === invoice.id && <span className="text-faint">saving…</span>}
                   </div>
+                  {/* The step that kept getting dropped: a sub's bill is
+                      approved, and then nobody passes it on. Offer it here,
+                      where the cost is, instead of expecting someone to go and
+                      find it again in a list of billable costs. */}
+                  {billingMode !== 'aia' && ACTUAL_STATUSES.has(invoice.status) && (
+                    <div className="border-t border-accent/20 pt-2 text-xs">
+                      {invoice.client_billed ? (
+                        <span className="inline-flex items-center gap-1.5 text-success">
+                          <CheckCircle2 className="h-3.5 w-3.5" /> Already billed to the client
+                        </span>
+                      ) : (
+                        <a href={`/projects/${params.id}/payments?bill=${invoice.id}`}
+                          className="inline-flex items-center gap-1.5 font-semibold text-accent-fg hover:underline">
+                          Bill the client for this
+                          <span className="font-normal text-muted-fg">
+                            - ${m.clientPrice.toLocaleString()} on a new client invoice
+                          </span>
+                        </a>
+                      )}
+                    </div>
+                  )}
                 </div>
               )
             })()}
@@ -1113,7 +1136,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
 
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Invoices</h1>
+          <h1 className="text-2xl font-bold text-ink">Bills from subs</h1>
           {/* Says whose bills these are and what to do with them. "Send" used
               to be in here, which read as if you invoiced the sub. */}
           <p className="text-sm text-muted-fg mt-0.5">

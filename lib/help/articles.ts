@@ -494,7 +494,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     blocks: [
       { type: 'text', text: 'FIRST THE BUDGET TAB ASKS HOW THE JOB PAYS YOU. Three answers: COST-PLUS (you bill what it costs plus a percentage - the markup is your pay), FIXED PRICE (one agreed number, and you keep whatever is left after costs), or BUILDING TO SELL (no client - revenue is the sale price). You answer once and the screen settles.' },
       { type: 'text', text: 'WHY IT ASKS. Before this it showed a "what are you charging for this job?" box and a markup box at the same time, with "leave it empty on cost-plus" underneath - because it did not know which kind of job it was and was leaving you to work it out. On a cost-plus custom home that box is asking a question the job has no answer to. Billing method (simple or AIA) does not tell it either: that is how you INVOICE, not how you are PAID.' },
-      { type: 'text', text: 'ON COST-PLUS the screen tracks your markup, and there is no contract-value box at all. Your fee is the profit: the panel shows the markup across the whole budget, and once costs land, the fee actually EARNED. That earned figure is worked out invoice by invoice, so anything you billed at cost or gave its own percent is respected - it is not the rate multiplied by your spend. It is the same number Payments & Escrow reports, from the same calculation.' },
+      { type: 'text', text: 'ON COST-PLUS the screen tracks your markup, and there is no contract-value box at all. Your fee is the profit: the panel shows the markup across the whole budget, and once costs land, the fee actually EARNED. That earned figure is worked out invoice by invoice, so anything you billed at cost or gave its own percent is respected - it is not the rate multiplied by your spend. It is the same number the Billing the client tab reports, from the same calculation.' },
       { type: 'text', text: 'ON FIXED PRICE OR BUILDING TO SELL it asks for the figure instead - your CONTRACT VALUE on a job with a client, the SELLOUT on one you are building to sell. Profit is that less what the job is budgeted to cost, and once costs land, against what has actually been spent.' },
       { type: 'text', text: 'PROFIT IS ONLY EVER SHOWN AGAINST A FIGURE YOU ACTUALLY GAVE IT. It used to fall back to cost plus your markup and print that as "projected profit", so a job whose price nobody had entered still showed a confident green number the app had invented. If the figure is missing the panel does not draw at all.' },
       { type: 'text', text: 'It stays on the screen at every stage, not just while planning. "Am I still making money on this" is the question you ask MOST once work has started, and the "against actual spend" figure only means anything once costs have landed.' },
@@ -505,7 +505,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'Projected profit and margin appear next to it, and profit against actual spend once costs start landing.',
       ] },
       { type: 'tip', text: 'Change the answer any time in Edit project. If you mostly do one kind of work, set it once in Settings → Company and new jobs start there.' },
-      { type: 'text', text: 'MARKUP is the rate, and on a cost-plus job it is the default rather than the last word. Any single invoice can be billed at cost or given its own percent on the Invoices tab - a permit fee or a pass-through does not have to follow the job rate. That is set per invoice on purpose: you mark up a real cost, not a budget line, because a budget line is a forecast and nobody bills a forecast.' },
+      { type: 'text', text: 'MARKUP is the rate, and on a cost-plus job it is the default rather than the last word. Any single invoice can be billed at cost or given its own percent on the Bills from subs tab - a permit fee or a pass-through does not have to follow the job rate. That is set per invoice on purpose: you mark up a real cost, not a budget line, because a budget line is a forecast and nobody bills a forecast.' },
       { type: 'text', text: 'Before a job is won the markup also drives the client price on your proposal. On a cost-plus job that estimate bar reads the rate you set above rather than offering a second box writing the same field.' },
       { type: 'text', text: 'On a multi-unit site, set the figure on each unit. The site\'s Jobs tab then totals it against total cost and shows the projected profit for the whole building, with the margin. Units you have not priced yet are marked, and the total says "partial" so you know the number is not final.' },
       { type: 'text', text: 'This is deliberately just revenue minus cost. SyteNav does not model land acquisition, a loan or equity stack, draw schedules, or an exit - if you run a full development pro-forma, keep doing that in your own model and use this to keep the construction side honest.' },
@@ -606,8 +606,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
     summary: 'The big picture: money in from the client, money out to vendors, and your fee.',
     blocks: [
       { type: 'text', text: 'Money flows two ways. IN from your client (recorded as client payments) and OUT to vendors (subcontracts → invoices → payments). Your profit is a cost-plus fee: a percentage on top of vendor costs.' },
-      { type: 'text', text: 'WHICH TAB IS WHICH. Money OUT - the bills your subs and suppliers send you - lives on INVOICES, one per bill, each landing on a budget line. Money IN depends on how the job bills: an AIA job invoices the owner from PAY APPS (the G702 application you print is the bill you send), and a simple job records what the client has paid on PAYMENTS & ESCROW.' },
-      { type: 'text', text: 'BILLING THE CLIENT on a simple-billing job happens on Payments & Escrow, under "Invoices to your client". Click "Bill the client", tick the costs going on this one - approved sub invoices and material receipts, each already showing its markup - and raise it. Nothing is retyped, and a cost can only ever appear on one client invoice, so the same bill cannot go out twice. Delete a draft and its costs go back to being billable.' },
+      { type: 'text', text: 'WHICH TAB IS WHICH. Money OUT - the bills your subs and suppliers send you - lives on BILLS FROM SUBS, one per bill, each landing on a budget line. Money IN depends on how the job bills: an AIA job invoices the owner from PAY APPS (the G702 application you print is the bill you send), and a simple job records what the client has paid on PAYMENTS & ESCROW.' },
+      { type: 'text', text: 'BILLING THE CLIENT on a simple-billing job happens on the Billing the client tab (it was called Payments & Escrow), under "Invoices to your client". Click "Bill the client", tick the costs going on this one - approved sub invoices and material receipts, each already showing its markup - and raise it. Nothing is retyped, and a cost can only ever appear on one client invoice, so the same bill cannot go out twice. Delete a draft and its costs go back to being billable.' },
       { type: 'text', text: 'ONE TICK BOX DECIDES WHAT THEY SEE. "Show the client the cost and my markup" prints every line as cost + your percentage = amount, with cost of work and contractor\'s fee broken out at the bottom - the open-book presentation a cost-plus contract usually requires. Leave it off and the client sees one amount per line and one total, with your margin nowhere on the document.' },
       { type: 'text', text: 'SENDING IT. "Issue & get link" turns a draft into a real invoice and creates a link for it. Copy the link, or click Email to open your own mail client with the message and link already written. Your client opens it with no account and no sign-up - it works on a phone - and can print or save it as a PDF from there. The list shows whether they have opened it yet, which answers most of the "did they even get it" phone calls.' },
       { type: 'tip', text: 'The link is made once, when you issue the invoice, and never regenerated - so a link already sitting in somebody\'s inbox keeps working. A draft has no link; a cancelled invoice stops working on the one it had.' },
@@ -618,7 +618,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'Mark the invoice paid → cash actually leaves.',
         'Record client payments → money in. Your fee = billed × fee%. Escrow = received − paid out − fee.',
       ] },
-      { type: 'text', text: 'COST-PLUS MARKUP is applied per invoice, which is how it is actually billed. The electrician sends you $35,000, your 15% goes on top, and the client owes $40,250. Open any sub invoice and it shows cost, markup and what to bill, and the top of the Invoices tab totals it across everything approved so far. On a job set to cost-plus these controls are always there, whatever your default rate is - they used to appear only once a project rate was set, which left a job priced line by line with no way to mark up its first invoice.' },
+      { type: 'text', text: 'COST-PLUS MARKUP is applied per invoice, which is how it is actually billed. The electrician sends you $35,000, your 15% goes on top, and the client owes $40,250. Open any sub invoice and it shows cost, markup and what to bill, and the top of the Bills from subs tab totals it across everything approved so far. On a job set to cost-plus these controls are always there, whatever your default rate is - they used to appear only once a project rate was set, which left a job priced line by line with no way to mark up its first invoice.' },
       { type: 'text', text: 'Two things you can change on any single invoice. Tick "Bill this at cost - no markup" for a permit fee, a deposit the client paid direct, or anything you agreed to pass through; it then bills at exactly what it cost. Or type a different percent for one you negotiated separately.' },
       { type: 'tip', text: 'Leaving the percent BLANK is not the same as typing 0. Blank means "follow the project rate", so if you change your markup later that invoice moves with it. Typing 0 fixes that invoice at no markup for good.' },
       { type: 'tip', text: 'Master Money (admin only) rolls all of this up across every project in one table.' },
@@ -632,9 +632,9 @@ export const HELP_ARTICLES: HelpArticle[] = [
     keywords: ['invoice', 'bill', 'create', 'sub', 'vendor', 'no account', 'budget line', 'which line', 'lands on'],
     summary: 'You record the vendor\'s bill yourself and can attach their actual file.',
     blocks: [
-      { type: 'text', text: 'Subs never need a SyteNav account. You create the invoice for them on the Invoices tab.' },
+      { type: 'text', text: 'Subs never need a SyteNav account. You create the invoice for them on the Bills from subs tab.' },
       { type: 'steps', items: [
-        'Open the project and go to the Invoices tab.',
+        'Open the project and go to the Bills from subs tab.',
         'Click Create Invoice and pick the subcontractor.',
         'Bill by a fixed amount, a percent of the contract, or a payment-schedule milestone.',
         'Add a description and due date, then create.',
@@ -655,7 +655,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     blocks: [
       { type: 'text', text: 'These are bills your subs sent YOU, so every step here is about paying them - nothing gets sent to the sub. (The step that used to read "Mark Sent to Sub" now reads "Mark Sent for Payment", which is what it always did.)' },
       { type: 'steps', items: [
-        'On the Invoices tab, open an invoice.',
+        'On the Bills from subs tab, open an invoice.',
         'Click Approve - it now counts as a real cost in your Budget and Financials.',
         'Click Mark Paid when the money goes out.',
         'Optionally, use Mark Sent for Payment in between - it records that the bill has been released to be paid (handed to a bookkeeper, queued in the next payment run) without saying it has been paid yet.',
@@ -674,7 +674,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     summary: 'Upload conditional or unconditional lien waivers per invoice.',
     blocks: [
       { type: 'steps', items: [
-        'Open the invoice on the Invoices tab.',
+        'Open the invoice on the Bills from subs tab.',
         'In the Lien Waiver section, upload a Conditional or Unconditional waiver (PDF, image, or doc).',
         'The waiver is stored on the invoice with the upload date and a view link.',
       ] },

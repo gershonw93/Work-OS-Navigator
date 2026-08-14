@@ -96,6 +96,24 @@ export function ClientInvoices({ projectId }: { projectId: string }) {
 
   useEffect(() => { load() }, [load])
 
+  // Arriving from "Bill the client for this" on a sub's bill: open the composer
+  // with that one cost already ticked. Approving a sub bill and then hunting
+  // for it in a list of billable costs is the step people were dropping.
+  const [prefilled, setPrefilled] = useState(false)
+  useEffect(() => {
+    if (prefilled || loading || !billable.length) return
+    const wanted = new URLSearchParams(window.location.search).get('bill')
+    if (!wanted) return
+    const hit = billable.find(b => b.kind === 'invoice' && b.source_id === wanted)
+    if (hit) {
+      setPicked(new Set([`${hit.kind}:${hit.source_id}`]))
+      setBuilding(true)
+      // Leave the URL clean so a refresh does not re-open the composer.
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+    setPrefilled(true)
+  }, [prefilled, loading, billable])
+
   const key = (b: Billable) => `${b.kind}:${b.source_id}`
   const chosen = billable.filter(b => picked.has(key(b)))
   const totals = chosen.reduce(

@@ -23,6 +23,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     { data: subs },
     { data: changeOrders },
     { data: projectRow },
+    { data: clientBills },
   ] = await Promise.all([
     db
       .from('invoices')
@@ -52,6 +53,13 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .select('billing_mode, contractor_fee_pct, contract_type')
       .eq('id', params.id)
       .maybeSingle(),
+    // Which of these have already been passed on to the client. Without it the
+    // "bill the client for this" action would offer to bill the same cost
+    // twice - the unique index would refuse it, but only after the click.
+    db
+      .from('client_invoices')
+      .select('client_invoice_lines(source_invoice_id)')
+      .eq('project_id', params.id),
   ])
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -68,9 +76,17 @@ export async function GET(request: Request, { params }: { params: { id: string }
   })
   const dests = destinationsBySubcontract(rolled)
 
+  const clientBilled = new Set<string>()
+  for (const b of (clientBills ?? []) as any[]) {
+    for (const l of (b.client_invoice_lines ?? [])) {
+      if (l.source_invoice_id) clientBilled.add(l.source_invoice_id)
+    }
+  }
+
   const invoices = (data ?? []).map((inv: any) => ({
     ...inv,
     budget_line: inv.subcontract_id ? dests.get(inv.subcontract_id) ?? null : null,
+    client_billed: clientBilled.has(inv.id),
   }))
 
   return NextResponse.json({
