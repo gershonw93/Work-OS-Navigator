@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { appOrigin } from '@/lib/app-url'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -45,7 +46,9 @@ export async function POST(request: Request) {
   // request's own host so the callback always lands on the domain the app is
   // actually served from (never a stale hardcoded default).
   const origin = (() => { try { return new URL(request.url).origin } catch { return null } })()
-  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? origin ?? 'https://www.sytenav.com').replace(/\/$/, '')
+  // APP url, not SITE url. SITE_URL is the marketing domain; an invite sent
+  // there lands the recipient on a page that cannot finish signing them in.
+  const siteUrl = appOrigin(origin)
   const { error: inviteError } = await db.auth.admin.inviteUserByEmail(email, {
     data: { company_id, role: role ?? 'read_only', full_name: body.full_name ?? '' },
     redirectTo: `${siteUrl}/auth/callback`,

@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { clientAppOrigin } from '@/lib/app-url'
 
 export default function ForgotPasswordPage() {
   const supabase = createClient()
@@ -21,7 +22,11 @@ export default function ForgotPasswordPage() {
     setLoading(true)
 
     const { error: authError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin + '/reset-password',
+      // The app domain when one is configured, otherwise wherever this page
+      // actually is. Supabase only honours this if it matches an entry in the
+      // project's Redirect URLs - otherwise it silently falls back to the
+      // dashboard's Site URL, which is how a stale link gets emailed out.
+      redirectTo: clientAppOrigin() + '/reset-password',
     })
 
     setLoading(false)
