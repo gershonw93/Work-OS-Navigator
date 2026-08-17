@@ -52,6 +52,38 @@ export const HELP_CATEGORIES: HelpCategory[] = [
 export const HELP_ARTICLES: HelpArticle[] = [
   // ── Getting Started ────────────────────────────────────────────────────────
   {
+    slug: 'set-up-existing-job',
+    title: 'Set up a job that has already started',
+    category: 'getting-started',
+    keywords: [
+      'set up', 'setup', 'checklist', 'onboard', 'onboarding', 'existing job',
+      'already started', 'mid job', 'migrate', 'move a job in', 'where do i start',
+      'first steps', 'tutorial', 'walkthrough', 'order', 'what comes first',
+      'add contacts', 'add people', 'add subs',
+    ],
+    summary: 'The order to put an in-progress job into SyteNav, and why that order.',
+    blocks: [
+      { type: 'text', text: 'Open any job and there is a "Setting up this job" bar above the tabs. It shows how far through you are, what to do next, and a button that takes you there. Open it for the full list. It disappears on its own once every step is done, and you can hide it with the x if you would rather work from this page.' },
+      { type: 'text', text: 'THE ORDER MATTERS, because each step makes the ones after it work. Doing the budget before you have said how the job pays means the screen tracks the wrong thing. Adding a sub before there is a budget line gives their bills nowhere to land. Asking for insurance before you have named the sub is asking nobody.' },
+      { type: 'steps', items: [
+        'JOB DETAILS. Address and dates. The address puts it on the map; the dates drive the schedule and every "is this late" answer.',
+        'HOW THE JOB PAYS YOU. Cost-plus, fixed price, or building to sell. Do this before the budget - it decides whether the Budget tab tracks your markup or a contract value.',
+        'THE CLIENT. Who the invoices and the portal are for. Adding them now means never retyping the name onto a document later.',
+        'THE BUDGET. Import the sheet you already have rather than retyping it. Everything money-related hangs off these lines.',
+        'THE DRAWINGS. Drag the whole set onto the Plans tab at once. Subs quote off these and you can attach them to a request without re-uploading.',
+        'THE PEOPLE. Your crew and the client contacts. Anyone on the job can be assigned a task, and only people on the job see it.',
+        'THE SUBS YOU HAVE ALREADY AWARDED. Usually the biggest catch-up on a job already under way: each sub, their trade, and what they are contracted for. A subcontract is what makes money Committed, and it is what a bill attaches to.',
+        'INSURANCE AND W-9s. After the subs exist, because you are requesting from them. One link each, and they upload it themselves with no account.',
+        'THE SCHEDULE. Even roughly. It drives what shows as late, what the client sees, and the decide-by dates on selections.',
+        'THE CLIENT LINK. Last, once there is something worth looking at. One link covers progress, selections and their invoices.',
+      ] },
+      { type: 'tip', text: 'Steps marked "needed" are the ones the job genuinely cannot work without - budget, subs, contract type, client, address. The rest are worth doing but nothing breaks while they wait.' },
+      { type: 'text', text: 'CATCHING UP ON MONEY ALREADY SPENT. For a job that is part-built, add the subcontracts at their full contract value first, then enter the invoices already received against them and approve the ones you have accepted. The budget then shows the true Committed and Actual straight away rather than reading as though the job has not started. Receipts already paid go on Materials the same way.' },
+      { type: 'text', text: 'You do not have to finish in one sitting, and nothing is lost by skipping a step and coming back - the bar keeps count and always points at the next thing.' },
+    ],
+    related: ['add-project-budget', 'project-settings', 'compliance-overview', 'money-overview'],
+  },
+  {
     slug: 'what-is-sytenav',
     title: 'What is SyteNav?',
     category: 'getting-started',

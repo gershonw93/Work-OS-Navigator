@@ -6,6 +6,7 @@ import { SharePortalButton } from '@/components/layout/share-portal-button'
 import { TeamQuickView } from '@/components/layout/team-quick-view'
 import { EditProjectButton } from '@/components/layout/edit-project-button'
 import { ProjectStatusSwitch } from '@/components/layout/project-status-switch'
+import { SetupChecklist } from '@/components/projects/setup-checklist'
 
 interface ProjectLayoutProps {
   children: ReactNode
@@ -76,8 +77,10 @@ export default async function ProjectLayout({ children, params }: ProjectLayoutP
         </div>
       </div>
 
-      {/* Tabs */}
       <div className="print:hidden">
+        {/* What is still missing on this job, in the order that works. One line
+            until you open it, gone once every step is done. */}
+        <SetupChecklist projectId={params.id} />
         <ProjectTabs projectId={params.id} />
       </div>
 
