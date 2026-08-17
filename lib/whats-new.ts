@@ -53,6 +53,13 @@ export const RELEASES: Release[] = [
     items: [
       {
         kind: 'new',
+        title: 'A setup checklist for a job that is already under way',
+        text: 'Putting a job that has already started into SyteNav meant working out for yourself what to enter and in what order. Every job now carries a "Setting up this job" bar above the tabs: how far through you are, what to do next, and a button that takes you straight there. Open it for the whole list. The order is the advice - say how the job pays BEFORE the budget, because it decides what the budget tracks; add the subs before requesting their insurance, because otherwise you are asking nobody; share the client link last, once there is something worth looking at. Steps the job genuinely cannot work without are marked "needed". It disappears by itself once everything is done, and the x hides it for good on that job. The same walkthrough is in Help under "Set up a job that has already started", including how to catch up on money already spent.',
+        help: 'set-up-existing-job',
+        href: '/projects',
+      },
+      {
+        kind: 'new',
         title: 'Tell it how the job pays, once',
         text: 'Cost-plus, fixed price, or building to sell. The Budget tab used to show a "what are you charging for this job?" box AND a markup box at the same time, with "leave it empty on cost-plus" underneath - because it genuinely did not know which kind of job it was looking at, and was leaving you to work it out. On a cost-plus custom home that box was asking a question the job has no answer to. Now you answer it once and the screen settles: cost-plus tracks your markup, fixed price and spec track a contract value or a sale price. Set it on a new job, change it any time in Edit project, or set what you mostly do in Settings so new jobs start there.',
         help: 'add-project-budget',
