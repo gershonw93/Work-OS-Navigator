@@ -62,11 +62,31 @@ export function EditProjectButton({ projectId, project }: Props) {
     project.contractor_fee_pct != null ? String(Math.round(Number(project.contractor_fee_pct) * 1000) / 10) : '0',
   )
   const [retainage, setRetainage] = useState(project.default_retainage_pct != null ? String(project.default_retainage_pct) : '10')
+  // Whether the setup checklist shows on this job, in this browser. Read when
+  // the dialog opens rather than on mount, so it reflects a dismissal made
+  // since the page loaded.
+  const setupKey = `sytenav:setup-dismissed:${projectId}`
+  const [showSetup, setShowSetup] = useState(true)
   const [unit, setUnit] = useState(project.unit ?? '')
   const [floor, setFloor] = useState(project.floor ?? '')
   // Only worth showing on a job inside a building. A standalone project has no
   // unit, and a site is the building itself.
   const showUnitFloor = !project.is_site && (!!project.parent_project_id || !!project.unit || !!project.floor)
+
+  useEffect(() => {
+    if (!open) return
+    try { setShowSetup(localStorage.getItem(setupKey) !== '1') } catch { setShowSetup(true) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
+  function toggleSetup(next: boolean) {
+    setShowSetup(next)
+    try {
+      if (next) localStorage.removeItem(setupKey)
+      else localStorage.setItem(setupKey, '1')
+    } catch { /* private mode - the switch just will not persist */ }
+    window.dispatchEvent(new Event('sytenav:setup-visibility'))
+  }
 
   useEffect(() => {
     if (!open) return
@@ -216,6 +236,20 @@ export function EditProjectButton({ projectId, project }: Props) {
                     Changing this switches which money tabs appear. Anything already billed the old way stays on the job.
                   </p>
                 )}
+              </div>
+
+              {/* Brings back a checklist somebody hid with the x. Without this
+                  a single mis-click would remove the guide for good. */}
+              <div className="flex items-start gap-2 rounded-lg border border-line px-3 py-2.5">
+                <input id="showSetup" type="checkbox" className="mt-0.5 accent-[#C9F24A]"
+                  checked={showSetup} onChange={e => toggleSetup(e.target.checked)} />
+                <Label htmlFor="showSetup" className="font-normal">
+                  Show the setup checklist on this job
+                  <span className="mt-0.5 block text-xs text-muted-fg">
+                    The step-by-step bar above the tabs. It hides itself once every step is done.
+                    This switch is for you on this device, not for the whole team.
+                  </span>
+                </Label>
               </div>
 
               {/* How the job PAYS, which is a different question from how it

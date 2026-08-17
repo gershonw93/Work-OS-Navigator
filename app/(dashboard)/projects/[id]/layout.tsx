@@ -58,6 +58,9 @@ export default async function ProjectLayout({ children, params }: ProjectLayoutP
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2 lg:shrink-0">
+            {/* A chip in the row of controls that already exists, rather than
+                another band across the top. Everything else is behind it. */}
+            <SetupChecklist projectId={params.id} />
             <TeamQuickView projectId={params.id} />
             <SharePortalButton projectId={params.id} />
             <ProjectActivityButton projectId={params.id} />
@@ -78,9 +81,6 @@ export default async function ProjectLayout({ children, params }: ProjectLayoutP
       </div>
 
       <div className="print:hidden">
-        {/* What is still missing on this job, in the order that works. One line
-            until you open it, gone once every step is done. */}
-        <SetupChecklist projectId={params.id} />
         <ProjectTabs projectId={params.id} />
       </div>
 
