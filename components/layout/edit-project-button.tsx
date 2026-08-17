@@ -62,10 +62,9 @@ export function EditProjectButton({ projectId, project }: Props) {
     project.contractor_fee_pct != null ? String(Math.round(Number(project.contractor_fee_pct) * 1000) / 10) : '0',
   )
   const [retainage, setRetainage] = useState(project.default_retainage_pct != null ? String(project.default_retainage_pct) : '10')
-  // Whether the setup checklist shows on this job, in this browser. Read when
+  // Whether the setup checklist shows on this job FOR THIS PERSON. Read when
   // the dialog opens rather than on mount, so it reflects a dismissal made
-  // since the page loaded.
-  const setupKey = `sytenav:setup-dismissed:${projectId}`
+  // since the page loaded - including one made on another device.
   const [showSetup, setShowSetup] = useState(true)
   const [unit, setUnit] = useState(project.unit ?? '')
   const [floor, setFloor] = useState(project.floor ?? '')
@@ -75,16 +74,24 @@ export function EditProjectButton({ projectId, project }: Props) {
 
   useEffect(() => {
     if (!open) return
-    try { setShowSetup(localStorage.getItem(setupKey) !== '1') } catch { setShowSetup(true) }
+    ;(async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch(`/api/projects/${projectId}/setup`, {
+        headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
+      })
+      if (res.ok) setShowSetup(!(await res.json()).dismissed)
+    })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
-  function toggleSetup(next: boolean) {
+  async function toggleSetup(next: boolean) {
     setShowSetup(next)
-    try {
-      if (next) localStorage.removeItem(setupKey)
-      else localStorage.setItem(setupKey, '1')
-    } catch { /* private mode - the switch just will not persist */ }
+    const { data: { session } } = await supabase.auth.getSession()
+    await fetch(`/api/projects/${projectId}/setup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+      body: JSON.stringify({ dismissed: !next }),
+    })
     window.dispatchEvent(new Event('sytenav:setup-visibility'))
   }
 
@@ -246,8 +253,9 @@ export function EditProjectButton({ projectId, project }: Props) {
                 <Label htmlFor="showSetup" className="font-normal">
                   Show the setup checklist on this job
                   <span className="mt-0.5 block text-xs text-muted-fg">
-                    The step-by-step bar above the tabs. It hides itself once every step is done.
-                    This switch is for you on this device, not for the whole team.
+                    The panel behind the &ldquo;Setup&rdquo; button in the header. It hides itself once
+                    every step is done. This is your own setting - it follows you to any device,
+                    and does not change what anyone else on the job sees.
                   </span>
                 </Label>
               </div>
