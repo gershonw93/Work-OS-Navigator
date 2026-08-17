@@ -36,6 +36,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const [
     { data: project },
     budgetLines, plans, teamMembers, subcontracts, complianceDocs, scheduleItems, shares,
+    dismissed,
   ] = await Promise.all([
     db.from('projects')
       .select('address, client, customer_id, contract_type, billing_mode, start_date')
@@ -47,6 +48,12 @@ export async function GET(request: Request, { params }: { params: { id: string }
     count('compliance_documents'),
     count('schedule_items'),
     count('file_shares'),
+    // Per PERSON, not per browser. Hiding it on the laptop must also hide it on
+    // the phone, and must not hide it for a colleague sharing the machine.
+    db.from('project_setup_dismissals')
+      .select('user_id', { head: true, count: 'exact' })
+      .eq('project_id', params.id).eq('user_id', user.id)
+      .then(r => (r.count ?? 0) > 0, () => false),
   ])
 
   if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 })
@@ -61,5 +68,30 @@ export async function GET(request: Request, { params }: { params: { id: string }
     billingMode: p.billing_mode ?? 'simple',
   })
 
-  return NextResponse.json(progress)
+  return NextResponse.json({ ...progress, dismissed })
+}
+
+/** Hide the checklist for THIS person on this job, or bring it back. */
+export async function POST(request: Request, { params }: { params: { id: string } }) {
+  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const db = admin()
+  const { data: { user } } = await db.auth.getUser(token)
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const body = await request.json().catch(() => ({}))
+  const dismissed = !!body?.dismissed
+
+  if (dismissed) {
+    const { error } = await db.from('project_setup_dismissals')
+      .upsert({ user_id: user.id, project_id: params.id }, { onConflict: 'user_id,project_id' })
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  } else {
+    const { error } = await db.from('project_setup_dismissals')
+      .delete().eq('user_id', user.id).eq('project_id', params.id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  return NextResponse.json({ ok: true, dismissed })
 }

@@ -6,6 +6,9 @@ import { Check, X, ArrowRight, ListChecks } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { SetupProgress, SetupStep } from '@/lib/job-setup'
 
+/** What the API adds to the pure progress calculation. */
+type SetupState = SetupProgress & { dismissed: boolean }
+
 /**
  * Setting up a job that already exists, in the order that actually works.
  *
@@ -17,39 +20,23 @@ import type { SetupProgress, SetupStep } from '@/lib/job-setup'
  * So it is one small chip in the row of controls that already exists, showing
  * how far through you are, and everything else lives behind it.
  *
- * Hidden once complete, and dismissible before then - reversibly, in two ways,
- * because a single mis-click should not permanently remove a guide: Undo in
- * the drawer, and a switch in Project Settings afterwards. The dismissal is
- * per job in this browser rather than on the project, so one person hiding it
- * does not hide it for everyone else on the job.
+ * Hidden once complete, and dismissible before then - reversibly, because a
+ * single mis-click should not permanently remove a guide: Undo in the drawer,
+ * and a switch in Project Settings afterwards.
+ *
+ * The dismissal is stored per (person, job) on the SERVER. It was in
+ * localStorage, which is the browser rather than the person - hide it on the
+ * laptop and it was still there on the phone, and two people sharing a machine
+ * shared the decision. It is deliberately not on the project row either:
+ * setup guidance is personal, and an admin who knows the app should not be
+ * able to hide the walkthrough from somebody who just joined.
  */
 export function SetupChecklist({ projectId }: { projectId: string }) {
   const supabase = createClient()
-  const [data, setData] = useState<SetupProgress | null>(null)
+  const [data, setData] = useState<SetupState | null>(null)
   const [open, setOpen] = useState(false)
   const [shown, setShown] = useState(false) // drives the slide-in
-  const [dismissed, setDismissed] = useState(true) // assume hidden until checked
   const [justDismissed, setJustDismissed] = useState(false)
-
-  const storageKey = `sytenav:setup-dismissed:${projectId}`
-
-  const readDismissed = useCallback(() => {
-    try { setDismissed(localStorage.getItem(storageKey) === '1') } catch { setDismissed(false) }
-  }, [storageKey])
-
-  useEffect(() => { readDismissed() }, [readDismissed])
-
-  // Project Settings can switch it back on; listen so it reappears without a
-  // reload, and so two tabs on the same job stay in step.
-  useEffect(() => {
-    const onChange = () => { readDismissed(); setJustDismissed(false) }
-    window.addEventListener('sytenav:setup-visibility', onChange)
-    window.addEventListener('storage', onChange)
-    return () => {
-      window.removeEventListener('sytenav:setup-visibility', onChange)
-      window.removeEventListener('storage', onChange)
-    }
-  }, [readDismissed])
 
   const load = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession()
@@ -60,6 +47,24 @@ export function SetupChecklist({ projectId }: { projectId: string }) {
   }, [projectId, supabase])
 
   useEffect(() => { load() }, [load])
+
+  // Project Settings can switch it back on; reload so it reappears without a
+  // page refresh.
+  useEffect(() => {
+    const onChange = () => { setJustDismissed(false); load() }
+    window.addEventListener('sytenav:setup-visibility', onChange)
+    return () => window.removeEventListener('sytenav:setup-visibility', onChange)
+  }, [load])
+
+  const setDismissedOnServer = useCallback(async (next: boolean) => {
+    const { data: { session } } = await supabase.auth.getSession()
+    await fetch(`/api/projects/${projectId}/setup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+      body: JSON.stringify({ dismissed: next }),
+    })
+    window.dispatchEvent(new Event('sytenav:setup-visibility'))
+  }, [projectId, supabase])
 
   // Re-check when something reports a change, so a step ticks off without a
   // reload - including while the drawer is open.
@@ -92,22 +97,24 @@ export function SetupChecklist({ projectId }: { projectId: string }) {
   }
 
   function dismiss() {
-    try { localStorage.setItem(storageKey, '1') } catch { /* private mode - fine */ }
-    setDismissed(true)
+    // Optimistic, so the drawer closes onto the Undo rather than onto a
+    // spinner. The server call follows.
+    setData(d => (d ? { ...d, dismissed: true } : d))
     setJustDismissed(true)
     close()
+    setDismissedOnServer(true)
   }
 
   function restore() {
-    try { localStorage.removeItem(storageKey) } catch { /* private mode - fine */ }
-    setDismissed(false)
+    setData(d => (d ? { ...d, dismissed: false } : d))
     setJustDismissed(false)
+    setDismissedOnServer(false)
   }
 
   if (!data || data.complete) return null
 
   // Hidden, but say so once and offer it back rather than vanishing silently.
-  if (dismissed) {
+  if (data.dismissed) {
     if (!justDismissed) return null
     return (
       <span className="inline-flex items-center gap-1.5 text-xs text-muted-fg">
