@@ -63,7 +63,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     ],
     summary: 'The order to put an in-progress job into SyteNav, and why that order.',
     blocks: [
-      { type: 'text', text: 'Open any job and there is a "Setting up this job" bar above the tabs. It shows how far through you are, what to do next, and a button that takes you there. Open it for the full list. It disappears on its own once every step is done, and you can hide it with the x if you would rather work from this page.' },
+      { type: 'text', text: 'Open any job and there is a "Setup 4/10" chip in the header, next to the team and share buttons. Click it and a panel slides out from the right with the whole list: what is done, what is next, and a link straight to each one. It disappears on its own once every step is done. You can hide it from inside the panel - there is an Undo, and a switch in Project Settings to bring it back later.' },
       { type: 'text', text: 'THE ORDER MATTERS, because each step makes the ones after it work. Doing the budget before you have said how the job pays means the screen tracks the wrong thing. Adding a sub before there is a budget line gives their bills nowhere to land. Asking for insurance before you have named the sub is asking nobody.' },
       { type: 'steps', items: [
         'JOB DETAILS. Address and dates. The address puts it on the map; the dates drive the schedule and every "is this late" answer.',
