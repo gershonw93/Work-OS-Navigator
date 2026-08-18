@@ -7,7 +7,7 @@ import { Eyebrow, SectionHead } from '@/components/marketing/section'
 import { CtaBand } from '@/components/marketing/cta-band'
 
 export const metadata: Metadata = marketingMeta({
-  title: 'Pricing · SyteNav',
+  title: 'Pricing · SyteNav construction management',
   description:
     'One system instead of four. Book a setup and we will scope the right plan for your crew. SyteNav is in an invite-only beta, free while you are in it, and your subs and clients never need paid seats.',
   path: '/homepage/pricing',

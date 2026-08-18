@@ -25,7 +25,7 @@ import { CtaBand } from '@/components/marketing/cta-band'
 import { appHref } from '@/lib/hosts'
 
 export const metadata: Metadata = marketingMeta({
-  title: 'How it works · A construction project, start to finish · SyteNav',
+  title: 'How a construction project runs, start to finish · SyteNav',
   description:
     'Walk your job from the first lead to the final invoice and see exactly where SyteNav takes over: you do one thing, and the budget, notifications, schedule, and paperwork update themselves for the office, the field, and your subs.',
   path: '/homepage/workflow',

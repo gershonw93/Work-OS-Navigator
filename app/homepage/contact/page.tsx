@@ -7,7 +7,7 @@ import { ContactForm } from '@/components/marketing/contact-form'
 import { appHref } from '@/lib/hosts'
 
 export const metadata: Metadata = marketingMeta({
-  title: 'Contact · SyteNav',
+  title: 'Contact SyteNav',
   description:
     'Questions, a walkthrough, or help getting your company set up on SyteNav. We answer fast, Monday through Friday, 8am to 6pm ET.',
   path: '/homepage/contact',

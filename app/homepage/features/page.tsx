@@ -21,7 +21,7 @@ import { CtaBand } from '@/components/marketing/cta-band'
 import { appHref } from '@/lib/hosts'
 
 export const metadata: Metadata = marketingMeta({
-  title: 'Features · SyteNav',
+  title: 'Construction management features · SyteNav',
   description:
     'Every SyteNav capability in detail: AI document scanning, budgets, escrow and payments, invoices, RFQs, scheduling, daily logs, time clock, permits, inspections, RFIs, and team roles.',
   path: '/homepage/features',

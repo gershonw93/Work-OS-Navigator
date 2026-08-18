@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next'
+import { CANONICAL_ORIGIN } from '@/lib/canonical'
 
-const BASE = process.env.NEXT_PUBLIC_SITE_URL || 'https://sytenav.com'
 
 // Only the public marketing pages belong in the sitemap; the app itself is
 // behind auth and excluded via robots.ts.
@@ -29,7 +29,7 @@ const PAGES: { path: string; priority: number; changeFrequency: MetadataRoute.Si
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return PAGES.map(p => ({
-    url: `${BASE}${p.path}`,
+    url: `${CANONICAL_ORIGIN}${p.path}`,
     lastModified: new Date(),
     changeFrequency: p.changeFrequency,
     priority: p.priority,
