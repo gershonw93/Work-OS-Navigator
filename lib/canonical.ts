@@ -56,6 +56,19 @@ export function shouldRedirectToCanonical(host: string | null | undefined): bool
   return REDIRECT_HOSTS.has(host.split(':')[0].toLowerCase())
 }
 
+/**
+ * Google's ownership check, which must never be redirected.
+ *
+ * Verifying a property means Google fetching this exact file ON THAT HOST and
+ * reading it. A 301 to the real domain looks to Google like the file is not
+ * there, so the redirect that removes the duplicate would also make it
+ * impossible to prove the duplicate is yours - and proving that is what lets
+ * you request its removal.
+ */
+export function isSiteVerificationPath(pathname: string): boolean {
+  return /^\/google[0-9a-f]+\.html$/i.test(pathname)
+}
+
 /** An absolute canonical URL for a marketing path. */
 export function canonicalUrl(path: string): string {
   const p = path.startsWith('/') ? path : `/${path}`
