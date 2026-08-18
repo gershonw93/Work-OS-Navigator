@@ -14,6 +14,8 @@ import { Reveal } from '@/components/marketing/reveal'
 import { CountUp } from '@/components/marketing/count-up'
 import { SectionHead, Eyebrow } from '@/components/marketing/section'
 import { CtaBand } from '@/components/marketing/cta-band'
+import { FlowCard } from '@/components/marketing/flow-card'
+import { FLOWS } from '@/lib/flows'
 
 export const metadata: Metadata = marketingMeta({
   title: 'SyteNav · Construction management built for the field',
@@ -199,6 +201,33 @@ export default function HomePage() {
               <QuoteScanMock />
             </Reveal>
           </div>
+        </div>
+      </section>
+
+      {/* One flow, in full, before the feature grid.
+          A feature grid tells you what is in the box; this tells you what
+          happens on a Tuesday, which is the part nobody can copy off a
+          comparison table. The paint one leads because it needs no explanation
+          of what a subcontract or a COI is - everyone who has built anything
+          has eaten that $3,500. */}
+      <section className="border-y border-line bg-panel">
+        <div className="mx-auto max-w-4xl px-4 py-20 sm:px-6 sm:py-28">
+          <Reveal>
+            <SectionHead
+              eyebrow="How it actually works"
+              title="The client picks the paint they cannot afford"
+              lead="Every product has change orders. Here is what actually happens between a client tapping an upgrade and $3,500 landing on the right budget line - including what it costs you today when it does not."
+            />
+          </Reveal>
+          <Reveal delay={0.05} className="mt-10">
+            <FlowCard flow={FLOWS[0]} defaultOpen />
+          </Reveal>
+          <Reveal delay={0.1}>
+            <Link href="/homepage/flows"
+              className="mt-8 inline-flex items-center gap-1.5 text-sm font-semibold text-accent-fg transition-all hover:gap-2.5">
+              Five more flows, start to finish <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Reveal>
         </div>
       </section>
 

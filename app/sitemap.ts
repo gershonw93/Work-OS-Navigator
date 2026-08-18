@@ -8,6 +8,10 @@ const PAGES: { path: string; priority: number; changeFrequency: MetadataRoute.Si
   { path: '/homepage', priority: 1, changeFrequency: 'weekly' },
   { path: '/homepage/features', priority: 0.9, changeFrequency: 'weekly' },
   { path: '/homepage/money', priority: 0.9, changeFrequency: 'weekly' },
+  { path: '/homepage/flows', priority: 0.9, changeFrequency: 'weekly' },
+  // Was missing entirely - a page linked from the main nav that search engines
+  // were never told about.
+  { path: '/homepage/workflow', priority: 0.9, changeFrequency: 'weekly' },
   { path: '/homepage/ai', priority: 0.9, changeFrequency: 'weekly' },
   { path: '/homepage/mobile', priority: 0.8, changeFrequency: 'weekly' },
   { path: '/homepage/contractors', priority: 0.9, changeFrequency: 'weekly' },
