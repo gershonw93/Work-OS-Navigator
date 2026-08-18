@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Archivo, Saira_Condensed, Space_Mono } from 'next/font/google'
+import { CANONICAL_ORIGIN } from '@/lib/canonical'
 import './globals.css'
 
 const archivo = Archivo({
@@ -23,15 +24,21 @@ const spaceMono = Space_Mono({
   variable: '--font-space-mono',
 })
 
-// Prefer the stable production domain over the per-deployment VERCEL_URL so
-// og:image and canonical URLs stay valid when link previews are cached.
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ||
-  (process.env.VERCEL_PROJECT_PRODUCTION_URL
-    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-    : process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : 'http://localhost:3000')
+// metadataBase is the base every RELATIVE metadata URL in the app resolves
+// against - og:image, twitter:image, and any canonical given as a path.
+//
+// It used to fall back through VERCEL_PROJECT_PRODUCTION_URL and VERCEL_URL
+// when NEXT_PUBLIC_SITE_URL was unset. That variable is not set, so the base
+// silently became https://work-os-navigator.vercel.app and every page in the
+// site handed Google an og:url and og:image on the deployment domain. The
+// pages were telling Google they lived on vercel.app while their canonical
+// tags said otherwise, which is exactly the contradiction that got the
+// deployment URL indexed as a second copy of the site - and left "Vercel" as
+// the name Google prints above the result.
+//
+// CANONICAL_ORIGIN cannot fall back to whatever host served the build: env var
+// if set, the real domain otherwise. See lib/canonical.ts.
+const siteUrl = CANONICAL_ORIGIN
 
 const description =
   'Construction management built for the field. AI quote scanning, budgets, payments and escrow, invoices, scheduling, daily logs, and compliance for GCs and subs.'
