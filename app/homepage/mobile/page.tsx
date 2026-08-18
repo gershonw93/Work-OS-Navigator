@@ -13,7 +13,7 @@ import { CtaBand } from '@/components/marketing/cta-band'
 import { appHref } from '@/lib/hosts'
 
 export const metadata: Metadata = marketingMeta({
-  title: 'On the go · SyteNav on the jobsite',
+  title: 'Construction app for the jobsite · SyteNav',
   description:
     'SyteNav runs where the work is: daily logs with photos, one-tap time clock with location, tasks, schedules, and camera document scanning, all from the phone already in your pocket.',
   path: '/homepage/mobile',

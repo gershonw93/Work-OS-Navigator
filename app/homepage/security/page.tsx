@@ -9,7 +9,7 @@ import { Eyebrow } from '@/components/marketing/section'
 import { CtaBand } from '@/components/marketing/cta-band'
 
 export const metadata: Metadata = marketingMeta({
-  title: 'Security · SyteNav',
+  title: 'Security · SyteNav construction software',
   description:
     'How SyteNav protects your jobs and your money data: encryption in transit and at rest, role-based access, delete protection, backups, and AI processing that never trains on your documents.',
   path: '/homepage/security',

@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { APP_URL, SITE_URL, splitHosts, isAppPath, isMarketingPath } from '@/lib/hosts'
+import { isIndexableHost } from '@/lib/canonical'
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -97,6 +98,19 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
     return NextResponse.redirect(url)
+  }
+
+  // Belt and braces with robots.txt. A crawler that already knows a
+  // vercel.app URL - from a link, a redirect, or an old index entry - will
+  // fetch it without re-reading robots.txt, and only this header will stop it
+  // being listed. robots.txt asks; X-Robots-Tag tells.
+  // The layout needs to know which page it is wrapping so it can emit the
+  // right breadcrumb trail. A layout gets no pathname of its own, so it is
+  // passed down as a header.
+  supabaseResponse.headers.set('x-pathname', request.nextUrl.pathname)
+
+  if (!isIndexableHost(request.headers.get('host'))) {
+    supabaseResponse.headers.set('X-Robots-Tag', 'noindex, nofollow')
   }
 
   return supabaseResponse

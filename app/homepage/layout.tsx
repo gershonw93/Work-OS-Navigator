@@ -1,4 +1,7 @@
 import { ReactNode } from 'react'
+import { headers } from 'next/headers'
+import { Breadcrumbs } from '@/components/marketing/breadcrumbs'
+import { crumbsFor } from '@/lib/breadcrumbs'
 import { MarketingNav } from '@/components/marketing/marketing-nav'
 import { MarketingFooter } from '@/components/marketing/marketing-footer'
 
@@ -34,9 +37,15 @@ const jsonLd = {
 }
 
 export default function MarketingLayout({ children }: { children: ReactNode }) {
+  // Middleware hands the path down, because a layout is not told which page it
+  // is wrapping. Without it every result shows Google's own guess at a trail,
+  // which is where "> homepage >" came from.
+  const crumbs = crumbsFor(headers().get('x-pathname'))
+
   return (
     <div className="min-h-screen bg-surface text-ink">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      {crumbs && <Breadcrumbs trail={crumbs} />}
       <MarketingNav />
       <main>{children}</main>
       <MarketingFooter />

@@ -14,7 +14,7 @@ import { BudgetLineAnatomy } from '@/components/marketing/budget-line-anatomy'
 import { MoneyMock } from '@/components/marketing/money-mock'
 
 export const metadata: Metadata = marketingMeta({
-  title: 'The money side · SyteNav',
+  title: 'Construction budgets, invoices & payments · SyteNav',
   description:
     'Preconstruction and soft costs, hard cost budgets, sellout and projected profit, buy-out and line-by-line bid comparison, client selections and allowances, invoices, AIA pay applications, client payments and escrow - one system where every number carries from the estimate to the bank.',
   path: '/homepage/money',

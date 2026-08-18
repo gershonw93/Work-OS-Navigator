@@ -9,7 +9,7 @@ import { FlowCard } from '@/components/marketing/flow-card'
 import { FLOWS } from '@/lib/flows'
 
 export const metadata: Metadata = marketingMeta({
-  title: 'Where jobs leak money · SyteNav',
+  title: 'Where construction jobs leak money · SyteNav',
   description:
     'Six real flows, start to finish: a client picking an upgrade over allowance, bringing a sub on from quote to first bill, a supplier invoice split across two trades, cost-plus billed per invoice, a bill that does not match its quote, and where a budget line got its number.',
   path: '/homepage/flows',
