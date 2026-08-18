@@ -1,9 +1,18 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { APP_URL, SITE_URL, splitHosts, isAppPath, isMarketingPath } from '@/lib/hosts'
-import { isIndexableHost } from '@/lib/canonical'
+import { CANONICAL_ORIGIN, isIndexableHost, shouldRedirectToCanonical } from '@/lib/canonical'
 
 export async function middleware(request: NextRequest) {
+  // Before anything else: the Vercel production alias is a duplicate of the
+  // whole site. A 301 to the real domain beats a noindex - it collapses the
+  // copy, passes on anything linking to it, and gets the old URLs dropped
+  // rather than waiting for a re-crawl to notice a meta tag.
+  if (shouldRedirectToCanonical(request.headers.get('host'))) {
+    const target = new URL(request.nextUrl.pathname + request.nextUrl.search, CANONICAL_ORIGIN)
+    return NextResponse.redirect(target, 301)
+  }
+
   let supabaseResponse = NextResponse.next({
     request,
   })

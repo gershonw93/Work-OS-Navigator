@@ -37,6 +37,25 @@ export function isIndexableHost(host: string | null | undefined): boolean {
   return INDEXABLE_HOSTS.has(bare)
 }
 
+/**
+ * The permanent production alias Vercel gives every project.
+ *
+ * This one is worth REDIRECTING rather than just noindexing: a 301 collapses
+ * the duplicate into the real domain, hands over any links pointing at it, and
+ * gets the old URLs dropped from the index far faster than waiting for a
+ * noindex to be re-crawled.
+ *
+ * Deliberately just this host. Preview and branch aliases keep the softer
+ * noindex, because redirecting them would break testing a branch before it
+ * ships - which is the whole point of having them.
+ */
+const REDIRECT_HOSTS = new Set(['work-os-navigator.vercel.app'])
+
+export function shouldRedirectToCanonical(host: string | null | undefined): boolean {
+  if (!host) return false
+  return REDIRECT_HOSTS.has(host.split(':')[0].toLowerCase())
+}
+
 /** An absolute canonical URL for a marketing path. */
 export function canonicalUrl(path: string): string {
   const p = path.startsWith('/') ? path : `/${path}`
