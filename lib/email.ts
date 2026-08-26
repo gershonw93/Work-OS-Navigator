@@ -24,6 +24,8 @@
 // says so plainly instead of pretending mail went out.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { CANONICAL_ORIGIN } from '@/lib/canonical'
+
 const SENDGRID_ENDPOINT = 'https://api.sendgrid.com/v3/mail/send'
 
 export type SendResult =
@@ -166,9 +168,12 @@ export interface EmailLayout {
  *   * SVG is stripped by Gmail and Outlook, so the arrow mark cannot be the
  *     real logo. The lockup is rebuilt out of text and a coloured cell, which
  *     always renders.
- *   * Remote images are BLOCKED BY DEFAULT until the reader clicks "display
- *     images", and Gmail strips base64 data: URIs outright. So there are no
- *     images at all - nothing here can fail to load.
+ *   * Gmail strips base64 data: URIs outright, so an image has to be HOSTED.
+ *     Blocked-by-default is largely history - Gmail has proxied and displayed
+ *     images since 2013, as do Apple Mail and Outlook.com - so the answer is a
+ *     hosted image with real alt text and explicit dimensions, NOT avoiding
+ *     images. The one image here is the mark; the wordmark stays as text, so a
+ *     blocked image costs a small square rather than the company name.
  *   * Outlook renders through Word: no flexbox, no grid, and inline styles
  *     only. Hence tables, and hence a square button rather than a rounded one
  *     there. It degrades to something plain rather than something broken.
@@ -204,8 +209,11 @@ export function emailLayout(l: EmailLayout): string {
 
 <tr><td style="padding:0 4px 18px">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-<td width="30" height="30" align="center" valign="middle" style="width:30px;height:30px;background:${BRAND.ink};border-radius:8px;color:${BRAND.accent};font-size:15px;line-height:30px">&#9656;</td>
+<td width="30" height="30" style="width:30px;height:30px"><img src="${CANONICAL_ORIGIN}/email-logo" width="30" height="30" alt="" style="display:block;border:0;outline:none;text-decoration:none;border-radius:8px"></td>
 <td style="padding-left:9px;font-family:${BRAND.font};font-size:19px;font-weight:800;letter-spacing:-0.4px;color:${BRAND.ink}">SYTE<span style="color:${BRAND.accentFg}">NAV</span></td>
+<!-- The mark carries alt="" on purpose: the wordmark beside it is real text,
+     so alt text on the image would make a screen reader say SyteNav twice, and
+     a blocked image still leaves the name readable. -->
 </tr></table>
 </td></tr>
 
