@@ -13,6 +13,8 @@ import {
   DOC_LABELS, docTypesFor, requiredDocsFor, overrideFor, typesToRequest,
   type DocType, type RequirementOverride,
 } from '@/lib/compliance-requirements'
+import { clientAppOrigin } from '@/lib/app-url'
+import { SendLinkBox } from '@/components/ui/send-link-box'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -522,11 +524,18 @@ function RequestDocsBar({ projectId, companyId, companyName, contactEmail, missi
   const [creating, setCreating] = useState(false)
   const [link, setLink] = useState('')
   const [email, setEmail] = useState<string | null>(null)
+  const [newReqId, setNewReqId] = useState('')
   const [copied, setCopied] = useState(false)
 
-  const origin = typeof window !== 'undefined' ? window.location.origin : ''
+  // clientAppOrigin(), not window.location.origin - these token pages live on
+  // the app domain, and a link built from wherever the page happened to be
+  // loaded points somewhere the recipient cannot open. Same bug as #288.
+  const origin = clientAppOrigin()
   const existingLink = pendingRequest ? `${origin}/compliance/${pendingRequest.token}` : ''
   const activeLink = link || existingLink
+  // Which request the visible link belongs to - the one just created, or the
+  // one already pending. Sending needs the id, not just the URL.
+  const activeReqId = newReqId || pendingRequest?.id || ''
 
   function toggle(t: DocType) {
     setSelected((prev) => prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t])
@@ -544,6 +553,7 @@ function RequestDocsBar({ projectId, companyId, companyName, contactEmail, missi
     if (res.ok) {
       const d = await res.json()
       setLink(`${origin}/compliance/${d.request.token}`)
+      setNewReqId(d.request.id ?? '')
       setEmail(d.contact_email ?? contactEmail ?? null)
       onRefresh()
     } else {
@@ -612,9 +622,20 @@ function RequestDocsBar({ projectId, companyId, companyName, contactEmail, missi
                   {copied ? <><CheckCircle2 className="h-3.5 w-3.5 text-success" /> Copied</> : <><Copy className="h-3.5 w-3.5" /> Copy</>}
                 </button>
               </div>
-              <a href={mailtoHref()} className="inline-flex items-center gap-1.5 rounded-md bg-accent text-accent-ink px-3 py-1.5 text-xs font-semibold hover:bg-accent/90">
-                <Mail className="h-3.5 w-3.5" /> {(email ?? contactEmail) ? `Email ${email ?? contactEmail}` : 'Compose email'}
-              </a>
+              {activeReqId ? (
+                <SendLinkBox
+                  endpoint={`/api/projects/${projectId}/compliance/request/${activeReqId}/send`}
+                  url={activeLink}
+                  defaultTo={email ?? contactEmail ?? ''}
+                  label={`Email the request to ${companyName}`}
+                  placeholder="sub@example.com"
+                  onSent={() => onRefresh()}
+                />
+              ) : (
+                <a href={mailtoHref()} className="inline-flex items-center gap-1.5 rounded-md bg-accent text-accent-ink px-3 py-1.5 text-xs font-semibold hover:bg-accent/90">
+                  <Mail className="h-3.5 w-3.5" /> {(email ?? contactEmail) ? `Email ${email ?? contactEmail}` : 'Compose email'}
+                </a>
+              )}
               <p className="text-xs text-faint">The vendor uploads their files, they land here as pending for review.</p>
             </div>
           )}

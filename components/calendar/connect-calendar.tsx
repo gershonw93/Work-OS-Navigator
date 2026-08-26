@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { CalendarPlus, X, Copy, Check, RefreshCw, ChevronRight } from 'lucide-react'
+import { clientAppOrigin } from '@/lib/app-url'
 
 // Reusable "Connect to Calendar" button + provider popup. Fetches the user's
 // private iCal feed on demand and deep-links into Google / Apple / Outlook.
@@ -18,12 +19,12 @@ export function ConnectCalendarButton({ className, label = 'Connect to Calendar'
     if (feedUrl) return
     const { data: { session } } = await supabase.auth.getSession()
     const res = await fetch('/api/settings/calendar', { headers: { Authorization: `Bearer ${session?.access_token}` } })
-    if (res.ok) setFeedUrl(`${window.location.origin}/api/calendar/${(await res.json()).calendar_token}`)
+    if (res.ok) setFeedUrl(`${clientAppOrigin()}/api/calendar/${(await res.json()).calendar_token}`)
   }
   async function resetFeed() {
     const { data: { session } } = await supabase.auth.getSession()
     const res = await fetch('/api/settings/calendar', { method: 'POST', headers: { Authorization: `Bearer ${session?.access_token}` } })
-    if (res.ok) setFeedUrl(`${window.location.origin}/api/calendar/${(await res.json()).calendar_token}`)
+    if (res.ok) setFeedUrl(`${clientAppOrigin()}/api/calendar/${(await res.json()).calendar_token}`)
   }
   function copyFeed() { navigator.clipboard?.writeText(feedUrl); setCopied(true); setTimeout(() => setCopied(false), 1500) }
 

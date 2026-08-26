@@ -19,6 +19,7 @@ import {
   recommendedCategories, seedRowCount, itemsForType, isHomeType, matchBudgetLine,
   type SelectionStatus,
 } from '@/lib/selections'
+import { clientAppOrigin } from '@/lib/app-url'
 
 const money = (n: number | null | undefined) =>
   n == null ? '-' : `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
@@ -112,7 +113,7 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
     }
     setLoading(false)
   }
-  useEffect(() => { setOrigin(window.location.origin); load() }, [params.id])
+  useEffect(() => { setOrigin(clientAppOrigin()); load() }, [params.id])
 
   async function patch(id: string, body: any) {
     const t = await token()

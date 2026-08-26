@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { clientAppOrigin } from '@/lib/app-url'
+import { SendLinkBox } from '@/components/ui/send-link-box'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
@@ -72,6 +74,8 @@ export function ClientInvoices({ projectId }: { projectId: string }) {
   const [dueDate, setDueDate] = useState('')
   const [error, setError] = useState('')
   const [copied, setCopied] = useState('')
+  const [sendingId, setSendingId] = useState('')
+  const [clientEmail, setClientEmail] = useState('')
   const [clientName, setClientName] = useState<string | null>(null)
   const [projectName, setProjectName] = useState<string | null>(null)
 
@@ -92,6 +96,20 @@ export function ClientInvoices({ projectId }: { projectId: string }) {
       setProjectName(d.project_name ?? null)
     }
     setLoading(false)
+  }, [projectId, token])
+
+  // The client's address for the Send box. The old mailto was
+  // `mailto:?subject=...` - an empty To: field next to a link the app could
+  // have addressed itself.
+  useEffect(() => {
+    (async () => {
+      const t = await token()
+      if (!t) return
+      const res = await fetch(`/api/projects/${projectId}/client-email`, {
+        headers: { Authorization: `Bearer ${t}` },
+      })
+      if (res.ok) setClientEmail((await res.json())?.clientEmail ?? '')
+    })()
   }, [projectId, token])
 
   useEffect(() => { load() }, [load])
@@ -150,8 +168,11 @@ export function ClientInvoices({ projectId }: { projectId: string }) {
     load()
   }
 
-  const linkFor = (b: Bill) =>
-    typeof window === 'undefined' || !b.token ? '' : `${window.location.origin}/bill/${b.token}`
+  // clientAppOrigin(), NOT window.location.origin. The bill page lives on the
+  // app domain; built from wherever the page happened to be, this minted links
+  // to the marketing host that a client could not open. Same bug as the admin
+  // invite link (#288).
+  const linkFor = (b: Bill) => (b.token ? `${clientAppOrigin()}/bill/${b.token}` : '')
 
   async function copyLink(b: Bill) {
     const url = linkFor(b)
@@ -162,11 +183,12 @@ export function ClientInvoices({ projectId }: { projectId: string }) {
   }
 
   /**
-   * Open it in whatever mail client they already use.
+   * KEPT as a fallback, not as the main route.
    *
-   * Not a "send" button that pretends to deliver - there is no transactional
-   * email configured, and a button that silently sends nothing is worse than
-   * one that plainly hands the link over.
+   * The comment here used to argue that a mailto beat a Send button because
+   * there was no transactional email configured. There is now, so Send is
+   * real - but this stays for the case where sending is off or fails, which
+   * is exactly what the failure message tells you to fall back to.
    */
   function mailtoFor(b: Bill) {
     const total = (b.client_invoice_lines ?? []).reduce((s, l) => s + Number(l.amount || 0), 0)
@@ -299,7 +321,8 @@ export function ClientInvoices({ projectId }: { projectId: string }) {
           {bills.map(b => {
             const total = (b.client_invoice_lines ?? []).reduce((s, l) => s + Number(l.amount || 0), 0)
             return (
-              <div key={b.id} className="flex flex-wrap items-center gap-3 px-3 py-2.5">
+              <div key={b.id}>
+              <div className="flex flex-wrap items-center gap-3 px-3 py-2.5">
                 <FileText className="h-4 w-4 text-faint shrink-0" />
                 <span className="min-w-0">
                   <span className="block text-sm font-medium text-ink">{b.invoice_number}</span>
@@ -331,9 +354,13 @@ export function ClientInvoices({ projectId }: { projectId: string }) {
                       className="shrink-0 inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-xs font-medium text-muted-fg hover:bg-surface">
                       <Copy className="h-3 w-3" /> {copied === b.id ? 'Copied' : 'Copy link'}
                     </button>
-                    <a href={mailtoFor(b)}
+                    <button onClick={() => setSendingId(sendingId === b.id ? '' : b.id)}
                       className="shrink-0 inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-xs font-medium text-muted-fg hover:bg-surface">
                       <Mail className="h-3 w-3" /> Email
+                    </button>
+                    <a href={mailtoFor(b)} title="Compose it yourself instead"
+                      className="shrink-0 inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-xs font-medium text-faint hover:bg-surface">
+                      By hand
                     </a>
                   </>
                 )}
@@ -349,6 +376,20 @@ export function ClientInvoices({ projectId }: { projectId: string }) {
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 )}
+              </div>
+
+              {sendingId === b.id && b.token && (
+                <div className="border-t border-line-soft bg-surface/50 px-3 py-3">
+                  <SendLinkBox
+                    endpoint={`/api/projects/${projectId}/client-invoices/${b.id}/send`}
+                    url={linkFor(b)}
+                    defaultTo={clientEmail}
+                    label={`Email invoice ${b.invoice_number} to the client`}
+                    placeholder="client@example.com"
+                    onSent={() => load()}
+                  />
+                </div>
+              )}
               </div>
             )
           })}
