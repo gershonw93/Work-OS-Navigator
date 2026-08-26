@@ -20,10 +20,52 @@ async function requireSuperAdmin(request: Request) {
   return user
 }
 
+/**
+ * Every account, keyed by email, with when they last signed in.
+ *
+ * auth.users is not reachable through PostgREST, so this goes via the Admin
+ * API, which pages. The loop matters: without it you silently see only the
+ * first page, and somebody who never signed in looks identical to somebody
+ * who is simply on page two.
+ *
+ * Best-effort - a failure here must not take the requests list down with it.
+ * Not knowing when somebody last logged in is a much smaller problem than an
+ * admin console that will not load.
+ */
+async function accountsByEmail(db: ReturnType<typeof admin>) {
+  const map = new Map<string, { exists: true; last_sign_in_at: string | null }>()
+  try {
+    for (let page = 1; page <= 20; page++) {
+      const { data, error } = await db.auth.admin.listUsers({ page, perPage: 200 })
+      const users = data?.users ?? []
+      if (error) break
+      for (const u of users) {
+        if (u.email) map.set(u.email.toLowerCase(), { exists: true, last_sign_in_at: u.last_sign_in_at ?? null })
+      }
+      if (users.length < 200) break
+    }
+  } catch { /* fall through with whatever was collected */ }
+  return map
+}
+
 export async function GET(request: Request) {
   if (!(await requireSuperAdmin(request))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  const { data } = await admin().from('access_requests').select('*').order('created_at', { ascending: false })
-  return NextResponse.json({ requests: data ?? [] })
+  const db = admin()
+
+  const [{ data }, accounts] = await Promise.all([
+    db.from('access_requests').select('*').order('created_at', { ascending: false }),
+    accountsByEmail(db),
+  ])
+
+  // Whether the person ever actually got in, next to the request itself.
+  // Approving somebody and never hearing from them again is invisible
+  // otherwise, and that gap is exactly where people were being lost.
+  const requests = (data ?? []).map(r => ({
+    ...r,
+    account: accounts.get(String(r.email).toLowerCase()) ?? { exists: false, last_sign_in_at: null },
+  }))
+
+  return NextResponse.json({ requests })
 }
 
 /**
