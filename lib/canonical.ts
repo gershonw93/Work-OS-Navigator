@@ -69,7 +69,15 @@ export function isSiteVerificationPath(pathname: string): boolean {
   return /^\/google[0-9a-f]+\.html$/i.test(pathname)
 }
 
-/** An absolute canonical URL for a marketing path. */
+/**
+ * An absolute canonical URL for a marketing path.
+ *
+ * The root deliberately yields no trailing slash. Not a style choice: Next
+ * normalises `alternates.canonical` and strips one anyway, so returning
+ * "https://www.sytenav.com/" here would be silently rewritten and the code
+ * would claim something the page does not do. The sitemap and the JSON-LD do
+ * carry the slash; Google resolves the two spellings to one URL.
+ */
 export function canonicalUrl(path: string): string {
   const p = path.startsWith('/') ? path : `/${path}`
   return `${CANONICAL_ORIGIN}${p === '/' ? '' : p}`

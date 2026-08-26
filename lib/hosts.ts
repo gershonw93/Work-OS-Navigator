@@ -25,9 +25,9 @@ export function siteHref(path: string): string {
   return splitHosts && SITE_URL ? `${SITE_URL}${p}` : p
 }
 
-// Everything the product owns. Anything not listed here and not /homepage is
-// treated as app-side too, so a new route defaults to the app rather than
-// leaking onto the marketing domain.
+// Everything the product owns. Anything not listed here and not in
+// MARKETING_PATHS is treated as app-side, so a new route defaults to the app
+// rather than leaking onto the marketing domain.
 export const APP_PATH_PREFIXES = [
   '/dashboard', '/projects', '/directory', '/approvals', '/settings',
   '/customers', '/files', '/help', '/whats-new', '/equipment', '/materials',
@@ -42,6 +42,24 @@ export function isAppPath(pathname: string): boolean {
   return APP_PATH_PREFIXES.some(p => pathname === p || pathname.startsWith(`${p}/`))
 }
 
+/**
+ * The public marketing pages, by exact path.
+ *
+ * This HAS to be an explicit list now. Marketing used to live under /homepage,
+ * so "is this marketing?" was a prefix test. Since the site moved to the root
+ * it shares a namespace with the product, and a prefix test would claim
+ * /projects and /settings for the marketing domain - which on the app host
+ * would redirect somebody out of the product mid-session.
+ *
+ * Adding a marketing page means adding it here AND to app/sitemap.ts.
+ */
+export const MARKETING_PATHS = [
+  '/', '/features', '/money', '/flows', '/workflow', '/ai', '/mobile',
+  '/contractors', '/subcontractors', '/why', '/pricing', '/security',
+  '/about', '/contact', '/privacy', '/terms', '/cookies', '/acceptable-use',
+]
+
 export function isMarketingPath(pathname: string): boolean {
-  return pathname === '/homepage' || pathname.startsWith('/homepage/')
+  const clean = pathname.replace(/\/+$/, '') || '/'
+  return MARKETING_PATHS.includes(clean)
 }

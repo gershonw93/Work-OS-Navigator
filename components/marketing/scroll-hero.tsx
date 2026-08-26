@@ -26,7 +26,7 @@ function Ctas({ center = false }: { center?: boolean }) {
       <Link href={appHref('/signup')} className="inline-flex items-center gap-2 rounded-xl bg-accent text-accent-ink font-bold px-6 py-3 hover:bg-accent/90 transition-colors">
         Request access <ArrowRight className="h-4 w-4" />
       </Link>
-      <Link href="/homepage/features" className="inline-flex items-center gap-2 rounded-xl border border-line text-ink-soft font-semibold px-6 py-3 hover:bg-panel transition-colors">
+      <Link href="/features" className="inline-flex items-center gap-2 rounded-xl border border-line text-ink-soft font-semibold px-6 py-3 hover:bg-panel transition-colors">
         See everything it does
       </Link>
     </div>
@@ -44,7 +44,7 @@ function StaticHero() {
         <Link href={appHref('/signup')} className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent text-accent-ink font-bold px-6 py-3.5">
           Request access <ArrowRight className="h-4 w-4" />
         </Link>
-        <Link href="/homepage/features" className="inline-flex items-center justify-center gap-2 rounded-xl border border-line text-ink-soft font-semibold px-6 py-3.5">
+        <Link href="/features" className="inline-flex items-center justify-center gap-2 rounded-xl border border-line text-ink-soft font-semibold px-6 py-3.5">
           See everything it does
         </Link>
       </div>

@@ -64,16 +64,26 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL(pathname + request.nextUrl.search, APP_URL))
     }
 
-    if (onAppHost && isMarketingPath(pathname)) {
-      const marketing = SITE_URL || `https://${host.replace(/^app\./, '')}`
-      return NextResponse.redirect(new URL(pathname + request.nextUrl.search, marketing))
-    }
-
-    // The app host has no marketing homepage to fall back to.
+    // THE ROOT IS HANDLED FIRST, and the order is load-bearing.
+    //
+    // '/' is now a marketing path - the marketing site moved there from
+    // /homepage. So on the app host it also matches isMarketingPath, and if the
+    // marketing redirect below ran first every signed-in user hitting
+    // app.sytenav.com/ would be sent to www.sytenav.com/, where the rule above
+    // sends a signed-in user on '/' straight back to the app host. An infinite
+    // redirect loop, on the front door, for everybody who is logged in.
+    //
+    // The root simply means different things on the two hosts: the marketing
+    // homepage on one, the dashboard on the other.
     if (onAppHost && pathname === '/') {
       const url = request.nextUrl.clone()
       url.pathname = user ? '/dashboard' : '/login'
       return NextResponse.redirect(url)
+    }
+
+    if (onAppHost && isMarketingPath(pathname)) {
+      const marketing = SITE_URL || `https://${host.replace(/^app\./, '')}`
+      return NextResponse.redirect(new URL(pathname + request.nextUrl.search, marketing))
     }
 
     // One site, one set of search results. The app is behind a login anyway,
@@ -97,12 +107,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Logged-out visitors landing on the root see the marketing homepage.
-  if (!user && isRoot) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/homepage'
-    return NextResponse.redirect(url)
-  }
+  // A logged-out visitor on the root now RENDERS the marketing homepage rather
+  // than being redirected to it. That redirect is why Google never saw a site
+  // name: it reads the name from the homepage of the DOMAIN, the root returned
+  // a 307 to /homepage, and every naming signal lived on the redirect target.
 
   if (user && (isAuthRoute || isRoot)) {
     const url = request.nextUrl.clone()

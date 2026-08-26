@@ -49,6 +49,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-08-26',
+    title: 'The website moved to the front door',
+    items: [
+      {
+        kind: 'improved',
+        title: 'Marketing pages lost the /homepage in their address',
+        text: 'Every public page used to sit under sytenav.com/homepage/... - a routing detail that was never meant to be seen, and which showed up in every Google result as "sytenav.com > homepage > pricing". The pages now live where you would expect: sytenav.com, sytenav.com/pricing, sytenav.com/features. Every old link still works and lands in the right place, so anything you have already shared or bookmarked is fine.',
+        href: '/',
+      },
+    ],
+  },
+  {
+    date: '2026-08-26',
     title: 'Notification settings that actually save',
     items: [
       {
