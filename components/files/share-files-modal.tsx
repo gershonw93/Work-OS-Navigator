@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { cn } from '@/lib/utils'
 import { X, Check, Copy, Mail, Search, FileText, Send } from 'lucide-react'
+import { SendLinkBox } from '@/components/ui/send-link-box'
 
 export interface ShareableFile {
   id: string
@@ -62,6 +63,7 @@ export function ShareFilesModal({
   const [error, setError] = useState('')
   const [url, setUrl] = useState('')
   const [copied, setCopied] = useState(false)
+  const [shareId, setShareId] = useState('')
 
   async function token() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -169,6 +171,7 @@ export function ShareFilesModal({
     if (!res.ok) { setError((await res.json().catch(() => ({}))).error ?? 'Could not create the link'); return }
     const d = await res.json()
     setUrl(d.share.url)
+    setShareId(d.share.id ?? '')
     setStep('done')
     onShared?.()
   }
@@ -320,19 +323,29 @@ export function ShareFilesModal({
               Anyone with this link can see {picked.size} document{picked.size !== 1 ? 's' : ''}
               {allowUpload ? ' and send documents back' : ''}. No account needed.
             </p>
-            <div className="flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2.5">
-              <span className="flex-1 min-w-0 text-sm font-mono text-ink-soft truncate">{url}</span>
-              <button
-                onClick={async () => { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
-                className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-accent-fg hover:underline"
-              >
-                {copied ? <><Check className="h-3.5 w-3.5" /> Copied</> : <><Copy className="h-3.5 w-3.5" /> Copy</>}
-              </button>
-            </div>
-            <div className="flex flex-wrap justify-end gap-2">
+            {shareId ? (
+              <SendLinkBox
+                endpoint={`/api/file-shares/${shareId}/send`}
+                url={url}
+                defaultTo={email}
+                label={name.trim() ? `Email it to ${name.trim()}` : 'Email it to them'}
+              />
+            ) : (
+              <div className="flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2.5">
+                <span className="flex-1 min-w-0 text-sm font-mono text-ink-soft truncate">{url}</span>
+                <button
+                  onClick={async () => { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
+                  className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-accent-fg hover:underline"
+                >
+                  {copied ? <><Check className="h-3.5 w-3.5" /> Copied</> : <><Copy className="h-3.5 w-3.5" /> Copy</>}
+                </button>
+              </div>
+            )}
+            <div className="flex flex-wrap items-center justify-end gap-2">
               {email && (
-                <a href={mailto()} className={cn('inline-flex items-center gap-1.5 rounded-lg border border-line px-4 py-2 text-sm font-semibold text-ink hover:bg-muted')}>
-                  <Mail className="h-4 w-4" /> Open in email
+                <a href={mailto()} title="Compose it yourself instead"
+                  className={cn('inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-2 text-xs font-medium text-muted-fg hover:bg-muted')}>
+                  <Mail className="h-3.5 w-3.5" /> Send by hand
                 </a>
               )}
               <Button onClick={onClose}>Done</Button>

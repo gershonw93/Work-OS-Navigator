@@ -16,6 +16,8 @@ import { LineComparison } from '@/components/quotes/line-comparison'
 import type { ItemLine } from '@/lib/item-list'
 import { MATERIAL_BY_LABEL, PACKAGE_TYPE_LABEL, type MaterialBy, type PackageType } from '@/lib/trade-scopes'
 import { ACCEPT_DOCS } from '@/lib/file-accept'
+import { SendLinkBox } from '@/components/ui/send-link-box'
+import { clientAppOrigin } from '@/lib/app-url'
 
 const money = (n: number | null) => n == null ? '-' : `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 const STATUS: Record<string, string> = {
@@ -49,6 +51,7 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
   const [selectedPlans, setSelectedPlans] = useState<Set<string>>(new Set())
 
   // invite inputs per request
+  const [sendingInvite, setSendingInvite] = useState('')
   const [inviteSub, setInviteSub] = useState<Record<string, string>>({})
   const [inviteName, setInviteName] = useState<Record<string, string>>({})
   const [inviteEmail, setInviteEmail] = useState<Record<string, string>>({})
@@ -79,7 +82,7 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
     if (c.ok) setComparisons((await c.json()).comparisons ?? [])
     setLoading(false)
   }
-  useEffect(() => { setOrigin(window.location.origin); load() }, [params.id])
+  useEffect(() => { setOrigin(clientAppOrigin()); load() }, [params.id])
 
   async function createRequest() {
     if (!title.trim()) return
@@ -452,9 +455,25 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
                         <span className={cn('text-[10px] font-medium rounded-full px-1.5 py-0.5 capitalize', STATUS[inv.status] ?? 'bg-muted text-muted-fg')}>{inv.status}</span>
                         <button onClick={() => copy(linkFor(inv.token), `l${inv.id}`)} title="Copy link" className="inline-flex items-center gap-1 text-xs text-muted-fg hover:text-ink">{copied === `l${inv.id}` ? <CheckCircle2 className="h-3.5 w-3.5 text-success" /> : <Link2 className="h-3.5 w-3.5" />} Link</button>
                         <button onClick={() => copy(`${em.subject}\n\n${em.body}`, `e${inv.id}`)} title="Copy email" className="inline-flex items-center gap-1 text-xs text-muted-fg hover:text-ink">{copied === `e${inv.id}` ? <CheckCircle2 className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />} Email</button>
-                        {inv.vendor_email && <a href={em.mailto} className="inline-flex items-center gap-1 text-xs text-accent-fg hover:underline"><Mail className="h-3.5 w-3.5" /> Send</a>}
+                        <button onClick={() => setSendingInvite(sendingInvite === inv.id ? '' : inv.id)}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-accent-fg hover:underline">
+                          <Mail className="h-3.5 w-3.5" /> Send
+                        </button>
+                        {inv.vendor_email && <a href={em.mailto} title="Compose it yourself instead" className="text-xs text-faint hover:text-muted-fg">By hand</a>}
                         <button onClick={() => removeInvite(req.id, inv.id)} className="text-faint hover:text-danger"><X className="h-3.5 w-3.5" /></button>
                       </div>
+                      {sendingInvite === inv.id && (
+                        <div className="w-full border-t border-line-soft pt-2.5 sm:mt-1">
+                          <SendLinkBox
+                            endpoint={`/api/projects/${params.id}/bid-requests/${req.id}/invites/${inv.id}/send`}
+                            url={linkFor(inv.token)}
+                            defaultTo={inv.vendor_email ?? ''}
+                            label={`Email the quote request to ${inv.vendor_name ?? 'this sub'}`}
+                            placeholder="sub@example.com"
+                            onSent={() => load()}
+                          />
+                        </div>
+                      )}
                     </div>
                   )
                 })}

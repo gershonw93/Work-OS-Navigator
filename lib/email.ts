@@ -371,6 +371,64 @@ export function clientPortalEmail({
   return { subject: `${projectName} - your project link`, text, html }
 }
 
+/**
+ * "Here is a link, please do the thing at the end of it."
+ *
+ * One template for every flow that hands somebody OUTSIDE the app a token
+ * link - a quote request, a compliance document request, a set of shared
+ * files, a bill. They are the same operation with different nouns, and writing
+ * four near-identical templates is how the four "Send" buttons that prompted
+ * this ended up differing from each other in the first place.
+ *
+ * The recipient has no account and never will for this, so the link is not a
+ * convenience - it IS the message. emailLayout prints the URL as text under
+ * the button for exactly that reason.
+ */
+export function tokenLinkEmail({
+  recipientName, eyebrow, heading, lines, ctaLabel, url, fromName, companyName, note, footNote,
+}: {
+  recipientName: string | null | undefined
+  /** Small uppercase label, e.g. "REQUEST FOR QUOTE". */
+  eyebrow: string
+  heading: string
+  /** Body paragraphs, in the recipient's terms. */
+  lines: string[]
+  ctaLabel: string
+  url: string
+  fromName?: string | null
+  companyName?: string | null
+  /** Optional line the sender typed. */
+  note?: string | null
+  footNote?: string
+}) {
+  const hi = firstName(recipientName)
+  const sig = [(fromName ?? '').trim(), (companyName ?? '').trim()].filter(Boolean)
+  const body = note?.trim() ? [...lines, note.trim()] : lines
+
+  const text = [
+    `Hi ${hi},`,
+    '',
+    ...body,
+    '',
+    url,
+    '',
+    'No account or password needed - the link is all you need.',
+    ...(sig.length ? ['', ...sig] : []),
+  ].join('\n')
+
+  const html = emailLayout({
+    preheader: lines[0] ?? heading,
+    eyebrow,
+    heading,
+    subheading: companyName?.trim() || undefined,
+    paragraphs: [`Hi ${hi},`, ...body],
+    cta: { label: ctaLabel, url },
+    footNote: footNote ?? 'No account or password needed - the link is all you need. If you were not expecting this, you can ignore it.',
+  })
+
+  return { subject: heading, text, html }
+}
+
 /** Minimal escaping - these templates interpolate names and URLs, nothing more. */
 export function escapeHtml(s: string): string {
   return s

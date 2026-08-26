@@ -49,6 +49,24 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-08-26',
+    title: 'Every Send button now actually sends',
+    items: [
+      {
+        kind: 'new',
+        title: 'Quote requests, document requests, shared files and client invoices send themselves',
+        text: 'All four of these had a Send or Email button that did not send anything - it opened YOUR mail client with a draft and left the rest to you. Worse, the app already knew the address and already had the link, so it was making you copy something it could have addressed itself. The client invoice one was the worst: it opened an empty To: field. All four now send a proper email, with the address filled in from whoever is on file and room for a line of your own. Copy Link is still right there, and if a send fails it says so and points you back at it rather than pretending.',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
+        title: 'Some shared links pointed at a page your recipient could not open',
+        text: 'RFI, compliance, quote, selections and calendar links were built from whatever address YOUR browser happened to be on. Opened from the wrong one, the link you copied went somewhere your sub or client could not reach. They are now always built against the app address, so a copied link works wherever you copied it from.',
+        href: '/projects',
+      },
+    ],
+  },
+  {
+    date: '2026-08-26',
     title: 'Send the client their link, and stop breaking it by accident',
     items: [
       {

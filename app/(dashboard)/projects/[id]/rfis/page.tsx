@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 import { X, ChevronDown, ChevronUp, MessageSquare, DollarSign, CheckCircle2, Clock, AlertCircle, Check, XCircle, RefreshCw, Paperclip, Trash2, Pencil, Link2 } from 'lucide-react'
+import { clientAppOrigin } from '@/lib/app-url'
 
 interface RFI {
   id: string; rfi_number: number; submitted_by_name: string; company_name: string | null
@@ -95,7 +96,8 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
     })
     if (!res.ok) { alert((await res.json().catch(() => ({}))).error ?? 'Could not create the link.'); return }
     const { token } = await res.json()
-    const url = `${window.location.origin}/rfi/${token}`
+    // clientAppOrigin(), not window.location.origin - see #288.
+    const url = `${clientAppOrigin()}/rfi/${token}`
     try { await navigator.clipboard.writeText(url) } catch { window.prompt('Copy the answer link:', url); return }
     setLinkCopied(rfi.id)
     setTimeout(() => setLinkCopied(c => (c === rfi.id ? null : c)), 2500)
