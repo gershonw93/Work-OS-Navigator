@@ -25,7 +25,10 @@ export interface ResourceDef {
   slug?: string
 }
 
-export const RESOURCE_GROUPS = ['Field', 'People', 'Money', 'Compliance', 'Workspace', 'Settings'] as const
+// Kept in step with the tab groups in components/layout/project-tabs.tsx.
+// Two lists describing the same app in different words is exactly how Bids and
+// Quotes ended up in different sections.
+export const RESOURCE_GROUPS = ['Field', 'Buyout', 'Money', 'Docs', 'Workspace', 'Settings'] as const
 
 export const RESOURCES: ResourceDef[] = [
   // Field (project tabs)
@@ -36,24 +39,24 @@ export const RESOURCES: ResourceDef[] = [
   { key: 'daily-logs',     label: 'Daily Logs',     group: 'Field', slug: 'daily-logs' },
   { key: 'time',           label: 'Time Clock',     group: 'Field', slug: 'time' },
   // People
-  { key: 'team',           label: 'Team',           group: 'People', slug: 'team' },
-  { key: 'bids',           label: 'Bids',           group: 'People', slug: 'bids' },
-  { key: 'rfis',           label: 'RFIs',           group: 'People', slug: 'rfis' },
+  { key: 'team',           label: 'Subs & Team',    group: 'Buyout', slug: 'team' },
+  { key: 'bids',           label: 'Quotes & Bids',  group: 'Buyout', slug: 'request-quotes' },
+  { key: 'rfis',           label: 'RFIs',           group: 'Docs', slug: 'rfis' },
   // Money
   { key: 'invoices',       label: 'Invoices',       group: 'Money', slug: 'invoices' },
   { key: 'pay-apps',       label: 'Pay Applications', group: 'Money', slug: 'pay-apps' },
   { key: 'payments',       label: 'Payments & Escrow', group: 'Money', slug: 'payments' },
   { key: 'budget',         label: 'Budget',         group: 'Money', slug: 'budget' },
-  { key: 'request-quotes', label: 'Request Quotes', group: 'Money', slug: 'request-quotes' },
+  { key: 'request-quotes', label: 'Quotes & Bids',  group: 'Buyout', slug: 'request-quotes' },
   { key: 'quotes',         label: 'Compare Quotes', group: 'Money', slug: 'quotes' },
   { key: 'financials',     label: 'Financials',     group: 'Money', slug: 'financials' },
   { key: 'change-orders',  label: 'Change Orders',  group: 'Money', slug: 'change-orders' },
   // Compliance
-  { key: 'permits',        label: 'Permits',        group: 'Compliance', slug: 'permits' },
-  { key: 'inspections',    label: 'Inspections',    group: 'Compliance', slug: 'inspections' },
-  { key: 'submittals',     label: 'Submittals',     group: 'Compliance', slug: 'submittals' },
-  { key: 'compliance',     label: 'Compliance',     group: 'Compliance', slug: 'compliance' },
-  { key: 'reports',        label: 'Reports',        group: 'Compliance', slug: 'reports' },
+  { key: 'permits',        label: 'Permits',        group: 'Docs', slug: 'permits' },
+  { key: 'inspections',    label: 'Inspections',    group: 'Docs', slug: 'inspections' },
+  { key: 'submittals',     label: 'Submittals',     group: 'Docs', slug: 'submittals' },
+  { key: 'compliance',     label: 'Compliance',     group: 'Buyout', slug: 'compliance' },
+  { key: 'reports',        label: 'Reports',        group: 'Money', slug: 'reports' },
   // Workspace (global nav)
   { key: 'dashboard',      label: 'Dashboard',      group: 'Workspace' },
   { key: 'projects',       label: 'Projects',       group: 'Workspace' },

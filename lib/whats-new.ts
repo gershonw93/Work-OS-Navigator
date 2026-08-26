@@ -49,6 +49,24 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-08-26',
+    title: 'Bids and Quotes are one tab, and the project tabs are regrouped',
+    items: [
+      {
+        kind: 'new',
+        title: 'Bids and Quotes were the same job under two names - now they are one tab',
+        text: 'Bidding lived in two places: a Bids tab under People and a Quotes tab under Financials, backed by two separate sets of records built years apart. The older one could only reach subs who already had a SyteNav account - a sub without one was invited and never told, with no link to open even if they had been. Everything now lives in one Quotes & Bids tab. Your old bid packages, invitations and bids have been moved across, and every one of those stranded invitations now has a working link you can send. Old bookmarks still work.',
+        href: '/projects',
+      },
+      {
+        kind: 'improved',
+        title: 'The project tabs are grouped by what you are doing',
+        text: 'The sections were named after how the app was built rather than how a job runs. RFIs sat under People, which is where you would never look for a question about the drawings. Estimate sat under Field even though it is the price you hand the client. Site was a section containing one tab. There are now four: FIELD for the work, BUYOUT for pricing it out and the subs doing it, MONEY for everything with a number on it, and DOCS for the formal paperwork. Nothing was removed, and the permissions screen uses the same names so the two finally agree.',
+        href: '/projects',
+      },
+    ],
+  },
+  {
+    date: '2026-08-26',
     title: 'Every Send button now actually sends',
     items: [
       {
