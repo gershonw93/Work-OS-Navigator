@@ -49,6 +49,24 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-08-26',
+    title: 'Send the client their link, and stop breaking it by accident',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'Opening Share with Client used to kill the link you had already sent',
+        text: 'Every time you opened the Share with Client box it quietly made a brand new link - which meant the link already sitting in your client\u2019s inbox stopped working, without warning, just because you looked. The box even said underneath that the link never expires. It now shows you the SAME link every time. Making a new one is a separate button that warns you first, because breaking the old link is the only reason to press it.',
+        href: '/projects',
+      },
+      {
+        kind: 'new',
+        title: 'Email the client their link straight from the dialog',
+        text: 'There is now a Send box under Copy Link. It is already filled in with the client\u2019s email address if you have one on file, you can add a line of your own, and it sends them a proper email with the link. Copy Link is still there and still works - if sending fails for any reason it tells you so and points you back at it, rather than pretending it went.',
+        href: '/projects',
+      },
+    ],
+  },
+  {
+    date: '2026-08-26',
     title: 'Two fixes on the way into a new job',
     items: [
       {
