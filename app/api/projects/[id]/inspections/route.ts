@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { notify } from '@/lib/notify'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -113,11 +114,11 @@ export async function POST(request: Request, { params }: { params: { id: string 
     const { data: proj } = await db.from('projects').select('name').eq('id', params.id).single()
     const when = scheduled_date ? ` - preferred ${scheduled_date}${scheduled_time ? ` ${scheduled_time}` : ''}` : ''
     const contact = inspector_name ? ` Contact: ${inspector_name}${inspector_phone ? ` (${inspector_phone})` : ''}.` : ''
-    await db.from('notifications').insert({
-      user_id: scheduler_profile_id,
-      type: 'inspection_to_schedule',
+    await notify({
+      db, userIds: [scheduler_profile_id], type: 'inspection_to_schedule',
+      title: 'Inspection to book',
       message: `Schedule an inspection: ${inspection_type} at ${proj?.name ?? 'a project'}${when}. Requested by ${(me as any)?.full_name ?? 'the field'}.${contact}`,
-      read: false,
+      link: `/projects/${params.id}/inspections`,
     })
   }
 

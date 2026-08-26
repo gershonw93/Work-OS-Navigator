@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
+import { NotificationSettings } from '@/components/settings/notification-settings'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -66,17 +67,6 @@ interface PendingInvite {
   created_at: string
 }
 
-interface NotifState {
-  new_invoice: boolean
-  invoice_decision: boolean
-  rfi_response: boolean
-  compliance_expiring: boolean
-  new_bid: boolean
-  daily_log: boolean
-  new_task: boolean
-  change_order: boolean
-}
-
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 // `href` items are links to their own page, not inline tabs.
@@ -123,17 +113,6 @@ const PERMISSION_MATRIX = [
   { feature: 'Team',          admin: true,  project_manager: false, field_supervisor: false, office_staff: false, read_only: false },
   { feature: 'Financials',    admin: true,  project_manager: false, field_supervisor: false, office_staff: false, read_only: false },
   { feature: 'Settings',      admin: true,  project_manager: false, field_supervisor: false, office_staff: false, read_only: false },
-]
-
-const NOTIF_ITEMS: { key: keyof NotifState; label: string }[] = [
-  { key: 'new_invoice',         label: 'New invoice submitted' },
-  { key: 'invoice_decision',    label: 'Invoice approved / rejected' },
-  { key: 'rfi_response',        label: 'RFI response received' },
-  { key: 'compliance_expiring', label: 'Compliance document expiring' },
-  { key: 'new_bid',             label: 'New bid received' },
-  { key: 'daily_log',           label: 'Daily log submitted' },
-  { key: 'new_task',            label: 'New task assigned' },
-  { key: 'change_order',        label: 'Change order created' },
 ]
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -271,18 +250,6 @@ export default function SettingsPage() {
     // Fallback for non-admins (the roles API is admin-only) so labels still render.
     : ROLES
   const roleLabel = (role: string) => roleOptions.find(r => r.value === role)?.label ?? role
-
-  // Notifications
-  const [notifState, setNotifState] = useState<NotifState>({
-    new_invoice: true,
-    invoice_decision: true,
-    rfi_response: true,
-    compliance_expiring: true,
-    new_bid: false,
-    daily_log: false,
-    new_task: true,
-    change_order: false,
-  })
 
   // Preferences (localStorage)
   const [prefDefaultType, setPrefDefaultType] = useState('residential')
@@ -682,22 +649,6 @@ export default function SettingsPage() {
       setPendingInvites((prev) => prev.filter((i) => i.id !== inviteId))
     } catch {
       // fail silently
-    }
-  }
-
-  // ── Notifications ─────────────────────────────────────────────────────────
-
-  async function toggleNotif(key: keyof NotifState, value: boolean) {
-    setNotifState((prev) => ({ ...prev, [key]: value }))
-    try {
-      const headers = await authHeaders()
-      await fetch('/api/settings', {
-        method: 'PATCH',
-        headers,
-        body: JSON.stringify({ notifications: { [key]: value } }),
-      })
-    } catch {
-      setNotifState((prev) => ({ ...prev, [key]: !value }))
     }
   }
 
@@ -1357,27 +1308,8 @@ export default function SettingsPage() {
               <CardHeader>
                 <CardTitle>Notification Preferences</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-1">
-                {NOTIF_ITEMS.map(({ key, label }) => (
-                  <div
-                    key={key}
-                    className="flex items-center justify-between py-3 border-b border-line-soft last:border-0"
-                  >
-                    <span className="text-sm text-ink-soft">{label}</span>
-                    <button
-                      onClick={() => toggleNotif(key, !notifState[key])}
-                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2
-                        ${notifState[key] ? 'bg-accent' : 'bg-muted2'}`}
-                      role="switch"
-                      aria-checked={notifState[key]}
-                    >
-                      <span
-                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-panel shadow ring-0 transition-transform
-                          ${notifState[key] ? 'translate-x-5' : 'translate-x-0'}`}
-                      />
-                    </button>
-                  </div>
-                ))}
+              <CardContent>
+                <NotificationSettings />
               </CardContent>
             </Card>
           )}

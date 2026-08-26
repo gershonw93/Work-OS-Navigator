@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
+import { notify } from '@/lib/notify'
 
 export const runtime = 'nodejs'
 
@@ -45,14 +46,14 @@ export async function POST(request: Request, { params }: { params: { id: string;
     if (profiles?.length) {
       const projectName = (req as any)?.projects?.name
       const what = (req as any)?.title ?? 'a scope of work'
-      await db.from('notifications').insert(
-        profiles.map(p => ({
-          user_id: p.id,
-          type: 'new_bid',
-          message: `You have been invited to quote ${what}${projectName ? ` for ${projectName}` : ''}.`,
-          read: false,
-        }))
-      )
+      await notify({
+        db,
+        userIds: profiles.map(p => p.id),
+        type: 'bid_invited',
+        title: 'Invited to quote',
+        message: `You have been invited to quote ${what}${projectName ? ` for ${projectName}` : ''}.`,
+        link: `/my-bids`,
+      })
     }
   }
 

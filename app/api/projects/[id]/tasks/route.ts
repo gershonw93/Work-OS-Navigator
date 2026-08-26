@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
+import { notify } from '@/lib/notify'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -122,11 +123,10 @@ export async function POST(request: Request, { params }: { params: { id: string 
       notifyUserId = p?.id ?? null
     }
     if (notifyUserId) {
-      await db.from('notifications').insert({
-        user_id: notifyUserId,
-        type: 'task_assigned',
+      await notify({
+        db, userIds: [notifyUserId], type: 'task_assigned', title: 'Task assigned',
         message: `You have been assigned a task: "${title}"`,
-        read: false,
+        link: `/projects/${params.id}/tasks`,
       })
     }
   }
@@ -138,14 +138,11 @@ export async function POST(request: Request, { params }: { params: { id: string 
     const { data: subProfiles } = await db.from('profiles').select('id').eq('company_id', assigned_to_company_id)
     const recipients = (subProfiles ?? []).filter(p => p.id !== notifyUserId)
     if (recipients.length) {
-      await db.from('notifications').insert(
-        recipients.map(p => ({
-          user_id: p.id,
-          type: 'task_assigned',
-          message: `You have been assigned a task: "${title}"`,
-          read: false,
-        }))
-      )
+      await notify({
+        db, userIds: recipients.map(p => p.id), type: 'task_assigned', title: 'Task assigned',
+        message: `You have been assigned a task: "${title}"`,
+        link: `/projects/${params.id}/tasks`,
+      })
     }
   }
 

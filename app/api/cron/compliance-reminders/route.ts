@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { notify } from '@/lib/notify'
 
 export const runtime = 'nodejs'
 
@@ -49,9 +50,10 @@ export async function GET(request: Request) {
     const msg = `${label} ${company?.name ? `for ${company.name} ` : ''}expires in ${days} day${days !== 1 ? 's' : ''} (${doc.expiry_date}). Please upload an updated copy.`
 
     if (people?.length) {
-      await db.from('notifications').insert(
-        people.map(p => ({ user_id: p.id, type: 'compliance_expiring', message: msg, read: false }))
-      )
+      await notify({
+        db, userIds: people.map(p => p.id), type: 'compliance_expiring',
+        title: 'Document expiring', message: msg, link: `/compliance`,
+      })
       notified += people.length
     }
 

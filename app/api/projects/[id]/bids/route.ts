@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { PACKAGE_TYPES } from '@/lib/trade-scopes'
 import { coerceLines } from '@/lib/item-list'
 import { logActivity } from '@/lib/log-activity'
+import { notify } from '@/lib/notify'
 
 const PACKAGE_TYPE_KEYS: string[] = PACKAGE_TYPES.map(p => p.key)
 
@@ -121,14 +122,12 @@ export async function POST(request: Request, { params }: { params: { id: string 
     const { data: profiles } = await db.from('profiles').select('id, company_id').in('company_id', invited_company_ids)
     if (profiles?.length) {
       const { data: project } = await db.from('projects').select('name').eq('id', params.id).single()
-      await db.from('notifications').insert(
-        profiles.map(p => ({
-          user_id: p.id,
-          type: 'new_bid',
-          message: `You have been invited to bid on ${scope} for ${(project as any)?.name ?? 'a project'}.`,
-          read: false,
-        }))
-      )
+      await notify({
+        db, userIds: profiles.map(p => p.id), type: 'bid_invited',
+        title: 'Invited to bid',
+        message: `You have been invited to bid on ${scope} for ${(project as any)?.name ?? 'a project'}.`,
+        link: `/my-bids`,
+      })
     }
   }
 

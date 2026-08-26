@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
+import { notify } from '@/lib/notify'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -37,11 +38,10 @@ export async function POST(
   const projectName = (pkg?.projects as any)?.name ?? 'a project'
   const duePart = pkg?.due_date ? ` Bid due ${new Date(pkg.due_date).toLocaleDateString()}.` : ''
 
-  await db.from('notifications').insert({
-    user_id: profile.data.id,
-    type: 'bid_reminder',
+  await notify({
+    db, userIds: [profile.data.id], type: 'bid_reminder', title: 'Bid reminder',
     message: `Reminder: You are invited to bid on ${pkg?.scope} for ${projectName}.${duePart}`,
-    read: false,
+    link: `/my-bids`,
   })
 
   await logActivity(db, params.id, actorName, 'reminder_sent',

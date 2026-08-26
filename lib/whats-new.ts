@@ -48,6 +48,31 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    date: '2026-08-26',
+    title: 'Notification settings that actually save',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'Your notification switches were being ignored',
+        text: 'Settings had a Notifications tab with eight switches. None of them saved. You could turn an email off, watch the switch move, reload the page, and find it back on - and nothing was reading the setting anyway. That is fixed: every switch now saves the moment you press it, and the app genuinely honours it. If you turned something off in the past and kept getting it, that is why, and it will not happen again.',
+        href: '/settings',
+      },
+      {
+        kind: 'new',
+        title: 'Choose the bell, email, or both - for each kind of notification',
+        text: 'Every notification now has two switches: show it in the bell, and send it as an email. There are sixteen of them, grouped by Work, Money, Bids and Compliance, each with a line saying exactly what sets it off. Email is deliberately off for most things and on for six where missing it costs you something real: somebody waiting on your sign-off, a bill needing approval, a bill of yours getting paid, a bid decision, an insurance certificate about to lapse, and an invitation to quote. Four more are listed as Coming soon so you can see what is on the way.',
+        help: 'notification-preferences',
+        href: '/settings',
+      },
+      {
+        kind: 'fixed',
+        title: 'Some notifications were filed under the wrong name',
+        text: 'The same event was being recorded under different names depending on where in the app it came from. An invitation to bid and a bid arriving were both filed as one thing, even though they travel in opposite directions - so a sub who muted one would have stopped being invited to quote. Invoice approved, released and paid were three separate names for one question. Inspection updates were filed under names nothing recognised. These are now one name each, so a switch you set governs everything it should, and notifications you already had still show correctly.',
+        href: '/settings',
+      },
+    ],
+  },
+  {
     date: '2026-08-14',
     title: 'The budget screen stops guessing what kind of job this is',
     items: [

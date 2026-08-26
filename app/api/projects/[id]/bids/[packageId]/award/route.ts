@@ -1,6 +1,7 @@
 import { logActivity } from '@/lib/log-activity'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { notify } from '@/lib/notify'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -96,14 +97,11 @@ export async function POST(
     .eq('company_id', bid.company_id)
 
   if (subProfiles?.length) {
-    await db.from('notifications').insert(
-      subProfiles.map(p => ({
-        user_id: p.id,
-        type: 'bid_awarded',
-        message: `You have been awarded the ${bid.bid_packages?.scope} contract. Check your dashboard for next steps.`,
-        read: false,
-      }))
-    )
+    await notify({
+      db, userIds: subProfiles.map(p => p.id), type: 'bid_awarded', title: 'Bid awarded',
+      message: `You have been awarded the ${bid.bid_packages?.scope} contract. Check your dashboard for next steps.`,
+      link: `/my-bids`,
+    })
   }
 
   // Fetch GC actor name
