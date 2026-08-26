@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
+import { notify } from '@/lib/notify'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -51,14 +52,11 @@ export async function POST(
   const { data: profiles } = await db.from('profiles').select('id, company_id').in('company_id', newCompanyIds)
   if (profiles?.length) {
     const projectName = (pkg?.projects as any)?.name ?? 'a project'
-    await db.from('notifications').insert(
-      profiles.map(p => ({
-        user_id: p.id,
-        type: 'new_bid',
-        message: `You have been invited to bid on ${pkg?.scope} for ${projectName}.`,
-        read: false,
-      }))
-    )
+    await notify({
+      db, userIds: profiles.map(p => p.id), type: 'bid_invited', title: 'Invited to bid',
+      message: `You have been invited to bid on ${pkg?.scope} for ${projectName}.`,
+      link: `/my-bids`,
+    })
   }
 
   // Fetch company names for the log

@@ -268,6 +268,51 @@ export function inviteEmail({ name, inviteUrl }: { name: string | null | undefin
   return { subject: 'Your SyteNav invite', text, html }
 }
 
+/**
+ * A notification, by email.
+ *
+ * Deliberately one line of content and one link. A notification email that
+ * restates everything in the app is a reason to stop opening notification
+ * emails; this one exists to say what happened and get you to the thing.
+ *
+ * The footer names where to turn it off. Every recipient of one of these has an
+ * account, so pointing at Settings is the right affordance - a signed
+ * one-click unsubscribe is for bulk mail, which this is not.
+ */
+export function notificationEmail({
+  name, eyebrow, heading, message, url, settingsUrl,
+}: {
+  name: string | null | undefined
+  eyebrow: string
+  heading: string
+  message: string
+  url: string | null
+  settingsUrl: string
+}) {
+  const hi = firstName(name)
+
+  const text = [
+    `Hi ${hi},`,
+    '',
+    message,
+    ...(url ? ['', url] : []),
+    '',
+    '---',
+    `Change which of these you get: ${settingsUrl}`,
+  ].join('\n')
+
+  const html = emailLayout({
+    preheader: message,
+    eyebrow,
+    heading,
+    paragraphs: [`Hi ${hi},`, message],
+    cta: url ? { label: 'Open in SyteNav', url } : undefined,
+    footNote: `You are getting this because of your notification settings. Change which of these you receive at ${settingsUrl}`,
+  })
+
+  return { subject: heading, text, html }
+}
+
 /** Minimal escaping - these templates interpolate names and URLs, nothing more. */
 export function escapeHtml(s: string): string {
   return s

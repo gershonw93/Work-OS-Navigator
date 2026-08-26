@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
+import { notify } from '@/lib/notify'
 
 export const runtime = 'nodejs'
 
@@ -45,7 +46,11 @@ export async function POST(request: Request, { params }: { params: { id: string;
         const { data: p } = await db.from('profiles').select('id').eq('email', (member as any).email).maybeSingle()
         uid = p?.id ?? null
       }
-      if (uid) await db.from('notifications').insert({ user_id: uid, type: 'signoff_requested', message: `${actor} requested your signoff on: "${task.title}"`, read: false })
+      if (uid) await notify({
+        db, userIds: [uid], type: 'signoff_requested', title: 'Sign-off requested',
+        message: `${actor} requested your signoff on: "${task.title}"`,
+        link: `/projects/${params.id}/tasks`,
+      })
     }
 
     await logActivity(db, params.id, actor, 'task_updated', `Signoff requested on "${task.title}"`, { task_id: task.id })

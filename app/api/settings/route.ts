@@ -212,7 +212,7 @@ export async function PATCH(request: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { full_name, phone, company, notifications, delete_protection } = body
+  const { full_name, phone, company, delete_protection } = body
 
   const db = admin()
 
@@ -271,9 +271,6 @@ export async function PATCH(request: Request) {
       }
     }
   }
-
-  // notifications: currently just acknowledged (no DB persistence yet)
-  void notifications
 
   return NextResponse.json({ ok: true })
 }

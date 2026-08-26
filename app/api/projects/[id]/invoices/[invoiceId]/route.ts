@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
-import { createNotification } from '@/lib/notify'
+import { notify } from '@/lib/notify'
 import { validateAllocations } from '@/lib/allocations'
 
 const admin = () => createClient(
@@ -95,18 +95,14 @@ export async function PATCH(
         .select('id')
         .eq('company_id', invoice.company_id)
       if (subProfiles?.length) {
-        await Promise.all(
-          subProfiles.map(p =>
-            createNotification(
-              db,
-              p.id,
-              `Invoice Approved`,
-              `Invoice ${invoice.invoice_number} has been approved - $${Number(invoice.amount).toLocaleString()}`,
-              `/projects/${params.id}/invoices`,
-              'invoice_approved',
-            )
-          )
-        )
+        await notify({
+          db,
+          userIds: subProfiles.map(p => p.id),
+          type: 'invoice_approved',
+          title: `Invoice Approved`,
+          message: `Invoice ${invoice.invoice_number} has been approved - $${Number(invoice.amount).toLocaleString()}`,
+          link: `/projects/${params.id}/invoices`,
+        })
       }
     }
   } else if (status === 'sent') {
@@ -124,18 +120,14 @@ export async function PATCH(
         .select('id')
         .eq('company_id', invoice.company_id)
       if (subProfiles?.length) {
-        await Promise.all(
-          subProfiles.map(p =>
-            createNotification(
-              db,
-              p.id,
-              `Invoice released for payment`,
-              `Invoice ${invoice.invoice_number} - $${Number(invoice.amount).toLocaleString()} has been approved and released for payment.`,
-              `/projects/${params.id}/invoices`,
-              'invoice_sent',
-            )
-          )
-        )
+        await notify({
+          db,
+          userIds: subProfiles.map(p => p.id),
+          type: 'invoice_sent',
+          title: `Invoice released for payment`,
+          message: `Invoice ${invoice.invoice_number} - $${Number(invoice.amount).toLocaleString()} has been approved and released for payment.`,
+          link: `/projects/${params.id}/invoices`,
+        })
       }
     }
   } else if (status === 'paid') {
@@ -149,18 +141,14 @@ export async function PATCH(
         .select('id')
         .eq('company_id', invoice.company_id)
       if (subProfiles?.length) {
-        await Promise.all(
-          subProfiles.map(p =>
-            createNotification(
-              db,
-              p.id,
-              `Invoice Paid`,
-              `Invoice ${invoice.invoice_number} has been marked as paid - $${Number(invoice.amount).toLocaleString()}`,
-              `/projects/${params.id}/invoices`,
-              'invoice_paid',
-            )
-          )
-        )
+        await notify({
+          db,
+          userIds: subProfiles.map(p => p.id),
+          type: 'invoice_paid',
+          title: `Invoice Paid`,
+          message: `Invoice ${invoice.invoice_number} has been marked as paid - $${Number(invoice.amount).toLocaleString()}`,
+          link: `/projects/${params.id}/invoices`,
+        })
       }
     }
 

@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
+import { notify } from '@/lib/notify'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -111,14 +112,12 @@ export async function PATCH(
       for (const p of office ?? []) if (p.id !== user.id) recipients.add(p.id)
     }
     if (recipients.size) {
-      await db.from('notifications').insert(
-        Array.from(recipients).map(uid => ({
-          user_id: uid,
-          type: 'inspection_ready',
-          message: `${updates.ready_marked_by} marked ${label}${at} ready for inspection. Book the inspector when you can.`,
-          read: false,
-        })),
-      )
+      await notify({
+        db, userIds: Array.from(recipients), type: 'inspection_ready',
+        title: 'Ready for inspection',
+        message: `${updates.ready_marked_by} marked ${label}${at} ready for inspection. Book the inspector when you can.`,
+        link: `/projects/${params.id}/inspections`,
+      })
     }
   }
 
@@ -140,9 +139,15 @@ export async function PATCH(
     if (newStatus !== 'scheduled' && inspection.scheduler_profile_id) recipients.add(inspection.scheduler_profile_id)
     recipients.delete(user.id) // don't notify the person who made the change
     if (msg && recipients.size) {
-      await db.from('notifications').insert(
-        Array.from(recipients).map((uid) => ({ user_id: uid, type: `inspection_${newStatus}`, message: msg, read: false })),
-      )
+      // The type used to be built from newStatus - `inspection_scheduled`,
+      // `inspection_passed`, `inspection_failed` - three strings no preference
+      // had ever heard of. One type now, with the outcome in the message where
+      // a person reads it.
+      await notify({
+        db, userIds: Array.from(recipients), type: 'inspection_result',
+        title: 'Inspection update', message: msg,
+        link: `/projects/${params.id}/inspections`,
+      })
     }
   }
 

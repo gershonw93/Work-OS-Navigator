@@ -1070,6 +1070,25 @@ export const HELP_ARTICLES: HelpArticle[] = [
     related: ['add-project-budget', 'materials-receipt', 'time-clock'],
   },
   {
+    slug: 'notification-preferences',
+    title: 'Choose what you get told about',
+    category: 'settings',
+    keywords: ['notification', 'notifications', 'email', 'alerts', 'bell', 'turn off', 'mute', 'unsubscribe', 'preferences', 'settings', 'stop emails'],
+    summary: 'Pick which notifications reach you in the app, by email, or both.',
+    blocks: [
+      { type: 'steps', items: [
+        'Open Settings from the sidebar, then the Notifications tab.',
+        'Each row is one kind of notification, with a short line saying what sets it off.',
+        'Two switches per row: App puts it in the bell, Email sends it to your account address.',
+        'Changes save the moment you press them - there is no Save button.',
+      ] },
+      { type: 'text', text: 'EMAIL IS OFF FOR MOST THINGS ON PURPOSE. It is on by default for six, all of them cases where finding out at your next login is too late: somebody is waiting on your sign-off, a bill needs approving, a bill you sent got paid, a bid you priced was decided, an insurance certificate is about to lapse, or you have been invited to quote a package. Everything else stays in the bell until you ask for it.' },
+      { type: 'text', text: 'Notifications marked COMING SOON are ones the app does not send yet. The switch is there so you can see what is planned; it will start working when the notification does.' },
+      { type: 'tip', text: 'Turning off the bell and the email for something means you will not hear about it at all. If you want a quieter inbox but still want to catch up in your own time, turn off Email and leave App on.' },
+    ],
+    related: ['invite-team-member', 'permissions'],
+  },
+  {
     slug: 'invite-team-member',
     title: 'Invite a team member',
     category: 'settings',

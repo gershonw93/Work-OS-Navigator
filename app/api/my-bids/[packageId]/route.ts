@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
-import { createNotification } from '@/lib/notify'
+import { notify } from '@/lib/notify'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -180,18 +180,14 @@ export async function POST(request: Request, { params }: { params: { packageId: 
         .select('id')
         .eq('company_id', projectRow.gc_company_id)
       if (gcProfiles?.length) {
-        await Promise.all(
-          gcProfiles.map(p =>
-            createNotification(
-              db,
-              p.id,
-              `New Bid: ${pkg.scope}`,
-              `${companyName} ${verb} a bid - $${Number(amount).toLocaleString()}`,
-              `/projects/${pkg.project_id}/bids`,
-              'bid',
-            )
-          )
-        )
+        await notify({
+          db,
+          userIds: gcProfiles.map(p => p.id),
+          type: 'bid',
+          title: `New Bid: ${pkg.scope}`,
+          message: `${companyName} ${verb} a bid - $${Number(amount).toLocaleString()}`,
+          link: `/projects/${pkg.project_id}/bids`,
+        })
       }
     }
   }

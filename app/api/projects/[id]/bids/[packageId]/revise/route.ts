@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
+import { notify } from '@/lib/notify'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -51,11 +52,10 @@ export async function POST(
   ])
 
   if (subProfile) {
-    await db.from('notifications').insert({
-      user_id: subProfile.id,
-      type: 'bid_revision',
+    await notify({
+      db, userIds: [subProfile.id], type: 'bid_revision', title: 'Bid revision requested',
       message: `A revision has been requested for your ${pkg?.scope ?? ''} bid. Please review and resubmit.`,
-      read: false,
+      link: `/my-bids`,
     })
   }
 

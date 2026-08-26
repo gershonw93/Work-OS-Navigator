@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
 import { destinationsBySubcontract, rollupBudgetLines } from '@/lib/invoice-budget'
+import { notify } from '@/lib/notify'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -212,11 +213,12 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const { data: creator } = await db.from('profiles').select('full_name').eq('id', user.id).single()
   await logActivity(db, params.id, (creator as any)?.full_name ?? 'GC', 'invoice_created', `Invoice ${invoice_number} created for ${company_name} - $${Number(amount).toLocaleString()}`)
 
-  await db.from('notifications').insert({
-    user_id: user.id,
-    type: 'invoice_pending',
+  // NOTE: this notifies the person who just created the invoice. Preserved as
+  // found rather than quietly changed - see BACKLOG.md.
+  await notify({
+    db, userIds: [user.id], type: 'invoice_pending', title: 'Invoice pending approval',
     message: `Invoice ${invoice_number} is pending your approval`,
-    read: false,
+    link: `/projects/${params.id}/invoices`,
   })
 
   return NextResponse.json({ invoice: data })
