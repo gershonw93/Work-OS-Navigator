@@ -14,6 +14,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { Plus, ChevronDown, ChevronUp, ExternalLink, UserPlus } from 'lucide-react'
 import Link from 'next/link'
 import { BulkAddModal } from '@/components/projects/bulk-add-modal'
+import { AddProjectModal } from '@/components/projects/add-project-modal'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -53,134 +54,6 @@ function getInitials(name: string) {
 function uniqueStatuses(projects: Project[]) {
   const seen = new Set<string>()
   return projects.filter((p) => p.status && !seen.has(p.status) && seen.add(p.status)).map((p) => p.status)
-}
-
-// ─── Add Project Modal ────────────────────────────────────────────────────────
-
-function AddProjectModal({
-  customer,
-  onClose,
-  onSuccess,
-  token,
-}: {
-  customer: Customer
-  onClose: () => void
-  onSuccess: () => void
-  token: string
-}) {
-  const today = new Date().toISOString().split('T')[0]
-  const [mode, setMode] = useState<'new' | 'existing'>('new')
-  const [name, setName] = useState('')
-  const [address, setAddress] = useState('')
-  const [type, setType] = useState('residential')
-  const [startDate, setStartDate] = useState(today)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-  const [existing, setExisting] = useState<{ id: string; name: string }[]>([])
-  const [selectedId, setSelectedId] = useState('')
-
-  useEffect(() => {
-    (async () => {
-      const res = await fetch('/api/projects', { headers: { Authorization: `Bearer ${token}` } })
-      if (res.ok) {
-        const d = await res.json()
-        setExisting((d.projects ?? []).filter((p: any) => !p.customer_id).map((p: any) => ({ id: p.id, name: p.name })))
-      }
-    })()
-  }, [token])
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setSaving(true)
-    setError('')
-    try {
-      let res: Response
-      if (mode === 'existing') {
-        if (!selectedId) { setError('Pick a project'); setSaving(false); return }
-        res = await fetch(`/api/projects/${selectedId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ customer_id: customer.id, client: customer.name }),
-        })
-      } else {
-        res = await fetch('/api/projects', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ name, address, client: customer.name, type, start_date: startDate, customer_id: customer.id }),
-        })
-      }
-      const json = await res.json()
-      if (!res.ok) { setError(json.error ?? 'Failed'); setSaving(false); return }
-      onSuccess()
-    } catch {
-      setError('Network error')
-      setSaving(false)
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-md rounded-xl bg-panel shadow-xl">
-        <div className="flex items-center justify-between border-b border-line px-6 py-4">
-          <h2 className="text-base font-semibold text-ink">Add Project for {customer.name}</h2>
-          <button onClick={onClose} className="text-faint hover:text-muted-fg text-xl leading-none">&times;</button>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-4 p-6">
-          <div className="inline-flex rounded-lg border border-line p-0.5">
-            {(['new', 'existing'] as const).map(m => (
-              <button key={m} type="button" onClick={() => setMode(m)}
-                className={cn('px-3 py-1.5 rounded-md text-sm font-medium transition-colors',
-                  mode === m ? 'bg-accent text-accent-ink' : 'text-muted-fg hover:text-ink')}>
-                {m === 'new' ? 'New project' : 'Existing project'}
-              </button>
-            ))}
-          </div>
-
-          {mode === 'existing' ? (
-            <div className="space-y-1.5">
-              <Label>Select an existing project</Label>
-              <Select value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>
-                <option value="">Choose a project…</option>
-                {existing.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </Select>
-              {existing.length === 0 && <p className="text-xs text-faint">No unassigned projects - every project is already linked to a customer.</p>}
-            </div>
-          ) : (
-            <>
-              <div className="space-y-1.5">
-                <Label htmlFor="ap-name">Project Name</Label>
-                <Input id="ap-name" value={name} onChange={(e) => setName(e.target.value)} required placeholder="e.g. Main Street Remodel" />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="ap-address">Address</Label>
-                <Input id="ap-address" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="123 Main St" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="ap-type">Type</Label>
-                  <Select id="ap-type" value={type} onChange={(e) => setType(e.target.value)}>
-                    <option value="residential">Residential</option>
-                    <option value="commercial">Commercial</option>
-                    <option value="renovation">Renovation</option>
-                    <option value="mixed_use">Mixed Use</option>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="ap-date">Start Date</Label>
-                  <Input id="ap-date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-                </div>
-              </div>
-            </>
-          )}
-          {error && <p className="text-sm text-danger">{error}</p>}
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
-            <Button type="submit" disabled={saving}>{saving ? 'Saving…' : (mode === 'existing' ? 'Link Project' : 'Add Project')}</Button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
 }
 
 // ─── New Customer Modal ───────────────────────────────────────────────────────
