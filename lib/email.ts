@@ -321,6 +321,56 @@ export function notificationEmail({
   return { subject: heading, text, html }
 }
 
+/**
+ * "Here is the link to your job."
+ *
+ * Goes to somebody with no account, so the link IS the product - which is why
+ * emailLayout prints the URL under the button rather than hiding it behind one.
+ */
+export function clientPortalEmail({
+  clientName, projectName, senderName, companyName, portalUrl, note,
+}: {
+  clientName: string | null | undefined
+  projectName: string
+  senderName: string | null | undefined
+  companyName: string | null | undefined
+  portalUrl: string
+  note?: string | null
+}) {
+  const hi = firstName(clientName)
+  const from = (senderName ?? '').trim() || (companyName ?? '').trim() || 'your contractor'
+  const sig = [(senderName ?? '').trim(), (companyName ?? '').trim()].filter(Boolean)
+
+  const body = [
+    `${from} has shared the job "${projectName}" with you.`,
+    'You can see progress, photos, documents and where the money is up to. No account or password needed - the link is all you need.',
+  ]
+  if (note?.trim()) body.splice(1, 0, note.trim())
+
+  const text = [
+    `Hi ${hi},`,
+    '',
+    ...body,
+    '',
+    portalUrl,
+    '',
+    'Keep this link somewhere safe - anyone who has it can open the same page.',
+    ...(sig.length ? ['', ...sig] : []),
+  ].join('\n')
+
+  const html = emailLayout({
+    preheader: `Your link to ${projectName}`,
+    eyebrow: 'Project shared with you',
+    heading: projectName,
+    subheading: companyName?.trim() || undefined,
+    paragraphs: [`Hi ${hi},`, ...body],
+    cta: { label: 'Open your project', url: portalUrl },
+    footNote: 'Keep this link somewhere safe - anyone who has it can open the same page. If you were not expecting this, you can ignore it.',
+  })
+
+  return { subject: `${projectName} - your project link`, text, html }
+}
+
 /** Minimal escaping - these templates interpolate names and URLs, nothing more. */
 export function escapeHtml(s: string): string {
   return s
