@@ -533,7 +533,11 @@ export default function ProjectsPage() {
               description={canCreate
                 ? 'Create your first project to start managing plans, bids, and the full construction workflow.'
                 : 'You have not been assigned to any projects yet.'}
-              action={canCreate ? { label: 'New Project' } : undefined}
+              // Was `{ label: 'New Project' }` with no handler - a button that
+              // rendered, looked right, and did nothing, on the one screen a
+              // brand-new user has nothing else to click. href makes it a real
+              // link, so it also middle-clicks and opens in a new tab.
+              action={canCreate ? { label: 'New Project', href: '/projects/new' } : undefined}
             />
           </CardContent>
         </Card>

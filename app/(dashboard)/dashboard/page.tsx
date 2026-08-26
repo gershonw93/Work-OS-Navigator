@@ -390,7 +390,7 @@ export default function DashboardPage() {
                   icon={FolderKanban}
                   title="No projects yet"
                   description="Create your first project to get started."
-                  action={{ label: 'New Project', onClick: () => window.location.href = '/projects/new' }}
+                  action={{ label: 'New Project', href: '/projects/new' }}
                 />
               ) : (
                 <>

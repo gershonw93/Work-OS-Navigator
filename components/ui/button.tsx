@@ -23,19 +23,35 @@ const sizeClasses: Record<ButtonSize, string> = {
   lg: 'h-10 px-6 text-base',
 }
 
+/**
+ * The button's classes, without the button.
+ *
+ * For the cases that must render an <a> or a next/link but look identical -
+ * a call to action that navigates is a link, not a button, and making it a
+ * real link is what gives it middle-click, open-in-new-tab and a status-bar
+ * preview. Exported rather than duplicated so the two can never diverge.
+ */
+export function buttonClasses(
+  variant: ButtonVariant = 'default',
+  size: ButtonSize = 'md',
+  className?: string,
+): string {
+  return cn(
+    'inline-flex items-center justify-center gap-2 rounded-md font-medium transition-colors',
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
+    'disabled:pointer-events-none disabled:opacity-50',
+    variantClasses[variant],
+    sizeClasses[size],
+    className,
+  )
+}
+
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'default', size = 'md', ...props }, ref) => {
     return (
       <button
         ref={ref}
-        className={cn(
-          'inline-flex items-center justify-center gap-2 rounded-md font-medium transition-colors',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
-          'disabled:pointer-events-none disabled:opacity-50',
-          variantClasses[variant],
-          sizeClasses[size],
-          className
-        )}
+        className={buttonClasses(variant, size, className)}
         {...props}
       />
     )
