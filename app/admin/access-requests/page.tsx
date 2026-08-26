@@ -6,12 +6,14 @@ import { adminGet } from '@/lib/admin-fetch'
 import { clientAppOrigin } from '@/lib/app-url'
 import { Check, X, Copy, Mail, RotateCcw, Send } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { timeAgo } from '@/lib/time-ago'
 
 interface AccessRequest {
   id: string; name: string; email: string; company_name: string | null
   company_type: string | null; phone: string | null; message: string | null
   status: string; invite_token: string | null; created_at: string
   invite_sent_at: string | null
+  account: { exists: boolean; last_sign_in_at: string | null }
 }
 
 /** What the server said about the email, per row, for this session only. */
@@ -51,7 +53,10 @@ export default function AccessRequestsPage() {
     })
     if (res.ok) {
       const { request, email } = await res.json()
-      setRequests(prev => prev.map(r => r.id === id ? request : r))
+      // PATCH returns the access_requests row only; `account` is assembled by
+      // GET from auth.users. Merging wholesale dropped it, so every row read
+      // "No account yet" the moment you touched it.
+      setRequests(prev => prev.map(r => r.id === id ? { ...request, account: r.account } : r))
       // Only approve and resend attempt delivery; clear any stale note otherwise.
       setOutcomes(prev => ({ ...prev, [id]: email ?? undefined }))
     }
@@ -71,6 +76,29 @@ export default function AccessRequestsPage() {
     const subject = "You're in - your SyteNav invite"
     const body = `Hi ${r.name.split(' ')[0]},\n\nYour SyteNav access request is approved. Create your account with this personal invite link:\n${inviteLink(r)}\n\nWelcome aboard!`
     return `mailto:${r.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+  }
+
+  /**
+   * Did this person ever actually get in, and when were they last here?
+   *
+   * The three states are genuinely different and were previously
+   * indistinguishable: no account at all (approved, never signed up - the
+   * ones who fall through the crack), an account that has never been signed
+   * in to, and an account in real use.
+   */
+  function AccountNote({ r }: { r: AccessRequest }) {
+    const a = r.account
+    if (!a?.exists) {
+      return <span className="rounded-full bg-warn-tint px-2 py-0.5 text-xs font-medium text-warn">No account yet</span>
+    }
+    if (!a.last_sign_in_at) {
+      return <span className="rounded-full bg-surface px-2 py-0.5 text-xs text-muted-fg">Signed up, never logged in</span>
+    }
+    return (
+      <span className="rounded-full bg-surface px-2 py-0.5 text-xs text-muted-fg" title={new Date(a.last_sign_in_at).toLocaleString()}>
+        Last login {timeAgo(a.last_sign_in_at)}
+      </span>
+    )
   }
 
   /**
@@ -125,6 +153,7 @@ export default function AccessRequestsPage() {
                 <span className="font-semibold text-ink">{r.name}</span>
                 <span className="text-sm text-faint">{r.email}</span>
                 {r.company_name && <span className="text-sm text-faint">· {r.company_name}</span>}
+                <AccountNote r={r} />
                 {r.company_type && <span className="rounded-full bg-surface px-2 py-0.5 text-xs text-muted-fg uppercase">{r.company_type === 'gc' ? 'GC' : 'Sub'}</span>}
                 <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium capitalize', STATUS_CLS[r.status] ?? '')}>{r.status}</span>
                 <span className="ml-auto text-xs text-faint">{new Date(r.created_at).toLocaleDateString()}</span>
