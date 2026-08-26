@@ -49,6 +49,24 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-08-26',
+    title: 'Two fixes on the way into a new job',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'The New Project button on an empty projects list did nothing',
+        text: 'If you had no projects yet, the projects page showed a New Project button that was not wired to anything - you could click it all day. It was the only thing to click on that screen, which made it a poor first impression. It works now, and it is a real link, so you can middle-click it into a new tab.',
+        href: '/projects',
+      },
+      {
+        kind: 'improved',
+        title: 'Adding a project from a customer now asks the same questions as anywhere else',
+        text: 'The Add Project box on a customer page was a short form: name, address, type, start date. It never asked how the job bills or how it pays you, so every job started there was quietly filed as simple invoicing - even a commercial job that bills by pay application - and had no contract type, which is what the Budget tab needs before it can show you any profit. It is now the same full form as New Project, with the customer already filled in, so a job started from a customer is set up exactly like one started anywhere else.',
+        href: '/customers',
+      },
+    ],
+  },
+  {
+    date: '2026-08-26',
     title: 'The website moved to the front door',
     items: [
       {
