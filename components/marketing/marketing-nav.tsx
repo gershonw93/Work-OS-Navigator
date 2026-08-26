@@ -10,19 +10,19 @@ import { cn } from '@/lib/utils'
 import { appHref } from '@/lib/hosts'
 
 const LINKS = [
-  { href: '/homepage/features', label: 'Features' },
-  { href: '/homepage/money', label: 'Money' },
-  { href: '/homepage/workflow', label: 'How it works' },
-  { href: '/homepage/flows', label: 'Flows' },
-  { href: '/homepage/ai', label: 'AI' },
-  { href: '/homepage/mobile', label: 'On the go' },
-  { href: '/homepage/pricing', label: 'Pricing' },
+  { href: '/features', label: 'Features' },
+  { href: '/money', label: 'Money' },
+  { href: '/workflow', label: 'How it works' },
+  { href: '/flows', label: 'Flows' },
+  { href: '/ai', label: 'AI' },
+  { href: '/mobile', label: 'On the go' },
+  { href: '/pricing', label: 'Pricing' },
 ]
 
 const AUDIENCE = [
-  { href: '/homepage/contractors', label: 'General contractors', desc: 'Run every job, sub, and dollar', icon: Building2 },
-  { href: '/homepage/subcontractors', label: 'Subcontractors', desc: 'Quote to paid, without the office work', icon: HardHat },
-  { href: '/homepage/why', label: 'Why SyteNav', desc: 'What it replaces and why', icon: Scale },
+  { href: '/contractors', label: 'General contractors', desc: 'Run every job, sub, and dollar', icon: Building2 },
+  { href: '/subcontractors', label: 'Subcontractors', desc: 'Quote to paid, without the office work', icon: HardHat },
+  { href: '/why', label: 'Why SyteNav', desc: 'What it replaces and why', icon: Scale },
 ]
 
 export function MarketingNav() {
@@ -63,16 +63,16 @@ export function MarketingNav() {
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-surface/85 backdrop-blur-md">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-        <Link href="/homepage" aria-label="SyteNav home"><SyteNavLogo size={26} /></Link>
+        <Link href="/" aria-label="SyteNav home"><SyteNavLogo size={26} /></Link>
 
         {/* Desktop */}
         <nav className="hidden md:flex items-center gap-7" aria-label="Main">
-          <Link href="/homepage/features" className={linkCls('/homepage/features')}>Features</Link>
-          <Link href="/homepage/money" className={linkCls('/homepage/money')}>Money</Link>
-          <Link href="/homepage/flows" className={linkCls('/homepage/flows')}>Flows</Link>
-          <Link href="/homepage/workflow" className={linkCls('/homepage/workflow')}>How it works</Link>
-          <Link href="/homepage/ai" className={linkCls('/homepage/ai')}>AI</Link>
-          <Link href="/homepage/mobile" className={linkCls('/homepage/mobile')}>On the go</Link>
+          <Link href="/features" className={linkCls('/features')}>Features</Link>
+          <Link href="/money" className={linkCls('/money')}>Money</Link>
+          <Link href="/flows" className={linkCls('/flows')}>Flows</Link>
+          <Link href="/workflow" className={linkCls('/workflow')}>How it works</Link>
+          <Link href="/ai" className={linkCls('/ai')}>AI</Link>
+          <Link href="/mobile" className={linkCls('/mobile')}>On the go</Link>
 
           {/* Audience dropdown */}
           <div className="relative" ref={dropRef} onMouseEnter={() => setDrop(true)} onMouseLeave={() => setDrop(false)}>
@@ -104,7 +104,7 @@ export function MarketingNav() {
             )}
           </div>
 
-          <Link href="/homepage/pricing" className={linkCls('/homepage/pricing')}>Pricing</Link>
+          <Link href="/pricing" className={linkCls('/pricing')}>Pricing</Link>
         </nav>
 
         <div className="hidden md:flex items-center gap-3">

@@ -7,28 +7,28 @@ const COLUMNS: { title: string; links: [string, string][] }[] = [
   {
     title: 'Product',
     links: [
-      ['Features', '/homepage/features'],
-      ['The money side', '/homepage/money'],
-      ['How it works', '/homepage/workflow'],
-      ['AI document scanning', '/homepage/ai'],
-      ['Mobile & on the go', '/homepage/mobile'],
-      ['Pricing', '/homepage/pricing'],
-      ['Security', '/homepage/security'],
+      ['Features', '/features'],
+      ['The money side', '/money'],
+      ['How it works', '/workflow'],
+      ['AI document scanning', '/ai'],
+      ['Mobile & on the go', '/mobile'],
+      ['Pricing', '/pricing'],
+      ['Security', '/security'],
     ],
   },
   {
     title: "Who it's for",
     links: [
-      ['General contractors', '/homepage/contractors'],
-      ['Subcontractors', '/homepage/subcontractors'],
-      ['Why SyteNav', '/homepage/why'],
+      ['General contractors', '/contractors'],
+      ['Subcontractors', '/subcontractors'],
+      ['Why SyteNav', '/why'],
     ],
   },
   {
     title: 'Company',
     links: [
-      ['About', '/homepage/about'],
-      ['Contact', '/homepage/contact'],
+      ['About', '/about'],
+      ['Contact', '/contact'],
       ['Log in', '/login'],
       ['Request access', appHref('/signup')],
     ],
@@ -36,10 +36,10 @@ const COLUMNS: { title: string; links: [string, string][] }[] = [
   {
     title: 'Legal',
     links: [
-      ['Privacy Policy', '/homepage/privacy'],
-      ['Terms of Service', '/homepage/terms'],
-      ['Cookie Policy', '/homepage/cookies'],
-      ['Acceptable Use', '/homepage/acceptable-use'],
+      ['Privacy Policy', '/privacy'],
+      ['Terms of Service', '/terms'],
+      ['Cookie Policy', '/cookies'],
+      ['Acceptable Use', '/acceptable-use'],
     ],
   },
 ]

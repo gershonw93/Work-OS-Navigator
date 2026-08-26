@@ -28,7 +28,7 @@ export function LegalDoc({ title, updated, intro, sections }: { title: string; u
       </div>
 
       <div className="mt-10 rounded-xl border border-line bg-panel p-4 text-sm text-muted-fg">
-        Questions about this policy? Contact us at <a href="mailto:legal@sytenav.com" className="text-accent-fg hover:underline">legal@sytenav.com</a> or via our <Link href="/homepage/contact" className="text-accent-fg hover:underline">contact page</Link>.
+        Questions about this policy? Contact us at <a href="mailto:legal@sytenav.com" className="text-accent-fg hover:underline">legal@sytenav.com</a> or via our <Link href="/contact" className="text-accent-fg hover:underline">contact page</Link>.
       </div>
     </article>
   )

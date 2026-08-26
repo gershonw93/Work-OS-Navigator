@@ -30,7 +30,7 @@ export function CtaBand({
               Request access <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
-              href="/homepage/contact"
+              href="/contact"
               className="inline-flex items-center gap-2 rounded-xl border border-accent-ink/30 font-semibold px-7 py-3.5 hover:bg-accent-ink/10 transition-colors"
             >
               Book a setup
