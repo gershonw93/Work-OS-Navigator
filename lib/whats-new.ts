@@ -60,7 +60,7 @@ export const RELEASES: Release[] = [
       {
         kind: 'improved',
         title: 'Adding a project from a customer now asks the same questions as anywhere else',
-        text: 'The Add Project box on a customer page was a short form: name, address, type, start date. It never asked how the job bills or how it pays you, so every job started there was quietly filed as simple invoicing - even a commercial job that bills by pay application - and had no contract type, which is what the Budget tab needs before it can show you any profit. It is now the same full form as New Project, with the customer already filled in, so a job started from a customer is set up exactly like one started anywhere else.',
+        text: 'The Add Project box on a customer page - both from the customers list and from a customer\u2019s own page - was a short form: name, address, type, start date. It never asked how the job bills or how it pays you, so every job started there was quietly filed as simple invoicing - even a commercial job that bills by pay application - and had no contract type, which is what the Budget tab needs before it can show you any profit. It is now the same full form as New Project, with the customer already filled in, so a job started from a customer is set up exactly like one started anywhere else.',
         href: '/customers',
       },
     ],
