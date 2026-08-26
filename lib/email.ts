@@ -123,10 +123,109 @@ export async function sendEmail(email: OutgoingEmail): Promise<SendResult> {
   }
 }
 
+// ── Brand ────────────────────────────────────────────────────────────────────
+// Lifted from the CSS custom properties in app/globals.css. Email cannot read
+// those - no stylesheet, no var() - so the values are repeated here as literal
+// hex. If the theme changes, this is the second place to change.
+
+const BRAND = {
+  surface: '#F4F4F1',
+  panel: '#FFFFFF',
+  line: '#E7E7E2',
+  ink: '#16181B',
+  inkSoft: '#3A3F46',
+  mutedFg: '#6A6E74',
+  faint: '#9A9C96',
+  accent: '#C9F24A',      // lime fill
+  accentFg: '#5F7A12',    // readable lime as TEXT on light
+  accentInk: '#16181B',   // text ON a lime fill
+  font: "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif",
+}
+
+export interface EmailLayout {
+  /** The grey line the inbox shows after the subject. */
+  preheader: string
+  /** Small uppercase label above the heading, e.g. "DOCUMENT REQUEST". */
+  eyebrow: string
+  heading: string
+  /** Sub-line under the heading - who/what this concerns. Optional. */
+  subheading?: string
+  /** Body paragraphs. Plain strings; escaped for you. */
+  paragraphs: string[]
+  cta?: { label: string; url: string }
+  /** Small print under the card. */
+  footNote?: string
+}
+
+/**
+ * One shell every SyteNav email renders into, matching the token-link pages.
+ *
+ * THREE THINGS EMAIL CANNOT DO that the web app takes for granted, and what
+ * is done instead:
+ *
+ *   * SVG is stripped by Gmail and Outlook, so the arrow mark cannot be the
+ *     real logo. The lockup is rebuilt out of text and a coloured cell, which
+ *     always renders.
+ *   * Remote images are BLOCKED BY DEFAULT until the reader clicks "display
+ *     images", and Gmail strips base64 data: URIs outright. So there are no
+ *     images at all - nothing here can fail to load.
+ *   * Outlook renders through Word: no flexbox, no grid, and inline styles
+ *     only. Hence tables, and hence a square button rather than a rounded one
+ *     there. It degrades to something plain rather than something broken.
+ *
+ * The destination URL is ALSO printed as text under the button, always. A
+ * button whose href nobody can see is the shape of a phishing mail, and these
+ * carry login links to people who have never had mail from this domain.
+ * Showing the URL costs one line and is the single cheapest thing that makes a
+ * branded mail trustworthy.
+ */
+export function emailLayout(l: EmailLayout): string {
+  const e = escapeHtml
+  const body = l.paragraphs
+    .map(p => `<p style="margin:0 0 14px;color:${BRAND.inkSoft};font-size:15px;line-height:1.55">${e(p)}</p>`)
+    .join('')
+
+  const cta = l.cta
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:22px 0 10px">
+<tr><td style="border-radius:10px;background:${BRAND.accent}">
+<a href="${e(l.cta.url)}" style="display:inline-block;padding:13px 26px;font-family:${BRAND.font};font-size:15px;font-weight:700;color:${BRAND.accentInk};text-decoration:none;border-radius:10px">${e(l.cta.label)}</a>
+</td></tr></table>
+<p style="margin:0 0 4px;color:${BRAND.faint};font-size:12px">Or paste this into your browser:</p>
+<p style="margin:0;font-size:12px;word-break:break-all"><a href="${e(l.cta.url)}" style="color:${BRAND.accentFg};text-decoration:underline">${e(l.cta.url)}</a></p>`
+    : ''
+
+  return `<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${e(l.heading)}</title></head>
+<body style="margin:0;padding:0;background:${BRAND.surface}">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0">${e(l.preheader)}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${BRAND.surface};padding:28px 16px">
+<tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px">
+
+<tr><td style="padding:0 4px 18px">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+<td width="30" height="30" align="center" valign="middle" style="width:30px;height:30px;background:${BRAND.ink};border-radius:8px;color:${BRAND.accent};font-size:15px;line-height:30px">&#9656;</td>
+<td style="padding-left:9px;font-family:${BRAND.font};font-size:19px;font-weight:800;letter-spacing:-0.4px;color:${BRAND.ink}">SYTE<span style="color:${BRAND.accentFg}">NAV</span></td>
+</tr></table>
+</td></tr>
+
+<tr><td style="background:${BRAND.panel};border:1px solid ${BRAND.line};border-radius:14px;padding:26px 26px 24px;font-family:${BRAND.font}">
+<p style="margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:${BRAND.accentFg}">${e(l.eyebrow)}</p>
+<h1 style="margin:0 0 ${l.subheading ? '6px' : '16px'};font-size:22px;line-height:1.3;font-weight:800;color:${BRAND.ink}">${e(l.heading)}</h1>
+${l.subheading ? `<p style="margin:0 0 18px;font-size:14px;color:${BRAND.mutedFg}">${e(l.subheading)}</p>` : ''}
+${body}${cta}
+</td></tr>
+
+${l.footNote ? `<tr><td style="padding:16px 6px 0;font-family:${BRAND.font};font-size:12px;line-height:1.5;color:${BRAND.faint}">${e(l.footNote)}</td></tr>` : ''}
+<tr><td style="padding:14px 6px 0;font-family:${BRAND.font};font-size:11px;color:${BRAND.faint}">SyteNav &middot; Construction management built for the field</td></tr>
+
+</table></td></tr></table></body></html>`
+}
+
 // ── Templates ────────────────────────────────────────────────────────────────
-// Pure. No I/O, no env - hand them everything. That keeps them testable, and
-// stops a template quietly reaching for a different origin than the caller
-// intended.
+// The plain-text part is not a fallback nobody reads. It is what keeps mail out
+// of spam, and what some people genuinely receive, so it is written to stand on
+// its own rather than being a stripped copy of the HTML.
 
 /** Just the first name, for a greeting. Falls back to something usable. */
 export function firstName(fullName: string | null | undefined): string {
@@ -134,21 +233,14 @@ export function firstName(fullName: string | null | undefined): string {
   return n || 'there'
 }
 
-/**
- * "You're approved, here's your link."
- *
- * Deliberately plain. It carries a login link and is sent to somebody who has
- * never heard from this domain before, which is the exact shape of a phishing
- * mail - heavy HTML, buttons with hidden URLs and tracking pixels all make it
- * look worse, not better. The URL is shown in full, as itself.
- */
+/** "You're approved, here's your link." */
 export function inviteEmail({ name, inviteUrl }: { name: string | null | undefined; inviteUrl: string }) {
   const hi = firstName(name)
 
   const text = [
     `Hi ${hi},`,
     '',
-    'You\'re approved for the SyteNav beta.',
+    "You're approved for the SyteNav beta.",
     '',
     'Create your account here:',
     inviteUrl,
@@ -161,14 +253,17 @@ export function inviteEmail({ name, inviteUrl }: { name: string | null | undefin
     'SyteNav',
   ].join('\n')
 
-  const html = `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.5;color:#1a1a1a">
-<p>Hi ${escapeHtml(hi)},</p>
-<p>You&rsquo;re approved for the SyteNav beta.</p>
-<p>Create your account here:<br><a href="${escapeHtml(inviteUrl)}">${escapeHtml(inviteUrl)}</a></p>
-<p>The link is personal to you and only works once.</p>
-<p>If you have any trouble, just reply to this email.</p>
-<p>Gershon<br>SyteNav</p>
-</div>`
+  const html = emailLayout({
+    preheader: 'Your invite link to create a SyteNav account.',
+    eyebrow: 'You\u2019re approved',
+    heading: 'Welcome to the SyteNav beta',
+    paragraphs: [
+      `Hi ${hi}, your access request is approved.`,
+      'Create your account and you can start putting jobs in straight away.',
+    ],
+    cta: { label: 'Create your account', url: inviteUrl },
+    footNote: 'This link is personal to you and only works once. If you have any trouble, just reply to this email.',
+  })
 
   return { subject: 'Your SyteNav invite', text, html }
 }
