@@ -13,42 +13,63 @@ import {
   Wrench, Wallet, Clock, Send, ShoppingCart, FileSpreadsheet, Building2, Palette,
 } from 'lucide-react'
 
+/**
+ * The project tabs, grouped by WHAT YOU ARE DOING rather than by where the
+ * code happened to live.
+ *
+ * What this replaces, and why each move:
+ *
+ *   * "Bids" was under PEOPLE and "Quotes" was under FINANCIALS - the two
+ *     halves of buying out a job, in different groups, under different names,
+ *     in different colours. They are now one tab, because underneath they are
+ *     now one system.
+ *   * "RFIs" was under PEOPLE. An RFI is a formal question about the drawings;
+ *     it belongs with Submittals and Permits.
+ *   * PEOPLE therefore held three things, one of which was people.
+ *   * SITE was a group containing exactly one tab.
+ *   * "Estimate" was under FIELD, but it is the price you hand the client.
+ *   * Compliance moves to BUYOUT: it is the insurance and licences of the subs
+ *     you are buying from, not general paperwork.
+ *
+ * Keep the `group` strings in lib/permissions.ts RESOURCES in step with these.
+ * Two lists describing the same app in different words is what produced the
+ * mess above.
+ */
 const groups = [
   {
     label: 'Field',
     color: 'text-info',
     bg: 'bg-info-tint',
     tabs: [
-      { label: 'Estimate', slug: 'quote', icon: ClipboardCheck },
       { label: 'Plans', slug: 'plans', icon: FileText },
       { label: 'Schedule', slug: 'schedule', icon: Calendar },
       { label: 'Tasks', slug: 'tasks', icon: CheckSquare },
       { label: 'Progress', slug: 'progress', icon: TrendingUp },
       { label: 'Daily Logs', slug: 'daily-logs', icon: BookOpen },
       { label: 'Time Clock', slug: 'time', icon: Clock },
+      { label: 'Jobs', slug: 'units', icon: Building2 },
     ],
   },
   {
-    label: 'Docs & Legal',
-    color: 'text-accent-fg',
-    bg: 'bg-accent-tint',
+    label: 'Buyout',
+    color: 'text-special',
+    bg: 'bg-special-tint',
     tabs: [
-      { label: 'Permits', slug: 'permits', icon: FileCheck },
-      { label: 'Inspections', slug: 'inspections', icon: ClipboardCheck },
-      { label: 'Submittals', slug: 'submittals', icon: Wrench },
+      // One tab. "Bids" and "Quotes" were the same job under two names.
+      { label: 'Quotes & Bids', slug: 'request-quotes', icon: Send },
+      { label: 'Subs & Team', slug: 'team', icon: Users },
       { label: 'Compliance', slug: 'compliance', icon: Shield },
-      { label: 'Sharing', slug: 'sharing', icon: Send },
     ],
   },
   {
-    label: 'Financials',
+    label: 'Money',
     color: 'text-success',
     bg: 'bg-success-tint',
     tabs: [
+      { label: 'Estimate', slug: 'quote', icon: ClipboardCheck },
       { label: 'Budget', slug: 'budget', icon: Wallet },
       { label: 'Materials', slug: 'materials', icon: ShoppingCart },
       { label: 'Selections', slug: 'selections', icon: Palette },
-      { label: 'Quotes', slug: 'request-quotes', icon: Send },
       // Money OUT and money IN, said in the label. "Invoices" and "Payments"
       // never told you whose invoices or whose payments, and the bills a sub
       // sends you and the bills you send a client are the two things people
@@ -56,27 +77,21 @@ const groups = [
       { label: 'Bills from subs', slug: 'invoices', icon: Receipt },
       { label: 'Pay Apps', slug: 'pay-apps', icon: FileSpreadsheet },
       { label: 'Billing the client', slug: 'payments', icon: Wallet },
-      { label: 'Summary', slug: 'financials', icon: DollarSign },
       { label: 'Change Orders', slug: 'change-orders', icon: GitPullRequest },
+      { label: 'Summary', slug: 'financials', icon: DollarSign },
       { label: 'Reports', slug: 'reports', icon: BarChart2 },
     ],
   },
   {
-    label: 'Site',
-    color: 'text-info',
-    bg: 'bg-info-tint',
+    label: 'Docs',
+    color: 'text-accent-fg',
+    bg: 'bg-accent-tint',
     tabs: [
-      { label: 'Jobs', slug: 'units', icon: Building2 },
-    ],
-  },
-  {
-    label: 'People',
-    color: 'text-special',
-    bg: 'bg-special-tint',
-    tabs: [
-      { label: 'Team', slug: 'team', icon: Users },
-      { label: 'Bids', slug: 'bids', icon: GitPullRequest },
+      { label: 'Permits', slug: 'permits', icon: FileCheck },
+      { label: 'Inspections', slug: 'inspections', icon: ClipboardCheck },
+      { label: 'Submittals', slug: 'submittals', icon: Wrench },
       { label: 'RFIs', slug: 'rfis', icon: MessageSquare },
+      { label: 'Sharing', slug: 'sharing', icon: Send },
     ],
   },
 ]
@@ -88,8 +103,11 @@ const allTabs = groups.flatMap(g => g.tabs)
 // GC's private money/people tabs.
 const SUB_AWARDED_ALLOWED = new Set(['plans', 'schedule', 'tasks', 'progress', 'daily-logs', 'time', 'rfis', 'compliance'])
 // On a sub's OWN job they get the full set except: submittals (a sub→GC
-// artifact) and the RFQ/compare-quotes tabs (their own quote lives on "Quote").
-const SUB_OWN_HIDDEN = new Set(['submittals', 'request-quotes', 'quotes'])
+// artifact) and the buying-out tab (their own quote lives on "Estimate").
+// 'bids' and 'quotes' stay listed because both are still reachable URLs that
+// redirect into request-quotes - hiding the destination but not its aliases
+// would leave a way back in.
+const SUB_OWN_HIDDEN = new Set(['submittals', 'request-quotes', 'quotes', 'bids'])
 
 // A job in planning hasn't broken ground: nobody is on site, nothing is built,
 // and there is nothing to bill. Hide the tabs that only mean something once
