@@ -21,7 +21,7 @@ move it to **In progress**, and when it ships, move it to **Done** with the PR #
 - **Procore / Autodesk Construction Cloud** - for GCs who also run Procore.
 
 ## 📣 Notifications & comms
-- **Transactional email (Resend/SendGrid)** - biggest "feels unfinished" gap. Quote/compliance/inspection flows already produce messages; today they're in-app + mailto. Make them real emails.
+- **Transactional email - remaining flows** *(plumbing now shipped, see PR #287)*. `lib/email.ts` sends via SendGrid and never throws; access-request approvals now email the invite automatically. **Still on mailto/in-app only:** client invoice delivery, RFQ/quote requests, compliance chasing, inspection notifications. Each is now a small change - a template plus one call. **Blocked on config, not code:** `sytenav.com` must be authenticated in SendGrid and `SENDGRID_API_KEY` set, or every send answers `not_configured` and falls back to copying the link by hand.
 - **SMS reminders (Twilio)** - "text a receipt" for Materials, "inspection ready" to the scheduler, payment receipts to clients. Universal alternative to Ramp's receipt-texts. Smaller build, works for everyone.
 - **Slack / WhatsApp** - pipe project activity to a crew channel.
 
