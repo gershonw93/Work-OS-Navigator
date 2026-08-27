@@ -389,7 +389,7 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
                     hand-tick stays for people who type into QuickBooks
                     themselves, and stays a toggle because it is their claim. */}
                 {p.qbo_id ? (
-                  <span title="Pushed to QuickBooks by the sync"
+                  <span title={`In QuickBooks - search for ${'SN-' + p.id.slice(0, 8)} or the memo`}
                     className="text-xs inline-flex items-center gap-1 rounded-full border border-success/40 bg-success-tint px-2 py-0.5 text-success">
                     <Check className="h-3 w-3" /> QB ✓
                   </span>

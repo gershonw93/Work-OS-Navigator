@@ -59,6 +59,12 @@ export const RELEASES: Release[] = [
         href: '/settings',
       },
       {
+        kind: 'improved',
+        title: 'QuickBooks records say which project they belong to',
+        text: 'A pushed payment used to arrive in QuickBooks as just a customer, a date and an amount - fine until a customer has two jobs. Every record now carries the project name in its memo and a searchable SN- reference number, and hovering the QB chip in SyteNav shows you that reference. Records pushed before today keep their old plain memos.',
+        help: 'connect-quickbooks',
+      },
+      {
         kind: 'fixed',
         title: 'The QB chip tells the truth',
         text: 'The chip on a payment used to be a hand-ticked checkbox with no connection to what was actually in QuickBooks. A solid "QB ✓" now means the sync really pushed it; the clickable tick remains for payments you entered by hand. The Settings card also says plainly how many payments and bills are not in QuickBooks yet, instead of leaving you to wonder.',
