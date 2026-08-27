@@ -53,6 +53,13 @@ export const RELEASES: Release[] = [
     items: [
       {
         kind: 'fixed',
+        title: 'Recording a deposit on a job that has not started yet',
+        text: 'The go-live checklist asks for a deposit or first payment before you set a job to Active - but Billing the client was hidden until the job WAS active. Pressing "Open" on that item flashed the page and then bounced you to Plans. A deposit is money you take before breaking ground, so that tab is now available while a job is still in planning.',
+        help: 'project-status-active',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
         title: 'Timeouts and stuck "Saving…" buttons',
         text: 'Every request the app made was doing an extra login check against our auth server before it even reached the app - including every save. It was never used for anything, and when it was slow the whole request timed out with a 504 error page. That check is gone from the paths that never needed it, so saving is now one round trip instead of two.',
       },

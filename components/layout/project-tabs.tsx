@@ -119,9 +119,21 @@ const SUB_OWN_HIDDEN = new Set(['submittals', 'request-quotes', 'quotes', 'bids'
 // place to track the same work.
 const SITE_ALLOWED = new Set(['units', 'plans', 'permits', 'submittals', 'compliance', 'team', 'rfis', 'sharing'])
 
+//
+// 'payments' IS NOT IN THIS LIST, and that is deliberate.
+//
+// It used to be, and it created a deadlock. The readiness checklist gates
+// "ready to go active?" on "Deposit or first payment received" and links to
+// the payments tab to record one - but the tab was hidden until the job was
+// already active. Following that link rendered Billing the client for a moment
+// and then the guard below bounced you to the first visible tab, which is
+// Plans. The app asked for a deposit and hid the only place to enter it.
+//
+// A deposit is not progress billing. It is the money you take BEFORE breaking
+// ground, so preconstruction is exactly when it belongs.
 const PLANNING_HIDDEN = new Set([
   'time', 'daily-logs', 'progress',
-  'invoices', 'pay-apps', 'payments', 'change-orders',
+  'invoices', 'pay-apps', 'change-orders',
   'materials', 'inspections', 'reports', 'financials',
 ])
 
