@@ -45,6 +45,8 @@ interface Bill {
   show_markup: boolean
   token: string | null
   viewed_at: string | null
+  /** Set once it reaches QuickBooks - the same fact the payments list shows. */
+  qbo_id: string | null
   client_invoice_lines: BillLine[]
 }
 
@@ -226,6 +228,21 @@ export function ClientInvoices({
     return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
   }
 
+  /**
+   * Void a sent invoice.
+   *
+   * Not delete. A client already has this document, so it stays in the list
+   * with its number, greyed out - which is what an accountant expects and what
+   * QuickBooks does too. The costs on it go back to being billable, and the
+   * QuickBooks invoice is voided so it stops counting as money owed.
+   */
+  async function voidInvoice(bill: Bill) {
+    if (!confirm(
+      `Void ${bill.invoice_number}?\n\nIt stays on the list for the record, its costs go back to being billable, and it is voided in QuickBooks too. This cannot be undone.`
+    )) return
+    await setStatus(bill, 'void')
+  }
+
   async function remove(bill: Bill) {
     if (!confirm(`Delete ${bill.invoice_number}? The costs on it go back to being billable.`)) return
     const t = await token()
@@ -394,6 +411,19 @@ export function ClientInvoices({
                     disabled={!!statusBusy}
                     className="shrink-0 inline-flex items-center gap-1 rounded-md border border-success/30 bg-success-tint px-2 py-1 text-xs font-medium text-success">
                     <Check className="h-3 w-3" /> Mark paid
+                  </button>
+                )}
+                {b.qbo_id && (
+                  <span title={`In QuickBooks (invoice ${b.qbo_id})`}
+                    className="shrink-0 inline-flex items-center gap-1 rounded-full border border-success/40 bg-success-tint px-2 py-0.5 text-xs font-medium text-success">
+                    <Check className="h-3 w-3" /> QB ✓
+                  </span>
+                )}
+                {(b.status === 'sent' || b.status === 'paid') && (
+                  <button onClick={() => voidInvoice(b)} disabled={!!statusBusy}
+                    title="Void this invoice - it stays on the list, its costs become billable again"
+                    className="shrink-0 inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-xs font-medium text-faint hover:border-danger/40 hover:text-danger">
+                    Void
                   </button>
                 )}
                 {b.status === 'draft' && (

@@ -53,6 +53,19 @@ export const RELEASES: Release[] = [
     items: [
       {
         kind: 'new',
+        title: 'Void an invoice you sent by mistake',
+        text: 'A sent invoice could not be deleted, edited or cancelled - it was permanent. You can now Void one: it stays on the list with its number for the record, the costs on it become billable again so you can raise a corrected invoice, and the QuickBooks invoice is voided so it stops counting as money owed. Drafts are still simply deleted.',
+        help: 'money-overview',
+        href: '/projects',
+      },
+      {
+        kind: 'improved',
+        title: 'Invoices show whether they reached QuickBooks',
+        text: 'The payments list had a QB tick and the invoice list did not, even though invoices sync too. Now both show it.',
+        help: 'connect-quickbooks',
+      },
+      {
+        kind: 'new',
         title: 'New customers reach QuickBooks straight away',
         text: 'A customer you added only turned up in QuickBooks when you first invoiced them, or when somebody remembered the Sync customers button - so the two lists drifted, and an address you corrected here never reached the books. Adding or editing a customer now pushes them immediately.',
         help: 'connect-quickbooks',

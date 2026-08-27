@@ -52,6 +52,10 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const billedInvoiceIds = new Set<string>()
   const billedMaterialIds = new Set<string>()
   for (const b of bills ?? []) {
+    // A voided invoice is not a bill any more, so its costs go back on the
+    // billable list. Without this, voiding would strand them: unbillable
+    // forever, attached to a document that no longer asks for anything.
+    if ((b as any).status === 'void') continue
     for (const l of ((b as any).client_invoice_lines ?? [])) {
       if (l.source_invoice_id) billedInvoiceIds.add(l.source_invoice_id)
       if (l.source_material_id) billedMaterialIds.add(l.source_material_id)

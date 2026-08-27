@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
 import { randomBytes } from 'crypto'
-import { pushClientInvoice } from '@/lib/quickbooks-push'
+import { pushClientInvoice, voidClientInvoiceInQbo } from '@/lib/quickbooks-push'
 
 export const runtime = 'nodejs'
 
@@ -60,6 +60,12 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   // push: never throws, 8s cap, not-connected is normal.
   if (body.status === 'sent' || body.status === 'paid') {
     await pushClientInvoice(db, params.billId)
+  }
+
+  // Voiding has to reach QuickBooks or the receivable stays open over there,
+  // counting money nobody is being asked for any more.
+  if (body.status === 'void') {
+    await voidClientInvoiceInQbo(db, params.billId)
   }
 
   return NextResponse.json({ invoice: data })
