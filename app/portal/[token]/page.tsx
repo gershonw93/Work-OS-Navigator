@@ -73,6 +73,7 @@ export default async function PortalPage({ params }: { params: { token: string }
     { data: dailyLogs },
     { data: selections },
     { data: paymentRequests },
+    { data: clientInvoices },
   ] = await Promise.all([
     db.from('subcontracts').select('*').eq('project_id', project.id),
     db.from('schedule_items').select('*').eq('project_id', project.id).order('start_date', { ascending: true }),
@@ -87,6 +88,15 @@ export default async function PortalPage({ params }: { params: { token: string }
       .eq('status', 'pending')
       .not('sent_at', 'is', null)   // never sent = not yet asked; do not surprise them with it
       .order('created_at', { ascending: true }),
+    // The invoices this client was actually billed. NEVER drafts - same rule
+    // as the sent_at gate above: the portal must not show them something the
+    // GC has not sent yet. Totals come from the lines, exactly as the /bill
+    // page computes them, so the two can never disagree.
+    db.from('client_invoices')
+      .select('id, invoice_number, status, issue_date, due_date, paid_at, token, client_invoice_lines(amount)')
+      .eq('project_id', project.id)
+      .in('status', ['sent', 'paid'])
+      .order('created_at', { ascending: false }),
   ])
 
   // The one place in an otherwise read-only portal where the client owes US
@@ -94,6 +104,16 @@ export default async function PortalPage({ params }: { params: { token: string }
   // sometime" is how selections end up late.
   const dueFromClient = paymentRequests ?? []
   const dueTotal = dueFromClient.reduce((sum: number, r: any) => sum + Number(r.amount ?? 0), 0)
+
+  const invoices = (clientInvoices ?? []).map((b: any) => ({
+    ...b,
+    total: (b.client_invoice_lines ?? []).reduce((s: number, l: any) => s + Number(l.amount ?? 0), 0),
+    overdue: b.status === 'sent' && b.due_date ? (daysUntil(b.due_date) ?? 0) < 0 : false,
+  }))
+  const invoicesOutstanding = invoices
+    .filter((b: any) => b.status === 'sent')
+    .reduce((s: number, b: any) => s + b.total, 0)
+  const anyOverdue = invoices.some((b: any) => b.overdue)
 
   const owed = (selections ?? []).filter(s => isOutstanding(s.status))
   const owedLate = owed.filter(s => { const d = daysUntil(s.needed_by); return d != null && d < 0 }).length
@@ -238,6 +258,58 @@ export default async function PortalPage({ params }: { params: { token: string }
             </div>
             <p className="mt-3 text-xs text-muted-fg">
               Pay these the way you normally pay your contractor - get in touch with them if you are not sure how.
+            </p>
+          </div>
+        )}
+
+        {/* The invoices they were billed. Every row opens the invoice's own
+            page - the same link the email carried, so a client who lost the
+            email finds the bill here instead of asking for it again. */}
+        {invoices.length > 0 && (
+          <div className={cn('rounded-xl border p-4 sm:p-6',
+            anyOverdue ? 'border-danger/30 bg-danger-tint/20' : 'border-line bg-panel')}>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold text-ink">Invoices</h2>
+                <p className="text-sm text-muted-fg mt-0.5">
+                  {invoicesOutstanding > 0
+                    ? `$${invoicesOutstanding.toLocaleString(undefined, { maximumFractionDigits: 0 })} currently due.`
+                    : 'Everything billed so far has been paid.'}
+                </p>
+              </div>
+              {invoicesOutstanding > 0 && (
+                <span className="text-xl font-bold text-ink shrink-0">
+                  ${invoicesOutstanding.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                </span>
+              )}
+            </div>
+            <div className="mt-3 space-y-1.5">
+              {invoices.map((b: any) => (
+                <a key={b.id} href={`/bill/${b.token}`} target="_blank" rel="noreferrer"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line bg-panel px-3 py-2.5 transition-colors hover:border-accent">
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-ink">Invoice {b.invoice_number}</span>
+                    <span className="block text-xs text-muted-fg">
+                      {b.issue_date && new Date(b.issue_date + 'T00:00:00').toLocaleDateString()}
+                      {b.status === 'sent' && b.due_date && ` · due ${new Date(b.due_date + 'T00:00:00').toLocaleDateString()}`}
+                    </span>
+                  </span>
+                  <span className="flex items-center gap-2 shrink-0">
+                    <span className="text-sm font-bold text-ink">
+                      ${b.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    </span>
+                    <span className={cn('rounded-full px-2 py-0.5 text-xs font-semibold',
+                      b.status === 'paid' ? 'bg-success-tint text-success'
+                        : b.overdue ? 'bg-danger-tint text-danger'
+                        : 'bg-warn-tint text-warn')}>
+                      {b.status === 'paid' ? 'Paid' : b.overdue ? 'Overdue' : 'Due'}
+                    </span>
+                  </span>
+                </a>
+              ))}
+            </div>
+            <p className="mt-3 text-xs text-muted-fg">
+              Open an invoice to see the full breakdown. Pay the way you normally pay your contractor.
             </p>
           </div>
         )}

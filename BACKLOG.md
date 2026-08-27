@@ -110,6 +110,7 @@ Shipped in #218: bulk creation makes a site + a job per unit/floor/house, with a
 ---
 
 ## ✅ Recently shipped (for reference)
+- Client portal lists sent/paid invoices with an outstanding total, each linking to its /bill page - they only ever existed inside the send email before; drafts excluded on the same never-surprise rule as payment requests (#310)
 - Job Overview as the landing page for a job (was a redirect to Plans, a file list): money position + "waiting on you" / "waiting on someone else" + next three weeks, all linking through. GC-side only; subs and sites are sent on to Plans. Deliberately NOT a checklist - an active job is a loop with no finish line, and a list that is never complete becomes noise (#306)
 - "Mark paid" on a deposit request opens the real Record a client payment dialog (prefilled, fully editable) and settles the request against the payment it creates, instead of flipping a status with no money behind it (#305)
 - One-off deposit requests take a percentage as well as a dollar figure, resolved server-side against the estimate; `useClientEmail` hook so the Send box prefill has one reader instead of two disagreeing about the response key (#304)
