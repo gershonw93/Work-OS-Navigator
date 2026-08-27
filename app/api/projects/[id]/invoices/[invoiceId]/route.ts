@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
 import { notify } from '@/lib/notify'
 import { validateAllocations } from '@/lib/allocations'
+import { pushBill } from '@/lib/quickbooks-push'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -184,6 +185,14 @@ export async function PATCH(
   const { data: saved } = await db.from('invoice_allocations')
     .select('id, budget_line_item_id, amount, note')
     .eq('invoice_id', params.invoiceId)
+
+  // An approved (or paid) bill belongs in QuickBooks. Same contract as the
+  // payment push: never throws, 8s cap, not-connected is normal, and a miss is
+  // caught by the Settings backlog sync. Runs AFTER the update is written so
+  // the pusher reads the new status, and its result never gates the response.
+  if (status === 'approved' || status === 'paid') {
+    await pushBill(db, params.invoiceId)
+  }
 
   return NextResponse.json({ invoice: data, allocations: saved ?? [] })
 }

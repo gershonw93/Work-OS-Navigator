@@ -15,6 +15,8 @@ import { cn } from '@/lib/utils'
 interface Payment {
   id: string; paid_date: string | null; amount: number; method: string | null
   memo: string | null; retainer: boolean; qb_entered: boolean
+  /** Set by the real QuickBooks sync. When present, the chip is a fact, not a claim. */
+  qbo_id: string | null
 }
 interface Summary {
   received: number; feeEarned: number; availableAfterFee: number
@@ -382,11 +384,22 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
                 <span className="text-sm text-ink-soft truncate">{p.memo || '-'}{p.retainer && <span className="ml-2 text-[10px] rounded-full bg-info-tint text-info px-1.5 py-0.5">retainer</span>}</span>
                 <span className="text-sm text-muted-fg">{p.method || '-'}</span>
                 <span className="text-sm font-semibold text-success md:text-right block">{money(p.amount)}</span>
-                <button onClick={() => toggleQb(p)} title="Toggle QuickBooks entered"
-                  className={cn('text-xs inline-flex items-center gap-1 rounded-full border px-2 py-0.5 transition-colors',
-                    p.qb_entered ? 'border-success/40 bg-success-tint text-success' : 'border-line text-faint hover:border-muted2 hover:text-muted-fg')}>
-                  {p.qb_entered ? <><Check className="h-3 w-3" /> QB</> : 'QB?'}
-                </button>
+                {/* Two different truths, shown differently. qbo_id means the
+                    sync actually pushed it - a fact, so not clickable. The
+                    hand-tick stays for people who type into QuickBooks
+                    themselves, and stays a toggle because it is their claim. */}
+                {p.qbo_id ? (
+                  <span title="Pushed to QuickBooks by the sync"
+                    className="text-xs inline-flex items-center gap-1 rounded-full border border-success/40 bg-success-tint px-2 py-0.5 text-success">
+                    <Check className="h-3 w-3" /> QB ✓
+                  </span>
+                ) : (
+                  <button onClick={() => toggleQb(p)} title="Mark as entered in QuickBooks by hand"
+                    className={cn('text-xs inline-flex items-center gap-1 rounded-full border px-2 py-0.5 transition-colors',
+                      p.qb_entered ? 'border-success/40 bg-success-tint text-success' : 'border-line text-faint hover:border-muted2 hover:text-muted-fg')}>
+                    {p.qb_entered ? <><Check className="h-3 w-3" /> QB</> : 'QB?'}
+                  </button>
+                )}
                 <div className="flex justify-end gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                   <button onClick={() => { setEditingId(p.id); setEditForm({ paid_date: p.paid_date ?? '', amount: String(p.amount), method: p.method ?? 'Check', memo: p.memo ?? '', retainer: p.retainer, qb_entered: p.qb_entered }) }} className="p-1.5 rounded-lg text-faint hover:bg-muted"><Pencil className="h-3.5 w-3.5" /></button>
                   <button onClick={() => remove(p)} className="p-1.5 rounded-lg text-faint hover:bg-danger-tint hover:text-danger"><Trash2 className="h-3.5 w-3.5" /></button>

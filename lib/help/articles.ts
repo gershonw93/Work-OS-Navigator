@@ -1036,6 +1036,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
     summary: 'Push your customers and subs into QuickBooks Online so nothing gets double-entered.',
     blocks: [
       { type: 'text', text: 'SyteNav connects to QuickBooks Online (the cloud version). Once connected, you can push your data into QuickBooks so your bookkeeper does not have to re-enter it. This is a one-way push (SyteNav to QuickBooks).' },
+      { type: 'text', text: 'ONCE CONNECTED IT RUNS ITSELF. Every client payment you record and every sub bill you approve pushes to QuickBooks on its own - no button to remember. If QuickBooks is slow or down, the record saves anyway and the miss is picked up next time you press Sync. The Settings card tells you if anything is waiting.' },
+      { type: 'text', text: 'THE QB CHIP ON A PAYMENT means two different things and looks it. A solid "QB ✓" is a fact - the sync pushed that payment and has its QuickBooks id. The clickable "QB?" tick is your own claim, for payments you typed into QuickBooks by hand.' },
       { type: 'steps', items: [
         'Open Settings and go to the Integrations tab.',
         'Click Connect QuickBooks and sign in to your QuickBooks Online company.',
