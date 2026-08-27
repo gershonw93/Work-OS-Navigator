@@ -1,6 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 import {
-  Connection, getValidConnection, qboFetch,
+  Connection, getValidConnection, qboFetch, qboQuery,
   defaultExpenseAccountId, defaultServiceItemId, paymentMethodId,
 } from '@/lib/quickbooks'
 
@@ -260,6 +260,62 @@ async function connectionFor(db: SupabaseClient, companyId: string, ctx?: PushCo
   return conn
 }
 
+/**
+ * Claim a record for pushing, atomically. Returns false if somebody already has it.
+ *
+ * THE BUG THIS EXISTS FOR. The old guard was a read - "no qbo_id? push" - and
+ * two requests arriving together both read null before either wrote. A single
+ * double-pressed Issue button produced QuickBooks invoices 291 and 292 100ms
+ * apart; the row kept 292 and 291 became an orphan receivable nobody could
+ * settle. A check and an act in two statements is a race however carefully the
+ * check is written.
+ *
+ * One conditional UPDATE instead. Postgres serialises it, so exactly one
+ * caller comes back with a row and everybody else comes back empty.
+ *
+ * Stale claims expire: a push killed mid-flight (deploy, timeout, crash) must
+ * not lock a record out of QuickBooks forever, so a claim older than the
+ * window is up for grabs again.
+ */
+const CLAIM_STALE_MS = 2 * 60 * 1000
+
+async function claimForPush(db: SupabaseClient, table: string, id: string): Promise<boolean> {
+  const staleBefore = new Date(Date.now() - CLAIM_STALE_MS).toISOString()
+  const { data } = await db
+    .from(table)
+    .update({ qbo_claimed_at: new Date().toISOString() })
+    .eq('id', id)
+    .is('qbo_id', null)
+    .or(`qbo_claimed_at.is.null,qbo_claimed_at.lt.${staleBefore}`)
+    .select('id')
+  return Array.isArray(data) ? data.length > 0 : !!data
+}
+
+/** Hand the claim back so a failed push can be retried immediately. */
+async function releaseClaim(db: SupabaseClient, table: string, id: string): Promise<void> {
+  try {
+    await db.from(table).update({ qbo_claimed_at: null }).eq('id', id)
+  } catch { /* a stuck claim expires on its own; never fail the caller for this */ }
+}
+
+/**
+ * An Invoice QuickBooks already holds under this number, if any.
+ *
+ * The claim closes the window inside one deploy; this covers the rest - a
+ * push that created in QBO and then died before writing qbo_id back would
+ * otherwise create a second one on the retry. Adopting beats duplicating.
+ */
+async function existingInvoiceIdByDocNumber(conn: Connection, docNumber?: string | null): Promise<string | null> {
+  const n = String(docNumber ?? '').trim()
+  if (!n) return null
+  try {
+    const q = await qboQuery(conn, `select Id from Invoice where DocNumber = '${n.replace(/'/g, "\\'")}'`)
+    return q?.Invoice?.[0]?.Id ?? null
+  } catch {
+    return null
+  }
+}
+
 // ── The pushers ──────────────────────────────────────────────────────────────
 
 /** Client payment -> QBO Sales Receipt. Never throws. */
@@ -279,6 +335,10 @@ export async function pushClientPayment(db: SupabaseClient, paymentId: string, c
 
     const conn = await connectionFor(db, companyId, ctx)
     if (!conn) return { pushed: false, reason: 'not_connected' }
+
+    // Atomic - see claimForPush. Losing the claim means somebody else is
+    // already pushing this exact record.
+    if (!await claimForPush(db, 'client_payments', p.id)) return { pushed: false, reason: 'already' }
 
     return await budgeted((async (): Promise<PushResult> => {
       if (!ctx?.itemId) {
@@ -300,6 +360,7 @@ export async function pushClientPayment(db: SupabaseClient, paymentId: string, c
       await logRow(db, companyId, 'payment', p.id, 'success', qboId)
       return { pushed: true, qboId }
     })()).catch(async (err: any) => {
+      await releaseClaim(db, 'client_payments', p.id)
       await logRow(db, companyId, 'payment', p.id, 'error', undefined, err?.message)
       return { pushed: false, reason: 'failed' as const, detail: err?.message }
     })
@@ -331,6 +392,8 @@ export async function pushBill(db: SupabaseClient, invoiceId: string, ctx?: Push
     const conn = await connectionFor(db, companyId, ctx)
     if (!conn) return { pushed: false, reason: 'not_connected' }
 
+    if (!await claimForPush(db, 'invoices', inv.id)) return { pushed: false, reason: 'already' }
+
     return await budgeted((async (): Promise<PushResult> => {
       if (!ctx?.expenseAccountId) {
         const expenseAccountId = await defaultExpenseAccountId(conn)
@@ -346,6 +409,7 @@ export async function pushBill(db: SupabaseClient, invoiceId: string, ctx?: Push
       await logRow(db, companyId, 'bill', inv.id, 'success', qboId)
       return { pushed: true, qboId }
     })()).catch(async (err: any) => {
+      await releaseClaim(db, 'invoices', inv.id)
       await logRow(db, companyId, 'bill', inv.id, 'error', undefined, err?.message)
       return { pushed: false, reason: 'failed' as const, detail: err?.message }
     })
@@ -461,7 +525,19 @@ export async function pushClientInvoice(db: SupabaseClient, billId: string, ctx?
     const conn = await connectionFor(db, companyId, ctx)
     if (!conn) return { pushed: false, reason: 'not_connected' }
 
+    if (!await claimForPush(db, 'client_invoices', inv.id)) return { pushed: false, reason: 'already' }
+
     return await budgeted((async (): Promise<PushResult> => {
+      // Already over there under this number? Adopt it. A push that created in
+      // QuickBooks and then died before writing qbo_id back would otherwise
+      // create a second invoice on the retry.
+      const existing = await existingInvoiceIdByDocNumber(conn, inv.invoice_number)
+      if (existing) {
+        await db.from('client_invoices').update({ qbo_id: existing, qbo_synced_at: new Date().toISOString() }).eq('id', inv.id)
+        await logRow(db, companyId, 'client_invoice', inv.id, 'success', existing, 'Adopted the invoice already in QuickBooks')
+        return { pushed: true, qboId: existing }
+      }
+
       if (!ctx?.itemId) {
         const itemId = await defaultServiceItemId(conn)
         if (ctx) ctx.itemId = itemId; else ctx = { conn, itemId }
@@ -476,6 +552,7 @@ export async function pushClientInvoice(db: SupabaseClient, billId: string, ctx?
       await logRow(db, companyId, 'client_invoice', inv.id, 'success', qboId)
       return { pushed: true, qboId }
     })()).catch(async (err: any) => {
+      await releaseClaim(db, 'client_invoices', inv.id)
       await logRow(db, companyId, 'client_invoice', inv.id, 'error', undefined, err?.message)
       return { pushed: false, reason: 'failed' as const, detail: err?.message }
     })
@@ -521,6 +598,8 @@ export async function pushPaymentForProject(db: SupabaseClient, paymentId: strin
     const conn = await connectionFor(db, companyId, ctx)
     if (!conn) return { pushed: false, reason: 'not_connected' }
 
+    if (!await claimForPush(db, 'client_payments', p.id)) return { pushed: false, reason: 'already' }
+
     return await budgeted((async (): Promise<PushResult> => {
       const customerQboId = await ensureCustomerId(db, conn, customerId, companyId)
       const res = await qboFetch(conn, 'payment', {
@@ -534,6 +613,7 @@ export async function pushPaymentForProject(db: SupabaseClient, paymentId: strin
       await logRow(db, companyId, 'payment', p.id, 'success', qboId, `Applied to invoice ${target.id.slice(0, 8)}`)
       return { pushed: true, qboId }
     })()).catch(async (err: any) => {
+      await releaseClaim(db, 'client_payments', p.id)
       await logRow(db, companyId, 'payment', p.id, 'error', undefined, err?.message)
       return { pushed: false, reason: 'failed' as const, detail: err?.message }
     })

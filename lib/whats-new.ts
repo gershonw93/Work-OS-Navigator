@@ -49,6 +49,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-08-27',
+    title: 'A double-press cannot double-bill your client',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'One invoice, one QuickBooks invoice',
+        text: 'Pressing Issue twice quickly sent two requests, and both created an invoice in QuickBooks before either finished - so one invoice became two, and the spare sat there as money your client appeared to owe. The push is now claimed atomically: whichever press gets there first does the work, the other is ignored. The buttons also grey out while a change is going through.',
+        help: 'connect-quickbooks',
+      },
+    ],
+  },
+  {
+    date: '2026-08-27',
     title: 'Invoices show up in QuickBooks as money owed to you',
     items: [
       {

@@ -70,6 +70,11 @@ export function ClientInvoices({ projectId }: { projectId: string }) {
   const [loading, setLoading] = useState(true)
   const [building, setBuilding] = useState(false)
   const [creating, setCreating] = useState(false)
+  // Which invoice has a status change in flight. Without this, Issue is a
+  // plain button and a double-press fires two requests - which is exactly how
+  // one invoice ended up as two in QuickBooks. The server claim is what makes
+  // that impossible; this is what stops it being attempted.
+  const [statusBusy, setStatusBusy] = useState('')
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [showMarkup, setShowMarkup] = useState(false)
   const [dueDate, setDueDate] = useState('')
@@ -146,13 +151,25 @@ export function ClientInvoices({ projectId }: { projectId: string }) {
   }
 
   async function setStatus(bill: Bill, status: string) {
-    const t = await token()
-    await fetch(`/api/projects/${projectId}/client-invoices/${bill.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
-      body: JSON.stringify({ status }),
-    })
-    load()
+    if (statusBusy) return
+    setStatusBusy(bill.id)
+    try {
+      const t = await token()
+      const res = await fetch(`/api/projects/${projectId}/client-invoices/${bill.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+        body: JSON.stringify({ status }),
+      })
+      if (!res.ok) {
+        setError((await res.json().catch(() => ({}))).error ?? `Could not mark it ${status}.`)
+        return
+      }
+      await load()
+    } catch {
+      setError('Could not reach the server - nothing was changed.')
+    } finally {
+      setStatusBusy('')
+    }
   }
 
   // clientAppOrigin(), NOT window.location.origin. The bill page lives on the
@@ -329,7 +346,7 @@ export function ClientInvoices({ projectId }: { projectId: string }) {
                   <Printer className="h-3 w-3" /> View / Print
                 </Link>
                 {b.status === 'draft' && (
-                  <button onClick={() => setStatus(b, 'sent')}
+                  <button onClick={() => setStatus(b, 'sent')} disabled={!!statusBusy}
                     className="shrink-0 rounded-md border border-line px-2 py-1 text-xs font-medium text-muted-fg hover:bg-surface"
                     title="Issues it and creates the client's link">
                     Issue &amp; get link
@@ -352,7 +369,7 @@ export function ClientInvoices({ projectId }: { projectId: string }) {
                   </>
                 )}
                 {b.status === 'sent' && (
-                  <button onClick={() => setStatus(b, 'paid')}
+                  <button onClick={() => setStatus(b, 'paid')} disabled={!!statusBusy}
                     className="shrink-0 inline-flex items-center gap-1 rounded-md border border-success/30 bg-success-tint px-2 py-1 text-xs font-medium text-success">
                     <Check className="h-3 w-3" /> Mark paid
                   </button>
