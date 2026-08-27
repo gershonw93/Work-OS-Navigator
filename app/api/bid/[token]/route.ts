@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { coerceLines, coercePricedLines, pricedCount, pricedTotal } from '@/lib/item-list'
+import { notify } from '@/lib/notify'
 
 export const runtime = 'nodejs'
 
@@ -49,6 +50,57 @@ export async function GET(_request: Request, { params }: { params: { token: stri
   })
 }
 
+/**
+ * Tell the GC that something happened on one of their quote requests.
+ *
+ * This route is how a sub actually answers - it needs no account, so it is the
+ * ONLY path most quotes arrive by - and until now it contained no notify() at
+ * all. A sub could price a job, submit it, and the GC found out by remembering
+ * to go and look. The "Bid received" switch in Notification Preferences was
+ * reading a type nothing emitted.
+ *
+ * Same contract as everything else here: never throws, never blocks the sub.
+ * Their quote is saved before this runs, and a failure to notify must not turn
+ * a delivered quote into an error page.
+ */
+async function tellTheGC(db: any, bidRequestId: string, build: (ctx: {
+  requestTitle: string
+  projectName: string | null
+  projectId: string | null
+}) => { type: string; title: string; message: string }) {
+  try {
+    const { data: req } = await db
+      .from('bid_requests')
+      .select('title, trade, project_id, projects ( name, gc_company_id )')
+      .eq('id', bidRequestId)
+      .single()
+    if (!req) return
+
+    const gcCompanyId = (req as any).projects?.gc_company_id
+    if (!gcCompanyId) return
+
+    const { data: profiles } = await db.from('profiles').select('id').eq('company_id', gcCompanyId)
+    if (!profiles?.length) return
+
+    const { type, title, message } = build({
+      requestTitle: (req as any).title || (req as any).trade || 'a package',
+      projectName: (req as any).projects?.name ?? null,
+      projectId: (req as any).project_id ?? null,
+    })
+
+    await notify({
+      db,
+      userIds: profiles.map((p: any) => p.id),
+      type,
+      title,
+      message,
+      link: (req as any).project_id ? `/projects/${(req as any).project_id}/quotes` : null,
+    })
+  } catch {
+    // See the doc comment: the quote is already saved.
+  }
+}
+
 export async function POST(request: Request, { params }: { params: { token: string } }) {
   const db = admin()
   const { data: invite } = await db.from('bid_invites').select('*').eq('token', params.token).single()
@@ -58,6 +110,14 @@ export async function POST(request: Request, { params }: { params: { token: stri
   const action = form.get('action') as string
   if (action === 'decline') {
     await db.from('bid_invites').update({ status: 'declined' }).eq('id', invite.id)
+    // A "no bid" is information. Without this the GC waits on a quote that is
+    // never coming, which is the expensive half of not being told.
+    const who = invite.vendor_name || 'A sub'
+    await tellTheGC(db, invite.bid_request_id, ({ requestTitle, projectName }) => ({
+      type: 'new_bid',
+      title: 'Declined to quote',
+      message: `${who} declined to quote ${requestTitle}${projectName ? ` on ${projectName}` : ''}.`,
+    }))
     return NextResponse.json({ ok: true, status: 'declined' })
   }
 
@@ -109,5 +169,16 @@ export async function POST(request: Request, { params }: { params: { token: stri
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   await db.from('bid_invites').update({ status: 'submitted' }).eq('id', invite.id)
+
+  const who = submitted_by_name || invite.vendor_name || 'A sub'
+  const money = amount != null
+    ? ` at ${amount.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })}`
+    : ''
+  await tellTheGC(db, invite.bid_request_id, ({ requestTitle, projectName }) => ({
+    type: 'new_bid',
+    title: 'Quote received',
+    message: `${who} sent a quote for ${requestTitle}${projectName ? ` on ${projectName}` : ''}${money}.`,
+  }))
+
   return NextResponse.json({ ok: true })
 }

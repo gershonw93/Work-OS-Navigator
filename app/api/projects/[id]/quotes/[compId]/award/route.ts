@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
+import { notify } from '@/lib/notify'
+import { awardEmail, sendEmail, isEmailAddress } from '@/lib/email'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -110,6 +112,60 @@ export async function POST(request: Request, { params }: { params: { id: string;
   await logActivity(db, params.id, (profile as any)?.full_name ?? 'GC', 'quote_awarded',
     `Awarded "${comp.title}" to ${vendorName} for $${Number(quote.total_amount).toLocaleString()} (from quote comparison)`,
     { comparison_id: params.compId, quote_id: quote.id, subcontract_id: sub.id })
+
+  // ── Tell the winner ────────────────────────────────────────────────────────
+  // Awarding used to notify nobody at all, which made "Bid awarded" in
+  // Notification Preferences a switch over a type nothing emitted. The winner
+  // learned they had won when the GC remembered to ring them.
+  //
+  // Two kinds of winner, and both need handling:
+  //   * one with a SyteNav account -> notify(), which honours their prefs
+  //   * one created from the quote a moment ago, with an email and nothing
+  //     else -> notify() correctly does nothing, so send them a plain mail
+  //
+  // Neither is allowed to fail the award. The subcontract exists by this point
+  // and the response must reflect that.
+  try {
+    const { data: myCompany } = myCompanyId
+      ? await db.from('companies').select('name').eq('id', myCompanyId).maybeSingle()
+      : { data: null }
+    const { data: project } = await db.from('projects').select('name').eq('id', params.id).maybeSingle()
+    const projectName = (project as any)?.name ?? null
+    const money = Number(quote.total_amount)
+
+    const { data: vendorProfiles } = await db.from('profiles').select('id').eq('company_id', companyId)
+
+    if (vendorProfiles?.length) {
+      await notify({
+        db,
+        userIds: vendorProfiles.map((p: any) => p.id),
+        type: 'bid_awarded',
+        title: 'You won the job',
+        message: `Your quote for ${scope}${projectName ? ` on ${projectName}` : ''} was accepted at $${money.toLocaleString()}.`,
+        link: '/my-jobs',
+      })
+    } else {
+      // No account to notify. The address came off the quote - skip the
+      // `noemail+…@placeholder.com` the company row falls back to, which is a
+      // stand-in for "unknown", not a mailbox.
+      const to = (contact.email ?? '').trim()
+      if (isEmailAddress(to) && !to.startsWith('noemail+')) {
+        await sendEmail({
+          to,
+          ...awardEmail({
+            vendorName: contact.name || vendorName,
+            scope,
+            projectName,
+            amount: money,
+            fromName: (profile as any)?.full_name ?? null,
+            companyName: (myCompany as any)?.name ?? null,
+          }),
+        })
+      }
+    }
+  } catch {
+    // The award is done. Telling them about it is a side effect of it.
+  }
 
   return NextResponse.json({ subcontract: sub })
 }

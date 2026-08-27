@@ -90,7 +90,18 @@ Shipped in #218: bulk creation makes a site + a job per unit/floor/house, with a
 
 ---
 
+## 🔔 Notifications
+- **Retire the legacy bid tree** - `app/api/projects/[id]/bids/[packageId]/{award,invite,remind,revise}`, `app/api/projects/[id]/bids/packages/*`, and `app/(dashboard)/my-bids/[packageId]` are unreachable: the Bids tab that linked to them went in #297, and `/api/my-bids` returns `invitations: []`. The dead-switch check has to explicitly EXCLUDE that tree (`UNREACHABLE` in `dead-switch.mjs`) so an emitter nobody can trigger doesn't count as an emitter. Delete the tree and the exclusion together.
+- **"Milestone reached" needs a milestone event.** Marked COMING SOON because nothing raises one - the only milestones in the app are payment-schedule line types on a subcontract, which is a billing shape, not a moment in a job. Wire it to the schedule when the schedule has real milestones.
+- **"Bid revision requested" needs a revise flow.** Marked COMING SOON. Today a sub revises by re-opening their link and re-submitting, which replaces their quote; there is no GC-side "ask for a revision" action to notify about.
+- **Notification digest** - a daily/weekly roll-up instead of one email per event.
+- **Run `dead-switch.mjs` in CI.** It lives in the scratchpad and has already caught two dead switches nobody had noticed. It belongs in the repo next to a real test runner.
+
+---
+
 ## ✅ Recently shipped (for reference)
+- Quote notifications made real: submitting or declining through `/bid/<token>` notifies the GC (it notified nobody before, on the only path most quotes arrive by); awarding notifies the winner, or emails them if they have no account; re-sending an invite goes out as a reminder and emits `bid_reminder`. Plus a generalised check that every `status: 'live'` notification type has an emitter (#298)
+- Task board: drag between columns, per-column `+` actually adds to that column (all three used to create in Open), and the status icon no longer wraps Completed back round to Open (#298)
 - Contract type on projects (cost-plus / fixed price / building to sell): the Budget tab stops showing a contract-value box AND a markup box with "leave it empty on cost-plus" under them; real profit on cost-plus from the fee actually earned; per-invoice markup controls no longer hidden when the project rate is 0 (#267)
 - Cost-plus proposal PDF: on a cost-plus job the proposal now prints estimated cost of work + contractor's fee at its stated percent + an estimated total, plainly labelled an estimate rather than a fixed price, with cost-plus terms (#268)
 - Selections board: homeowner choices with allowances and lead-time-driven decide-by dates, a 21-category starter board, options with prices, client picks on the existing portal link, over-allowance → one-click change order (#232)

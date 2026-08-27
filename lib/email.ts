@@ -430,6 +430,59 @@ export function tokenLinkEmail({
 }
 
 /** Minimal escaping - these templates interpolate names and URLs, nothing more. */
+/**
+ * "You won the job" - for a vendor with no SyteNav account.
+ *
+ * The award flow creates a company record from whatever was on the quote, so
+ * the winner very often has an email address on file and nothing else: no
+ * profile, no login, and therefore no notification preferences. notify() is
+ * right to do nothing for them, but the result was that the one person who
+ * most needs to hear the outcome was the one person nobody told.
+ *
+ * Deliberately has NO call-to-action and NO preferences link. There is nothing
+ * for them to log into and no switches for them to change - a button leading to
+ * a login wall they cannot pass is worse than no button.
+ */
+export function awardEmail({
+  vendorName, scope, projectName, amount, fromName, companyName,
+}: {
+  vendorName: string | null | undefined
+  scope: string
+  projectName: string | null
+  amount: number
+  fromName?: string | null
+  companyName?: string | null
+}) {
+  const hi = firstName(vendorName)
+  const money = amount.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
+  const where = projectName ? ` on ${projectName}` : ''
+  const sig = [(fromName ?? '').trim(), (companyName ?? '').trim()].filter(Boolean)
+
+  const paragraphs = [
+    `Your quote for ${scope}${where} has been accepted at ${money}.`,
+    'Expect the contract and next steps directly from them.',
+  ]
+
+  const text = [
+    `Hi ${hi},`,
+    '',
+    ...paragraphs,
+    ...(sig.length ? ['', ...sig] : []),
+  ].join('\n')
+
+  return {
+    subject: `Your quote was accepted${where}`,
+    text,
+    html: emailLayout({
+      preheader: `Accepted at ${money}.`,
+      eyebrow: 'QUOTE ACCEPTED',
+      heading: 'Your quote was accepted',
+      subheading: projectName ?? undefined,
+      paragraphs: sig.length ? [...paragraphs, sig.join(' - ')] : paragraphs,
+    }),
+  }
+}
+
 export function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')

@@ -80,9 +80,24 @@ function formatDue(due: string) {
   return `Due ${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
 }
 
-function nextStatus(current: string) {
+/**
+ * The next stage along, or null if there isn't one.
+ *
+ * This used to wrap with `% STATUSES.length`, so one stray tap on a finished
+ * task quietly reopened it - no confirm, no undo, and the tooltip cheerfully
+ * read "Move to Open". Advancing is a one-way convenience; reopening is a
+ * decision, and it stays available through the explicit status dropdown.
+ */
+function advanceLabel(current: string) {
+  const next = nextStatus(current)
+  if (!next) return 'Done - use the status dropdown to reopen'
+  return `Move to ${STATUSES.find(s => s.value === next)?.label}`
+}
+
+function nextStatus(current: string): string | null {
   const idx = STATUSES.findIndex(s => s.value === current)
-  return STATUSES[(idx + 1) % STATUSES.length].value
+  if (idx < 0) return STATUSES[0].value
+  return STATUSES[idx + 1]?.value ?? null
 }
 
 function timeAgo(dateStr: string) {
@@ -404,6 +419,11 @@ export default function TasksPage({ params }: { params: { id: string } }) {
   // add/edit form
   const [showAdd, setShowAdd]   = useState(false)
   const [editTask, setEditTask] = useState<Task | null>(null)
+  // Which column's "+" opened the form. The board's three + buttons used to
+  // pass this in and drop it on the floor, so all three created an Open task.
+  const [addStatus, setAddStatus] = useState<string | null>(null)
+  const [dragTaskId, setDragTaskId] = useState<string | null>(null)
+  const [dragOverCol, setDragOverCol] = useState<string | null>(null)
   const [title, setTitle]       = useState('')
   const [description, setDescription] = useState('')
   const [dueDate, setDueDate]   = useState('')
@@ -498,12 +518,14 @@ export default function TasksPage({ params }: { params: { id: string } }) {
     setFollowUpDate(''); setTaskImage(null); setTaskImagePreview(null)
     setSaveError(null)
     setEditTask(null)
+    setAddStatus(null)
   }
 
   function openAddForm(defaultStatus?: string) {
     resetForm()
-    if (defaultStatus) {
-      // we'll pass it via a transient state - handled below via addDefaultStatus
+    // resetForm() has just cleared this, so set it after, not before.
+    if (defaultStatus && STATUSES.some(s => s.value === defaultStatus)) {
+      setAddStatus(defaultStatus)
     }
     setShowAdd(true)
   }
@@ -573,6 +595,9 @@ export default function TasksPage({ params }: { params: { id: string } }) {
         title, description, due_date: dueDate || null, priority,
         assigned_to_member_id, assigned_to_company_id, assigned_to_name,
         image_url, follow_up_date: followUpDate || null,
+        // Create only. On PATCH this stays out of the body on purpose: saving
+        // an edit must not move the task to whichever column was last used.
+        ...(editTask ? {} : addStatus ? { status: addStatus } : {}),
       })
 
       const url = editTask
@@ -678,10 +703,22 @@ export default function TasksPage({ params }: { params: { id: string } }) {
     const expanded = expandedTaskId === task.id
     return (
       <div
+        // Drag to move between columns. Touch has no HTML5 drag and this gets
+        // used on phones, so this is an ADDITION to the status button and the
+        // dropdown - never the only way to move a task.
+        draggable
+        onDragStart={e => {
+          setDragTaskId(task.id)
+          e.dataTransfer.effectAllowed = 'move'
+          // Firefox refuses to start a drag without payload on the transfer.
+          e.dataTransfer.setData('text/plain', task.id)
+        }}
+        onDragEnd={() => { setDragTaskId(null); setDragOverCol(null) }}
         className={cn(
           'group relative bg-panel rounded-lg border flex flex-col transition-all cursor-pointer',
           isOverdue(task) ? 'border-danger/30 bg-danger-tint/30' : 'border-line hover:border-muted2 hover:shadow-sm',
           expanded && 'ring-2 ring-accent/40',
+          dragTaskId === task.id && 'opacity-40',
         )}
         onClick={() => toggleExpand(task.id)}
       >
@@ -717,9 +754,14 @@ export default function TasksPage({ params }: { params: { id: string } }) {
           {/* hover actions */}
           <div className="absolute top-2 right-7 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <button
-              title={`Move to ${STATUSES.find(s => s.value === nextStatus(task.status))?.label}`}
-              onClick={e => { e.stopPropagation(); updateStatus(task.id, nextStatus(task.status)) }}
-              className="p-1 rounded text-faint hover:text-info hover:bg-info-tint transition-colors"
+              title={advanceLabel(task.status)}
+              disabled={!nextStatus(task.status)}
+              onClick={e => {
+                e.stopPropagation()
+                const next = nextStatus(task.status)
+                if (next) updateStatus(task.id, next)
+              }}
+              className="p-1 rounded text-faint hover:text-info hover:bg-info-tint transition-colors disabled:hover:bg-transparent disabled:cursor-default"
             >
               <StatusIcon status={task.status} />
             </button>
@@ -760,9 +802,14 @@ export default function TasksPage({ params }: { params: { id: string } }) {
           onClick={() => toggleExpand(task.id)}
         >
           <button
-            title={`Move to ${STATUSES.find(s => s.value === nextStatus(task.status))?.label}`}
-            onClick={e => { e.stopPropagation(); updateStatus(task.id, nextStatus(task.status)) }}
-            className="mt-0.5 shrink-0 hover:scale-110 transition-transform"
+            title={advanceLabel(task.status)}
+            disabled={!nextStatus(task.status)}
+            onClick={e => {
+              e.stopPropagation()
+              const next = nextStatus(task.status)
+              if (next) updateStatus(task.id, next)
+            }}
+            className="mt-0.5 shrink-0 transition-transform enabled:hover:scale-110 disabled:cursor-default"
           >
             <StatusIcon status={task.status} />
           </button>
@@ -853,7 +900,30 @@ export default function TasksPage({ params }: { params: { id: string } }) {
           {STATUSES.map(col => {
             const colTasks = filteredTasks.filter(t => t.status === col.value)
             return (
-              <div key={col.value} className={cn('rounded-xl border flex flex-col overflow-hidden', col.colBorder)}>
+              <div
+                key={col.value}
+                onDragOver={e => {
+                  if (!dragTaskId) return
+                  e.preventDefault()          // without this the drop never fires
+                  e.dataTransfer.dropEffect = 'move'
+                  if (dragOverCol !== col.value) setDragOverCol(col.value)
+                }}
+                onDragLeave={() => setDragOverCol(c => (c === col.value ? null : c))}
+                onDrop={e => {
+                  e.preventDefault()
+                  const id = dragTaskId ?? e.dataTransfer.getData('text/plain')
+                  setDragTaskId(null); setDragOverCol(null)
+                  if (!id) return
+                  // Same column is a no-op, not a pointless round trip.
+                  if (tasks.find(t => t.id === id)?.status === col.value) return
+                  updateStatus(id, col.value)
+                }}
+                className={cn(
+                  'rounded-xl border flex flex-col overflow-hidden transition-colors',
+                  col.colBorder,
+                  dragOverCol === col.value && 'ring-2 ring-accent/60',
+                )}
+              >
                 {/* column header */}
                 <div className={cn('flex items-center justify-between px-3 py-2.5', col.headerBg)}>
                   <div className="flex items-center gap-2">
@@ -1020,7 +1090,18 @@ export default function TasksPage({ params }: { params: { id: string } }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-panel rounded-xl shadow-xl w-full max-w-full sm:max-w-lg">
             <div className="px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-ink">{formTitle}</h2>
+              <div>
+                <h2 className="text-lg font-semibold text-ink">{formTitle}</h2>
+                {/* Say where it will land BEFORE they save, not after. */}
+                {!editTask && addStatus && (
+                  <p className="text-xs text-muted-fg">
+                    Adding to{' '}
+                    <span className="font-semibold text-ink">
+                      {STATUSES.find(s => s.value === addStatus)?.label}
+                    </span>
+                  </p>
+                )}
+              </div>
               <button onClick={() => { setShowAdd(false); resetForm() }} className="text-faint hover:text-muted-fg">
                 <X className="h-5 w-5" />
               </button>

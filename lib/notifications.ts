@@ -66,7 +66,12 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
   {
     key: 'milestone', label: 'Milestone reached', group: 'Work',
     description: 'A job hits a milestone you are on.',
-    defaults: { inApp: true, email: false }, status: 'live',
+    // PLANNED, not live: nothing in the app raises a "milestone reached" event.
+    // The only milestones that exist are payment-schedule line types on a
+    // subcontract, which are a billing shape, not a moment in a job's life.
+    // Found by the dead-switch check, not by anybody noticing - which is the
+    // whole problem with a switch over a type nothing emits.
+    defaults: { inApp: true, email: false }, status: 'planned',
   },
   {
     key: 'daily_log', label: 'Daily log posted', group: 'Work',
@@ -116,7 +121,12 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
   {
     key: 'bid_revision', label: 'Bid revision requested', group: 'Bids',
     description: 'A GC asks you to revise a bid you submitted.',
-    defaults: { inApp: true, email: false }, status: 'live',
+    // PLANNED, not live: there is no "ask for a revision" action anywhere in
+    // the quotes flow, so nothing can emit this. A sub revises by opening
+    // their link again and re-submitting, which replaces the old quote.
+    // Better to say "Coming soon" than to offer a switch over a type that has
+    // never once fired.
+    defaults: { inApp: true, email: false }, status: 'planned',
   },
   {
     key: 'bid_reminder', label: 'Bid reminder', group: 'Bids',

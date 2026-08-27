@@ -66,6 +66,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
   return NextResponse.json({ tasks, members: members ?? [], subcontracts: subcontracts ?? [] })
 }
 
+const TASK_STATUSES = ['open', 'in_progress', 'completed']
+
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -74,7 +76,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { title, description, due_date, priority, assigned_to_member_id, assigned_to_company_id, assigned_to_name, image_url, follow_up_date, follow_up_note, source_daily_log_id } = await request.json()
+  const { title, description, due_date, priority, status, assigned_to_member_id, assigned_to_company_id, assigned_to_name, image_url, follow_up_date, follow_up_note, source_daily_log_id } = await request.json()
   if (!title) return NextResponse.json({ error: 'Title is required' }, { status: 400 })
 
   const { data: profile } = await db.from('profiles').select('full_name').eq('id', user.id).single()
@@ -87,7 +89,11 @@ export async function POST(request: Request, { params }: { params: { id: string 
       description: description || null,
       due_date: due_date || null,
       priority: priority || 'medium',
-      status: 'open',
+      // The board's per-column "+" says which column it is adding to, and this
+      // used to be hardcoded 'open' - so adding from In Progress or Completed
+      // put the card somewhere else. Whitelisted, not passed through: the
+      // value comes from the browser and the column has a check constraint.
+      status: TASK_STATUSES.includes(status) ? status : 'open',
       assigned_to_member_id: assigned_to_member_id || null,
       assigned_to_company_id: assigned_to_company_id || null,
       assigned_to_name: assigned_to_name || null,
