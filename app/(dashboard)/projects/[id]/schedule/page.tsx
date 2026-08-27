@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Plus, X, CalendarDays, Pencil, Trash2, Building2, Flag, ChevronLeft, ChevronRight, GanttChartSquare, List, CalendarRange } from 'lucide-react'
+import { Plus, X, CalendarDays, Pencil, Trash2, Building2, Flag, ChevronLeft, ChevronRight, GanttChartSquare, List, CalendarRange, AlertCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { usePermissions } from '@/lib/use-permissions'
 import { Button } from '@/components/ui/button'
@@ -112,6 +112,22 @@ function monthGrid(year: number, month: number): Date[][] {
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
+/**
+ * A save failure the user can actually see and act on.
+ *
+ * Replaces `alert()` (and, worse, the two handlers that reported nothing at
+ * all). Every message it shows ends by saying whether anything was written,
+ * because "did that save?" is the only question worth answering here.
+ */
+function ErrorNote({ message, className }: { message: string; className?: string }) {
+  return (
+    <div className={cn('flex items-start gap-2 rounded-lg border border-danger/30 bg-danger-tint px-3 py-2', className)}>
+      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-danger" />
+      <p className="text-sm text-ink-soft">{message}</p>
+    </div>
+  )
+}
+
 export default function SchedulePage({ params }: { params: { id: string } }) {
   const { can } = usePermissions()
   const canEditSchedule = can('schedule', 'create') || can('schedule', 'edit')
@@ -129,6 +145,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
   const [addEnd, setAddEnd] = useState('')
   const [addColor, setAddColor] = useState('blue')
   const [addSaving, setAddSaving] = useState(false)
+  const [addError, setAddError] = useState<string | null>(null)
 
   const [editItem, setEditItem] = useState<ScheduleItem | null>(null)
   const [editLabel, setEditLabel] = useState('')
@@ -136,12 +153,14 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
   const [editEnd, setEditEnd] = useState('')
   const [editColor, setEditColor] = useState('blue')
   const [editSaving, setEditSaving] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
 
   const [unscheduled, setUnscheduled] = useState<{ id: string; scope: string; trade: string | null; companies: { id: string; name: string; type?: string } | null }[]>([])
   const [schedulingSubId, setSchedulingSubId] = useState<string | null>(null)
   const [schedStart, setSchedStart] = useState('')
   const [schedEnd, setSchedEnd] = useState('')
   const [schedSaving, setSchedSaving] = useState(false)
+  const [schedError, setSchedError] = useState<string | null>(null)
 
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -171,22 +190,54 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     }
   }
 
+  /**
+   * A request that always finishes, one way or another.
+   *
+   * Every save on this page did a bare `await fetch(...)` with no catch. When
+   * the request threw or never resolved - which is exactly what happened while
+   * middleware was timing out with a 504 - `setSaving(false)` never ran, so the
+   * button sat on "Saving…" forever with no error, no retry, and no clue that
+   * nothing had been written.
+   *
+   * AbortController gives it a ceiling. 20s is well past a healthy save and
+   * well short of a person deciding the app is broken.
+   */
+  async function saveRequest(url: string, init: RequestInit): Promise<{ ok: true } | { ok: false; error: string }> {
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 20_000)
+    try {
+      const res = await fetch(url, { ...init, signal: ctrl.signal })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({} as any))
+        return { ok: false, error: body?.error ?? `Save failed (${res.status}). Nothing was saved.` }
+      }
+      return { ok: true }
+    } catch (err: any) {
+      return {
+        ok: false,
+        error: err?.name === 'AbortError'
+          ? 'That took too long and was cancelled - nothing was saved. Check your connection and try again.'
+          : 'Could not reach the server - nothing was saved. Check your connection and try again.',
+      }
+    } finally {
+      // Runs on every path, which is the entire point.
+      clearTimeout(timer)
+    }
+  }
+
   async function scheduleSubcontract(e: React.FormEvent) {
     e.preventDefault()
     if (!schedulingSubId) return
     setSchedSaving(true)
+    setSchedError(null)
     const token = await getToken()
-    const res = await fetch(`/api/projects/${params.id}/schedule`, {
+    const r = await saveRequest(`/api/projects/${params.id}/schedule`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ subcontract_id: schedulingSubId, start_date: schedStart, end_date: schedEnd || schedStart }),
     })
     setSchedSaving(false)
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
-      alert(`Could not save: ${err.error ?? res.statusText}`)
-      return
-    }
+    if (!r.ok) { setSchedError(r.error); return }
     setSchedulingSubId(null); setSchedStart(''); setSchedEnd('')
     load(); loadUnscheduled()
   }
@@ -205,15 +256,19 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
   async function addItem(e: React.FormEvent) {
     e.preventDefault()
     setAddSaving(true)
+    setAddError(null)
     const token = await getToken()
-    await fetch(`/api/projects/${params.id}/schedule`, {
+    // This used to ignore the response entirely: a failed add closed the modal
+    // and cleared the fields, so it looked exactly like a success.
+    const r = await saveRequest(`/api/projects/${params.id}/schedule`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ label: addLabel, start_date: addStart, end_date: addEnd, color: addColor }),
     })
+    setAddSaving(false)
+    if (!r.ok) { setAddError(r.error); return }
     setShowAdd(false)
     setAddLabel(''); setAddStart(''); setAddEnd(''); setAddColor('blue')
-    setAddSaving(false)
     load(); loadUnscheduled()
   }
 
@@ -221,14 +276,16 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     e.preventDefault()
     if (!editItem) return
     setEditSaving(true)
+    setEditError(null)
     const token = await getToken()
-    await fetch(`/api/projects/${params.id}/schedule/${editItem.id}`, {
+    const r = await saveRequest(`/api/projects/${params.id}/schedule/${editItem.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ label: editLabel, start_date: editStart, end_date: editEnd, color: editColor }),
     })
-    setEditItem(null)
     setEditSaving(false)
+    if (!r.ok) { setEditError(r.error); return }
+    setEditItem(null)
     load(); loadUnscheduled()
   }
 
@@ -311,8 +368,9 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                   </div>
                 </div>
               </div>
+              {addError && <ErrorNote message={addError} className="mx-4 sm:mx-6 mb-1" />}
               <div className="px-4 sm:px-6 py-4 border-t border-line-soft flex flex-wrap gap-2 justify-end">
-                <Button type="button" variant="secondary" onClick={() => setShowAdd(false)}>Cancel</Button>
+                <Button type="button" variant="secondary" onClick={() => { setShowAdd(false); setAddError(null) }}>Cancel</Button>
                 <Button type="submit" disabled={addSaving || !addLabel || !addStart || !addEnd}>
                   {addSaving ? 'Adding...' : 'Add Milestone'}
                 </Button>
@@ -363,9 +421,10 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                   <Trash2 className="h-3.5 w-3.5" /> Delete
                 </button>
                 <div className="flex flex-wrap gap-2 justify-end">
-                  <Button type="button" variant="secondary" onClick={() => setEditItem(null)}>Cancel</Button>
+                  <Button type="button" variant="secondary" onClick={() => { setEditItem(null); setEditError(null) }}>Cancel</Button>
                   <Button type="submit" disabled={editSaving}>{editSaving ? 'Saving...' : 'Save Changes'}</Button>
                 </div>
+                {editError && <ErrorNote message={editError} className="w-full" />}
               </div>
             </form>
           </div>
@@ -420,7 +479,8 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                     {!isSupplier && <><span className="text-faint text-xs">to</span>
                     <Input type="date" className="w-36 h-8 text-xs" value={schedEnd} onChange={e => setSchedEnd(e.target.value)} required /></>}
                     <Button size="sm" type="submit" disabled={schedSaving} className="h-8">{schedSaving ? 'Saving…' : 'Add'}</Button>
-                    <button type="button" onClick={() => setSchedulingSubId(null)} className="text-faint hover:text-muted-fg"><X className="h-4 w-4" /></button>
+                    <button type="button" onClick={() => { setSchedulingSubId(null); setSchedError(null) }} className="text-faint hover:text-muted-fg"><X className="h-4 w-4" /></button>
+                    {schedError && <ErrorNote message={schedError} className="w-full" />}
                   </form>
                 ) : (
                   <Button size="sm" variant="secondary" className="h-8 shrink-0" disabled={!canEditSchedule}

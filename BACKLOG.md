@@ -90,6 +90,11 @@ Shipped in #218: bulk creation makes a site + a job per unit/floor/house, with a
 
 ---
 
+## ⚡ Performance
+- **Audit what else middleware does per-request.** Removing `supabase.auth.getUser()` from `/api/*` cut a network auth round trip off every API call. The remaining page requests still pay for it; consider whether the routing decisions could use a cheap cookie presence check and leave real verification to the page.
+- **The 3s auth timeout in middleware fails OPEN** - on timeout `user` is null, so the convenience redirects do not fire and the page renders. Fine because pages and API routes verify independently, but worth revisiting if middleware ever becomes a real gate.
+- **Other pages with bare `await fetch()` and no catch** will hang their save buttons the same way the schedule page did. `saveRequest` in `app/(dashboard)/projects/[id]/schedule/page.tsx` is the pattern; it should move to `lib/` and be applied broadly.
+
 ## 🧹 Error handling
 - **54 `alert()` calls across the app.** There is no toast component, so every failure that is not hand-rolled into a form shows a grey browser box with whatever the server said. `lib/db-error.ts` fixes the message quality server-side and the Add Subcontractor modal now renders its own error, but the other call sites are unchanged. Needs one toast/inline-error pattern, then a sweep.
 - **`friendlyDbError` is only wired into the subcontracts route.** Every route that returns `error: err.message` straight from Postgres should go through it.
@@ -105,6 +110,7 @@ Shipped in #218: bulk creation makes a site + a job per unit/floor/house, with a
 ---
 
 ## ✅ Recently shipped (for reference)
+- Middleware no longer runs a Supabase auth round trip on `/api/*` (it was never used there) - the cause of 504 MIDDLEWARE_INVOCATION_TIMEOUT and stuck "Saving…" buttons; auth check bounded at 3s; schedule saves get a 20s abort and real errors, and add/edit milestone stopped ignoring failures entirely (#300)
 - Subcontractor contract amount is optional (migration 082): add a sub before their price is agreed, shown as "Not set" rather than $0; failed saves no longer orphan a company in the Directory; Postgres constraint errors mapped to plain English inside the form instead of a raw alert(); removing a bid invite now confirms first (#299)
 - Quote notifications made real: submitting or declining through `/bid/<token>` notifies the GC (it notified nobody before, on the only path most quotes arrive by); awarding notifies the winner, or emails them if they have no account; re-sending an invite goes out as a reminder and emits `bid_reminder`. Plus a generalised check that every `status: 'live'` notification type has an emitter (#298)
 - Task board: per-card Open/In Progress/Completed buttons (always visible, one tap to any stage), per-column `+` actually adds to that column (all three used to create in Open), and the status icon is now an indicator rather than a hidden control (#298, #299)

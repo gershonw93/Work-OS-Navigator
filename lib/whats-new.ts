@@ -49,6 +49,23 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-08-27',
+    title: 'The app got faster, and saves stop pretending',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'Timeouts and stuck "Saving…" buttons',
+        text: 'Every request the app made was doing an extra login check against our auth server before it even reached the app - including every save. It was never used for anything, and when it was slow the whole request timed out with a 504 error page. That check is gone from the paths that never needed it, so saving is now one round trip instead of two.',
+      },
+      {
+        kind: 'fixed',
+        title: 'Scheduling a vendor tells you if it did not save',
+        text: 'If a save failed, the button sat on "Saving…" forever - no error, nothing written, no way to tell. Saves now give up after 20 seconds and say plainly whether anything was saved. Adding a milestone and editing one were worse: they ignored the answer completely, so a failure closed the form and looked exactly like a success.',
+        href: '/projects',
+      },
+    ],
+  },
+  {
+    date: '2026-08-27',
     title: 'Add a sub before you know their price',
     items: [
       {
