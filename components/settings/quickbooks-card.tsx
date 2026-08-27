@@ -23,6 +23,7 @@ interface Status {
   connection: Connection | null
   unsyncedPayments: number
   unsyncedBills: number
+  unsyncedClientInvoices: number
   lastSyncAt: string | null
   log: LogRow[]
 }
@@ -108,7 +109,7 @@ export function QuickBooksCard() {
     } catch (e: any) { setMsg({ ok: false, text: e.message }) } finally { setBusy('') }
   }
 
-  async function sync(entity: 'customers' | 'vendors' | 'bills' | 'payments') {
+  async function sync(entity: 'customers' | 'vendors' | 'bills' | 'payments' | 'client-invoices') {
     setBusy(entity); setMsg(null)
     try {
       const res = await fetch('/api/quickbooks/sync', {
@@ -146,7 +147,7 @@ export function QuickBooksCard() {
               )}
             </div>
             <p className="mt-1 text-sm text-muted-fg">
-              Push your customers, subs (vendors), invoices and payments into QuickBooks so nothing gets double-entered.
+              Customers, subs, the bills they send you, the invoices you send your client, and the money that comes in - pushed into QuickBooks so nothing gets double-entered.
             </p>
 
             {!status?.configured && (
@@ -167,13 +168,14 @@ export function QuickBooksCard() {
                 before that, or pushes failing - both worth seeing without
                 digging through the log. */}
             {connected && status && (
-              (status.unsyncedPayments > 0 || status.unsyncedBills > 0) ? (
+              (status.unsyncedPayments > 0 || status.unsyncedBills > 0 || status.unsyncedClientInvoices > 0) ? (
                 <p className="mt-2 text-sm">
                   <span className="font-semibold text-warn">
                     {[
                       status.unsyncedPayments > 0 && `${status.unsyncedPayments} payment${status.unsyncedPayments === 1 ? '' : 's'}`,
                       status.unsyncedBills > 0 && `${status.unsyncedBills} bill${status.unsyncedBills === 1 ? '' : 's'}`,
-                    ].filter(Boolean).join(' and ')} not in QuickBooks yet
+                      status.unsyncedClientInvoices > 0 && `${status.unsyncedClientInvoices} client invoice${status.unsyncedClientInvoices === 1 ? '' : 's'}`,
+                    ].filter(Boolean).join(', ')} not in QuickBooks yet
                   </span>
                   <span className="text-muted-fg">
                     {' '}- use Sync below to push the backlog.
@@ -222,6 +224,12 @@ export function QuickBooksCard() {
                   className="inline-flex items-center gap-2 rounded-lg border border-line bg-surface px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50">
                   {busy === 'bills' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
                   Sync bills
+                </button>
+                <button onClick={() => sync('client-invoices')} disabled={!!busy}
+                  title="Push sent client invoices as QuickBooks Invoices (money owed to you)"
+                  className="inline-flex items-center gap-2 rounded-lg border border-line bg-surface px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50">
+                  {busy === 'client-invoices' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+                  Sync client invoices
                 </button>
                 <button onClick={() => sync('payments')} disabled={!!busy}
                   className="inline-flex items-center gap-2 rounded-lg border border-line bg-surface px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50">

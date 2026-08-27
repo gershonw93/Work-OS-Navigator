@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
 import { randomBytes } from 'crypto'
+import { pushClientInvoice } from '@/lib/quickbooks-push'
 
 export const runtime = 'nodejs'
 
@@ -52,6 +53,13 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       db, params.id, (profile as any)?.full_name ?? 'GC', 'client_invoice_updated',
       `Client invoice ${data.invoice_number} marked ${body.status}`,
     )
+  }
+
+  // Sending it makes it a receivable, so QuickBooks should carry it as one -
+  // money owed to you, visible before it arrives. Same contract as every other
+  // push: never throws, 8s cap, not-connected is normal.
+  if (body.status === 'sent' || body.status === 'paid') {
+    await pushClientInvoice(db, params.billId)
   }
 
   return NextResponse.json({ invoice: data })

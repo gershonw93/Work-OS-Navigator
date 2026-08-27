@@ -29,15 +29,19 @@ export async function GET(request: Request) {
 
   let unsyncedPayments = 0
   let unsyncedBills = 0
+  let unsyncedClientInvoices = 0
   if (projectIds.length) {
-    const [pay, bills] = await Promise.all([
+    const [pay, bills, clientInv] = await Promise.all([
       db.from('client_payments').select('id', { count: 'exact', head: true })
         .in('project_id', projectIds).is('qbo_id', null),
       db.from('invoices').select('id', { count: 'exact', head: true })
         .in('project_id', projectIds).in('status', ['approved', 'paid']).is('qbo_id', null),
+      db.from('client_invoices').select('id', { count: 'exact', head: true })
+        .in('project_id', projectIds).in('status', ['sent', 'paid']).is('qbo_id', null),
     ])
     unsyncedPayments = pay.count ?? 0
     unsyncedBills = bills.count ?? 0
+    unsyncedClientInvoices = clientInv.count ?? 0
   }
 
   const { data: log } = await db.from('quickbooks_sync_log')
@@ -53,6 +57,7 @@ export async function GET(request: Request) {
     connection: conn ?? null,
     unsyncedPayments,
     unsyncedBills,
+    unsyncedClientInvoices,
     lastSyncAt: (log ?? [])[0]?.created_at ?? null,
     log: log ?? [],
   })

@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { feeForInvoice } from '@/lib/allocations'
 import { ACTUAL_STATUSES } from '@/lib/invoice-budget'
 import { logActivity } from '@/lib/log-activity'
-import { pushClientPayment } from '@/lib/quickbooks-push'
+import { pushPaymentForProject } from '@/lib/quickbooks-push'
 
 export const runtime = 'nodejs'
 
@@ -135,7 +135,9 @@ export async function POST(request: Request, { params }: { params: { id: string 
   // QuickBooks is a side effect. A miss lands in the sync log and is picked up
   // by the Settings backlog sync. This replaced remembering to press a button
   // in Settings, which nobody had pressed in six weeks.
-  const qb = await pushClientPayment(db, data.id)
+  // Applied against an open QuickBooks invoice if there is one, else a
+  // standalone Sales Receipt. Never both - see lib/quickbooks-push.ts.
+  const qb = await pushPaymentForProject(db, data.id)
 
   return NextResponse.json({ payment: qb.pushed ? { ...data, qbo_id: qb.qboId, qb_entered: true } : data })
 }
