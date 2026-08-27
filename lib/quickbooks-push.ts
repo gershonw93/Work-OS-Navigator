@@ -56,15 +56,36 @@ function budgeted<T>(p: Promise<T>): Promise<T> {
 
 // ── Pure payload builders, split out so they can be tested without a network ─
 
+/**
+ * The reference that makes a QuickBooks record matchable back to SyteNav.
+ *
+ * The first pushes carried only customer + date + amount + memo, and the
+ * question came back within a day: "it's the customer name but for WHICH
+ * project? is there an invoice number?" A record a bookkeeper cannot trace
+ * is a record they re-enter, which defeats the whole sync.
+ *
+ * DocNumber is capped at 21 characters by QBO; "SN-" plus eight hex chars of
+ * the SyteNav id fits with room to spare and is unique enough to search for.
+ * If the company has custom transaction numbers switched off, QBO may ignore
+ * it - the project name in the memo still carries the answer.
+ */
+export function snRef(id: string): string {
+  return `SN-${id.slice(0, 8)}`
+}
+
 export function paymentPayload(
-  p: { amount: unknown; paid_date?: string | null; memo?: string | null },
+  p: { id?: string; amount: unknown; paid_date?: string | null; memo?: string | null },
   customerQboId: string,
   itemId: string,
+  projectName?: string | null,
 ) {
   return {
     CustomerRef: { value: customerQboId },
     TxnDate: ymd(p.paid_date),
-    PrivateNote: p.memo ?? undefined,
+    ...(p.id ? { DocNumber: snRef(p.id) } : {}),
+    // The memo answers "which job?" before it says anything else - the
+    // customer name is already on the record, the project is what was missing.
+    PrivateNote: [projectName, p.memo].filter(Boolean).join(' - ') || undefined,
     Line: [{
       DetailType: 'SalesItemLineDetail',
       Amount: Number(p.amount),
@@ -74,18 +95,20 @@ export function paymentPayload(
 }
 
 export function billPayload(
-  inv: { amount: unknown; paid_at?: string | null; created_at?: string | null; trade?: string | null },
+  inv: { id?: string; amount: unknown; paid_at?: string | null; created_at?: string | null; trade?: string | null },
   vendorQboId: string,
   expenseAccountId: string,
+  projectName?: string | null,
 ) {
   return {
     VendorRef: { value: vendorQboId },
     // The date money moved if it has, else the date the bill was raised.
     TxnDate: ymd(inv.paid_at) ?? ymd(inv.created_at),
+    ...(inv.id ? { DocNumber: snRef(inv.id) } : {}),
     Line: [{
       DetailType: 'AccountBasedExpenseLineDetail',
       Amount: Number(inv.amount),
-      Description: inv.trade ?? 'Subcontractor work',
+      Description: [inv.trade ?? 'Subcontractor work', projectName].filter(Boolean).join(' - '),
       AccountBasedExpenseLineDetail: { AccountRef: { value: expenseAccountId } },
     }],
   }
@@ -137,12 +160,13 @@ async function ensureCustomerId(db: SupabaseClient, conn: Connection, customerId
 }
 
 /** The GC company whose QuickBooks file a project's money belongs in. */
-async function projectCompany(db: SupabaseClient, projectId: string): Promise<{ companyId: string | null; customerId: string | null }> {
+async function projectCompany(db: SupabaseClient, projectId: string): Promise<{ companyId: string | null; customerId: string | null; projectName: string | null }> {
   const { data: p } = await db.from('projects')
-    .select('gc_company_id, created_by_company_id, customer_id').eq('id', projectId).maybeSingle()
+    .select('gc_company_id, created_by_company_id, customer_id, name').eq('id', projectId).maybeSingle()
   return {
     companyId: (p as any)?.gc_company_id ?? (p as any)?.created_by_company_id ?? null,
     customerId: (p as any)?.customer_id ?? null,
+    projectName: (p as any)?.name ?? null,
   }
 }
 
@@ -163,7 +187,7 @@ export async function pushClientPayment(db: SupabaseClient, paymentId: string, c
     if (!p) return { pushed: false, reason: 'skipped', detail: 'Payment not found' }
     if (p.qbo_id) return { pushed: false, reason: 'already' }
 
-    const { companyId, customerId } = await projectCompany(db, p.project_id)
+    const { companyId, customerId, projectName } = await projectCompany(db, p.project_id)
     if (!companyId) return { pushed: false, reason: 'skipped', detail: 'Project has no company' }
     if (!customerId) {
       await logRow(db, companyId, 'payment', p.id, 'error', undefined, 'Project has no customer to bill to')
@@ -180,7 +204,7 @@ export async function pushClientPayment(db: SupabaseClient, paymentId: string, c
       }
       const customerQboId = await ensureCustomerId(db, conn, customerId, companyId)
       const res = await qboFetch(conn, 'salesreceipt', {
-        method: 'POST', body: JSON.stringify(paymentPayload(p, customerQboId, ctx!.itemId!)),
+        method: 'POST', body: JSON.stringify(paymentPayload(p, customerQboId, ctx!.itemId!, projectName)),
       })
       const qboId = res?.SalesReceipt?.Id
       // qb_entered too: the hand-tick means "it is in QuickBooks", and now it is.
@@ -210,7 +234,7 @@ export async function pushBill(db: SupabaseClient, invoiceId: string, ctx?: Push
       return { pushed: false, reason: 'skipped', detail: `Status ${inv.status} does not belong in QuickBooks` }
     }
 
-    const { companyId } = await projectCompany(db, inv.project_id)
+    const { companyId, projectName } = await projectCompany(db, inv.project_id)
     if (!companyId) return { pushed: false, reason: 'skipped', detail: 'Project has no company' }
     const vendorCompanyId = (inv.subcontracts as any)?.company_id
     if (!vendorCompanyId) {
@@ -229,7 +253,7 @@ export async function pushBill(db: SupabaseClient, invoiceId: string, ctx?: Push
       const vendorQboId = await ensureVendorId(db, conn, vendorCompanyId, companyId)
       const res = await qboFetch(conn, 'bill', {
         method: 'POST',
-        body: JSON.stringify(billPayload({ ...inv, trade: (inv.subcontracts as any)?.trade }, vendorQboId, ctx!.expenseAccountId!)),
+        body: JSON.stringify(billPayload({ ...inv, trade: (inv.subcontracts as any)?.trade }, vendorQboId, ctx!.expenseAccountId!, projectName)),
       })
       const qboId = res?.Bill?.Id
       await db.from('invoices').update({ qbo_id: qboId, qbo_synced_at: new Date().toISOString() }).eq('id', inv.id)
