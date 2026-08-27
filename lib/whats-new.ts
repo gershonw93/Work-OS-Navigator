@@ -61,7 +61,7 @@ export const RELEASES: Release[] = [
       {
         kind: 'improved',
         title: 'QuickBooks records say which project they belong to',
-        text: 'A pushed payment used to arrive in QuickBooks as just a customer, a date and an amount - fine until a customer has two jobs. Every record now carries the project name in its memo and a searchable SN- reference number, and hovering the QB chip in SyteNav shows you that reference. Records pushed before today keep their old plain memos.',
+        text: 'A pushed payment used to arrive in QuickBooks as just a customer, a date and an amount - fine until a customer has two jobs. Every record now carries the project name in its memo and a searchable SN- reference number, and hovering the QB chip in SyteNav shows you that reference. For records pushed before today, press Update formatting on the Settings card - it rewrites them in place, no duplicates.',
         help: 'connect-quickbooks',
       },
       {
