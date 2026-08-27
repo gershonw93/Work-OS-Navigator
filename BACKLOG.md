@@ -60,7 +60,7 @@ move it to **In progress**, and when it ships, move it to **Done** with the PR #
 ## 💼 QuickBooks
 - **Two-way sync** - pulling payments/bills recorded directly in QBO back into SyteNav is not built; today is push-only, which means QBO-side edits drift silently.
 - **Partial and over-payments against an invoice** - a payment applies to the OLDEST open invoice for the project, whole. Splitting one cheque across several invoices, or a payment larger than the invoice it settles, is not modelled.
-- **Voiding/deleting a sent invoice** does not retract the QBO Invoice; it stays as an open receivable until someone voids it in QuickBooks.
+- **Editing the lines of a sent invoice** is not possible by design - void and reissue instead. If a use case appears for correcting a typo without a new number, it needs thought about what the client's copy says.
 - **Detect orphaned QBO records** - a QuickBooks invoice/receipt no SyteNav row points at (from a pre-fix duplicate, or an invoice deleted here). Surface them on the Settings card with a void action, rather than leaving them to inflate A/R silently.
 - **Connection-expiry warning**: the refresh token dies after ~100 days unused; auto-push keeps it warm on active companies, but a dormant company still lapses silently. Surface "connection expired - reconnect" in the bell, not just the Settings card.
 
@@ -118,6 +118,7 @@ Shipped in #218: bulk creation makes a site + a job per unit/floor/house, with a
 
 ## ✅ Recently shipped (for reference)
 - QuickBooks records are matchable: project name in the memo/line description, SN-<id8> in DocNumber, same ref in the SyteNav chip tooltip. "Update formatting" on the Settings card refreshes already-synced records in place (chunked 25/call under the 60s route ceiling), sharing the same composers as the push (#313, #314)
+- Void a sent client invoice: keeps the record, releases its costs back to billable (the billable query now skips void invoices), and voids the QBO Invoice via `?operation=void` so A/R stops counting it; QB tick added to the invoice list (#320)
 - Customers push on create AND edit (migration 086 adds `customers.qbo_claimed_at`); an existing QBO Customer is updated in place via fetch-modify-post rather than duplicated. Vendors are still created lazily on first bill approval - same treatment is the obvious next step (#319)
 - "Mark paid" on a client invoice opens the real Record a client payment dialog (same treatment deposits got in #305) - it was a bare status flip that recorded no money and left the QBO invoice open; payment is recorded BEFORE the status flips so the applied-payment lookup still finds the invoice as 'sent' (#318)
 - Atomic push claim (migration 085 `qbo_claimed_at` on client_invoices/client_payments/invoices): a conditional UPDATE replaces the check-then-act guard that let a double-press create QBO invoices 291 AND 292 for one record; stale claims expire after 2 min so a crashed push self-heals; invoices adopt an existing QBO invoice with the same DocNumber rather than duplicating (#317)

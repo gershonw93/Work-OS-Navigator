@@ -693,3 +693,45 @@ export async function pushCustomer(db: SupabaseClient, customerId: string, ctx?:
     return { pushed: false, reason: 'failed', detail: err?.message ?? 'unknown' }
   }
 }
+
+/**
+ * Void the QuickBooks Invoice behind a voided client invoice.
+ *
+ * Voided, not deleted: an accountant expects a voided document to stay in the
+ * books with its number and a zero value, not to vanish. QuickBooks agrees -
+ * `?operation=void` zeroes the lines and stamps it VOIDED, leaving the audit
+ * trail intact.
+ *
+ * Without this, voiding here would leave the invoice OPEN over there, and
+ * receivables would keep counting money nobody is being asked for.
+ */
+export async function voidClientInvoiceInQbo(db: SupabaseClient, billId: string, ctx?: PushContext): Promise<PushResult> {
+  try {
+    const { data: inv } = await db.from('client_invoices')
+      .select('id, project_id, qbo_id').eq('id', billId).maybeSingle()
+    if (!inv?.qbo_id) return { pushed: false, reason: 'skipped', detail: 'Not in QuickBooks' }
+
+    const { companyId } = await projectCompany(db, inv.project_id)
+    if (!companyId) return { pushed: false, reason: 'skipped', detail: 'Project has no company' }
+    const conn = await connectionFor(db, companyId, ctx)
+    if (!conn) return { pushed: false, reason: 'not_connected' }
+
+    return await budgeted((async (): Promise<PushResult> => {
+      const cur = await qboFetch(conn, `invoice/${inv.qbo_id}`)
+      const obj = cur?.Invoice
+      if (!obj?.Id) throw new Error('Invoice no longer exists in QuickBooks')
+      await qboFetch(conn, 'invoice?operation=void', {
+        method: 'POST',
+        body: JSON.stringify({ Id: obj.Id, SyncToken: obj.SyncToken }),
+      })
+      await db.from('client_invoices').update({ qbo_synced_at: new Date().toISOString() }).eq('id', inv.id)
+      await logRow(db, companyId, 'client_invoice', inv.id, 'success', inv.qbo_id!, 'Voided in QuickBooks')
+      return { pushed: true, qboId: inv.qbo_id! }
+    })()).catch(async (err: any) => {
+      await logRow(db, companyId, 'client_invoice', inv.id, 'error', undefined, `Void: ${err?.message}`)
+      return { pushed: false, reason: 'failed' as const, detail: err?.message }
+    })
+  } catch (err: any) {
+    return { pushed: false, reason: 'failed', detail: err?.message ?? 'unknown' }
+  }
+}
