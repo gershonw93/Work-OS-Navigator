@@ -1,0 +1,12 @@
+https://claude.ai/code/artifact/1788bb6e-e648-4ea0-9ba9-c31a43f35e6a
+
+The customer-facing product brief: what SyteNav does, how billing and the
+QuickBooks integration work, and an honest "what it does not do yet".
+
+It is the page that gets pasted into a chat to answer prospect and customer
+questions, so a stale limits section there becomes a confident wrong answer in
+front of a customer.
+
+KEEP CURRENT: republish it (same URL) in the same change as lib/whats-new.ts
+and lib/help/articles.ts whenever something a user would notice ships -
+especially anything that moves an item off the "does not do yet" list.
