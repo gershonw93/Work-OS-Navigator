@@ -51,7 +51,10 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
   // Set when the payment dialog was opened by "Mark paid" on a deposit request,
   // so the payment it creates can settle that request. Cleared on cancel too -
   // a dialog dismissed must not settle anything.
-  const [settling, setSettling] = useState<{ id: string; label: string; amount: number } | null>(null)
+  // What this payment is answering: a deposit request, or a client invoice.
+  // Both used to be settled by a bare status flip that recorded no money at
+  // all - the deposit half was fixed in #305, the invoice half was not.
+  const [settling, setSettling] = useState<{ kind: 'request' | 'invoice'; id: string; label: string; amount: number } | null>(null)
   const [requestsKey, setRequestsKey] = useState(0)
 
   async function token() { const { data: { session } } = await supabase.auth.getSession(); return session?.access_token ?? '' }
@@ -91,7 +94,7 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
    * $4,800. The request is settled by whatever is actually entered.
    */
   function settleRequest(r: { id: string; label: string; amount: number }) {
-    setSettling(r)
+    setSettling({ kind: 'request', ...r })
     setForm({
       ...blank,
       paid_date: new Date().toISOString().split('T')[0],
@@ -100,6 +103,30 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
       // A deposit is a retainer by definition - it is money held against work
       // not yet done, which is exactly what this flag means.
       retainer: true,
+    })
+    setAdding(true)
+  }
+
+  /**
+   * "Mark paid" on a client invoice.
+   *
+   * It used to set status='paid' and nothing else: no money in the ledger, no
+   * date, no method, nothing in Funds Received - and in QuickBooks the invoice
+   * stayed OPEN, so receivables kept counting money that had arrived. The
+   * payment this records is what settles the QuickBooks invoice too, through
+   * the applied-payment path.
+   *
+   * NOT a retainer: an invoice is work already billed, not money held against
+   * work not yet done.
+   */
+  function settleInvoice(b: { id: string; label: string; amount: number }) {
+    setSettling({ kind: 'invoice', ...b })
+    setForm({
+      ...blank,
+      paid_date: new Date().toISOString().split('T')[0],
+      amount: String(b.amount),
+      memo: b.label,
+      retainer: false,
     })
     setAdding(true)
   }
@@ -127,12 +154,22 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
     // Settle the request this payment answers, and point it at the payment.
     // Only after the payment is safely written: marking a request paid against
     // money that failed to save is the lie this whole flow exists to avoid.
+    // ORDER MATTERS. The payment is recorded FIRST, above, and only then is the
+    // invoice marked paid. The QuickBooks applied-payment lookup finds the
+    // oldest invoice still 'sent'; flip the status first and it would find
+    // nothing, fall back to a Sales Receipt, and book the sale twice.
     if (settling) {
       const created = await res.json().catch(() => ({} as any))
-      await fetch(`/api/projects/${params.id}/payment-requests/${settling.id}`, {
+      const url = settling.kind === 'request'
+        ? `/api/projects/${params.id}/payment-requests/${settling.id}`
+        : `/api/projects/${params.id}/client-invoices/${settling.id}`
+      const payload = settling.kind === 'request'
+        ? { status: 'paid', client_payment_id: created?.payment?.id ?? null }
+        : { status: 'paid' }
+      await fetch(url, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
-        body: JSON.stringify({ status: 'paid', client_payment_id: created?.payment?.id ?? null }),
+        body: JSON.stringify(payload),
       }).catch(() => {})
       setRequestsKey(k => k + 1)
     }
@@ -302,7 +339,7 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
           </Link>
         </div>
       ) : (
-        <ClientInvoices projectId={params.id} />
+        <ClientInvoices projectId={params.id} onSettle={settleInvoice} reloadKey={requestsKey} />
       ))}
 
       {/* Projections */}
@@ -327,7 +364,7 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
                   form look like they came from nowhere. */}
               {settling && (
                 <p className="text-xs text-muted-fg">
-                  Settling the <span className="font-medium text-ink-soft">{settling.label}</span> request.
+                  Settling <span className="font-medium text-ink-soft">{settling.label}</span>.
                   Change anything below if they sent something different.
                 </p>
               )}

@@ -62,7 +62,23 @@ const STATUS: Record<string, string> = {
  * carrying its own markup, so nothing is retyped and the figures cannot drift
  * from the costs they came from.
  */
-export function ClientInvoices({ projectId }: { projectId: string }) {
+export function ClientInvoices({
+  projectId, onSettle, reloadKey = 0,
+}: {
+  projectId: string
+  /**
+   * "Mark paid" hands the invoice up to the page, which opens the same Record
+   * a client payment box everything else uses.
+   *
+   * It used to just set status='paid': no money in the ledger, no date, no
+   * method, nothing in Funds Received - and the QuickBooks invoice stayed
+   * open, so receivables kept counting money that had already arrived. An
+   * invoice is not paid because somebody said so; it is paid because money
+   * turned up, and that money has a date and a method.
+   */
+  onSettle?: (invoice: { id: string; label: string; amount: number }) => void
+  reloadKey?: number
+}) {
   const supabase = createClient()
   const [bills, setBills] = useState<Bill[]>([])
   const [billable, setBillable] = useState<Billable[]>([])
@@ -104,7 +120,7 @@ export function ClientInvoices({ projectId }: { projectId: string }) {
     setLoading(false)
   }, [projectId, token])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { load() }, [load, reloadKey])
 
   // Arriving from "Bill the client for this" on a sub's bill: open the composer
   // with that one cost already ticked. Approving a sub bill and then hunting
@@ -369,7 +385,13 @@ export function ClientInvoices({ projectId }: { projectId: string }) {
                   </>
                 )}
                 {b.status === 'sent' && (
-                  <button onClick={() => setStatus(b, 'paid')} disabled={!!statusBusy}
+                  <button
+                    onClick={() => {
+                      const total = (b.client_invoice_lines ?? []).reduce((s, l) => s + Number(l.amount || 0), 0)
+                      if (onSettle) onSettle({ id: b.id, label: `Invoice ${b.invoice_number}`, amount: total })
+                      else setStatus(b, 'paid')
+                    }}
+                    disabled={!!statusBusy}
                     className="shrink-0 inline-flex items-center gap-1 rounded-md border border-success/30 bg-success-tint px-2 py-1 text-xs font-medium text-success">
                     <Check className="h-3 w-3" /> Mark paid
                   </button>
