@@ -1084,6 +1084,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       ] },
       { type: 'text', text: 'EMAIL IS OFF FOR MOST THINGS ON PURPOSE. It is on by default for six, all of them cases where finding out at your next login is too late: somebody is waiting on your sign-off, a bill needs approving, a bill you sent got paid, a bid you priced was decided, an insurance certificate is about to lapse, or you have been invited to quote a package. Everything else stays in the bell until you ask for it.' },
       { type: 'text', text: 'Notifications marked COMING SOON are ones the app does not send yet. The switch is there so you can see what is planned; it will start working when the notification does.' },
+      { type: 'text', text: 'BIDS. You are told when a sub sends a quote or declines to, when you are invited to quote, when somebody chases you for a price you have not sent, and when a package is awarded. A sub who does not have a SyteNav account still gets the award by email, since the address is on their quote.' },
       { type: 'tip', text: 'Turning off the bell and the email for something means you will not hear about it at all. If you want a quieter inbox but still want to catch up in your own time, turn off Email and leave App on.' },
     ],
     related: ['invite-team-member', 'permissions'],
@@ -1197,7 +1198,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'tasks-assign',
     title: 'Create and assign tasks',
     category: 'field',
-    keywords: ['task', 'todo', 'assign', 'crew', 'due date', 'priority', 'punch list'],
+    keywords: ['task', 'todo', 'assign', 'crew', 'due date', 'priority', 'punch list', 'board', 'kanban', 'drag', 'move task', 'in progress', 'completed', 'column', 'stage', 'status'],
     summary: 'Assign work to your crew or subs and track it to done.',
     blocks: [
       { type: 'steps', items: [
@@ -1207,6 +1208,9 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'Attach a photo if it helps, then save.',
         'Move tasks along as they progress and add notes as you go.',
       ] },
+      { type: 'text', text: 'MOVING A TASK ALONG. Three ways, all doing the same thing. Drag the card from one column to the next. Click the small round status icon on the card to advance it one stage - Open to In Progress to Completed. Or in List view, pick the stage from the dropdown on the right of the row.' },
+      { type: 'text', text: 'The status icon only ever moves a task FORWARD, and stops once it is Completed - so a mis-tap on a finished task cannot quietly reopen it. To reopen something, use the dropdown in List view, or drag the card back.' },
+      { type: 'text', text: 'Each column on the board has its own + button, and it adds straight into that column. Press + on In Progress and the task starts as in progress - useful when you are writing down work that is already underway. The form tells you which column it is adding to.' },
       { type: 'tip', text: 'You can create a task straight from a budget/progress line and the two stay linked both ways.' },
     ],
     related: ['schedule-milestones', 'master-calendar'],

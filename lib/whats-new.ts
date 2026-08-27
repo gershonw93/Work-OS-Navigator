@@ -48,6 +48,51 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    date: '2026-08-27',
+    title: 'Quotes now tell you when they arrive, and the task board moves',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'You are told when a sub sends you a quote',
+        text: 'A sub could open their link, price the job, hit submit - and nothing reached you. No bell, no email. You found out by remembering to go and look. Quotes now notify you the moment they land, with who sent it and for how much, and a decline tells you too, so you are not left waiting on a price that was never coming.',
+        help: 'notification-preferences',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
+        title: 'Winning a job tells the sub who won it',
+        text: 'Awarding a quote told nobody. The winner heard about it when you rang them. They now get it in the app, and a sub who has no SyteNav account gets an email instead - the address is already on their quote.',
+        help: 'award-quote',
+      },
+      {
+        kind: 'improved',
+        title: 'Re-sending a quote request reads as a nudge, not a repeat',
+        text: 'Sending the link again to a sub who has already had it now goes out as a reminder - different wording, and it shows up in their bell too - instead of the same first-ask email arriving twice. Their "opened it" status survives the chase, so you can still tell who has looked and who has not.',
+        help: 'request-quotes',
+      },
+      {
+        kind: 'new',
+        title: 'Drag tasks between columns, and + adds to the column you pressed',
+        text: 'The task board looked like a board you could drag on and was not one - the only way to move a task was a small icon most people never found. You can now drag a card from Open to In Progress to Completed. The three + buttons used to be the same button: whichever you pressed, the task appeared in Open. Each one now adds to its own column, and the form says which.',
+        help: 'tasks-assign',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
+        title: 'A finished task cannot be reopened by accident',
+        text: 'Clicking the status icon on a Completed task used to wrap it straight back round to Open - no warning, no undo. It now stops at Completed. Reopening is still there when you mean it, from the dropdown in List view or by dragging the card back.',
+        help: 'tasks-assign',
+      },
+      {
+        kind: 'fixed',
+        title: 'Notification switches that did nothing are now honest',
+        text: 'Five switches in Settings promised notifications the app has never sent. Four of them - quote received, awarded, reminder - now work. "Bid revision requested" and "Milestone reached" are marked COMING SOON instead, because nothing raises them yet. A switch that governs nothing is worse than no switch.',
+        help: 'notification-preferences',
+        href: '/settings',
+      },
+    ],
+  },
+  {
     date: '2026-08-26',
     title: 'Bids and Quotes are one tab, and the project tabs are regrouped',
     items: [
