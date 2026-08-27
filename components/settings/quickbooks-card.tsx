@@ -21,6 +21,9 @@ interface Status {
   environment: string
   canManage: boolean
   connection: Connection | null
+  unsyncedPayments: number
+  unsyncedBills: number
+  lastSyncAt: string | null
   log: LogRow[]
 }
 
@@ -128,6 +131,31 @@ export function QuickBooksCard() {
               <p className="mt-2 text-sm text-muted-fg">
                 Linked to <strong className="text-ink">{status?.connection?.qbo_company_name || `Realm ${status?.connection?.realm_id}`}</strong>
               </p>
+            )}
+
+            {/* The state of the books, in one line. New payments and approved
+                bills push themselves; a number here is either backlog from
+                before that, or pushes failing - both worth seeing without
+                digging through the log. */}
+            {connected && status && (
+              (status.unsyncedPayments > 0 || status.unsyncedBills > 0) ? (
+                <p className="mt-2 text-sm">
+                  <span className="font-semibold text-warn">
+                    {[
+                      status.unsyncedPayments > 0 && `${status.unsyncedPayments} payment${status.unsyncedPayments === 1 ? '' : 's'}`,
+                      status.unsyncedBills > 0 && `${status.unsyncedBills} bill${status.unsyncedBills === 1 ? '' : 's'}`,
+                    ].filter(Boolean).join(' and ')} not in QuickBooks yet
+                  </span>
+                  <span className="text-muted-fg">
+                    {' '}- use Sync below to push the backlog.
+                    {status.lastSyncAt && ` Last activity ${new Date(status.lastSyncAt).toLocaleDateString()}.`}
+                  </span>
+                </p>
+              ) : (
+                <p className="mt-2 text-sm text-success">
+                  Everything is in QuickBooks. New payments and approved bills push themselves.
+                </p>
+              )
             )}
           </div>
         </div>

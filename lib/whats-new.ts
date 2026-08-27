@@ -49,6 +49,26 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-08-27',
+    title: 'QuickBooks keeps itself up to date',
+    items: [
+      {
+        kind: 'new',
+        title: 'Payments and approved bills push to QuickBooks by themselves',
+        text: 'Syncing was a button in Settings that had not been pressed in six weeks, with 17 payments quietly missing from the books. Now every client payment you record and every sub bill you approve goes straight to QuickBooks when a connection is live. A QuickBooks hiccup never blocks the save - the miss is logged and swept up by the next sync.',
+        help: 'connect-quickbooks',
+        href: '/settings',
+      },
+      {
+        kind: 'fixed',
+        title: 'The QB chip tells the truth',
+        text: 'The chip on a payment used to be a hand-ticked checkbox with no connection to what was actually in QuickBooks. A solid "QB ✓" now means the sync really pushed it; the clickable tick remains for payments you entered by hand. The Settings card also says plainly how many payments and bills are not in QuickBooks yet, instead of leaving you to wonder.',
+        help: 'connect-quickbooks',
+        href: '/settings',
+      },
+    ],
+  },
+  {
+    date: '2026-08-27',
     title: 'Clients see their invoices on the portal',
     items: [
       {

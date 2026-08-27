@@ -1,0 +1,245 @@
+import { SupabaseClient } from '@supabase/supabase-js'
+import {
+  Connection, getValidConnection, qboFetch,
+  defaultExpenseAccountId, defaultServiceItemId,
+} from '@/lib/quickbooks'
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Pushing ONE record into QuickBooks - the unit both sync paths share.
+//
+// This logic used to live only inside the manual Settings sync button, which
+// is why the books drifted: the last press was six weeks before this file
+// existed, and seventeen payments sat unsynced while the "QB" chip on screen
+// was a hand-ticked checkbox with no connection to reality.
+//
+// Now the same pusher runs in two places:
+//   * automatically, right after a payment is recorded or a bill approved
+//   * from the Settings sync button, for backlog and catch-up
+// One code path, so the button and the auto-push cannot drift apart.
+//
+// SAME CONTRACT AS sendEmail: NEVER THROWS. Recording a payment must not fail
+// because Intuit had a bad minute - the payment is the work, QuickBooks is a
+// side effect. Not being connected is a normal state, not an error.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type PushResult =
+  | { pushed: true; qboId: string }
+  | { pushed: false; reason: 'not_connected' | 'already' | 'skipped' | 'failed'; detail?: string }
+
+/**
+ * Shared per-run cache, so a backlog sync of fifty rows does not ask QBO fifty
+ * times which expense account to use. The auto-push path just passes nothing.
+ */
+export interface PushContext {
+  conn?: Connection | null
+  expenseAccountId?: string
+  itemId?: string
+}
+
+const ymd = (d?: string | null): string | undefined =>
+  d ? new Date(d).toISOString().slice(0, 10) : undefined
+
+/**
+ * Wait this long for QuickBooks, then give up and log it. The underlying
+ * request is not cancelled - qboFetch has no abort plumbing - but the SAVE
+ * stops waiting, which is the thing that matters: a slow Intuit API may cost
+ * a missed sync (caught by the next backlog run), never a hung Record Payment.
+ */
+const QBO_BUDGET_MS = 8000
+function budgeted<T>(p: Promise<T>): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`QuickBooks took longer than ${QBO_BUDGET_MS / 1000}s - will sync on the next run`)), QBO_BUDGET_MS)),
+  ])
+}
+
+// ── Pure payload builders, split out so they can be tested without a network ─
+
+export function paymentPayload(
+  p: { amount: unknown; paid_date?: string | null; memo?: string | null },
+  customerQboId: string,
+  itemId: string,
+) {
+  return {
+    CustomerRef: { value: customerQboId },
+    TxnDate: ymd(p.paid_date),
+    PrivateNote: p.memo ?? undefined,
+    Line: [{
+      DetailType: 'SalesItemLineDetail',
+      Amount: Number(p.amount),
+      SalesItemLineDetail: { ItemRef: { value: itemId } },
+    }],
+  }
+}
+
+export function billPayload(
+  inv: { amount: unknown; paid_at?: string | null; created_at?: string | null; trade?: string | null },
+  vendorQboId: string,
+  expenseAccountId: string,
+) {
+  return {
+    VendorRef: { value: vendorQboId },
+    // The date money moved if it has, else the date the bill was raised.
+    TxnDate: ymd(inv.paid_at) ?? ymd(inv.created_at),
+    Line: [{
+      DetailType: 'AccountBasedExpenseLineDetail',
+      Amount: Number(inv.amount),
+      Description: inv.trade ?? 'Subcontractor work',
+      AccountBasedExpenseLineDetail: { AccountRef: { value: expenseAccountId } },
+    }],
+  }
+}
+
+// ── Internals ────────────────────────────────────────────────────────────────
+
+async function logRow(
+  db: SupabaseClient, companyId: string,
+  entity_type: string, entity_id: string, status: string, qbo_id?: string, message?: string,
+) {
+  try {
+    await db.from('quickbooks_sync_log').insert({
+      company_id: companyId, entity_type, entity_id, action: 'create', status, qbo_id, message,
+    })
+  } catch { /* the log must never take the push down with it */ }
+}
+
+async function ensureVendorId(db: SupabaseClient, conn: Connection, companyId: string, gcCompanyId: string): Promise<string> {
+  const { data: co } = await db.from('companies')
+    .select('id, name, contact_email, phone, address, qbo_vendor_id').eq('id', companyId).single()
+  if (!co) throw new Error('Vendor company not found')
+  if (co.qbo_vendor_id) return co.qbo_vendor_id
+  const payload: any = { DisplayName: co.name }
+  if (co.contact_email) payload.PrimaryEmailAddr = { Address: co.contact_email }
+  if (co.phone) payload.PrimaryPhone = { FreeFormNumber: co.phone }
+  if (co.address) payload.BillAddr = { Line1: co.address }
+  const res = await qboFetch(conn, 'vendor', { method: 'POST', body: JSON.stringify(payload) })
+  const qboId = res?.Vendor?.Id
+  await db.from('companies').update({ qbo_vendor_id: qboId, qbo_vendor_synced_at: new Date().toISOString() }).eq('id', co.id)
+  await logRow(db, gcCompanyId, 'vendor', co.id, 'success', qboId, 'Auto-created for a bill')
+  return qboId
+}
+
+async function ensureCustomerId(db: SupabaseClient, conn: Connection, customerId: string, gcCompanyId: string): Promise<string> {
+  const { data: c } = await db.from('customers')
+    .select('id, name, contact_name, email, phone, billing_address, qbo_id').eq('id', customerId).single()
+  if (!c) throw new Error('Customer not found')
+  if (c.qbo_id) return c.qbo_id
+  const payload: any = { DisplayName: c.name }
+  if (c.email) payload.PrimaryEmailAddr = { Address: c.email }
+  if (c.phone) payload.PrimaryPhone = { FreeFormNumber: c.phone }
+  if (c.billing_address) payload.BillAddr = { Line1: c.billing_address }
+  const res = await qboFetch(conn, 'customer', { method: 'POST', body: JSON.stringify(payload) })
+  const qboId = res?.Customer?.Id
+  await db.from('customers').update({ qbo_id: qboId, qbo_synced_at: new Date().toISOString() }).eq('id', c.id)
+  await logRow(db, gcCompanyId, 'customer', c.id, 'success', qboId, 'Auto-created for a payment')
+  return qboId
+}
+
+/** The GC company whose QuickBooks file a project's money belongs in. */
+async function projectCompany(db: SupabaseClient, projectId: string): Promise<{ companyId: string | null; customerId: string | null }> {
+  const { data: p } = await db.from('projects')
+    .select('gc_company_id, created_by_company_id, customer_id').eq('id', projectId).maybeSingle()
+  return {
+    companyId: (p as any)?.gc_company_id ?? (p as any)?.created_by_company_id ?? null,
+    customerId: (p as any)?.customer_id ?? null,
+  }
+}
+
+async function connectionFor(db: SupabaseClient, companyId: string, ctx?: PushContext): Promise<Connection | null> {
+  if (ctx?.conn) return ctx.conn
+  const conn = await getValidConnection(db, companyId)
+  if (ctx) ctx.conn = conn
+  return conn
+}
+
+// ── The pushers ──────────────────────────────────────────────────────────────
+
+/** Client payment -> QBO Sales Receipt. Never throws. */
+export async function pushClientPayment(db: SupabaseClient, paymentId: string, ctx?: PushContext): Promise<PushResult> {
+  try {
+    const { data: p } = await db.from('client_payments')
+      .select('id, project_id, amount, paid_date, memo, qbo_id').eq('id', paymentId).maybeSingle()
+    if (!p) return { pushed: false, reason: 'skipped', detail: 'Payment not found' }
+    if (p.qbo_id) return { pushed: false, reason: 'already' }
+
+    const { companyId, customerId } = await projectCompany(db, p.project_id)
+    if (!companyId) return { pushed: false, reason: 'skipped', detail: 'Project has no company' }
+    if (!customerId) {
+      await logRow(db, companyId, 'payment', p.id, 'error', undefined, 'Project has no customer to bill to')
+      return { pushed: false, reason: 'failed', detail: 'Project has no customer to bill to' }
+    }
+
+    const conn = await connectionFor(db, companyId, ctx)
+    if (!conn) return { pushed: false, reason: 'not_connected' }
+
+    return await budgeted((async (): Promise<PushResult> => {
+      if (!ctx?.itemId) {
+        const itemId = await defaultServiceItemId(conn)
+        if (ctx) ctx.itemId = itemId; else ctx = { conn, itemId }
+      }
+      const customerQboId = await ensureCustomerId(db, conn, customerId, companyId)
+      const res = await qboFetch(conn, 'salesreceipt', {
+        method: 'POST', body: JSON.stringify(paymentPayload(p, customerQboId, ctx!.itemId!)),
+      })
+      const qboId = res?.SalesReceipt?.Id
+      // qb_entered too: the hand-tick means "it is in QuickBooks", and now it is.
+      await db.from('client_payments').update({
+        qbo_id: qboId, qbo_synced_at: new Date().toISOString(), qb_entered: true,
+      }).eq('id', p.id)
+      await logRow(db, companyId, 'payment', p.id, 'success', qboId)
+      return { pushed: true, qboId }
+    })()).catch(async (err: any) => {
+      await logRow(db, companyId, 'payment', p.id, 'error', undefined, err?.message)
+      return { pushed: false, reason: 'failed' as const, detail: err?.message }
+    })
+  } catch (err: any) {
+    return { pushed: false, reason: 'failed', detail: err?.message ?? 'unknown' }
+  }
+}
+
+/** Approved/paid sub invoice -> QBO Bill. Never throws. */
+export async function pushBill(db: SupabaseClient, invoiceId: string, ctx?: PushContext): Promise<PushResult> {
+  try {
+    const { data: inv } = await db.from('invoices')
+      .select('id, project_id, amount, status, created_at, paid_at, qbo_id, subcontracts(company_id, trade)')
+      .eq('id', invoiceId).maybeSingle()
+    if (!inv) return { pushed: false, reason: 'skipped', detail: 'Invoice not found' }
+    if (inv.qbo_id) return { pushed: false, reason: 'already' }
+    if (!['approved', 'paid'].includes(String(inv.status))) {
+      return { pushed: false, reason: 'skipped', detail: `Status ${inv.status} does not belong in QuickBooks` }
+    }
+
+    const { companyId } = await projectCompany(db, inv.project_id)
+    if (!companyId) return { pushed: false, reason: 'skipped', detail: 'Project has no company' }
+    const vendorCompanyId = (inv.subcontracts as any)?.company_id
+    if (!vendorCompanyId) {
+      await logRow(db, companyId, 'bill', inv.id, 'error', undefined, 'Invoice has no subcontractor')
+      return { pushed: false, reason: 'failed', detail: 'Invoice has no subcontractor' }
+    }
+
+    const conn = await connectionFor(db, companyId, ctx)
+    if (!conn) return { pushed: false, reason: 'not_connected' }
+
+    return await budgeted((async (): Promise<PushResult> => {
+      if (!ctx?.expenseAccountId) {
+        const expenseAccountId = await defaultExpenseAccountId(conn)
+        if (ctx) ctx.expenseAccountId = expenseAccountId; else ctx = { conn, expenseAccountId }
+      }
+      const vendorQboId = await ensureVendorId(db, conn, vendorCompanyId, companyId)
+      const res = await qboFetch(conn, 'bill', {
+        method: 'POST',
+        body: JSON.stringify(billPayload({ ...inv, trade: (inv.subcontracts as any)?.trade }, vendorQboId, ctx!.expenseAccountId!)),
+      })
+      const qboId = res?.Bill?.Id
+      await db.from('invoices').update({ qbo_id: qboId, qbo_synced_at: new Date().toISOString() }).eq('id', inv.id)
+      await logRow(db, companyId, 'bill', inv.id, 'success', qboId)
+      return { pushed: true, qboId }
+    })()).catch(async (err: any) => {
+      await logRow(db, companyId, 'bill', inv.id, 'error', undefined, err?.message)
+      return { pushed: false, reason: 'failed' as const, detail: err?.message }
+    })
+  } catch (err: any) {
+    return { pushed: false, reason: 'failed', detail: err?.message ?? 'unknown' }
+  }
+}

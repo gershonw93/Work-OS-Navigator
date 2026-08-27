@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { feeForInvoice } from '@/lib/allocations'
 import { ACTUAL_STATUSES } from '@/lib/invoice-budget'
 import { logActivity } from '@/lib/log-activity'
+import { pushClientPayment } from '@/lib/quickbooks-push'
 
 export const runtime = 'nodejs'
 
@@ -129,5 +130,12 @@ export async function POST(request: Request, { params }: { params: { id: string 
     `Client payment received - $${Number(body.amount || 0).toLocaleString()}`,
     { payment_id: data.id, amount: body.amount }, user.id)
 
-  return NextResponse.json({ payment: data })
+  // Straight into QuickBooks, if a connection is live. Never throws, capped at
+  // 8s, and "not connected" is a normal state - the payment is the work,
+  // QuickBooks is a side effect. A miss lands in the sync log and is picked up
+  // by the Settings backlog sync. This replaced remembering to press a button
+  // in Settings, which nobody had pressed in six weeks.
+  const qb = await pushClientPayment(db, data.id)
+
+  return NextResponse.json({ payment: qb.pushed ? { ...data, qbo_id: qb.qboId, qb_entered: true } : data })
 }

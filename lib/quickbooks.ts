@@ -81,7 +81,7 @@ export async function refreshTokens(refresh_token: string): Promise<TokenRespons
   return tokenRequest(new URLSearchParams({ grant_type: 'refresh_token', refresh_token }))
 }
 
-interface Connection {
+export interface Connection {
   company_id: string
   realm_id: string
   access_token: string

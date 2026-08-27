@@ -19,6 +19,27 @@ export async function GET(request: Request) {
     .select('realm_id, qbo_company_name, environment, status, connected_at')
     .eq('company_id', profile.company_id).maybeSingle()
 
+  // What is NOT in QuickBooks yet. Payments and approved bills push
+  // themselves now, so a growing backlog here means pushes are failing (or the
+  // records predate auto-push) - either way, worth a number on the card
+  // instead of silence.
+  const { data: projects } = await db.from('projects').select('id')
+    .or(`gc_company_id.eq.${profile.company_id},created_by_company_id.eq.${profile.company_id}`)
+  const projectIds = (projects ?? []).map((p: any) => p.id)
+
+  let unsyncedPayments = 0
+  let unsyncedBills = 0
+  if (projectIds.length) {
+    const [pay, bills] = await Promise.all([
+      db.from('client_payments').select('id', { count: 'exact', head: true })
+        .in('project_id', projectIds).is('qbo_id', null),
+      db.from('invoices').select('id', { count: 'exact', head: true })
+        .in('project_id', projectIds).in('status', ['approved', 'paid']).is('qbo_id', null),
+    ])
+    unsyncedPayments = pay.count ?? 0
+    unsyncedBills = bills.count ?? 0
+  }
+
   const { data: log } = await db.from('quickbooks_sync_log')
     .select('entity_type, entity_id, action, status, qbo_id, message, created_at')
     .eq('company_id', profile.company_id)
@@ -30,6 +51,9 @@ export async function GET(request: Request) {
     environment: QBO_ENV,
     canManage: ['admin', 'manager'].includes(profile.role),
     connection: conn ?? null,
+    unsyncedPayments,
+    unsyncedBills,
+    lastSyncAt: (log ?? [])[0]?.created_at ?? null,
     log: log ?? [],
   })
 }
