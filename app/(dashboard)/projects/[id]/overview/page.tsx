@@ -149,7 +149,7 @@ export default function OverviewPage({ params }: { params: { id: string } }) {
   }
 
   return (
-    <div className="max-w-4xl space-y-6">
+    <div className="space-y-6">
       {/* Money position */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {tiles.map(t => {
