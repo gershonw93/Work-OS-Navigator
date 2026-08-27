@@ -170,3 +170,64 @@ export async function defaultServiceItemId(conn: Connection): Promise<string> {
   if (any?.Item?.[0]?.Id) return any.Item[0].Id
   throw new Error('No item found in QuickBooks to record payments against.')
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Payment methods.
+//
+// SyteNav records HOW money arrived (Check, ACH, Wire...) and QuickBooks has
+// its own PaymentMethod list, so a payment used to land there with an amount
+// and a date and no idea how it came in - the column a bookkeeper reconciles
+// a bank statement against, blank.
+//
+// The names do not line up. QBO ships with "Check", "Cash" and "Credit Card";
+// it has nothing called ACH or Wire unless somebody added them. So: map to
+// what exists, create what does not, and cache per run - the list is small and
+// changes about never.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** SyteNav's word -> the QuickBooks name to look for. */
+const METHOD_ALIASES: Record<string, string> = {
+  check: 'Check',
+  cash: 'Cash',
+  cc: 'Credit Card',
+  'credit card': 'Credit Card',
+  ach: 'ACH',
+  wire: 'Wire',
+  quickpay: 'QuickPay',
+  other: 'Other',
+}
+
+export function qboMethodName(method: string | null | undefined): string | null {
+  const key = String(method ?? '').trim().toLowerCase()
+  if (!key) return null
+  return METHOD_ALIASES[key] ?? String(method).trim()
+}
+
+/**
+ * The QBO PaymentMethod id for one of our method names, creating it if the
+ * company does not have it yet. Returns null when there is nothing to match -
+ * a payment with no method recorded should carry no method, not a guess.
+ */
+export async function paymentMethodId(conn: Connection, method: string | null | undefined): Promise<string | null> {
+  const name = qboMethodName(method)
+  if (!name) return null
+
+  // Escape single quotes: a method called "Bill's" would otherwise break the
+  // query, and QBO's SQL-ish dialect has no parameter binding.
+  const safe = name.replace(/'/g, "\\'")
+  const found = await qboQuery(conn, `select Id, Name from PaymentMethod where Name = '${safe}'`)
+  const hit = found?.PaymentMethod?.[0]?.Id
+  if (hit) return hit
+
+  try {
+    const created = await qboFetch(conn, 'paymentmethod', {
+      method: 'POST',
+      body: JSON.stringify({ Name: name, Type: 'OTHER' }),
+    })
+    return created?.PaymentMethod?.Id ?? null
+  } catch {
+    // A method we cannot create is not worth failing a payment over - the
+    // amount, date and reference still get there.
+    return null
+  }
+}
