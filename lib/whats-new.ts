@@ -54,9 +54,15 @@ export const RELEASES: Release[] = [
       {
         kind: 'new',
         title: 'Request a deposit or a stage payment',
-        text: 'The app could record a deposit once it landed and bill for work already done - but there was no way to ASK for one, on any job. Billing the client now has a Deposits & stage payments section. Your estimate\'s payment terms appear there already priced, so "50% deposit" becomes a figure you can request in one press and email to your client. No stages on the estimate? Request a one-off amount instead.',
+        text: 'The app could record a deposit once it landed and bill for work already done - but there was no way to ASK for one, on any job. Billing the client now has a Deposits & stage payments section. Your estimate\'s payment terms appear there already priced, so "50% deposit" becomes a figure you can request in one press and email to your client.',
         help: 'request-deposit',
         href: '/projects',
+      },
+      {
+        kind: 'new',
+        title: 'Ask in dollars or as a percentage',
+        text: 'A one-off request takes either - $5,000 to start, or 30% up front. Type a percentage and it shows you what it comes to against your estimate before you send it, and the request records how it was worked out so you can check it against the quote later.',
+        help: 'request-deposit',
       },
       {
         kind: 'new',

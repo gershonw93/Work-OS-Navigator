@@ -1388,7 +1388,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'When the money arrives, use Record Payment at the top to enter it, then press Mark paid on the request.',
       ] },
       { type: 'text', text: 'THE AMOUNTS COME FROM YOUR ESTIMATE. If your quote said "50% deposit", that is 50% of the estimate total, worked out for you. A stage the estimate left vague is still listed, and says what it needs - usually an estimate total - rather than guessing a number you are about to ask a client for.' },
-      { type: 'text', text: 'No stages on the estimate? Use "Request a one-off amount" at the bottom to type a label and a figure.' },
+      { type: 'text', text: 'No stages on the estimate? Use "Request a one-off amount" at the bottom. It takes either a dollar figure or a percentage - $5,000 to start, or 30% up front. Type a percentage and it shows what that comes to against your estimate before you send it, and the request keeps a note of how it was worked out.' },
       { type: 'text', text: 'YOUR CLIENT SEES IT on their portal link, under "Payment requested", but only once you have actually sent it - raising a request does not surprise them with it.' },
       { type: 'text', text: 'This works the same on AIA jobs. Pay applications bill work already in place; a deposit is not work in place, so it is requested here on both kinds of job.' },
       { type: 'tip', text: '"Mark paid" only records that the ask was answered. The money itself is a separate entry through Record Payment, so it lands in your ledger with its own date and method and flows into your escrow balance.' },
