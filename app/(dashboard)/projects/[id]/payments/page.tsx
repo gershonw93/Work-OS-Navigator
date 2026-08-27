@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { ClientInvoices } from '@/components/projects/client-invoices'
+import { PaymentRequests } from '@/components/projects/payment-requests'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -225,12 +226,20 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
           Not shown on AIA jobs - there the claim goes out as a pay application,
           and two ways to bill the same client for the same work is how the
           numbers stop agreeing. */}
+      {/* Asking for money that has no costs behind it yet. Above the invoice
+          section because it comes first in the job: the deposit is what you ask
+          for before there is anything to bill. Shown on BOTH billing modes -
+          a pay application bills work in place, and a deposit is not work in
+          place. */}
+      <PaymentRequests projectId={params.id} />
+
       {billingMode !== null && (isAia ? (
         <div className="bg-panel rounded-xl border border-line p-4">
           <p className="font-semibold text-ink">Billing your client</p>
           <p className="mt-1 text-sm text-muted-fg">
-            This is an AIA job, so what the client owes is raised as a pay application rather than an
-            invoice from here. Record the money they send you above.
+            This is an AIA job, so what the client owes for work done is raised as a pay application
+            rather than an invoice from here. Deposits and stage payments are asked for above, and the
+            money they send you is recorded above too.
           </p>
           <Link
             href={`/projects/${params.id}/pay-apps`}

@@ -72,17 +72,29 @@ export default async function PortalPage({ params }: { params: { token: string }
     { data: permits },
     { data: dailyLogs },
     { data: selections },
+    { data: paymentRequests },
   ] = await Promise.all([
     db.from('subcontracts').select('*').eq('project_id', project.id),
     db.from('schedule_items').select('*').eq('project_id', project.id).order('start_date', { ascending: true }),
     db.from('permits').select('*').eq('project_id', project.id).order('created_at', { ascending: false }),
     db.from('daily_logs').select('*').eq('project_id', project.id).order('log_date', { ascending: false }).limit(5),
     db.from('project_selections').select('id, item, location, status, needed_by').eq('project_id', project.id),
+    // Only what is still being asked for. A client does not need to read back
+    // through deposits they already paid or requests that were withdrawn.
+    db.from('client_payment_requests')
+      .select('id, label, amount, due_hint, sent_at')
+      .eq('project_id', project.id)
+      .eq('status', 'pending')
+      .not('sent_at', 'is', null)   // never sent = not yet asked; do not surprise them with it
+      .order('created_at', { ascending: true }),
   ])
 
   // The one place in an otherwise read-only portal where the client owes US
   // something. Surfaced first, with the count, because a soft "have a look
   // sometime" is how selections end up late.
+  const dueFromClient = paymentRequests ?? []
+  const dueTotal = dueFromClient.reduce((sum: number, r: any) => sum + Number(r.amount ?? 0), 0)
+
   const owed = (selections ?? []).filter(s => isOutstanding(s.status))
   const owedLate = owed.filter(s => { const d = daysUntil(s.needed_by); return d != null && d < 0 }).length
 
@@ -190,6 +202,45 @@ export default async function PortalPage({ params }: { params: { token: string }
             <p className="text-sm text-faint">No schedule items on record.</p>
           )}
         </div>
+
+        {/* Money the client still owes us.
+            Above selections because it is the more consequential ask, and it
+            only ever appears once the request has actually been sent - see the
+            query. Read-only, like the rest of the portal: this states what is
+            owed and why, it does not take a payment. */}
+        {dueFromClient.length > 0 && (
+          <div className="rounded-xl border border-warn/40 bg-warn-tint/50 p-4 sm:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold text-ink">Payment requested</h2>
+                <p className="text-sm text-muted-fg mt-0.5">
+                  {dueFromClient.length === 1
+                    ? 'One payment is being requested on this job.'
+                    : `${dueFromClient.length} payments are being requested on this job.`}
+                </p>
+              </div>
+              <span className="text-xl font-bold text-ink shrink-0">
+                ${dueTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              </span>
+            </div>
+            <div className="mt-3 space-y-1.5">
+              {dueFromClient.map((r: any) => (
+                <div key={r.id} className="flex flex-wrap items-baseline justify-between gap-2 border-t border-warn/20 pt-1.5">
+                  <span className="text-sm font-medium text-ink-soft">
+                    {r.label}
+                    {r.due_hint && <span className="ml-1.5 text-xs font-normal text-muted-fg">due {r.due_hint}</span>}
+                  </span>
+                  <span className="text-sm font-semibold text-ink">
+                    ${Number(r.amount).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 text-xs text-muted-fg">
+              Pay these the way you normally pay your contractor - get in touch with them if you are not sure how.
+            </p>
+          </div>
+        )}
 
         {/* Selections the client still owes us */}
         {(selections?.length ?? 0) > 0 && (

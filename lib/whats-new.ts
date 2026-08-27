@@ -49,6 +49,31 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-08-27',
+    title: 'Ask your client for a deposit',
+    items: [
+      {
+        kind: 'new',
+        title: 'Request a deposit or a stage payment',
+        text: 'The app could record a deposit once it landed and bill for work already done - but there was no way to ASK for one, on any job. Billing the client now has a Deposits & stage payments section. Your estimate\'s payment terms appear there already priced, so "50% deposit" becomes a figure you can request in one press and email to your client. No stages on the estimate? Request a one-off amount instead.',
+        help: 'request-deposit',
+        href: '/projects',
+      },
+      {
+        kind: 'new',
+        title: 'Your client sees what is being asked for',
+        text: 'A sent request shows on their portal link under "Payment requested", with what it is for and when it was agreed to be due. It only appears once you have actually sent it.',
+        help: 'request-deposit',
+      },
+      {
+        kind: 'improved',
+        title: 'The go-live checklist says what it is waiting for',
+        text: '"Deposit or first payment received" used to just say "Nothing recorded yet" whether you had not started or were waiting on the client. It now says which - and how much is outstanding.',
+        help: 'project-status-active',
+      },
+    ],
+  },
+  {
+    date: '2026-08-27',
     title: 'The app got faster, and saves stop pretending',
     items: [
       {

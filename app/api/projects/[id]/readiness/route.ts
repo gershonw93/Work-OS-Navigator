@@ -38,10 +38,11 @@ export async function GET(request: Request, { params }: { params: { id: string }
     } catch { return 0 }
   }
 
-  const [project, budgetLines, payments, permits, compliance, subcontracts] = await Promise.all([
+  const [project, budgetLines, payments, paymentRequests, permits, compliance, subcontracts] = await Promise.all([
     db.from('projects').select('start_date, contractor_fee_pct, billing_mode').eq('id', params.id).single(),
     count('budget_line_items'),
     db.from('client_payments').select('amount').eq('project_id', params.id),
+    db.from('client_payment_requests').select('amount, sent_at').eq('project_id', params.id).eq('status', 'pending'),
     count('permits'),
     count('compliance_documents'),
     count('subcontracts'),
@@ -49,6 +50,13 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
   const p: any = project.data ?? {}
   const paidTotal = (payments.data ?? []).reduce((s: number, r: any) => s + Number(r.amount ?? 0), 0)
+  // Asked for but not yet in the bank. This item stays unticked - it is about
+  // money RECEIVED - but "nothing recorded yet" reads as "you have not started"
+  // when in fact you are waiting on the client, which is a different problem
+  // with a different next step.
+  const openRequests = paymentRequests.data ?? []
+  const requestedTotal = openRequests.reduce((s: number, r: any) => s + Number(r.amount ?? 0), 0)
+  const sentRequests = openRequests.filter((r: any) => r.sent_at).length
 
   const checks = [
     {
@@ -74,7 +82,9 @@ export async function GET(request: Request, { params }: { params: { id: string }
       ok: paidTotal > 0,
       detail: paidTotal > 0
         ? `$${paidTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })} recorded`
-        : 'Nothing recorded yet',
+        : requestedTotal > 0
+          ? `$${requestedTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })} requested${sentRequests ? ', waiting on the client' : ' - not sent yet'}`
+          : 'Nothing recorded yet',
       href: 'payments',
     },
     {

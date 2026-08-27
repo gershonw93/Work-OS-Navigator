@@ -110,6 +110,7 @@ Shipped in #218: bulk creation makes a site + a job per unit/floor/house, with a
 ---
 
 ## ✅ Recently shipped (for reference)
+- Request a deposit / stage payment (migration 083 `client_payment_requests`): amounts resolved from the estimate's `payment_stages`, emailed via the existing token-link send, shown on the client portal once sent, and reflected in the go-live checklist. Deliberately NOT an invoice row - an invoice means approved costs plus markup, and filing a deposit as one would double-count it when the real costs arrive (#303)
 - AIA jobs could not record a client payment at all - `payments` was hidden on AIA, and it is the only writer of `client_payments`; the page now hides just its invoice-raising half and points at Pay Apps, and the tab-redirect guard checks the same predicate as tab visibility so a hidden tab can never render as an orphan (#302)
 - Preconstruction deadlock: the go-live checklist gated on a deposit while hiding the tab that records one, so the link bounced to Plans; `payments` removed from `PLANNING_HIDDEN`, with a check cross-referencing every readiness href against the tab list (#301)
 - Middleware no longer runs a Supabase auth round trip on `/api/*` (it was never used there) - the cause of 504 MIDDLEWARE_INVOCATION_TIMEOUT and stuck "Saving…" buttons; auth check bounded at 3s; schedule saves get a 20s abort and real errors, and add/edit milestone stopped ignoring failures entirely (#300)
