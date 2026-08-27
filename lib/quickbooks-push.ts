@@ -123,6 +123,62 @@ export function billPayload(
   }
 }
 
+/**
+ * A client invoice as a QuickBooks Invoice - a receivable.
+ *
+ * DocNumber is the user's OWN invoice number here, not an snRef. Payments had
+ * nothing to reference so snRef was invented for them; an invoice already
+ * carries the number the client is looking at, and QuickBooks should show that
+ * same number back.
+ */
+export function clientInvoicePayload(
+  inv: { invoice_number?: string | null; issue_date?: string | null; due_date?: string | null; notes?: string | null },
+  lines: { description?: string | null; amount?: unknown }[],
+  customerQboId: string,
+  itemId: string,
+  projectName?: string | null,
+) {
+  return {
+    CustomerRef: { value: customerQboId },
+    TxnDate: ymd(inv.issue_date),
+    ...(inv.due_date ? { DueDate: ymd(inv.due_date) } : {}),
+    ...(inv.invoice_number ? { DocNumber: String(inv.invoice_number).slice(0, 21) } : {}),
+    PrivateNote: composeMemo(projectName, inv.notes),
+    Line: lines.map(l => ({
+      DetailType: 'SalesItemLineDetail',
+      Amount: Number(l.amount ?? 0),
+      Description: l.description ?? undefined,
+      SalesItemLineDetail: { ItemRef: { value: itemId } },
+    })),
+  }
+}
+
+/**
+ * A payment APPLIED against an invoice, rather than a standalone sale.
+ *
+ * This is the half that stops double-counting: once the sale exists in
+ * QuickBooks as an Invoice, the money arriving must reduce that receivable,
+ * not book a second sale.
+ */
+export function appliedPaymentPayload(
+  p: { id?: string; amount: unknown; paid_date?: string | null; memo?: string | null },
+  customerQboId: string,
+  invoiceQboId: string,
+  projectName?: string | null,
+) {
+  return {
+    CustomerRef: { value: customerQboId },
+    TxnDate: ymd(p.paid_date),
+    TotalAmt: Number(p.amount),
+    ...(p.id ? { DocNumber: snRef(p.id) } : {}),
+    PrivateNote: composeMemo(projectName, p.memo),
+    Line: [{
+      Amount: Number(p.amount),
+      LinkedTxn: [{ TxnId: invoiceQboId, TxnType: 'Invoice' }],
+    }],
+  }
+}
+
 // ── Internals ────────────────────────────────────────────────────────────────
 
 async function logRow(
@@ -219,6 +275,8 @@ export async function pushClientPayment(db: SupabaseClient, paymentId: string, c
       // qb_entered too: the hand-tick means "it is in QuickBooks", and now it is.
       await db.from('client_payments').update({
         qbo_id: qboId, qbo_synced_at: new Date().toISOString(), qb_entered: true,
+        // Label which model wrote it, so nobody has to infer it later.
+        qbo_txn_type: 'sales_receipt',
       }).eq('id', p.id)
       await logRow(db, companyId, 'payment', p.id, 'success', qboId)
       return { pushed: true, qboId }
@@ -343,6 +401,116 @@ export async function refreshBillInQbo(db: SupabaseClient, invoiceId: string, ct
       return { pushed: true, qboId: inv.qbo_id }
     })()).catch(async (err: any) => {
       await logRow(db, companyId, 'bill', inv.id, 'error', undefined, `Refresh: ${err?.message}`)
+      return { pushed: false, reason: 'failed' as const, detail: err?.message }
+    })
+  } catch (err: any) {
+    return { pushed: false, reason: 'failed', detail: err?.message ?? 'unknown' }
+  }
+}
+
+// ── Receivables ──────────────────────────────────────────────────────────────
+
+/** A SENT client invoice -> QBO Invoice (money owed to you). Never throws. */
+export async function pushClientInvoice(db: SupabaseClient, billId: string, ctx?: PushContext): Promise<PushResult> {
+  try {
+    const { data: inv } = await db.from('client_invoices')
+      .select('id, project_id, invoice_number, status, issue_date, due_date, notes, qbo_id, client_invoice_lines(description, amount, sort_order)')
+      .eq('id', billId).maybeSingle()
+    if (!inv) return { pushed: false, reason: 'skipped', detail: 'Invoice not found' }
+    if (inv.qbo_id) return { pushed: false, reason: 'already' }
+    // A draft is not a receivable - nobody has been asked for this money yet.
+    if (!['sent', 'paid'].includes(String(inv.status))) {
+      return { pushed: false, reason: 'skipped', detail: `Status ${inv.status} is not a receivable` }
+    }
+    const lines = ((inv as any).client_invoice_lines ?? [])
+      .slice()
+      .sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+    if (!lines.length) return { pushed: false, reason: 'skipped', detail: 'Invoice has no lines' }
+
+    const { companyId, customerId, projectName } = await projectCompany(db, inv.project_id)
+    if (!companyId) return { pushed: false, reason: 'skipped', detail: 'Project has no company' }
+    if (!customerId) {
+      await logRow(db, companyId, 'client_invoice', inv.id, 'error', undefined, 'Project has no customer to bill to')
+      return { pushed: false, reason: 'failed', detail: 'Project has no customer to bill to' }
+    }
+
+    const conn = await connectionFor(db, companyId, ctx)
+    if (!conn) return { pushed: false, reason: 'not_connected' }
+
+    return await budgeted((async (): Promise<PushResult> => {
+      if (!ctx?.itemId) {
+        const itemId = await defaultServiceItemId(conn)
+        if (ctx) ctx.itemId = itemId; else ctx = { conn, itemId }
+      }
+      const customerQboId = await ensureCustomerId(db, conn, customerId, companyId)
+      const res = await qboFetch(conn, 'invoice', {
+        method: 'POST',
+        body: JSON.stringify(clientInvoicePayload(inv, lines, customerQboId, ctx!.itemId!, projectName)),
+      })
+      const qboId = res?.Invoice?.Id
+      await db.from('client_invoices').update({ qbo_id: qboId, qbo_synced_at: new Date().toISOString() }).eq('id', inv.id)
+      await logRow(db, companyId, 'client_invoice', inv.id, 'success', qboId)
+      return { pushed: true, qboId }
+    })()).catch(async (err: any) => {
+      await logRow(db, companyId, 'client_invoice', inv.id, 'error', undefined, err?.message)
+      return { pushed: false, reason: 'failed' as const, detail: err?.message }
+    })
+  } catch (err: any) {
+    return { pushed: false, reason: 'failed', detail: err?.message ?? 'unknown' }
+  }
+}
+
+/**
+ * Money in, booked the right way for what it settles.
+ *
+ * If there is an unpaid invoice in QuickBooks for this project, the payment is
+ * applied against it (reducing the receivable). If there is not - a deposit
+ * taken before any invoice exists is the common case - it falls back to a
+ * Sales Receipt, which is the honest record for money that settles nothing.
+ *
+ * Never both for the same money: that is the double-counting this whole model
+ * change exists to avoid.
+ */
+export async function pushPaymentForProject(db: SupabaseClient, paymentId: string, ctx?: PushContext): Promise<PushResult> {
+  try {
+    const { data: p } = await db.from('client_payments')
+      .select('id, project_id, amount, paid_date, memo, qbo_id').eq('id', paymentId).maybeSingle()
+    if (!p) return { pushed: false, reason: 'skipped', detail: 'Payment not found' }
+    if (p.qbo_id) return { pushed: false, reason: 'already' }
+
+    // The oldest sent-but-unpaid invoice already in QuickBooks. Oldest first
+    // because that is how anybody applies a cheque: against what has been
+    // owed longest.
+    const { data: open } = await db.from('client_invoices')
+      .select('id, qbo_id, issue_date')
+      .eq('project_id', p.project_id)
+      .eq('status', 'sent')
+      .not('qbo_id', 'is', null)
+      .order('issue_date', { ascending: true })
+      .limit(1)
+    const target = (open ?? [])[0]
+    if (!target?.qbo_id) return pushClientPayment(db, paymentId, ctx)
+
+    const { companyId, customerId, projectName } = await projectCompany(db, p.project_id)
+    if (!companyId || !customerId) return pushClientPayment(db, paymentId, ctx)
+
+    const conn = await connectionFor(db, companyId, ctx)
+    if (!conn) return { pushed: false, reason: 'not_connected' }
+
+    return await budgeted((async (): Promise<PushResult> => {
+      const customerQboId = await ensureCustomerId(db, conn, customerId, companyId)
+      const res = await qboFetch(conn, 'payment', {
+        method: 'POST',
+        body: JSON.stringify(appliedPaymentPayload(p, customerQboId, target.qbo_id!, projectName)),
+      })
+      const qboId = res?.Payment?.Id
+      await db.from('client_payments').update({
+        qbo_id: qboId, qbo_synced_at: new Date().toISOString(), qb_entered: true, qbo_txn_type: 'payment',
+      }).eq('id', p.id)
+      await logRow(db, companyId, 'payment', p.id, 'success', qboId, `Applied to invoice ${target.id.slice(0, 8)}`)
+      return { pushed: true, qboId }
+    })()).catch(async (err: any) => {
+      await logRow(db, companyId, 'payment', p.id, 'error', undefined, err?.message)
       return { pushed: false, reason: 'failed' as const, detail: err?.message }
     })
   } catch (err: any) {

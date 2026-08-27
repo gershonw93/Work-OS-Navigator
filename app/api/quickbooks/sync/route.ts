@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { admin, getValidConnection, qboFetch } from '@/lib/quickbooks'
-import { pushBill, pushClientPayment, refreshBillInQbo, refreshPaymentInQbo, type PushContext } from '@/lib/quickbooks-push'
+import { pushBill, pushClientInvoice, pushClientPayment, refreshBillInQbo, refreshPaymentInQbo, type PushContext } from '@/lib/quickbooks-push'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -143,6 +143,27 @@ export async function POST(request: Request) {
       if (r.pushed) results.push({ id: p.id, name: label, status: 'success', qbo_id: r.qboId })
       else if (r.reason === 'already') results.push({ id: p.id, name: label, status: 'skipped', message: 'Already synced' })
       else results.push({ id: p.id, name: label, status: 'error', message: r.detail ?? r.reason })
+    }
+  } else if (entity === 'client-invoices') {
+    // Invoices you sent your client -> QBO Invoice (money owed to you).
+    // Drafts are excluded by the pusher: nobody has been asked for that money.
+    const projectIds = await ownedProjectIds()
+    if (!projectIds.length) return NextResponse.json({ summary: { total: 0, synced: 0, skipped: 0, errors: 0 }, results: [] })
+
+    let q = db.from('client_invoices').select('id, invoice_number, qbo_id')
+      .in('project_id', projectIds)
+      .in('status', ['sent', 'paid'])
+    if (ids) q = q.in('id', ids)
+    const { data: bills } = await q
+
+    const ctx: PushContext = { conn }
+    for (const b of bills ?? []) {
+      const label = `Invoice ${b.invoice_number ?? b.id.slice(0, 8)}`
+      if (b.qbo_id) { results.push({ id: b.id, name: label, status: 'skipped', qbo_id: b.qbo_id, message: 'Already synced' }); continue }
+      const r = await pushClientInvoice(db, b.id, ctx)
+      if (r.pushed) results.push({ id: b.id, name: label, status: 'success', qbo_id: r.qboId })
+      else if (r.reason === 'already') results.push({ id: b.id, name: label, status: 'skipped', message: 'Already synced' })
+      else results.push({ id: b.id, name: label, status: 'error', message: r.detail ?? r.reason })
     }
   } else if (entity === 'refresh') {
     // Rewrite memo/reference formatting on records ALREADY in QuickBooks -

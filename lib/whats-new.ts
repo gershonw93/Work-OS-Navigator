@@ -49,6 +49,25 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-08-27',
+    title: 'Invoices show up in QuickBooks as money owed to you',
+    items: [
+      {
+        kind: 'new',
+        title: 'Sending a client invoice puts it in QuickBooks',
+        text: 'Until now QuickBooks only heard about money once it arrived, so an invoice you were waiting on appeared nowhere. Send an invoice and it lands in QuickBooks as an Invoice - money owed to you - with your own invoice number, the due date and the job name on it. Your accountant gets receivables and aging instead of just cash in.',
+        help: 'connect-quickbooks',
+        href: '/settings',
+      },
+      {
+        kind: 'improved',
+        title: 'Payments settle the invoice instead of double-counting it',
+        text: 'When the client pays, that payment is now applied against the invoice in QuickBooks rather than recorded as a second sale. A deposit taken before any invoice exists still lands as a Sales Receipt, because there is nothing for it to settle. Records synced before today are left as they are.',
+        help: 'connect-quickbooks',
+      },
+    ],
+  },
+  {
+    date: '2026-08-27',
     title: 'QuickBooks keeps itself up to date',
     items: [
       {

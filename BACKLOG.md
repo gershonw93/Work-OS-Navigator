@@ -59,6 +59,8 @@ move it to **In progress**, and when it ships, move it to **Done** with the PR #
 
 ## 💼 QuickBooks
 - **Two-way sync** - pulling payments/bills recorded directly in QBO back into SyteNav is not built; today is push-only, which means QBO-side edits drift silently.
+- **Partial and over-payments against an invoice** - a payment applies to the OLDEST open invoice for the project, whole. Splitting one cheque across several invoices, or a payment larger than the invoice it settles, is not modelled.
+- **Voiding/deleting a sent invoice** does not retract the QBO Invoice; it stays as an open receivable until someone voids it in QuickBooks.
 - **Connection-expiry warning**: the refresh token dies after ~100 days unused; auto-push keeps it warm on active companies, but a dormant company still lapses silently. Surface "connection expired - reconnect" in the bell, not just the Settings card.
 
 ## 🧾 Materials
@@ -115,6 +117,7 @@ Shipped in #218: bulk creation makes a site + a job per unit/floor/house, with a
 
 ## ✅ Recently shipped (for reference)
 - QuickBooks records are matchable: project name in the memo/line description, SN-<id8> in DocNumber, same ref in the SyteNav chip tooltip. "Update formatting" on the Settings card refreshes already-synced records in place (chunked 25/call under the 60s route ceiling), sharing the same composers as the push (#313, #314)
+- Accrual model (migration 084): sent client invoices push as QBO Invoices (A/R) with the user's own invoice number; payments apply against the oldest open invoice via LinkedTxn, falling back to a Sales Receipt when nothing is outstanding (deposits). `client_payments.qbo_txn_type` labels which model wrote each row; the 104 legacy receipts are backfilled and left untouched (#315)
 - QuickBooks auto-push: client payments on record and sub bills on approval push themselves via shared pushers (lib/quickbooks-push.ts) that the manual Settings sync also uses - never throws, 8s cap, sync-log on miss; payments chip reads the real qbo_id with the hand-tick kept for manual entry; Settings card shows the unsynced backlog (#312)
 - Portal Payments card: the client_payments ledger rendered client-side-safe (date, memo, amount, deposit chip, total) - the asks vanish once answered and nothing acknowledged the money moved (#311)
 - Client portal lists sent/paid invoices with an outstanding total, each linking to its /bill page - they only ever existed inside the send email before; drafts excluded on the same never-surprise rule as payment requests (#310)
