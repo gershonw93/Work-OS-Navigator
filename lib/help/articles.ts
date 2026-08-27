@@ -1373,6 +1373,23 @@ export const HELP_ARTICLES: HelpArticle[] = [
     related: ['request-quotes', 'award-quote', 'add-subcontractor-no-price'],
   },
   {
+    slug: 'job-overview',
+    title: 'The job Overview',
+    category: 'projects',
+    keywords: ['overview', 'dashboard', 'job home', 'landing', 'what now', 'waiting on me', 'status', 'where does the job stand', 'active job', 'summary'],
+    summary: 'Where a job stands and what is waiting on you, without opening six tabs.',
+    blocks: [
+      { type: 'text', text: 'Opening a job lands on Overview. It is the first tab, to the left of Field, and you can go back to it any time.' },
+      { type: 'text', text: 'IT IS NOT A CHECKLIST. You know how to run a job. What you cannot know without clicking through half the tabs is what has piled up since you last looked - so this states what is sitting there and links straight to it.' },
+      { type: 'text', text: 'WAITING ON YOU is work you can clear right now: bills waiting for approval, RFIs nobody has answered, inspections to book, sign-offs requested, and payment requests you raised but never sent.' },
+      { type: 'text', text: 'WAITING ON SOMEONE ELSE is work you can only chase: money requested from the client and not yet paid, certificates expired or expiring within 30 days, vendors with nothing on file, and selections the client still has to choose.' },
+      { type: 'text', text: 'Across the top: what you have received from the client, what you have committed to vendors, what they have billed, and what is still outstanding to them. Below: what is on site over the next three weeks and which inspections are booked.' },
+      { type: 'tip', text: 'When nothing is waiting on anyone, it says so plainly. That is the point - a list you can actually finish means something, and one that is never empty is just noise.' },
+      { type: 'text', text: 'Jobs still in planning have their own checklist instead, on the status dropdown: the handful of things to sort before setting a job Active.' },
+    ],
+    related: ['project-status-active', 'approvals-inbox', 'project-tabs-explained'],
+  },
+  {
     slug: 'request-deposit',
     title: 'Ask the client for a deposit',
     category: 'money',

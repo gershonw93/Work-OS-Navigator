@@ -11,6 +11,7 @@ import {
   MessageSquare, Receipt, DollarSign, GitPullRequest, Shield,
   ClipboardCheck, FileCheck, BarChart2, X, LayoutGrid,
   Wrench, Wallet, Clock, Send, ShoppingCart, FileSpreadsheet, Building2, Palette,
+  LayoutDashboard,
 } from 'lucide-react'
 
 /**
@@ -245,6 +246,7 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
     }
   }, [ready, isSub, isPlanning, isSite, billingMode, pathname])
 
+  const onOverview = pathname.endsWith('/overview')
   const activeTab = visibleTabs.find(t => pathname.includes(`/${t.slug}`))
   const activeGroup = filteredGroups.find(g => g.tabs.some(t => t.slug === activeTab?.slug))
 
@@ -262,7 +264,12 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
             onClick={() => setOpen(true)}
             className="flex items-center gap-2 flex-1 min-w-0 rounded-xl border border-line bg-surface px-3 py-2.5 text-left"
           >
-            {activeTab ? (
+            {onOverview ? (
+              <>
+                <LayoutDashboard className="h-4 w-4 shrink-0 text-muted-fg" />
+                <span className="flex-1 min-w-0 text-sm font-semibold text-ink-soft truncate">Overview</span>
+              </>
+            ) : activeTab ? (
               <>
                 <activeTab.icon className={cn('h-4 w-4 shrink-0', activeGroup?.color ?? 'text-muted-fg')} />
                 <span className="flex-1 min-w-0 text-sm font-semibold text-ink-soft truncate">{activeTab.label}</span>
@@ -286,8 +293,26 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
 
         {/* Desktop: row 1 = groups */}
         <nav className="hidden sm:flex overflow-x-auto scrollbar-hide px-4 sm:px-6 gap-1" aria-label="Project sections">
+          {/* Overview sits OUTSIDE the groups on purpose. It is not a section
+              of the job, it is the job - where it stands and what is waiting.
+              Making it a fifth group would repeat the mistake this grouping
+              was meant to fix: "Site" was a group containing exactly one tab. */}
+          {!isSite && (
+            <Link
+              href={`/projects/${projectId}/overview`}
+              className={cn(
+                'flex shrink-0 items-center gap-1.5 rounded-t-lg px-3.5 py-2.5 text-sm font-semibold transition-colors whitespace-nowrap',
+                onOverview ? 'bg-surface text-ink' : 'text-muted-fg hover:text-ink-soft',
+              )}
+            >
+              <LayoutDashboard className="h-4 w-4" />
+              Overview
+            </Link>
+          )}
           {filteredGroups.map((g) => {
-            const isActiveGroup = g.label === activeGroup?.label
+            // Never highlight a section while Overview is the page - the two
+            // would both look selected.
+            const isActiveGroup = !onOverview && g.label === activeGroup?.label
             return (
               <button
                 key={g.label}
@@ -321,7 +346,7 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
       </div>
 
       {/* Desktop: row 2 = sub-tabs of the active group */}
-      {activeGroup && activeGroup.tabs.length > 0 && (
+      {!onOverview && activeGroup && activeGroup.tabs.length > 0 && (
         <div className="hidden sm:block border-b border-line bg-surface">
           <nav className="flex overflow-x-auto scrollbar-hide -mb-px px-4 sm:px-6" aria-label={`${activeGroup.label} pages`}>
             {activeGroup.tabs.map((tab) => {
