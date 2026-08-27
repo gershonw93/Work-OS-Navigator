@@ -88,16 +88,59 @@ function formatDue(due: string) {
  * read "Move to Open". Advancing is a one-way convenience; reopening is a
  * decision, and it stays available through the explicit status dropdown.
  */
-function advanceLabel(current: string) {
-  const next = nextStatus(current)
-  if (!next) return 'Done - use the status dropdown to reopen'
-  return `Move to ${STATUSES.find(s => s.value === next)?.label}`
-}
-
-function nextStatus(current: string): string | null {
-  const idx = STATUSES.findIndex(s => s.value === current)
-  if (idx < 0) return STATUSES[0].value
-  return STATUSES[idx + 1]?.value ?? null
+/**
+ * Move a task to any stage, in one tap.
+ *
+ * This replaced drag-and-drop, which was a mistake twice over. It broke -
+ * BoardCard is declared inside the page component, so every render creates a
+ * new component TYPE; the setState on drag start remounted the card, the
+ * browser lost the node it was dragging, onDragEnd never fired, and the card
+ * sat greyed out until a refresh. And even working it would have been the
+ * wrong control: HTML5 drag does not exist on touch, and this is used on a
+ * phone on a site.
+ *
+ * Buttons say what they do, work everywhere, and reach any stage directly
+ * rather than one step at a time.
+ *
+ * Rendered ALWAYS, not on hover: the previous control was invisible until you
+ * hovered the exact right spot, which is why moving a task was hard to find at
+ * all. `stopPropagation` because the whole card is a click target for expand.
+ */
+function StageButtons({
+  status, onPick, className,
+}: {
+  status: string
+  onPick: (next: string) => void
+  className?: string
+}) {
+  return (
+    <div className={cn('flex items-center gap-1', className)} onClick={e => e.stopPropagation()}>
+      {STATUSES.map(s => {
+        const current = s.value === status
+        return (
+          <button
+            key={s.value}
+            type="button"
+            aria-pressed={current}
+            title={current ? `Already ${s.label}` : `Move to ${s.label}`}
+            disabled={current}
+            onClick={e => { e.stopPropagation(); if (!current) onPick(s.value) }}
+            className={cn(
+              'inline-flex items-center gap-1 rounded-md border px-1.5 py-1 text-[11px] font-medium transition-colors',
+              current
+                // The current stage is shown filled and inert - it is a state
+                // readout as much as a control.
+                ? cn(s.headerBg, s.headerText, s.colBorder, 'cursor-default')
+                : 'border-line bg-panel text-muted-fg hover:bg-surface hover:text-ink',
+            )}
+          >
+            <s.icon className={cn('h-3 w-3', current ? s.color : 'text-faint')} />
+            <span className="hidden sm:inline">{s.label}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
 }
 
 function timeAgo(dateStr: string) {
@@ -422,8 +465,6 @@ export default function TasksPage({ params }: { params: { id: string } }) {
   // Which column's "+" opened the form. The board's three + buttons used to
   // pass this in and drop it on the floor, so all three created an Open task.
   const [addStatus, setAddStatus] = useState<string | null>(null)
-  const [dragTaskId, setDragTaskId] = useState<string | null>(null)
-  const [dragOverCol, setDragOverCol] = useState<string | null>(null)
   const [title, setTitle]       = useState('')
   const [description, setDescription] = useState('')
   const [dueDate, setDueDate]   = useState('')
@@ -703,22 +744,10 @@ export default function TasksPage({ params }: { params: { id: string } }) {
     const expanded = expandedTaskId === task.id
     return (
       <div
-        // Drag to move between columns. Touch has no HTML5 drag and this gets
-        // used on phones, so this is an ADDITION to the status button and the
-        // dropdown - never the only way to move a task.
-        draggable
-        onDragStart={e => {
-          setDragTaskId(task.id)
-          e.dataTransfer.effectAllowed = 'move'
-          // Firefox refuses to start a drag without payload on the transfer.
-          e.dataTransfer.setData('text/plain', task.id)
-        }}
-        onDragEnd={() => { setDragTaskId(null); setDragOverCol(null) }}
         className={cn(
           'group relative bg-panel rounded-lg border flex flex-col transition-all cursor-pointer',
           isOverdue(task) ? 'border-danger/30 bg-danger-tint/30' : 'border-line hover:border-muted2 hover:shadow-sm',
           expanded && 'ring-2 ring-accent/40',
-          dragTaskId === task.id && 'opacity-40',
         )}
         onClick={() => toggleExpand(task.id)}
       >
@@ -751,20 +780,15 @@ export default function TasksPage({ params }: { params: { id: string } }) {
             {task.image_url && <ImagePlus className="h-3 w-3 text-faint" />}
           </div>
 
+          {/* Move it. Always visible - this is the main thing you do to a task. */}
+          <StageButtons
+            status={task.status}
+            onPick={next => updateStatus(task.id, next)}
+            className="border-t border-line-soft pt-2"
+          />
+
           {/* hover actions */}
           <div className="absolute top-2 right-7 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button
-              title={advanceLabel(task.status)}
-              disabled={!nextStatus(task.status)}
-              onClick={e => {
-                e.stopPropagation()
-                const next = nextStatus(task.status)
-                if (next) updateStatus(task.id, next)
-              }}
-              className="p-1 rounded text-faint hover:text-info hover:bg-info-tint transition-colors disabled:hover:bg-transparent disabled:cursor-default"
-            >
-              <StatusIcon status={task.status} />
-            </button>
             <button
               onClick={e => { e.stopPropagation(); openEditForm(task) }}
               className="p-1 rounded text-faint hover:text-accent-fg hover:bg-accent-tint transition-colors">
@@ -801,18 +825,15 @@ export default function TasksPage({ params }: { params: { id: string } }) {
           className="group px-4 py-3 flex items-start gap-3 cursor-pointer"
           onClick={() => toggleExpand(task.id)}
         >
-          <button
-            title={advanceLabel(task.status)}
-            disabled={!nextStatus(task.status)}
-            onClick={e => {
-              e.stopPropagation()
-              const next = nextStatus(task.status)
-              if (next) updateStatus(task.id, next)
-            }}
-            className="mt-0.5 shrink-0 transition-transform enabled:hover:scale-110 disabled:cursor-default"
-          >
+          {/*
+            A state readout, not a control. This used to be a button that
+            advanced the stage on click - a second, invisible way to change
+            something the row already has an explicit dropdown for, and the
+            reason a tap could move a task without anyone meaning to.
+          */}
+          <span className="mt-0.5 shrink-0" title={STATUSES.find(s => s.value === task.status)?.label}>
             <StatusIcon status={task.status} />
-          </button>
+          </span>
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
@@ -900,30 +921,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
           {STATUSES.map(col => {
             const colTasks = filteredTasks.filter(t => t.status === col.value)
             return (
-              <div
-                key={col.value}
-                onDragOver={e => {
-                  if (!dragTaskId) return
-                  e.preventDefault()          // without this the drop never fires
-                  e.dataTransfer.dropEffect = 'move'
-                  if (dragOverCol !== col.value) setDragOverCol(col.value)
-                }}
-                onDragLeave={() => setDragOverCol(c => (c === col.value ? null : c))}
-                onDrop={e => {
-                  e.preventDefault()
-                  const id = dragTaskId ?? e.dataTransfer.getData('text/plain')
-                  setDragTaskId(null); setDragOverCol(null)
-                  if (!id) return
-                  // Same column is a no-op, not a pointless round trip.
-                  if (tasks.find(t => t.id === id)?.status === col.value) return
-                  updateStatus(id, col.value)
-                }}
-                className={cn(
-                  'rounded-xl border flex flex-col overflow-hidden transition-colors',
-                  col.colBorder,
-                  dragOverCol === col.value && 'ring-2 ring-accent/60',
-                )}
-              >
+              <div className={cn('rounded-xl border flex flex-col overflow-hidden', col.colBorder)}>
                 {/* column header */}
                 <div className={cn('flex items-center justify-between px-3 py-2.5', col.headerBg)}>
                   <div className="flex items-center gap-2">

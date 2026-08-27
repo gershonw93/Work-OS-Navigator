@@ -90,6 +90,11 @@ Shipped in #218: bulk creation makes a site + a job per unit/floor/house, with a
 
 ---
 
+## 🧹 Error handling
+- **54 `alert()` calls across the app.** There is no toast component, so every failure that is not hand-rolled into a form shows a grey browser box with whatever the server said. `lib/db-error.ts` fixes the message quality server-side and the Add Subcontractor modal now renders its own error, but the other call sites are unchanged. Needs one toast/inline-error pattern, then a sweep.
+- **`friendlyDbError` is only wired into the subcontracts route.** Every route that returns `error: err.message` straight from Postgres should go through it.
+- **Audit remaining NOT NULL columns for the same trap** as `subcontracts.contract_amount` - a column that is required by the schema but optional in real life produces exactly this failure. `scope` and `trade` on `subcontracts` are both NOT NULL and both are things you might not know on day one.
+
 ## 🔔 Notifications
 - **Retire the legacy bid tree** - `app/api/projects/[id]/bids/[packageId]/{award,invite,remind,revise}`, `app/api/projects/[id]/bids/packages/*`, and `app/(dashboard)/my-bids/[packageId]` are unreachable: the Bids tab that linked to them went in #297, and `/api/my-bids` returns `invitations: []`. The dead-switch check has to explicitly EXCLUDE that tree (`UNREACHABLE` in `dead-switch.mjs`) so an emitter nobody can trigger doesn't count as an emitter. Delete the tree and the exclusion together.
 - **"Milestone reached" needs a milestone event.** Marked COMING SOON because nothing raises one - the only milestones in the app are payment-schedule line types on a subcontract, which is a billing shape, not a moment in a job. Wire it to the schedule when the schedule has real milestones.
@@ -100,8 +105,9 @@ Shipped in #218: bulk creation makes a site + a job per unit/floor/house, with a
 ---
 
 ## ✅ Recently shipped (for reference)
+- Subcontractor contract amount is optional (migration 082): add a sub before their price is agreed, shown as "Not set" rather than $0; failed saves no longer orphan a company in the Directory; Postgres constraint errors mapped to plain English inside the form instead of a raw alert(); removing a bid invite now confirms first (#299)
 - Quote notifications made real: submitting or declining through `/bid/<token>` notifies the GC (it notified nobody before, on the only path most quotes arrive by); awarding notifies the winner, or emails them if they have no account; re-sending an invite goes out as a reminder and emits `bid_reminder`. Plus a generalised check that every `status: 'live'` notification type has an emitter (#298)
-- Task board: drag between columns, per-column `+` actually adds to that column (all three used to create in Open), and the status icon no longer wraps Completed back round to Open (#298)
+- Task board: per-card Open/In Progress/Completed buttons (always visible, one tap to any stage), per-column `+` actually adds to that column (all three used to create in Open), and the status icon is now an indicator rather than a hidden control (#298, #299)
 - Contract type on projects (cost-plus / fixed price / building to sell): the Budget tab stops showing a contract-value box AND a markup box with "leave it empty on cost-plus" under them; real profit on cost-plus from the fee actually earned; per-invoice markup controls no longer hidden when the project rate is 0 (#267)
 - Cost-plus proposal PDF: on a cost-plus job the proposal now prints estimated cost of work + contractor's fee at its stated percent + an estimated total, plainly labelled an estimate rather than a fixed price, with cost-plus terms (#268)
 - Selections board: homeowner choices with allowances and lead-time-driven decide-by dates, a 21-category starter board, options with prices, client picks on the existing portal link, over-allowance → one-click change order (#232)

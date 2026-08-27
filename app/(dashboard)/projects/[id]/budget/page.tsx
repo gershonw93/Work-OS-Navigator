@@ -20,6 +20,7 @@ import {
   type ContractType, type Profit, CONTRACT_TYPES, CONTRACT_LABEL, CONTRACT_BLURB,
   asContractType, usesMarkup, usesRevenue, profitFor, revenueLabel, revenueHint, revenueAsk,
 } from '@/lib/contract-type'
+import { contractAmountLabel } from '@/lib/contract-amount'
 
 const money = (n: number) => `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 
@@ -96,7 +97,7 @@ interface BudgetItem {
 interface SubOption {
   id: string
   label: string
-  contract_amount: number
+  contract_amount: number | null
 }
 
 const CATEGORIES = HARD_COST_CATEGORIES
@@ -1252,7 +1253,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
             <div className="flex flex-col gap-1.5">
               {unbudgetedSubs.map(s => (
                 <div key={s.id} className="flex items-center justify-between gap-3 rounded-lg bg-panel border border-warn/20 px-3 py-1.5">
-                  <span className="text-sm text-ink-soft truncate">{s.label} <span className="text-faint">· {money(s.contract_amount)}</span></span>
+                  <span className="text-sm text-ink-soft truncate">{s.label} <span className="text-faint">· {contractAmountLabel(s.contract_amount)}</span></span>
                   <Button size="sm" disabled={assigningSubId === s.id} onClick={() => assignSubToBudget(s)} className="shrink-0">
                     {assigningSubId === s.id ? 'Adding…' : <><Plus className="h-3.5 w-3.5" /> Assign</>}
                   </Button>
@@ -1351,7 +1352,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                   }))
                 }}>
                 <option value="">Not linked - enter manually</option>
-                {subOptions.filter(s => !linkedSubIds.has(s.id)).map(s => <option key={s.id} value={s.id}>{s.label} · {money(s.contract_amount)}</option>)}
+                {subOptions.filter(s => !linkedSubIds.has(s.id)).map(s => <option key={s.id} value={s.id}>{s.label} · {contractAmountLabel(s.contract_amount)}</option>)}
               </SearchableSelect>
             </div>
           )}
@@ -1544,7 +1545,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                               <SearchableSelect className="w-full rounded-lg border border-line px-2.5 py-1.5 text-sm bg-panel"
                                 value={editForm.subcontract_id} onChange={e => setEditForm({ ...editForm, subcontract_id: e.target.value })}>
                                 <option value="">Not linked - enter manually</option>
-                                {subOptions.filter(s => !linkedSubIds.has(s.id) || s.id === item.subcontract_id).map(s => <option key={s.id} value={s.id}>{s.label} · {money(s.contract_amount)}</option>)}
+                                {subOptions.filter(s => !linkedSubIds.has(s.id) || s.id === item.subcontract_id).map(s => <option key={s.id} value={s.id}>{s.label} · {contractAmountLabel(s.contract_amount)}</option>)}
                               </SearchableSelect>
                             </Field>
                           )}

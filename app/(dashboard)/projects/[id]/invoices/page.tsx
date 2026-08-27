@@ -20,6 +20,7 @@ import {
   type InvoiceLine as InvoiceLineItem,
 } from '@/lib/invoice-lines'
 import { HARD_COST_CATEGORIES } from '@/lib/budget-categories'
+import { contractAmount, contractAmountLabel, isUnpriced } from '@/lib/contract-amount'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   pending_approval: { label: 'Pending Approval', color: 'bg-warn-tint border-warn/30 text-warn' },
@@ -31,7 +32,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   paid: { label: 'Paid', color: 'bg-success-tint border-success/30 text-success' },
 }
 
-interface Subcontract { id: string; trade: string; contract_amount: number; company_id: string; companies?: { name: string } }
+interface Subcontract { id: string; trade: string; contract_amount: number | null; company_id: string; companies?: { name: string } }
 interface PaymentItem { id: string; subcontract_id: string; label: string; amount: number | null; percentage: number | null; status: string }
 interface Invoice {
   id: string; invoice_number: string; company_name: string; company_id: string
@@ -39,7 +40,7 @@ interface Invoice {
   client_paid?: number; escrow_paid?: number
   approved_by_name: string | null; approved_at: string | null; sent_at: string | null
   due_date: string | null; created_at: string; subcontract_id: string | null
-  payment_schedule_item_id: string | null; subcontracts?: { trade: string; contract_amount: number }
+  payment_schedule_item_id: string | null; subcontracts?: { trade: string; contract_amount: number | null }
   lien_waiver_url: string | null; lien_waiver_type: string | null; lien_waiver_uploaded_at: string | null
   document_url?: string | null; document_name?: string | null
   /** The budget line this lands on, resolved through the subcontract. */
@@ -180,7 +181,10 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
   // Amount actually billed, based on the chosen mode
   const billedAmount = (() => {
     const sub = subcontracts.find(s => s.id === subId)
-    if (billMode === 'percent') return sub ? Math.round((Number(percent) || 0) / 100 * sub.contract_amount * 100) / 100 : 0
+    // A percentage of an unpriced contract is not a number. contractAmount()
+    // returns 0 for unknown, so this comes out 0 rather than NaN, and the UI
+    // below hides percent billing for an unpriced sub entirely.
+    if (billMode === 'percent') return sub ? Math.round((Number(percent) || 0) / 100 * contractAmount(sub.contract_amount) * 100) / 100 : 0
     return parseFloat(amount) || 0
   })()
 
@@ -193,8 +197,13 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
         .filter(i => i.subcontract_id === selectedSub.id && i.status !== 'rejected')
         .reduce((sum, i) => sum + Number(i.amount || 0), 0)
     : 0
-  const remaining = selectedSub ? Math.max(selectedSub.contract_amount - alreadyInvoiced, 0) : 0
-  const overBilled = !!selectedSub && billedAmount > remaining + 0.005
+  // No agreed contract sum means no ceiling to bill against - see below.
+  const subUnpriced = !!selectedSub && isUnpriced(selectedSub.contract_amount)
+  const remaining = selectedSub ? Math.max(contractAmount(selectedSub.contract_amount) - alreadyInvoiced, 0) : 0
+  // Nothing can be "over" a contract nobody has agreed yet. Without this guard
+  // every invoice against an unpriced sub would be flagged as over-billing,
+  // because remaining is 0.
+  const overBilled = !!selectedSub && !subUnpriced && billedAmount > remaining + 0.005
 
   /**
    * Give a subcontract a budget line so its invoices have somewhere to land.
@@ -1066,11 +1075,13 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
                       <Input type="number" step="0.01" placeholder="e.g. 40" value={percent} onChange={e => setPercent(e.target.value)} className="pr-7" />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-faint text-sm">%</span>
                     </div>
-                    {selectedSub
-                      ? (overBilled
+                    {!selectedSub
+                      ? <p className="text-xs text-faint">Select a subcontractor to compute the amount.</p>
+                      : subUnpriced
+                        ? <p className="text-xs text-warn">This subcontract has no agreed amount yet, so a percentage of it has nothing to work from. Set a Contract Amount on the Team tab, or switch to a flat amount.</p>
+                        : overBilled
                           ? <p className="text-xs text-danger">= ${billedAmount.toLocaleString()}, over the ${remaining.toLocaleString()} still owed.</p>
-                          : <p className="text-xs text-muted-fg">= <span className="font-semibold text-ink-soft">${billedAmount.toLocaleString()}</span> of ${selectedSub.contract_amount.toLocaleString()} contract · ${remaining.toLocaleString()} still owed</p>)
-                      : <p className="text-xs text-faint">Select a subcontractor to compute the amount.</p>}
+                          : <p className="text-xs text-muted-fg">= <span className="font-semibold text-ink-soft">${billedAmount.toLocaleString()}</span> of {contractAmountLabel(selectedSub.contract_amount)} contract · ${remaining.toLocaleString()} still owed</p>}
                   </div>
                 ) : (
                   <div className="space-y-1.5">
@@ -1089,9 +1100,11 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
                         className={cn('pl-8', overBilled && 'border-danger focus:border-danger')} />
                     </div>
                     {selectedSub && (
-                      overBilled
-                        ? <p className="text-xs text-danger">Over the ${remaining.toLocaleString()} still owed on this ${selectedSub.contract_amount.toLocaleString()} contract.</p>
-                        : <p className="text-xs text-muted-fg">${remaining.toLocaleString()} still owed of ${selectedSub.contract_amount.toLocaleString()} contract{alreadyInvoiced > 0 ? ` (${'$'}${alreadyInvoiced.toLocaleString()} invoiced)` : ''}.</p>
+                      subUnpriced
+                        ? <p className="text-xs text-muted-fg">No agreed contract amount on this subcontract yet, so there is no balance to check this against.{alreadyInvoiced > 0 ? ` $${alreadyInvoiced.toLocaleString()} invoiced so far.` : ''}</p>
+                        : overBilled
+                          ? <p className="text-xs text-danger">Over the ${remaining.toLocaleString()} still owed on this {contractAmountLabel(selectedSub.contract_amount)} contract.</p>
+                          : <p className="text-xs text-muted-fg">${remaining.toLocaleString()} still owed of {contractAmountLabel(selectedSub.contract_amount)} contract{alreadyInvoiced > 0 ? ` (${'$'}${alreadyInvoiced.toLocaleString()} invoiced)` : ''}.</p>
                     )}
                   </div>
                 )}

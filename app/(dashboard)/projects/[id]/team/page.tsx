@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Users, Plus, X, Phone, Mail, HardHat, Building2, DollarSign, UserCircle2, Pencil, UserPlus, Sparkles, Loader2, Paperclip, ChevronDown, ChevronUp } from 'lucide-react'
+import { Users, Plus, X, Phone, Mail, HardHat, Building2, DollarSign, UserCircle2, Pencil, UserPlus, Sparkles, Loader2, Paperclip, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,6 +10,7 @@ import { Select } from '@/components/ui/select'
 import { Badge, getStatusVariant } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
 import { cn } from '@/lib/utils'
+import { contractAmount, contractAmountLabel, isUnpriced } from '@/lib/contract-amount'
 
 const GC_ROLES = [
   'Project Manager', 'Site Manager', 'Superintendent', 'Foreman',
@@ -43,7 +44,8 @@ interface Subcontract {
   id: string
   scope: string
   trade: string | null
-  contract_amount: number
+  /** NULL until a price is agreed - see lib/contract-amount.ts. */
+  contract_amount: number | null
   status: string
   added_manually?: boolean | null
   proposal_url?: string | null
@@ -98,6 +100,11 @@ export default function TeamPage({ params }: { params: { id: string } }) {
   const [subPhone, setSubPhone] = useState('')
   const [subProposal, setSubProposal] = useState<File | null>(null)
   const [subSaving, setSubSaving] = useState(false)
+  // Shown INSIDE the modal, not in an alert(). A browser alert throws away the
+  // form's context, cannot be styled, and on the failure that prompted this it
+  // read "violates not-null constraint" - a sentence about a database, handed
+  // to somebody trying to add a plumber.
+  const [subError, setSubError] = useState<string | null>(null)
   const [subAnalyzing, setSubAnalyzing] = useState(false)
   const [subAnalyzeError, setSubAnalyzeError] = useState('')
   const [subScanned, setSubScanned] = useState(false)
@@ -224,6 +231,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
   async function addSub(e: React.FormEvent) {
     e.preventDefault()
     setSubSaving(true)
+    setSubError(null)
     const token = await getToken()
 
     const cleanItemsArr = subLineItems
@@ -251,7 +259,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
       })
       if (!res.ok) {
         const e2 = await res.json().catch(() => ({}))
-        alert(`Could not save: ${e2.error ?? res.statusText}`)
+        setSubError(e2.error ?? `Could not save those changes (${res.status}).`)
         setSubSaving(false); return
       }
       setShowAddSub(false); setEditingSubId(null); setSubSaving(false); resetSubForm(); load()
@@ -279,7 +287,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
     })
     if (!res.ok) {
       const e2 = await res.json().catch(() => ({}))
-      alert(`Could not add subcontractor: ${e2.error ?? res.statusText}`)
+      setSubError(e2.error ?? `Could not add that subcontractor (${res.status}).`)
       setSubSaving(false); return
     }
     setSubMode('new'); setSubExistingId('')
@@ -417,7 +425,8 @@ export default function TeamPage({ params }: { params: { id: string } }) {
     setCompanyMemberSaving(false)
   }
 
-  const totalContractValue = subcontracts.reduce((sum, s) => sum + Number(s.contract_amount), 0)
+  // Unpriced subs contribute nothing rather than breaking the sum.
+  const totalContractValue = subcontracts.reduce((sum, s) => sum + contractAmount(s.contract_amount), 0)
 
   return (
     <div className="space-y-6">
@@ -674,8 +683,18 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label>Contract Amount {lineItemsTotal > 0 && <span className="text-faint font-normal">(line items total: ${lineItemsTotal.toLocaleString()})</span>}</Label>
-                  <Input placeholder={lineItemsTotal > 0 ? `Leave blank to use $${lineItemsTotal.toLocaleString()}` : 'e.g. 45000'} value={subAmount} onChange={e => setSubAmount(e.target.value)} />
+                  <Label>
+                    Contract Amount{' '}
+                    {lineItemsTotal > 0
+                      ? <span className="text-faint font-normal">(line items total: ${lineItemsTotal.toLocaleString()})</span>
+                      : <span className="text-faint font-normal">(optional)</span>}
+                  </Label>
+                  <Input placeholder={lineItemsTotal > 0 ? `Leave blank to use $${lineItemsTotal.toLocaleString()}` : 'e.g. 45000 - or leave blank'} value={subAmount} onChange={e => setSubAmount(e.target.value)} />
+                  {lineItemsTotal === 0 && !subAmount.trim() && (
+                    <p className="text-xs text-muted-fg">
+                      Leave this blank to add them now and price the work later - the contract shows as <span className="font-medium text-ink-soft">Not set</span> until you fill it in.
+                    </p>
+                  )}
                 </div>
 
                 {/* Payment schedule (deposit / progress / final) */}
@@ -735,8 +754,17 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                 </div>
                 )}
               </div>
+              {subError && (
+                <div className="mx-4 sm:mx-6 mb-1 flex items-start gap-2 rounded-lg border border-danger/30 bg-danger-tint px-3 py-2.5">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-danger" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-danger">Could not save</p>
+                    <p className="text-sm text-ink-soft">{subError}</p>
+                  </div>
+                </div>
+              )}
               <div className="px-4 sm:px-6 py-4 border-t border-line-soft flex flex-wrap gap-2 justify-end">
-                <Button type="button" variant="secondary" onClick={() => { setShowAddSub(false); setEditingSubId(null) }}>Cancel</Button>
+                <Button type="button" variant="secondary" onClick={() => { setShowAddSub(false); setEditingSubId(null); setSubError(null) }}>Cancel</Button>
                 <Button type="submit" disabled={subSaving || (editingSubId ? !subCompany : (subMode === 'new' ? !subCompany : !subExistingId))}>{subSaving ? 'Saving...' : (editingSubId ? 'Save Changes' : 'Add Subcontractor')}</Button>
               </div>
             </form>
@@ -871,7 +899,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                           </div>
                           {sub.scope && <p className="text-xs text-faint truncate mt-0.5">{sub.scope}</p>}
                         </div>
-                        <span className="text-sm font-bold text-ink-soft shrink-0">${Number(sub.contract_amount ?? 0).toLocaleString()}</span>
+                        <span className={cn('text-sm font-bold shrink-0', isUnpriced(sub.contract_amount) ? 'text-faint font-medium' : 'text-ink-soft')}>{contractAmountLabel(sub.contract_amount)}</span>
                         {isOpen ? <ChevronUp className="h-4 w-4 text-faint shrink-0" /> : <ChevronDown className="h-4 w-4 text-faint shrink-0" />}
                       </button>
 
@@ -897,7 +925,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                                 ))}
                                 <div className="flex items-center justify-between gap-3 px-3 py-1.5 text-sm bg-surface font-semibold">
                                   <span className="text-ink-soft">Total</span>
-                                  <span className="text-ink">${Number(sub.contract_amount ?? 0).toLocaleString()}</span>
+                                  <span className={isUnpriced(sub.contract_amount) ? 'text-faint' : 'text-ink'}>{contractAmountLabel(sub.contract_amount)}</span>
                                 </div>
                               </div>
                             </div>

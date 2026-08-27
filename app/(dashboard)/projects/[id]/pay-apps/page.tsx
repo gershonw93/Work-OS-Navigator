@@ -29,7 +29,7 @@ const NEXT_STATUS: Record<string, { to: string; label: string }> = {
 export default function PayAppsPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
   const [apps, setApps] = useState<any[]>([])
-  const [subOptions, setSubOptions] = useState<{ id: string; label: string; contract_amount: number }[]>([])
+  const [subOptions, setSubOptions] = useState<{ id: string; label: string; contract_amount: number | null }[]>([])
   const [contractSum, setContractSum] = useState(0)
   const [loading, setLoading] = useState(true)
   const [openId, setOpenId] = useState<string | null>(null)
