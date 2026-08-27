@@ -16,7 +16,7 @@ production branch.** Do NOT ask the user to merge or deploy.
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-086.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-087.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - IMPORTANT: verify every column you `.select()` actually exists - Supabase
   returns `data: null` for an unknown column, so a typo reads as "not found"
@@ -53,8 +53,17 @@ production branch.** Do NOT ask the user to merge or deploy.
   with no invoice to settle becomes a Sales Receipt. **A sale must never be
   counted twice** - a Sales Receipt already means sold AND paid, so if an
   invoice exists, the money settling it can never be another receipt.
-- Order matters when settling: record the PAYMENT first, then flip the invoice
-  to paid. The applied-payment lookup finds the oldest invoice still `sent`.
+- A payment settles the invoice NAMED ON IT (`client_payments.client_invoice_id`),
+  never "the oldest one still sent". Same-day invoices share an `issue_date`, so
+  "oldest" was whichever row came back first and the money settled a coin toss.
+  Only unlinked money (a deposit) falls back to oldest-open.
+- A payment whose invoice has NOT reached QBO yet must book NOTHING - not a
+  Sales Receipt. Booking one records the sale, then the invoice records it
+  again. `pushClientPayment` (Sales Receipt) is only for money that settles
+  nothing; every other caller goes through `pushPaymentForProject`. The
+  Settings backlog sync called the Sales Receipt pusher directly for a while.
+- Keep `Fault.Error[].Detail`, not just `Message`. QBO's Message is a label
+  ("Object Not Found"); Detail is the sentence that names the object.
 - Every push: never throws, capped at 8s, "not connected" is a normal state,
   and misses land in `quickbooks_sync_log` for the backlog sync to pick up.
 - Pushes take an atomic claim (`qbo_claimed_at`) via a conditional UPDATE. A

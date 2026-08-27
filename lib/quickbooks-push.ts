@@ -188,7 +188,10 @@ export function appliedPaymentPayload(
     TxnDate: ymd(p.paid_date),
     TotalAmt: Number(p.amount),
     ...(methodQboId ? { PaymentMethodRef: { value: methodQboId } } : {}),
-    ...(p.id ? { DocNumber: snRef(p.id) } : {}),
+    // A Payment carries its reference in PaymentRefNum; DocNumber is the
+    // Invoice/Sales Receipt field and means nothing on this entity, so the
+    // SN- reference was being written into a field QuickBooks does not read.
+    ...(p.id ? { PaymentRefNum: snRef(p.id) } : {}),
     PrivateNote: composeMemo(projectName, p.memo),
     Line: [{
       Amount: Number(p.amount),
@@ -342,14 +345,26 @@ async function existingInvoiceIdByDocNumber(conn: Connection, docNumber?: string
 
 // ── The pushers ──────────────────────────────────────────────────────────────
 
-/** Client payment -> QBO Sales Receipt. Never throws. */
+/**
+ * Client payment -> QBO Sales Receipt. Never throws.
+ *
+ * ONLY for money that settles nothing - a deposit taken before any invoice
+ * exists. If the payment names an invoice, a Sales Receipt is the wrong record
+ * by definition: a receipt means sold AND paid, and the sale is already in
+ * QuickBooks as that invoice. Route it through pushPaymentForProject instead.
+ */
 export async function pushClientPayment(db: SupabaseClient, paymentId: string, ctx?: PushContext): Promise<PushResult> {
   try {
     const { data: p } = await db.from('client_payments')
-      .select('id, project_id, amount, paid_date, memo, method, qb_entered, qbo_id').eq('id', paymentId).maybeSingle()
+      .select('id, project_id, amount, paid_date, memo, method, qb_entered, qbo_id, client_invoice_id')
+      .eq('id', paymentId).maybeSingle()
     if (!p) return { pushed: false, reason: 'skipped', detail: 'Payment not found' }
     if (p.qbo_id) return { pushed: false, reason: 'already' }
     if (handEntered(p)) return HAND_ENTERED
+    // Belt and braces. The backlog sync used to call this function directly
+    // for every unsynced payment, which would have booked a second sale for
+    // money settling an invoice already over there.
+    if (p.client_invoice_id) return pushPaymentForProject(db, paymentId, ctx)
 
     const { companyId, customerId, projectName } = await projectCompany(db, p.project_id)
     if (!companyId) return { pushed: false, reason: 'skipped', detail: 'Project has no company' }
@@ -587,6 +602,62 @@ export async function pushClientInvoice(db: SupabaseClient, billId: string, ctx?
 }
 
 /**
+ * Which receivable a payment settles, if any.
+ *
+ * THE BUG THIS EXISTS FOR. This used to be a guess: "the oldest invoice still
+ * sent". Issue three invoices on one day and every one of them has the same
+ * issue_date, so "oldest" is whichever row Postgres felt like returning first
+ * - the $37,224 recorded against INV-0004 was on its way to settling INV-0002.
+ * But nobody was guessing at the keyboard: they pressed Mark paid ON an
+ * invoice. That link is now stored on the payment, so the books settle the
+ * invoice the human pointed at.
+ *
+ * The third outcome is the one that stops a double-count. A payment linked to
+ * an invoice that has NOT reached QuickBooks yet must book nothing at all:
+ * falling back to a Sales Receipt would record the sale, and then the invoice
+ * would arrive and record it again.
+ */
+type Settlement =
+  | { kind: 'invoice'; id: string; label: string; qboId: string }
+  | { kind: 'standalone' }
+  | { kind: 'wait'; detail: string }
+
+async function settlementTarget(
+  db: SupabaseClient,
+  p: { project_id: string; client_invoice_id?: string | null },
+): Promise<Settlement> {
+  if (p.client_invoice_id) {
+    const { data } = await db.from('client_invoices')
+      .select('id, invoice_number, qbo_id')
+      .eq('id', p.client_invoice_id).maybeSingle()
+    // Not 'standalone': pushClientPayment bounces a linked payment back here,
+    // so answering "standalone" for a link we cannot resolve is an infinite
+    // ping-pong. The FK is ON DELETE SET NULL, so this is a race, not a state.
+    if (!data) return { kind: 'wait', detail: 'The invoice this payment settles could not be read' }
+    if (!data.qbo_id) {
+      return { kind: 'wait', detail: `Invoice ${data.invoice_number ?? data.id.slice(0, 8)} is not in QuickBooks yet` }
+    }
+    return { kind: 'invoice', id: data.id, label: data.invoice_number ?? data.id.slice(0, 8), qboId: data.qbo_id }
+  }
+
+  // Money that arrived on its own account - a deposit, a cheque against
+  // nothing in particular. Oldest first, because that is how anybody applies
+  // one: against what has been owed longest. created_at breaks the tie so
+  // "oldest" is at least the same answer twice.
+  const { data: open } = await db.from('client_invoices')
+    .select('id, invoice_number, qbo_id, issue_date, created_at')
+    .eq('project_id', p.project_id)
+    .eq('status', 'sent')
+    .not('qbo_id', 'is', null)
+    .order('issue_date', { ascending: true })
+    .order('created_at', { ascending: true })
+    .limit(1)
+  const hit = (open ?? [])[0]
+  if (!hit?.qbo_id) return { kind: 'standalone' }
+  return { kind: 'invoice', id: hit.id, label: hit.invoice_number ?? hit.id.slice(0, 8), qboId: hit.qbo_id }
+}
+
+/**
  * Money in, booked the right way for what it settles.
  *
  * If there is an unpaid invoice in QuickBooks for this project, the payment is
@@ -600,23 +671,16 @@ export async function pushClientInvoice(db: SupabaseClient, billId: string, ctx?
 export async function pushPaymentForProject(db: SupabaseClient, paymentId: string, ctx?: PushContext): Promise<PushResult> {
   try {
     const { data: p } = await db.from('client_payments')
-      .select('id, project_id, amount, paid_date, memo, method, qb_entered, qbo_id').eq('id', paymentId).maybeSingle()
+      .select('id, project_id, amount, paid_date, memo, method, qb_entered, qbo_id, client_invoice_id')
+      .eq('id', paymentId).maybeSingle()
     if (!p) return { pushed: false, reason: 'skipped', detail: 'Payment not found' }
     if (p.qbo_id) return { pushed: false, reason: 'already' }
     if (handEntered(p)) return HAND_ENTERED
 
-    // The oldest sent-but-unpaid invoice already in QuickBooks. Oldest first
-    // because that is how anybody applies a cheque: against what has been
-    // owed longest.
-    const { data: open } = await db.from('client_invoices')
-      .select('id, qbo_id, issue_date')
-      .eq('project_id', p.project_id)
-      .eq('status', 'sent')
-      .not('qbo_id', 'is', null)
-      .order('issue_date', { ascending: true })
-      .limit(1)
-    const target = (open ?? [])[0]
-    if (!target?.qbo_id) return pushClientPayment(db, paymentId, ctx)
+    const settles = await settlementTarget(db, p)
+    if (settles.kind === 'wait') return { pushed: false, reason: 'skipped', detail: settles.detail }
+    if (settles.kind === 'standalone') return pushClientPayment(db, paymentId, ctx)
+    const target = settles
 
     const { companyId, customerId, projectName } = await projectCompany(db, p.project_id)
     if (!companyId || !customerId) return pushClientPayment(db, paymentId, ctx)
@@ -630,13 +694,13 @@ export async function pushPaymentForProject(db: SupabaseClient, paymentId: strin
       const customerQboId = await ensureCustomerId(db, conn, customerId, companyId)
       const res = await qboFetch(conn, 'payment', {
         method: 'POST',
-        body: JSON.stringify(appliedPaymentPayload(p, customerQboId, target.qbo_id!, projectName, await methodIdFor(conn, (p as any).method, ctx))),
+        body: JSON.stringify(appliedPaymentPayload(p, customerQboId, target.qboId, projectName, await methodIdFor(conn, (p as any).method, ctx))),
       })
       const qboId = res?.Payment?.Id
       await db.from('client_payments').update({
         qbo_id: qboId, qbo_synced_at: new Date().toISOString(), qb_entered: true, qbo_txn_type: 'payment',
       }).eq('id', p.id)
-      await logRow(db, companyId, 'payment', p.id, 'success', qboId, `Applied to invoice ${target.id.slice(0, 8)}`)
+      await logRow(db, companyId, 'payment', p.id, 'success', qboId, `Applied to invoice ${target.label}`)
       return { pushed: true, qboId }
     })()).catch(async (err: any) => {
       await releaseClaim(db, 'client_payments', p.id)

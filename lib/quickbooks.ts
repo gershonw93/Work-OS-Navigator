@@ -119,6 +119,25 @@ export async function getValidConnection(db: SupabaseClient, companyId: string):
   }
 }
 
+/**
+ * What a QuickBooks failure should say in the sync log.
+ *
+ * QBO splits an error in two: `Message` is a short label and `Detail` is the
+ * sentence that names the thing that went wrong. This preferred Message and
+ * threw Detail away, so a failed payment logged the words "Object Not Found"
+ * and nothing else - true, useless, and an hour of guessing which object.
+ * Keep both, plus the code, because the code is what Intuit's docs are
+ * indexed by.
+ */
+export function qboErrorMessage(data: any, status?: number): string {
+  const e = data?.Fault?.Error?.[0]
+  const parts = [e?.Message, e?.Detail].filter(Boolean).map((s: string) => String(s).trim())
+  // Detail often repeats Message as its first clause; don't say it twice.
+  const body = parts.length === 2 && parts[1].startsWith(parts[0]) ? parts[1] : parts.join(' - ')
+  if (!body) return `HTTP ${status ?? '?'}`
+  return e?.code ? `${body} (QuickBooks code ${e.code})` : body
+}
+
 // Call the QBO Accounting API for a connection (auto-prefixes realm + minorversion).
 export async function qboFetch(
   conn: Connection,
@@ -139,8 +158,7 @@ export async function qboFetch(
   const text = await res.text()
   const data = text ? JSON.parse(text) : {}
   if (!res.ok) {
-    const msg = data?.Fault?.Error?.[0]?.Message || data?.Fault?.Error?.[0]?.Detail || `HTTP ${res.status}`
-    throw new Error(msg)
+    throw new Error(qboErrorMessage(data, res.status))
   }
   return data
 }

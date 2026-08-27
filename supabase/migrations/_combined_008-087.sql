@@ -1953,3 +1953,54 @@ ALTER TABLE customers ADD COLUMN IF NOT EXISTS qbo_claimed_at timestamptz;
 
 COMMENT ON COLUMN customers.qbo_claimed_at IS
   'Set atomically before a QuickBooks push so two concurrent creates cannot both make a Customer. Same mechanism as client_invoices.qbo_claimed_at.';
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 087: a payment settles the invoice it was recorded against, and client
+-- opens of an invoice are counted rather than only remembered once.
+--
+-- WHY. "Mark paid" on a client invoice records a payment, and QuickBooks was
+-- then asked to guess which receivable that money settled: the oldest invoice
+-- still 'sent'. Issue three invoices on one day and they share an issue_date,
+-- so "oldest" is whichever row Postgres cared to return - a payment for
+-- INV-0004 was on its way to settling INV-0002 in the books. The link the user
+-- made is not a guess, so store it.
+-- ─────────────────────────────────────────────────────────────────────────────
+
+ALTER TABLE client_payments
+  ADD COLUMN IF NOT EXISTS client_invoice_id uuid REFERENCES client_invoices(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS client_payments_client_invoice_id_idx
+  ON client_payments (client_invoice_id);
+
+COMMENT ON COLUMN client_payments.client_invoice_id IS
+  'The client invoice this money settles, when it settles one. QuickBooks applies the payment against exactly this receivable instead of guessing at the oldest open invoice.';
+
+-- viewed_at keeps its meaning (the FIRST open); these two answer the questions
+-- a GC actually asks - how many times, and how recently.
+ALTER TABLE client_invoices
+  ADD COLUMN IF NOT EXISTS view_count integer NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS last_viewed_at timestamptz;
+
+UPDATE client_invoices
+   SET view_count = 1,
+       last_viewed_at = viewed_at
+ WHERE viewed_at IS NOT NULL
+   AND view_count = 0;
+
+-- One statement, so two opens in the same instant both count.
+CREATE OR REPLACE FUNCTION bump_client_invoice_view(p_id uuid)
+RETURNS void
+LANGUAGE sql
+AS $$
+  UPDATE client_invoices
+     SET view_count = COALESCE(view_count, 0) + 1,
+         last_viewed_at = now(),
+         viewed_at = COALESCE(viewed_at, now())
+   WHERE id = p_id;
+$$;
+
+-- Only the server may count an open. Left to PUBLIC, anyone with the anon key
+-- could inflate the count for any invoice id they cared to type.
+REVOKE ALL ON FUNCTION bump_client_invoice_view(uuid) FROM public;
+REVOKE ALL ON FUNCTION bump_client_invoice_view(uuid) FROM anon, authenticated;
+GRANT EXECUTE ON FUNCTION bump_client_invoice_view(uuid) TO service_role;

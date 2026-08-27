@@ -33,8 +33,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { db } = ctx
 
-  const [{ data: project }, { data: invoices }, { data: materials }, { data: bills }] = await Promise.all([
-    db.from('projects').select('contractor_fee_pct, client, name').eq('id', params.id).maybeSingle(),
+  const [{ data: project }, { data: invoices }, { data: materials }, { data: bills }, { data: payments }] = await Promise.all([
+    db.from('projects').select('contractor_fee_pct, client, name, gc_company_id').eq('id', params.id).maybeSingle(),
     db.from('invoices')
       .select('id, invoice_number, company_name, description, amount, status, markup_pct, markup_excluded, created_at')
       .eq('project_id', params.id),
@@ -45,6 +45,13 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .select('*, client_invoice_lines(*)')
       .eq('project_id', params.id)
       .order('created_at', { ascending: false }),
+    // The money side of each invoice. Without this the list could say an
+    // invoice had reached QuickBooks but not whether the payment settling it
+    // had - so an invoice sat "paid" here, green-ticked, and still open as a
+    // receivable over there with nobody the wiser.
+    db.from('client_payments')
+      .select('id, client_invoice_id, qbo_id, qb_entered, amount')
+      .eq('project_id', params.id),
   ])
 
   const projectPct = Number((project as any)?.contractor_fee_pct ?? 0) * 100
@@ -91,12 +98,46 @@ export async function GET(request: Request, { params }: { params: { id: string }
       }),
   ].sort((a, b) => String(a.date ?? '').localeCompare(String(b.date ?? '')))
 
+  // What settles each invoice, so the list can tell the two QuickBooks truths
+  // apart: the invoice is over there, and the money that settles it is too.
+  const paidBy = new Map<string, { id: string; qbo_id: string | null; qb_entered: boolean; amount: number }[]>()
+  for (const pay of (payments ?? []) as any[]) {
+    if (!pay.client_invoice_id) continue
+    const list = paidBy.get(pay.client_invoice_id) ?? []
+    list.push(pay)
+    paidBy.set(pay.client_invoice_id, list)
+  }
+
+  const withSettlement = (bills ?? []).map((b: any) => {
+    const applied = paidBy.get(b.id) ?? []
+    return {
+      ...b,
+      settlement: {
+        recorded: applied.length > 0,
+        // "In QuickBooks by hand" counts: the money is over there, we just
+        // did not put it there.
+        in_qbo: applied.length > 0 && applied.every(p => !!p.qbo_id || p.qb_entered === true),
+        amount: applied.reduce((s, p) => s + Number(p.amount || 0), 0),
+      },
+    }
+  })
+
+  // Only a company that HAS a QuickBooks gets told anything about QuickBooks.
+  // A "not in QuickBooks" note on every invoice of a company that never
+  // connected one is noise dressed up as a warning.
+  const companyId = (project as any)?.gc_company_id ?? null
+  const { data: conn } = companyId
+    ? await db.from('quickbooks_connections')
+      .select('company_id').eq('company_id', companyId).eq('status', 'connected').maybeSingle()
+    : { data: null }
+
   return NextResponse.json({
-    invoices: bills ?? [],
+    invoices: withSettlement,
     billable,
     markup_pct: projectPct,
     client: (project as any)?.client ?? null,
     project_name: (project as any)?.name ?? null,
+    quickbooks_connected: !!conn,
   })
 }
 

@@ -121,6 +121,9 @@ export async function POST(request: Request, { params }: { params: { id: string 
     memo: body.memo || null,
     retainer: !!body.retainer,
     qb_entered: !!body.qb_entered,
+    // The invoice this money settles, when it settles one. QuickBooks applies
+    // the payment against exactly this receivable instead of guessing.
+    client_invoice_id: body.client_invoice_id || null,
     created_by: user.id,
   }).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

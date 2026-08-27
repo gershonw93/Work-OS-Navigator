@@ -48,6 +48,47 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    date: '2026-08-28',
+    title: 'A payment settles the invoice you marked paid',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'Marking an invoice paid settles THAT invoice in QuickBooks',
+        text: 'When you pressed Mark paid, the payment went across to QuickBooks against "the oldest invoice still open" rather than the one you were looking at. Issue two invoices on the same day and which one got settled was a coin toss, so QuickBooks could show the wrong invoice paid and the right one still owing. The payment now carries the invoice you marked, and settles exactly that one.',
+        help: 'connect-quickbooks',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
+        title: 'Sync now cannot book the same sale twice',
+        text: 'The Sync client payments button in Settings recorded every unsynced payment as a straight sale, even when that money was settling an invoice already in QuickBooks - which would have counted the same job twice in your income. It now applies the payment against the invoice, exactly as the automatic sync does.',
+        help: 'connect-quickbooks',
+        href: '/settings',
+      },
+      {
+        kind: 'improved',
+        title: 'The QuickBooks tick tells you about the money, not just the invoice',
+        text: 'An invoice could sit here marked paid, wearing a green QuickBooks tick, while in QuickBooks it was still money owed - the invoice had gone across but the payment settling it had not. The tick now says which: "QB ✓" for sent, "QB ✓ paid" once the money is over there too, and an amber warning when the payment has not made it.',
+        help: 'connect-quickbooks',
+        href: '/projects',
+      },
+      {
+        kind: 'improved',
+        title: 'See how often your client opened an invoice',
+        text: 'It used to say "opened by the client" and nothing more, however many times they looked. Each invoice now shows how many times it has been opened and when they last did - "opened 4 times, last Aug 27" - which is a different phone call from "not opened yet".',
+        help: 'money-overview',
+        href: '/projects',
+      },
+      {
+        kind: 'improved',
+        title: 'Fewer buttons on each invoice',
+        text: 'A sent invoice had seven controls in a row, all the same size, with Mark paid sitting next to Void. Now there is one action - Issue, or Mark paid - and everything else (the client link, emailing it, printing, voiding) is behind the ... menu at the end of the row.',
+        help: 'money-overview',
+        href: '/projects',
+      },
+    ],
+  },
+  {
     date: '2026-08-27',
     title: 'A double-press cannot double-bill your client',
     items: [

@@ -143,7 +143,14 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
     const t = await token()
     const res = await fetch(`/api/projects/${params.id}/payments`, {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
-      body: JSON.stringify({ ...form, amount: Number(form.amount) }),
+      body: JSON.stringify({
+        ...form,
+        amount: Number(form.amount),
+        // Which invoice this money settles. Nobody was guessing at the
+        // keyboard - they pressed Mark paid ON an invoice - but QuickBooks
+        // was left to guess anyway, and picked the oldest one still open.
+        client_invoice_id: settling?.kind === 'invoice' ? settling.id : null,
+      }),
     })
     if (!res.ok) {
       setSaving(false)
@@ -154,10 +161,13 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
     // Settle the request this payment answers, and point it at the payment.
     // Only after the payment is safely written: marking a request paid against
     // money that failed to save is the lie this whole flow exists to avoid.
-    // ORDER MATTERS. The payment is recorded FIRST, above, and only then is the
-    // invoice marked paid. The QuickBooks applied-payment lookup finds the
-    // oldest invoice still 'sent'; flip the status first and it would find
-    // nothing, fall back to a Sales Receipt, and book the sale twice.
+    // The payment is recorded FIRST, above, and only then is the invoice
+    // marked paid - marking an invoice paid against money that failed to save
+    // is the lie this flow exists to avoid. It no longer matters to
+    // QuickBooks: the payment now names the invoice it settles, so the
+    // applied-payment lookup finds it by id whatever its status is. It used to
+    // hunt for the oldest invoice still 'sent', which made this ordering
+    // load-bearing and the answer a coin flip between same-day invoices.
     if (settling) {
       const created = await res.json().catch(() => ({} as any))
       const url = settling.kind === 'request'
