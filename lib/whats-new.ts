@@ -53,6 +53,12 @@ export const RELEASES: Release[] = [
     items: [
       {
         kind: 'new',
+        title: 'The portal says thank you for payments',
+        text: 'When a client paid a deposit and you recorded it, their portal went silent - the request disappeared and nothing acknowledged the money ever moved. There is now a green Payments card listing every payment they have made, with dates and a running total. "Did they even get my money?" is the one question a client page must never leave open.',
+        help: 'request-deposit',
+      },
+      {
+        kind: 'new',
         title: 'Invoices are on the client portal',
         text: 'The portal showed your client their schedule, permits, selections and any payment requests - but not the invoices they were actually billed. Those only existed inside the email you sent. Every sent and paid invoice is now listed on their portal link, with what is currently due at the top and each one opening to the full breakdown. Drafts never appear.',
         help: 'money-overview',

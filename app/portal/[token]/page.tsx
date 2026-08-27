@@ -74,6 +74,7 @@ export default async function PortalPage({ params }: { params: { token: string }
     { data: selections },
     { data: paymentRequests },
     { data: clientInvoices },
+    { data: clientPayments },
   ] = await Promise.all([
     db.from('subcontracts').select('*').eq('project_id', project.id),
     db.from('schedule_items').select('*').eq('project_id', project.id).order('start_date', { ascending: true }),
@@ -97,6 +98,16 @@ export default async function PortalPage({ params }: { params: { token: string }
       .eq('project_id', project.id)
       .in('status', ['sent', 'paid'])
       .order('created_at', { ascending: false }),
+    // The money the client has already paid. This is the ledger, not an ask -
+    // requests and invoices vanish once answered, and without this the moment
+    // a deposit was marked paid the portal showed no trace that money ever
+    // moved. "Did they even get my money?" is the exact anxiety this page
+    // exists to remove. method/qb_entered/created_by stay out on purpose:
+    // internal bookkeeping, not the client's business.
+    db.from('client_payments')
+      .select('id, paid_date, amount, memo, retainer')
+      .eq('project_id', project.id)
+      .order('paid_date', { ascending: false }),
   ])
 
   // The one place in an otherwise read-only portal where the client owes US
@@ -110,6 +121,9 @@ export default async function PortalPage({ params }: { params: { token: string }
     total: (b.client_invoice_lines ?? []).reduce((s: number, l: any) => s + Number(l.amount ?? 0), 0),
     overdue: b.status === 'sent' && b.due_date ? (daysUntil(b.due_date) ?? 0) < 0 : false,
   }))
+  const paymentsMade = clientPayments ?? []
+  const paidTotal = paymentsMade.reduce((s: number, p: any) => s + Number(p.amount ?? 0), 0)
+
   const invoicesOutstanding = invoices
     .filter((b: any) => b.status === 'sent')
     .reduce((s: number, b: any) => s + b.total, 0)
@@ -311,6 +325,41 @@ export default async function PortalPage({ params }: { params: { token: string }
             <p className="mt-3 text-xs text-muted-fg">
               Open an invoice to see the full breakdown. Pay the way you normally pay your contractor.
             </p>
+          </div>
+        )}
+
+        {/* Money the client has paid. The one card on this page that is pure
+            good news, and it stays after everything is settled - the asks above
+            disappear once answered, this is the standing record. */}
+        {paymentsMade.length > 0 && (
+          <div className="rounded-xl border border-success/30 bg-success-tint/30 p-4 sm:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold text-ink">Payments</h2>
+                <p className="text-sm text-muted-fg mt-0.5">Received and recorded. Thank you.</p>
+              </div>
+              <span className="text-xl font-bold text-success shrink-0">
+                ${paidTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })} paid
+              </span>
+            </div>
+            <div className="mt-3 space-y-1.5">
+              {paymentsMade.map((p: any) => (
+                <div key={p.id} className="flex flex-wrap items-baseline justify-between gap-2 border-t border-success/20 pt-1.5">
+                  <span className="min-w-0 text-sm text-ink-soft">
+                    {p.paid_date && (
+                      <span className="font-medium">{new Date(p.paid_date + 'T00:00:00').toLocaleDateString()}</span>
+                    )}
+                    {p.memo && <span className="text-muted-fg"> · {p.memo}</span>}
+                    {p.retainer && (
+                      <span className="ml-1.5 rounded-full bg-success-tint px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-success">deposit</span>
+                    )}
+                  </span>
+                  <span className="text-sm font-semibold text-ink">
+                    ${Number(p.amount).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
