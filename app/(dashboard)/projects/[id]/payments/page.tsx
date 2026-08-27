@@ -383,7 +383,7 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
           </div>
           <div className="flex flex-wrap items-center gap-4">
             <label className="flex items-center gap-2 text-sm text-ink-soft"><input type="checkbox" className="accent-[#C9F24A]" checked={form.retainer} onChange={e => setForm({ ...form, retainer: e.target.checked })} /> Retainer / deposit</label>
-            <label className="flex items-center gap-2 text-sm text-ink-soft"><input type="checkbox" className="accent-[#C9F24A]" checked={form.qb_entered} onChange={e => setForm({ ...form, qb_entered: e.target.checked })} /> Entered in QuickBooks</label>
+            <label className="flex items-center gap-2 text-sm text-ink-soft"><input type="checkbox" className="accent-[#C9F24A]" checked={form.qb_entered} onChange={e => setForm({ ...form, qb_entered: e.target.checked })} /> Already in QuickBooks - don&apos;t sync</label>
             <div className="ml-auto flex gap-2">
               <Button variant="secondary" onClick={closePaymentForm}>Cancel</Button>
               <Button onClick={addPayment} disabled={saving || !form.amount}>{saving ? 'Saving…' : 'Add'}</Button>

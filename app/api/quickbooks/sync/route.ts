@@ -131,7 +131,11 @@ export async function POST(request: Request) {
     const projectIds = await ownedProjectIds()
     if (!projectIds.length) return NextResponse.json({ summary: { total: 0, synced: 0, skipped: 0, errors: 0 }, results: [] })
 
-    let q = db.from('client_payments').select('id, qbo_id').in('project_id', projectIds)
+    // Hand-entered payments are excluded, not just skipped by the pusher:
+    // otherwise every backlog run walks them again and reports them as work.
+    let q = db.from('client_payments').select('id, qbo_id')
+      .in('project_id', projectIds)
+      .or('qb_entered.is.null,qb_entered.eq.false')
     if (ids) q = q.in('id', ids)
     const { data: payments } = await q
 

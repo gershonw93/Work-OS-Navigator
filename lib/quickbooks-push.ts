@@ -277,6 +277,30 @@ async function connectionFor(db: SupabaseClient, companyId: string, ctx?: PushCo
  * not lock a record out of QuickBooks forever, so a claim older than the
  * window is up for grabs again.
  */
+/**
+ * "Already in QuickBooks - don't sync": the user typed this payment into
+ * QuickBooks themselves.
+ *
+ * The flag existed long before the integration did, as a bookkeeping tick, and
+ * auto-push turned it into a liability: it was WRITTEN on a successful push
+ * and never READ, so ticking it stopped nothing. Push anyway and QuickBooks
+ * ends up with two records for one payment - revenue counted twice, found by
+ * an accountant rather than by anyone here.
+ *
+ * Checked only when `qbo_id` is absent. A payment WE pushed carries both, and
+ * must report `already` rather than `skipped`: one means "we did it", the
+ * other means "you did it", and the sync summary shows them differently.
+ */
+function handEntered(p: { qbo_id?: unknown; qb_entered?: unknown }): boolean {
+  return !p.qbo_id && p.qb_entered === true
+}
+
+const HAND_ENTERED: PushResult = {
+  pushed: false,
+  reason: 'skipped',
+  detail: 'Marked as already entered in QuickBooks by hand',
+}
+
 const CLAIM_STALE_MS = 2 * 60 * 1000
 
 async function claimForPush(db: SupabaseClient, table: string, id: string): Promise<boolean> {
@@ -322,9 +346,10 @@ async function existingInvoiceIdByDocNumber(conn: Connection, docNumber?: string
 export async function pushClientPayment(db: SupabaseClient, paymentId: string, ctx?: PushContext): Promise<PushResult> {
   try {
     const { data: p } = await db.from('client_payments')
-      .select('id, project_id, amount, paid_date, memo, method, qbo_id').eq('id', paymentId).maybeSingle()
+      .select('id, project_id, amount, paid_date, memo, method, qb_entered, qbo_id').eq('id', paymentId).maybeSingle()
     if (!p) return { pushed: false, reason: 'skipped', detail: 'Payment not found' }
     if (p.qbo_id) return { pushed: false, reason: 'already' }
+    if (handEntered(p)) return HAND_ENTERED
 
     const { companyId, customerId, projectName } = await projectCompany(db, p.project_id)
     if (!companyId) return { pushed: false, reason: 'skipped', detail: 'Project has no company' }
@@ -575,9 +600,10 @@ export async function pushClientInvoice(db: SupabaseClient, billId: string, ctx?
 export async function pushPaymentForProject(db: SupabaseClient, paymentId: string, ctx?: PushContext): Promise<PushResult> {
   try {
     const { data: p } = await db.from('client_payments')
-      .select('id, project_id, amount, paid_date, memo, method, qbo_id').eq('id', paymentId).maybeSingle()
+      .select('id, project_id, amount, paid_date, memo, method, qb_entered, qbo_id').eq('id', paymentId).maybeSingle()
     if (!p) return { pushed: false, reason: 'skipped', detail: 'Payment not found' }
     if (p.qbo_id) return { pushed: false, reason: 'already' }
+    if (handEntered(p)) return HAND_ENTERED
 
     // The oldest sent-but-unpaid invoice already in QuickBooks. Oldest first
     // because that is how anybody applies a cheque: against what has been
