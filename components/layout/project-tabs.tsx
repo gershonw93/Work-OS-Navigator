@@ -395,6 +395,27 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
                   {' · '}Site, billing and inspection tabs unlock when this job is set to Active.
                 </p>
               )}
+              {/* Overview was only ever linked from the DESKTOP group row, so
+                  on a phone it did not exist: the sheet listed the four groups
+                  and nothing else, and there was no way to reach the landing
+                  page again after tapping anywhere. Same rule as the desktop
+                  row - it sits above the groups because it is not a section of
+                  the job, it is the job. */}
+              {!isSite && (
+                <button
+                  onClick={() => navigate('overview')}
+                  className={cn(
+                    'flex w-full items-center gap-2.5 rounded-xl px-3.5 py-3 text-left transition-colors',
+                    onOverview
+                      ? 'border-2 border-current bg-accent-tint font-semibold text-accent-fg'
+                      : 'border border-line bg-panel text-ink-soft hover:bg-surface',
+                  )}
+                >
+                  <LayoutDashboard className={cn('h-4 w-4 shrink-0', onOverview ? 'text-accent-fg' : 'text-faint')} />
+                  <span className="text-sm">Overview</span>
+                  <span className="ml-auto text-xs text-faint">Where the job stands</span>
+                </button>
+              )}
               {filteredGroups.map(group => (
                 <div key={group.label}>
                   <p className={cn('text-xs font-bold uppercase tracking-widest mb-2 px-1', group.color)}>
