@@ -39,7 +39,24 @@ const money = (n: number) => `$${Number(n).toLocaleString(undefined, { maximumFr
  * Works the same on AIA jobs. Pay applications bill work in place; a deposit is
  * not work in place, so it belongs here on both kinds of job.
  */
-export function PaymentRequests({ projectId }: { projectId: string }) {
+export function PaymentRequests({
+  projectId, onSettle, reloadKey = 0,
+}: {
+  projectId: string
+  /**
+   * "Mark paid" hands the request up to the page, which opens the same Record
+   * a client payment dialog as everything else and settles the request with
+   * whatever it creates.
+   *
+   * It used to just flip a status. That put a green "Paid" on screen with no
+   * date, no method and no cheque number, and nothing in the ledger - so the
+   * request looked settled while the money existed nowhere. A payment received
+   * is a payment received, however it was asked for.
+   */
+  onSettle?: (request: { id: string; label: string; amount: number }) => void
+  /** Bumped by the page after it records a payment, to pull fresh state. */
+  reloadKey?: number
+}) {
   const supabase = createClient()
   const guardDelete = useDeleteGuard()
 
@@ -78,7 +95,7 @@ export function PaymentRequests({ projectId }: { projectId: string }) {
     setLoading(false)
   }, [projectId, token])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { load() }, [load, reloadKey])
 
   async function post(url: string, init: RequestInit) {
     setError(null)
@@ -228,7 +245,10 @@ export function PaymentRequests({ projectId }: { projectId: string }) {
                   onClick={() => setSendingId(sendingId === r.id ? null : r.id)}>
                   <Mail className="h-3.5 w-3.5" /> {r.sent_at ? 'Send again' : 'Send'}
                 </Button>
-                <Button size="sm" className="h-8" disabled={busy === r.id} onClick={() => setStatus(r, 'paid')}>
+                <Button size="sm" className="h-8" disabled={busy === r.id}
+                  onClick={() => onSettle
+                    ? onSettle({ id: r.id, label: r.label, amount: Number(r.amount) })
+                    : setStatus(r, 'paid')}>
                   {busy === r.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                   Mark paid
                 </Button>
@@ -260,8 +280,8 @@ export function PaymentRequests({ projectId }: { projectId: string }) {
             </div>
           ))}
           <p className="text-xs text-faint">
-            Marking one paid records that the ask was answered. Record the money itself with Record Payment
-            above, so it lands in the ledger with its date and method.
+            Mark paid opens the same payment record as everything else - date, method, cheque number - so
+            the money lands in your ledger and the request is settled in one go.
           </p>
         </div>
       )}

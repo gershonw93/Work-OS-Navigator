@@ -59,6 +59,13 @@ export const RELEASES: Release[] = [
         href: '/projects',
       },
       {
+        kind: 'improved',
+        title: 'Mark paid records the payment properly',
+        text: 'It used to just tick the request off - a green "Paid" with no date, no method and no cheque number, and nothing in your ledger. It now opens the normal Record a client payment box with the date, amount and memo already filled in and Retainer/deposit ticked. Change anything before saving: if you asked for $5,000 and they sent $4,800, record $4,800 and the request settles against that.',
+        help: 'request-deposit',
+        href: '/projects',
+      },
+      {
         kind: 'new',
         title: 'Ask in dollars or as a percentage',
         text: 'A one-off request takes either - $5,000 to start, or 30% up front. Type a percentage and it shows you what it comes to against your estimate before you send it, and the request records how it was worked out so you can check it against the quote later.',

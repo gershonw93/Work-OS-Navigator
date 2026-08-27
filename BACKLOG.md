@@ -110,6 +110,7 @@ Shipped in #218: bulk creation makes a site + a job per unit/floor/house, with a
 ---
 
 ## ✅ Recently shipped (for reference)
+- "Mark paid" on a deposit request opens the real Record a client payment dialog (prefilled, fully editable) and settles the request against the payment it creates, instead of flipping a status with no money behind it (#305)
 - One-off deposit requests take a percentage as well as a dollar figure, resolved server-side against the estimate; `useClientEmail` hook so the Send box prefill has one reader instead of two disagreeing about the response key (#304)
 - Request a deposit / stage payment (migration 083 `client_payment_requests`): amounts resolved from the estimate's `payment_stages`, emailed via the existing token-link send, shown on the client portal once sent, and reflected in the go-live checklist. Deliberately NOT an invoice row - an invoice means approved costs plus markup, and filing a deposit as one would double-count it when the real costs arrive (#303)
 - AIA jobs could not record a client payment at all - `payments` was hidden on AIA, and it is the only writer of `client_payments`; the page now hides just its invoice-raising half and points at Pay Apps, and the tab-redirect guard checks the same predicate as tab visibility so a hidden tab can never render as an orphan (#302)

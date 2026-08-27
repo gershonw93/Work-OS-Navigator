@@ -46,6 +46,11 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
   // is the only place in the app that writes a client payment at all.
   const [billingMode, setBillingMode] = useState<string | null>(null)
   const isAia = billingMode === 'aia'
+  // Set when the payment dialog was opened by "Mark paid" on a deposit request,
+  // so the payment it creates can settle that request. Cleared on cancel too -
+  // a dialog dismissed must not settle anything.
+  const [settling, setSettling] = useState<{ id: string; label: string; amount: number } | null>(null)
+  const [requestsKey, setRequestsKey] = useState(0)
 
   async function token() { const { data: { session } } = await supabase.auth.getSession(); return session?.access_token ?? '' }
 
@@ -76,6 +81,33 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
     return () => { active = false }
   }, [params.id])
 
+  /**
+   * Open the payment dialog to settle a deposit request.
+   *
+   * Prefilled from the request, but every field stays editable: a client who
+   * was asked for $5,000 and sent $4,800 must be recorded as having sent
+   * $4,800. The request is settled by whatever is actually entered.
+   */
+  function settleRequest(r: { id: string; label: string; amount: number }) {
+    setSettling(r)
+    setForm({
+      ...blank,
+      paid_date: new Date().toISOString().split('T')[0],
+      amount: String(r.amount),
+      memo: r.label,
+      // A deposit is a retainer by definition - it is money held against work
+      // not yet done, which is exactly what this flag means.
+      retainer: true,
+    })
+    setAdding(true)
+  }
+
+  function closePaymentForm() {
+    setAdding(false)
+    setForm({ ...blank })
+    setSettling(null)
+  }
+
   async function addPayment() {
     if (!form.amount) return
     setSaving(true)
@@ -84,9 +116,28 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
       body: JSON.stringify({ ...form, amount: Number(form.amount) }),
     })
+    if (!res.ok) {
+      setSaving(false)
+      alert((await res.json().catch(() => ({}))).error ?? 'Could not add')
+      return
+    }
+
+    // Settle the request this payment answers, and point it at the payment.
+    // Only after the payment is safely written: marking a request paid against
+    // money that failed to save is the lie this whole flow exists to avoid.
+    if (settling) {
+      const created = await res.json().catch(() => ({} as any))
+      await fetch(`/api/projects/${params.id}/payment-requests/${settling.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+        body: JSON.stringify({ status: 'paid', client_payment_id: created?.payment?.id ?? null }),
+      }).catch(() => {})
+      setRequestsKey(k => k + 1)
+    }
+
     setSaving(false)
-    if (res.ok) { setForm({ ...blank }); setAdding(false); load() }
-    else alert((await res.json().catch(() => ({}))).error ?? 'Could not add')
+    closePaymentForm()
+    load()
   }
 
   async function saveEdit(id: string) {
@@ -231,7 +282,7 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
           for before there is anything to bill. Shown on BOTH billing modes -
           a pay application bills work in place, and a deposit is not work in
           place. */}
-      <PaymentRequests projectId={params.id} />
+      <PaymentRequests projectId={params.id} onSettle={settleRequest} reloadKey={requestsKey} />
 
       {billingMode !== null && (isAia ? (
         <div className="bg-panel rounded-xl border border-line p-4">
@@ -265,11 +316,21 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
 
       {/* Add form - modal so it's front-and-center, not buried at the bottom */}
       {adding && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !saving && setAdding(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !saving && closePaymentForm()}>
         <div className="bg-panel rounded-xl border border-accent/40 shadow-xl w-full max-w-lg p-4 sm:p-5 space-y-3" onClick={e => e.stopPropagation()}>
           <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-ink-soft">Record a client payment</p>
-            <button onClick={() => { setAdding(false); setForm({ ...blank }) }} className="text-faint hover:text-ink"><X className="h-4 w-4" /></button>
+            <div>
+              <p className="text-sm font-semibold text-ink-soft">Record a client payment</p>
+              {/* Say what is prefilled and why, or the numbers already in the
+                  form look like they came from nowhere. */}
+              {settling && (
+                <p className="text-xs text-muted-fg">
+                  Settling the <span className="font-medium text-ink-soft">{settling.label}</span> request.
+                  Change anything below if they sent something different.
+                </p>
+              )}
+            </div>
+            <button onClick={closePaymentForm} className="text-faint hover:text-ink"><X className="h-4 w-4" /></button>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="space-y-1"><Label>Date</Label><Input type="date" value={form.paid_date} onChange={e => setForm({ ...form, paid_date: e.target.value })} /></div>
@@ -285,7 +346,7 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
             <label className="flex items-center gap-2 text-sm text-ink-soft"><input type="checkbox" className="accent-[#C9F24A]" checked={form.retainer} onChange={e => setForm({ ...form, retainer: e.target.checked })} /> Retainer / deposit</label>
             <label className="flex items-center gap-2 text-sm text-ink-soft"><input type="checkbox" className="accent-[#C9F24A]" checked={form.qb_entered} onChange={e => setForm({ ...form, qb_entered: e.target.checked })} /> Entered in QuickBooks</label>
             <div className="ml-auto flex gap-2">
-              <Button variant="secondary" onClick={() => { setAdding(false); setForm({ ...blank }) }}>Cancel</Button>
+              <Button variant="secondary" onClick={closePaymentForm}>Cancel</Button>
               <Button onClick={addPayment} disabled={saving || !form.amount}>{saving ? 'Saving…' : 'Add'}</Button>
             </div>
           </div>
