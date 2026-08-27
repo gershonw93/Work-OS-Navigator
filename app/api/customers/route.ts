@@ -20,6 +20,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { pushCustomer } from '@/lib/quickbooks-push'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -73,6 +74,9 @@ export async function POST(request: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
+  // Into QuickBooks now, not the first time somebody happens to invoice them.
+  await pushCustomer(db, customer.id)
+
   return NextResponse.json({ customer })
 }
 
@@ -106,6 +110,9 @@ export async function PATCH(request: Request) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Corrections reach the books too - an address fixed here used to stay here.
+  await pushCustomer(db, customer.id)
 
   return NextResponse.json({ customer })
 }

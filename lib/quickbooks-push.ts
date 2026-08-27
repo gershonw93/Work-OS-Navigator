@@ -621,3 +621,75 @@ export async function pushPaymentForProject(db: SupabaseClient, paymentId: strin
     return { pushed: false, reason: 'failed', detail: err?.message ?? 'unknown' }
   }
 }
+
+// ── Customers ────────────────────────────────────────────────────────────────
+
+/** The QBO Customer fields we own, from a SyteNav customer row. */
+export function customerPayload(c: {
+  name?: string | null; email?: string | null; phone?: string | null; billing_address?: string | null
+}) {
+  const payload: Record<string, unknown> = { DisplayName: c.name }
+  if (c.email) payload.PrimaryEmailAddr = { Address: c.email }
+  if (c.phone) payload.PrimaryPhone = { FreeFormNumber: c.phone }
+  if (c.billing_address) payload.BillAddr = { Line1: c.billing_address }
+  return payload
+}
+
+/**
+ * Put a customer in QuickBooks, or update the one that is already there.
+ *
+ * Customers used to reach QuickBooks only as a SIDE EFFECT - created the first
+ * time a payment or invoice needed something to attach to - or when somebody
+ * remembered the Sync customers button. So the QuickBooks customer list lagged
+ * the Directory, and an address corrected in SyteNav never reached the books.
+ *
+ * Nothing here is allowed to fail adding a customer: same never-throw,
+ * time-capped contract as every other push.
+ */
+export async function pushCustomer(db: SupabaseClient, customerId: string, ctx?: PushContext): Promise<PushResult> {
+  try {
+    const { data: c } = await db.from('customers')
+      .select('id, gc_company_id, name, email, phone, billing_address, qbo_id')
+      .eq('id', customerId).maybeSingle()
+    if (!c) return { pushed: false, reason: 'skipped', detail: 'Customer not found' }
+    if (!c.gc_company_id) return { pushed: false, reason: 'skipped', detail: 'Customer has no company' }
+
+    const conn = await connectionFor(db, c.gc_company_id, ctx)
+    if (!conn) return { pushed: false, reason: 'not_connected' }
+
+    // Already over there: update in place rather than create a second one.
+    if (c.qbo_id) {
+      return await budgeted((async (): Promise<PushResult> => {
+        const cur = await qboFetch(conn, `customer/${c.qbo_id}`)
+        const obj = cur?.Customer
+        if (!obj?.Id) throw new Error('Customer no longer exists in QuickBooks')
+        Object.assign(obj, customerPayload(c))
+        await qboFetch(conn, 'customer', { method: 'POST', body: JSON.stringify(obj) })
+        await db.from('customers').update({ qbo_synced_at: new Date().toISOString() }).eq('id', c.id)
+        await logRow(db, c.gc_company_id!, 'customer', c.id, 'success', c.qbo_id!, 'Details updated')
+        return { pushed: true, qboId: c.qbo_id! }
+      })()).catch(async (err: any) => {
+        await logRow(db, c.gc_company_id!, 'customer', c.id, 'error', undefined, err?.message)
+        return { pushed: false, reason: 'failed' as const, detail: err?.message }
+      })
+    }
+
+    if (!await claimForPush(db, 'customers', c.id)) return { pushed: false, reason: 'already' }
+
+    return await budgeted((async (): Promise<PushResult> => {
+      const res = await qboFetch(conn, 'customer', {
+        method: 'POST', body: JSON.stringify(customerPayload(c)),
+      })
+      const qboId = res?.Customer?.Id
+      await db.from('customers').update({ qbo_id: qboId, qbo_synced_at: new Date().toISOString() }).eq('id', c.id)
+      await logRow(db, c.gc_company_id!, 'customer', c.id, 'success', qboId)
+      return { pushed: true, qboId }
+    })()).catch(async (err: any) => {
+      await releaseClaim(db, 'customers', c.id)
+      await logRow(db, c.gc_company_id!, 'customer', c.id, 'error', undefined, err?.message)
+      return { pushed: false, reason: 'failed' as const, detail: err?.message }
+    })
+  } catch (err: any) {
+    return { pushed: false, reason: 'failed', detail: err?.message ?? 'unknown' }
+  }
+}
