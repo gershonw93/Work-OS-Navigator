@@ -53,6 +53,13 @@ export const RELEASES: Release[] = [
     items: [
       {
         kind: 'fixed',
+        title: 'Marking an invoice paid records the money',
+        text: 'Mark paid on a client invoice used to just tick it off - no amount, no date, no method, nothing in Funds Received, and the QuickBooks invoice stayed open so it still counted as owed. It now opens the same Record a client payment box everything else uses, filled in from the invoice, so the money lands in your ledger with how it was paid and the QuickBooks invoice is settled by it.',
+        help: 'money-overview',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
         title: 'One invoice, one QuickBooks invoice',
         text: 'Pressing Issue twice quickly sent two requests, and both created an invoice in QuickBooks before either finished - so one invoice became two, and the spare sat there as money your client appeared to owe. The push is now claimed atomically: whichever press gets there first does the work, the other is ignored. The buttons also grey out while a change is going through.',
         help: 'connect-quickbooks',
