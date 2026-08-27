@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { admin, getValidConnection, qboFetch } from '@/lib/quickbooks'
-import { pushBill, pushClientPayment, type PushContext } from '@/lib/quickbooks-push'
+import { pushBill, pushClientPayment, refreshBillInQbo, refreshPaymentInQbo, type PushContext } from '@/lib/quickbooks-push'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -144,6 +144,45 @@ export async function POST(request: Request) {
       else if (r.reason === 'already') results.push({ id: p.id, name: label, status: 'skipped', message: 'Already synced' })
       else results.push({ id: p.id, name: label, status: 'error', message: r.detail ?? r.reason })
     }
+  } else if (entity === 'refresh') {
+    // Rewrite memo/reference formatting on records ALREADY in QuickBooks -
+    // updates in place, never a duplicate. Chunked: each record costs two QBO
+    // round trips (fetch for the SyncToken, then update), and this route has a
+    // 60s ceiling, so we do 25 per call and report what remains. The card
+    // keeps calling until remaining is 0.
+    const CHUNK = 25
+    const projectIds = await ownedProjectIds()
+    if (!projectIds.length) return NextResponse.json({ summary: { total: 0, synced: 0, skipped: 0, errors: 0 }, remaining: 0, results: [] })
+
+    const [{ data: pays }, { data: bills }] = await Promise.all([
+      db.from('client_payments').select('id, qbo_synced_at').in('project_id', projectIds).not('qbo_id', 'is', null),
+      db.from('invoices').select('id, qbo_synced_at').in('project_id', projectIds).not('qbo_id', 'is', null),
+    ])
+    // Oldest sync stamps first, so re-pressing after a partial run continues
+    // where it stopped instead of redoing the same 25 forever.
+    const queue = [
+      ...(pays ?? []).map((r: any) => ({ kind: 'payment' as const, id: r.id, at: r.qbo_synced_at ?? '' })),
+      ...(bills ?? []).map((r: any) => ({ kind: 'bill' as const, id: r.id, at: r.qbo_synced_at ?? '' })),
+    ].sort((a, b) => a.at.localeCompare(b.at))
+
+    const batch = queue.slice(0, CHUNK)
+    const ctx: PushContext = { conn }
+    for (const item of batch) {
+      const r = item.kind === 'payment'
+        ? await refreshPaymentInQbo(db, item.id, ctx)
+        : await refreshBillInQbo(db, item.id, ctx)
+      const label = `${item.kind === 'payment' ? 'Payment' : 'Bill'} ${item.id.slice(0, 8)}`
+      if (r.pushed) results.push({ id: item.id, name: label, status: 'success', qbo_id: r.qboId })
+      else results.push({ id: item.id, name: label, status: 'error', message: r.detail ?? r.reason })
+    }
+
+    const summary = {
+      total: results.length,
+      synced: results.filter(r => r.status === 'success').length,
+      skipped: 0,
+      errors: results.filter(r => r.status === 'error').length,
+    }
+    return NextResponse.json({ summary, remaining: queue.length - batch.length, results })
   } else {
     return NextResponse.json({ error: `Unsupported entity "${entity}".` }, { status: 400 })
   }

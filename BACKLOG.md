@@ -114,7 +114,7 @@ Shipped in #218: bulk creation makes a site + a job per unit/floor/house, with a
 ---
 
 ## ✅ Recently shipped (for reference)
-- QuickBooks records are matchable: project name in the memo/line description, SN-<id8> in DocNumber, same ref in the SyteNav chip tooltip. Records pushed before this keep plain memos - a sparse-update backfill was skipped as sandbox-only data (#313)
+- QuickBooks records are matchable: project name in the memo/line description, SN-<id8> in DocNumber, same ref in the SyteNav chip tooltip. "Update formatting" on the Settings card refreshes already-synced records in place (chunked 25/call under the 60s route ceiling), sharing the same composers as the push (#313, #314)
 - QuickBooks auto-push: client payments on record and sub bills on approval push themselves via shared pushers (lib/quickbooks-push.ts) that the manual Settings sync also uses - never throws, 8s cap, sync-log on miss; payments chip reads the real qbo_id with the hand-tick kept for manual entry; Settings card shows the unsynced backlog (#312)
 - Portal Payments card: the client_payments ledger rendered client-side-safe (date, memo, amount, deposit chip, total) - the asks vanish once answered and nothing acknowledged the money moved (#311)
 - Client portal lists sent/paid invoices with an outstanding total, each linking to its /bill page - they only ever existed inside the send email before; drafts excluded on the same never-surprise rule as payment requests (#310)

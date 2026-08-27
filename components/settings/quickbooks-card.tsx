@@ -79,6 +79,35 @@ export function QuickBooksCard() {
     } catch (e: any) { setMsg({ ok: false, text: e.message }) } finally { setBusy('') }
   }
 
+  /**
+   * Rewrite memo + SN reference on everything already in QuickBooks.
+   *
+   * Updates records IN PLACE - re-pushing would duplicate them. The server
+   * does 25 per call (each costs two QuickBooks round trips inside a 60s
+   * route ceiling) and reports what remains, so this loops until done with a
+   * live count rather than timing out on a big backlog.
+   */
+  async function refreshFormatting() {
+    setBusy('refresh'); setMsg(null)
+    try {
+      let done = 0
+      let errors = 0
+      for (;;) {
+        const res = await fetch('/api/quickbooks/sync', {
+          method: 'POST', headers: await authHeaders(), body: JSON.stringify({ entity: 'refresh' }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Refresh failed')
+        done += data.summary.synced
+        errors += data.summary.errors
+        if (!data.remaining) break
+        setMsg({ ok: true, text: `Updating formatting… ${done} done, ${data.remaining} to go.` })
+      }
+      setMsg({ ok: errors === 0, text: `Formatting updated on ${done} record${done === 1 ? '' : 's'} in QuickBooks${errors ? `, ${errors} error${errors === 1 ? '' : 's'} (see the log)` : ''}.` })
+      await load()
+    } catch (e: any) { setMsg({ ok: false, text: e.message }) } finally { setBusy('') }
+  }
+
   async function sync(entity: 'customers' | 'vendors' | 'bills' | 'payments') {
     setBusy(entity); setMsg(null)
     try {
@@ -198,6 +227,12 @@ export function QuickBooksCard() {
                   className="inline-flex items-center gap-2 rounded-lg border border-line bg-surface px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50">
                   {busy === 'payments' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Banknote className="h-4 w-4" />}
                   Sync payments
+                </button>
+                <button onClick={refreshFormatting} disabled={!!busy}
+                  title="Rewrite the memo and SN reference on records already in QuickBooks - updates them in place, no duplicates"
+                  className="inline-flex items-center gap-2 rounded-lg border border-line bg-surface px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50">
+                  {busy === 'refresh' ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                  Update formatting
                 </button>
                 <button onClick={disconnect} disabled={!!busy}
                   className="inline-flex items-center gap-2 rounded-lg border border-line bg-surface px-4 py-2 text-sm font-semibold text-danger disabled:opacity-50">

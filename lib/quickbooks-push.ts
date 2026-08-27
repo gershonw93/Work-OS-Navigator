@@ -73,6 +73,15 @@ export function snRef(id: string): string {
   return `SN-${id.slice(0, 8)}`
 }
 
+/** One place decides how a memo reads, so push and refresh cannot drift. */
+export function composeMemo(projectName?: string | null, memo?: string | null): string | undefined {
+  return [projectName, memo].filter(Boolean).join(' - ') || undefined
+}
+
+export function composeBillDescription(trade?: string | null, projectName?: string | null): string {
+  return [trade ?? 'Subcontractor work', projectName].filter(Boolean).join(' - ')
+}
+
 export function paymentPayload(
   p: { id?: string; amount: unknown; paid_date?: string | null; memo?: string | null },
   customerQboId: string,
@@ -85,7 +94,7 @@ export function paymentPayload(
     ...(p.id ? { DocNumber: snRef(p.id) } : {}),
     // The memo answers "which job?" before it says anything else - the
     // customer name is already on the record, the project is what was missing.
-    PrivateNote: [projectName, p.memo].filter(Boolean).join(' - ') || undefined,
+    PrivateNote: composeMemo(projectName, p.memo),
     Line: [{
       DetailType: 'SalesItemLineDetail',
       Amount: Number(p.amount),
@@ -108,7 +117,7 @@ export function billPayload(
     Line: [{
       DetailType: 'AccountBasedExpenseLineDetail',
       Amount: Number(inv.amount),
-      Description: [inv.trade ?? 'Subcontractor work', projectName].filter(Boolean).join(' - '),
+      Description: composeBillDescription(inv.trade, projectName),
       AccountBasedExpenseLineDetail: { AccountRef: { value: expenseAccountId } },
     }],
   }
@@ -261,6 +270,79 @@ export async function pushBill(db: SupabaseClient, invoiceId: string, ctx?: Push
       return { pushed: true, qboId }
     })()).catch(async (err: any) => {
       await logRow(db, companyId, 'bill', inv.id, 'error', undefined, err?.message)
+      return { pushed: false, reason: 'failed' as const, detail: err?.message }
+    })
+  } catch (err: any) {
+    return { pushed: false, reason: 'failed', detail: err?.message ?? 'unknown' }
+  }
+}
+
+// ── Refreshing formatting on records already in QuickBooks ───────────────────
+//
+// Records pushed before the project name and SN reference existed sit in QBO
+// as bare "customer + amount + Draw 8" rows - unmatchable. This rewrites those
+// two fields on the EXISTING record, never creating a second one: fetch the
+// record (which yields the SyncToken QBO demands on any update), set the
+// fields, post it back. Amounts, dates and links are untouched.
+
+/** Rewrite memo + reference on an already-synced payment. Never throws. */
+export async function refreshPaymentInQbo(db: SupabaseClient, paymentId: string, ctx?: PushContext): Promise<PushResult> {
+  try {
+    const { data: p } = await db.from('client_payments')
+      .select('id, project_id, memo, qbo_id').eq('id', paymentId).maybeSingle()
+    if (!p?.qbo_id) return { pushed: false, reason: 'skipped', detail: 'Not in QuickBooks yet' }
+
+    const { companyId, projectName } = await projectCompany(db, p.project_id)
+    if (!companyId) return { pushed: false, reason: 'skipped', detail: 'Project has no company' }
+    const conn = await connectionFor(db, companyId, ctx)
+    if (!conn) return { pushed: false, reason: 'not_connected' }
+
+    return await budgeted((async (): Promise<PushResult> => {
+      const cur = await qboFetch(conn, `salesreceipt/${p.qbo_id}`)
+      const obj = cur?.SalesReceipt
+      if (!obj?.Id) throw new Error('Record no longer exists in QuickBooks')
+      obj.PrivateNote = composeMemo(projectName, p.memo) ?? ''
+      obj.DocNumber = snRef(p.id)
+      await qboFetch(conn, 'salesreceipt', { method: 'POST', body: JSON.stringify(obj) })
+      await db.from('client_payments').update({ qbo_synced_at: new Date().toISOString() }).eq('id', p.id)
+      await logRow(db, companyId, 'payment', p.id, 'success', p.qbo_id, 'Formatting refreshed')
+      return { pushed: true, qboId: p.qbo_id }
+    })()).catch(async (err: any) => {
+      await logRow(db, companyId, 'payment', p.id, 'error', undefined, `Refresh: ${err?.message}`)
+      return { pushed: false, reason: 'failed' as const, detail: err?.message }
+    })
+  } catch (err: any) {
+    return { pushed: false, reason: 'failed', detail: err?.message ?? 'unknown' }
+  }
+}
+
+/** Rewrite reference + line description on an already-synced bill. Never throws. */
+export async function refreshBillInQbo(db: SupabaseClient, invoiceId: string, ctx?: PushContext): Promise<PushResult> {
+  try {
+    const { data: inv } = await db.from('invoices')
+      .select('id, project_id, qbo_id, subcontracts(trade)').eq('id', invoiceId).maybeSingle()
+    if (!inv?.qbo_id) return { pushed: false, reason: 'skipped', detail: 'Not in QuickBooks yet' }
+
+    const { companyId, projectName } = await projectCompany(db, inv.project_id)
+    if (!companyId) return { pushed: false, reason: 'skipped', detail: 'Project has no company' }
+    const conn = await connectionFor(db, companyId, ctx)
+    if (!conn) return { pushed: false, reason: 'not_connected' }
+
+    return await budgeted((async (): Promise<PushResult> => {
+      const cur = await qboFetch(conn, `bill/${inv.qbo_id}`)
+      const obj = cur?.Bill
+      if (!obj?.Id) throw new Error('Record no longer exists in QuickBooks')
+      obj.DocNumber = snRef(inv.id)
+      // Only retitle the expense line this push wrote; anything a bookkeeper
+      // added by hand in QBO is not ours to rename.
+      const line = (obj.Line ?? []).find((l: any) => l.DetailType === 'AccountBasedExpenseLineDetail')
+      if (line) line.Description = composeBillDescription((inv.subcontracts as any)?.trade, projectName)
+      await qboFetch(conn, 'bill', { method: 'POST', body: JSON.stringify(obj) })
+      await db.from('invoices').update({ qbo_synced_at: new Date().toISOString() }).eq('id', inv.id)
+      await logRow(db, companyId, 'bill', inv.id, 'success', inv.qbo_id, 'Formatting refreshed')
+      return { pushed: true, qboId: inv.qbo_id }
+    })()).catch(async (err: any) => {
+      await logRow(db, companyId, 'bill', inv.id, 'error', undefined, `Refresh: ${err?.message}`)
       return { pushed: false, reason: 'failed' as const, detail: err?.message }
     })
   } catch (err: any) {
