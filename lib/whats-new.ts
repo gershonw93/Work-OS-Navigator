@@ -53,10 +53,22 @@ export const RELEASES: Release[] = [
     items: [
       {
         kind: 'fixed',
+        title: 'AIA jobs can record client payments again',
+        text: 'Billing the client was hidden on AIA jobs, and that page is the only place in the app that records money received from a client. So an AIA job had no way to bank a deposit or a draw at all - while the go-live checklist required one before the job could be set Active. The tab is back on AIA jobs for recording money in; raising what the client owes still happens through Pay Apps, and the page now says so and links there.',
+        help: 'pay-applications',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
         title: 'Recording a deposit on a job that has not started yet',
-        text: 'The go-live checklist asks for a deposit or first payment before you set a job to Active - but Billing the client was hidden until the job WAS active. Pressing "Open" on that item flashed the page and then bounced you to Plans. A deposit is money you take before breaking ground, so that tab is now available while a job is still in planning.',
+        text: 'The go-live checklist asks for a deposit or first payment before you set a job to Active - but Billing the client was also hidden until the job WAS active. Pressing "Open" on that item flashed the page and then bounced you to Plans. A deposit is money you take before breaking ground, so that tab is now available while a job is still in planning.',
         help: 'project-status-active',
         href: '/projects',
+      },
+      {
+        kind: 'fixed',
+        title: 'No more pages with no tab',
+        text: 'Opening a link to a tab your job does not have used to render the page anyway, with nothing highlighted and no obvious way back. The rule that hides a tab and the rule that blocks reaching it are now the same rule.',
       },
       {
         kind: 'fixed',

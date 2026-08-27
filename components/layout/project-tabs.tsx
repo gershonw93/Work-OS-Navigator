@@ -178,17 +178,30 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
     if (!isSub) return true
     return ctx?.owns ? !SUB_OWN_HIDDEN.has(slug) : SUB_AWARDED_ALLOWED.has(slug)
   }
-  // Billing mode decides how you bill the CLIENT, so it only hides the
-  // client-facing tabs: AIA jobs bill via Pay Apps, simple jobs via Payments.
+  // Billing mode decides how you RAISE what the client owes. Pay Apps is the
+  // AIA way of doing that, so it only exists on AIA jobs.
   //
-  // Invoices is not one of them. That tab holds bills your subs and suppliers
-  // sent YOU - money out, nothing to do with how money comes in - and hiding it
-  // on AIA jobs left the job type with the most subcontractors on it with
-  // nowhere to record a single sub's bill.
+  // It does NOT decide whether money can come in. Two tabs were hidden here on
+  // that reasoning and both were mistakes of the same shape - a tab does more
+  // than one thing, one half is superseded, and hiding the tab takes the other
+  // half with it:
+  //
+  //   * Invoices holds bills your subs and suppliers sent YOU - money out,
+  //     nothing to do with how money comes in. Hiding it on AIA jobs left the
+  //     job type with the most subcontractors on it with nowhere to record a
+  //     single sub's bill.
+  //   * Billing the client is where you RECORD MONEY RECEIVED, and it is the
+  //     only place in the app that writes a client payment at all. An AIA job
+  //     still takes deposits and still banks draws, so hiding it meant an AIA
+  //     job could not record a payment by any route - while the go-live
+  //     checklist demanded one before the job could be set active.
+  //
+  // So only pay-apps is gated now. The payments page hides its own "raise an
+  // invoice" half on AIA jobs and points at Pay Apps instead, which is the
+  // narrow thing that was actually true here.
   const billingMode = ctx?.billingMode ?? 'simple'
   const billingAllows = (slug: string) => {
     if (slug === 'pay-apps') return billingMode === 'aia'
-    if (slug === 'payments') return billingMode !== 'aia'
     return true
   }
   // Preconstruction: planning jobs get the estimating/approvals lane only.
@@ -216,15 +229,21 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
         .filter(g => g.tabs.length > 0)
   const visibleTabs = filteredGroups.flatMap(g => g.tabs)
 
-  // Block direct-URL access to a tab a sub isn't allowed to see on this project.
+  // Block direct-URL access to a tab that does not exist for this project.
+  //
+  // `billingAllows` is checked here too. It was not, so a tab hidden purely by
+  // billing mode still RENDERED when you reached it by link - no tab
+  // highlighted, no group selected, an orphan page with no way back. Whatever
+  // decides a tab is invisible has to be the same thing that decides it is
+  // unreachable, or the two disagree and the user is the one who finds out.
   useEffect(() => {
     if (!ready) return
     const current = allTabs.find(t => pathname.includes(`/${t.slug}`))
-    if (current && (!statusAllows(current.slug) || (isSub && !subAllows(current.slug)))) {
+    if (current && (!statusAllows(current.slug) || !billingAllows(current.slug) || (isSub && !subAllows(current.slug)))) {
       const fallback = visibleTabs[0]?.slug ?? 'plans'
       router.replace(`/projects/${projectId}/${fallback}`)
     }
-  }, [ready, isSub, isPlanning, isSite, pathname])
+  }, [ready, isSub, isPlanning, isSite, billingMode, pathname])
 
   const activeTab = visibleTabs.find(t => pathname.includes(`/${t.slug}`))
   const activeGroup = filteredGroups.find(g => g.tabs.some(t => t.slug === activeTab?.slug))

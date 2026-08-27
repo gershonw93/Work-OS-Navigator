@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
-import { Plus, X, Wallet, TrendingDown, Banknote, Percent, Trash2, Pencil, Check, Landmark } from 'lucide-react'
+import Link from 'next/link'
+import { Plus, X, Wallet, TrendingDown, Banknote, Percent, Trash2, Pencil, Check, Landmark, ArrowRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface Payment {
@@ -38,6 +39,12 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
   const [editForm, setEditForm] = useState({ ...blank })
   const [feeEditing, setFeeEditing] = useState(false)
   const [feeInput, setFeeInput] = useState('')
+  // On an AIA job the client is billed through pay applications, so the
+  // "raise an invoice" half of this page would be a second, competing way to
+  // ask for the same money. Recording money RECEIVED still belongs here - this
+  // is the only place in the app that writes a client payment at all.
+  const [billingMode, setBillingMode] = useState<string | null>(null)
+  const isAia = billingMode === 'aia'
 
   async function token() { const { data: { session } } = await supabase.auth.getSession(); return session?.access_token ?? '' }
 
@@ -51,6 +58,22 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
     setLoading(false)
   }
   useEffect(() => { load() }, [params.id])
+
+  // Which way this job bills its client. Same endpoint the tabs use, so the
+  // page and the tab bar can never disagree about what this job is.
+  useEffect(() => {
+    let active = true
+    ;(async () => {
+      const t = await token()
+      const res = await fetch(`/api/projects/${params.id}/viewer-context`, { headers: { Authorization: `Bearer ${t}` } })
+      if (!res.ok || !active) return
+      const d = await res.json()
+      // Default to 'simple' rather than leaving it null: an unreadable answer
+      // must not silently withhold the billing section on an ordinary job.
+      setBillingMode(d.billingMode ?? 'simple')
+    })()
+    return () => { active = false }
+  }, [params.id])
 
   async function addPayment() {
     if (!form.amount) return
@@ -197,8 +220,28 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
       </div>
 
       {/* Billing the client. This is the half that was missing: Payments only
-          ever recorded money that had already arrived. */}
-      <ClientInvoices projectId={params.id} />
+          ever recorded money that had already arrived.
+
+          Not shown on AIA jobs - there the claim goes out as a pay application,
+          and two ways to bill the same client for the same work is how the
+          numbers stop agreeing. */}
+      {billingMode !== null && (isAia ? (
+        <div className="bg-panel rounded-xl border border-line p-4">
+          <p className="font-semibold text-ink">Billing your client</p>
+          <p className="mt-1 text-sm text-muted-fg">
+            This is an AIA job, so what the client owes is raised as a pay application rather than an
+            invoice from here. Record the money they send you above.
+          </p>
+          <Link
+            href={`/projects/${params.id}/pay-apps`}
+            className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-accent-fg hover:underline"
+          >
+            Go to Pay Apps <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+      ) : (
+        <ClientInvoices projectId={params.id} />
+      ))}
 
       {/* Projections */}
       <div className="bg-panel rounded-xl border border-line p-4">
