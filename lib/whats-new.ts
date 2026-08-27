@@ -49,6 +49,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-08-27',
+    title: 'Clients see their invoices on the portal',
+    items: [
+      {
+        kind: 'new',
+        title: 'Invoices are on the client portal',
+        text: 'The portal showed your client their schedule, permits, selections and any payment requests - but not the invoices they were actually billed. Those only existed inside the email you sent. Every sent and paid invoice is now listed on their portal link, with what is currently due at the top and each one opening to the full breakdown. Drafts never appear.',
+        help: 'money-overview',
+      },
+    ],
+  },
+  {
+    date: '2026-08-27',
     title: 'Jobs open on an Overview now',
     items: [
       {
