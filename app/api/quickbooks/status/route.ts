@@ -32,8 +32,11 @@ export async function GET(request: Request) {
   let unsyncedClientInvoices = 0
   if (projectIds.length) {
     const [pay, bills, clientInv] = await Promise.all([
+      // Not "unsynced" if somebody entered it in QuickBooks themselves -
+      // reporting those as waiting would nag forever about work already done.
       db.from('client_payments').select('id', { count: 'exact', head: true })
-        .in('project_id', projectIds).is('qbo_id', null),
+        .in('project_id', projectIds).is('qbo_id', null)
+        .or('qb_entered.is.null,qb_entered.eq.false'),
       db.from('invoices').select('id', { count: 'exact', head: true })
         .in('project_id', projectIds).in('status', ['approved', 'paid']).is('qbo_id', null),
       db.from('client_invoices').select('id', { count: 'exact', head: true })

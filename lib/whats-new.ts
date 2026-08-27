@@ -52,6 +52,13 @@ export const RELEASES: Release[] = [
     title: 'A double-press cannot double-bill your client',
     items: [
       {
+        kind: 'fixed',
+        title: '"Already in QuickBooks" now actually stops the sync',
+        text: 'That tick box on the payment form was left over from before the QuickBooks connection existed, and once payments started syncing themselves it stopped meaning anything - tick it and the payment went across anyway, so a payment you had already typed into QuickBooks would land there twice. It is now honoured, and relabelled so it reads as an instruction rather than a note to yourself. Nothing in your books was affected: every ticked payment so far was ticked by the sync itself.',
+        help: 'connect-quickbooks',
+        href: '/projects',
+      },
+      {
         kind: 'new',
         title: 'Void an invoice you sent by mistake',
         text: 'A sent invoice could not be deleted, edited or cancelled - it was permanent. You can now Void one: it stays on the list with its number for the record, the costs on it become billable again so you can raise a corrected invoice, and the QuickBooks invoice is voided so it stops counting as money owed. Drafts are still simply deleted.',
