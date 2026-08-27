@@ -8,7 +8,8 @@ import { SendLinkBox } from '@/components/ui/send-link-box'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 import { Plus, Check, Mail, AlertCircle, Loader2, X, Undo2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { blockedReason, isRequestable, type ResolvedStage } from '@/lib/payment-stages'
+import { blockedReason, isRequestable, percentOfTotal, type ResolvedStage } from '@/lib/payment-stages'
+import { useClientEmail } from '@/lib/use-client-email'
 
 interface Req {
   id: string
@@ -46,12 +47,18 @@ export function PaymentRequests({ projectId }: { projectId: string }) {
   const [requests, setRequests] = useState<Req[]>([])
   const [quoteTotal, setQuoteTotal] = useState<number | null>(null)
   const [portalToken, setPortalToken] = useState<string | null>(null)
-  const [clientEmail, setClientEmail] = useState('')
+  const clientEmail = useClientEmail(projectId)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [sendingId, setSendingId] = useState<string | null>(null)
-  const [manual, setManual] = useState<{ label: string; amount: string } | null>(null)
+  // A one-off ask, as dollars or as a percentage of the estimate. Both exist
+  // because both are how people actually quote: "$5,000 to start" and "30% up
+  // front" are the same sentence in two trades.
+  const [manual, setManual] = useState<{ label: string; mode: 'amount' | 'percent'; value: string } | null>(null)
+  // What the percentage works out to, shown before they press Request. The
+  // server recomputes it from the estimate - this is a preview, not the source.
+  const manualPreview = manual?.mode === 'percent' ? percentOfTotal(manual.value, quoteTotal) : null
 
   const token = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession()
@@ -72,20 +79,6 @@ export function PaymentRequests({ projectId }: { projectId: string }) {
   }, [projectId, token])
 
   useEffect(() => { load() }, [load])
-
-  // The client's address lives on the customer record, not the project. Same
-  // endpoint the invoice composer uses, so both prefill identically.
-  useEffect(() => {
-    let active = true
-    ;(async () => {
-      const t = await token()
-      const res = await fetch(`/api/projects/${projectId}/client-email`, { headers: { Authorization: `Bearer ${t}` } })
-      if (!res.ok || !active) return
-      const d = await res.json().catch(() => ({}))
-      if (d?.email) setClientEmail(d.email)
-    })()
-    return () => { active = false }
-  }, [projectId, token])
 
   async function post(url: string, init: RequestInit) {
     setError(null)
@@ -111,10 +104,13 @@ export function PaymentRequests({ projectId }: { projectId: string }) {
   }
 
   async function raiseManual() {
-    if (!manual?.amount.trim()) return
+    if (!manual?.value.trim()) return
     setBusy('manual')
+    const payload = manual.mode === 'percent'
+      ? { label: manual.label, percent: manual.value }
+      : { label: manual.label, amount: manual.value }
     if (await post(`/api/projects/${projectId}/payment-requests`, {
-      method: 'POST', body: JSON.stringify({ label: manual.label, amount: manual.amount }),
+      method: 'POST', body: JSON.stringify(payload),
     })) { setManual(null); await load() }
     setBusy(null)
   }
@@ -302,24 +298,66 @@ export function PaymentRequests({ projectId }: { projectId: string }) {
 
       {/* One-off */}
       {manual ? (
-        <div className="flex flex-wrap items-end gap-2 rounded-lg border border-line bg-surface px-3 py-2">
-          <div className="flex-1 min-w-[140px]">
-            <label className="mb-1 block text-xs font-medium text-muted-fg">What for</label>
-            <Input className="h-9" placeholder="e.g. Deposit" value={manual.label}
-              onChange={e => setManual({ ...manual, label: e.target.value })} />
+        <div className="space-y-2 rounded-lg border border-line bg-surface px-3 py-2.5">
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="flex-1 min-w-[140px]">
+              <label className="mb-1 block text-xs font-medium text-muted-fg">What for</label>
+              <Input className="h-9" placeholder="e.g. Deposit" value={manual.label}
+                onChange={e => setManual({ ...manual, label: e.target.value })} />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-fg">How much</label>
+              <div className="flex items-stretch">
+                {/* Dollars or a share of the job - the two ways a deposit gets
+                    quoted. The toggle sits on the field it changes. */}
+                <div className="flex overflow-hidden rounded-l-md border border-r-0 border-muted2">
+                  {(['amount', 'percent'] as const).map(m => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setManual({ ...manual, mode: m, value: '' })}
+                      className={cn(
+                        'px-2.5 text-sm font-semibold transition-colors',
+                        manual.mode === m ? 'bg-accent text-accent-ink' : 'bg-panel text-muted-fg hover:bg-surface',
+                      )}
+                    >
+                      {m === 'amount' ? '$' : '%'}
+                    </button>
+                  ))}
+                </div>
+                <Input
+                  className="h-9 w-28 rounded-l-none"
+                  placeholder={manual.mode === 'percent' ? '30' : '5000'}
+                  value={manual.value}
+                  onChange={e => setManual({ ...manual, value: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <Button className="h-9" disabled={busy === 'manual' || !manual.value.trim()} onClick={raiseManual}>
+              {busy === 'manual' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Request
+            </Button>
+            <Button className="h-9" variant="secondary" onClick={() => { setManual(null); setError(null) }}>Cancel</Button>
           </div>
-          <div className="w-32">
-            <label className="mb-1 block text-xs font-medium text-muted-fg">Amount</label>
-            <Input className="h-9" placeholder="5000" value={manual.amount}
-              onChange={e => setManual({ ...manual, amount: e.target.value })} />
-          </div>
-          <Button className="h-9" disabled={busy === 'manual' || !manual.amount.trim()} onClick={raiseManual}>
-            {busy === 'manual' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Request
-          </Button>
-          <Button className="h-9" variant="secondary" onClick={() => { setManual(null); setError(null) }}>Cancel</Button>
+
+          {/* What a percentage actually comes to, before it is asked for. */}
+          {manual.mode === 'percent' && manual.value.trim() && (
+            manualPreview != null ? (
+              <p className="text-xs text-muted-fg">
+                {manual.value}% of the {money(quoteTotal!)} estimate ={' '}
+                <span className="font-semibold text-ink">{money(manualPreview)}</span>
+              </p>
+            ) : (
+              <p className="text-xs text-warn">
+                This job&apos;s estimate has no total yet, so a percentage has nothing to work from.
+                Set one on the Estimate tab, or ask for a dollar amount.
+              </p>
+            )
+          )}
         </div>
       ) : (
-        <button type="button" onClick={() => setManual({ label: 'Deposit', amount: '' })}
+        <button type="button" onClick={() => setManual({ label: 'Deposit', mode: 'amount', value: '' })}
           className="inline-flex items-center gap-1 text-sm font-medium text-accent-fg hover:underline">
           <Plus className="h-3.5 w-3.5" /> Request a one-off amount
         </button>

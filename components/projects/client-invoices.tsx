@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { InfoHint } from '@/components/ui/info-hint'
 import { FileText, Plus, Printer, Loader2, Trash2, Check, Copy, Mail, Eye } from 'lucide-react'
+import { useClientEmail } from '@/lib/use-client-email'
 
 const money = (n: unknown) => `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
 
@@ -75,7 +76,7 @@ export function ClientInvoices({ projectId }: { projectId: string }) {
   const [error, setError] = useState('')
   const [copied, setCopied] = useState('')
   const [sendingId, setSendingId] = useState('')
-  const [clientEmail, setClientEmail] = useState('')
+  const clientEmail = useClientEmail(projectId)
   const [clientName, setClientName] = useState<string | null>(null)
   const [projectName, setProjectName] = useState<string | null>(null)
 
@@ -96,20 +97,6 @@ export function ClientInvoices({ projectId }: { projectId: string }) {
       setProjectName(d.project_name ?? null)
     }
     setLoading(false)
-  }, [projectId, token])
-
-  // The client's address for the Send box. The old mailto was
-  // `mailto:?subject=...` - an empty To: field next to a link the app could
-  // have addressed itself.
-  useEffect(() => {
-    (async () => {
-      const t = await token()
-      if (!t) return
-      const res = await fetch(`/api/projects/${projectId}/client-email`, {
-        headers: { Authorization: `Bearer ${t}` },
-      })
-      if (res.ok) setClientEmail((await res.json())?.clientEmail ?? '')
-    })()
   }, [projectId, token])
 
   useEffect(() => { load() }, [load])

@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { resolveStages, isRequestable } from '@/lib/payment-stages'
+import { resolveStages, isRequestable, percentOfTotal } from '@/lib/payment-stages'
 import { friendlyDbError } from '@/lib/db-error'
 
 const admin = () => createClient(
@@ -83,10 +83,32 @@ export async function POST(request: Request, { params }: { params: { id: string 
     dueHint = stage.dueHint
   } else {
     label = String(body?.label ?? '').trim() || 'Deposit'
-    amount = Number(String(body?.amount ?? '').toString().replace(/[^0-9.]/g, ''))
     dueHint = typeof body?.due_hint === 'string' ? body.due_hint.trim() || null : null
-    if (!Number.isFinite(amount) || amount <= 0) {
-      return NextResponse.json({ error: 'Enter an amount greater than zero.' }, { status: 400 })
+
+    if (body?.percent != null && String(body.percent).trim() !== '') {
+      // A percentage is resolved against the estimate HERE, never taken as a
+      // figure from the browser. The client is about to be asked for this
+      // number; it has to come from the quote, not from what a page happened
+      // to render before the estimate was last edited.
+      const { data: project } = await db.from('projects').select('quote_total').eq('id', params.id).single()
+      const pct = Number(String(body.percent).replace(/[^0-9.]/g, ''))
+      const resolved = percentOfTotal(pct, (project as any)?.quote_total)
+      if (resolved == null) {
+        return NextResponse.json({
+          error: Number.isFinite(pct) && pct > 0
+            ? `${pct}% of what? This job's estimate has no total yet - set one on the Estimate tab, or ask for a dollar amount.`
+            : 'Enter a percentage greater than zero.',
+        }, { status: 400 })
+      }
+      amount = resolved
+      // Say so on the request itself, so a month later it is obvious where the
+      // figure came from and it can be checked against the quote.
+      if (!/%/.test(label)) label = `${label} (${pct}%)`
+    } else {
+      amount = Number(String(body?.amount ?? '').toString().replace(/[^0-9.]/g, ''))
+      if (!Number.isFinite(amount) || amount <= 0) {
+        return NextResponse.json({ error: 'Enter an amount greater than zero.' }, { status: 400 })
+      }
     }
   }
 

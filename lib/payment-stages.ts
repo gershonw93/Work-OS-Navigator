@@ -79,6 +79,22 @@ export function resolveStages(stages: unknown, quoteTotal: number | null | undef
   })
 }
 
+/**
+ * A percentage of the estimate, as money - for a one-off request typed by hand.
+ *
+ * Same rounding and same refusals as a quoted stage, because "30% of the job"
+ * has to mean the same number wherever it is typed. Returns null rather than 0
+ * when there is no total to take a percentage OF: zero is a figure somebody
+ * might send to a client.
+ */
+export function percentOfTotal(percent: unknown, quoteTotal: number | null | undefined): number | null {
+  const pct = Number(percent)
+  const total = Number(quoteTotal)
+  if (!Number.isFinite(pct) || pct <= 0) return null
+  if (!Number.isFinite(total) || total <= 0) return null
+  return money(total * pct / 100)
+}
+
 /** Whether a stage can be turned into a request for money. */
 export function isRequestable(stage: ResolvedStage): boolean {
   return stage.amount != null && stage.amount > 0
