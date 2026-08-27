@@ -49,6 +49,25 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-08-27',
+    title: 'Jobs open on an Overview now',
+    items: [
+      {
+        kind: 'new',
+        title: 'Every job has an Overview',
+        text: 'Opening a job used to drop you in Plans - a file list that tells you nothing about where the job stands. It now opens on an Overview: what you have received and what you owe vendors, what is waiting on YOU (bills to approve, RFIs unanswered, inspections to book), what is waiting on SOMEONE ELSE (money requested, certificates lapsing, selections not chosen), and what is on site over the next three weeks. Everything links straight to the tab that deals with it.',
+        help: 'job-overview',
+        href: '/projects',
+      },
+      {
+        kind: 'improved',
+        title: 'It states what is there - it does not tell you your job',
+        text: 'This is deliberately not a to-do list. You know how to run a job; what you cannot know without opening six tabs is what has piled up since you last looked. When nothing is outstanding it says so, and then gets out of the way.',
+        help: 'job-overview',
+      },
+    ],
+  },
+  {
+    date: '2026-08-27',
     title: 'Ask your client for a deposit',
     items: [
       {
