@@ -1,7 +1,7 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 import {
   Connection, getValidConnection, qboFetch,
-  defaultExpenseAccountId, defaultServiceItemId,
+  defaultExpenseAccountId, defaultServiceItemId, paymentMethodId,
 } from '@/lib/quickbooks'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -34,6 +34,18 @@ export interface PushContext {
   conn?: Connection | null
   expenseAccountId?: string
   itemId?: string
+  /** Method name -> QBO PaymentMethod id, so a 50-row sync resolves each once. */
+  methodIds?: Record<string, string | null>
+}
+
+/** Resolve a payment method id once per run. */
+async function methodIdFor(conn: Connection, method: string | null | undefined, ctx?: PushContext): Promise<string | null> {
+  const key = String(method ?? '').trim().toLowerCase()
+  if (!key) return null
+  if (ctx?.methodIds && key in ctx.methodIds) return ctx.methodIds[key]
+  const id = await paymentMethodId(conn, method)
+  if (ctx) { ctx.methodIds = ctx.methodIds ?? {}; ctx.methodIds[key] = id }
+  return id
 }
 
 const ymd = (d?: string | null): string | undefined =>
@@ -87,10 +99,14 @@ export function paymentPayload(
   customerQboId: string,
   itemId: string,
   projectName?: string | null,
+  methodQboId?: string | null,
 ) {
   return {
     CustomerRef: { value: customerQboId },
     TxnDate: ymd(p.paid_date),
+    // How the money arrived - the column a bookkeeper reconciles a bank
+    // statement against. Omitted entirely when unknown rather than guessed.
+    ...(methodQboId ? { PaymentMethodRef: { value: methodQboId } } : {}),
     ...(p.id ? { DocNumber: snRef(p.id) } : {}),
     // The memo answers "which job?" before it says anything else - the
     // customer name is already on the record, the project is what was missing.
@@ -165,11 +181,13 @@ export function appliedPaymentPayload(
   customerQboId: string,
   invoiceQboId: string,
   projectName?: string | null,
+  methodQboId?: string | null,
 ) {
   return {
     CustomerRef: { value: customerQboId },
     TxnDate: ymd(p.paid_date),
     TotalAmt: Number(p.amount),
+    ...(methodQboId ? { PaymentMethodRef: { value: methodQboId } } : {}),
     ...(p.id ? { DocNumber: snRef(p.id) } : {}),
     PrivateNote: composeMemo(projectName, p.memo),
     Line: [{
@@ -248,7 +266,7 @@ async function connectionFor(db: SupabaseClient, companyId: string, ctx?: PushCo
 export async function pushClientPayment(db: SupabaseClient, paymentId: string, ctx?: PushContext): Promise<PushResult> {
   try {
     const { data: p } = await db.from('client_payments')
-      .select('id, project_id, amount, paid_date, memo, qbo_id').eq('id', paymentId).maybeSingle()
+      .select('id, project_id, amount, paid_date, memo, method, qbo_id').eq('id', paymentId).maybeSingle()
     if (!p) return { pushed: false, reason: 'skipped', detail: 'Payment not found' }
     if (p.qbo_id) return { pushed: false, reason: 'already' }
 
@@ -269,7 +287,8 @@ export async function pushClientPayment(db: SupabaseClient, paymentId: string, c
       }
       const customerQboId = await ensureCustomerId(db, conn, customerId, companyId)
       const res = await qboFetch(conn, 'salesreceipt', {
-        method: 'POST', body: JSON.stringify(paymentPayload(p, customerQboId, ctx!.itemId!, projectName)),
+        method: 'POST',
+        body: JSON.stringify(paymentPayload(p, customerQboId, ctx!.itemId!, projectName, await methodIdFor(conn, (p as any).method, ctx))),
       })
       const qboId = res?.SalesReceipt?.Id
       // qb_entered too: the hand-tick means "it is in QuickBooks", and now it is.
@@ -347,7 +366,7 @@ export async function pushBill(db: SupabaseClient, invoiceId: string, ctx?: Push
 export async function refreshPaymentInQbo(db: SupabaseClient, paymentId: string, ctx?: PushContext): Promise<PushResult> {
   try {
     const { data: p } = await db.from('client_payments')
-      .select('id, project_id, memo, qbo_id').eq('id', paymentId).maybeSingle()
+      .select('id, project_id, memo, method, qbo_id').eq('id', paymentId).maybeSingle()
     if (!p?.qbo_id) return { pushed: false, reason: 'skipped', detail: 'Not in QuickBooks yet' }
 
     const { companyId, projectName } = await projectCompany(db, p.project_id)
@@ -361,6 +380,11 @@ export async function refreshPaymentInQbo(db: SupabaseClient, paymentId: string,
       if (!obj?.Id) throw new Error('Record no longer exists in QuickBooks')
       obj.PrivateNote = composeMemo(projectName, p.memo) ?? ''
       obj.DocNumber = snRef(p.id)
+      // Backfill how the money arrived onto records pushed before methods
+      // were carried at all. Only set it - never blank an existing one, which
+      // could be something a bookkeeper chose inside QuickBooks.
+      const mid = await methodIdFor(conn, (p as any).method, ctx)
+      if (mid) obj.PaymentMethodRef = { value: mid }
       await qboFetch(conn, 'salesreceipt', { method: 'POST', body: JSON.stringify(obj) })
       await db.from('client_payments').update({ qbo_synced_at: new Date().toISOString() }).eq('id', p.id)
       await logRow(db, companyId, 'payment', p.id, 'success', p.qbo_id, 'Formatting refreshed')
@@ -474,7 +498,7 @@ export async function pushClientInvoice(db: SupabaseClient, billId: string, ctx?
 export async function pushPaymentForProject(db: SupabaseClient, paymentId: string, ctx?: PushContext): Promise<PushResult> {
   try {
     const { data: p } = await db.from('client_payments')
-      .select('id, project_id, amount, paid_date, memo, qbo_id').eq('id', paymentId).maybeSingle()
+      .select('id, project_id, amount, paid_date, memo, method, qbo_id').eq('id', paymentId).maybeSingle()
     if (!p) return { pushed: false, reason: 'skipped', detail: 'Payment not found' }
     if (p.qbo_id) return { pushed: false, reason: 'already' }
 
@@ -501,7 +525,7 @@ export async function pushPaymentForProject(db: SupabaseClient, paymentId: strin
       const customerQboId = await ensureCustomerId(db, conn, customerId, companyId)
       const res = await qboFetch(conn, 'payment', {
         method: 'POST',
-        body: JSON.stringify(appliedPaymentPayload(p, customerQboId, target.qbo_id!, projectName)),
+        body: JSON.stringify(appliedPaymentPayload(p, customerQboId, target.qbo_id!, projectName, await methodIdFor(conn, (p as any).method, ctx))),
       })
       const qboId = res?.Payment?.Id
       await db.from('client_payments').update({

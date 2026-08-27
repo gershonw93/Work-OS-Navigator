@@ -59,6 +59,13 @@ export const RELEASES: Release[] = [
         href: '/settings',
       },
       {
+        kind: 'new',
+        title: 'Check, ACH or Wire carries through to QuickBooks',
+        text: 'The method you pick when recording a payment now lands on the QuickBooks record - the field your bookkeeper matches against a bank statement. QuickBooks only knows Check, Cash and Credit Card out of the box; ACH, Wire and QuickPay get created in your QuickBooks the first time you use them. Press Update formatting on the Settings card to add the method to payments synced earlier.',
+        help: 'connect-quickbooks',
+        href: '/settings',
+      },
+      {
         kind: 'improved',
         title: 'Payments settle the invoice instead of double-counting it',
         text: 'When the client pays, that payment is now applied against the invoice in QuickBooks rather than recorded as a second sale. A deposit taken before any invoice exists still lands as a Sales Receipt, because there is nothing for it to settle. Records synced before today are left as they are.',
