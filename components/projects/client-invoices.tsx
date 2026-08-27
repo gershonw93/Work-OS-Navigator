@@ -1,7 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import Link from 'next/link'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { clientAppOrigin } from '@/lib/app-url'
 import { SendLinkBox } from '@/components/ui/send-link-box'
@@ -9,8 +8,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { InfoHint } from '@/components/ui/info-hint'
-import { FileText, Plus, Printer, Loader2, Trash2, Check, Copy, Mail, Eye } from 'lucide-react'
+import { FileText, Plus, Printer, Loader2, Trash2, Check, Copy, Mail, MoreHorizontal, AlertTriangle } from 'lucide-react'
 import { useClientEmail } from '@/lib/use-client-email'
+import { invoiceQbChip, openedLabel } from '@/lib/invoice-qb-state'
 
 const money = (n: unknown) => `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
 
@@ -45,8 +45,18 @@ interface Bill {
   show_markup: boolean
   token: string | null
   viewed_at: string | null
+  /** Last open and how many, so "opened" stops being one bit of information. */
+  last_viewed_at: string | null
+  view_count: number | null
   /** Set once it reaches QuickBooks - the same fact the payments list shows. */
   qbo_id: string | null
+  /**
+   * Whether the money settling this invoice reached QuickBooks too. The
+   * invoice being over there and the payment being over there are different
+   * facts, and one green tick for both is how an invoice showed as paid here
+   * while it was still an open receivable there.
+   */
+  settlement: { recorded: boolean; in_qbo: boolean; amount: number } | null
   client_invoice_lines: BillLine[]
 }
 
@@ -55,6 +65,83 @@ const STATUS: Record<string, string> = {
   sent: 'bg-info-tint text-info border-info/30',
   paid: 'bg-success-tint text-success border-success/30',
   void: 'bg-danger-tint text-danger border-danger/30',
+}
+
+const shortDate = (iso: string) =>
+  new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+
+/**
+ * The rest of a row's actions, behind one button.
+ *
+ * A sent invoice carried seven controls in a row - View / Print, Copy link,
+ * Email, By hand, Mark paid, a QuickBooks chip and Void - all the same size
+ * and weight, with the one you want (Mark paid) and the one you never want
+ * (Void) sitting next to each other. One action reads as the action; the rest
+ * are here when you go looking.
+ *
+ * At module scope on purpose. Declared inside the list component, every render
+ * would create a new component type and remount the open menu shut.
+ */
+function RowMenu({ label, children }: { label: string; children: (close: () => void) => React.ReactNode }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={label}
+        title={label}
+        className="inline-flex items-center rounded-md border border-line px-2 py-1 text-xs font-medium text-muted-fg hover:bg-surface"
+      >
+        <MoreHorizontal className="h-3.5 w-3.5" />
+      </button>
+      {open && (
+        <div role="menu"
+          className="absolute right-0 z-20 mt-1 w-52 overflow-hidden rounded-lg border border-line bg-panel py-1 shadow-lg">
+          {children(() => setOpen(false))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function MenuItem({ onClick, href, newTab, danger, children }: {
+  onClick?: () => void
+  href?: string
+  newTab?: boolean
+  danger?: boolean
+  children: React.ReactNode
+}) {
+  const cls = cn(
+    'flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium hover:bg-surface',
+    danger ? 'text-danger' : 'text-muted-fg',
+  )
+  return href
+    ? (
+      <a role="menuitem" href={href} onClick={onClick} className={cls}
+        {...(newTab ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
+        {children}
+      </a>
+    )
+    : <button role="menuitem" type="button" onClick={onClick} className={cls}>{children}</button>
 }
 
 /**
@@ -102,6 +189,8 @@ export function ClientInvoices({
   const clientEmail = useClientEmail(projectId)
   const [clientName, setClientName] = useState<string | null>(null)
   const [projectName, setProjectName] = useState<string | null>(null)
+  // Only a company that has a QuickBooks is told anything about QuickBooks.
+  const [qboConnected, setQboConnected] = useState(false)
 
   const token = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession()
@@ -118,6 +207,7 @@ export function ClientInvoices({
       setMarkupPct(Number(d.markup_pct) || 0)
       setClientName(d.client ?? null)
       setProjectName(d.project_name ?? null)
+      setQboConnected(!!d.quickbooks_connected)
     }
     setLoading(false)
   }, [projectId, token])
@@ -357,6 +447,9 @@ export function ClientInvoices({
         <div className="rounded-lg border border-line divide-y divide-line-soft">
           {bills.map(b => {
             const total = (b.client_invoice_lines ?? []).reduce((s, l) => s + Number(l.amount || 0), 0)
+            const qb = invoiceQbChip(b, qboConnected)
+            const opened = openedLabel(b, shortDate)
+            const shareable = !!b.token && b.status !== 'draft'
             return (
               <div key={b.id}>
               <div className="flex flex-wrap items-center gap-3 px-3 py-2.5">
@@ -366,18 +459,32 @@ export function ClientInvoices({
                   <span className="block text-[11px] text-faint">
                     {(b.client_invoice_lines ?? []).length} line{(b.client_invoice_lines ?? []).length !== 1 ? 's' : ''}
                     {' · '}{b.show_markup ? 'markup shown' : 'flat amounts'}
-                    {b.viewed_at ? ' · opened by the client' : b.status === 'sent' ? ' · not opened yet' : ''}
+                    {opened ? ` · ${opened}` : ''}
                     {b.due_date ? ` · due ${new Date(b.due_date + 'T00:00:00').toLocaleDateString()}` : ''}
                   </span>
                 </span>
                 <span className={cn('rounded-full border px-2 py-0.5 text-[11px] font-medium shrink-0', STATUS[b.status] ?? STATUS.draft)}>
                   {b.status}
                 </span>
+                {qb.show && (
+                  <span title={qb.title}
+                    className={cn(
+                      'shrink-0 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium',
+                      qb.tone === 'ok'
+                        ? 'border-success/40 bg-success-tint text-success'
+                        : 'border-warn/40 bg-warn-tint text-warn',
+                    )}>
+                    {qb.tone === 'ok' ? <Check className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
+                    {qb.label}
+                  </span>
+                )}
                 <span className="ml-auto text-sm font-bold text-ink tabular-nums shrink-0">{money(total)}</span>
-                <Link href={`/projects/${projectId}/client-invoices/${b.id}/print`} target="_blank"
-                  className="shrink-0 inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-xs font-medium text-muted-fg hover:bg-surface">
-                  <Printer className="h-3 w-3" /> View / Print
-                </Link>
+
+                {/*
+                  ONE action reads as the action. Everything else lives in the
+                  menu: seven same-sized buttons in a row meant Mark paid and
+                  Void looked equally like the thing to press.
+                */}
                 {b.status === 'draft' && (
                   <button onClick={() => setStatus(b, 'sent')} disabled={!!statusBusy}
                     className="shrink-0 rounded-md border border-line px-2 py-1 text-xs font-medium text-muted-fg hover:bg-surface"
@@ -385,26 +492,9 @@ export function ClientInvoices({
                     Issue &amp; get link
                   </button>
                 )}
-                {b.token && b.status !== 'draft' && (
-                  <>
-                    <button onClick={() => copyLink(b)}
-                      className="shrink-0 inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-xs font-medium text-muted-fg hover:bg-surface">
-                      <Copy className="h-3 w-3" /> {copied === b.id ? 'Copied' : 'Copy link'}
-                    </button>
-                    <button onClick={() => setSendingId(sendingId === b.id ? '' : b.id)}
-                      className="shrink-0 inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-xs font-medium text-muted-fg hover:bg-surface">
-                      <Mail className="h-3 w-3" /> Email
-                    </button>
-                    <a href={mailtoFor(b)} title="Compose it yourself instead"
-                      className="shrink-0 inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-xs font-medium text-faint hover:bg-surface">
-                      By hand
-                    </a>
-                  </>
-                )}
                 {b.status === 'sent' && (
                   <button
                     onClick={() => {
-                      const total = (b.client_invoice_lines ?? []).reduce((s, l) => s + Number(l.amount || 0), 0)
                       if (onSettle) onSettle({ id: b.id, label: `Invoice ${b.invoice_number}`, amount: total })
                       else setStatus(b, 'paid')
                     }}
@@ -413,25 +503,39 @@ export function ClientInvoices({
                     <Check className="h-3 w-3" /> Mark paid
                   </button>
                 )}
-                {b.qbo_id && (
-                  <span title={`In QuickBooks (invoice ${b.qbo_id})`}
-                    className="shrink-0 inline-flex items-center gap-1 rounded-full border border-success/40 bg-success-tint px-2 py-0.5 text-xs font-medium text-success">
-                    <Check className="h-3 w-3" /> QB ✓
-                  </span>
-                )}
-                {(b.status === 'sent' || b.status === 'paid') && (
-                  <button onClick={() => voidInvoice(b)} disabled={!!statusBusy}
-                    title="Void this invoice - it stays on the list, its costs become billable again"
-                    className="shrink-0 inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-xs font-medium text-faint hover:border-danger/40 hover:text-danger">
-                    Void
-                  </button>
-                )}
-                {b.status === 'draft' && (
-                  <button onClick={() => remove(b)} title="Delete this draft"
-                    className="shrink-0 p-1 text-faint hover:text-danger">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                )}
+
+                <RowMenu label={`More for invoice ${b.invoice_number}`}>
+                  {close => (
+                    <>
+                      <MenuItem newTab href={`/projects/${projectId}/client-invoices/${b.id}/print`} onClick={close}>
+                        <Printer className="h-3.5 w-3.5" /> View / Print
+                      </MenuItem>
+                      {shareable && (
+                        <>
+                          <MenuItem onClick={() => { copyLink(b); close() }}>
+                            <Copy className="h-3.5 w-3.5" /> {copied === b.id ? 'Link copied' : "Copy the client's link"}
+                          </MenuItem>
+                          <MenuItem onClick={() => { setSendingId(sendingId === b.id ? '' : b.id); close() }}>
+                            <Mail className="h-3.5 w-3.5" /> Email it to the client
+                          </MenuItem>
+                          <MenuItem href={mailtoFor(b)} onClick={close}>
+                            <Mail className="h-3.5 w-3.5" /> Compose it yourself
+                          </MenuItem>
+                        </>
+                      )}
+                      {(b.status === 'sent' || b.status === 'paid') && (
+                        <MenuItem danger onClick={() => { close(); voidInvoice(b) }}>
+                          <AlertTriangle className="h-3.5 w-3.5" /> Void this invoice
+                        </MenuItem>
+                      )}
+                      {b.status === 'draft' && (
+                        <MenuItem danger onClick={() => { close(); remove(b) }}>
+                          <Trash2 className="h-3.5 w-3.5" /> Delete this draft
+                        </MenuItem>
+                      )}
+                    </>
+                  )}
+                </RowMenu>
               </div>
 
               {sendingId === b.id && b.token && (

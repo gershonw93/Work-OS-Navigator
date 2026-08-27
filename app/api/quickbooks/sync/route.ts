@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { admin, getValidConnection, qboFetch } from '@/lib/quickbooks'
-import { pushBill, pushClientInvoice, pushClientPayment, refreshBillInQbo, refreshPaymentInQbo, type PushContext } from '@/lib/quickbooks-push'
+import { pushBill, pushClientInvoice, pushPaymentForProject, refreshBillInQbo, refreshPaymentInQbo, type PushContext } from '@/lib/quickbooks-push'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -127,7 +127,11 @@ export async function POST(request: Request) {
       else results.push({ id: inv.id, name: label, status: 'error', message: r.detail ?? r.reason })
     }
   } else if (entity === 'payments') {
-    // Client payments received -> QBO Sales Receipt, via the shared pusher.
+    // Client payments received -> applied against the invoice they settle, or
+    // a Sales Receipt when they settle nothing. Via pushPaymentForProject, NOT
+    // pushClientPayment: this branch used to call the Sales Receipt pusher
+    // directly, so pressing Sync now on a payment that settled an invoice
+    // already in QuickBooks booked the same sale a second time.
     const projectIds = await ownedProjectIds()
     if (!projectIds.length) return NextResponse.json({ summary: { total: 0, synced: 0, skipped: 0, errors: 0 }, results: [] })
 
@@ -143,7 +147,7 @@ export async function POST(request: Request) {
     for (const p of payments ?? []) {
       const label = `Payment ${p.id.slice(0, 8)}`
       if (p.qbo_id) { results.push({ id: p.id, name: label, status: 'skipped', qbo_id: p.qbo_id, message: 'Already synced' }); continue }
-      const r = await pushClientPayment(db, p.id, ctx)
+      const r = await pushPaymentForProject(db, p.id, ctx)
       if (r.pushed) results.push({ id: p.id, name: label, status: 'success', qbo_id: r.qboId })
       else if (r.reason === 'already') results.push({ id: p.id, name: label, status: 'skipped', message: 'Already synced' })
       else results.push({ id: p.id, name: label, status: 'error', message: r.detail ?? r.reason })

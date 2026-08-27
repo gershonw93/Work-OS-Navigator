@@ -46,11 +46,14 @@ export async function GET(_request: Request, { params }: { params: { token: stri
       .eq('id', project.gc_company_id).maybeSingle()
     : { data: null }
 
-  // First open is worth knowing - "did they even get it" is the question behind
-  // most chasing phone calls.
-  if (!bill.viewed_at) {
-    await db.from('client_invoices').update({ viewed_at: new Date().toISOString() }).eq('id', bill.id)
-  }
+  // "Did they even get it" is the question behind most chasing phone calls,
+  // and "they opened it four times last Tuesday" is a different conversation
+  // from "they have never opened it". Only the first open was being recorded,
+  // so every invoice looked the same from the day it was read once.
+  //
+  // One statement in the database rather than read-add-write here: two opens
+  // in the same instant both count.
+  await db.rpc('bump_client_invoice_view', { p_id: bill.id })
 
   const show = !!bill.show_markup
   const lines = [...(bill.client_invoice_lines ?? [])]
