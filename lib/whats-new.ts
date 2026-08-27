@@ -52,6 +52,13 @@ export const RELEASES: Release[] = [
     title: 'A double-press cannot double-bill your client',
     items: [
       {
+        kind: 'new',
+        title: 'New customers reach QuickBooks straight away',
+        text: 'A customer you added only turned up in QuickBooks when you first invoiced them, or when somebody remembered the Sync customers button - so the two lists drifted, and an address you corrected here never reached the books. Adding or editing a customer now pushes them immediately.',
+        help: 'connect-quickbooks',
+        href: '/customers',
+      },
+      {
         kind: 'fixed',
         title: 'Marking an invoice paid records the money',
         text: 'Mark paid on a client invoice used to just tick it off - no amount, no date, no method, nothing in Funds Received, and the QuickBooks invoice stayed open so it still counted as owed. It now opens the same Record a client payment box everything else uses, filled in from the invoice, so the money lands in your ledger with how it was paid and the QuickBooks invoice is settled by it.',
