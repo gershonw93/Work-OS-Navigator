@@ -49,6 +49,36 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-08-27',
+    title: 'Add a sub before you know their price',
+    items: [
+      {
+        kind: 'new',
+        title: 'Contract Amount is optional when you add a subcontractor',
+        text: 'Adding a sub without a price failed outright - with a database error in a grey browser box. That was backwards: lining up who is doing the work and agreeing what they charge are two different moments, and the first is exactly when you want them on the job so you can send them a scope to price. Leave the amount blank and the contract reads "Not set" until you fill it in. It shows as unpriced rather than $0, so it can never be mistaken for a sub who works for free.',
+        help: 'add-subcontractor-no-price',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
+        title: 'A failed save no longer leaves a duplicate in your directory',
+        text: 'When adding a sub failed, the company had already been created and was left behind. Try twice and you had two identical subs in your directory, neither attached to anything. The company is now removed again if the save does not complete.',
+        help: 'directory',
+      },
+      {
+        kind: 'improved',
+        title: 'Errors tell you which field, not which database column',
+        text: 'Save failures used to surface the raw database message - "null value in column contract_amount violates not-null constraint" - in a browser alert. They now appear inside the form, in the app\'s own styling, naming the field as the form labels it and saying what to do about it.',
+      },
+      {
+        kind: 'improved',
+        title: 'Removing a bid invite asks first',
+        text: 'The X at the end of an invite row deleted it on one click, sitting right next to five harmless buttons of the same size. Removing an invite kills the link that sub was already sent, so it now asks first and tells you whose invite it is.',
+        help: 'request-quotes',
+      },
+    ],
+  },
+  {
+    date: '2026-08-27',
     title: 'Quotes now tell you when they arrive, and the task board moves',
     items: [
       {
@@ -72,15 +102,21 @@ export const RELEASES: Release[] = [
       },
       {
         kind: 'new',
-        title: 'Drag tasks between columns, and + adds to the column you pressed',
-        text: 'The task board looked like a board you could drag on and was not one - the only way to move a task was a small icon most people never found. You can now drag a card from Open to In Progress to Completed. The three + buttons used to be the same button: whichever you pressed, the task appeared in Open. Each one now adds to its own column, and the form says which.',
+        title: 'Every task card has Open / In Progress / Completed buttons',
+        text: 'Moving a task used to mean finding a small icon that appeared only on hover and advanced one step per click. Each card now shows the three stages as buttons, always visible, with the current one filled in. One tap sends a task to any stage - including back - and it works the same on a phone as on a desk.',
         help: 'tasks-assign',
         href: '/projects',
       },
       {
+        kind: 'new',
+        title: 'The + on each column adds to that column',
+        text: 'The three + buttons used to be the same button: whichever you pressed, the task appeared in Open. Each one now adds to its own column, and the form tells you which before you save.',
+        help: 'tasks-assign',
+      },
+      {
         kind: 'fixed',
-        title: 'A finished task cannot be reopened by accident',
-        text: 'Clicking the status icon on a Completed task used to wrap it straight back round to Open - no warning, no undo. It now stops at Completed. Reopening is still there when you mean it, from the dropdown in List view or by dragging the card back.',
+        title: 'A tap can no longer move a task by accident',
+        text: 'The status icon on a card was a button that changed the stage, and on a completed task it wrapped straight back round to Open - no warning, no undo. The icon is now just an indicator; changing the stage takes a deliberate press of one of the stage buttons.',
         help: 'tasks-assign',
       },
       {

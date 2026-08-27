@@ -6,6 +6,7 @@ import { DollarSign, TrendingUp, Clock, CheckCircle2, ChevronDown, ChevronUp, Za
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
+import { contractAmountLabel, isUnpriced } from '@/lib/contract-amount'
 
 interface FinancialsData {
   budget: number
@@ -176,7 +177,7 @@ export default function FinancialsPage({ params }: { params: { id: string } }) {
                       </div>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="text-sm font-bold text-ink">${Number(sub.contract_amount).toLocaleString()}</p>
+                      <p className={cn('text-sm font-bold', isUnpriced(sub.contract_amount) ? 'text-faint' : 'text-ink')}>{contractAmountLabel(sub.contract_amount)}</p>
                       <p className="text-xs text-faint">${paid.toLocaleString()} paid</p>
                     </div>
                     {isExpanded ? <ChevronUp className="h-4 w-4 text-faint shrink-0" /> : <ChevronDown className="h-4 w-4 text-faint shrink-0" />}

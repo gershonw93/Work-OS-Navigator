@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { friendlyDbError } from '@/lib/db-error'
 import { logActivity } from '@/lib/log-activity'
 
 const admin = () => createClient(
@@ -71,8 +72,16 @@ export async function POST(request: Request, { params }: { params: { id: string 
     return NextResponse.json({ error: 'Pick an existing subcontractor or enter a company name' }, { status: 400 })
   }
 
-  // Either reuse an existing directory company, or create a new off-platform one
+  // Either reuse an existing directory company, or create a new off-platform one.
+  //
+  // The company has to exist before the subcontract can point at it, and there
+  // is no transaction across these two inserts. So track whether WE created it:
+  // if the subcontract then fails, the company is an orphan that this request
+  // is responsible for, and leaving it behind is how one failed save turns into
+  // a duplicate in the directory - two failures, two identical companies, zero
+  // subcontracts. Never touch a company that already existed.
   let company: { id: string; name: string } | null = null
+  let createdCompanyId: string | null = null
   if (existingCompanyId) {
     const { data: existing, error: exErr } = await db
       .from('companies').select('id, name').eq('id', existingCompanyId).single()
@@ -96,6 +105,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     }
     if (companyErr || !created) return NextResponse.json({ error: companyErr?.message ?? 'Could not create company' }, { status: 500 })
     company = created
+    createdCompanyId = created.id
   }
 
   // Upload the proposal file if one was provided
@@ -141,7 +151,14 @@ export async function POST(request: Request, { params }: { params: { id: string 
     subErr = retry.error
   }
 
-  if (subErr) return NextResponse.json({ error: subErr.message }, { status: 500 })
+  if (subErr) {
+    // Roll back the company we just minted, so a failed save does not leave a
+    // duplicate in the directory for the user to find later and wonder about.
+    if (createdCompanyId) {
+      await db.from('companies').delete().eq('id', createdCompanyId)
+    }
+    return NextResponse.json({ error: friendlyDbError(subErr) }, { status: 500 })
+  }
 
   // --- Tie in everywhere an awarded bid would ---
 

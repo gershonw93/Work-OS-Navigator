@@ -9,11 +9,12 @@ import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 import { Briefcase, Plus, X, MapPin, ChevronRight, Award, FolderOpen, Calendar, User } from 'lucide-react'
 import Link from 'next/link'
+import { contractAmountLabel } from '@/lib/contract-amount'
 
 const PROJECT_TYPES = ['residential', 'commercial', 'industrial', 'renovation', 'other']
 
 interface AwardedJob {
-  id: string; trade: string; contract_amount: number; status: string
+  id: string; trade: string; contract_amount: number | null; status: string
   projects: { id: string; name: string; address: string; type: string; status: string; start_date: string | null }
 }
 
@@ -208,7 +209,7 @@ export default function MyJobsPage() {
                     </div>
                   </div>
                   <div className="shrink-0 text-right">
-                    <p className="font-bold text-ink">${Number(sub.contract_amount).toLocaleString()}</p>
+                    <p className="font-bold text-ink">{contractAmountLabel(sub.contract_amount, 'Price TBC')}</p>
                     <p className="text-xs text-faint capitalize">{proj.type?.replace('_', ' ')}</p>
                   </div>
                   <ChevronRight className="h-4 w-4 text-faint group-hover:text-accent-fg transition-colors shrink-0" />

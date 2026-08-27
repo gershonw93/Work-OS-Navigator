@@ -152,10 +152,26 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
     else alert((await res.json().catch(() => ({}))).error ?? 'Could not add contact')
   }
 
-  async function removeInvite(reqId: string, inviteId: string) {
-    const t = await token()
-    await fetch(`/api/projects/${params.id}/bid-requests/${reqId}/invites?inviteId=${inviteId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${t}` } })
-    load()
+  /**
+   * Un-invite a sub. Confirmed, because it was one stray click away.
+   *
+   * The X sits at the end of a row of five other controls, all of which are
+   * harmless (copy a link, copy an email, open the send box), and it was the
+   * only destructive one - same size, same spacing, no confirmation. Removing
+   * an invite takes their link with it, so a sub who was already sent it now
+   * has a dead link and nobody knows.
+   *
+   * Uses the same guard as deleting the request itself, rather than a bespoke
+   * inline confirm, so every destructive action on this page behaves the same.
+   * Not `protected` - this is not money or a file, and demanding the delete key
+   * for it would train people to type the key without reading.
+   */
+  function removeInvite(reqId: string, inviteId: string, who: string | null) {
+    guardDelete(async () => {
+      const t = await token()
+      await fetch(`/api/projects/${params.id}/bid-requests/${reqId}/invites?inviteId=${inviteId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${t}` } })
+      load()
+    }, { label: who ? `${who}'s invite - their quote link will stop working` : 'this invite - their quote link will stop working' })
   }
 
   function deleteRequest(reqId: string) {
@@ -460,7 +476,14 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
                           <Mail className="h-3.5 w-3.5" /> Send
                         </button>
                         {inv.vendor_email && <a href={em.mailto} title="Compose it yourself instead" className="text-xs text-faint hover:text-muted-fg">By hand</a>}
-                        <button onClick={() => removeInvite(req.id, inv.id)} className="text-faint hover:text-danger"><X className="h-3.5 w-3.5" /></button>
+                        <button
+                          onClick={() => removeInvite(req.id, inv.id, inv.vendor_name ?? null)}
+                          title="Remove this invite"
+                          aria-label={`Remove ${inv.vendor_name ?? 'this'} invite`}
+                          className="ml-1 rounded p-1 text-faint hover:bg-danger-tint hover:text-danger"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
                       </div>
                       {sendingInvite === inv.id && (
                         <div className="w-full border-t border-line-soft pt-2.5 sm:mt-1">

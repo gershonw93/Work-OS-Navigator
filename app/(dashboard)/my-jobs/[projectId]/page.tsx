@@ -14,6 +14,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { contractAmountLabel } from '@/lib/contract-amount'
 
 type Tab = 'overview' | 'tasks' | 'rfis' | 'inspections' | 'invoices' | 'compliance'
 
@@ -552,7 +553,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-bold text-ink">${Number(sub.contract_amount).toLocaleString()}</p>
+                    <p className="text-sm font-bold text-ink">{contractAmountLabel(sub.contract_amount, 'Price TBC')}</p>
                     <p className="text-xs text-faint">${totalBilled.toLocaleString()} billed ({billedPct}%)</p>
                   </div>
                 </div>
