@@ -132,6 +132,12 @@ export default function DashboardPage() {
   const [overview, setOverview] = useState<OverviewData | null>(null)
   const [firstName, setFirstName] = useState('')
   const [loading, setLoading] = useState(true)
+  // A loading state must have a way to END. This one only ended on the happy
+  // path - setLoading(false) was the last statement of load(), with no catch
+  // and no finally - so anything that threw left the skeletons up for good,
+  // saying nothing.
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [attempt, setAttempt] = useState(0)
 
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -140,6 +146,8 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function load() {
+      try {
+      setLoadError(null)
       const token = await getToken()
 
       const [notifRes, projRes, statsRes, activityRes, overviewRes, userRes] = await Promise.all([
@@ -182,10 +190,14 @@ export default function DashboardPage() {
         setActivityIsAdmin(data.isAdmin ?? false)
       }
 
-      setLoading(false)
+      } catch (e: any) {
+        setLoadError(e?.message ?? 'Could not reach the server')
+      } finally {
+        setLoading(false)
+      }
     }
     load()
-  }, [])
+  }, [attempt])
 
   async function dismissBidBanners() {
     const token = await getToken()
@@ -213,6 +225,19 @@ export default function DashboardPage() {
   // on its own timeline, and rendering before it resolves flashes the standard
   // layout and then swaps to the admin overview. Render a neutral skeleton until
   // both the data and the role are known.
+  if (loadError && !loading) {
+    return (
+      <div className="p-4 sm:p-6">
+        <EmptyState
+          icon={AlertCircle}
+          title="Couldn't load your dashboard"
+          description={`${loadError}. Nothing is wrong with your data - this screen could not fetch it.`}
+          action={{ label: 'Try again', onClick: () => { setLoading(true); setAttempt(a => a + 1) } }}
+        />
+      </div>
+    )
+  }
+
   if (loading || roleLoading) {
     return (
       <div className="p-4 sm:p-6 space-y-5 animate-pulse">
