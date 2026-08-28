@@ -205,6 +205,22 @@ export async function defaultExpenseAccountId(conn: Connection): Promise<string>
   throw new Error('No expense account found in QuickBooks to book bills against.')
 }
 
+/**
+ * The bank account a bill payment comes out of.
+ *
+ * QBO will not accept a BillPayment without one - PayType Check needs
+ * CheckPayment.BankAccountRef, and there is no sensible default it can infer.
+ * SyteNav has no per-company account mapping yet, so this picks the company's
+ * first active Bank account; a bookkeeper can move it inside QuickBooks, which
+ * is the same bargain bills and receipts already make with their default
+ * expense account and service item.
+ */
+export async function defaultBankAccountId(conn: Connection): Promise<string> {
+  const bank = await qboQuery(conn, "select Id from Account where AccountType = 'Bank' and Active = true")
+  if (bank?.Account?.[0]?.Id) return bank.Account[0].Id
+  throw new Error('No active bank account found in QuickBooks to pay bills from.')
+}
+
 // A default service item for a Sales Receipt line (carries the income account).
 export async function defaultServiceItemId(conn: Connection): Promise<string> {
   const svc = await qboQuery(conn, "select Id from Item where Type = 'Service' and Active = true")

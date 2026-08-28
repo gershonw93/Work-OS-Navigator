@@ -16,7 +16,7 @@ production branch.** Do NOT ask the user to merge or deploy.
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-088.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-089.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - IMPORTANT: verify every column you `.select()` actually exists - Supabase
   returns `data: null` for an unknown column, so a typo reads as "not found"
@@ -53,6 +53,12 @@ production branch.** Do NOT ask the user to merge or deploy.
   with no invoice to settle becomes a Sales Receipt. **A sale must never be
   counted twice** - a Sales Receipt already means sold AND paid, so if an
   invoice exists, the money settling it can never be another receipt.
+- BOTH halves, BOTH directions. Money in: a client invoice is an Invoice and
+  the money settling it is a Payment applied to it. Money OUT: a sub bill is a
+  Bill and the money settling it is a BillPayment applied to it
+  (`invoices.qbo_payment_id`, separate id and separate claim from `qbo_id` -
+  one row, two QBO records). Ship a half and the ledger overstates: A/R showed
+  money owed that had arrived, A/P showed money owed that had gone out.
 - A payment settles the invoice NAMED ON IT (`client_payments.client_invoice_id`),
   never "the oldest one still sent". Same-day invoices share an `issue_date`, so
   "oldest" was whichever row came back first and the money settled a coin toss.
