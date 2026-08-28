@@ -53,6 +53,20 @@ export const RELEASES: Release[] = [
     items: [
       {
         kind: 'fixed',
+        title: 'A payment QuickBooks half-refuses still goes across',
+        text: 'If QuickBooks will not accept how a payment was made - usually because that method was made inactive over there - the payment used to fail outright and the invoice stayed showing as owed. It now goes across anyway and settles the invoice, with how it was paid written into the memo instead: "Hackensack Medical Suite - check1005 (paid by Check)". Money in the right place beats a tidy column.',
+        help: 'connect-quickbooks',
+        href: '/settings',
+      },
+      {
+        kind: 'improved',
+        title: 'A failed sync now says what QuickBooks refused',
+        text: 'QuickBooks answers a bad reference with "Object Not Found" and a sentence that lists every field it might be and names none of them - which told you nothing. SyteNav now asks QuickBooks about each thing it sent, and Recent sync activity in Settings names the one that was refused and what is wrong with it.',
+        help: 'connect-quickbooks',
+        href: '/settings',
+      },
+      {
+        kind: 'fixed',
         title: 'Marking an invoice paid settles THAT invoice in QuickBooks',
         text: 'When you pressed Mark paid, the payment went across to QuickBooks against "the oldest invoice still open" rather than the one you were looking at. Issue two invoices on the same day and which one got settled was a coin toss, so QuickBooks could show the wrong invoice paid and the right one still owing. The payment now carries the invoice you marked, and settles exactly that one.',
         help: 'connect-quickbooks',

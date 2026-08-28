@@ -63,7 +63,18 @@ production branch.** Do NOT ask the user to merge or deploy.
   nothing; every other caller goes through `pushPaymentForProject`. The
   Settings backlog sync called the Sales Receipt pusher directly for a while.
 - Keep `Fault.Error[].Detail`, not just `Message`. QBO's Message is a label
-  ("Object Not Found"); Detail is the sentence that names the object.
+  ("Object Not Found"); Detail is the sentence that names the object. Errors
+  are `QboError` and carry `.code` - branch on `QBO_OBJECT_NOT_FOUND` (610).
+- 610 means "a reference you sent is unusable" and names NONE of them. On 610:
+  retry once without the optional ref (the payment method, which moves into the
+  memo), then `probeReferences` each id we sent and log which one QBO refuses.
+  Never fall back to a Sales Receipt on failure - that is the double-count.
+- Every QBO lookup filters `Active = true`. `paymentMethodId` did not, so an
+  inactive method came back as a good id. PaymentMethod.Type is only
+  `CREDIT_CARD` or `NON_CREDIT_CARD` - `OTHER` is not a value QBO defines.
+- A cached `qbo_id` for a record QBO does not have fails identically forever:
+  clear it so the next push re-creates. Only when MISSING, never when inactive
+  - re-creating an inactive customer leaves two with the same name.
 - Every push: never throws, capped at 8s, "not connected" is a normal state,
   and misses land in `quickbooks_sync_log` for the backlog sync to pick up.
 - Pushes take an atomic claim (`qbo_claimed_at`) via a conditional UPDATE. A

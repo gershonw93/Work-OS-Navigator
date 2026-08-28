@@ -2,6 +2,7 @@ import { SupabaseClient } from '@supabase/supabase-js'
 import {
   Connection, getValidConnection, qboFetch, qboQuery,
   defaultExpenseAccountId, defaultServiceItemId, paymentMethodId,
+  probeReferences, describeProbe, QBO_OBJECT_NOT_FOUND, type ReferenceRef,
 } from '@/lib/quickbooks'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -66,6 +67,22 @@ function budgeted<T>(p: Promise<T>): Promise<T> {
   ])
 }
 
+/**
+ * A short leash for work that runs AFTER a push has already failed.
+ *
+ * The 8s budget above wraps the push itself; anything in the failure handler
+ * sits outside it. Working out which reference QuickBooks rejected is worth a
+ * few seconds and not one second more - it is a better error message, and a
+ * better error message must never be what makes Record Payment hang.
+ */
+const DIAGNOSIS_BUDGET_MS = 3000
+function briefly(p: Promise<string>, fallback: string): Promise<string> {
+  return Promise.race([
+    p.catch(() => fallback),
+    new Promise<string>(resolve => setTimeout(() => resolve(fallback), DIAGNOSIS_BUDGET_MS)),
+  ])
+}
+
 // ── Pure payload builders, split out so they can be tested without a network ─
 
 /**
@@ -85,9 +102,27 @@ export function snRef(id: string): string {
   return `SN-${id.slice(0, 8)}`
 }
 
-/** One place decides how a memo reads, so push and refresh cannot drift. */
-export function composeMemo(projectName?: string | null, memo?: string | null): string | undefined {
-  return [projectName, memo].filter(Boolean).join(' - ') || undefined
+/**
+ * One place decides how a memo reads, so push and refresh cannot drift.
+ *
+ * `note` is the escape hatch for something QuickBooks would not take as a
+ * field. When it refuses a PaymentMethodRef there is nowhere structured left
+ * to put "they paid by ACH", and losing it entirely is worse than writing it
+ * in prose - the memo is the one field QuickBooks always accepts.
+ */
+export function composeMemo(
+  projectName?: string | null,
+  memo?: string | null,
+  note?: string | null,
+): string | undefined {
+  return [projectName, memo].filter(Boolean).join(' - ')
+    .concat(note ? (projectName || memo ? ` (${note})` : `(${note})`) : '') || undefined
+}
+
+/** The prose form of a payment method, for when the reference will not go. */
+export function methodNote(method?: string | null): string | null {
+  const m = String(method ?? '').trim()
+  return m ? `paid by ${m}` : null
 }
 
 export function composeBillDescription(trade?: string | null, projectName?: string | null): string {
@@ -182,6 +217,8 @@ export function appliedPaymentPayload(
   invoiceQboId: string,
   projectName?: string | null,
   methodQboId?: string | null,
+  /** Set on the retry: the method goes in the memo because the ref would not go. */
+  note?: string | null,
 ) {
   return {
     CustomerRef: { value: customerQboId },
@@ -192,7 +229,7 @@ export function appliedPaymentPayload(
     // Invoice/Sales Receipt field and means nothing on this entity, so the
     // SN- reference was being written into a field QuickBooks does not read.
     ...(p.id ? { PaymentRefNum: snRef(p.id) } : {}),
-    PrivateNote: composeMemo(projectName, p.memo),
+    PrivateNote: composeMemo(projectName, p.memo, note),
     Line: [{
       Amount: Number(p.amount),
       LinkedTxn: [{ TxnId: invoiceQboId, TxnType: 'Invoice' }],
@@ -658,6 +695,73 @@ async function settlementTarget(
 }
 
 /**
+ * Ask QuickBooks about every reference we just sent it, and say which one it
+ * cannot use.
+ *
+ * Three payments failed with the identical sentence - "Object Not Found:
+ * Something you're trying to use has been made inactive. Check the fields with
+ * accounts, customers, items, vendors or employees" - which lists five kinds of
+ * field and names none of them. The information needed to answer that was on
+ * our side the whole time: we know exactly which ids we sent.
+ *
+ * Never throws and never blocks the happy path: it only runs after a 610.
+ */
+async function diagnosePaymentRefs(
+  db: SupabaseClient,
+  conn: Connection,
+  customerId: string,
+  target: { label: string; qboId: string },
+  method: string | null | undefined,
+  ctx?: PushContext,
+): Promise<string> {
+  try {
+    const { data: c } = await db.from('customers').select('qbo_id').eq('id', customerId).maybeSingle()
+    const methodQboId = await methodIdFor(conn, method, ctx).catch(() => null)
+
+    const refs: ReferenceRef[] = []
+    if (c?.qbo_id) {
+      refs.push({
+        label: `customer ${c.qbo_id}`,
+        path: `customer/${c.qbo_id}`,
+        inspect: (o: any) => o?.Active === false ? 'the customer is inactive in QuickBooks' : null,
+      })
+    }
+    refs.push({
+      label: `invoice ${target.qboId} (${target.label})`,
+      path: `invoice/${target.qboId}`,
+      inspect: (o: any) => {
+        // A payment cannot settle an invoice that owes nothing. Voided
+        // invoices read as a zero balance, which is why this is worth saying
+        // out loud rather than inferring from the amount.
+        if (Number(o?.Balance ?? 0) === 0) return 'the invoice has a zero balance in QuickBooks - voided, or already settled there'
+        return null
+      },
+    })
+    if (methodQboId) {
+      refs.push({ label: `payment method ${methodQboId} (${method})`, path: `paymentmethod/${methodQboId}`,
+        inspect: (o: any) => o?.Active === false ? 'the payment method is inactive in QuickBooks' : null })
+    }
+
+    const probes = await probeReferences(conn, refs)
+
+    // A cached id pointing at a record QuickBooks does not have fails exactly
+    // the same way forever, on every retry, with no way out. Forget it, and the
+    // next push creates the customer properly.
+    //
+    // MISSING only, never merely inactive: re-creating an inactive customer
+    // would leave two of them with the same name, which is a worse mess than
+    // the one being fixed.
+    if (c?.qbo_id && probes.find(x => x.label === `customer ${c.qbo_id}`)?.missing) {
+      await db.from('customers').update({ qbo_id: null, qbo_synced_at: null }).eq('id', customerId)
+    }
+
+    return describeProbe(probes)
+  } catch (err: any) {
+    return `could not work out which reference QuickBooks rejected (${err?.message ?? 'unknown'})`
+  }
+}
+
+/**
  * Money in, booked the right way for what it settles.
  *
  * If there is an unpaid invoice in QuickBooks for this project, the payment is
@@ -692,20 +796,54 @@ export async function pushPaymentForProject(db: SupabaseClient, paymentId: strin
 
     return await budgeted((async (): Promise<PushResult> => {
       const customerQboId = await ensureCustomerId(db, conn, customerId, companyId)
-      const res = await qboFetch(conn, 'payment', {
+      const methodQboId = await methodIdFor(conn, (p as any).method, ctx)
+
+      const post = (mid: string | null, note: string | null) => qboFetch(conn, 'payment', {
         method: 'POST',
-        body: JSON.stringify(appliedPaymentPayload(p, customerQboId, target.qboId, projectName, await methodIdFor(conn, (p as any).method, ctx))),
+        body: JSON.stringify(appliedPaymentPayload(p, customerQboId, target.qboId, projectName, mid, note)),
       })
+
+      let res: any
+      let droppedMethod = false
+      try {
+        res = await post(methodQboId, null)
+      } catch (err: any) {
+        // THE MONEY MATTERS MORE THAN THE COLUMN. QuickBooks answers a bad
+        // reference with 610 and will not say which one, so drop the only
+        // OPTIONAL reference we send and try once more - the method moves into
+        // the memo, where nothing can refuse it. If this succeeds we have both
+        // settled the invoice and proved what QuickBooks was rejecting.
+        //
+        // Only worth doing if we actually sent a method; otherwise there is
+        // nothing to drop and the retry is a wasted call.
+        if (err?.code !== QBO_OBJECT_NOT_FOUND || !methodQboId) throw err
+        res = await post(null, methodNote((p as any).method))
+        droppedMethod = true
+      }
+
       const qboId = res?.Payment?.Id
       await db.from('client_payments').update({
         qbo_id: qboId, qbo_synced_at: new Date().toISOString(), qb_entered: true, qbo_txn_type: 'payment',
       }).eq('id', p.id)
-      await logRow(db, companyId, 'payment', p.id, 'success', qboId, `Applied to invoice ${target.label}`)
+      const how = droppedMethod
+        ? `Applied to invoice ${target.label}. QuickBooks refused payment method "${(p as any).method}" (id ${methodQboId}), so it is written in the memo instead - the method needs fixing in QuickBooks.`
+        : `Applied to invoice ${target.label}`
+      await logRow(db, companyId, 'payment', p.id, 'success', qboId, how)
       return { pushed: true, qboId }
     })()).catch(async (err: any) => {
       await releaseClaim(db, 'client_payments', p.id)
-      await logRow(db, companyId, 'payment', p.id, 'error', undefined, err?.message)
-      return { pushed: false, reason: 'failed' as const, detail: err?.message }
+      // Still 610 with the method already dropped, or 610 with no method at
+      // all: the bad reference is one we cannot do without. Ask QuickBooks
+      // about each one by name rather than logging a sentence that names none
+      // of them, which is how three identical failures taught us nothing.
+      const detail = err?.code === QBO_OBJECT_NOT_FOUND
+        ? `${err.message} - ${await briefly(
+          diagnosePaymentRefs(db, conn, customerId, target, (p as any).method, ctx),
+          'could not reach QuickBooks to work out which reference it rejected',
+        )}`
+        : err?.message
+      await logRow(db, companyId, 'payment', p.id, 'error', undefined, detail)
+      return { pushed: false, reason: 'failed' as const, detail }
     })
   } catch (err: any) {
     return { pushed: false, reason: 'failed', detail: err?.message ?? 'unknown' }
