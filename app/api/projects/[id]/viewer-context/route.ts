@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { ownsProject } from '@/lib/project-access'
 
 export const runtime = 'nodejs'
 
@@ -32,7 +33,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     project = retry.data as any
   }
 
-  const owns = !!companyId && (project?.gc_company_id === companyId || project?.created_by_company_id === companyId)
+  const owns = ownsProject(companyId, project)
   return NextResponse.json({
     companyType, owns,
     billingMode: (project as any)?.billing_mode ?? 'simple',

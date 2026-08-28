@@ -20,7 +20,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const body = await request.json()
   const updates: Record<string, unknown> = {}
-  for (const k of ['paid_date', 'amount', 'method', 'memo', 'retainer', 'qb_entered']) {
+  for (const k of ['paid_date', 'amount', 'method', 'memo', 'reference', 'retainer', 'qb_entered']) {
     if (body[k] !== undefined) updates[k] = k === 'amount' ? Number(body[k]) || 0 : body[k]
   }
   const { error } = await admin().from('client_payments').update(updates).eq('id', params.paymentId).eq('project_id', params.id)

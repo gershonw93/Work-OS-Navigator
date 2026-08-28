@@ -52,6 +52,34 @@ export const RELEASES: Release[] = [
     title: 'A payment settles the invoice you marked paid',
     items: [
       {
+        kind: 'improved',
+        title: 'The check number you type is the Reference no. in QuickBooks',
+        text: 'The payment form asked for "Memo / check #" in one box, so your check number went across as the QuickBooks MEMO and its Reference no. - the column your bookkeeper matches against a bank statement - got SyteNav\'s own tracking id instead. There are now two boxes, Reference / check # and Memo, the same two QuickBooks has. Your reference goes in the reference field. Payments recorded before today keep their memo as it is; put the number in the new box and press Update formatting in Settings to correct them in QuickBooks.',
+        help: 'connect-quickbooks',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
+        title: 'Update formatting works on invoice payments',
+        text: 'It assumed every payment in QuickBooks was a sales receipt, which was true until money started settling invoices directly. On those newer payments it reported the record as missing. It now handles both.',
+        help: 'connect-quickbooks',
+        href: '/settings',
+      },
+      {
+        kind: 'improved',
+        title: 'Issue & get link shows that it is working',
+        text: 'The button was already ignoring a second click while it saved, but nothing on screen changed, so it read as unresponsive. It now dims and says "Issuing…". Same for Mark paid.',
+        help: 'money-overview',
+        href: '/projects',
+      },
+      {
+        kind: 'improved',
+        title: 'The job header says who the job is for',
+        text: 'It showed the project name and the address and never once named the client - the thing you sort a job by in your head. The customer now sits in small type above the project name. Subcontractors working the job do not see it.',
+        help: 'money-overview',
+        href: '/projects',
+      },
+      {
         kind: 'fixed',
         title: 'A payment QuickBooks half-refuses still goes across',
         text: 'If QuickBooks will not accept how a payment was made - usually because that method was made inactive over there - the payment used to fail outright and the invoice stayed showing as owed. It now goes across anyway and settles the invoice, with how it was paid written into the memo instead: "Hackensack Medical Suite - check1005 (paid by Check)". Money in the right place beats a tidy column.',

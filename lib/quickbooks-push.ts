@@ -125,27 +125,64 @@ export function methodNote(method?: string | null): string | null {
   return m ? `paid by ${m}` : null
 }
 
+/** QBO caps a transaction reference at 21 characters, and truncates silently. */
+const QBO_REF_MAX = 21
+
+/**
+ * The two fields that identify a payment in QuickBooks: Reference no. and memo.
+ *
+ * THE BUG THIS EXISTS FOR. SyteNav asked for "Memo / check #" in one box, so a
+ * check number arrived as the MEMO and QuickBooks' Reference no. got
+ * SN-25b82dff - our tracking id. Reference no. is the column a bookkeeper
+ * matches against a bank statement; putting our id there and their check
+ * number somewhere else is backwards.
+ *
+ * So: the payer's reference wins the reference field, exactly as a client
+ * invoice sends the user's own INV-0002 rather than an SN- ref. When they gave
+ * one, the SN- token moves into the memo so a record is still traceable; when
+ * they did not, SN- takes the reference field so a record is never unmatchable.
+ * Never both places - that is just noise in two columns.
+ *
+ * One composer for every payment path (Sales Receipt, applied Payment, and the
+ * refresh that rewrites records already over there), because the refresh
+ * hardcoding its own answer is precisely how it would overwrite a check number
+ * with SN- the next time somebody pressed Update formatting.
+ */
+export function paymentIdentity(
+  p: { id?: string; reference?: string | null; memo?: string | null },
+  projectName?: string | null,
+  note?: string | null,
+): { ref: string | undefined; memo: string | undefined } {
+  const own = String(p.reference ?? '').trim().slice(0, QBO_REF_MAX)
+  const sn = p.id ? snRef(p.id) : undefined
+  return own
+    ? { ref: own, memo: composeMemo(projectName, [p.memo, sn].filter(Boolean).join(' · '), note) }
+    : { ref: sn, memo: composeMemo(projectName, p.memo, note) }
+}
+
 export function composeBillDescription(trade?: string | null, projectName?: string | null): string {
   return [trade ?? 'Subcontractor work', projectName].filter(Boolean).join(' - ')
 }
 
 export function paymentPayload(
-  p: { id?: string; amount: unknown; paid_date?: string | null; memo?: string | null },
+  p: { id?: string; amount: unknown; paid_date?: string | null; memo?: string | null; reference?: string | null },
   customerQboId: string,
   itemId: string,
   projectName?: string | null,
   methodQboId?: string | null,
+  note?: string | null,
 ) {
+  const id = paymentIdentity(p, projectName, note)
   return {
     CustomerRef: { value: customerQboId },
     TxnDate: ymd(p.paid_date),
     // How the money arrived - the column a bookkeeper reconciles a bank
     // statement against. Omitted entirely when unknown rather than guessed.
     ...(methodQboId ? { PaymentMethodRef: { value: methodQboId } } : {}),
-    ...(p.id ? { DocNumber: snRef(p.id) } : {}),
+    ...(id.ref ? { DocNumber: id.ref } : {}),
     // The memo answers "which job?" before it says anything else - the
     // customer name is already on the record, the project is what was missing.
-    PrivateNote: composeMemo(projectName, p.memo),
+    PrivateNote: id.memo,
     Line: [{
       DetailType: 'SalesItemLineDetail',
       Amount: Number(p.amount),
@@ -212,7 +249,7 @@ export function clientInvoicePayload(
  * not book a second sale.
  */
 export function appliedPaymentPayload(
-  p: { id?: string; amount: unknown; paid_date?: string | null; memo?: string | null },
+  p: { id?: string; amount: unknown; paid_date?: string | null; memo?: string | null; reference?: string | null },
   customerQboId: string,
   invoiceQboId: string,
   projectName?: string | null,
@@ -220,6 +257,7 @@ export function appliedPaymentPayload(
   /** Set on the retry: the method goes in the memo because the ref would not go. */
   note?: string | null,
 ) {
+  const ident = paymentIdentity(p, projectName, note)
   return {
     CustomerRef: { value: customerQboId },
     TxnDate: ymd(p.paid_date),
@@ -228,8 +266,8 @@ export function appliedPaymentPayload(
     // A Payment carries its reference in PaymentRefNum; DocNumber is the
     // Invoice/Sales Receipt field and means nothing on this entity, so the
     // SN- reference was being written into a field QuickBooks does not read.
-    ...(p.id ? { PaymentRefNum: snRef(p.id) } : {}),
-    PrivateNote: composeMemo(projectName, p.memo, note),
+    ...(ident.ref ? { PaymentRefNum: ident.ref } : {}),
+    PrivateNote: ident.memo,
     Line: [{
       Amount: Number(p.amount),
       LinkedTxn: [{ TxnId: invoiceQboId, TxnType: 'Invoice' }],
@@ -393,7 +431,7 @@ async function existingInvoiceIdByDocNumber(conn: Connection, docNumber?: string
 export async function pushClientPayment(db: SupabaseClient, paymentId: string, ctx?: PushContext): Promise<PushResult> {
   try {
     const { data: p } = await db.from('client_payments')
-      .select('id, project_id, amount, paid_date, memo, method, qb_entered, qbo_id, client_invoice_id')
+      .select('id, project_id, amount, paid_date, memo, reference, method, qb_entered, qbo_id, client_invoice_id')
       .eq('id', paymentId).maybeSingle()
     if (!p) return { pushed: false, reason: 'skipped', detail: 'Payment not found' }
     if (p.qbo_id) return { pushed: false, reason: 'already' }
@@ -507,7 +545,7 @@ export async function pushBill(db: SupabaseClient, invoiceId: string, ctx?: Push
 export async function refreshPaymentInQbo(db: SupabaseClient, paymentId: string, ctx?: PushContext): Promise<PushResult> {
   try {
     const { data: p } = await db.from('client_payments')
-      .select('id, project_id, memo, method, qbo_id').eq('id', paymentId).maybeSingle()
+      .select('id, project_id, memo, reference, method, qbo_id, qbo_txn_type').eq('id', paymentId).maybeSingle()
     if (!p?.qbo_id) return { pushed: false, reason: 'skipped', detail: 'Not in QuickBooks yet' }
 
     const { companyId, projectName } = await projectCompany(db, p.project_id)
@@ -515,18 +553,36 @@ export async function refreshPaymentInQbo(db: SupabaseClient, paymentId: string,
     const conn = await connectionFor(db, companyId, ctx)
     if (!conn) return { pushed: false, reason: 'not_connected' }
 
+    // A payment row is one of two DIFFERENT QuickBooks entities, and this
+    // assumed every one was a Sales Receipt. Since money started applying
+    // against invoices, some are Payments - so Update formatting fetched
+    // salesreceipt/294, got nothing, and reported the record as gone.
+    // qbo_txn_type says which; legacy rows predate it and are all receipts.
+    const applied = (p as any).qbo_txn_type === 'payment'
+    const entity = applied ? 'payment' : 'salesreceipt'
+    const key = applied ? 'Payment' : 'SalesReceipt'
+
     return await budgeted((async (): Promise<PushResult> => {
-      const cur = await qboFetch(conn, `salesreceipt/${p.qbo_id}`)
-      const obj = cur?.SalesReceipt
+      const cur = await qboFetch(conn, `${entity}/${p.qbo_id}`)
+      const obj = cur?.[key]
       if (!obj?.Id) throw new Error('Record no longer exists in QuickBooks')
-      obj.PrivateNote = composeMemo(projectName, p.memo) ?? ''
-      obj.DocNumber = snRef(p.id)
+      // Same composer the push uses. Hardcoding snRef here is how a check
+      // number the user typed would be overwritten with our tracking id the
+      // next time somebody pressed Update formatting.
+      const ident = paymentIdentity(p, projectName)
+      obj.PrivateNote = ident.memo ?? ''
+      // A Payment's reference field is PaymentRefNum; DocNumber belongs to the
+      // Sales Receipt. Writing the wrong one silently does nothing.
+      if (ident.ref) {
+        if (applied) obj.PaymentRefNum = ident.ref
+        else obj.DocNumber = ident.ref
+      }
       // Backfill how the money arrived onto records pushed before methods
       // were carried at all. Only set it - never blank an existing one, which
       // could be something a bookkeeper chose inside QuickBooks.
       const mid = await methodIdFor(conn, (p as any).method, ctx)
       if (mid) obj.PaymentMethodRef = { value: mid }
-      await qboFetch(conn, 'salesreceipt', { method: 'POST', body: JSON.stringify(obj) })
+      await qboFetch(conn, entity, { method: 'POST', body: JSON.stringify(obj) })
       await db.from('client_payments').update({ qbo_synced_at: new Date().toISOString() }).eq('id', p.id)
       await logRow(db, companyId, 'payment', p.id, 'success', p.qbo_id, 'Formatting refreshed')
       return { pushed: true, qboId: p.qbo_id }
@@ -775,7 +831,7 @@ async function diagnosePaymentRefs(
 export async function pushPaymentForProject(db: SupabaseClient, paymentId: string, ctx?: PushContext): Promise<PushResult> {
   try {
     const { data: p } = await db.from('client_payments')
-      .select('id, project_id, amount, paid_date, memo, method, qb_entered, qbo_id, client_invoice_id')
+      .select('id, project_id, amount, paid_date, memo, reference, method, qb_entered, qbo_id, client_invoice_id')
       .eq('id', paymentId).maybeSingle()
     if (!p) return { pushed: false, reason: 'skipped', detail: 'Payment not found' }
     if (p.qbo_id) return { pushed: false, reason: 'already' }

@@ -119,6 +119,10 @@ export async function POST(request: Request, { params }: { params: { id: string 
     amount: Number(body.amount) || 0,
     method: body.method || null,
     memo: body.memo || null,
+    // The payer's own reference - a check number, a wire confirmation. It is
+    // what QuickBooks shows as Reference no., which is the column a bookkeeper
+    // matches against a bank statement.
+    reference: body.reference || null,
     retainer: !!body.retainer,
     qb_entered: !!body.qb_entered,
     // The invoice this money settles, when it settles one. QuickBooks applies
