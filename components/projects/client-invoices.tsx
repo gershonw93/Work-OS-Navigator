@@ -487,9 +487,11 @@ export function ClientInvoices({
                 */}
                 {b.status === 'draft' && (
                   <button onClick={() => setStatus(b, 'sent')} disabled={!!statusBusy}
-                    className="shrink-0 rounded-md border border-line px-2 py-1 text-xs font-medium text-muted-fg hover:bg-surface"
+                    className="shrink-0 inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-xs font-medium text-muted-fg hover:bg-surface disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Issues it and creates the client's link">
-                    Issue &amp; get link
+                    {statusBusy === b.id
+                      ? <><Loader2 className="h-3 w-3 animate-spin" /> Issuing…</>
+                      : <>Issue &amp; get link</>}
                   </button>
                 )}
                 {b.status === 'sent' && (
@@ -499,8 +501,10 @@ export function ClientInvoices({
                       else setStatus(b, 'paid')
                     }}
                     disabled={!!statusBusy}
-                    className="shrink-0 inline-flex items-center gap-1 rounded-md border border-success/30 bg-success-tint px-2 py-1 text-xs font-medium text-success">
-                    <Check className="h-3 w-3" /> Mark paid
+                    className="shrink-0 inline-flex items-center gap-1 rounded-md border border-success/30 bg-success-tint px-2 py-1 text-xs font-medium text-success disabled:opacity-50 disabled:cursor-not-allowed">
+                    {statusBusy === b.id
+                      ? <><Loader2 className="h-3 w-3 animate-spin" /> Recording…</>
+                      : <><Check className="h-3 w-3" /> Mark paid</>}
                   </button>
                 )}
 

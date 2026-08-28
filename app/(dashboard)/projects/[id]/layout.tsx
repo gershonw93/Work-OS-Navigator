@@ -7,6 +7,7 @@ import { TeamQuickView } from '@/components/layout/team-quick-view'
 import { EditProjectButton } from '@/components/layout/edit-project-button'
 import { ProjectStatusSwitch } from '@/components/layout/project-status-switch'
 import { SetupChecklist } from '@/components/projects/setup-checklist'
+import { ownsProject, clientLabel } from '@/lib/project-access'
 
 interface ProjectLayoutProps {
   children: ReactNode
@@ -27,6 +28,22 @@ export default async function ProjectLayout({ children, params }: ProjectLayoutP
     ? await supabase.from('projects').select('id, name').eq('id', project.parent_project_id).single()
     : { data: null }
 
+  // Whose client this is. The header named the project and the address and
+  // never once said who it was FOR - the thing you sort a job by in your head.
+  //
+  // Shown only to the owning company: subcontractors working this job see the
+  // same header, and who the GC is billing is not theirs to know.
+  const { data: { user } } = await supabase.auth.getUser()
+  const { data: profile } = user
+    ? await supabase.from('profiles').select('company_id').eq('id', user.id).maybeSingle()
+    : { data: null }
+  const { data: customer } = project?.customer_id
+    ? await supabase.from('customers').select('name').eq('id', project.customer_id).maybeSingle()
+    : { data: null }
+  const client = ownsProject(profile?.company_id, project)
+    ? clientLabel(customer?.name, project?.client)
+    : null
+
   return (
     <div className="flex flex-col min-h-full">
       {/* Project header */}
@@ -39,6 +56,9 @@ export default async function ProjectLayout({ children, params }: ProjectLayoutP
                   className="inline-flex items-center gap-1 text-xs font-medium text-accent-fg hover:underline">
                   ← {parent.name}
                 </a>
+              )}
+              {client && (
+                <p className="text-xs font-medium text-muted-fg truncate">{client}</p>
               )}
               <h1 className="text-lg sm:text-xl font-bold text-ink truncate">
                 {project?.name ?? 'Project'}

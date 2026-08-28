@@ -16,7 +16,7 @@ production branch.** Do NOT ask the user to merge or deploy.
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-087.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-088.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - IMPORTANT: verify every column you `.select()` actually exists - Supabase
   returns `data: null` for an unknown column, so a typo reads as "not found"
@@ -75,6 +75,14 @@ production branch.** Do NOT ask the user to merge or deploy.
 - A cached `qbo_id` for a record QBO does not have fails identically forever:
   clear it so the next push re-creates. Only when MISSING, never when inactive
   - re-creating an inactive customer leaves two with the same name.
+- Reference no. is the USER's (`client_payments.reference`), not `SN-<id8>` -
+  it is the bank-reconciliation column. `paymentIdentity()` composes ref+memo
+  for every payment path; SN- moves into the memo when the user gave a ref, so
+  it appears in exactly one place. `PaymentRefNum` on a Payment, `DocNumber` on
+  a Sales Receipt - the wrong one is accepted and silently ignored.
+- A payment row is one of TWO QBO entities. `qbo_txn_type` says which; the
+  refresh assumed Sales Receipt for everything and reported applied Payments as
+  missing. Any path that touches an existing payment must branch on it.
 - Every push: never throws, capped at 8s, "not connected" is a normal state,
   and misses land in `quickbooks_sync_log` for the backlog sync to pick up.
 - Pushes take an atomic claim (`qbo_claimed_at`) via a conditional UPDATE. A

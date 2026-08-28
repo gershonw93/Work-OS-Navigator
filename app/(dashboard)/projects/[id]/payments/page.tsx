@@ -15,6 +15,8 @@ import { cn } from '@/lib/utils'
 interface Payment {
   id: string; paid_date: string | null; amount: number; method: string | null
   memo: string | null; retainer: boolean; qb_entered: boolean
+  /** The payer's own reference - what QuickBooks shows as Reference no. */
+  reference: string | null
   /** Set by the real QuickBooks sync. When present, the chip is a fact, not a claim. */
   qbo_id: string | null
 }
@@ -25,7 +27,7 @@ interface Summary {
   projectedCost: number; invoicedAlready: number; projectedGoingForward: number
 }
 const money = (n: number) => `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
-const blank = { paid_date: '', amount: '', method: 'Check', memo: '', retainer: false, qb_entered: false }
+const blank = { paid_date: '', amount: '', method: 'Check', memo: '', reference: '', retainer: false, qb_entered: false }
 const METHODS = ['Check', 'QuickPay', 'Wire', 'ACH', 'Cash', 'CC', 'Other']
 
 export default function PaymentsPage({ params }: { params: { id: string } }) {
@@ -389,7 +391,12 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
                 {METHODS.map(m => <option key={m} value={m}>{m}</option>)}
               </select>
             </div>
-            <div className="space-y-1"><Label>Memo / check #</Label><Input value={form.memo} onChange={e => setForm({ ...form, memo: e.target.value })} placeholder="e.g. 1043" /></div>
+            {/* Two fields, because QuickBooks has two. This was one box called
+                "Memo / check #", so a check number went across as the MEMO and
+                QuickBooks' Reference no. - the column a bookkeeper matches
+                against a bank statement - got our internal tracking id. */}
+            <div className="space-y-1"><Label>Reference / check #</Label><Input value={form.reference} onChange={e => setForm({ ...form, reference: e.target.value })} placeholder="e.g. 1043" /></div>
+            <div className="space-y-1 col-span-2 sm:col-span-3"><Label>Memo</Label><Input value={form.memo} onChange={e => setForm({ ...form, memo: e.target.value })} placeholder="Anything worth remembering about this payment" /></div>
           </div>
           <div className="flex flex-wrap items-center gap-4">
             <label className="flex items-center gap-2 text-sm text-ink-soft"><input type="checkbox" className="accent-[#C9F24A]" checked={form.retainer} onChange={e => setForm({ ...form, retainer: e.target.checked })} /> Retainer / deposit</label>
@@ -409,12 +416,13 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
       ) : (
         <div className="bg-panel rounded-xl border border-line overflow-hidden">
           <div className="hidden md:grid grid-cols-[7rem_1fr_8rem_1fr_5rem_3rem] gap-2 px-4 py-2.5 border-b border-line-soft text-xs font-semibold text-faint uppercase tracking-wide">
-            <span>Date</span><span>Memo</span><span>Method</span><span className="text-right">Amount</span><span>QB</span><span />
+            <span>Date</span><span>Reference / memo</span><span>Method</span><span className="text-right">Amount</span><span>QB</span><span />
           </div>
           <div className="divide-y divide-line-soft">
             {payments.map(p => editingId === p.id ? (
-              <div key={p.id} className="px-4 py-3 grid grid-cols-2 sm:grid-cols-5 gap-2 bg-accent-tint/30 items-center">
+              <div key={p.id} className="px-4 py-3 grid grid-cols-2 sm:grid-cols-6 gap-2 bg-accent-tint/30 items-center">
                 <Input type="date" value={editForm.paid_date} onChange={e => setEditForm({ ...editForm, paid_date: e.target.value })} />
+                <Input value={editForm.reference} onChange={e => setEditForm({ ...editForm, reference: e.target.value })} placeholder="Reference / check #" />
                 <Input value={editForm.memo} onChange={e => setEditForm({ ...editForm, memo: e.target.value })} placeholder="Memo" />
                 <select value={editForm.method} onChange={e => setEditForm({ ...editForm, method: e.target.value })} className="rounded-md border border-line bg-panel px-2 py-2 text-sm">
                   {METHODS.map(m => <option key={m} value={m}>{m}</option>)}
@@ -428,7 +436,12 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
             ) : (
               <div key={p.id} className="group md:grid md:grid-cols-[7rem_1fr_8rem_1fr_5rem_3rem] md:gap-2 md:items-center px-4 py-3 hover:bg-surface">
                 <span className="text-sm text-ink-soft">{p.paid_date ? new Date(p.paid_date + 'T00:00:00').toLocaleDateString() : '-'}</span>
-                <span className="text-sm text-ink-soft truncate">{p.memo || '-'}{p.retainer && <span className="ml-2 text-[10px] rounded-full bg-info-tint text-info px-1.5 py-0.5">retainer</span>}</span>
+                <span className="text-sm text-ink-soft truncate">
+                  {p.reference && <span className="font-medium text-ink">{p.reference}</span>}
+                  {p.reference && p.memo ? ' · ' : ''}
+                  {p.memo || (p.reference ? '' : '-')}
+                  {p.retainer && <span className="ml-2 text-[10px] rounded-full bg-info-tint text-info px-1.5 py-0.5">retainer</span>}
+                </span>
                 <span className="text-sm text-muted-fg">{p.method || '-'}</span>
                 <span className="text-sm font-semibold text-success md:text-right block">{money(p.amount)}</span>
                 {/* Two different truths, shown differently. qbo_id means the
@@ -436,7 +449,7 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
                     hand-tick stays for people who type into QuickBooks
                     themselves, and stays a toggle because it is their claim. */}
                 {p.qbo_id ? (
-                  <span title={`In QuickBooks - search for ${'SN-' + p.id.slice(0, 8)} or the memo`}
+                  <span title={`In QuickBooks - search for ${p.reference || 'SN-' + p.id.slice(0, 8)} or the memo`}
                     className="text-xs inline-flex items-center gap-1 rounded-full border border-success/40 bg-success-tint px-2 py-0.5 text-success">
                     <Check className="h-3 w-3" /> QB ✓
                   </span>
@@ -448,7 +461,7 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
                   </button>
                 )}
                 <div className="flex justify-end gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => { setEditingId(p.id); setEditForm({ paid_date: p.paid_date ?? '', amount: String(p.amount), method: p.method ?? 'Check', memo: p.memo ?? '', retainer: p.retainer, qb_entered: p.qb_entered }) }} className="p-1.5 rounded-lg text-faint hover:bg-muted"><Pencil className="h-3.5 w-3.5" /></button>
+                  <button onClick={() => { setEditingId(p.id); setEditForm({ paid_date: p.paid_date ?? '', amount: String(p.amount), method: p.method ?? 'Check', memo: p.memo ?? '', reference: p.reference ?? '', retainer: p.retainer, qb_entered: p.qb_entered }) }} className="p-1.5 rounded-lg text-faint hover:bg-muted"><Pencil className="h-3.5 w-3.5" /></button>
                   <button onClick={() => remove(p)} className="p-1.5 rounded-lg text-faint hover:bg-danger-tint hover:text-danger"><Trash2 className="h-3.5 w-3.5" /></button>
                 </div>
               </div>
