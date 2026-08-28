@@ -50,7 +50,7 @@ export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
-  const { can, realRole, loading: permsLoading } = usePermissions()
+  const { can, realRole, loading: permsLoading, error: permsError, reload: reloadPerms } = usePermissions()
   const [isSubcontractor, setIsSubcontractor] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -120,6 +120,28 @@ export function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+        {/* A menu that cannot be loaded is not an empty menu.
+            While permissions are in flight every item with a resource is
+            filtered out, and if the call FAILS they stay filtered out - which
+            rendered an app with four links, no explanation and no way back.
+            Say which it is. */}
+        {permsLoading && (
+          <div className="space-y-1" aria-hidden="true">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-10 rounded-lg bg-muted/60 animate-pulse" />
+            ))}
+          </div>
+        )}
+        {permsError && (
+          <div className="rounded-lg border border-warn/30 bg-warn-tint px-3 py-2.5 text-xs text-warn space-y-2">
+            <p className="font-medium">Couldn&apos;t load your menu.</p>
+            <p className="text-[11px] opacity-90">{permsError}</p>
+            <button onClick={reloadPerms}
+              className="rounded-md border border-warn/40 px-2 py-1 text-[11px] font-semibold hover:bg-warn/10">
+              Try again
+            </button>
+          </div>
+        )}
         {navItems.map((item) => {
           const Icon = item.icon
           const isActive = item.href === '/dashboard'

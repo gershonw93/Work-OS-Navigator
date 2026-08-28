@@ -120,6 +120,18 @@ production branch.** Do NOT ask the user to merge or deploy.
   `Promise.all` anything independent. #325 added three sequential trips for one
   line of header text and made the whole app feel slow.
 
+## Loading and failure states (IMPORTANT)
+- A loading state must have a WAY TO END. `setLoading(false)` as the last
+  statement of an async function ends only on the happy path - use
+  try/catch/finally, always.
+- "Loading" and "failed" are different facts. Collapsing them into one falsy
+  value is how a failed permissions call rendered a menu with four links and no
+  explanation. Callers need `error` as well as `loading`.
+- One Supabase server client per request (`lib/supabase/current-user.ts` caches
+  the client, not only the answers). `server.ts` swallows cookie writes because
+  a Server Component may not set them, so a second client can present a
+  refresh token the first one just rotated away.
+
 ## Stack notes
 - Next.js 14 App Router, Supabase (Postgres + Storage), Tailwind.
 - Theme: SyteNav "Field" - semantic CSS-var tokens (surface/panel/ink/accent…),

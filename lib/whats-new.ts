@@ -53,6 +53,12 @@ export const RELEASES: Release[] = [
     items: [
       {
         kind: 'fixed',
+        title: 'The app tells you when something fails to load',
+        text: 'If your permissions could not be fetched, the sidebar quietly dropped every menu item and the dashboard sat on grey placeholders - no message, no retry, no way to tell a slow connection from a broken one. Both now say what went wrong and offer Try again, and a session that has ended sends you to sign in instead of leaving a shell you cannot use.',
+        href: '/dashboard',
+      },
+      {
+        kind: 'fixed',
         title: 'Project pages load quickly again',
         text: 'They had got noticeably slower, and creating a bill from a sub could feel like it froze. The customer name added to the job header yesterday was fetching data the app had already loaded a moment earlier - three extra round trips on every single project page, before anything appeared. It now asks once and reuses the answer.',
         href: '/projects',
