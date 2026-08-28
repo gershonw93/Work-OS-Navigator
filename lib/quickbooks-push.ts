@@ -1,7 +1,7 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 import {
   Connection, getValidConnection, qboFetch, qboQuery,
-  defaultExpenseAccountId, defaultServiceItemId, paymentMethodId,
+  defaultExpenseAccountId, defaultServiceItemId, defaultBankAccountId, paymentMethodId,
   probeReferences, describeProbe, QBO_OBJECT_NOT_FOUND, type ReferenceRef,
 } from '@/lib/quickbooks'
 
@@ -35,6 +35,8 @@ export interface PushContext {
   conn?: Connection | null
   expenseAccountId?: string
   itemId?: string
+  /** The bank account bill payments come out of, resolved once per run. */
+  bankAccountId?: string
   /** Method name -> QBO PaymentMethod id, so a 50-row sync resolves each once. */
   methodIds?: Record<string, string | null>
 }
@@ -212,6 +214,45 @@ export function billPayload(
 }
 
 /**
+ * Money going OUT to a sub, applied against the Bill it settles.
+ *
+ * The exact mirror of appliedPaymentPayload on the receivable side. A Bill
+ * says "owed"; a BillPayment linked to it says "paid". Without the second
+ * record the payable sits open in QuickBooks forever, and A/P overstates by
+ * every bill you have actually settled.
+ *
+ * QBO will not take a BillPayment without a PayType and an account to pay
+ * from - there is nothing sensible for it to infer. SyteNav does not record
+ * HOW a sub was paid, so Check is the honest default for construction, and
+ * the bank account can be changed inside QuickBooks like every other default
+ * this integration picks.
+ */
+export function billPaymentPayload(
+  inv: { id?: string; invoice_number?: string | null; amount: unknown; paid_at?: string | null },
+  vendorQboId: string,
+  billQboId: string,
+  bankAccountId: string,
+  projectName?: string | null,
+) {
+  const amount = Number(inv.amount)
+  return {
+    VendorRef: { value: vendorQboId },
+    TxnDate: ymd(inv.paid_at) ?? ymd(new Date().toISOString()),
+    TotalAmt: amount,
+    PayType: 'Check',
+    CheckPayment: { BankAccountRef: { value: bankAccountId } },
+    // The sub's own invoice number, not an SN- ref - same reasoning as a
+    // client invoice. They have a number; it is the one being reconciled.
+    ...(inv.invoice_number ? { DocNumber: String(inv.invoice_number).slice(0, 21) } : {}),
+    PrivateNote: composeMemo(projectName, inv.invoice_number ? `Bill ${inv.invoice_number}` : null),
+    Line: [{
+      Amount: amount,
+      LinkedTxn: [{ TxnId: billQboId, TxnType: 'Bill' }],
+    }],
+  }
+}
+
+/**
  * A client invoice as a QuickBooks Invoice - a receivable.
  *
  * DocNumber is the user's OWN invoice number here, not an snRef. Payments had
@@ -381,22 +422,30 @@ const HAND_ENTERED: PushResult = {
 
 const CLAIM_STALE_MS = 2 * 60 * 1000
 
-async function claimForPush(db: SupabaseClient, table: string, id: string): Promise<boolean> {
+async function claimForPush(
+  db: SupabaseClient, table: string, id: string,
+  // A row can hold TWO QuickBooks records: a sub bill is a Bill and, once
+  // paid, a BillPayment. They need separate ids and separate claims, or the
+  // guard that stops a double-press cannot say which of the two it is holding.
+  idCol = 'qbo_id', claimCol = 'qbo_claimed_at',
+): Promise<boolean> {
   const staleBefore = new Date(Date.now() - CLAIM_STALE_MS).toISOString()
   const { data } = await db
     .from(table)
-    .update({ qbo_claimed_at: new Date().toISOString() })
+    .update({ [claimCol]: new Date().toISOString() })
     .eq('id', id)
-    .is('qbo_id', null)
-    .or(`qbo_claimed_at.is.null,qbo_claimed_at.lt.${staleBefore}`)
+    .is(idCol, null)
+    .or(`${claimCol}.is.null,${claimCol}.lt.${staleBefore}`)
     .select('id')
   return Array.isArray(data) ? data.length > 0 : !!data
 }
 
 /** Hand the claim back so a failed push can be retried immediately. */
-async function releaseClaim(db: SupabaseClient, table: string, id: string): Promise<void> {
+async function releaseClaim(
+  db: SupabaseClient, table: string, id: string, claimCol = 'qbo_claimed_at',
+): Promise<void> {
   try {
-    await db.from(table).update({ qbo_claimed_at: null }).eq('id', id)
+    await db.from(table).update({ [claimCol]: null }).eq('id', id)
   } catch { /* a stuck claim expires on its own; never fail the caller for this */ }
 }
 
@@ -530,6 +579,122 @@ export async function pushBill(db: SupabaseClient, invoiceId: string, ctx?: Push
     })
   } catch (err: any) {
     return { pushed: false, reason: 'failed', detail: err?.message ?? 'unknown' }
+  }
+}
+
+/**
+ * A PAID sub bill -> QBO BillPayment, applied against the Bill it settles.
+ *
+ * THE GAP THIS CLOSES. Approving a sub's bill created the Bill - money owed.
+ * Marking it paid recorded nothing over there, so the payable stayed open in
+ * QuickBooks after the cash had gone out and A/P overstated by every bill you
+ * had settled. Exactly the mirror of the receivable bug fixed in #323: there,
+ * an invoice reached QuickBooks and the payment settling it did not.
+ *
+ * Two records on one row, so two ids and two claims. Never throws.
+ */
+export async function pushBillPayment(db: SupabaseClient, invoiceId: string, ctx?: PushContext): Promise<PushResult> {
+  try {
+    const { data: inv, error } = await db.from('invoices')
+      .select('id, project_id, invoice_number, amount, status, paid_at, qbo_id, qbo_payment_id, subcontracts(company_id)')
+      .eq('id', invoiceId).maybeSingle()
+
+    // Migration 089 adds qbo_payment_id. Until it lands, do NOTHING: there is
+    // nowhere to record that the payment happened, so every run would push the
+    // same money again and QuickBooks would fill up with duplicate payments.
+    // Silence is the only safe answer to a missing column here.
+    if (error?.code === '42703') {
+      return { pushed: false, reason: 'skipped', detail: 'Bill payments are not set up on this database yet' }
+    }
+    if (!inv) return { pushed: false, reason: 'skipped', detail: 'Bill not found' }
+    if (inv.qbo_payment_id) return { pushed: false, reason: 'already' }
+    if (String(inv.status) !== 'paid') {
+      return { pushed: false, reason: 'skipped', detail: `Status ${inv.status} is not paid` }
+    }
+    // No Bill over there means nothing to settle. A BillPayment linked to
+    // nothing would be money leaving with no payable behind it.
+    if (!inv.qbo_id) {
+      return { pushed: false, reason: 'skipped', detail: 'The bill itself has not reached QuickBooks yet' }
+    }
+    if (!Number(inv.amount)) return { pushed: false, reason: 'skipped', detail: 'Bill has no amount' }
+
+    const { companyId, projectName } = await projectCompany(db, inv.project_id)
+    if (!companyId) return { pushed: false, reason: 'skipped', detail: 'Project has no company' }
+    const vendorCompanyId = (inv.subcontracts as any)?.company_id
+    if (!vendorCompanyId) return { pushed: false, reason: 'skipped', detail: 'Bill has no subcontractor' }
+
+    const conn = await connectionFor(db, companyId, ctx)
+    if (!conn) return { pushed: false, reason: 'not_connected' }
+
+    if (!await claimForPush(db, 'invoices', inv.id, 'qbo_payment_id', 'qbo_payment_claimed_at')) {
+      return { pushed: false, reason: 'already' }
+    }
+
+    return await budgeted((async (): Promise<PushResult> => {
+      if (!ctx?.bankAccountId) {
+        const bankAccountId = await defaultBankAccountId(conn)
+        if (ctx) ctx.bankAccountId = bankAccountId; else ctx = { conn, bankAccountId }
+      }
+      const vendorQboId = await ensureVendorId(db, conn, vendorCompanyId, companyId)
+      const res = await qboFetch(conn, 'billpayment', {
+        method: 'POST',
+        body: JSON.stringify(billPaymentPayload(inv as any, vendorQboId, inv.qbo_id!, ctx!.bankAccountId!, projectName)),
+      })
+      const qboId = res?.BillPayment?.Id
+      await db.from('invoices').update({
+        qbo_payment_id: qboId, qbo_payment_synced_at: new Date().toISOString(),
+      }).eq('id', inv.id)
+      await logRow(db, companyId, 'bill_payment', inv.id, 'success', qboId, `Settled bill ${inv.qbo_id}`)
+      return { pushed: true, qboId }
+    })()).catch(async (err: any) => {
+      await releaseClaim(db, 'invoices', inv.id, 'qbo_payment_claimed_at')
+      const detail = err?.code === QBO_OBJECT_NOT_FOUND
+        ? `${err.message} - ${await briefly(
+          diagnoseBillPaymentRefs(db, conn, vendorCompanyId, inv.qbo_id!),
+          'could not reach QuickBooks to work out which reference it rejected',
+        )}`
+        : err?.message
+      await logRow(db, companyId, 'bill_payment', inv.id, 'error', undefined, detail)
+      return { pushed: false, reason: 'failed' as const, detail }
+    })
+  } catch (err: any) {
+    return { pushed: false, reason: 'failed', detail: err?.message ?? 'unknown' }
+  }
+}
+
+/** Same idea as diagnosePaymentRefs, for the money-out side. Never throws. */
+async function diagnoseBillPaymentRefs(
+  db: SupabaseClient,
+  conn: Connection,
+  vendorCompanyId: string,
+  billQboId: string,
+): Promise<string> {
+  try {
+    const { data: co } = await db.from('companies').select('qbo_vendor_id').eq('id', vendorCompanyId).maybeSingle()
+    const refs: ReferenceRef[] = []
+    if (co?.qbo_vendor_id) {
+      refs.push({
+        label: `vendor ${co.qbo_vendor_id}`,
+        path: `vendor/${co.qbo_vendor_id}`,
+        inspect: (o: any) => o?.Active === false ? 'the vendor is inactive in QuickBooks' : null,
+      })
+    }
+    refs.push({
+      label: `bill ${billQboId}`,
+      path: `bill/${billQboId}`,
+      inspect: (o: any) => Number(o?.Balance ?? 0) === 0
+        ? 'the bill has a zero balance in QuickBooks - already paid or voided there'
+        : null,
+    })
+    const probes = await probeReferences(conn, refs)
+    // A vendor id QuickBooks does not have fails identically forever. Clear it
+    // so the next push re-creates - MISSING only, never merely inactive.
+    if (co?.qbo_vendor_id && probes.find(x => x.label === `vendor ${co.qbo_vendor_id}`)?.missing) {
+      await db.from('companies').update({ qbo_vendor_id: null, qbo_vendor_synced_at: null }).eq('id', vendorCompanyId)
+    }
+    return describeProbe(probes)
+  } catch (err: any) {
+    return `could not work out which reference QuickBooks rejected (${err?.message ?? 'unknown'})`
   }
 }
 

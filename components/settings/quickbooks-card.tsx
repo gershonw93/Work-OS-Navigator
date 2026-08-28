@@ -109,7 +109,7 @@ export function QuickBooksCard() {
     } catch (e: any) { setMsg({ ok: false, text: e.message }) } finally { setBusy('') }
   }
 
-  async function sync(entity: 'customers' | 'vendors' | 'bills' | 'payments' | 'client-invoices') {
+  async function sync(entity: 'customers' | 'vendors' | 'bills' | 'bill-payments' | 'payments' | 'client-invoices') {
     setBusy(entity); setMsg(null)
     try {
       const res = await fetch('/api/quickbooks/sync', {
@@ -224,6 +224,12 @@ export function QuickBooksCard() {
                   className="inline-flex items-center gap-2 rounded-lg border border-line bg-surface px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50">
                   {busy === 'bills' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
                   Sync bills
+                </button>
+                <button onClick={() => sync('bill-payments')} disabled={!!busy}
+                  title="Settle the bills you have already paid - without this the payable stays open in QuickBooks after the money has gone out"
+                  className="inline-flex items-center gap-2 rounded-lg border border-line bg-surface px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50">
+                  {busy === 'bill-payments' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Banknote className="h-4 w-4" />}
+                  Sync bill payments
                 </button>
                 <button onClick={() => sync('client-invoices')} disabled={!!busy}
                   title="Push sent client invoices as QuickBooks Invoices (money owed to you)"

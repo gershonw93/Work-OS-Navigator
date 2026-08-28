@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
 import { notify } from '@/lib/notify'
 import { validateAllocations } from '@/lib/allocations'
-import { pushBill } from '@/lib/quickbooks-push'
+import { pushBill, pushBillPayment } from '@/lib/quickbooks-push'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -192,6 +192,13 @@ export async function PATCH(
   // the pusher reads the new status, and its result never gates the response.
   if (status === 'approved' || status === 'paid') {
     await pushBill(db, params.invoiceId)
+  }
+  // ...and paying it settles that Bill. Two records, in order: without the
+  // second, the payable sat open in QuickBooks after the cash had gone out.
+  // pushBill runs first so a bill approved and paid in one go has something
+  // for the payment to link to.
+  if (status === 'paid') {
+    await pushBillPayment(db, params.invoiceId)
   }
 
   return NextResponse.json({ invoice: data, allocations: saved ?? [] })

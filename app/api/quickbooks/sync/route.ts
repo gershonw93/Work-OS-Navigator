@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { admin, getValidConnection, qboFetch } from '@/lib/quickbooks'
-import { pushBill, pushClientInvoice, pushPaymentForProject, refreshBillInQbo, refreshPaymentInQbo, type PushContext } from '@/lib/quickbooks-push'
+import { pushBill, pushBillPayment, pushClientInvoice, pushPaymentForProject, refreshBillInQbo, refreshPaymentInQbo, type PushContext } from '@/lib/quickbooks-push'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -125,6 +125,37 @@ export async function POST(request: Request) {
       if (r.pushed) results.push({ id: inv.id, name: label, status: 'success', qbo_id: r.qboId })
       else if (r.reason === 'already') results.push({ id: inv.id, name: label, status: 'skipped', message: 'Already synced' })
       else results.push({ id: inv.id, name: label, status: 'error', message: r.detail ?? r.reason })
+    }
+  } else if (entity === 'bill-payments') {
+    // Bills you have PAID -> a QBO BillPayment against each Bill. Without this
+    // the payable stays open in QuickBooks after the money has gone out.
+    const projectIds = await ownedProjectIds()
+    if (!projectIds.length) return NextResponse.json({ summary: { total: 0, synced: 0, skipped: 0, errors: 0 }, results: [] })
+
+    let q = db.from('invoices').select('id, invoice_number, qbo_id, qbo_payment_id')
+      .in('project_id', projectIds)
+      .eq('status', 'paid')
+      .not('qbo_id', 'is', null)
+    if (ids) q = q.in('id', ids)
+    const { data: paidBills, error: paidErr } = await q
+
+    // Migration 089 has not landed here yet: say so plainly rather than
+    // reporting every bill as an error.
+    if (paidErr && (paidErr as any).code === '42703') {
+      return NextResponse.json({
+        summary: { total: 0, synced: 0, skipped: 0, errors: 0 },
+        results: [{ id: 'setup', name: 'Bill payments', status: 'skipped', message: 'Not set up on this database yet' }],
+      })
+    }
+
+    const ctx: PushContext = { conn }
+    for (const b of paidBills ?? []) {
+      const label = `Payment for bill ${b.invoice_number ?? b.id.slice(0, 8)}`
+      if (b.qbo_payment_id) { results.push({ id: b.id, name: label, status: 'skipped', qbo_id: b.qbo_payment_id, message: 'Already synced' }); continue }
+      const r = await pushBillPayment(db, b.id, ctx)
+      if (r.pushed) results.push({ id: b.id, name: label, status: 'success', qbo_id: r.qboId })
+      else if (r.reason === 'already') results.push({ id: b.id, name: label, status: 'skipped', message: 'Already synced' })
+      else results.push({ id: b.id, name: label, status: 'error', message: r.detail ?? r.reason })
     }
   } else if (entity === 'payments') {
     // Client payments received -> applied against the invoice they settle, or

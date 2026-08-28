@@ -52,6 +52,13 @@ export const RELEASES: Release[] = [
     title: 'The right invoice, and the right people',
     items: [
       {
+        kind: 'new',
+        title: 'Paying a sub now shows in QuickBooks',
+        text: 'Approving a bill from a sub put it in QuickBooks as money you owe. Marking it PAID did nothing over there - so the bill sat open in QuickBooks after the cash had gone out, and your accounts payable overstated by every bill you had actually settled. Paying one now records the payment against that bill, exactly as a client payment settles a client invoice. Bills you paid before today are caught up with Sync bill payments in Settings.',
+        help: 'connect-quickbooks',
+        href: '/settings',
+      },
+      {
         kind: 'fixed',
         title: 'You are told when a sub submits a bill',
         text: 'The "pending approval" notification went to whoever created the bill - so a sub submitting their own from My Jobs was told to approve it themselves, and you heard nothing until you happened to open the tab. It now goes to everyone on your team who can approve a bill, and says who submitted it and for how much. People who cannot open the bills tab are not notified, because a notification you cannot act on is just noise.',
