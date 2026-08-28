@@ -218,6 +218,11 @@ export function ClientInvoices({
   // with that one cost already ticked. Approving a sub bill and then hunting
   // for it in a list of billable costs is the step people were dropping.
   const [prefilled, setPrefilled] = useState(false)
+  // Arrived from "Bill the client" on one specific cost. The composer then
+  // knows the answer and should say so, rather than showing the whole
+  // pick-your-costs checklist with one box ticked - which reads as "start
+  // over" to somebody who just told us what they wanted.
+  const [focused, setFocused] = useState(false)
   useEffect(() => {
     if (prefilled || loading || !billable.length) return
     const wanted = new URLSearchParams(window.location.search).get('bill')
@@ -226,6 +231,7 @@ export function ClientInvoices({
     if (hit) {
       setPicked(new Set([`${hit.kind}:${hit.source_id}`]))
       setBuilding(true)
+      setFocused(true)
       // Leave the URL clean so a refresh does not re-open the composer.
       window.history.replaceState({}, '', window.location.pathname)
     }
@@ -370,10 +376,31 @@ export function ClientInvoices({
       {building && (
         <div className="rounded-lg border border-line bg-surface p-3 space-y-3">
           <p className="text-xs font-semibold text-muted-fg uppercase tracking-wide">
-            What is going on this invoice
+            {focused ? 'Billing this cost' : 'What is going on this invoice'}
           </p>
 
-          {billable.length === 0 ? (
+          {focused ? (
+            <div className="rounded-lg border border-line bg-panel divide-y divide-line-soft">
+              {chosen.map(b => (
+                <div key={key(b)} className="flex items-center gap-3 px-3 py-2.5">
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-sm font-medium text-ink truncate">{b.description}</span>
+                    <span className="block text-[11px] text-faint">
+                      {b.reference ? `${b.reference} · ` : ''}{money(b.cost)} cost
+                      {b.excluded ? ' · at cost, no markup' : ` + ${b.pct}% (${money(b.markup)})`}
+                    </span>
+                  </span>
+                  <span className="text-sm font-semibold text-ink tabular-nums shrink-0">{money(b.clientPrice)}</span>
+                </div>
+              ))}
+              {/* Nothing is taken away - the full list is one click behind
+                  this, for the times you do want to add to the invoice. */}
+              <button onClick={() => setFocused(false)}
+                className="w-full px-3 py-2 text-left text-xs font-medium text-muted-fg hover:bg-surface">
+                + Add another cost to this invoice
+              </button>
+            </div>
+          ) : billable.length === 0 ? (
             <p className="text-sm text-faint">Every recorded cost is already on an invoice.</p>
           ) : (
             <div className="max-h-64 overflow-y-auto rounded-lg border border-line divide-y divide-line-soft bg-panel">

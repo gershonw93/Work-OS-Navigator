@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { ReactNode } from 'react'
-import { createClient } from '@/lib/supabase/server'
+import { currentUser, currentProfile } from '@/lib/supabase/current-user'
 import { Sidebar } from '@/components/layout/sidebar'
 import { TopNav } from '@/components/layout/top-nav'
 import { ViewAsBanner } from '@/components/layout/view-as-switcher'
@@ -11,19 +11,17 @@ import { FieldPreviewGate } from '@/components/layout/field-preview'
 import { FIELD_ROLES } from '@/lib/permissions'
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
+  // Resolved once per request and shared with the project layout nested inside
+  // this one, which needs the same two answers. Asking separately meant every
+  // project page validated the token against the auth server twice.
+  const user = await currentUser()
   if (!user) {
     redirect('/login')
   }
 
   // Field workers get the dedicated Field Mode shell, not the office app.
-  const { data: profile } = await supabase
-    .from('profiles').select('role').eq('id', user.id).single()
-  if (profile && FIELD_ROLES.includes((profile as any).role)) {
+  const profile = await currentProfile()
+  if (profile?.role && FIELD_ROLES.includes(profile.role)) {
     redirect('/field')
   }
 

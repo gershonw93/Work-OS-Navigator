@@ -108,6 +108,18 @@ production branch.** Do NOT ask the user to merge or deploy.
 - Parked / future ideas live in `BACKLOG.md` at the repo root.
 - When we defer an idea, add it there; when we ship one, move it to "Recently shipped" with the PR #.
 
+## Server-side data fetching (IMPORTANT)
+- Layouts nest: `(dashboard)/layout.tsx` wraps `projects/[id]/layout.tsx` wraps
+  every project page. Anything sequential in a layout is paid on EVERY
+  navigation, before first paint.
+- `auth.getUser()` is a network hop to the auth server, not a local read. Never
+  call it in a layout or page - use `currentUser()` / `currentProfile()` from
+  `lib/supabase/current-user.ts`, which are React `cache()`d so nested layouts
+  share one answer. Next dedupes `fetch`, NOT Supabase client calls.
+- Prefer a join over a second round trip (`select('*, customers(name)')`), and
+  `Promise.all` anything independent. #325 added three sequential trips for one
+  line of header text and made the whole app feel slow.
+
 ## Stack notes
 - Next.js 14 App Router, Supabase (Postgres + Storage), Tailwind.
 - Theme: SyteNav "Field" - semantic CSS-var tokens (surface/panel/ink/accent…),
