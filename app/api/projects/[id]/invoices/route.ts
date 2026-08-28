@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
+import { usersWhoCan } from '@/lib/server-permissions'
 import { destinationsBySubcontract, rollupBudgetLines } from '@/lib/invoice-budget'
 import { notify } from '@/lib/notify'
 
@@ -211,15 +212,34 @@ export async function POST(request: Request, { params }: { params: { id: string 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   const { data: creator } = await db.from('profiles').select('full_name').eq('id', user.id).single()
-  await logActivity(db, params.id, (creator as any)?.full_name ?? 'GC', 'invoice_created', `Invoice ${invoice_number} created for ${company_name} - $${Number(amount).toLocaleString()}`)
+  const creatorName = (creator as any)?.full_name ?? 'GC'
+  await logActivity(db, params.id, creatorName, 'invoice_created', `Invoice ${invoice_number} created for ${company_name} - $${Number(amount).toLocaleString()}`)
 
-  // NOTE: this notifies the person who just created the invoice. Preserved as
-  // found rather than quietly changed - see BACKLOG.md.
-  await notify({
-    db, userIds: [user.id], type: 'invoice_pending', title: 'Invoice pending approval',
-    message: `Invoice ${invoice_number} is pending your approval`,
-    link: `/projects/${params.id}/invoices`,
-  })
+  // A bill needs approving, so tell the people who can approve it.
+  //
+  // This used to notify `[user.id]` - whoever had just created the invoice. A
+  // subcontractor submitting their own bill from /my-jobs was therefore told
+  // to approve it themselves, and the GC was told nothing at all: the bill sat
+  // pending until somebody happened to open the tab.
+  //
+  // Not "everyone at the GC" either. A labourer has invoices: N and cannot
+  // open the page this links to, and a notification you cannot act on is how
+  // people learn to ignore notifications.
+  const { data: project } = await db.from('projects')
+    .select('gc_company_id, created_by_company_id, name').eq('id', params.id).maybeSingle()
+  const owner = (project as any)?.gc_company_id ?? (project as any)?.created_by_company_id ?? null
+  const approvers = (await usersWhoCan(db, owner, 'invoices', 'edit'))
+    // No point telling somebody about the thing they are looking at.
+    .filter(id => id !== user.id)
+
+  if (approvers.length) {
+    await notify({
+      db, userIds: approvers, type: 'invoice_pending', title: 'Bill waiting for approval',
+      // Who and how much, because that is what decides whether you open it now.
+      message: `${company_name || creatorName} submitted ${invoice_number} for $${Number(amount || 0).toLocaleString()}${(project as any)?.name ? ` on ${(project as any).name}` : ''}`,
+      link: `/projects/${params.id}/invoices`,
+    })
+  }
 
   return NextResponse.json({ invoice: data })
 }

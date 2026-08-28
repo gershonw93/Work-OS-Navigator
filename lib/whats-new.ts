@@ -49,8 +49,15 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-08-28',
-    title: 'A payment settles the invoice you marked paid',
+    title: 'The right invoice, and the right people',
     items: [
+      {
+        kind: 'fixed',
+        title: 'You are told when a sub submits a bill',
+        text: 'The "pending approval" notification went to whoever created the bill - so a sub submitting their own from My Jobs was told to approve it themselves, and you heard nothing until you happened to open the tab. It now goes to everyone on your team who can approve a bill, and says who submitted it and for how much. People who cannot open the bills tab are not notified, because a notification you cannot act on is just noise.',
+        help: 'approve-invoice',
+        href: '/projects',
+      },
       {
         kind: 'improved',
         title: 'The check number you type is the Reference no. in QuickBooks',
