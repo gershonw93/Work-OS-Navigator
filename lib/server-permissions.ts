@@ -71,6 +71,55 @@ export function actorCan(actor: ActorPerms | null, resource: string, action: Act
 }
 
 /**
+ * Everyone at a company who can actually DO something - the people worth
+ * telling about it.
+ *
+ * THE BUG THIS EXISTS FOR. A sub submitting a bill fired "Invoice X is pending
+ * your approval" at `[user.id]` - the person who had just created it. So the
+ * sub was told to approve their own bill and the GC was told nothing, which is
+ * a bill sitting unapproved until somebody happens to open the tab.
+ *
+ * The obvious repair - notify everyone at the GC - is the other mistake: a
+ * labourer and a field supervisor both have `invoices: N` and cannot open the
+ * page the notification links to. A notification you cannot act on is how
+ * people learn to ignore notifications.
+ *
+ * Same resolution as getActor (role defaults -> this company's overrides of
+ * them -> per-user overrides), so who gets told and who is allowed in cannot
+ * disagree.
+ */
+export async function usersWhoCan(
+  db: SupabaseClient,
+  companyId: string | null | undefined,
+  resource: string,
+  action: Action = 'edit',
+): Promise<string[]> {
+  if (!companyId) return []
+
+  // permission_overrides may not exist on older deployments - fall back to
+  // role alone rather than returning nobody, which would silently restore the
+  // "no one is told" bug this function exists to fix.
+  let rows: { id: string; role: string | null; permission_overrides?: unknown }[] = []
+  const { data, error } = await db
+    .from('profiles').select('id, role, permission_overrides').eq('company_id', companyId)
+  if (!error && data) rows = data as any
+  else {
+    const { data: basic } = await db.from('profiles').select('id, role').eq('company_id', companyId)
+    rows = (basic ?? []) as any
+  }
+  if (!rows.length) return []
+
+  const companyRoleMap = await loadCompanyRoleMap(db, companyId)
+  return rows
+    .filter(r => {
+      const base = resolveRoleBase(r.role, companyRoleMap)
+      const perms = getEffectivePermissions(r.role, (r.permission_overrides ?? null) as OverrideMap | null, base)
+      return can(perms, resource, action)
+    })
+    .map(r => r.id)
+}
+
+/**
  * Projects a user is explicitly assigned to, plus the project_team_members
  * rows that represent them (used to scope "my tasks").
  *

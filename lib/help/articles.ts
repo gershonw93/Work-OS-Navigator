@@ -691,10 +691,11 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'approve-invoice',
     title: 'Approve, send, and pay an invoice',
     category: 'money',
-    keywords: ['approve', 'status', 'paid', 'sent', 'invoice', 'workflow', 'sent for payment', 'sent to sub', 'released for payment', 'delete', 'delete invoice', 'remove invoice', 'duplicate invoice', 'undo'],
+    keywords: ['approve', 'status', 'paid', 'sent', 'invoice', 'workflow', 'sent for payment', 'sent to sub', 'released for payment', 'delete', 'delete invoice', 'remove invoice', 'duplicate invoice', 'undo', 'notification', 'notified', 'pending approval', 'sub submitted', 'who gets told'],
     summary: 'Move an invoice through its lifecycle and record how it was paid.',
     blocks: [
       { type: 'text', text: 'These are bills your subs sent YOU, so every step here is about paying them - nothing gets sent to the sub. (The step that used to read "Mark Sent to Sub" now reads "Mark Sent for Payment", which is what it always did.)' },
+      { type: 'text', text: 'YOU ARE TOLD WHEN ONE ARRIVES. A bill raised on a job - by you, or by a sub submitting their own from My Jobs - notifies everyone on your team who can approve one, naming who sent it and for how much. People whose role cannot open this tab are not notified, so the alert only reaches somebody who can act on it. If a bill is not reaching the right person, it is a role question: Settings > Team, and give them edit on Invoices.' },
       { type: 'steps', items: [
         'On the Bills from subs tab, open an invoice.',
         'Click Approve - it now counts as a real cost in your Budget and Financials.',
