@@ -8,6 +8,7 @@ import { EditProjectButton } from '@/components/layout/edit-project-button'
 import { ProjectStatusSwitch } from '@/components/layout/project-status-switch'
 import { SetupChecklist } from '@/components/projects/setup-checklist'
 import { ownsProject, clientLabel } from '@/lib/project-access'
+import { currentProfile } from '@/lib/supabase/current-user'
 
 interface ProjectLayoutProps {
   children: ReactNode
@@ -16,14 +17,23 @@ interface ProjectLayoutProps {
 
 export default async function ProjectLayout({ children, params }: ProjectLayoutProps) {
   const supabase = createClient()
-  const { data: project } = await supabase
-    .from('projects')
-    .select('*')
-    .eq('id', params.id)
-    .single()
+
+  // Two awaits, not five. This layout wraps EVERY project page, so anything
+  // sequential here is paid on every navigation - and the customer name used
+  // to cost three extra round trips, two of them re-asking what the dashboard
+  // layout had just resolved.
+  //
+  // The customer rides along on the project query as a join rather than a
+  // second trip, and currentProfile() is the same cached answer the parent
+  // already paid for.
+  const [{ data: project }, profile] = await Promise.all([
+    supabase.from('projects').select('*, customers(name)').eq('id', params.id).single(),
+    currentProfile(),
+  ])
 
   // A job inside a building needs a way back to it - otherwise the only route
   // to its 39 siblings is the Projects list, which deliberately hides them.
+  // Only reachable once we know the project, so it genuinely has to follow.
   const { data: parent } = project?.parent_project_id
     ? await supabase.from('projects').select('id, name').eq('id', project.parent_project_id).single()
     : { data: null }
@@ -33,15 +43,8 @@ export default async function ProjectLayout({ children, params }: ProjectLayoutP
   //
   // Shown only to the owning company: subcontractors working this job see the
   // same header, and who the GC is billing is not theirs to know.
-  const { data: { user } } = await supabase.auth.getUser()
-  const { data: profile } = user
-    ? await supabase.from('profiles').select('company_id').eq('id', user.id).maybeSingle()
-    : { data: null }
-  const { data: customer } = project?.customer_id
-    ? await supabase.from('customers').select('name').eq('id', project.customer_id).maybeSingle()
-    : { data: null }
   const client = ownsProject(profile?.company_id, project)
-    ? clientLabel(customer?.name, project?.client)
+    ? clientLabel((project as any)?.customers?.name, project?.client)
     : null
 
   return (

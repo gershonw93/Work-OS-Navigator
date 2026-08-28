@@ -642,6 +642,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     blocks: [
       { type: 'text', text: 'Money flows two ways. IN from your client (recorded as client payments) and OUT to vendors (subcontracts → invoices → payments). Your profit is a cost-plus fee: a percentage on top of vendor costs.' },
       { type: 'text', text: 'WHICH TAB IS WHICH. Money OUT - the bills your subs and suppliers send you - lives on BILLS FROM SUBS, one per bill, each landing on a budget line. Money IN depends on how the job bills: an AIA job invoices the owner from PAY APPS (the G702 application you print is the bill you send), and a simple job records what the client has paid on PAYMENTS & ESCROW.' },
+      { type: 'text', text: 'THE QUICKEST ROUTE is from the bill itself. Approve a sub\'s bill and a green BILL THE CLIENT button appears on it showing what the client owes with your markup on. It takes you to a client invoice that already has that cost on it and its total worked out - press Raise and it is done. Use "Add another cost" there if you want to put more on the same invoice.' },
       { type: 'text', text: 'BILLING THE CLIENT on a simple-billing job happens on the Billing the client tab (it was called Payments & Escrow), under "Invoices to your client". Click "Bill the client", tick the costs going on this one - approved sub invoices and material receipts, each already showing its markup - and raise it. Nothing is retyped, and a cost can only ever appear on one client invoice, so the same bill cannot go out twice. Delete a draft and its costs go back to being billable.' },
       { type: 'text', text: 'ONE TICK BOX DECIDES WHAT THEY SEE. "Show the client the cost and my markup" prints every line as cost + your percentage = amount, with cost of work and contractor\'s fee broken out at the bottom - the open-book presentation a cost-plus contract usually requires. Leave it off and the client sees one amount per line and one total, with your margin nowhere on the document.' },
       { type: 'text', text: 'SENDING IT. "Issue & get link" turns a draft into a real invoice and creates a link for it. Copy the link, or click Email to open your own mail client with the message and link already written. Your client opens it with no account and no sign-up - it works on a phone - and can print or save it as a PDF from there. The list shows how many times they have opened it and when they last did - "opened 4 times, last Aug 27" - which answers most of the "did they even get it" phone calls before you make them.' },
@@ -691,16 +692,16 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'approve-invoice',
     title: 'Approve, send, and pay an invoice',
     category: 'money',
-    keywords: ['approve', 'status', 'paid', 'sent', 'invoice', 'workflow', 'sent for payment', 'sent to sub', 'released for payment', 'delete', 'delete invoice', 'remove invoice', 'duplicate invoice', 'undo', 'notification', 'notified', 'pending approval', 'sub submitted', 'who gets told'],
+    keywords: ['approve', 'status', 'paid', 'sent', 'invoice', 'workflow', 'sent for payment', 'sent to sub', 'released for payment', 'queued for payment', 'queue', 'sent to who', 'delete', 'delete invoice', 'remove invoice', 'duplicate invoice', 'undo', 'notification', 'notified', 'pending approval', 'sub submitted', 'who gets told'],
     summary: 'Move an invoice through its lifecycle and record how it was paid.',
     blocks: [
-      { type: 'text', text: 'These are bills your subs sent YOU, so every step here is about paying them - nothing gets sent to the sub. (The step that used to read "Mark Sent to Sub" now reads "Mark Sent for Payment", which is what it always did.)' },
+      { type: 'text', text: 'These are bills your subs sent YOU, so every step here is about paying them - nothing is ever sent to the sub from this tab. There are only two steps that matter: APPROVE (it becomes a real cost on your budget and a bill in QuickBooks) and MARK PAID (the money went out). Queue for payment sits between them and is optional - it means the bill is with bookkeeping or in the next payment run.' },
       { type: 'text', text: 'YOU ARE TOLD WHEN ONE ARRIVES. A bill raised on a job - by you, or by a sub submitting their own from My Jobs - notifies everyone on your team who can approve one, naming who sent it and for how much. People whose role cannot open this tab are not notified, so the alert only reaches somebody who can act on it. If a bill is not reaching the right person, it is a role question: Settings > Team, and give them edit on Invoices.' },
       { type: 'steps', items: [
         'On the Bills from subs tab, open an invoice.',
         'Click Approve - it now counts as a real cost in your Budget and Financials.',
         'Click Mark Paid when the money goes out.',
-        'Optionally, use Mark Sent for Payment in between - it records that the bill has been released to be paid (handed to a bookkeeper, queued in the next payment run) without saying it has been paid yet.',
+        'Optionally, use Queue for payment in between - it records that the bill has gone to bookkeeping or into the next payment run, without saying it has been paid yet. Nothing is sent to the sub; the name used to be "Mark Sent for Payment", which made everyone ask who it went to.',
         'Use Edit to record how it was paid: from escrow vs. paid directly by the client.',
       ] },
       { type: 'warn', text: 'Paying an invoice releases funds - upload an unconditional lien waiver to protect yourself.' },

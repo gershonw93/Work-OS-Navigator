@@ -99,9 +99,13 @@ export async function usersWhoCan(
   // permission_overrides may not exist on older deployments - fall back to
   // role alone rather than returning nobody, which would silently restore the
   // "no one is told" bug this function exists to fix.
+  // Independent questions, asked together. Back to back they were one avoidable
+  // round trip on the path that creates a bill.
   let rows: { id: string; role: string | null; permission_overrides?: unknown }[] = []
-  const { data, error } = await db
-    .from('profiles').select('id, role, permission_overrides').eq('company_id', companyId)
+  const [{ data, error }, companyRoleMap] = await Promise.all([
+    db.from('profiles').select('id, role, permission_overrides').eq('company_id', companyId),
+    loadCompanyRoleMap(db, companyId),
+  ])
   if (!error && data) rows = data as any
   else {
     const { data: basic } = await db.from('profiles').select('id, role').eq('company_id', companyId)
@@ -109,7 +113,6 @@ export async function usersWhoCan(
   }
   if (!rows.length) return []
 
-  const companyRoleMap = await loadCompanyRoleMap(db, companyId)
   return rows
     .filter(r => {
       const base = resolveRoleBase(r.role, companyRoleMap)

@@ -26,9 +26,12 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   pending_approval: { label: 'Pending Approval', color: 'bg-warn-tint border-warn/30 text-warn' },
   approved: { label: 'Approved', color: 'bg-info-tint border-info/30 text-info' },
   // The sub sent this invoice TO you - it is a bill you owe, not something you
-  // send them. This step is releasing it to be paid (handed to bookkeeping, put
-  // in the next payment run), which is what "sent" always meant here.
-  sent: { label: 'Sent for Payment', color: 'bg-special-tint border-special/30 text-special' },
+  // send them. "Sent for Payment" read as though it went somewhere, and the
+  // first question everyone asked was "sent to who?". Nothing is sent: the
+  // bill has been handed to bookkeeping or put in the next payment run, and
+  // the money has not moved yet. The db value stays 'sent' - ACTUAL_STATUSES
+  // depends on it, and renaming a column for a label is rewriting history.
+  sent: { label: 'Queued for payment', color: 'bg-special-tint border-special/30 text-special' },
   paid: { label: 'Paid', color: 'bg-success-tint border-success/30 text-success' },
 }
 
@@ -602,13 +605,17 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
                           <CheckCircle2 className="h-3.5 w-3.5" /> Already billed to the client
                         </span>
                       ) : (
-                        <a href={`/projects/${params.id}/payments?bill=${invoice.id}`}
-                          className="inline-flex items-center gap-1.5 font-semibold text-accent-fg hover:underline">
-                          Bill the client for this
-                          <span className="font-normal text-muted-fg">
-                            - ${m.clientPrice.toLocaleString()} on a new client invoice
-                          </span>
-                        </a>
+                        // A filled button, not green text among green text.
+                        // This is the most valuable thing to do with an
+                        // approved bill and it read as a footnote.
+                        <div className="flex flex-wrap items-center gap-2">
+                          <a href={`/projects/${params.id}/payments?bill=${invoice.id}`}
+                            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink hover:opacity-90 transition-opacity">
+                            <DollarSign className="h-3.5 w-3.5" />
+                            Bill the client ${m.clientPrice.toLocaleString()}
+                          </a>
+                          <span className="text-muted-fg">on a new client invoice</span>
+                        </div>
                       )}
                     </div>
                   )}
@@ -838,9 +845,8 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
                 </Button>
               )}
               {invoice.status === 'approved' && (
-                <Button size="sm" variant="outline" disabled={updating === invoice.id} onClick={() => updateStatus(invoice, 'sent')}
-                  title="Released to be paid - handed to bookkeeping or queued in the next payment run">
-                  <Send className="h-3.5 w-3.5" />{updating === invoice.id ? '...' : 'Mark Sent for Payment'}
+                <Button size="sm" variant="outline" disabled={updating === invoice.id} onClick={() => updateStatus(invoice, 'sent')}>
+                  <Send className="h-3.5 w-3.5" />{updating === invoice.id ? '...' : 'Queue for payment'}
                 </Button>
               )}
               {/* Paying straight from Approved is normal - plenty of shops
@@ -864,6 +870,15 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
                 <Trash2 className="h-3.5 w-3.5" /> Delete
               </button>
             </div>
+            {/* Said once, in the open. The first question anyone asked about
+                this step was "sent to who?" - which a tooltip nobody hovers
+                was never going to answer. */}
+            {invoice.status === 'approved' && (
+              <p className="mt-2 text-xs text-faint">
+                Queueing is optional - it records that the bill has gone to bookkeeping or into the
+                next payment run. Nothing is sent to the sub. You can mark it paid straight from here.
+              </p>
+            )}
           </div>
         )}
       </div>

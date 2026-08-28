@@ -48,6 +48,32 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    date: '2026-08-29',
+    title: 'Faster pages, and a clearer bills tab',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'Project pages load quickly again',
+        text: 'They had got noticeably slower, and creating a bill from a sub could feel like it froze. The customer name added to the job header yesterday was fetching data the app had already loaded a moment earlier - three extra round trips on every single project page, before anything appeared. It now asks once and reuses the answer.',
+        href: '/projects',
+      },
+      {
+        kind: 'improved',
+        title: '"Sent for Payment" is now "Queued for payment"',
+        text: 'The old name made everyone ask "sent to who?" - and the answer was nobody. Nothing goes to the sub. It records that the bill has gone to bookkeeping or into the next payment run, with the money not moved yet, and it is entirely optional: you can mark a bill paid straight from Approved. That is now written on the screen instead of hidden in a tooltip.',
+        help: 'approve-invoice',
+        href: '/projects',
+      },
+      {
+        kind: 'improved',
+        title: 'Billing the client for a sub\'s bill is one click',
+        text: '"Bill the client for this" was green text among other green text on an approved bill - easy to miss, and the most useful thing on the row. It is now a proper button showing the amount. And it carries what you picked: the invoice composer opens showing that one cost and its total, instead of the full pick-your-costs list for you to choose all over again.',
+        help: 'money-overview',
+        href: '/projects',
+      },
+    ],
+  },
+  {
     date: '2026-08-28',
     title: 'The right invoice, and the right people',
     items: [
