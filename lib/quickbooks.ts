@@ -138,6 +138,31 @@ export function qboErrorMessage(data: any, status?: number): string {
   return e?.code ? `${body} (QuickBooks code ${e.code})` : body
 }
 
+/** QBO's numeric fault code, for callers that branch on it. */
+export function qboErrorCode(data: any): string | null {
+  const c = data?.Fault?.Error?.[0]?.code
+  return c === undefined || c === null ? null : String(c)
+}
+
+/**
+ * 610 is QuickBooks saying "a reference you sent points at nothing I can use".
+ * Its Detail is boilerplate that lists every field it MIGHT be
+ * ("accounts, customers, items, vendors or employees") and names none of them,
+ * so the code is the only reliable signal that a probe is worth running.
+ */
+export const QBO_OBJECT_NOT_FOUND = '610'
+
+export class QboError extends Error {
+  code: string | null
+  status?: number
+  constructor(data: any, status?: number) {
+    super(qboErrorMessage(data, status))
+    this.name = 'QboError'
+    this.code = qboErrorCode(data)
+    this.status = status
+  }
+}
+
 // Call the QBO Accounting API for a connection (auto-prefixes realm + minorversion).
 export async function qboFetch(
   conn: Connection,
@@ -158,7 +183,7 @@ export async function qboFetch(
   const text = await res.text()
   const data = text ? JSON.parse(text) : {}
   if (!res.ok) {
-    throw new Error(qboErrorMessage(data, res.status))
+    throw new QboError(data, res.status)
   }
   return data
 }
@@ -233,14 +258,22 @@ export async function paymentMethodId(conn: Connection, method: string | null | 
   // Escape single quotes: a method called "Bill's" would otherwise break the
   // query, and QBO's SQL-ish dialect has no parameter binding.
   const safe = name.replace(/'/g, "\\'")
-  const found = await qboQuery(conn, `select Id, Name from PaymentMethod where Name = '${safe}'`)
+  // `Active = true` matters. Every other lookup here filters it
+  // (defaultExpenseAccountId, defaultServiceItemId) and this one did not - so a
+  // method somebody had made inactive in QuickBooks came back as a perfectly
+  // good id, and referencing it fails with 610 "has been made inactive".
+  const found = await qboQuery(conn, `select Id, Name from PaymentMethod where Name = '${safe}' and Active = true`)
   const hit = found?.PaymentMethod?.[0]?.Id
   if (hit) return hit
 
   try {
     const created = await qboFetch(conn, 'paymentmethod', {
       method: 'POST',
-      body: JSON.stringify({ Name: name, Type: 'OTHER' }),
+      // QBO's PaymentMethod.Type is an enum of exactly two values:
+      // CREDIT_CARD and NON_CREDIT_CARD. 'OTHER' is not one of them, so every
+      // method this created (ACH, Wire, QuickPay - the ones QuickBooks does
+      // not ship with) was created with a type QuickBooks does not define.
+      body: JSON.stringify({ Name: name, Type: methodType(name) }),
     })
     return created?.PaymentMethod?.Id ?? null
   } catch {
@@ -248,4 +281,75 @@ export async function paymentMethodId(conn: Connection, method: string | null | 
     // amount, date and reference still get there.
     return null
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Probing a rejected reference.
+//
+// QuickBooks answers a bad reference with code 610 and a sentence that lists
+// every field it might possibly be - "accounts, customers, items, vendors or
+// employees" - and names none of them. Three payments failed identically and
+// the log could not say which of the three references we sent was the bad one.
+//
+// So when a push fails with 610, ask QuickBooks about each reference we used,
+// one GET apiece, and write down which ones it can resolve. Only on failure:
+// a working push pays nothing for this.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ReferenceProbe {
+  /** e.g. "customer 59" - what we sent, so the log shows the actual value. */
+  label: string
+  ok: boolean
+  /** Why not, or anything worth knowing about a reference that DID resolve. */
+  note?: string
+  /**
+   * QuickBooks has no such record, as opposed to having one it will not accept.
+   * The difference decides whether a cached id is safe to throw away: a MISSING
+   * customer should be re-created, an INACTIVE one must not be, or the next
+   * push quietly makes a second customer with the same name.
+   */
+  missing?: boolean
+}
+
+/** One reference to check: the QBO entity path, and how to read the answer. */
+export interface ReferenceRef {
+  label: string
+  path: string
+  /** Pulls the entity out of the response and reports anything disqualifying. */
+  inspect?: (obj: any) => string | null
+}
+
+export async function probeReferences(conn: Connection, refs: ReferenceRef[]): Promise<ReferenceProbe[]> {
+  return Promise.all(refs.map(async (r): Promise<ReferenceProbe> => {
+    try {
+      const data = await qboFetch(conn, r.path)
+      // The entity comes back under its own name - Customer, Invoice - so take
+      // whichever key is not the response envelope.
+      const obj = data && typeof data === 'object'
+        ? Object.entries(data).find(([k]) => k !== 'time' && k !== 'QueryResponse')?.[1]
+        : null
+      if (!obj) return { label: r.label, ok: false, missing: true, note: 'QuickBooks returned nothing for it' }
+      const problem = r.inspect?.(obj)
+      return problem
+        ? { label: r.label, ok: false, note: problem }
+        : { label: r.label, ok: true }
+    } catch (err: any) {
+      // It could not even be read: no such record, rather than one we cannot use.
+      return { label: r.label, ok: false, missing: true, note: err?.message ?? 'could not be read' }
+    }
+  }))
+}
+
+/** One line for the sync log: what we sent, and what QuickBooks made of it. */
+export function describeProbe(probes: ReferenceProbe[]): string {
+  const bad = probes.filter(p => !p.ok)
+  if (!bad.length) {
+    return `QuickBooks resolved every reference we sent (${probes.map(p => p.label).join(', ')}), so the rejection is not one of them`
+  }
+  return `QuickBooks rejected ${bad.map(p => `${p.label} (${p.note ?? 'not found'})`).join('; ')}`
+}
+
+/** QBO knows two kinds of payment method, and a card is the special one. */
+function methodType(name: string): 'CREDIT_CARD' | 'NON_CREDIT_CARD' {
+  return /credit\s*card|^cc$|debit/i.test(name) ? 'CREDIT_CARD' : 'NON_CREDIT_CARD'
 }
