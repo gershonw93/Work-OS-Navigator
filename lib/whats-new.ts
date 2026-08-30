@@ -48,6 +48,26 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    date: '2026-08-30',
+    title: 'Correcting or deleting a sub bill now reaches QuickBooks',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'Correcting a bill\'s amount corrects it in QuickBooks',
+        text: 'Approve a $5,000 bill, then correct it to $4,000, and QuickBooks went on saying $5,000 - forever, and without a word. The correction now updates the bill already in QuickBooks, in place. If it cannot - you have already marked the bill paid, or your bookkeeper split it across several lines over there - it says which, and what to do about it, instead of leaving the two quietly disagreeing.',
+        help: 'connect-quickbooks',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
+        title: 'Deleting a bill voids it in QuickBooks too',
+        text: 'It used to delete here and leave the bill standing there, so QuickBooks kept showing money owed for a bill that no longer existed - and, if you had marked it paid, a payment for it as well. Deleting now voids both, the payment first. The confirmation says so before you press it, and if QuickBooks cannot be reached you are told, rather than finding out at month end.',
+        help: 'approve-invoice',
+        href: '/projects',
+      },
+    ],
+  },
+  {
     date: '2026-08-29',
     title: 'Faster pages, and a clearer bills tab',
     items: [

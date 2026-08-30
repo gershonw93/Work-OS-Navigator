@@ -1184,3 +1184,181 @@ export async function voidClientInvoiceInQbo(db: SupabaseClient, billId: string,
     return { pushed: false, reason: 'failed', detail: err?.message ?? 'unknown' }
   }
 }
+
+/**
+ * The two QuickBooks records a sub bill can hold, read defensively.
+ *
+ * `qbo_payment_id` arrived in migration 089. A database without it must still
+ * be able to DELETE a bill, so a missing column reads as "no payment" rather
+ * than taking the whole select down with it - which is exactly what the
+ * `data: null` trap looks like from the caller's side.
+ */
+export interface BillQboRefs {
+  qbo_id: string | null
+  qbo_payment_id: string | null
+}
+
+export async function billQboRefs(db: SupabaseClient, invoiceId: string): Promise<BillQboRefs> {
+  try {
+    const { data, error } = await db.from('invoices')
+      .select('qbo_id, qbo_payment_id').eq('id', invoiceId).maybeSingle()
+    if (!error) return { qbo_id: (data as any)?.qbo_id ?? null, qbo_payment_id: (data as any)?.qbo_payment_id ?? null }
+    if (error.code !== '42703') return { qbo_id: null, qbo_payment_id: null }
+    const { data: base } = await db.from('invoices').select('qbo_id').eq('id', invoiceId).maybeSingle()
+    return { qbo_id: (base as any)?.qbo_id ?? null, qbo_payment_id: null }
+  } catch {
+    return { qbo_id: null, qbo_payment_id: null }
+  }
+}
+
+/**
+ * Deleting a sub bill voids it in QuickBooks - the payment first, then the bill.
+ *
+ * THE GAP THIS CLOSES. Deleting a synced bill removed the row here and touched
+ * nothing over there, so QuickBooks kept a payable for money that no longer
+ * exists - and, since bill payments started syncing, possibly a PAYMENT for it
+ * too. A/P overstated by every bill anyone had deleted. The receivable side got
+ * this in #320 (`voidClientInvoiceInQbo`); the payable side never did.
+ *
+ * ORDER MATTERS. QuickBooks refuses to void a Bill while a BillPayment still
+ * references it, so the payment goes first. Doing it the other way round fails
+ * on the first call and leaves BOTH records standing.
+ *
+ * Void, not delete: the money moved and then was undone, and the books should
+ * say so. `?operation=void` zeroes the record and stamps it VOIDED.
+ *
+ * The row is already gone by the time this runs, so the caller passes what it
+ * captured rather than this re-reading a deleted row. Never throws - a delete
+ * must not fail because Intuit had a bad minute.
+ */
+export async function voidBillInQbo(
+  db: SupabaseClient,
+  bill: { id: string; project_id: string } & Partial<BillQboRefs>,
+  ctx?: PushContext,
+): Promise<PushResult> {
+  try {
+    if (!bill.qbo_id) return { pushed: false, reason: 'skipped', detail: 'Not in QuickBooks' }
+
+    const { companyId } = await projectCompany(db, bill.project_id)
+    if (!companyId) return { pushed: false, reason: 'skipped', detail: 'Project has no company' }
+    const conn = await connectionFor(db, companyId, ctx)
+    if (!conn) return { pushed: false, reason: 'not_connected' }
+
+    return await budgeted((async (): Promise<PushResult> => {
+      if (bill.qbo_payment_id) {
+        await voidQboRecord(conn, 'billpayment', 'BillPayment', bill.qbo_payment_id)
+        await logRow(db, companyId, 'bill_payment', bill.id, 'success', bill.qbo_payment_id, 'Voided in QuickBooks')
+      }
+      await voidQboRecord(conn, 'bill', 'Bill', bill.qbo_id!)
+      await logRow(db, companyId, 'bill', bill.id, 'success', bill.qbo_id!, 'Voided in QuickBooks')
+      return { pushed: true, qboId: bill.qbo_id! }
+    })()).catch(async (err: any) => {
+      await logRow(db, companyId, 'bill', bill.id, 'error', undefined, `Void: ${err?.message}`)
+      return { pushed: false, reason: 'failed' as const, detail: err?.message }
+    })
+  } catch (err: any) {
+    return { pushed: false, reason: 'failed', detail: err?.message ?? 'unknown' }
+  }
+}
+
+/**
+ * Fetch for the SyncToken QBO demands, then void. A record QuickBooks no
+ * longer has is not a failure - somebody voided it by hand, which is the
+ * outcome we wanted.
+ */
+async function voidQboRecord(conn: Connection, entity: string, key: string, qboId: string): Promise<void> {
+  let obj: any
+  try {
+    const cur = await qboFetch(conn, `${entity}/${qboId}`)
+    obj = cur?.[key]
+  } catch (err: any) {
+    if (err?.code === QBO_OBJECT_NOT_FOUND) return
+    throw err
+  }
+  if (!obj?.Id) return
+  await qboFetch(conn, `${entity}?operation=void`, {
+    method: 'POST',
+    body: JSON.stringify({ Id: obj.Id, SyncToken: obj.SyncToken }),
+  })
+}
+
+/**
+ * Correcting a bill's amount corrects it in QuickBooks too.
+ *
+ * THE GAP THIS CLOSES. `pushBill` opens with "already got a qbo_id? nothing to
+ * do", which is right for a second push and wrong for an edit: approve a
+ * $5,000 bill, correct it to $4,000, and QuickBooks went on saying $5,000
+ * forever, silently. Two systems disagreeing about what you owe, neither
+ * saying so.
+ *
+ * Fetch-modify-post on the EXISTING Bill, the same shape refreshBillInQbo
+ * uses. Never creates a second record.
+ *
+ * IT REFUSES IN TWO CASES, deliberately:
+ *   * the bill is already paid - moving the amount under a payment leaves it
+ *     over- or under-applied and QuickBooks holding a stray credit
+ *   * the expense line is not the single one we wrote - somebody restructured
+ *     the bill in QuickBooks, and their split is not ours to overwrite
+ * Both say what to do instead. Refusing and explaining beats quietly making a
+ * mess, which is the rule the whole accrual model follows.
+ */
+export async function updateBillInQbo(db: SupabaseClient, invoiceId: string, ctx?: PushContext): Promise<PushResult> {
+  try {
+    const { data: inv } = await db.from('invoices')
+      .select('id, project_id, amount, qbo_id, subcontracts(trade)').eq('id', invoiceId).maybeSingle()
+    if (!inv?.qbo_id) return { pushed: false, reason: 'skipped', detail: 'Not in QuickBooks yet' }
+    if (!Number(inv.amount)) return { pushed: false, reason: 'skipped', detail: 'Bill has no amount' }
+
+    // Cheap refusal first, before a single network call.
+    const { qbo_payment_id } = await billQboRefs(db, inv.id)
+    if (qbo_payment_id) {
+      return {
+        pushed: false, reason: 'skipped',
+        detail: 'This bill has been paid in QuickBooks. Void the payment there first, then edit.',
+      }
+    }
+
+    const { companyId, projectName } = await projectCompany(db, inv.project_id)
+    if (!companyId) return { pushed: false, reason: 'skipped', detail: 'Project has no company' }
+    const conn = await connectionFor(db, companyId, ctx)
+    if (!conn) return { pushed: false, reason: 'not_connected' }
+
+    const amount = Number(inv.amount)
+
+    return await budgeted((async (): Promise<PushResult> => {
+      const cur = await qboFetch(conn, `bill/${inv.qbo_id}`)
+      const obj = cur?.Bill
+      if (!obj?.Id) throw new Error('Record no longer exists in QuickBooks')
+
+      // Paid over there without SyteNav knowing - a bookkeeper settled it by
+      // hand. Same refusal, same reason: the payment is applied to an amount.
+      if (obj.Balance != null && Number(obj.Balance) !== Number(obj.TotalAmt)) {
+        return {
+          pushed: false, reason: 'skipped',
+          detail: 'This bill has been paid in QuickBooks. Void the payment there first, then edit.',
+        }
+      }
+
+      const lines = (obj.Line ?? []).filter((l: any) => l.DetailType === 'AccountBasedExpenseLineDetail')
+      if (lines.length !== 1) {
+        return {
+          pushed: false, reason: 'skipped',
+          detail: 'This bill has been split into several lines in QuickBooks. Change the amount there instead.',
+        }
+      }
+
+      lines[0].Amount = amount
+      lines[0].Description = composeBillDescription((inv.subcontracts as any)?.trade, projectName)
+      obj.TotalAmt = amount
+      await qboFetch(conn, 'bill', { method: 'POST', body: JSON.stringify(obj) })
+      await db.from('invoices').update({ qbo_synced_at: new Date().toISOString() }).eq('id', inv.id)
+      await logRow(db, companyId, 'bill', inv.id, 'success', inv.qbo_id!, `Amount updated to ${amount}`)
+      return { pushed: true, qboId: inv.qbo_id! }
+    })()).catch(async (err: any) => {
+      await logRow(db, companyId, 'bill', inv.id, 'error', undefined, `Update: ${err?.message}`)
+      return { pushed: false, reason: 'failed' as const, detail: err?.message }
+    })
+  } catch (err: any) {
+    return { pushed: false, reason: 'failed', detail: err?.message ?? 'unknown' }
+  }
+}
