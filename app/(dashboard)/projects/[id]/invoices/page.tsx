@@ -412,7 +412,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
     if (!editInvoice) return
     setEditSaving(true)
     const token = await getToken()
-    await fetch(`/api/projects/${params.id}/invoices/${editInvoice.id}`, {
+    const res = await fetch(`/api/projects/${params.id}/invoices/${editInvoice.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({
@@ -423,8 +423,16 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
         escrow_paid: parseFloat(editEscrowPaid) || 0,
       }),
     })
+    const j = await res.json().catch(() => ({}))
     setEditSaving(false)
     setEditInvoice(null)
+    // Changing an amount on a bill already in QuickBooks usually follows
+    // through. When it cannot - it is paid over there, or a bookkeeper re-split
+    // it - the edit still saved here, and the two now disagree. That is exactly
+    // the thing worth saying out loud rather than leaving to be found later.
+    if (j.quickbooks && !j.quickbooks.updated && j.quickbooks.detail) {
+      alert(`Saved here, but QuickBooks still shows the old amount. ${j.quickbooks.detail}`)
+    }
     fetchData()
   }
 
@@ -436,12 +444,12 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
     // sure?" about an amount the reader has to go and look up.
     const counted = ACTUAL_STATUSES.has(invoice.status)
     const line = invoice.budget_line?.category ? ` from ${invoice.budget_line.category}` : ''
-    // Deleting here does not reach into QuickBooks - the Bill stays there and
-    // has to be voided on that side. Better said before than discovered at
-    // month end.
+    // Deleting DOES reach into QuickBooks now - the bill is voided there, and
+    // the payment first if one was recorded. Say so: voiding somebody's books
+    // is not a surprise anyone should get afterwards.
     // The confirm reads "Are you sure you want to delete <label>?", so this
     // stays a noun phrase with no closing punctuation.
-    const qb = invoice.qbo_id ? ', and the bill already pushed to QuickBooks stays there and has to be voided on that side' : ''
+    const qb = invoice.qbo_id ? ' - the bill in QuickBooks is voided with it' : ''
     const label = counted
       ? `this ${STATUS_CONFIG[invoice.status]?.label.toLowerCase() ?? ''} invoice (${amount}${who}) - it takes ${amount} back off the budget${line}${qb}`
       : `this invoice (${amount}${who})${qb}`
@@ -451,9 +459,13 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       })
+      const j = await res.json().catch(() => ({}))
       if (!res.ok) {
-        const j = await res.json().catch(() => ({}))
         alert(j.error ?? 'Could not delete that invoice')
+      } else if (j.quickbooks && !j.quickbooks.voided) {
+        // The bill is gone here either way. If QuickBooks did not follow, the
+        // payable is still standing over there and only a person can clear it.
+        alert(`Deleted here, but QuickBooks could not be updated${j.quickbooks.detail ? `: ${j.quickbooks.detail}` : ''}. The bill is still open in QuickBooks and has to be voided there.`)
       }
       fetchData()
     }, { label, protected: true })

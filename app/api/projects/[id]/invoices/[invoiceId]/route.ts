@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
 import { notify } from '@/lib/notify'
 import { validateAllocations } from '@/lib/allocations'
-import { pushBill, pushBillPayment } from '@/lib/quickbooks-push'
+import { pushBill, pushBillPayment, updateBillInQbo, voidBillInQbo, billQboRefs } from '@/lib/quickbooks-push'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -200,8 +200,24 @@ export async function PATCH(
   if (status === 'paid') {
     await pushBillPayment(db, params.invoiceId)
   }
+  // Correcting the amount on a bill ALREADY in QuickBooks. pushBill above
+  // reports `already` and stops, by design - a second push would be a second
+  // Bill. So the correction has its own path, and it is the only thing that
+  // keeps the two systems agreeing about what is owed.
+  //
+  // It can refuse (the bill is paid over there; somebody re-split it there),
+  // and the refusal is worth showing: the edit saved here either way, so
+  // silence would leave QuickBooks quietly stale again.
+  let quickbooks: { updated: boolean; detail?: string } | undefined
+  const amountChanged = amount !== undefined && amount !== '' && Number(amount) !== Number(invoice.amount ?? 0)
+  if (amountChanged && invoice.qbo_id) {
+    const res = await updateBillInQbo(db, params.invoiceId)
+    quickbooks = res.pushed
+      ? { updated: true }
+      : { updated: false, detail: res.reason === 'not_connected' ? undefined : res.detail }
+  }
 
-  return NextResponse.json({ invoice: data, allocations: saved ?? [] })
+  return NextResponse.json({ invoice: data, allocations: saved ?? [], quickbooks })
 }
 
 export async function DELETE(
@@ -214,6 +230,11 @@ export async function DELETE(
   const db = admin()
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // Read what QuickBooks holds BEFORE the row goes - afterwards there is
+  // nothing left to read the ids off, and an un-voided Bill is a payable for
+  // money that no longer exists.
+  const refs = await billQboRefs(db, params.invoiceId)
 
   // Scoped to the project in the URL. Deleting by id alone let a request name
   // any invoice in the database and have it removed, which every other route
@@ -236,5 +257,15 @@ export async function DELETE(
     `Invoice ${gone.invoice_number ?? ''} deleted - $${Number(gone.amount ?? 0).toLocaleString()}${gone.company_name ? ` to ${gone.company_name}` : ''}`,
   )
 
-  return NextResponse.json({ success: true })
+  // The payment first, then the bill - QuickBooks will not void a Bill a
+  // BillPayment still points at. Never blocks the delete: the row is already
+  // gone, and a miss lands in quickbooks_sync_log like every other push.
+  const voided = await voidBillInQbo(db, { id: params.invoiceId, project_id: params.id, ...refs })
+
+  return NextResponse.json({
+    success: true,
+    quickbooks: refs.qbo_id
+      ? { voided: voided.pushed, detail: voided.pushed ? undefined : voided.detail }
+      : undefined,
+  })
 }
