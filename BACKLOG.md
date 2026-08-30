@@ -7,6 +7,62 @@ move it to **In progress**, and when it ships, move it to **Done** with the PR #
 
 ---
 
+## 📱 On the shelf - the app, then chats (decided 29 Aug 2026, IN THIS ORDER)
+
+**Order agreed: finish QuickBooks → App Store → project chats.** Each needs the
+one before it. Chat on a phone nobody has installed is wasted work, and starting
+the biggest build yet while the books are half-wired ends with both half-done.
+
+- **1. SyteNav in the App Store (Capacitor).** `capacitor.config.ts` is ALREADY
+  committed - appId `com.sytenav.app`, pointing at `app.sytenav.com` - but no
+  Capacitor packages are installed. Groundwork laid, nothing built. The shell
+  loads the LIVE site rather than a bundled copy, so web fixes still ship in two
+  minutes; only changes to the shell itself wait on Apple review. Why it matters:
+  it is the only way to get a reliable buzz on an iPhone. Web push on iOS needs
+  the user to do "Share → Add to Home Screen" themselves first, and most subs
+  never will. Costs: Apple Developer $99/yr, Play $25 once, native push
+  certificates, store listing + privacy labels (declare financial data - the
+  QuickBooks connection).
+  **The one thing that needs code:** connecting QuickBooks. Intuit refuses OAuth
+  inside an app's embedded browser, and `capacitor.config.ts` already excludes
+  Intuit from `allowNavigation`, so the authorize page correctly pops out to
+  Safari - but `/api/quickbooks/callback` then redirects to `/settings` INSIDE
+  Safari and never returns to the app. The user connects successfully and the app
+  still says "not connected" until they switch back and refresh. Fix: deep-link
+  back to the app from the callback, or re-check the connection when the settings
+  screen regains focus.
+
+- **2. Project chats, one per sub, inside the job.** Replaces the dozen WhatsApp
+  groups a GC runs per project. **The chat is the small half - a week.** The tall
+  half is push notification on an installed app, which is why it comes after the
+  store. Today there is NO push, NO service worker, NO PWA manifest and NO use of
+  Supabase realtime anywhere in the codebase.
+  - Push should be a THIRD channel in the existing plumbing, not a new system:
+    `lib/notifications.ts` already has `type Channel = 'inApp' | 'email'` and a
+    `wants(prefs, type, channel)` gate, and `lib/notify.ts` is already the one
+    way to tell somebody something. Add `'push'` and every existing alert gains
+    it, under the same per-type preferences. Needs a `push_subscriptions` table,
+    and dead endpoints (410/404) pruned on send or it fills with wiped phones.
+  - Tables: `project_channels`, `channel_members`, `channel_messages`,
+    `chat_participants` (the sub with no login). Membership is EXPLICIT, never
+    "everyone on the project" - that is what makes it safe to have a client
+    channel and a sub channel on the same job.
+  - Subs join by magic link, same shape as `/bid/[token]` and `/bill/[token]`:
+    service-role route keyed on a token, no account. Token belongs to the
+    PARTICIPANT not the channel, so it is revocable in one place.
+  - Voice notes: `MediaRecorder` to a new bucket. iOS Safari produces mp4 where
+    Android produces webm/opus - both must store and play back, and that
+    difference is where this usually breaks.
+  - **What WhatsApp structurally cannot do, and the whole reason to build it:**
+    attach a drawing already in the project instead of photographing a screen;
+    turn a message into an RFI or a task in one tap; history stays with the job
+    when a foreman leaves; the client cannot see the sub channel.
+  - Honest risks: iPhone install rate is the adoption cliff (plan an SMS
+    fallback for people who never install); a jobsite chat becomes a legal
+    record, so retention/export/deletion need deciding BEFORE launch, not after
+    the first dispute; check the Supabase realtime connection ceiling on the
+    current plan; and this is the largest thing SyteNav has built.
+
 ## 🔌 Integrations
 - **QuickBooks Online sync** - *phase 1 shipped (PR #185, #187):* per-company OAuth connect + one-way push from Settings > Integrations of customers, subs (vendors), sub bills (approved/paid invoices -> QBO Bill), and client payments (-> QBO Sales Receipt). Entity id mapping (no dupes), auto-creates the referenced vendor/customer, sync log. Bills post to a default expense/COGS account, payments to a default service item. **Next:** account/item mapping UI, GC->owner invoices (pay apps -> QBO Invoice), pull-back and two-way. Desktop is a separate, larger track. Live against the Intuit sandbox; production needs Intuit app review.
 - **Budget/proposal -> QuickBooks** *(requested)* - push a proposal/estimate straight into QBO as an **Estimate**, so accepting it can convert to a QBO Invoice on their side. Same for a sub's quote line items. Needs the item/account mapping UI first (each line needs an Item), which is why it sits behind the mapping work above.
