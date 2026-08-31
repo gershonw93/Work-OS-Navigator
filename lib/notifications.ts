@@ -38,6 +38,26 @@ export interface NotificationType {
    * later is a one-word change here and the switch starts working.
    */
   status: 'live' | 'planned'
+  /**
+   * Is this worth making somebody's phone buzz?
+   *
+   * NOT a user switch, and deliberately so. There are two questions here and
+   * they belong to different people: "do I want to be told this at all" is the
+   * user's, answered by the in-app switch they already have, and push obeys
+   * it - turn a notification off and the phone stays quiet. "Does this deserve
+   * to interrupt somebody" is an editorial question, and a third column of
+   * toggles is not how you answer it. It is answered here, once, by us.
+   *
+   * The set below is almost exactly the email-ON set above, for the same
+   * reason: somebody is blocked, money is moving, or a window is closing. The
+   * one addition is task_assigned, because a phone is where a labourer on site
+   * would actually get it, and a bell they open at 6pm is not.
+   *
+   * The same restraint applies as for email, and harder: a phone that buzzes
+   * about everything gets its notifications switched off in iOS Settings, and
+   * then the one that mattered never arrives either.
+   */
+  push?: boolean
 }
 
 /**
@@ -56,12 +76,12 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
   {
     key: 'task_assigned', label: 'Task assigned to me', group: 'Work',
     description: 'Somebody assigns you a task, or pins one to you from a plan.',
-    defaults: { inApp: true, email: false }, status: 'live',
+    defaults: { inApp: true, email: false }, push: true, status: 'live',
   },
   {
     key: 'signoff_requested', label: 'Sign-off requested', group: 'Work',
     description: 'Someone needs you to sign off on a task before it can close.',
-    defaults: { inApp: true, email: true }, status: 'live',
+    defaults: { inApp: true, email: true }, push: true, status: 'live',
   },
   {
     key: 'milestone', label: 'Milestone reached', group: 'Work',
@@ -83,7 +103,7 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
   {
     key: 'invoice_pending', label: 'Invoice waiting for approval', group: 'Money',
     description: 'A sub sends you a bill that needs approving.',
-    defaults: { inApp: true, email: true }, status: 'live',
+    defaults: { inApp: true, email: true }, push: true, status: 'live',
   },
   {
     // Was three separate strings in three branches of one route -
@@ -92,7 +112,7 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
     // switch. ALIASES below keeps the old callers working.
     key: 'invoice_decision', label: 'My invoice approved, released or paid', group: 'Money',
     description: 'A bill you submitted is approved, released for payment, or paid.',
-    defaults: { inApp: true, email: true }, status: 'live',
+    defaults: { inApp: true, email: true }, push: true, status: 'live',
   },
   {
     key: 'change_order', label: 'Change order raised or decided', group: 'Money',
@@ -116,7 +136,7 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
     // GC who sent it as much as the sub who missed it.
     key: 'bid_invited', label: 'Invited to bid', group: 'Bids',
     description: 'A GC invites you to quote a package.',
-    defaults: { inApp: true, email: true }, status: 'live',
+    defaults: { inApp: true, email: true }, push: true, status: 'live',
   },
   {
     key: 'bid_revision', label: 'Bid revision requested', group: 'Bids',
@@ -136,14 +156,14 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
   {
     key: 'bid_awarded', label: 'Bid awarded', group: 'Bids',
     description: 'A package you bid on is awarded - to you or to somebody else.',
-    defaults: { inApp: true, email: true }, status: 'live',
+    defaults: { inApp: true, email: true }, push: true, status: 'live',
   },
 
   // ── Compliance ────────────────────────────────────────────────────────────
   {
     key: 'compliance_expiring', label: 'Document expiring', group: 'Compliance',
     description: 'An insurance certificate, licence or W-9 is within 30 days of expiry.',
-    defaults: { inApp: true, email: true }, status: 'live',
+    defaults: { inApp: true, email: true }, push: true, status: 'live',
   },
   {
     key: 'inspection_to_schedule', label: 'Inspection to book', group: 'Compliance',
@@ -243,4 +263,19 @@ export function effectivePrefs(rows: PrefRow[] | null | undefined): Prefs {
 export function wants(prefs: Prefs, type: string, channel: Channel): boolean {
   const k = canonicalType(type)
   return prefs[k]?.[channel] ?? BY_KEY.get(k)?.defaults[channel] ?? false
+}
+
+/**
+ * Should this reach somebody's phone?
+ *
+ * Two things have to be true, and they are different kinds of thing. The type
+ * has to be one we think is worth interrupting anybody for (the `push` flag,
+ * ours), AND this person has to still want the notification at all (their
+ * in-app switch, theirs). Turning a notification off in Settings turns the
+ * buzz off with it - which is the whole point of not inventing a third switch
+ * that could disagree with the first one.
+ */
+export function wantsPush(prefs: Prefs, type: string): boolean {
+  if (!BY_KEY.get(canonicalType(type))?.push) return false
+  return wants(prefs, type, 'inApp')
 }

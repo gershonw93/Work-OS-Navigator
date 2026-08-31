@@ -14,6 +14,12 @@ const config = {
     // The native shell loads the PRODUCT, not the marketing site.
     url: 'https://app.sytenav.com',
     cleartext: false,
+    // What the phone shows when it cannot reach app.sytenav.com.
+    // Without this the webview renders its own blank failure page, which
+    // reads as a broken app - and one bar of signal is normal on a jobsite.
+    // The file lives in `public/` (which is webDir), so it ships inside the
+    // app bundle and needs no network to appear.
+    errorPath: 'offline.html',
     // Only the app's own origin (+ Supabase for auth) loads in the shell; other links open in the system browser.
     allowNavigation: ['app.sytenav.com', 'sytenav.com', 'www.sytenav.com', '*.supabase.co'],
   },

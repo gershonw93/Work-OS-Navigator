@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Push notifications.
+	     Without this entitlement the app can ask for permission, be granted
+	     it, and still never receive a single notification - iOS simply has
+	     nowhere to deliver them. It is not part of Info.plist because it is
+	     signed into the binary, not read from it.
+
+	     "development" is the conventional value to keep in source: Xcode
+	     rewrites it to "production" when the build is exported for TestFlight
+	     or the App Store, which is every build we make.
+
+	     This also requires Push Notifications to be switched on for the App ID
+	     com.sytenav.app in the Apple developer portal - see MOBILE.md. -->
+	<key>aps-environment</key>
+	<string>development</string>
+</dict>
+</plist>

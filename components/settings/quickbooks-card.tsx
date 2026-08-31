@@ -63,9 +63,22 @@ export function QuickBooksCard() {
   async function connect() {
     setBusy('connect'); setMsg(null)
     try {
-      const res = await fetch('/api/quickbooks/connect', { headers: await authHeaders() })
+      // Inside the phone app this handshake has to leave the app entirely.
+      // Intuit refuses to render its consent screen in an embedded webview,
+      // and Apple treats an embedded one as still being inside the app - so
+      // Safari, properly, and `native=1` so the callback knows to send the
+      // person back here rather than stranding them in the browser.
+      const native = (window as any).Capacitor?.isNativePlatform?.() === true
+      const res = await fetch(`/api/quickbooks/connect${native ? '?native=1' : ''}`, { headers: await authHeaders() })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Could not start the connection')
+      if (native) {
+        const { Browser } = await import('@capacitor/browser')
+        await Browser.open({ url: data.url })
+        // Busy stays on: the person is in Safari now. The deep link back
+        // reloads this page with ?qbo=..., which is what clears it.
+        return
+      }
       window.location.href = data.url
     } catch (e: any) { setMsg({ ok: false, text: e.message }); setBusy('') }
   }

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { User, MapPin, LogOut, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { unregisterThisDevice } from '@/lib/use-push'
 
 interface Data {
   projects: { id: string; name: string }[]
@@ -32,6 +33,8 @@ export default function FieldMe() {
   useEffect(() => { load() }, [load])
 
   async function signOut() {
+    // See sidebar.tsx: this has to happen while the session is still alive.
+    await unregisterThisDevice()
     await createClient().auth.signOut()
     router.push('/login')
   }

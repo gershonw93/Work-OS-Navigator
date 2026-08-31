@@ -13,24 +13,30 @@ move it to **In progress**, and when it ships, move it to **Done** with the PR #
 one before it. Chat on a phone nobody has installed is wasted work, and starting
 the biggest build yet while the books are half-wired ends with both half-done.
 
-- **1. SyteNav in the App Store (Capacitor).** `capacitor.config.ts` is ALREADY
-  committed - appId `com.sytenav.app`, pointing at `app.sytenav.com` - but no
-  Capacitor packages are installed. Groundwork laid, nothing built. The shell
-  loads the LIVE site rather than a bundled copy, so web fixes still ship in two
-  minutes; only changes to the shell itself wait on Apple review. Why it matters:
-  it is the only way to get a reliable buzz on an iPhone. Web push on iOS needs
-  the user to do "Share → Add to Home Screen" themselves first, and most subs
-  never will. Costs: Apple Developer $99/yr, Play $25 once, native push
-  certificates, store listing + privacy labels (declare financial data - the
-  QuickBooks connection).
-  **The one thing that needs code:** connecting QuickBooks. Intuit refuses OAuth
-  inside an app's embedded browser, and `capacitor.config.ts` already excludes
-  Intuit from `allowNavigation`, so the authorize page correctly pops out to
-  Safari - but `/api/quickbooks/callback` then redirects to `/settings` INSIDE
-  Safari and never returns to the app. The user connects successfully and the app
-  still says "not connected" until they switch back and refresh. Fix: deep-link
-  back to the app from the callback, or re-check the connection when the settings
-  screen regains focus.
+- **1. SyteNav in the App Store (Capacitor) - IN FLIGHT.** The repo side is
+  built (#332): Capacitor + the `ios/` project committed, permission strings and
+  the push entitlement, icons and splash, an offline screen, safe areas, push
+  end to end, and QuickBooks deep-linking back into the app - the one thing this
+  entry said needed code. The shell loads the LIVE site rather than a bundled
+  copy, so web fixes still ship in two minutes; only changes to the shell itself
+  wait on Apple review.
+  **Blocked on Apple, not on us**: the Developer Program enrolment (D-U-N-S in
+  hand), the two `.p8` keys, and Codemagic. Runbook: `MOBILE.md`.
+  Still to do here:
+  - **Universal Links** so a password-reset or invite email opens the app. The
+    server half ships inert (`/.well-known/apple-app-site-association`, 404
+    until `APPLE_TEAM_ID` is set); the entitlement waits until after the first
+    successful build, because one the App ID does not carry fails code signing.
+  - **A What's New entry and a Help article** - deliberately NOT written yet.
+    Nothing about this is visible to a web user, and an article about a phone
+    app nobody can install is Help drifting the other way. Due the day it hits
+    TestFlight, along with the notifications article.
+  - **Per-type push control.** Push follows the in-app switch, and which seven
+    types buzz is our call in `lib/notifications.ts`. Right for now - one switch
+    beats three columns of toggles - but if somebody wants the bill approvals on
+    their phone and the task assignments only in the bell, that is a `push`
+    column on `notification_preferences` and a third column in Settings.
+  - **A demo account for the reviewer**, and Android (`npx cap add android`).
 
 - **2. Project chats, one per sub, inside the job.** Replaces the dozen WhatsApp
   groups a GC runs per project. **The chat is the small half - a week.** The tall

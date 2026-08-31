@@ -7,6 +7,7 @@ import { ViewAsBanner } from '@/components/layout/view-as-switcher'
 import { ImpersonationBanner } from '@/components/layout/impersonate-switcher'
 import { DeleteGuardProvider } from '@/components/ui/delete-guard'
 import { IdleLogout } from '@/components/layout/idle-logout'
+import { NativeShell } from '@/components/layout/native-shell'
 import { FieldPreviewGate } from '@/components/layout/field-preview'
 import { FIELD_ROLES } from '@/lib/permissions'
 
@@ -28,6 +29,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   return (
     <DeleteGuardProvider>
       <IdleLogout />
+      <NativeShell />
       <FieldPreviewGate />
       <div className="flex min-h-screen bg-surface">
         {/* App chrome is hidden when printing so print/PDF pages (proposals,
@@ -41,7 +43,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
             <ViewAsBanner />
             <TopNav />
           </div>
-          <main className="flex-1 overflow-y-auto overflow-x-hidden print:overflow-visible">
+          <main className="flex-1 overflow-y-auto overflow-x-hidden print:overflow-visible pb-safe px-safe">
             {children}
           </main>
         </div>

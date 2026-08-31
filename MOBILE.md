@@ -32,34 +32,46 @@ Decide your identifiers first (used everywhere):
 
 ---
 
-## 1. Install Capacitor + platforms
+## 1. Capacitor + the iOS project - DONE, nothing to do
+Installed and committed. `ios/` is in the repo, so the permission strings, the
+push entitlement and the icons live in version control rather than on somebody's
+machine. After changing `capacitor.config.ts` or adding a plugin, run:
 ```bash
-npm i @capacitor/core @capacitor/cli @capacitor/ios @capacitor/android
-npm i @capacitor/app @capacitor/splash-screen @capacitor/status-bar \
-      @capacitor/push-notifications @capacitor/camera @capacitor/browser
-# capacitor.config.ts is already in the repo. Then:
-npx cap add ios
-npx cap add android
-npx cap sync
+npx cap sync ios
 ```
-(You need Android Studio + SDK to build Android locally; iOS is built in the cloud.)
+`pod install` is skipped on Linux and runs in the Codemagic build - that warning
+is expected, not a failure.
+
+**Android is not set up.** `npx cap add android` when you want it; the
+`android-capacitor` workflow in `codemagic.yaml` is already written.
 
 ---
 
-## 2. Supabase auth inside the native shell (important)
-Auth is **email + magic link only (no OAuth)**. Email/password login already works in
-the shell. For the **magic-link** flow, the link must return to the app via a deep link,
-not Safari/Chrome.
+## 2. Auth in the shell - works, with one thing left
+Signing in is **email + password**, which works in the shell with no change.
+(An earlier draft of this file said magic link; the app does not use one.)
 
-1. Add a custom scheme. In `ios/App/App/Info.plist` add a `CFBundleURLSchemes` entry
-   `sytenav`; in `android/app/src/main/AndroidManifest.xml` add an intent-filter for
-   scheme `sytenav`.
-2. In Supabase → Authentication → URL Configuration, add redirect URLs:
-   `sytenav://auth/callback` (and keep the web `https://app.sytenav.com/auth/callback`).
-3. In the web app, when running inside Capacitor, pass `emailRedirectTo: 'sytenav://auth/callback'`
-   to `signInWithOtp`, and listen with `@capacitor/app`'s `appUrlOpen` to hand the code to
-   `supabase.auth.exchangeCodeForSession`.
-   (Ping me and I'll add this magic-link shim to the web app once the platforms exist.)
+The `sytenav://` URL scheme IS registered (`Info.plist`), and
+`components/layout/native-shell.tsx` listens for it - that is what brings you
+back after connecting QuickBooks.
+
+**Not done: email links opening the app.** A password-reset or invite email has
+to be an ordinary `https://` link so it works on a desktop too, so a custom
+scheme is no good - that needs **Universal Links**. The server half is built and
+inert: `/.well-known/apple-app-site-association` answers 404 until you set
+`APPLE_TEAM_ID`. To finish it, after the first TestFlight build succeeds:
+
+1. Apple developer portal → the App ID `com.sytenav.app` → tick **Associated
+   Domains**.
+2. Add to `ios/App/App/App.entitlements`:
+   ```xml
+   <key>com.apple.developer.associated-domains</key>
+   <array><string>applinks:app.sytenav.com</string></array>
+   ```
+3. Set `APPLE_TEAM_ID` in Vercel.
+
+Left until after the first build on purpose: an entitlement the App ID does not
+carry **fails code signing**, and the error does not say which one.
 
 ---
 
@@ -86,23 +98,59 @@ the only change; every caller reads that one function.
 being inside the app.
 
 ## 3. Native capabilities (so Apple doesn't reject it as "just a website")
-Already configured in `capacitor.config.ts`: **splash screen**, **push notifications**.
-Add via the web app when running natively:
-- **Status bar** styling (`@capacitor/status-bar`)
-- **Camera** for jobsite photos / document capture (`@capacitor/camera`) - fits daily logs & AI doc scan
-- **Push notifications** for approvals, new bids, invoice status
-- **Share / open external links** in the system browser (`@capacitor/browser`)
-- Optional: **Geolocation** for the time clock, **Filesystem** for offline PDFs
+Apple's rule **4.2, "minimum functionality"**, is the real risk for any app that
+wraps a website. These are the mitigation, and they are all built:
+
+- **Push notifications** - end to end. `lib/push.ts` talks to Apple over HTTP/2
+  with an ES256 JWT and no npm dependency; sending is wired into `lib/notify.ts`,
+  the one place the app tells anybody anything, so no other code changed.
+  **One switch:** push obeys the in-app toggle the user already has. The `push`
+  flag in `lib/notifications.ts` is our editorial call about which seven types
+  deserve to interrupt somebody.
+- **Camera and location** - already used by daily logs, materials and the time
+  clock, now with the `Info.plist` strings that stop iOS killing the app.
+- **Offline screen** - `public/offline.html`, wired to `server.errorPath`. A
+  blank white webview on one bar of signal is a rejection and a bad app.
+- **Splash screen + status bar** that follow the theme.
+- **Safe areas** - `.pt-safe` / `.pb-safe` / `.px-safe` / `.pb-field-nav` in
+  `globals.css`, applied to the fixed sidebar and the field bottom nav.
+  ⚠️ **Needs one pass on a real device.** iOS also insets the webview's own
+  scroll view (`contentInset: 'always'`), so some of these resolve to zero. It
+  cannot be judged from a desktop browser; look at it in TestFlight.
+
+### Push: what to set, and where
+In **Vercel** (production env), after the Apple keys exist:
+
+| Variable | What it is |
+|---|---|
+| `APNS_KEY_ID` | The Key ID of the `.p8` push key |
+| `APNS_TEAM_ID` | Your Apple Team ID |
+| `APNS_PRIVATE_KEY` | The whole `.p8` file contents. Pasted newlines usually arrive as `\n` - that is handled |
+| `APNS_BUNDLE_ID` | Optional, defaults to `com.sytenav.app` |
+| `APNS_SANDBOX` | Leave unset. TestFlight and App Store builds use production |
+
+In the **Apple developer portal**: the App ID `com.sytenav.app` must have
+**Push Notifications** ticked, or the entitlement has nothing to sign against.
+
+Until those are set, `apnsConfig()` returns null and nothing is sent - the same
+"not connected is a normal state" contract QuickBooks uses. The bell and the
+emails are unaffected.
+
+Not built: **Filesystem** for offline PDFs.
 
 ---
 
-## 4. Icons & splash screens
-Put a 1024×1024 PNG at `resources/icon.png` and a 2732×2732 PNG at `resources/splash.png`, then:
+## 4. Icons & splash screens - DONE
+Generated from the SyteNav mark, so the home-screen icon and the app agree.
+`scripts/gen-app-assets.mjs` draws the sources; to regenerate after a brand change:
 ```bash
-npm i -D @capacitor/assets
-npx capacitor-assets generate --iconBackgroundColor '#C9F24A' --splashBackgroundColor '#f3f4ef'
+node scripts/gen-app-assets.mjs
+npx capacitor-assets generate --ios \
+  --iconBackgroundColor '#0F1113' --iconBackgroundColorDark '#0F1113' \
+  --splashBackgroundColor '#f3f4ef' --splashBackgroundColorDark '#0F1113'
 ```
-This generates every required iOS/Android icon + splash size.
+The icon is a **full-bleed square with no transparency and no rounded corners** -
+iOS applies its own mask, and an icon with an alpha channel is rejected outright.
 
 ---
 
@@ -121,11 +169,17 @@ This generates every required iOS/Android icon + splash size.
 - App privacy "nutrition label" (data collected via Supabase auth: name, email, usage)
 - Support URL: `/homepage/contact`
 - Age rating, category (Business / Productivity)
+- **Review notes** saying accounts are created on the website - otherwise the
+  reviewer wonders why there is no sign-up button. (Nothing in the app leads to
+  a purchase: billing is "Free during beta" with a disabled button, and the
+  marketing pages are redirected off the app host, so rule 3.1.1 is clear.)
 - iOS: TestFlight review → App Store review. Android: internal → closed → production.
 
 ---
 
-## What I can wire up next (just ask)
-- The Capacitor-aware Supabase deep-link auth shim in the web app
-- A small `useNative()` hook that enables camera/status-bar/push only inside the shell
+## Still to do
+- **Universal Links** (section 2) - after the first successful build
+- **A demo account for the App Store reviewer.** Apple rejects without working
+  credentials, every time. Not your live company
+- **Android** - `npx cap add android`; the Codemagic workflow is written
 - A cookie-consent banner + App Privacy details doc

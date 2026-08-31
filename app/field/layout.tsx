@@ -3,6 +3,7 @@ import { ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { FIELD_ROLES } from '@/lib/permissions'
 import { IdleLogout } from '@/components/layout/idle-logout'
+import { NativeShell } from '@/components/layout/native-shell'
 import { FieldPreviewBanner } from '@/components/layout/field-preview'
 import { FieldNav } from './field-nav'
 
@@ -28,8 +29,9 @@ export default async function FieldLayout({ children }: { children: ReactNode })
   return (
     <div className="min-h-screen bg-surface text-ink flex flex-col">
       <IdleLogout />
+      <NativeShell />
       <FieldPreviewBanner />
-      <main className="flex-1 overflow-y-auto pb-24">{children}</main>
+      <main className="flex-1 overflow-y-auto pb-field-nav px-safe">{children}</main>
       <FieldNav />
     </div>
   )

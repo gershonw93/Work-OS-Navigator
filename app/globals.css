@@ -185,4 +185,30 @@
   .font-display {
     font-family: var(--font-saira), 'Saira Condensed', system-ui, sans-serif;
   }
+
+  /* ── Safe areas: the notch, the camera cut-out, the home indicator ────────
+     Only the phone app has any of these. env() resolves to 0 in every desktop
+     and mobile browser, so these classes are completely inert on the web -
+     which is why they can be applied unconditionally rather than gated behind
+     a "are we in the app" check that would have to run after hydration.
+
+     They need viewport-fit=cover to return anything at all; that is set on
+     the viewport export in app/layout.tsx.
+
+     NOTE: iOS also insets the webview's own scroll view (contentInset:
+     'always' in capacitor.config.ts), so on scrolling content these will
+     often already be zero. Fixed chrome is where they earn their keep. The
+     exact result has to be looked at once on real hardware - see MOBILE.md. */
+  .pt-safe { padding-top: env(safe-area-inset-top); }
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+  .px-safe {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  /* The field nav is fixed to the bottom of the screen, which on an iPhone is
+     exactly where the home indicator lives. The content above it has to clear
+     BOTH - the nav and the indicator underneath it - so this is one value,
+     not pb-24 and pb-safe fighting over the same property. */
+  .pb-field-nav { padding-bottom: calc(6rem + env(safe-area-inset-bottom)); }
 }
