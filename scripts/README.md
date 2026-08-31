@@ -2,11 +2,20 @@
 
 ## seed-demo.ts - demo account
 
-Creates the login **demo@sytenav.com** and fills 12 projects with data on every
-tab (plans/files, budget, subcontracts, invoices, client payments, schedule,
-tasks, daily logs + photos, time clock, RFIs, change orders, permits,
-inspections, submittals, compliance, materials, equipment, RFQs/quotes, team,
-and the activity feed).
+Creates the login **demo@sytenav.com** and fills 13 projects with data on every
+tab (plans/files, budget, subcontracts, bills from subs, **invoices to the
+client and the payments settling them**, schedule, tasks, daily logs + photos,
+time clock, RFIs, change orders, permits, inspections, submittals, compliance,
+materials, equipment, RFQs/quotes, team, the activity feed, **and the
+notification bell**).
+
+**This is the App Store reviewer's account** - see `store/listing.md` for the
+credentials and the review notes that go with it. Re-run it before submitting
+so the dates read as current work.
+
+QuickBooks is deliberately NOT faked. A fake connection would make every QB
+chip claim something untrue and every sync button fail against a company file
+that does not exist; "not connected" is the honest state.
 
 ### Option A - no terminal (browser)
 
@@ -48,7 +57,9 @@ DEMO_PASSWORD="your-password" ... npx tsx scripts/seed-demo.ts
 
 ### Notes
 
-- Run against a database that has all migrations applied (through `050`).
+- Run against a database that has all migrations applied (through `090`).
+  The seeder drops a column and retries when the live schema is missing one, so
+  it survives a database that is behind - it just seeds less.
 - Re-running wipes the **demo company's** projects/vendors and reseeds; the
   login is kept and its password reset. It only touches the demo company -
   never any other company's data.

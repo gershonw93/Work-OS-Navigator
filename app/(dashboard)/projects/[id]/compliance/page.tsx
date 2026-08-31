@@ -736,8 +736,15 @@ function SubCard({ sub, docs, requests, requirements, projectId, token, onRefres
         onRefresh={onRefresh}
       />
 
-      {/* Doc table */}
-      <table className="w-full text-sm">
+      {/* Doc table.
+          Five columns with px-5 padding does not fit a phone, and without a
+          scroll container of its own the whole PAGE scrolls sideways instead -
+          dragging the header and every other section with it. The wrapper
+          keeps the overflow inside the table, where it belongs. min-w so the
+          columns keep their shape rather than each wrapping onto three lines,
+          which is the other way this reads badly. */}
+      <div className="overflow-x-auto">
+      <table className="w-full min-w-[560px] text-sm">
         <thead className="bg-surface border-b border-line-soft">
           <tr>
             <th className="text-left px-5 py-2.5 font-medium text-muted-fg text-xs">Document</th>
@@ -839,6 +846,7 @@ function SubCard({ sub, docs, requests, requirements, projectId, token, onRefres
           })}
         </tbody>
       </table>
+      </div>
       {/* Inline upload form (below table) */}
       {openForm && (
         <div className="px-5 pb-5 pt-2">

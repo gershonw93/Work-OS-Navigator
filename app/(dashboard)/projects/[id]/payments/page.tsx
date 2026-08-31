@@ -357,7 +357,10 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
       {/* Projections */}
       <div className="bg-panel rounded-xl border border-line p-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-faint mb-3">Projections</p>
-        <div className="grid grid-cols-3 gap-4">
+        {/* Three money figures with labels this long do not fit a phone -
+            "$1,240,000" under "Projected going forward" in a 110px column
+            wraps into an unreadable stack. Two up, then three. */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <Stat label="Projected job cost" value={money(s?.projectedCost ?? 0)} />
           <Stat label="Invoiced already" value={money(s?.invoicedAlready ?? 0)} />
           <Stat label="Projected going forward" value={money(s?.projectedGoingForward ?? 0)} cls="text-accent-fg" />
