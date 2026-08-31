@@ -66,3 +66,26 @@ DEMO_PASSWORD="your-password" ... npx tsx scripts/seed-demo.ts
 - File/photo links point at public placeholder images and a sample PDF, so the
   rows are populated even though nothing was uploaded to Storage.
 - The service-role key bypasses RLS; keep it out of the browser and out of git.
+
+## push-test.ts - send one notification to one phone
+
+For proving push works before there is an app build to test with, or before
+anybody has signed in on a phone - it takes a raw device token, which the
+in-app button cannot.
+
+```bash
+APNS_KEY_ID=ABC123DEFG \
+APNS_TEAM_ID=TEAM123456 \
+APNS_PRIVATE_KEY="$(cat AuthKey_ABC123DEFG.p8)" \
+npx tsx scripts/push-test.ts <device-token>
+```
+
+**No terminal? Use the button instead.** Settings -> Notifications -> Send test
+does the same thing for the phones registered to whoever is signed in, and
+needs nothing set up. This script exists for the case the button cannot cover.
+
+Tokens are in `device_tokens`, written the first time you sign in on the phone:
+
+```sql
+select token, platform, last_seen_at from device_tokens order by last_seen_at desc;
+```

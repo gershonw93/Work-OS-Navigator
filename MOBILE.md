@@ -136,14 +136,24 @@ Until those are set, `apnsConfig()` returns null and nothing is sent - the same
 "not connected is a normal state" contract QuickBooks uses. The bell and the
 emails are unaffected.
 
-**Prove it the hour the key arrives**, without waiting for a build:
+**Prove it the hour the key arrives**, without waiting for a build.
+
+**No terminal needed:** sign in on the phone, then **Settings -> Notifications
+-> Send test**. It only ever reaches your own phones, so it is safe to press,
+and it names which of the three things is wrong when nothing arrives - the keys
+are not set, no phone has registered, or Apple refused and said why. The card
+stays hidden until push is configured or you have a phone registered, so nobody
+on the web sees a permanently-empty feature.
+
+**With a terminal**, and useful before anybody has signed in on the app at all,
+because it takes a raw token:
 ```bash
 APNS_KEY_ID=... APNS_TEAM_ID=... APNS_PRIVATE_KEY="$(cat AuthKey_XXXX.p8)" \
   npx tsx scripts/push-test.ts <device-token>
 ```
 The device token appears in `device_tokens` the first time you sign in on the
-phone. The script turns Apple's two unhelpful answers - `InvalidProviderToken`
-and `DeviceTokenNotForTopic` - into a sentence saying which thing is wrong.
+phone. Both turn Apple's two unhelpful answers - `InvalidProviderToken` and
+`DeviceTokenNotForTopic` - into a sentence saying which thing is wrong.
 
 Not built: **Filesystem** for offline PDFs.
 
