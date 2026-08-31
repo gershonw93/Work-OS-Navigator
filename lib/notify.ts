@@ -143,12 +143,17 @@ export async function notify(input: NotifyInput): Promise<NotifyResult> {
  * Look up these people's phones and send. Never throws, and never lets a
  * failure here reach the caller - see the header.
  *
+ * EXPORTED for the "send a test notification" button in Settings, which has to
+ * take the IDENTICAL path a real notification takes - dead-token cleanup and
+ * all. A test that goes a different way can pass while the real thing fails,
+ * which is worse than having no test.
+ *
  * Tokens Apple reports as dead are DELETED, not left. A phone that was wiped
  * or had the app removed answers 410 forever, so a row nobody clears is a
  * notification that fails on every future send for the life of that row - and
  * quietly makes every batch look half-broken in the logs.
  */
-async function pushToPhones(
+export async function pushToPhones(
   db: any, userIds: string[], message: Parameters<typeof sendPush>[1],
 ): Promise<number> {
   try {

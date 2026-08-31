@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Bell, Mail } from 'lucide-react'
+import { Bell, Mail, Smartphone, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Channel, NotificationType, Prefs } from '@/lib/notifications'
 
@@ -25,6 +25,9 @@ export function NotificationSettings() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [push, setPush] = useState<{ configured: boolean; devices: number; lastSeen: string | null } | null>(null)
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null)
 
   const authHeaders = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession()
@@ -36,12 +39,19 @@ export function NotificationSettings() {
 
   useEffect(() => {
     (async () => {
-      const res = await fetch('/api/settings/notifications', { headers: await authHeaders() })
+      const headers = await authHeaders()
+      const [res, pushRes] = await Promise.all([
+        fetch('/api/settings/notifications', { headers }),
+        // Never allowed to break this screen: the switches are the point, and
+        // the phone card is an extra. A failure here just leaves it hidden.
+        fetch('/api/me/push-test', { headers }).catch(() => null),
+      ])
       if (res.ok) {
         const d = await res.json()
         setTypes(d.types ?? [])
         setPrefs(d.prefs ?? {})
       }
+      if (pushRes?.ok) setPush(await pushRes.json().catch(() => null))
       setLoading(false)
     })()
   }, [authHeaders])
@@ -70,6 +80,25 @@ export function NotificationSettings() {
     }
   }
 
+  async function sendTest() {
+    setTesting(true)
+    setTestResult(null)
+    try {
+      const res = await fetch('/api/me/push-test', { method: 'POST', headers: await authHeaders() })
+      const d = await res.json().catch(() => null)
+      setTestResult(d?.text ? { ok: !!d.ok, text: d.text } : { ok: false, text: 'Could not reach the server. Try again.' })
+      // A dead phone is removed by the send, so the count on screen has to
+      // follow - otherwise it keeps claiming a phone that is not there.
+      if (d && typeof d.devices === 'number') {
+        setPush(p => p ? { ...p, devices: d.dead ? Math.max(0, d.devices - d.dead) : d.devices } : p)
+      }
+    } catch {
+      setTestResult({ ok: false, text: 'Could not reach the server. Try again.' })
+    } finally {
+      setTesting(false)
+    }
+  }
+
   if (loading) return <p className="py-10 text-center text-sm text-faint">Loading…</p>
 
   const groups = Array.from(new Set(types.map(t => t.group)))
@@ -83,6 +112,40 @@ export function NotificationSettings() {
 
       {error && (
         <p className="rounded-lg bg-danger-tint px-3 py-2 text-sm text-danger">{error}</p>
+      )}
+
+      {/* The phone card.
+          HIDDEN unless there is something true to say - push is switched on
+          for SyteNav, or this person has a phone registered. Today neither is
+          true for anybody on the web, and a card that only ever reads "not set
+          up" is noise on a screen everyone sees. */}
+      {push && (push.configured || push.devices > 0) && (
+        <div className="rounded-xl border border-line bg-panel p-4">
+          <div className="flex items-start gap-3">
+            <Smartphone className="mt-0.5 h-4 w-4 shrink-0 text-muted-fg" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-ink">Your phone</p>
+              <p className="mt-0.5 text-sm text-muted-fg">
+                {push.devices === 0
+                  ? 'No phone registered yet. Open SyteNav on your phone, sign in, and allow notifications when it asks.'
+                  : `${push.devices === 1 ? 'One phone is' : `${push.devices} phones are`} set up for notifications${push.lastSeen ? `, last seen ${new Date(push.lastSeen).toLocaleDateString()}` : ''}.`}
+              </p>
+              {testResult && (
+                <p className={cn('mt-2 rounded-lg px-3 py-2 text-sm',
+                  testResult.ok ? 'bg-success-tint text-success' : 'bg-warn-tint text-warn')}>
+                  {testResult.text}
+                </p>
+              )}
+            </div>
+            <button
+              type="button" onClick={sendTest} disabled={testing || push.devices === 0}
+              className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink disabled:opacity-50"
+            >
+              {testing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {testing ? 'Sending' : 'Send test'}
+            </button>
+          </div>
+        </div>
       )}
 
       {groups.map(group => (

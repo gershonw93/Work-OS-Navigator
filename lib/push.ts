@@ -221,3 +221,45 @@ export async function sendPush(tokens: string[], message: PushMessage): Promise<
     try { session?.close() } catch { /* closing a broken session is not news */ }
   }
 }
+
+/**
+ * What to tell somebody who just pressed "send a test notification".
+ *
+ * Pure, so every branch can be checked without a phone, an Apple key or a
+ * network - which matters because these sentences ARE the diagnostic. Push
+ * failing has three quite different causes and only one of them is a fault:
+ * the server has no keys yet, no phone has registered, or Apple refused. A
+ * screen that says "failed" to all three sends somebody hunting in the wrong
+ * place.
+ */
+export function pushTestMessage(
+  r: { configured: boolean; devices: number; sent: number; dead: number; error?: string },
+): { ok: boolean; text: string } {
+  if (!r.configured) {
+    return { ok: false, text: "Phone notifications aren't switched on for SyteNav yet. Nothing is wrong with your phone." }
+  }
+  if (!r.devices) {
+    return { ok: false, text: 'No phone is registered to your account yet. Open SyteNav on your phone, sign in, and allow notifications when it asks.' }
+  }
+  if (r.sent > 0) {
+    return {
+      ok: true,
+      text: r.sent === 1
+        ? 'Sent. Look at your phone - it should be there within a second or two.'
+        : `Sent to ${r.sent} phones. They should arrive within a second or two.`,
+    }
+  }
+  if (r.dead > 0) {
+    // Not a fault. The phone was wiped, the app was deleted, or the token came
+    // from a build with a different bundle id - and the row has just been
+    // removed, so saying "try again" is the correct advice rather than a shrug.
+    return { ok: false, text: 'Your phone is no longer reachable - the app may have been removed or reinstalled. Open SyteNav on your phone again, then try this once more.' }
+  }
+  if (!r.error) return { ok: false, text: 'Nothing was sent, and Apple gave no reason why.' }
+  // Apple's reasons are bare tokens like "InvalidProviderToken" - passed
+  // through rather than softened into "something went wrong", because that
+  // word IS the answer and it is searchable. Punctuated so it reads as a
+  // sentence next to the others, without doubling a full stop if it has one.
+  const reason = r.error.trim()
+  return { ok: false, text: `Apple refused it: ${reason}${/[.!?]$/.test(reason) ? '' : '.'}` }
+}
