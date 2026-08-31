@@ -47,6 +47,40 @@ Primary: Business • Secondary: Productivity
 - Identifiers + usage data: for security and to operate the Service
 - Not used for tracking across other apps; not sold.
 
+## Demo account for App Review (REQUIRED)
+Apple rejects without working credentials, every time - and because SyteNav has
+no sign-up inside the iOS build, a reviewer who is not given a login has no way
+in at all.
+
+- **Email:** `demo@sytenav.com`
+- **Password:** `SyteNavDemo2026!` (or whatever `DEMO_PASSWORD` was set to)
+
+It is an invented general contractor - 13 jobs across Brooklyn and New Jersey,
+made-up companies, `555-01xx` numbers. No real customer's data is ever in it.
+Seeded by `/api/dev/seed-demo?secret=...` - see `scripts/README.md`. Re-run it
+before submitting so the dates are fresh; everything is relative, so a seed from
+last month still reads as current work.
+
+**Check before you submit:** sign in on your own phone and open Money, the bell,
+and a project. If any of those are empty the seed did not finish.
+
+## App Review notes (paste into App Store Connect)
+> SyteNav is construction management software for general contractors. The
+> account below is a demo company with sample projects - no real customer data.
+>
+> Sign in at the first screen with the credentials provided. There is no sign-up
+> inside the app: accounts are created and managed on our website, and the app
+> is for existing customers signing in. Nothing is sold inside the app.
+>
+> Suggested tour: the dashboard shows money across all jobs; open any project
+> for its budget, bills from subcontractors, invoices to the client, schedule
+> and daily logs. The bell (top right) shows notifications; the app also sends
+> push notifications for approvals and invoice status.
+>
+> Camera access is used for jobsite photos in daily logs and for scanning
+> invoices. Location is used to record where a worker clocked in and out. Both
+> are asked for only at the point they are used, and the app works without them.
+
 ## Screenshots to capture (from the live app)
 1. Dashboard (master overview)
 2. Projects list

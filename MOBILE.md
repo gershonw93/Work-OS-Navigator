@@ -136,6 +136,15 @@ Until those are set, `apnsConfig()` returns null and nothing is sent - the same
 "not connected is a normal state" contract QuickBooks uses. The bell and the
 emails are unaffected.
 
+**Prove it the hour the key arrives**, without waiting for a build:
+```bash
+APNS_KEY_ID=... APNS_TEAM_ID=... APNS_PRIVATE_KEY="$(cat AuthKey_XXXX.p8)" \
+  npx tsx scripts/push-test.ts <device-token>
+```
+The device token appears in `device_tokens` the first time you sign in on the
+phone. The script turns Apple's two unhelpful answers - `InvalidProviderToken`
+and `DeviceTokenNotForTopic` - into a sentence saying which thing is wrong.
+
 Not built: **Filesystem** for offline PDFs.
 
 ---
@@ -179,7 +188,9 @@ iOS applies its own mask, and an icon with an alpha channel is rejected outright
 
 ## Still to do
 - **Universal Links** (section 2) - after the first successful build
-- **A demo account for the App Store reviewer.** Apple rejects without working
-  credentials, every time. Not your live company
+- **Re-seed the demo account before submitting** (`/api/dev/seed-demo`). It is
+  the reviewer's login; credentials and the review notes are in
+  `store/listing.md`. Apple rejects without working credentials, every time -
+  and with no sign-up in the iOS build, a reviewer without a login has no way in
 - **Android** - `npx cap add android`; the Codemagic workflow is written
 - A cookie-consent banner + App Privacy details doc

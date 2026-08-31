@@ -219,7 +219,7 @@ export function BulkAddModal({
           )}
 
           {mode === 'floor' && (
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="bulk-fl">Call it</Label>
                 <Select id="bulk-fl" value={floorLabel} onChange={e => setFloorLabel(e.target.value)}>
@@ -240,7 +240,7 @@ export function BulkAddModal({
           )}
 
           {mode === 'street' && (
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="bulk-fn">First number</Label>
                 <Input id="bulk-fn" type="number" min={1} value={firstNumber} onChange={e => setFirstNumber(Number(e.target.value))} />

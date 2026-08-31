@@ -154,6 +154,11 @@ export async function runSeed(
   if (existingProfile?.company_id) {
     log('clearing previous demo data')
     await db.from('equipment').delete().eq('company_id', existingProfile.company_id)
+    // Notifications hang off the USER, not the company, so deleting the
+    // company does not take them with it - re-seeding would stack a second
+    // set of nine on top of the first, then a third. Cleared explicitly, and
+    // scoped to the demo user so nobody else's bell is touched.
+    await db.from('notifications').delete().eq('user_id', userId).then(() => {}, () => {})
     await db.from('companies').delete().eq('added_by_company_id', existingProfile.company_id).then(() => {}, () => {})
     await db.from('companies').delete().eq('id', existingProfile.company_id)
   }
@@ -268,14 +273,74 @@ export async function runSeed(
       }
     }
 
+    // ── Billing the client ───────────────────────────────────────────────
+    //
+    // The other half of the money, and the half a demo without it makes look
+    // broken: costs go on the budget, nothing is ever billed for them, and the
+    // client payments below settle nothing. Four invoices per job in the four
+    // states a real ledger has one of - drafted, sent and waiting, paid, and
+    // one corrected by voiding, which is how an invoice a client already holds
+    // is undone.
+    const clientInvoices: { id: string; total: number; status: string }[] = []
+    for (let ci = 0; ci < 4; ci++) {
+      const ciId = rid()
+      // draft is the NEWEST - a job bills as it goes, so the unsent one is the
+      // work just finished, not something forgotten months ago.
+      const status = pick(['paid', 'sent', 'void', 'draft'], ci)
+      const issued = monthsAgo(3 - ci)
+      const lines = BUDGET_LINES.slice(ci * 2, ci * 2 + 3).map((bl, li) => {
+        const cost = round2(proj.budget * (0.03 + li * 0.015))
+        const markup = round2(cost * 0.15)
+        return {
+          client_invoice_id: ciId, description: `${bl.cat} - ${bl.desc}`,
+          cost, markup_pct: 15, markup, amount: round2(cost + markup), sort_order: li,
+        }
+      })
+      const total = round2(lines.reduce((a, l) => a + l.amount, 0))
+
+      await insert('client_invoices', {
+        id: ciId, project_id: projectId,
+        invoice_number: `${proj.name.slice(0, 3).toUpperCase()}-${String(1000 + ci).slice(1)}`,
+        status, issue_date: ymd(issued), due_date: ymd(new Date(issued.getTime() + 30 * 864e5)),
+        show_markup: false, markup_pct: 15,
+        terms: 'Net 30. Please reference the invoice number on payment.',
+        notes: ci === 1 ? 'Includes the approved change order for the lobby lighting.' : null,
+        // A draft has never left the building, so it has no send date, no
+        // share token and nobody has looked at it.
+        sent_at: status === 'draft' ? null : iso(issued),
+        paid_at: status === 'paid' ? iso(new Date(issued.getTime() + 12 * 864e5)) : null,
+        token: status === 'draft' ? null : rid().replace(/-/g, '') + rid().replace(/-/g, '').slice(0, 16),
+        // The "opened by client" line on a sent invoice. A client who has
+        // opened it three times is the interesting case - that is the one the
+        // feature exists to show.
+        view_count: status === 'draft' ? 0 : 1 + ((ci + p) % 4),
+        last_viewed_at: status === 'draft' ? null : iso(new Date(issued.getTime() + 2 * 864e5)),
+        created_by: userId, created_at: iso(issued), updated_at: iso(issued),
+      })
+      await insert('client_invoice_lines', lines)
+      clientInvoices.push({ id: ciId, total, status })
+    }
+
     // Client payments (cash IN) spread one per month across the last 8 months.
+    //
+    // A payment settles the invoice NAMED ON IT - never "the oldest one still
+    // open". That is the rule the app itself follows, and a demo whose money
+    // does not obey it teaches the wrong thing to anybody reading the screen.
+    // One payment is left deliberately unlinked: the deposit, taken before
+    // there was any invoice to settle. That is a real shape, not a gap.
+    const paid = clientInvoices.find(c => c.status === 'paid')
     const pays = []
     for (let mo = 0; mo < 8; mo++) {
+      const settles = mo === 2 && paid ? paid : null
       pays.push({
         project_id: projectId, paid_date: ymd(monthsAgo(mo)),
-        amount: round2(proj.budget * (0.04 + ((mo + p) % 4) * 0.02)),
+        amount: settles ? settles.total : round2(proj.budget * (0.04 + ((mo + p) % 4) * 0.02)),
         method: pick(['Wire', 'Check', 'ACH'], mo + p),
         memo: mo === 7 ? 'Deposit' : `Draw ${8 - mo}`,
+        // The check number the bank statement is reconciled against - a
+        // different field from the memo, which is the whole point of #325.
+        reference: pick(['', '4471', '', 'WT-88213', '', '4489', '', ''], mo + p) || null,
+        client_invoice_id: settles ? settles.id : null,
         retainer: mo === 7, qb_entered: mo > 1, created_by: userId,
       })
     }
@@ -381,6 +446,46 @@ export async function runSeed(
 
     log(`seeded ${p}/${PROJECTS.length}  ${proj.name}`)
   }
+
+  // ── The bell ──────────────────────────────────────────────────────────────
+  //
+  // Seeded last, because it points at projects that have to exist first.
+  //
+  // An empty bell is a bad look in a demo generally, and a specifically bad
+  // one here: the App Store reviewer is being asked to believe this is a real
+  // app rather than a website in a wrapper, and notifications are the largest
+  // part of that argument. Somebody who opens the bell and finds nothing has
+  // been shown the opposite.
+  //
+  // Every `type` below is a live key from lib/notifications.ts. NOT a
+  // convenience: `type` is a plain text column, so a made-up string inserts
+  // happily and is then invisible to every filter and preference switch that
+  // spells it correctly - the exact bug that catalog exists to prevent.
+  log('seeding the notification bell')
+  const { data: seededProjects } = await db.from('projects')
+    .select('id, name').eq('gc_company_id', companyId).limit(6)
+  const forProject = (i: number) => (seededProjects ?? [])[i % Math.max((seededProjects ?? []).length, 1)]
+
+  await insert('notifications', [
+    ['invoice_pending', 'Invoice waiting for approval', 'BoroFlow Plumbing sent INV-MAP-004 for $18,400 - it needs your approval.', '/invoices', false],
+    ['signoff_requested', 'Sign-off requested', 'Mike Torres needs you to sign off "Punch list walkthrough" before it can close.', '/tasks', false],
+    ['bid_invited', 'Invited to bid', 'Tekton Builders invited you to quote the Drywall package.', '/quotes', false],
+    ['compliance_expiring', 'Document expiring', "Apex Electric Co.'s general liability certificate expires in 19 days.", '/compliance', true],
+    ['new_bid', 'Bid received', 'Precision Drywall LLC submitted a bid of $61,200.', '/quotes', true],
+    ['invoice_decision', 'Invoice paid', 'Summit HVAC Services marked INV-HAR-002 as paid - $24,900.', '/invoices', true],
+    ['task_assigned', 'Task assigned to you', 'Ava Bennett assigned you "Review shop drawings for millwork".', '/tasks', true],
+    ['inspection_result', 'Inspection passed', 'Rough Electrical passed at Oak Park Townhomes.', '/schedule', true],
+    ['rfi_submitted', 'RFI raised', 'Danny Cole raised an RFI about the roof-to-parapet flashing detail.', '/rfis', true],
+  ].map(([type, title, message, tail, read], i) => {
+    const pr = forProject(i)
+    return {
+      user_id: userId, type, title, message, read,
+      // Point at a real project so tapping through lands somewhere populated
+      // rather than on a 404 - which is exactly what a reviewer would tap.
+      link: pr ? `/projects/${pr.id}${tail}` : '/dashboard',
+      created_at: iso(daysFromNow(-(i + 1) * 0.4)),
+    }
+  }))
 
   return { email: DEMO_EMAIL, password, projects: PROJECTS.length }
 }
