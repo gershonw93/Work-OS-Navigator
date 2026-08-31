@@ -10,6 +10,7 @@ import {
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { usePermissions } from '@/lib/use-permissions'
+import { unregisterThisDevice } from '@/lib/use-push'
 import { SEEN_KEY, unreadCount } from '@/lib/whats-new'
 import { SyteNavLogo } from '@/components/ui/logo'
 import { useEffect, useState } from 'react'
@@ -99,6 +100,11 @@ export function Sidebar() {
     : GC_NAV_ITEMS.filter(item => item.resource === null || (!permsLoading && can(item.resource, 'view')))
 
   async function handleLogout() {
+    // Before signOut, not after: releasing this phone needs the session that
+    // is about to end. Otherwise the row stays on the person leaving, and the
+    // next person to sign in on a shared tablet is still reachable at their
+    // address.
+    await unregisterThisDevice()
     await supabase.auth.signOut()
     router.push('/login')
     router.refresh()
@@ -224,7 +230,7 @@ export function Sidebar() {
   return (
     <>
       {/* Desktop sidebar - hidden on mobile */}
-      <aside className="hidden lg:flex fixed inset-y-0 left-0 z-30 w-60 flex-col bg-panel text-ink border-r border-line">
+      <aside className="hidden lg:flex fixed inset-y-0 left-0 z-30 w-60 flex-col bg-panel text-ink border-r border-line pt-safe pb-safe">
         {navContent}
       </aside>
 
@@ -238,7 +244,7 @@ export function Sidebar() {
 
       {/* Mobile drawer */}
       <aside className={cn(
-        'lg:hidden fixed inset-y-0 left-0 z-50 w-72 flex flex-col bg-panel text-ink border-r border-line transition-transform duration-300 ease-in-out',
+        'lg:hidden fixed inset-y-0 left-0 z-50 w-72 flex flex-col bg-panel text-ink border-r border-line transition-transform duration-300 ease-in-out pt-safe pb-safe',
         mobileOpen ? 'translate-x-0' : '-translate-x-full'
       )}>
         {navContent}

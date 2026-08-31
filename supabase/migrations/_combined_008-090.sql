@@ -2052,3 +2052,34 @@ create index if not exists invoices_qbo_payment_pending_idx
 
 comment on column invoices.qbo_payment_id IS
   'The QBO BillPayment that settles this bill. Separate from qbo_id, which is the Bill itself - the two are different records and either can exist without the other.';
+
+
+-- ── 090: which phones to send a push notification to ────────────────────────
+--
+-- ONE ROW PER PHONE, NOT PER PERSON. The unique key is the token, because a
+-- device token belongs to the DEVICE: hand a site tablet to somebody else and
+-- they sign in on the same hardware, and Apple issues that same token again.
+-- Keyed by user, the tablet would end up on two rows and the previous person
+-- would keep getting the new person's notifications - somebody else's money,
+-- on a screen they no longer have any business seeing.
+--
+-- Keyed by token, signing in simply moves the row.
+
+create table if not exists public.device_tokens (
+  id uuid primary key default gen_random_uuid(),
+  -- Apple's token is 64 hex chars today; text because they have changed that
+  -- before, and a length check that goes stale rejects every phone silently.
+  token text not null unique,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  platform text not null default 'ios',
+  last_seen_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists device_tokens_user_idx on public.device_tokens(user_id);
+
+alter table public.device_tokens enable row level security;
+
+-- No policies, deliberately. RLS with zero policies denies everything to anon
+-- and authenticated; the service role bypasses RLS. So the only way in or out
+-- is a server route that has already established who is asking.

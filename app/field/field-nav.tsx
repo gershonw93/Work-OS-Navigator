@@ -15,7 +15,7 @@ const TABS = [
 export function FieldNav() {
   const pathname = usePathname()
   return (
-    <nav className="fixed bottom-0 inset-x-0 z-40 border-t border-line bg-panel/95 backdrop-blur supports-[backdrop-filter]:bg-panel/80">
+    <nav className="fixed bottom-0 inset-x-0 z-40 border-t border-line bg-panel/95 backdrop-blur supports-[backdrop-filter]:bg-panel/80 pb-safe px-safe">
       <div className="mx-auto flex max-w-lg">
         {TABS.map(t => {
           const active = t.exact ? pathname === t.href : pathname.startsWith(t.href)

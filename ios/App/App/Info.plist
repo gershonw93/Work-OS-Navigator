@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleDisplayName</key>
+        <string>SyteNav</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIMainStoryboardFile</key>
+	<string>Main</string>
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>armv7</string>
+	</array>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<true/>
+	<!-- Why the app asks for each permission.
+	     These are not optional and they are not boilerplate: iOS CRASHES the
+	     app the first time it touches the camera, the photo library or
+	     location without a matching string here, and Apple rejects vague ones.
+	     Each sentence below names the actual screen it is for. -->
+	<key>NSCameraUsageDescription</key>
+	<string>SyteNav uses the camera to photograph jobsite progress for daily logs, and to scan invoices, quotes and permits so their details can be read in automatically.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>SyteNav needs your photo library so you can attach photos and documents you have already taken to a job.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>SyteNav saves photos and documents you download from a job back to your photo library.</string>
+	<!-- Clocking in and out records where it happened, and a daily log records
+	     where it was written. Both are in app/field/clock-card.tsx and
+	     app/(dashboard)/projects/[id]/daily-logs/page.tsx. -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>SyteNav records where you clocked in and out and where a daily log was written, so hours and site reports can be verified against the job.</string>
+
+	<!-- Deep links: sytenav://... opens the app rather than Safari.
+	     This is what brings you back into the app after connecting
+	     QuickBooks, and what makes a password-reset link open the app. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.sytenav.app</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>sytenav</string>
+			</array>
+		</dict>
+	</array>
+
+	<!-- Push has to be able to wake the app when it is not on screen -
+	     which is the whole point of being told a bill needs approving. -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
+
+	<!-- The app uses only standard HTTPS. Declaring it here answers the export
+	     compliance question once, instead of on every single upload. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+</dict>
+</plist>

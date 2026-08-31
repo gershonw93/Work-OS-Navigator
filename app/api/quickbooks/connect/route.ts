@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
 import { admin, authorizeUrl, qboConfigured, redirectUri } from '@/lib/quickbooks'
+import { markState } from '@/lib/oauth-return'
 
 export const runtime = 'nodejs'
 
@@ -23,7 +24,11 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Only an admin can connect QuickBooks.' }, { status: 403 })
   }
 
-  const state = randomUUID()
+  // The phone app asks with ?native=1. That has to be recorded NOW, because
+  // by the time Intuit redirects back we are a different request in a
+  // different application and the state is the only thing that survived.
+  const native = new URL(request.url).searchParams.get('native') === '1'
+  const state = markState(randomUUID(), native)
   await db.from('quickbooks_oauth_states').insert({
     state, company_id: profile.company_id, created_by: user.id,
   })

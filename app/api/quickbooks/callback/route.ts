@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { admin, exchangeCode, qboFetch, QBO_ENV } from '@/lib/quickbooks'
+import { oauthReturnUrl } from '@/lib/oauth-return'
 
 export const runtime = 'nodejs'
 
@@ -14,15 +15,20 @@ export async function GET(request: Request) {
   const realmId = url.searchParams.get('realmId')
   const error = url.searchParams.get('error')
 
-  const settings = new URL('/settings', url.origin)
-  settings.searchParams.set('tab', 'integrations')
+  // Back to the Integrations tab - in the browser if that is where this
+  // started, or back INSIDE the phone app if it started there. Without the
+  // second case you finish connecting QuickBooks and are left looking at
+  // Safari, unable to tell whether it worked. See lib/oauth-return.ts.
+  const back = (qbo: string) => NextResponse.redirect(
+    oauthReturnUrl(state, url.origin, { tab: 'integrations', qbo }),
+  )
 
-  if (error) { settings.searchParams.set('qbo', 'denied'); return NextResponse.redirect(settings) }
-  if (!code || !state || !realmId) { settings.searchParams.set('qbo', 'error'); return NextResponse.redirect(settings) }
+  if (error) return back('denied')
+  if (!code || !state || !realmId) return back('error')
 
   const db = admin()
   const { data: st } = await db.from('quickbooks_oauth_states').select('*').eq('state', state).maybeSingle()
-  if (!st?.company_id) { settings.searchParams.set('qbo', 'error'); return NextResponse.redirect(settings) }
+  if (!st?.company_id) return back('error')
   await db.from('quickbooks_oauth_states').delete().eq('state', state)
 
   try {
@@ -53,9 +59,8 @@ export async function GET(request: Request) {
       updated_at: new Date().toISOString(),
     }, { onConflict: 'company_id' })
 
-    settings.searchParams.set('qbo', 'connected')
+    return back('connected')
   } catch {
-    settings.searchParams.set('qbo', 'error')
+    return back('error')
   }
-  return NextResponse.redirect(settings)
 }

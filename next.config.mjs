@@ -35,6 +35,22 @@ const nextConfig = {
    * nowhere. The plus requires at least one segment, so /homepage falls
    * through to the rule below it.
    */
+  /**
+   * Apple insists on this exact path, and Next will not route a directory
+   * whose name starts with a dot - so the handler lives under /api and the
+   * path is rewritten onto it. A rewrite, not a redirect: Apple does not
+   * follow redirects when fetching it, and a 301 here means every universal
+   * link silently stops working.
+   */
+  async rewrites() {
+    return [
+      {
+        source: '/.well-known/apple-app-site-association',
+        destination: '/api/apple-app-site-association',
+      },
+    ]
+  },
+
   async redirects() {
     return [
       { source: '/homepage/:path+', destination: '/:path+', permanent: true },

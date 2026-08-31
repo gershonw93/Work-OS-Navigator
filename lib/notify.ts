@@ -19,7 +19,8 @@
 // never the work itself.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { canonicalType, effectivePrefs, isSendableType, notificationType, wants, type PrefRow } from '@/lib/notifications'
+import { canonicalType, effectivePrefs, isSendableType, notificationType, wants, wantsPush, type PrefRow } from '@/lib/notifications'
+import { apnsConfig, sendPush } from '@/lib/push'
 import { notificationEmail, sendEmail } from '@/lib/email'
 import { appOrigin } from '@/lib/app-url'
 
@@ -41,6 +42,8 @@ export interface NotifyInput {
 export interface NotifyResult {
   inApp: number
   emailed: number
+  /** Phones reached. 0 whenever push is not configured, which is normal. */
+  pushed: number
   skipped: 'unknown_type' | 'no_recipients' | null
   error?: string
 }
@@ -53,7 +56,7 @@ export interface NotifyResult {
  * their failures are counted, not raised.
  */
 export async function notify(input: NotifyInput): Promise<NotifyResult> {
-  const empty: NotifyResult = { inApp: 0, emailed: 0, skipped: null }
+  const empty: NotifyResult = { inApp: 0, emailed: 0, pushed: 0, skipped: null }
 
   try {
     // A type nobody can receive is a programming mistake, not a runtime state.
@@ -116,10 +119,56 @@ export async function notify(input: NotifyInput): Promise<NotifyResult> {
       return r.sent
     }))
 
-    return { inApp, emailed: results.filter(Boolean).length, skipped: null }
+    // ── Push ─────────────────────────────────────────────────────────────────
+    // Deliberately last, and deliberately here rather than at any call site.
+    // A phone notification is the same fact as the bell entry, delivered to
+    // where the person actually is - so it obeys the same switch, and it can
+    // only be sent from the same place, which is what stops a channel existing
+    // that nobody's preferences govern.
+    const pushed = await pushToPhones(
+      input.db,
+      userIds.filter(id => wantsPush(prefsFor(id), input.type)),
+      { title: input.title || t?.label || 'SyteNav', body: input.message, link: input.link, type: canonicalType(input.type) },
+    )
+
+    return { inApp, emailed: results.filter(Boolean).length, pushed, skipped: null }
   } catch (e) {
     // Deliberately swallowed. See the header: the caller's real work has
     // already succeeded by the time we get here.
     return { ...empty, error: e instanceof Error ? e.message : 'notify failed' }
+  }
+}
+
+/**
+ * Look up these people's phones and send. Never throws, and never lets a
+ * failure here reach the caller - see the header.
+ *
+ * Tokens Apple reports as dead are DELETED, not left. A phone that was wiped
+ * or had the app removed answers 410 forever, so a row nobody clears is a
+ * notification that fails on every future send for the life of that row - and
+ * quietly makes every batch look half-broken in the logs.
+ */
+async function pushToPhones(
+  db: any, userIds: string[], message: Parameters<typeof sendPush>[1],
+): Promise<number> {
+  try {
+    if (!userIds.length) return 0
+    // Before the lookup, not after. Until the Apple keys are set - every
+    // preview deploy, and production until the enrolment finishes - this would
+    // otherwise be a database round trip on every single notification, to
+    // build a list nothing can be sent to.
+    if (!apnsConfig()) return 0
+
+    const { data: devices } = await db.from('device_tokens').select('token').in('user_id', userIds)
+    const tokens = (devices ?? []).map((d: any) => d.token).filter(Boolean)
+    if (!tokens.length) return 0
+
+    const res = await sendPush(tokens, message)
+    if (res.dead.length) {
+      try { await db.from('device_tokens').delete().in('token', res.dead) } catch { /* next send will try again */ }
+    }
+    return res.sent
+  } catch {
+    return 0
   }
 }

@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Archivo, Saira_Condensed, Space_Mono } from 'next/font/google'
 import { CANONICAL_ORIGIN } from '@/lib/canonical'
 import './globals.css'
@@ -59,6 +59,26 @@ export const metadata: Metadata = {
     title: 'SyteNav',
     description,
   },
+}
+
+/**
+ * viewportFit: 'cover' is what makes env(safe-area-inset-*) return real
+ * numbers instead of zero. Without it the phone app has no way to know where
+ * the notch and the home indicator are, and the CSS that avoids them is inert.
+ * It changes nothing in a desktop browser, where those insets are always zero.
+ *
+ * Pinch-zoom is deliberately left ON. Disabling it is the usual reflex for an
+ * app-like feel and it is an accessibility failure - somebody reading a line
+ * item in the sun needs to be able to zoom.
+ */
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#F4F4F1' },
+    { media: '(prefers-color-scheme: dark)', color: '#0F1113' },
+  ],
 }
 
 // Set the theme class before paint to avoid a flash of the wrong mode.
