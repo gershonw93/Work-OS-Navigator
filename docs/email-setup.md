@@ -108,3 +108,18 @@ custom SMTP. SendGrid's own limit should be what binds, not Supabase's.
    is not proof on its own; Supabase falling back to its built-in sender looks
    identical from the inbox.
 4. Send more than a handful in an hour to confirm the old ceiling is gone.
+
+## A note on CRON_SECRET
+
+Unrelated to email except that the daily job sends some: `CRON_SECRET` must be
+set in the Vercel project's environment (Settings → Environment Variables, all
+three environments). Generate one with:
+
+```
+openssl rand -base64 32
+```
+
+`/api/cron/compliance-reminders` refuses to run without it, returning a 503 that
+says so. Vercel attaches the value to its own scheduled invocations
+automatically, so setting the variable is the only step — there is nothing to
+paste into the cron config.
