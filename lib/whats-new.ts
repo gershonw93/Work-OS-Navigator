@@ -49,6 +49,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-02',
+    title: 'A spec build stops being asked for a client',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'The setup checklist no longer demands a client on a "Building to sell" job',
+        text: 'The checklist listed "Put the client on the job" as an essential step even on a job you are building to sell - which by definition has no client - so setup could never finish and it read "1 still needed" forever. That step no longer appears on a spec build. Every other kind of job still asks for one.',
+        href: '/projects',
+      },
+    ],
+  },
+  {
+    date: '2026-09-02',
     title: 'Committed means one thing now',
     items: [
       {
