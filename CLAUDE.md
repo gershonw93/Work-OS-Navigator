@@ -138,4 +138,9 @@ production branch.** Do NOT ask the user to merge or deploy.
   light + dark. Use token classes (bg-panel, text-ink, text-muted-fg, border-line,
   bg-accent/text-accent-fg, success/warn/danger/info), NOT raw slate/white/orange.
 - Storage buckets: `daily-log-photos`, `submittals`.
-- Always run `npx tsc --noEmit` and `npx next build` before merging.
+- Always run `npx tsc --noEmit`, `npx next build` AND `npm run lint:hooks`
+  before merging. The lint step is not optional and not about style: it is the
+  only one of the three that can see React hook order. A conditional `useState`
+  shipped past a clean tsc and a clean build and blanked the whole Pay Apps
+  screen. The config is deliberately narrow (hooks + jsx-key, everything else
+  off) so it never fails for a reason nobody would act on.

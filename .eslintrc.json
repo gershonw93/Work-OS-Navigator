@@ -1,0 +1,20 @@
+// THERE WAS NO ESLINT CONFIG AT ALL, so `next build` silently skipped linting
+// and `react-hooks/rules-of-hooks` never ran. A conditional useState shipped in
+// #359 and blanked the whole Pay Apps screen with "a client-side exception has
+// occurred" - tsc cannot see hook order and a bundler does not care.
+//
+// Deliberately NARROW: the hook rule is an error, everything else is off, so
+// lint can never block a ship over formatting. Widen it on purpose, not by
+// accident - a lint step that fails for reasons nobody acts on gets skipped,
+// and then it is not protecting anything.
+{
+  "extends": "next",
+  "rules": {
+    "react-hooks/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "off",
+    "@next/next/no-img-element": "off",
+    "@next/next/no-html-link-for-pages": "off",
+    "react/no-unescaped-entities": "off",
+    "jsx-a11y/alt-text": "off"
+  }
+}
