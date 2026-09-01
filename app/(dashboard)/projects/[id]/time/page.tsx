@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { CameraCapture } from '@/components/ui/camera-capture'
 import { usePermissions } from '@/lib/use-permissions'
 import { Button } from '@/components/ui/button'
+import { formatDateShort } from '@/lib/dates'
 
 interface TimeEntry {
   id: string
@@ -37,9 +38,7 @@ function hoursBetween(a: string, b: string | null) {
 function fmtTime(s: string) {
   return new Date(s).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
 }
-function fmtDate(s: string) {
-  return new Date(s).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-}
+const fmtDate = (s: string) => formatDateShort(s)
 function duration(a: string, b: string | null) {
   if (!b) return null
   const mins = Math.round((new Date(b).getTime() - new Date(a).getTime()) / 60000)

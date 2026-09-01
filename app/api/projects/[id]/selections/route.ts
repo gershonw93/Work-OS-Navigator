@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { SELECTION_CATEGORIES, categoryDef, itemsForType } from '@/lib/selections'
+import { money } from '@/lib/validate'
 
 export const runtime = 'nodejs'
 
@@ -105,13 +106,23 @@ export async function POST(request: Request, { params }: { params: { id: string 
     .select('sort_order').eq('project_id', params.id)
     .order('sort_order', { ascending: false }).limit(1).maybeSingle()
 
+  // An allowance of -$500 was saving happily and rendering as "Allowance $-500"
+  // on the client's own screen. Blank is a real answer here (no allowance set),
+  // so only a value that IS present has to make sense.
+  let allowance: number | null = null
+  if (body.allowance_amount != null && String(body.allowance_amount).trim() !== '') {
+    const checked = money(body.allowance_amount, { allowZero: true, label: 'allowance' })
+    if (!checked.ok) return NextResponse.json({ error: checked.error }, { status: 400 })
+    allowance = checked.value
+  }
+
   const { data, error } = await db.from('project_selections').insert({
     project_id: params.id,
     company_id,
     category,
     item,
     location: body.location || null,
-    allowance_amount: body.allowance_amount ?? null,
+    allowance_amount: allowance,
     budget_line_item_id: body.budget_line_item_id || null,
     needed_by: body.needed_by || null,
     lead_time_days: body.lead_time_days ?? categoryDef(category)?.lead_time_days ?? null,

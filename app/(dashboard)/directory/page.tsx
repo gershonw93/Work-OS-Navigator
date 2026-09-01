@@ -11,6 +11,7 @@ import { Select } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
 import { cn } from '@/lib/utils'
+import { parseDate } from '@/lib/dates'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -967,7 +968,7 @@ export default function DirectoryPage() {
                               <div key={inv.id} className="rounded-lg border border-line bg-panel p-3 flex items-center justify-between gap-3">
                                 <div className="min-w-0">
                                   <p className="text-sm font-medium text-ink-soft truncate">{inv.invoice_number ?? `Invoice`}</p>
-                                  <p className="text-xs text-faint">{inv.projects?.name ?? ''}{inv.due_date ? ` · Due ${new Date(inv.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}</p>
+                                  <p className="text-xs text-faint">{inv.projects?.name ?? ''}{inv.due_date ? ` · Due ${parseDate(inv.due_date)!.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}</p>
                                 </div>
                                 <div className="text-right shrink-0">
                                   <p className="text-sm font-semibold text-ink">${Number(inv.amount).toLocaleString()}</p>

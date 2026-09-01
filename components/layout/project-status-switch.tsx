@@ -162,6 +162,25 @@ export function ProjectStatusSwitch({
                 <p className="text-sm text-faint py-4 text-center">Checking the job…</p>
               ) : (
                 <>
+                  {/* 0% MARKUP, SAID PLAINLY.
+                      The markup was already one of six checklist rows, all
+                      weighted the same, so it read as a to-do rather than as
+                      "you are about to bill this whole job at cost". A GC
+                      could run a job at no fee and not notice - which a
+                      reviewer did, on a real one.
+                      A WARNING, NOT A BLOCK: some jobs genuinely are at cost,
+                      and refusing those would be the app inventing a rule the
+                      trade does not have. */}
+                  {checks.some(c => c.key === 'price' && !c.ok) && (
+                    <div className="rounded-lg border border-warn/40 bg-warn-tint px-3 py-2.5">
+                      <p className="text-sm font-semibold text-warn">This job has no markup set.</p>
+                      <p className="mt-0.5 text-xs text-warn">
+                        Going active locks the markup as your billed fee. At 0% you will bill this
+                        job at cost and earn nothing on it. Set a rate on the Budget tab first
+                        unless that is genuinely the deal.
+                      </p>
+                    </div>
+                  )}
                   <div className="rounded-lg border border-line divide-y divide-line-soft">
                     {checks.map(c => (
                       <div key={c.key} className="flex items-start gap-2.5 px-3 py-2.5">

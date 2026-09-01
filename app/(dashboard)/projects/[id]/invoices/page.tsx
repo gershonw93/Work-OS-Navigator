@@ -21,6 +21,7 @@ import {
 } from '@/lib/invoice-lines'
 import { HARD_COST_CATEGORIES } from '@/lib/budget-categories'
 import { contractAmount, contractAmountLabel, isUnpriced } from '@/lib/contract-amount'
+import { parseDate } from '@/lib/dates'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   pending_approval: { label: 'Pending Approval', color: 'bg-warn-tint border-warn/30 text-warn' },
@@ -305,6 +306,11 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
     setCreateError('')
     const sub = subcontracts.find(s => s.id === subId)
     if (!sub) { setCreateError('Select a subcontractor'); return }
+    // Name the ACTUAL fault. This said "Enter an amount or percent" for a
+    // negative number, which sends somebody to check a field that is filled in
+    // correctly. A message that describes the wrong problem is worse than no
+    // message, because it costs time before it costs nothing.
+    if (billedAmount < 0) { setCreateError('That is a negative amount. Enter a positive number.'); return }
     if (!(billedAmount > 0)) { setCreateError('Enter an amount or percent'); return }
     if (billedAmount > remaining + 0.005) {
       setCreateError(`That's more than the $${remaining.toLocaleString()} still owed on this contract.`)
@@ -532,7 +538,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
             <p className="text-xs text-faint mt-0.5 break-words">
               ${Number(invoice.amount).toLocaleString()}
               {invoice.description && ` · ${invoice.description}`}
-              {invoice.due_date && ` · Due ${new Date(invoice.due_date).toLocaleDateString()}`}
+              {invoice.due_date && ` · Due ${parseDate(invoice.due_date)!.toLocaleDateString()}`}
             </p>
           </div>
           <div className="hidden sm:block text-sm font-bold text-ink shrink-0">${Number(invoice.amount).toLocaleString()}</div>
@@ -544,7 +550,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div><p className="text-xs text-faint">Invoice #</p><p className="font-mono font-medium text-ink-soft">{invoice.invoice_number}</p></div>
               <div><p className="text-xs text-faint">Amount</p><p className="font-bold text-ink">${Number(invoice.amount).toLocaleString()}</p></div>
-              {invoice.due_date && <div><p className="text-xs text-faint">Due Date</p><p className="font-medium text-ink-soft">{new Date(invoice.due_date).toLocaleDateString()}</p></div>}
+              {invoice.due_date && <div><p className="text-xs text-faint">Due Date</p><p className="font-medium text-ink-soft">{parseDate(invoice.due_date)!.toLocaleDateString()}</p></div>}
               <div><p className="text-xs text-faint">Created</p><p className="font-medium text-ink-soft">{new Date(invoice.created_at).toLocaleDateString()}</p></div>
               {invoice.approved_by_name && <div><p className="text-xs text-faint">Approved By</p><p className="font-medium text-ink-soft">{invoice.approved_by_name}</p></div>}
               {invoice.approved_at && <div><p className="text-xs text-faint">Approved</p><p className="font-medium text-ink-soft">{new Date(invoice.approved_at).toLocaleDateString()}</p></div>}

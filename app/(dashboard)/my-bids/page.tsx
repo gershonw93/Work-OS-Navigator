@@ -7,6 +7,7 @@ import { Badge, getStatusVariant } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
+import { parseDate } from '@/lib/dates'
 
 interface Invitation {
   id: string
@@ -117,7 +118,7 @@ export default function MyBidsPage() {
             {pkg.trade && <span className="text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{pkg.trade}</span>}
           </div>
           {pkg.due_date && (
-            <p className="text-xs text-faint mt-0.5">Bid due {new Date(pkg.due_date).toLocaleDateString()}</p>
+            <p className="text-xs text-faint mt-0.5">Bid due {parseDate(pkg.due_date)!.toLocaleDateString()}</p>
           )}
           {activeTab === 'revisions' && (
             <p className="text-xs text-warn mt-0.5 font-medium">Revision requested - update and resubmit</p>
@@ -164,7 +165,7 @@ export default function MyBidsPage() {
                   </div>
                   <p className="text-xs text-muted-fg mt-0.5">
                     {req?.projects?.name ?? 'A project'}
-                    {req?.due_date && ` · due ${new Date(req.due_date).toLocaleDateString()}`}
+                    {req?.due_date && ` · due ${parseDate(req.due_date)!.toLocaleDateString()}`}
                   </p>
                   {!answered && <p className="text-xs text-accent-fg mt-0.5 font-medium">Open to submit your quote</p>}
                 </div>
@@ -250,7 +251,7 @@ export default function MyBidsPage() {
                         </div>
                         <p className="text-sm text-muted-fg mt-0.5">{group.projectName} · {group.projectAddress}</p>
                         {pkg.due_date && (
-                          <p className="text-xs text-faint mt-0.5">Bid due {new Date(pkg.due_date).toLocaleDateString()}</p>
+                          <p className="text-xs text-faint mt-0.5">Bid due {parseDate(pkg.due_date)!.toLocaleDateString()}</p>
                         )}
                         {activeTab === 'revisions' && (
                           <p className="text-xs text-warn mt-0.5 font-medium">Revision requested - update and resubmit</p>
@@ -309,7 +310,7 @@ export default function MyBidsPage() {
                                   {pkg.trade && <span className="text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{pkg.trade}</span>}
                                 </div>
                                 {pkg.due_date && (
-                                  <p className="text-xs text-faint mt-0.5">Bid due {new Date(pkg.due_date).toLocaleDateString()}</p>
+                                  <p className="text-xs text-faint mt-0.5">Bid due {parseDate(pkg.due_date)!.toLocaleDateString()}</p>
                                 )}
                                 {activeTab === 'revisions' && (
                                   <p className="text-xs text-warn mt-0.5 font-medium">Revision requested</p>

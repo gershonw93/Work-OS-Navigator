@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AddressAutocomplete } from '@/components/ui/address-autocomplete'
+import { US_STATES, usState } from '@/lib/validate'
 
 // Separate Street / City / State / ZIP fields that combine into one address
 // string (kept as the source of truth so the DB column and geocoder are
@@ -40,7 +41,11 @@ export function AddressFields({
   const initial = useMemo(() => splitAddress(value), []) // eslint-disable-line react-hooks/exhaustive-deps
   const [street, setStreet] = useState(initial.street)
   const [city, setCity] = useState(initial.city)
-  const [state, setState] = useState(initial.state)
+  // Normalised on the way in as well. Existing rows may hold a full name (or
+  // the "NE" a truncated "New York" left behind), and a value that matches no
+  // option renders as blank - which would look like data loss on a screen that
+  // is meant to be fixing exactly that.
+  const [state, setState] = useState(() => usState(initial.state).value || '')
   const [zip, setZip] = useState(initial.zip)
 
   function push(next: Partial<AddressParts>) {
@@ -70,8 +75,10 @@ export function AddressFields({
                 if (d.ok) { p = { street: d.street, city: d.city, state: d.state, zip: d.zip }; lat = d.lat; lng = d.lng }
               }
             } catch { /* fall back to parsed label */ }
-            setStreet(p.street); setCity(p.city || city); setState(p.state || state); setZip(p.zip || zip)
-            onChange(joinAddress({ street: p.street, city: p.city || city, state: p.state || state, zip: p.zip || zip }))
+            // A geocoder returns "New York" as often as "NY".
+            const geoState = usState(p.state).value || state
+            setStreet(p.street); setCity(p.city || city); setState(geoState); setZip(p.zip || zip)
+            onChange(joinAddress({ street: p.street, city: p.city || city, state: geoState, zip: p.zip || zip }))
             onCoords?.(lat, lng)
           }}
         />
@@ -81,9 +88,22 @@ export function AddressFields({
           <Label htmlFor="city">City</Label>
           <Input id="city" value={city} onChange={e => { setCity(e.target.value); push({ city: e.target.value }) }} />
         </div>
+        {/* A SELECT, not a two-character text box.
+            It was `maxLength={2}` with an upper-case, so typing "New York"
+            left "Ne" -> "NE", which is Nebraska. Not blank, not an error: a
+            different real state, silently, with nothing downstream able to
+            tell. A list cannot be mistyped, and it is faster than typing. */}
         <div className="space-y-1.5">
           <Label htmlFor="state">State</Label>
-          <Input id="state" value={state} maxLength={2} onChange={e => { const v = e.target.value.toUpperCase(); setState(v); push({ state: v }) }} placeholder="NJ" />
+          <select
+            id="state"
+            value={state}
+            onChange={e => { const v = e.target.value; setState(v); push({ state: v }) }}
+            className="flex h-9 w-full rounded-md border border-muted2 bg-panel px-2 py-1 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors"
+          >
+            <option value="">-</option>
+            {US_STATES.map(s => <option key={s.code} value={s.code}>{s.code}</option>)}
+          </select>
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="zip">ZIP</Label>

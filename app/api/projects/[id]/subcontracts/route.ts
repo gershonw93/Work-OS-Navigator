@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { friendlyDbError } from '@/lib/db-error'
 import { logActivity } from '@/lib/log-activity'
 import { requirePermission, denied } from '@/lib/api-guard'
+import { money } from '@/lib/validate'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -67,10 +68,17 @@ export async function POST(request: Request, { params }: { params: { id: string 
   } catch { paymentSchedule = [] }
   paymentSchedule = (paymentSchedule || []).filter(p => (p.label ?? '').trim() || p.percent || p.amount)
 
-  const amountRaw = (form.get('contract_amount') as string ?? '').replace(/[^0-9.]/g, '')
-  // Contract amount = explicit value, else sum of line items
+  // Contract amount = explicit value, else sum of line items.
+  // money() keeps the sign; the old clean stripped it, so a contract typed as
+  // -50000 was signed for 50000.
+  const amountRaw = String(form.get('contract_amount') ?? '').trim()
   const lineItemsTotal = lineItems.reduce((s, li) => s + (Number(li.amount) || 0), 0)
-  const contractAmount = amountRaw ? parseFloat(amountRaw) : (lineItemsTotal || null)
+  let contractAmount: number | null = lineItemsTotal || null
+  if (amountRaw) {
+    const checked = money(amountRaw, { label: 'contract amount' })
+    if (!checked.ok) return NextResponse.json({ error: checked.error }, { status: 400 })
+    contractAmount = checked.value
+  }
 
   if (!existingCompanyId && !companyName) {
     return NextResponse.json({ error: 'Pick an existing subcontractor or enter a company name' }, { status: 400 })

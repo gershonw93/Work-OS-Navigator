@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { resolveStages, isRequestable, percentOfTotal } from '@/lib/payment-stages'
 import { friendlyDbError } from '@/lib/db-error'
+import { money, percent } from '@/lib/validate'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -91,13 +92,17 @@ export async function POST(request: Request, { params }: { params: { id: string 
       // number; it has to come from the quote, not from what a page happened
       // to render before the estimate was last edited.
       const { data: project } = await db.from('projects').select('quote_total').eq('id', params.id).single()
-      const pct = Number(String(body.percent).replace(/[^0-9.]/g, ''))
+      // percent() keeps the sign and then judges it. The old line stripped
+      // the minus with the currency symbols, so -10% arrived as 10%.
+      const checked = percent(body.percent)
+      if (!checked.ok) {
+        return NextResponse.json({ error: checked.error }, { status: 400 })
+      }
+      const pct = checked.value
       const resolved = percentOfTotal(pct, (project as any)?.quote_total)
       if (resolved == null) {
         return NextResponse.json({
-          error: Number.isFinite(pct) && pct > 0
-            ? `${pct}% of what? This job's estimate has no total yet - set one on the Estimate tab, or ask for a dollar amount.`
-            : 'Enter a percentage greater than zero.',
+          error: `${pct}% of what? This job's estimate has no total yet - set one on the Estimate tab, or ask for a dollar amount.`,
         }, { status: 400 })
       }
       amount = resolved
@@ -105,10 +110,16 @@ export async function POST(request: Request, { params }: { params: { id: string 
       // figure came from and it can be checked against the quote.
       if (!/%/.test(label)) label = `${label} (${pct}%)`
     } else {
-      amount = Number(String(body?.amount ?? '').toString().replace(/[^0-9.]/g, ''))
-      if (!Number.isFinite(amount) || amount <= 0) {
-        return NextResponse.json({ error: 'Enter an amount greater than zero.' }, { status: 400 })
+      // THE BUG THIS FIXES. This line used to strip everything that was not a
+      // digit or a dot - including the minus - and only THEN ask whether the
+      // amount was positive. Asking a client for -$500 raised a request for
+      // $500. The guard below was always correct; it never saw a negative,
+      // because the clean above had already turned it into one.
+      const checked = money(body?.amount)
+      if (!checked.ok) {
+        return NextResponse.json({ error: checked.error }, { status: 400 })
       }
+      amount = checked.value
     }
   }
 

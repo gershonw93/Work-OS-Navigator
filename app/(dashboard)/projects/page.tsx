@@ -21,6 +21,7 @@ import { ProjectsMap } from '@/components/projects/projects-map'
 import { BulkAddModal } from '@/components/projects/bulk-add-modal'
 import { cn } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
+import { formatDate } from '@/lib/dates'
 
 interface Project {
   id: string
@@ -81,10 +82,10 @@ const TYPE_ACCENT: Record<string, string> = {
   other: 'from-violet-500 to-purple-600',
 }
 
-function fmtDate(d: string | null) {
-  if (!d) return '-'
-  return new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-}
+// Was `new Date(d)` on a bare YYYY-MM-DD, which is UTC midnight, which is the
+// previous evening everywhere west of London - so a job entered Sep 1 listed as
+// Aug 31, on the screen everybody looks at. See lib/dates.ts.
+const fmtDate = (d: string | null) => formatDate(d)
 
 // A site has no work of its own, so it opens onto its units rather than plans.
 function projectHref(p: { id: string; is_site?: boolean | null }) {
