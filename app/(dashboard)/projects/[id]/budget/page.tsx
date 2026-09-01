@@ -21,6 +21,7 @@ import {
   asContractType, usesMarkup, usesRevenue, profitFor, revenueLabel, revenueHint, revenueAsk,
 } from '@/lib/contract-type'
 import { contractAmountLabel } from '@/lib/contract-amount'
+import { usePermissions } from '@/lib/use-permissions'
 
 const money = (n: number) => `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 
@@ -196,6 +197,16 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
   const guardDelete = useDeleteGuard()
   const vc = useViewerContext(params.id)
+  // Costs and margin are separate permissions. Running a job's budget and
+  // seeing what the company makes on it are different questions, and a project
+  // manager needs the first without automatically getting the second. While
+  // these were one permission there was no way to grant one without the other.
+  //
+  // The server does not rely on this: /api/projects/[id]/budget withholds the
+  // markup and the contract value from anyone without it, so hiding the panel
+  // is the presentation of that refusal, not the refusal itself.
+  const { can: canDo, loading: permLoading } = usePermissions()
+  const canSeeMargin = !permLoading && canDo('margin', 'view')
   const [items, setItems] = useState<BudgetItem[]>([])
   const [totals, setTotals] = useState<BudgetTotals | null>(null)
   const [feeBasis, setFeeBasis] = useState<FeeBasis | null>(null)
@@ -1096,7 +1107,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
           markup box together and told you to leave one empty, because it had no
           idea which kind of job this was - and on a cost-plus custom home the
           revenue box is asking a question with no answer. */}
-      {askContract ? (
+      {!canSeeMargin ? null : askContract ? (
         <div className="rounded-xl border border-dashed border-accent/40 bg-accent-tint/20 p-4">
           <p className="text-sm font-medium text-ink">How does this job pay you?</p>
           <p className="mt-0.5 text-xs text-muted-fg">

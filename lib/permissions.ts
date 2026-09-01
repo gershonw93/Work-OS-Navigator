@@ -47,6 +47,11 @@ export const RESOURCES: ResourceDef[] = [
   { key: 'pay-apps',       label: 'Pay Applications', group: 'Money', slug: 'pay-apps' },
   { key: 'payments',       label: 'Payments & Escrow', group: 'Money', slug: 'payments' },
   { key: 'budget',         label: 'Budget',         group: 'Money', slug: 'budget' },
+  // Split out of `budget` deliberately. Seeing what a job COSTS and seeing what
+  // you MAKE on it are different questions, and a project manager who has to
+  // run the budget does not automatically need the second. While they were one
+  // permission there was no way to grant the first without the second.
+  { key: 'margin',         label: 'Job Margin & Markup', group: 'Money' },
   { key: 'request-quotes', label: 'Quotes & Bids',  group: 'Buyout', slug: 'request-quotes' },
   { key: 'quotes',         label: 'Compare Quotes', group: 'Money', slug: 'quotes' },
   { key: 'financials',     label: 'Financials',     group: 'Money', slug: 'financials' },
@@ -98,30 +103,47 @@ export const FIELD_ROLES = ['worker', 'member']
 export const ROLE_DEFAULTS: Record<string, PermMap> = {
   admin: buildAllFull(),
 
-  manager: buildAllFull(), // alias of admin-level operational access
+  // Operationally an admin. Settings is the exception, and deliberately so:
+  // the Settings screen has always hidden Team & Users, Permissions, Billing
+  // and the Danger Zone from a manager, while the permission map said they were
+  // allowed. Nothing read the settings_* keys, so the map was never consulted
+  // and the discrepancy never showed. Now that it IS consulted, the map has to
+  // say what the app has always done - otherwise wiring it up would silently
+  // hand every manager the ability to delete the company.
+  manager: {
+    ...buildAllFull(),
+    // View only, and that is not an oversight: Security needs `edit` and the
+    // Danger Zone needs `delete`, and a manager has never had either. The
+    // parity test caught VCE handing them Security.
+    settings_company: V,
+    settings_team: N,
+    settings_billing: N,
+  },
 
   project_manager: {
     plans: FULL, schedule: FULL, tasks: FULL, progress: FULL, 'daily-logs': FULL, time: FULL,
     team: VE, bids: FULL, rfis: FULL,
-    invoices: VE, 'pay-apps': FULL, payments: VE, budget: FULL, quotes: FULL, 'request-quotes': FULL, financials: N, 'change-orders': FULL,
+    invoices: VE, 'pay-apps': FULL, payments: VE, budget: FULL, margin: N, quotes: FULL, 'request-quotes': FULL, financials: N, 'change-orders': FULL,
     permits: FULL, inspections: FULL, submittals: FULL, compliance: V, reports: N,
     dashboard: V, projects: VCE, customers: VE, directory: V, files: FULL, equipment: FULL, materials: FULL, approvals: VE,
-    settings_company: N, settings_team: N, settings_billing: N,
+    // View, not edit: the old check let them OPEN Company settings, and that is
+    // what this preserves. Not the Danger Zone, which needs delete.
+    settings_company: V, settings_team: N, settings_billing: N,
   },
 
   office_staff: {
     plans: V, schedule: V, tasks: V, progress: V, 'daily-logs': V, time: VC,
     team: V, bids: V, rfis: V,
-    invoices: FULL, 'pay-apps': FULL, payments: FULL, budget: FULL, quotes: FULL, 'request-quotes': FULL, financials: V, 'change-orders': FULL,
+    invoices: FULL, 'pay-apps': FULL, payments: FULL, budget: FULL, margin: N, quotes: FULL, 'request-quotes': FULL, financials: V, 'change-orders': FULL,
     permits: VE, inspections: VE, submittals: VE, compliance: FULL, reports: V,
     dashboard: V, projects: V, customers: VE, directory: V, files: FULL, equipment: FULL, materials: FULL, approvals: VE,
-    settings_company: N, settings_team: N, settings_billing: N,
+    settings_company: V, settings_team: N, settings_billing: N,
   },
 
   field_supervisor: {
     plans: V, schedule: V, tasks: VE, progress: VE, 'daily-logs': VCE, time: VCE,
     team: V, bids: N, rfis: V,
-    invoices: N, payments: N, budget: N, quotes: N, 'request-quotes': N, financials: N, 'change-orders': N,
+    invoices: N, payments: N, budget: N, margin: N, quotes: N, 'request-quotes': N, financials: N, 'change-orders': N,
     permits: N, inspections: N, submittals: N, compliance: N, reports: N,
     dashboard: V, projects: V, customers: N, directory: V, files: V, equipment: VCE, materials: VCE, approvals: V,
     settings_company: N, settings_team: N, settings_billing: N,
@@ -130,7 +152,7 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
   worker: {
     plans: V, schedule: N, tasks: VE, progress: V, 'daily-logs': VC, time: VC,
     team: N, bids: N, rfis: N,
-    invoices: N, payments: N, budget: N, quotes: N, 'request-quotes': N, financials: N, 'change-orders': N,
+    invoices: N, payments: N, budget: N, margin: N, quotes: N, 'request-quotes': N, financials: N, 'change-orders': N,
     permits: N, inspections: N, submittals: N, compliance: N, reports: N,
     dashboard: V, projects: V, customers: N, directory: N, files: V, equipment: VC, materials: VC, approvals: V,
     settings_company: N, settings_team: N, settings_billing: N,
@@ -139,7 +161,7 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
   read_only: {
     plans: V, schedule: V, tasks: V, progress: V, 'daily-logs': V, time: VC,
     team: V, bids: N, rfis: V,
-    invoices: N, payments: N, budget: N, quotes: N, 'request-quotes': N, financials: N, 'change-orders': N,
+    invoices: N, payments: N, budget: N, margin: N, quotes: N, 'request-quotes': N, financials: N, 'change-orders': N,
     permits: N, inspections: N, submittals: N, compliance: N, reports: N,
     dashboard: V, projects: V, customers: N, directory: V, files: V, equipment: V, materials: V, approvals: V,
     settings_company: N, settings_team: N, settings_billing: N,

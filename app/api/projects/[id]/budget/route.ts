@@ -5,6 +5,7 @@ import { ACTUAL_STATUSES, budgetTotals, rollupBudgetLines } from '@/lib/invoice-
 import { feeForInvoice } from '@/lib/allocations'
 import { markUp } from '@/lib/markup'
 import { requirePermission, denied } from '@/lib/api-guard'
+import { getActor, actorCan } from '@/lib/server-permissions'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,6 +19,13 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const db = admin()
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // Costs and margin are separate permissions. Withheld HERE, not merely hidden
+  // on the screen - #337's lesson was that a hidden control is not a refusal,
+  // and a figure that reaches the browser has been disclosed whether or not
+  // anything renders it.
+  const actor = await getActor(db, token)
+  const canSeeMargin = actorCan(actor, 'margin', 'view')
 
   const [
     { data, error },
@@ -184,7 +192,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     // label needs to name. Computed over exactly the same rows the fee was, so
     // the sentence on screen cannot describe a different set of money than the
     // number beside it.
-    fee_basis: {
+    fee_basis: !canSeeMargin ? null : {
       bills: (invoices ?? [])
         .filter((i: any) => ACTUAL_STATUSES.has(i.status))
         .reduce((sum: number, i: any) => sum + Number(i.amount ?? 0), 0),
@@ -194,21 +202,24 @@ export async function GET(request: Request, { params }: { params: { id: string }
     },
     space_totals: spaceTotals,
     project_sqft: { interior: projectMeta?.interior_sqft ?? null, exterior: projectMeta?.exterior_sqft ?? null },
-    contractor_fee_pct: Number(projectMeta?.contractor_fee_pct ?? 0),
+    // null, not 0. Zero is a real markup - a job billed at cost - and sending
+    // it to somebody who may not see margin would be stating a fact rather
+    // than withholding one.
+    contractor_fee_pct: canSeeMargin ? Number(projectMeta?.contractor_fee_pct ?? 0) : null,
     project_status: projectMeta?.status ?? null,
     billing_mode: projectMeta?.billing_mode ?? 'simple',
-    sellout_amount: projectMeta?.sellout_amount ?? null,
+    sellout_amount: canSeeMargin ? (projectMeta?.sellout_amount ?? null) : null,
     // How the job PAYS - decides whether the screen asks for a contract value
     // or for a markup rate, instead of showing both and hedging. Null until
     // answered; the budget screen asks once.
-    contract_type: (projectMeta as any)?.contract_type ?? null,
+    contract_type: canSeeMargin ? ((projectMeta as any)?.contract_type ?? null) : null,
     // Only still used to pre-select that picker. It was never enough on its own
     // - it separates spec from not-spec and nothing else.
     has_client: !!(projectMeta as any)?.client,
     // The cost-plus fee actually earned so far, worked out invoice by invoice.
     // Deliberately not rate x spend: per-invoice overrides and at-cost
     // pass-throughs make those two different numbers.
-    markup_earned: markupEarned,
+    markup_earned: canSeeMargin ? markupEarned : null,
     known_categories: knownCategories,
   })
 }
