@@ -49,6 +49,24 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-02',
+    title: 'Password reset emails come from SyteNav now too',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'Reset emails go out on the same sender as everything else',
+        text: 'Resetting a password was the last flow still handed to a separate mail service to deliver, so it could fail while every other email in the app kept working. It now sends the same way client portal links and invites do. Locking yourself out was the worst place for that to go wrong - there is no way to ask somebody else to re-send it.',
+        href: '/forgot-password',
+      },
+      {
+        kind: 'improved',
+        title: 'The reset page no longer says whether an address has an account',
+        text: 'It used to be possible to learn whether an email address was registered by watching how the form responded. It now gives the same answer either way.',
+        href: '/forgot-password',
+      },
+    ],
+  },
+  {
+    date: '2026-09-02',
     title: 'Team invites now send the same way everything else does',
     items: [
       {
