@@ -615,6 +615,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'Move it through Draft, Submitted, Certified, Funded as the bank/architect processes it.',
         'Use "G702 / G703 PDF" to print the Application and Certificate for Payment plus the continuation sheet to submit.',
       ] },
+      { type: 'text', text: 'WHAT IS CHECKED BEFORE IT GOES OUT. Retainage has to be between 0 and 100% - you cannot hold back more than has been earned. Each line has to stay between nothing and its scheduled value, so a line cannot be billed past 100% or below zero. If a line genuinely needs more, raise a change order to increase its scheduled value first.' },
+      { type: 'tip', text: 'A draft can hold a line that is over - useful while you are sorting out the change order. Submit, Certify and Fund will not go through until it is resolved, and the reason shows next to the button.' },
       { type: 'tip', text: 'The schedule of values is your budget line items, so build the budget first. Change orders that adjust the contract flow into the SOV total.' },
     ],
     related: ['add-project-budget', 'create-invoice', 'money-overview'],

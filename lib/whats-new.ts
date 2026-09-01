@@ -49,6 +49,30 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-02',
+    title: 'A pay application is checked before it goes to the bank',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'Retainage can no longer be set above 100%',
+        text: 'A pay app took 105% retainage - holding back $189,000 on $180,000 earned, which made "total earned less retainage" a negative number and the balance to finish larger than the contract. Retainage is now 0 to 100, and typing in the box replaces the default instead of appending to it: changing 10 to 5 was giving 105.',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
+        title: 'A line cannot be billed past its scheduled value, or below zero',
+        text: 'Lines could be billed to 110% complete, showing negative balances, and a line with no scheduled value took -$1,000. A line now has to stay between nothing and its scheduled value. A negative amount that corrects an earlier overbill is still allowed - what is refused is a total below zero.',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
+        title: 'Submit, certify and fund now check the numbers first',
+        text: 'None of them looked. An application with 105% retainage and lines at 110% was submitted, certified and funded. A draft can still hold an overbilled line while you sort out the change order - but it cannot leave in that state, and the reason appears beside the button rather than after you press it.',
+        href: '/projects',
+      },
+    ],
+  },
+  {
+    date: '2026-09-02',
     title: 'Hiding a screen is not the same as locking it',
     items: [
       {

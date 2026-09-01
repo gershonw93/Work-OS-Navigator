@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
+import { payAppProblems, retainagePct as checkRetainage } from '@/lib/pay-app-rules'
 
 const money = (n: number) => `$${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
@@ -153,7 +154,26 @@ function NewAppModal({ projectId, subOptions, onClose, onCreated, authHeaders }:
           )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5"><Label>Period ending</Label><Input type="date" value={periodEnd} onChange={e => setPeriodEnd(e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>Retainage %</Label><Input type="number" step="0.1" value={retainage} onChange={e => setRetainage(e.target.value)} /></div>
+            <div className="space-y-1.5">
+              <Label>Retainage %</Label>
+              {/* min/max because 105% is not a strict rule somebody wants
+                  relaxed - you cannot hold back more than has been earned.
+                  selectOnFocus because the default sits in the box: clicking in
+                  and typing "5" to change 10 gave 105, which is exactly how a
+                  105% certificate got created. */}
+              <Input
+                type="number" step="0.1" min="0" max="100"
+                value={retainage}
+                onFocus={e => e.currentTarget.select()}
+                error={!checkRetainage(retainage).ok}
+                onChange={e => setRetainage(e.target.value)}
+              />
+              {!checkRetainage(retainage).ok && (
+                <p role="alert" className="text-xs text-danger">
+                  {(checkRetainage(retainage) as { error: string }).error}
+                </p>
+              )}
+            </div>
           </div>
           <p className="text-xs text-faint">The schedule of values and "previously billed" amounts fill in automatically from your budget and past applications.</p>
           {err && <p className="text-sm text-danger">{err}</p>}
@@ -190,11 +210,21 @@ function PayAppDetail({ projectId, appId, onBack, authHeaders }: { projectId: st
 
   async function save(extra: Record<string, any> = {}) {
     setSaving(true)
-    await fetch(`/api/projects/${projectId}/pay-apps/${appId}`, {
+    setSaveError(null)
+    const res = await fetch(`/api/projects/${projectId}/pay-apps/${appId}`, {
       method: 'PATCH', headers: await authHeaders(),
       body: JSON.stringify({ lines: lines.map((l: any) => ({ id: l.id, this_period: Number(l.this_period) || 0, materials_stored: Number(l.materials_stored) || 0 })), ...extra }),
     })
-    setSaving(false); setDirty(false); load()
+    setSaving(false)
+    if (!res.ok) {
+      // This used to ignore the response entirely, so a refused save looked
+      // exactly like a successful one - the screen reloaded and the number
+      // silently reverted.
+      const d = await res.json().catch(() => ({} as any))
+      setSaveError(d?.error ?? `That did not save (${res.status}).`)
+      return
+    }
+    setDirty(false); load()
   }
 
   async function remove() {
@@ -203,6 +233,13 @@ function PayAppDetail({ projectId, appId, onBack, authHeaders }: { projectId: st
       onBack()
     }, { label: `Application #${app.application_number}`, protected: true })
   }
+
+  const [saveError, setSaveError] = useState<string | null>(null)
+
+  // The same rules the server enforces, so the button can say why BEFORE the
+  // round trip rather than only after it is refused.
+  const problems = payAppProblems({ retainage_pct: app.retainage_pct }, lines)
+  const blocked = problems.length > 0
 
   const next = NEXT_STATUS[app.status]
 
@@ -298,9 +335,35 @@ function PayAppDetail({ projectId, appId, onBack, authHeaders }: { projectId: st
         </div>
         <div className="flex items-center gap-2">
           {!locked && <Button variant={dirty ? 'default' : 'outline'} onClick={() => save()} disabled={saving}>{saving ? 'Saving…' : 'Save'}</Button>}
-          {next && <Button onClick={() => save({ status: next.to })} disabled={saving}>{next.label}</Button>}
+          {next && (
+            <Button
+              onClick={() => save({ status: next.to })}
+              disabled={saving || blocked}
+              title={blocked ? problems[0].message : undefined}
+            >
+              {next.label}
+            </Button>
+          )}
         </div>
       </div>
+
+      {/* Why the certificate cannot go out, next to the button that would send
+          it. A draft may hold an overbilled line; a certificate may not. */}
+      {blocked && (
+        <div className="rounded-lg border border-danger/30 bg-danger-tint px-4 py-3">
+          <p className="text-sm font-medium text-danger">
+            This application cannot be {next ? next.label.toLowerCase() : 'sent'} yet
+          </p>
+          <ul className="mt-1 space-y-0.5">
+            {problems.map((p, i) => (
+              <li key={i} className="text-xs text-danger">{p.message}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {saveError && (
+        <p role="alert" className="text-sm text-danger">{saveError}</p>
+      )}
     </div>
   )
 }

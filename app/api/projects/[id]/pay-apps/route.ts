@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { requirePermission, denied } from '@/lib/api-guard'
+import { retainagePct as checkRetainage } from '@/lib/pay-app-rules'
 
 export const runtime = 'nodejs'
 
@@ -73,6 +74,13 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   const body = await request.json().catch(() => ({}))
   const subcontractId: string | null = body.subcontract_id || null
+  // Where the 105% got in. This took whatever was sent; the field on the form
+  // had no bounds either, and the default "10" sitting in the box meant typing
+  // "5" to change it appended rather than replaced.
+  if (body.retainage_pct != null) {
+    const checked = checkRetainage(body.retainage_pct)
+    if (!checked.ok) return NextResponse.json({ error: checked.error }, { status: 400 })
+  }
   let retainagePct = body.retainage_pct != null ? Number(body.retainage_pct) : NaN
   if (isNaN(retainagePct)) {
     const { data: proj } = await db.from('projects').select('default_retainage_pct').eq('id', params.id).maybeSingle()
