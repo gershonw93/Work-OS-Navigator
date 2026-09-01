@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { contractAmountLabel } from '@/lib/contract-amount'
+import { parseDate } from '@/lib/dates'
 
 type Tab = 'overview' | 'tasks' | 'rfis' | 'inspections' | 'invoices' | 'compliance'
 
@@ -478,7 +479,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
             </div>
             <div className="flex items-center gap-3 mt-1 text-sm text-muted-fg flex-wrap">
               {project.address && <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{project.address}</span>}
-              {project.start_date && <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" />{new Date(project.start_date).toLocaleDateString()}</span>}
+              {project.start_date && <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" />{parseDate(project.start_date)!.toLocaleDateString()}</span>}
               <span className="capitalize">{project.type?.replace('_', ' ')}</span>
             </div>
           </div>
@@ -735,7 +736,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
 
         function TaskRow({ task }: { task: any }) {
           const isExpanded = expandedTask === task.id
-          const isOverdue = task.due_date && new Date(task.due_date) < new Date() && task.status !== 'completed'
+          const isOverdue = task.due_date && parseDate(task.due_date)! < new Date() && task.status !== 'completed'
           return (
             <div className={cn('border-b border-line-soft last:border-0', task.status === 'completed' && 'opacity-60')}>
               <div className="flex items-center gap-3 px-4 py-3 hover:bg-surface transition-colors">
@@ -1287,7 +1288,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                       {selectedInvoice.status.replace(/_/g, ' ')}
                     </span>
                     {selectedInvoice.description && <p className="text-sm text-ink-soft">{selectedInvoice.description}</p>}
-                    {selectedInvoice.due_date && <p className="text-sm text-muted-fg">Due: {new Date(selectedInvoice.due_date).toLocaleDateString()}</p>}
+                    {selectedInvoice.due_date && <p className="text-sm text-muted-fg">Due: {parseDate(selectedInvoice.due_date)!.toLocaleDateString()}</p>}
                     {(selectedInvoice.status === 'approved' || selectedInvoice.status === 'sent') && (
                       <Link href={`/projects/${project.id}/invoices/${selectedInvoice.id}/print`}
                         className="flex items-center justify-center gap-2 w-full mt-2 py-2 text-sm font-medium text-accent-fg border border-accent/40 rounded-lg hover:bg-accent-tint transition-colors">
@@ -1316,7 +1317,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                     </div>
                     <p className="text-2xl font-bold text-ink">${Number(inv.amount).toLocaleString()}</p>
                     {inv.description && <p className="text-xs text-faint mt-1 line-clamp-2">{inv.description}</p>}
-                    {inv.due_date && <p className="text-xs text-faint mt-2">{new Date(inv.due_date).toLocaleDateString()}</p>}
+                    {inv.due_date && <p className="text-xs text-faint mt-2">{parseDate(inv.due_date)!.toLocaleDateString()}</p>}
                   </button>
                 ))}
               </div>

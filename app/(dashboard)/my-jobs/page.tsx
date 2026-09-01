@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import { Briefcase, Plus, X, MapPin, ChevronRight, Award, FolderOpen, Calendar, User } from 'lucide-react'
 import Link from 'next/link'
 import { contractAmountLabel } from '@/lib/contract-amount'
+import { parseDate } from '@/lib/dates'
 
 const PROJECT_TYPES = ['residential', 'commercial', 'industrial', 'renovation', 'other']
 
@@ -205,7 +206,7 @@ export default function MyJobsPage() {
                     </div>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5 text-xs text-faint">
                       {proj.address && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{proj.address}</span>}
-                      {proj.start_date && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{new Date(proj.start_date).toLocaleDateString()}</span>}
+                      {proj.start_date && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{parseDate(proj.start_date)!.toLocaleDateString()}</span>}
                     </div>
                   </div>
                   <div className="shrink-0 text-right">
@@ -249,7 +250,7 @@ export default function MyJobsPage() {
                   <div className="flex items-center gap-3 mt-0.5 text-xs text-faint">
                     {proj.customers?.name && <span className="flex items-center gap-1"><User className="h-3 w-3" />{proj.customers.name}</span>}
                     {proj.address && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{proj.address}</span>}
-                    {proj.start_date && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{new Date(proj.start_date).toLocaleDateString()}</span>}
+                    {proj.start_date && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{parseDate(proj.start_date)!.toLocaleDateString()}</span>}
                   </div>
                 </div>
                 <ChevronRight className="h-4 w-4 text-faint group-hover:text-accent-fg transition-colors shrink-0" />

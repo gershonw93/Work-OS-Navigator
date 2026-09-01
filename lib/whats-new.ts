@@ -49,6 +49,43 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-01',
+    title: 'Fields tell you what is wrong instead of saving it anyway',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'A negative amount no longer turns into a positive one',
+        text: 'Asking a client for -$500 raised a request for $500. The app was cleaning the number before checking it, and the clean removed the minus sign - so the check that would have caught it never saw a negative. Fixed everywhere it happened: payment requests, subcontract amounts, selection allowances. A negative is now refused with a message that says so.',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
+        title: 'Dates no longer shift by a day',
+        text: 'A job entered Sep 1 - Dec 31 showed as Aug 31 - Dec 30 on the project list. Dates with no time on them were being read as UTC midnight, which is the evening before in every US timezone. There is now one date formatter for the whole app, so a date shows the day you typed.',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
+        title: '"New York" is no longer saved as Nebraska',
+        text: 'The state field accepted two characters, so typing "New York" left "NE". Not blank, not an error - a different real state. It is a picker now, and existing addresses with a full state name are read correctly.',
+        href: '/projects',
+      },
+      {
+        kind: 'improved',
+        title: 'Going Active with no markup says what that costs you',
+        text: 'The setup checklist listed it alongside five other items. It now says plainly that at 0% you will bill the job at cost and earn nothing on it. It still lets you through - some jobs genuinely are at cost.',
+        help: 'add-project-budget',
+        href: '/projects',
+      },
+      {
+        kind: 'improved',
+        title: 'A new account gets a starting point, not empty boxes',
+        text: 'The dashboard showed a grid of zeroes on day one. It now offers to set up your first job.',
+        href: '/dashboard',
+      },
+    ],
+  },
+  {
+    date: '2026-09-01',
     title: 'Your client sees the real progress, and Reports fills in',
     items: [
       {

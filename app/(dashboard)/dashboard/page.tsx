@@ -10,6 +10,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge, getStatusVariant } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
 import Link from 'next/link'
+import { parseDate } from '@/lib/dates'
 
 interface Notification {
   id: string
@@ -238,6 +239,29 @@ export default function DashboardPage() {
     )
   }
 
+  // A BRAND NEW ACCOUNT SEES EMPTY BOXES.
+  //
+  // Nothing was wrong - there is genuinely no data - but a grid of zeroes is
+  // the least useful thing to hand somebody on their first day, and it gives
+  // no hint that the next step is theirs to take. Only for a GC with no jobs
+  // at all: a sub sees jobs they were invited to, and an assigned-only role
+  // with nothing assigned has a different problem (nobody has put them on a
+  // job) which this wording would misdescribe.
+  const g0 = stats as GcStats | null
+  if (!loading && !roleLoading && !loadError && stats && !stats.isSub
+      && !g0?.assignedOnly && g0?.activeProjects === 0) {
+    return (
+      <div className="p-4 sm:p-6">
+        <EmptyState
+          icon={FolderKanban}
+          title="Let's set up your first job"
+          description="Your dashboard fills in as you go - budget, bills, schedule and what you are owed. It starts with a project."
+          action={{ label: 'Create a project', href: '/projects/new' }}
+        />
+      </div>
+    )
+  }
+
   if (loading || roleLoading) {
     return (
       <div className="p-4 sm:p-6 space-y-5 animate-pulse">
@@ -427,7 +451,7 @@ export default function DashboardPage() {
                         <span className="font-medium text-ink">{p.name}</span>
                         <Badge variant={getStatusVariant(p.status)}>{p.status.replace('_', ' ')}</Badge>
                       </div>
-                      <p className="mt-1 text-xs text-muted-fg">{new Date(p.start_date).toLocaleDateString()}</p>
+                      <p className="mt-1 text-xs text-muted-fg">{parseDate(p.start_date)!.toLocaleDateString()}</p>
                     </Link>
                   ))}
                 </div>
@@ -451,7 +475,7 @@ export default function DashboardPage() {
                         <td className="px-5 py-3">
                           <Badge variant={getStatusVariant(p.status)}>{p.status.replace('_', ' ')}</Badge>
                         </td>
-                        <td className="px-5 py-3 text-muted-fg">{new Date(p.start_date).toLocaleDateString()}</td>
+                        <td className="px-5 py-3 text-muted-fg">{parseDate(p.start_date)!.toLocaleDateString()}</td>
                       </tr>
                     ))}
                   </tbody>

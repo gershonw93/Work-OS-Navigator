@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { ACCEPT_DOCS } from '@/lib/file-accept'
 import { usePreviewUrls } from '@/lib/use-preview-urls'
+import { parseDate } from '@/lib/dates'
 
 const SURVEY_QUESTIONS = [
   { key: 'accidents', label: 'Safety incidents or injuries today?' },
@@ -557,7 +558,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({
         title: taskTitle,
-        description: taskDescription || `From daily log ${new Date(createTaskFromLog.log_date).toLocaleDateString()}: ${createTaskFromLog.issue_description ?? ''}`,
+        description: taskDescription || `From daily log ${parseDate(createTaskFromLog.log_date)!.toLocaleDateString()}: ${createTaskFromLog.issue_description ?? ''}`,
         priority: taskPriority,
         status: 'open',
         due_date: taskDueDate || null,
@@ -747,7 +748,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
             <div className="px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between">
               <div>
                 <h2 className="text-base font-semibold text-ink">Create Task from Issue</h2>
-                <p className="text-xs text-muted-fg mt-0.5">Log: {new Date(createTaskFromLog.log_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+                <p className="text-xs text-muted-fg mt-0.5">Log: {parseDate(createTaskFromLog.log_date)!.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
               </div>
               <button onClick={() => setCreateTaskFromLog(null)} className="text-faint hover:text-muted-fg"><X className="h-5 w-5" /></button>
             </div>

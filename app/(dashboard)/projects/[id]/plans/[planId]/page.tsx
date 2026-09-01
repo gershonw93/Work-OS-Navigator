@@ -12,6 +12,7 @@ import {
   ArrowLeft, MapPin, Plus, Minus, X, Loader2, ChevronLeft, ChevronRight, Trash2, ExternalLink,
   Maximize2, Minimize2, List,
 } from 'lucide-react'
+import { parseDate } from '@/lib/dates'
 
 interface Plan { id: string; name: string; plan_type: string; file_url: string }
 interface Pin {
@@ -365,7 +366,7 @@ export default function PlanViewerPage({ params }: { params: { id: string; planI
             <div className="space-y-2 px-5 py-4 text-sm">
               <p className="text-muted-fg">Assigned to <span className="font-medium text-ink-soft">{openPin.project_tasks?.assigned_to_name || 'no one yet'}</span></p>
               <p className="text-muted-fg">Status: <span className="font-medium text-ink-soft capitalize">{(openPin.project_tasks?.status ?? 'open').replace('_', ' ')}</span>
-                {openPin.project_tasks?.due_date && <> · due {new Date(openPin.project_tasks.due_date).toLocaleDateString()}</>}</p>
+                {openPin.project_tasks?.due_date && <> · due {parseDate(openPin.project_tasks.due_date)!.toLocaleDateString()}</>}</p>
             </div>
             <div className="flex items-center justify-between border-t border-line px-5 py-4">
               <button onClick={() => removePin(openPin)} className="inline-flex items-center gap-1 text-xs font-medium text-muted-fg hover:text-danger"><Trash2 className="h-3.5 w-3.5" /> Remove pin</button>

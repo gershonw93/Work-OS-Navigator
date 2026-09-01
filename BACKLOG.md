@@ -186,6 +186,18 @@ Shipped in #218: bulk creation makes a site + a job per unit/floor/house, with a
 - Schedule opened on the earliest item; now today, clamped into the schedule's own span.
 - "Left to spend" said the subtraction but not why it differs from Committed.
 
+## ✅ Input validation sweep (#339)
+- `lib/validate.ts` - `money()`, `percent()`, `email()`, `phone()`, `usState()`, all pure, all returning a value AND a reason. **`money()` keeps the sign and then judges it**, which is the root fix: eight sites did `.replace(/[^0-9.]/g,'')` and then asked `amount <= 0`, so the guard never saw a negative because the clean had eaten it.
+- `lib/dates.ts` - one formatter. A bare `YYYY-MM-DD` is a calendar square, not an instant; `new Date()` on one is UTC midnight, which is the evening before in every US zone. Replaced three separate `fmtDate` copies and 20 unguarded parses.
+- `components/ui/input.tsx` gains `error`; new `components/ui/field.tsx` puts the message under the field. 251 inputs across 36 forms cannot be made consistent by asking each form to remember.
+- State field is a picker; `usState()` normalises a full name and REFUSES the unrecognised rather than truncating.
+
+### Still to do on validation
+Inline messages are wired on the money and identity fields. The remaining
+free-text fields keep their existing "required" handling - with `Field` and
+`lib/validate.ts` in place each is a two-line change, but it is ~160 inputs and
+belongs in its own pass rather than buried in this one.
+
 ## 📋 Reported and NOT a code bug - data
 - `Elecric`, `cm electrical maintenace corp`, companies named `gershon` / `accounting` / `jacob`. **Now confirmed reaching the client portal.**
 - Roofing selections linked to wrong budget lines - "Ridge vent" on Concrete/Foundations, "Shingle product and color" on Flooring/LVT. Checked: `matchBudgetLine` returns Roofing correctly and the bulk-apply keys by selection id, so these were set by hand.

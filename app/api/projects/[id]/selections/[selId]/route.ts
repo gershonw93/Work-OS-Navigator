@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { variance } from '@/lib/selections'
+import { money } from '@/lib/validate'
 
 export const runtime = 'nodejs'
 
@@ -33,6 +34,17 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   const body = await request.json()
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
   for (const f of FIELDS) if (f in body) patch[f] = body[f] === '' ? null : body[f]
+
+  // The money fields have to make sense on the way through here too. Creating
+  // a selection refused a negative allowance while EDITING one accepted it,
+  // which is the same split the reviewer spotted on sub bills: "the guard
+  // exists in one place and not the others".
+  for (const [field, label] of [['allowance_amount', 'allowance'], ['selected_price', 'price']] as const) {
+    if (patch[field] == null) continue
+    const checked = money(patch[field], { allowZero: true, label })
+    if (!checked.ok) return NextResponse.json({ error: checked.error }, { status: 400 })
+    patch[field] = checked.value
+  }
 
   // Recording the choice stamps who and when, so "when did they decide?" has an
   // answer months later when it matters.

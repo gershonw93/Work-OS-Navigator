@@ -14,6 +14,7 @@ import {
   Plus, Wrench, Search, MapPin, User, LogOut, LogIn, X, Package,
   ChevronDown, ChevronRight, History,
 } from 'lucide-react'
+import { formatDate } from '@/lib/dates'
 
 type Current = {
   holder_name: string | null
@@ -65,9 +66,7 @@ function timeAgo(iso: string) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
+const fmtDate = (iso: string) => formatDate(iso)
 
 async function authHeaders() {
   const supabase = createClient()

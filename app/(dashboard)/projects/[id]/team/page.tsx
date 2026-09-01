@@ -11,6 +11,7 @@ import { Badge, getStatusVariant } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
 import { cn } from '@/lib/utils'
 import { contractAmount, contractAmountLabel, isUnpriced } from '@/lib/contract-amount'
+import { money, percent } from '@/lib/validate'
 
 const GC_ROLES = [
   'Project Manager', 'Site Manager', 'Superintendent', 'Foreman',
@@ -109,8 +110,8 @@ export default function TeamPage({ params }: { params: { id: string } }) {
   const [subAnalyzeError, setSubAnalyzeError] = useState('')
   const [subScanned, setSubScanned] = useState(false)
 
-  const lineItemsTotal = subLineItems.reduce((s, li) => s + (parseFloat(li.amount.replace(/[^0-9.]/g, '')) || 0), 0)
-  const paymentTotalPct = Math.round(subPayments.reduce((s, p) => s + (parseFloat(p.percent.replace(/[^0-9.]/g, '')) || 0), 0))
+  const lineItemsTotal = subLineItems.reduce((s, li) => s + ((money(li.amount, { allowZero: true }).ok ? money(li.amount, { allowZero: true }).value : 0)), 0)
+  const paymentTotalPct = Math.round(subPayments.reduce((s, p) => s + ((percent(p.percent, { allowZero: true }).ok ? percent(p.percent, { allowZero: true }).value : 0)), 0))
 
   function resetSubForm() {
     setSubMode('new'); setSubExistingId('')
@@ -236,10 +237,10 @@ export default function TeamPage({ params }: { params: { id: string } }) {
 
     const cleanItemsArr = subLineItems
       .filter(li => li.description.trim() || li.amount.trim())
-      .map(li => ({ description: li.description.trim(), amount: li.amount ? parseFloat(li.amount.replace(/[^0-9.]/g, '')) : null, qty: li.qty ?? null, unit: li.unit ?? null, unit_price: li.unit_price ?? null }))
+      .map(li => ({ description: li.description.trim(), amount: li.amount ? (money(li.amount).ok ? money(li.amount).value : null) : null, qty: li.qty ?? null, unit: li.unit ?? null, unit_price: li.unit_price ?? null }))
     const cleanPayments = subPayments
       .filter(p => p.label.trim() || p.percent.trim() || p.amount.trim())
-      .map(p => ({ label: p.label.trim(), percent: p.percent ? parseFloat(p.percent.replace(/[^0-9.]/g, '')) : null, amount: p.amount ? parseFloat(p.amount.replace(/[^0-9.]/g, '')) : null }))
+      .map(p => ({ label: p.label.trim(), percent: p.percent ? (percent(p.percent).ok ? percent(p.percent).value : null) : null, amount: p.amount ? (money(p.amount).ok ? money(p.amount).value : null) : null }))
 
     // Edit existing subcontract
     if (editingSubId) {
@@ -252,7 +253,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
           phone: subPhone,
           trade: subTrade,
           scope: subScope,
-          contract_amount: subAmount ? parseFloat(subAmount.replace(/[^0-9.]/g, '')) : (cleanItemsArr.reduce((s, li) => s + (li.amount || 0), 0) || null),
+          contract_amount: subAmount ? (money(subAmount).ok ? money(subAmount).value : null) : (cleanItemsArr.reduce((s, li) => s + (li.amount || 0), 0) || null),
           line_items: cleanItemsArr,
           payment_schedule: cleanPayments,
         }),

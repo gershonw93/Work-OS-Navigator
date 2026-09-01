@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { X, Receipt, GitPullRequest, ShoppingCart, FileText, ExternalLink, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { InfoHint } from '@/components/ui/info-hint'
+import { parseDate } from '@/lib/dates'
 
 const money = (n: unknown) =>
   `$${Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}`
@@ -193,7 +194,7 @@ export function BudgetLineDetail({
                 {materials.map((m: any) => (
                   <Row key={m.id}
                     left={m.store_name || m.category || 'Purchase'}
-                    sub={m.purchase_date ? new Date(m.purchase_date).toLocaleDateString() : undefined}
+                    sub={m.purchase_date ? parseDate(m.purchase_date)!.toLocaleDateString() : undefined}
                     right={money(m.amount)}
                     href={`/projects/${projectId}/materials`}
                   />
