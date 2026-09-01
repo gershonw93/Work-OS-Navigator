@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { notify } from '@/lib/notify'
+import { checkCronAuth } from '@/lib/cron-auth'
 
 export const runtime = 'nodejs'
 
@@ -14,14 +15,16 @@ const WINDOW_DAYS = 30
 // Daily job: notify the owning company a month before a compliance doc expires.
 // Runs once per expiry cycle per doc (reminder_sent_at gate).
 export async function GET(request: Request) {
-  // Auth: Vercel Cron sends x-vercel-cron; otherwise require CRON_SECRET.
-  const isVercelCron = request.headers.get('x-vercel-cron') != null
-  const secret = process.env.CRON_SECRET
-  const provided = request.headers.get('Authorization')?.replace('Bearer ', '')
-    || new URL(request.url).searchParams.get('secret')
-  if (!isVercelCron && secret && provided !== secret) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  // Auth. Vercel sends CRON_SECRET as a bearer token on every scheduled run
+  // once the variable is set, so the bearer check is the whole check - see
+  // lib/cron-auth.ts for why the old `secret &&` version let anyone run this.
+  const auth = checkCronAuth({
+    secret: process.env.CRON_SECRET,
+    authorization: request.headers.get('Authorization'),
+    querySecret: new URL(request.url).searchParams.get('secret'),
+    isVercelCron: request.headers.get('x-vercel-cron') != null,
+  })
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
   const db = admin()
   const now = new Date()
