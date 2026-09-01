@@ -49,6 +49,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-02',
+    title: 'Committed means one thing now',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'Budget, Summary and Master Money agree on what you have committed',
+        text: 'The three screens showed three different Committed figures - on one job, $776,621 against $534,101. Each was counting a different half: the Budget tab ignored contracts nobody had tied to a budget line, while Summary and Master Money ignored money committed without a contract, like a materials order or an equipment hire. Committed now means everything you have promised to pay, counted once, and every screen reads the same number.',
+        href: '/master-money',
+      },
+    ],
+  },
+  {
+    date: '2026-09-02',
     title: 'Your account has an owner, and nobody can remove them',
     items: [
       {

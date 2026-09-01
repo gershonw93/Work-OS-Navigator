@@ -97,7 +97,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     changeOrders: (changeOrders ?? []) as any,
     allocations: (allocations ?? []) as any,
   })
-  const totals = budgetTotals(items)
+  const totals = budgetTotals(items, (subcontracts ?? []) as any)
 
   const subOptions = (subcontracts ?? []).map((s: any) => ({
     id: s.id,
