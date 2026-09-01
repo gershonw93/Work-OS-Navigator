@@ -9,6 +9,7 @@ import { useDeleteGuard } from '@/components/ui/delete-guard'
 import { Plus, Check, Mail, AlertCircle, Loader2, X, Undo2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { blockedReason, isRequestable, percentOfTotal, type ResolvedStage } from '@/lib/payment-stages'
+import { money as checkMoney, percent as checkPercent } from '@/lib/validate'
 import { useClientEmail } from '@/lib/use-client-email'
 
 interface Req {
@@ -77,6 +78,23 @@ export function PaymentRequests({
   // server recomputes it from the estimate - this is a preview, not the source.
   const manualPreview = manual?.mode === 'percent' ? percentOfTotal(manual.value, quoteTotal) : null
 
+  // What is wrong with what is in the box, judged by the SAME rules the server
+  // uses - so the field and the endpoint cannot disagree about the same value.
+  //
+  // Empty is not an error: a field you have not filled in yet is not a field
+  // you got wrong, and reddening it while somebody is still typing is how a
+  // form nags. The Request button is already disabled while it is empty.
+  //
+  // This is the half #339 left out here. The rules were enforced, but only on
+  // the server, so the message arrived in a banner at the top of the card -
+  // away from the field that caused it, and with whatever was rejected still
+  // sitting in the box looking accepted.
+  const manualError = !manual || !manual.value.trim()
+    ? null
+    : (manual.mode === 'percent'
+        ? checkPercent(manual.value)
+        : checkMoney(manual.value, { label: 'amount' })).error ?? null
+
   const token = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession()
     return session?.access_token ?? ''
@@ -122,6 +140,9 @@ export function PaymentRequests({
 
   async function raiseManual() {
     if (!manual?.value.trim()) return
+    // Already known to be wrong - say so under the field and do not ask the
+    // server to tell us what we can see from here.
+    if (manualError) return
     setBusy('manual')
     const payload = manual.mode === 'percent'
       ? { label: manual.label, percent: manual.value }
@@ -350,12 +371,19 @@ export function PaymentRequests({
                   className="h-9 w-28 rounded-l-none"
                   placeholder={manual.mode === 'percent' ? '30' : '5000'}
                   value={manual.value}
+                  error={!!manualError}
+                  aria-describedby={manualError ? 'manual-amount-error' : undefined}
                   onChange={e => setManual({ ...manual, value: e.target.value })}
                 />
               </div>
+              {manualError && (
+                <p id="manual-amount-error" role="alert" className="mt-1 text-xs text-danger">
+                  {manualError}
+                </p>
+              )}
             </div>
 
-            <Button className="h-9" disabled={busy === 'manual' || !manual.value.trim()} onClick={raiseManual}>
+            <Button className="h-9" disabled={busy === 'manual' || !manual.value.trim() || !!manualError} onClick={raiseManual}>
               {busy === 'manual' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Request
             </Button>
             <Button className="h-9" variant="secondary" onClick={() => { setManual(null); setError(null) }}>Cancel</Button>

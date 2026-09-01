@@ -56,10 +56,18 @@ export function money(
   const parenthesised = /^\(.*\)$/.test(text)
   const body = parenthesised ? text.slice(1, -1) : text
 
-  // Strip currency, thousands separators and spaces. The minus and the decimal
-  // point survive, which is the point of this function existing.
-  const cleaned = body.replace(/[^0-9.\-]/g, '')
-  if (!cleaned || cleaned === '-' || cleaned === '.') {
+  // Remove only the decorations a person legitimately types around a figure -
+  // a currency symbol, thousands separators, whitespace. The minus and the
+  // decimal point survive, which is the point of this function existing.
+  const cleaned = body.replace(/[$£€\s,]/g, '')
+
+  // Then require what is left to BE a number, rather than deleting whatever is
+  // not one. Stripping every non-digit turns "undefined-500" into "-500", so
+  // the field reported a NEGATIVE amount for a value that was never a number -
+  // sending somebody to fix a minus sign they never typed. That is this file's
+  // own mistake in miniature: cleaning input destroys the evidence the check
+  // needed. Judge the whole string or reject it.
+  if (!/^-?(?:\d+(?:\.\d*)?|\.\d+)$/.test(cleaned)) {
     return fail(0, `That is not a number. Enter ${label === 'amount' ? 'an amount' : `a ${label}`} like 1200 or 1,200.50.`)
   }
 
@@ -187,6 +195,29 @@ export const US_STATES: { code: string; name: string }[] = Object.entries(STATES
   .filter(([name]) => name !== 'washington dc')
   .map(([name, code]) => ({ code, name: name.replace(/\b\w/g, c => c.toUpperCase()) }))
   .sort((a, b) => a.name.localeCompare(b.name))
+
+/**
+ * A number as the text a form field shows.
+ *
+ * THE BUG THIS PREVENTS. `String(x)` on a missing number does not produce an
+ * empty box - it produces the literal word in it:
+ *
+ *     String(undefined)  // "undefined"
+ *     String(null)       // "null"
+ *     String(NaN)        // "NaN"
+ *
+ * A money field prefilled that way shows a word where a figure belongs, and
+ * because it is a real string the field is happily editable - so somebody
+ * types their number onto the end of it and submits "undefined-500". The
+ * server then rejects the whole thing over a value the user never typed.
+ *
+ * Empty is the honest answer for a number that is not there.
+ */
+export function toAmountInput(n: unknown): string {
+  if (n == null || n === '') return ''
+  const v = Number(n)
+  return Number.isFinite(v) ? String(v) : ''
+}
 
 /**
  * Collect field errors into one object, for a form to render inline.

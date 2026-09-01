@@ -11,6 +11,7 @@ import { useDeleteGuard } from '@/components/ui/delete-guard'
 import Link from 'next/link'
 import { Plus, X, Wallet, TrendingDown, Banknote, Percent, Trash2, Pencil, Check, Landmark, ArrowRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { toAmountInput } from '@/lib/validate'
 
 interface Payment {
   id: string; paid_date: string | null; amount: number; method: string | null
@@ -100,7 +101,7 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
     setForm({
       ...blank,
       paid_date: new Date().toISOString().split('T')[0],
-      amount: String(r.amount),
+      amount: toAmountInput(r.amount),
       memo: r.label,
       // A deposit is a retainer by definition - it is money held against work
       // not yet done, which is exactly what this flag means.
@@ -126,7 +127,7 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
     setForm({
       ...blank,
       paid_date: new Date().toISOString().split('T')[0],
-      amount: String(b.amount),
+      amount: toAmountInput(b.amount),
       memo: b.label,
       retainer: false,
     })
@@ -315,7 +316,7 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
               <button onClick={() => setFeeEditing(false)} className="p-1 text-faint"><X className="h-4 w-4" /></button>
             </div>
           ) : (
-            <button onClick={() => { setFeeInput(String(feePct * 100)); setFeeEditing(true) }} className="inline-flex items-center gap-1.5 font-semibold text-ink-soft hover:text-accent-fg">
+            <button onClick={() => { setFeeInput(toAmountInput(feePct * 100)); setFeeEditing(true) }} className="inline-flex items-center gap-1.5 font-semibold text-ink-soft hover:text-accent-fg">
               {(feePct * 100).toFixed(feePct * 100 % 1 ? 1 : 0)}% <Pencil className="h-3 w-3 text-faint" />
             </button>
           )}
@@ -464,7 +465,7 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
                   </button>
                 )}
                 <div className="flex justify-end gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => { setEditingId(p.id); setEditForm({ paid_date: p.paid_date ?? '', amount: String(p.amount), method: p.method ?? 'Check', memo: p.memo ?? '', reference: p.reference ?? '', retainer: p.retainer, qb_entered: p.qb_entered }) }} className="p-1.5 rounded-lg text-faint hover:bg-muted"><Pencil className="h-3.5 w-3.5" /></button>
+                  <button onClick={() => { setEditingId(p.id); setEditForm({ paid_date: p.paid_date ?? '', amount: toAmountInput(p.amount), method: p.method ?? 'Check', memo: p.memo ?? '', reference: p.reference ?? '', retainer: p.retainer, qb_entered: p.qb_entered }) }} className="p-1.5 rounded-lg text-faint hover:bg-muted"><Pencil className="h-3.5 w-3.5" /></button>
                   <button onClick={() => remove(p)} className="p-1.5 rounded-lg text-faint hover:bg-danger-tint hover:text-danger"><Trash2 className="h-3.5 w-3.5" /></button>
                 </div>
               </div>
