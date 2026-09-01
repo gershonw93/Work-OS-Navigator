@@ -242,6 +242,20 @@ export interface BudgetTotals {
   actual: number
   /** Signed but not yet invoiced - the money that used to hide. */
   committed_not_billed: number
+  /**
+   * The two halves of `actual`, so a screen can SAY what it is made of.
+   *
+   * A reviewer worked out that Actual Spent and the Bills figure disagreed by
+   * $220,695 and had to guess why. Two things were hiding in one number:
+   * material receipts assigned to a line, and bills in the other two accepted
+   * statuses (`ACTUAL_STATUSES` is approved, sent AND paid - the Bills tab was
+   * showing one of the three). Neither was recoverable from the screen.
+   *
+   * billed + materials === actual, always. That is the invariant the tile
+   * relies on to print a sum that closes.
+   */
+  billed: number
+  materials: number
   /** Best estimate of final cost given what is signed and billed. */
   projected_cost: number
   /** Revised budget still free to spend. Negative means the job is over. */
@@ -252,6 +266,7 @@ export function budgetTotals(lines: RolledLine[]): BudgetTotals {
   const t: BudgetTotals = {
     original_budget: 0, approved_changes: 0, revised_budget: 0,
     committed: 0, actual: 0, committed_not_billed: 0,
+    billed: 0, materials: 0,
     projected_cost: 0, remaining: 0,
   }
   for (const line of lines) {
@@ -261,6 +276,8 @@ export function budgetTotals(lines: RolledLine[]): BudgetTotals {
     t.actual += line.actual_amount
     t.projected_cost += lineExposure(line)
     const billed = line.actual_amount - line.materials_amount
+    t.billed += billed
+    t.materials += line.materials_amount
     t.committed_not_billed += Math.max(0, line.committed_amount - billed)
   }
   t.revised_budget = t.original_budget + t.approved_changes

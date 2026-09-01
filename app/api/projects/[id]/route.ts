@@ -27,7 +27,7 @@ export async function PATCH(
   }
 
   const body = await request.json()
-  const { name, address, client, type, status, start_date, end_date, customer_id, lat, lng, interior_sqft, exterior_sqft, billing_mode, default_retainage_pct, labor_rate, unit, floor, sellout_amount, contract_type, contractor_fee_pct } = body
+  const { name, address, client, type, status, start_date, end_date, customer_id, lat, lng, interior_sqft, exterior_sqft, billing_mode, default_retainage_pct, labor_rate, unit, floor, sellout_amount, contract_type, contractor_fee_pct, fee_on_materials } = body
 
   const updates: Record<string, unknown> = {}
 
@@ -68,6 +68,14 @@ export async function PATCH(
   if (contract_type !== undefined) {
     updates.contract_type = asContractType(contract_type)
   }
+  // Does the cost-plus fee apply to material receipts on this job?
+  //
+  // Per project because it is per CONTRACT - some mark up everything the job
+  // costs, some pass materials through. Migration 091, defaulting to false,
+  // which is the behaviour every existing job already had.
+  if (fee_on_materials !== undefined) {
+    updates.fee_on_materials = !!fee_on_materials
+  }
   // Projected revenue. Null means "no figure yet", which is different from 0.
   if (sellout_amount !== undefined) {
     updates.sellout_amount = sellout_amount === null || sellout_amount === ''
@@ -91,6 +99,11 @@ export async function PATCH(
   if (error && (error as any).code === '42703' && 'sellout_amount' in updates) {
     const { sellout_amount: _s, ...noSellout } = updates
     const retry = await db.from('projects').update(noSellout).eq('id', params.id).select().single()
+    data = retry.data; error = retry.error
+  }
+  if (error && (error as any).code === '42703' && 'fee_on_materials' in updates) {
+    const { fee_on_materials: _f, ...noFee } = updates
+    const retry = await db.from('projects').update(noFee).eq('id', params.id).select().single()
     data = retry.data; error = retry.error
   }
   if (error && (error as any).code === '42703' && 'contract_type' in updates) {

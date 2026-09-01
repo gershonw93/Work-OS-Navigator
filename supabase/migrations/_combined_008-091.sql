@@ -2083,3 +2083,21 @@ alter table public.device_tokens enable row level security;
 -- No policies, deliberately. RLS with zero policies denies everything to anon
 -- and authenticated; the service role bypasses RLS. So the only way in or out
 -- is a server route that has already established who is asking.
+
+
+-- ── 091: does the contractor fee apply to material receipts? ────────────────
+--
+-- Per PROJECT because it is per contract - some jobs mark up everything the
+-- job costs, some pass materials through. DEFAULT FALSE is exactly the
+-- historic behaviour (fee on sub bills only), so no existing job's earned fee
+-- moves when this lands. Silently changing what somebody has already invoiced
+-- would be far worse than the reporting gap it fixes.
+--
+-- The per-RECEIPT override needs nothing: material_purchases already carries
+-- markup_pct and markup_excluded, exactly as invoices do.
+
+alter table public.projects
+  add column if not exists fee_on_materials boolean not null default false;
+
+comment on column public.projects.fee_on_materials IS
+  'Cost-plus fee applies to material receipts as well as sub bills. False (the default) is the historic behaviour: fee on bills only. A receipt can still override with its own markup_pct / markup_excluded.';
