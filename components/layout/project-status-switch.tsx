@@ -19,6 +19,8 @@ interface Check {
   ok: boolean
   detail: string
   hint?: string
+  /** Going live without it puts a wrong number in front of somebody. */
+  serious?: boolean
   href?: string
 }
 
@@ -48,6 +50,11 @@ export function ProjectStatusSwitch({
   const [open, setOpen] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [checks, setChecks] = useState<Check[] | null>(null)
+  // The serious concerns this job has, from the pre-flight, which are the keys
+  // the PATCH has to carry back. Not derived here from `checks` - the route
+  // decides what counts as serious, and two derivations is how they drift.
+  const [needsAck, setNeedsAck] = useState<string[]>([])
+  const [acked, setAcked] = useState(false)
   const [startDate, setStartDate] = useState('')
   const [saving, setSaving] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -100,9 +107,14 @@ export function ProjectStatusSwitch({
     if (res.ok) {
       const d = await res.json()
       setChecks(d.checks ?? [])
+      setNeedsAck(Array.isArray(d.acknowledge) ? d.acknowledge : [])
+      setAcked(false)
       setStartDate((d.start_date ?? '').slice(0, 10))
     } else {
+      // Loading and failed are different facts. An empty checklist would read
+      // as "this job is fine", which is the one answer we must not invent.
       setChecks([])
+      setNeedsAck([])
     }
   }
 
@@ -115,6 +127,7 @@ export function ProjectStatusSwitch({
   }
 
   const done = (checks ?? []).filter(c => c.ok).length
+  const serious = (checks ?? []).filter(c => !c.ok && c.serious)
 
   return (
     <>
@@ -171,14 +184,19 @@ export function ProjectStatusSwitch({
                       A WARNING, NOT A BLOCK: some jobs genuinely are at cost,
                       and refusing those would be the app inventing a rule the
                       trade does not have. */}
-                  {checks.some(c => c.key === 'price' && !c.ok) && (
+                  {serious.length > 0 && (
                     <div className="rounded-lg border border-warn/40 bg-warn-tint px-3 py-2.5">
-                      <p className="text-sm font-semibold text-warn">This job has no markup set.</p>
-                      <p className="mt-0.5 text-xs text-warn">
-                        Going active locks the markup as your billed fee. At 0% you will bill this
-                        job at cost and earn nothing on it. Set a rate on the Budget tab first
-                        unless that is genuinely the deal.
+                      <p className="text-sm font-semibold text-warn">
+                        {serious.length === 1 ? 'One thing is missing before this job goes live.'
+                          : `${serious.length} things are missing before this job goes live.`}
                       </p>
+                      <ul className="mt-1.5 space-y-1">
+                        {serious.map(c => (
+                          <li key={c.key} className="text-xs text-warn">
+                            <span className="font-medium">{c.label}.</span> {c.detail}
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                   )}
                   <div className="rounded-lg border border-line divide-y divide-line-soft">
@@ -209,6 +227,27 @@ export function ProjectStatusSwitch({
                     </p>
                   )}
 
+                  {/* A LATCH, NOT A BLOCK.
+                      Jobs do genuinely go under contract before the budget is
+                      typed up, and some really are at cost - refusing those
+                      would be the app inventing a rule the trade does not have.
+                      But it went live silently, from a door that never showed
+                      the pre-flight at all, so the way past it is one that
+                      cannot happen by accident. */}
+                  {needsAck.length > 0 && (
+                    <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-line px-3 py-2.5">
+                      <input
+                        type="checkbox"
+                        checked={acked}
+                        onChange={e => setAcked(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--accent)]"
+                      />
+                      <span className="text-sm text-ink-soft">
+                        Go ahead anyway — I will add {needsAck.length === 1 ? 'it' : 'these'} later.
+                      </span>
+                    </label>
+                  )}
+
                   <div className="space-y-1.5">
                     <Label>Start date</Label>
                     <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
@@ -220,8 +259,11 @@ export function ProjectStatusSwitch({
               <div className="flex justify-end gap-2 pt-1">
                 <Button variant="secondary" onClick={() => setConfirming(false)} disabled={saving}>Cancel</Button>
                 <Button
-                  onClick={() => setStatus('active', startDate ? { start_date: startDate } : {})}
-                  disabled={saving || checks === null}
+                  onClick={() => setStatus('active', {
+                    ...(startDate ? { start_date: startDate } : {}),
+                    ...(needsAck.length ? { acknowledge: needsAck } : {}),
+                  })}
+                  disabled={saving || checks === null || (needsAck.length > 0 && !acked)}
                 >
                   {saving ? 'Saving…' : 'Set to Active'}
                 </Button>

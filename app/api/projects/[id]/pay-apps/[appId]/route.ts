@@ -2,9 +2,10 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { requirePermission, denied } from '@/lib/api-guard'
 import {
-  retainagePct, checkLine, payAppProblems, isPayAppStatus,
-  STATUSES_NEEDING_A_SOUND_APP, type PayAppStatus,
+  retainagePct, checkLine, payAppProblems, isPayAppStatus, sovDrift,
+  STATUSES_NEEDING_A_SOUND_APP, CHANGE_ORDER_SOV_DESCRIPTION, type PayAppStatus,
 } from '@/lib/pay-app-rules'
+import { ownerScheduleOfValues } from '@/lib/pay-app-sov'
 
 export const runtime = 'nodejs'
 
@@ -65,6 +66,28 @@ export async function GET(request: Request, { params }: { params: { id: string; 
     return { ...l, completed_to_date: completed, pct: sv ? Math.round((completed / sv) * 1000) / 10 : 0, balance_to_finish: sv - completed }
   })
 
+  // A DRAFT THAT PREDATES A CHANGE ORDER.
+  //
+  // The schedule is seeded when the application is created, so a draft started
+  // before the $50,000 owner CO was approved keeps a contract sum of $300,000
+  // however many times the CO is approved afterwards. Reported, correctly, as
+  // the change-order bug still being open.
+  //
+  // Only a DRAFT, and only owner-facing: a certified or funded application is
+  // the record of what a bank was told and does not get to change later, and a
+  // subcontract's schedule comes from its contract rather than from the budget.
+  let drift: { amount: number } | null = null
+  if (app.status === 'draft' && !app.subcontract_id) {
+    try {
+      const fresh = await ownerScheduleOfValues(db, params.id)
+      const d = sovDrift((lines ?? []) as any, fresh)
+      if (d.amount > 0) drift = { amount: d.amount }
+    } catch {
+      // A drift we could not work out is not a reason to fail the page. The
+      // banner simply does not draw - the certificate itself is unaffected.
+    }
+  }
+
   return NextResponse.json({
     application: {
       id: app.id, subcontract_id: app.subcontract_id, application_number: app.application_number,
@@ -77,6 +100,7 @@ export async function GET(request: Request, { params }: { params: { id: string; 
     project,
     lines: rows,
     summary: summarize(app, lines ?? []),
+    sov_drift: drift,
   })
 }
 
@@ -90,6 +114,53 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   const db = admin()
 
   const body = await request.json().catch(() => ({}))
+
+  // Bring an out-of-date draft's schedule up to today's budget + approved
+  // change orders.
+  //
+  // NEVER AUTOMATIC. The amounts somebody has typed into this period sit
+  // against these lines, and rewriting a schedule underneath a person mid-edit
+  // is its own way to put a wrong number on a G702. Offered on the screen,
+  // applied only when asked, and it only ever RAISES a scheduled value or adds
+  // the change-order line - `this_period` and `materials_stored` are not
+  // touched.
+  if (body.action === 'resync_sov') {
+    const { data: app } = await db.from('pay_applications')
+      .select('id, status, subcontract_id').eq('id', params.appId).eq('project_id', params.id).maybeSingle()
+    if (!app) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if ((app as any).status !== 'draft') {
+      return NextResponse.json({ error: 'Only a draft can be brought up to date. A certified application is the record of what was sent.' }, { status: 400 })
+    }
+    if ((app as any).subcontract_id) {
+      return NextResponse.json({ error: "A subcontractor's schedule comes from their contract, not from the budget." }, { status: 400 })
+    }
+
+    const { data: stored } = await db.from('pay_application_lines')
+      .select('id, budget_line_item_id, description, scheduled_value, sort_order')
+      .eq('pay_application_id', params.appId).order('sort_order')
+    const fresh = await ownerScheduleOfValues(db, params.id)
+    const d = sovDrift((stored ?? []) as any, fresh)
+
+    for (const r of d.raise) {
+      await db.from('pay_application_lines').update({ scheduled_value: r.to })
+        .eq('id', r.id).eq('pay_application_id', params.appId)
+    }
+    if (d.add) {
+      const nextSort = Math.max(0, ...(stored ?? []).map((l: any) => Number(l.sort_order) || 0)) + 1
+      await db.from('pay_application_lines').insert({
+        pay_application_id: params.appId,
+        budget_line_item_id: null,
+        cost_code: null,
+        description: CHANGE_ORDER_SOV_DESCRIPTION,
+        scheduled_value: d.add.scheduled_value,
+        previous_completed: 0,
+        this_period: 0,
+        materials_stored: 0,
+        sort_order: nextSort,
+      })
+    }
+    return NextResponse.json({ ok: true, applied: d.amount })
+  }
 
   // Line edits: [{ id, this_period?, materials_stored? }]
   //

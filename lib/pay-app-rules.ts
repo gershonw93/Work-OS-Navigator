@@ -215,3 +215,81 @@ export function scheduleOfValues(src: SovSource): SovLine[] {
 export function contractSum(sov: SovLine[]): number {
   return sov.reduce((s, l) => s + n(l.scheduled_value), 0)
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// A draft that was started before a change order was approved.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface StoredSovLine {
+  id: string
+  budget_line_item_id?: string | null
+  description?: string | null
+  scheduled_value?: unknown
+}
+
+export interface SovDrift {
+  /** Approved change-order money this schedule does not carry. */
+  amount: number
+  /** Existing lines whose scheduled value has moved, with the new figure. */
+  raise: { id: string; from: number; to: number }[]
+  /** The change-order line to add, when there is one and it is not there yet. */
+  add: SovLine | null
+}
+
+/**
+ * What a draft is missing, against the schedule it would be built from today.
+ *
+ * THE BUG BEHIND THIS. `scheduleOfValues` seeds the SOV at CREATION. A draft
+ * started before the $50,000 change order was approved keeps the schedule it
+ * was born with, so the screen still read a contract sum of $300,000 after the
+ * fix - which from the user's chair is the same bug still open.
+ *
+ * NOT AN AUTOMATIC REWRITE. The amounts somebody has typed into this period sit
+ * against these lines; changing a schedule underneath a person mid-edit is its
+ * own way to put a wrong number on a G702. This reports the difference, the
+ * screen offers it, and the resync only ever RAISES a scheduled value and adds
+ * the change-order line. `this_period` and `materials_stored` are never touched.
+ *
+ * Only ever asked of a DRAFT. A certified or funded application is a historical
+ * record of what a bank was told, and it does not get to change afterwards.
+ */
+export function sovDrift(stored: StoredSovLine[], fresh: SovLine[]): SovDrift {
+  const byLineId = new Map<string, StoredSovLine>()
+  let changeOrderLine: StoredSovLine | null = null
+  for (const l of stored) {
+    if (l.budget_line_item_id) byLineId.set(l.budget_line_item_id, l)
+    else if ((l.description ?? '').trim() === CHANGE_ORDER_SOV_DESCRIPTION) changeOrderLine = l
+  }
+
+  const raise: SovDrift['raise'] = []
+  let add: SovLine | null = null
+  let amount = 0
+
+  for (const f of fresh) {
+    if (f.budget_line_item_id) {
+      const cur = byLineId.get(f.budget_line_item_id)
+      // A line the draft does not have at all is NOT added here. It means the
+      // budget itself changed shape, which is a different question from "a
+      // change order was approved" and is not something to do silently.
+      if (!cur) continue
+      const from = n(cur.scheduled_value)
+      const to = n(f.scheduled_value)
+      if (to > from) {
+        raise.push({ id: cur.id, from, to })
+        amount += to - from
+      }
+      continue
+    }
+
+    // The catch-all change-order line.
+    const from = n(changeOrderLine?.scheduled_value)
+    const to = n(f.scheduled_value)
+    if (to > from) {
+      amount += to - from
+      if (changeOrderLine) raise.push({ id: changeOrderLine.id, from, to })
+      else add = f
+    }
+  }
+
+  return { amount: Math.round(amount * 100) / 100, raise, add }
+}

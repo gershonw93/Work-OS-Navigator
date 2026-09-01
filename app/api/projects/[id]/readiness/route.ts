@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { asContractType } from '@/lib/contract-type'
+import { activationConcerns } from '@/lib/activation'
 
 export const runtime = 'nodejs'
 
@@ -39,7 +41,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
   }
 
   const [project, budgetLines, payments, paymentRequests, permits, compliance, subcontracts] = await Promise.all([
-    db.from('projects').select('start_date, contractor_fee_pct, billing_mode').eq('id', params.id).single(),
+    db.from('projects').select('start_date, contractor_fee_pct, billing_mode, contract_type, sellout_amount').eq('id', params.id).single(),
     count('budget_line_items'),
     db.from('client_payments').select('amount').eq('project_id', params.id),
     db.from('client_payment_requests').select('amount, sent_at').eq('project_id', params.id).eq('status', 'pending'),
@@ -58,24 +60,61 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const requestedTotal = openRequests.reduce((s: number, r: any) => s + Number(r.amount ?? 0), 0)
   const sentRequests = openRequests.filter((r: any) => r.sent_at).length
 
+  const facts = {
+    contractType: asContractType(p.contract_type),
+    budgetLines,
+    contractorFeePct: Number(p.contractor_fee_pct ?? 0) || 0,
+    selloutAmount: p.sellout_amount == null ? null : Number(p.sellout_amount),
+    billingMode: p.billing_mode ?? 'simple',
+  }
+  const concerns = activationConcerns(facts)
+  const priceAnswered = !concerns.some(c => c.key === 'price')
+
   const checks = [
     {
       key: 'budget',
       label: 'Budget has line items',
       ok: budgetLines > 0,
       detail: budgetLines > 0 ? `${budgetLines} line${budgetLines !== 1 ? 's' : ''}` : 'Nothing budgeted yet',
+      // Serious: every "what is left" answer on the job is measured against
+      // these lines, so with none they all read zero and look like facts.
+      serious: budgetLines <= 0,
       href: 'budget',
     },
-    {
+    // THE PRICE QUESTION IS NOT THE SAME QUESTION ON EVERY JOB.
+    //
+    // This used to test `contractor_fee_pct > 0` on all of them. The markup is
+    // what you are paid on COST-PLUS only - lib/contract-type.ts says so - and
+    // on a fixed price or a spec build revenue is the agreed price or the sale
+    // price. So a Building To Sell job was told "No markup set on the budget",
+    // about a number that does not affect its pay, and nobody ever asked for
+    // the sellout figure that does. That is #357 - demanding a client from a
+    // job that cannot have one - in a second place.
+    //
+    // Delegated to lib/activation so the pre-flight and the route that enforces
+    // it cannot disagree about what this job needs.
+    ...concerns
+      .filter(c => c.key === 'price' || c.key === 'contract')
+      .map(c => ({
+        key: c.key,
+        label: c.label,
+        ok: false,
+        detail: c.detail,
+        serious: c.serious,
+        href: c.href,
+      })),
+    ...(priceAnswered ? [{
       key: 'price',
       label: 'Price agreed with the client',
-      ok: Number(p.contractor_fee_pct ?? 0) > 0 || p.billing_mode === 'aia',
-      detail: Number(p.contractor_fee_pct ?? 0) > 0
-        ? `${Math.round(Number(p.contractor_fee_pct) * 1000) / 10}% markup set`
-        : p.billing_mode === 'aia' ? 'AIA job - billed by pay application' : 'No markup set on the budget',
-      hint: 'The markup locks once this job is active, because from then on it is your billed fee.',
+      ok: true,
+      detail: p.billing_mode === 'aia'
+        ? 'AIA job - billed by pay application'
+        : Number(p.contractor_fee_pct ?? 0) > 0
+          ? `${Math.round(Number(p.contractor_fee_pct) * 1000) / 10}% markup set`
+          : `$${Number(p.sellout_amount).toLocaleString(undefined, { maximumFractionDigits: 0 })} revenue set`,
+      serious: false,
       href: 'budget',
-    },
+    }] : []),
     {
       key: 'deposit',
       label: 'Deposit or first payment received',
@@ -115,5 +154,9 @@ export async function GET(request: Request, { params }: { params: { id: string }
     start_date: p.start_date ?? null,
     ready: checks.filter(c => c.ok).length,
     total: checks.length,
+    // The keys the browser has to name back on the PATCH that goes Active.
+    // Sent rather than inferred, so the screen and the gate agree by
+    // construction instead of by both being written carefully.
+    acknowledge: checks.filter((c: any) => !c.ok && c.serious).map(c => c.key),
   })
 }

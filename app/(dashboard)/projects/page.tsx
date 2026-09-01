@@ -320,11 +320,26 @@ export default function ProjectsPage() {
                   </div>
                   <div className="space-y-1.5">
                     <Label>Status</Label>
+                    {/* GOING ACTIVE IS NOT OFFERED HERE.
+                        This select was the door the pre-flight never covered:
+                        picking Active PATCHed straight through, so a job went
+                        live with no budget and no price and nothing said a
+                        word. The checklist belongs with the job, not duplicated
+                        into a list dialog, so from planning this sends you
+                        there. Every other transition stays one click. */}
                     <SearchableSelect value={editStatus} onChange={e => setEditStatus(e.target.value)}
                       className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
                       <option value="">Select status...</option>
-                      {PROJECT_STATUSES.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
+                      {PROJECT_STATUSES
+                        .filter(s => !(s === 'active' && (editProject?.status ?? 'planning') === 'planning'))
+                        .map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
                     </SearchableSelect>
+                    {(editProject?.status ?? 'planning') === 'planning' && (
+                      <p className="text-xs text-faint">
+                        To set this job Active, open it and use the status badge in the header —
+                        it checks the budget and the price first.
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">

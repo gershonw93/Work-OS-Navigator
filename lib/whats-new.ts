@@ -48,6 +48,30 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    date: '2026-09-03',
+    title: 'A job cannot go live without a budget or a price',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'Setting a job Active checked nothing, from two of the three ways in',
+        text: 'A job could be set to Active with no budget lines and no price at all, and nothing said a word. There is a pre-flight, but it only ever ran from the status badge in the project header - the Status dropdown in the Edit Project dialog and Quote → Convert both went straight through. All three now run the same check, and a job missing its budget or its price needs a tick in a box before it goes live. Nothing is refused outright: jobs do go under contract before the budget is typed up, and some really are at cost.',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
+        title: 'Building to sell was asked for a markup it does not have',
+        text: 'The pre-flight asked every job for a markup percentage. On a building-to-sell or a fixed-price job the markup is not what you are paid - the sale price or the agreed price is - so it complained about a number that does not matter and never asked for the one that does. It now asks each job the question it actually has: "What will this job sell for?", "What are you charging for this job?", or the markup on cost-plus. If your spec jobs have never shown a profit figure, this is why.',
+        href: '/projects',
+      },
+      {
+        kind: 'improved',
+        title: 'A draft pay application tells you when a change order came in late',
+        text: 'Approving a change order after starting a draft used to leave that draft billing against the old contract sum. The draft now says how much approved change-order money is missing from its schedule, with a button to bring it in. It only raises scheduled values and adds the change-order row - anything you have already typed into this period is left alone. Certified and funded applications are never touched.',
+        href: '/projects',
+      },
+    ],
+  },
+  {
     date: '2026-09-02',
     title: 'Approved change orders now reach the pay application',
     items: [
