@@ -6,6 +6,7 @@ import { feeForInvoice } from '@/lib/allocations'
 import { markUp } from '@/lib/markup'
 import { requirePermission, denied } from '@/lib/api-guard'
 import { getActor, actorCan } from '@/lib/server-permissions'
+import { budgetAmount } from '@/lib/validate'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -238,6 +239,16 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const body = await request.json()
   const { cost_code, category, description, budgeted_amount, committed_amount, actual_amount, notes, subcontract_id, space_type, cost_type } = body
 
+  // Same three costs, same rule as the PATCH beside it - a negative committed
+  // or actual amount subtracts from the job's totals, and nothing used to stop
+  // one being typed.
+  const checkedBudgeted = budgetAmount(budgeted_amount, 'budget')
+  const checkedCommitted = budgetAmount(committed_amount, 'committed amount')
+  const checkedActual = budgetAmount(actual_amount, 'actual amount')
+  for (const c of [checkedBudgeted, checkedCommitted, checkedActual]) {
+    if (!c.ok) return NextResponse.json({ error: c.error }, { status: 400 })
+  }
+
   if (!description) return NextResponse.json({ error: 'Description is required' }, { status: 400 })
 
   const { count } = await db
@@ -250,9 +261,9 @@ export async function POST(request: Request, { params }: { params: { id: string 
     cost_code: cost_code || null,
     category: category || 'General',
     description,
-    budgeted_amount: Number(budgeted_amount) || 0,
-    committed_amount: Number(committed_amount) || 0,
-    actual_amount: Number(actual_amount) || 0,
+    budgeted_amount: checkedBudgeted.value,
+    committed_amount: checkedCommitted.value,
+    actual_amount: checkedActual.value,
     notes: notes || null,
     subcontract_id: subcontract_id || null,
     space_type: space_type === 'interior' || space_type === 'exterior' ? space_type : null,

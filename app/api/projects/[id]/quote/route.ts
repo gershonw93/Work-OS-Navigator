@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { requirePermission, denied } from '@/lib/api-guard'
+import { budgetAmount } from '@/lib/validate'
 
 export const runtime = 'nodejs'
 
@@ -182,6 +183,15 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   // Replace existing quote-derived line items with the freshly scanned ones.
   if (items.length) {
+    // A scan that read an amount as negative is a misread, and these rows
+    // REPLACE the budget - so importing one would quietly take money off the
+    // job's totals with nothing left to compare against.
+    const misread = items.find(it => !budgetAmount(lineAmount(it), 'amount').ok)
+    if (misread) {
+      return NextResponse.json({
+        error: `"${misread.description ?? 'A line'}" was read as ${lineAmount(misread)}. Check that line on the quote and try again.`,
+      }, { status: 400 })
+    }
     await db.from('budget_line_items').delete().eq('project_id', params.id)
     const rows = items.map((it, idx) => ({
       project_id: params.id,

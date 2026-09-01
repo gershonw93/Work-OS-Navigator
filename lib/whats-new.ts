@@ -49,6 +49,24 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-02',
+    title: 'A budget line can no longer hold a negative cost',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'Negative committed and actual amounts were saved, and came off your totals',
+        text: 'A budget line accepted a Committed of -1 and an Actual of -2.50, saved them, and subtracted them from the job\'s committed and spent figures - so a total could be talked down by typing a minus. Every place a budget amount is written now refuses a negative and says which field it means: adding a line, editing one, applying a template, and importing a scanned quote. Zero is still allowed, because a line with nothing on it yet is normal.',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
+        title: 'A budget line that will not save now tells you why',
+        text: 'Adding or editing a line quietly did nothing when the save was refused - the button stopped and the row sat there unchanged, which reads as saved. The reason now appears next to the buttons.',
+        href: '/projects',
+      },
+    ],
+  },
+  {
+    date: '2026-09-02',
     title: 'A spec build no longer needs a client',
     items: [
       {
