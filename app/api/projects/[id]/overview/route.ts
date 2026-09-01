@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { committedTotal } from '@/lib/committed'
 import { ACTUAL_STATUSES } from '@/lib/invoice-budget'
 
 export const runtime = 'nodejs'
@@ -77,6 +78,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     { data: schedule },
     { data: tasks },
     { data: subcontracts },
+    { data: budgetLines },
   ] = await Promise.all([
     db.from('invoices').select('id, amount, status, company_name, created_at, client_paid, escrow_paid').eq('project_id', params.id),
     db.from('rfis').select('id, subject, status, created_at, company_name').eq('project_id', params.id),
@@ -90,6 +92,9 @@ export async function GET(request: Request, { params }: { params: { id: string }
     db.from('schedule_items').select('id, label, start_date, end_date, subcontract_id').eq('project_id', params.id).order('start_date', { ascending: true }),
     db.from('project_tasks').select('id, title, status, due_date, signoff_requested_at, signoff_signed_at').eq('project_id', params.id),
     db.from('subcontracts').select('id, company_id, scope, trade, contract_amount, companies(name)').eq('project_id', params.id),
+    // For Committed. Fetched alongside everything else rather than after it -
+    // this route runs before the Summary can draw.
+    db.from('budget_line_items').select('subcontract_id, committed_amount').eq('project_id', params.id),
   ])
 
   const inv = invoices ?? []
@@ -106,7 +111,10 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const vendorPaid = inv
     .filter((i: any) => ACTUAL_STATUSES.has(String(i.status)) && i.status === 'paid')
     .reduce((s: number, i: any) => s + Number(i.amount || 0), 0)
-  const committed = subs.reduce((s: number, x: any) => s + Number(x.contract_amount || 0), 0)
+  // ONE derivation, shared with the Budget tab and Master Money. Summing the
+  // contracts alone lost every commitment that never became one, which is how
+  // this screen and Budget came to disagree by a quarter of a million.
+  const committed = committedTotal({ subcontracts: subs, lines: budgetLines ?? [] }).total
 
   // ── Waiting on you ───────────────────────────────────────────────────────
   const awaitingApproval = inv.filter((i: any) => i.status === INVOICE_AWAITING)

@@ -31,6 +31,8 @@
  * is still sitting in someone's approval queue. Approving is the moment the
  * money becomes real, which is why 'approved' is in here and not just 'paid'.
  */
+import { committedTotal, type CommittedSubcontract } from '@/lib/committed'
+
 export const ACTUAL_STATUSES = new Set(['approved', 'sent', 'paid'])
 
 const n = (v: unknown): number => {
@@ -285,7 +287,16 @@ export interface BudgetTotals {
   remaining: number
 }
 
-export function budgetTotals(lines: RolledLine[]): BudgetTotals {
+export function budgetTotals(
+  lines: RolledLine[],
+  /**
+   * Every subcontract on the project. Needed because Committed includes
+   * contracts that no budget line points at - the half this screen used to
+   * lose. Optional so the signature stays usable, but a caller that omits it
+   * gets the old, incomplete figure.
+   */
+  subcontracts: CommittedSubcontract[] = [],
+): BudgetTotals {
   const t: BudgetTotals = {
     original_budget: 0, approved_changes: 0, revised_budget: 0,
     committed: 0, actual: 0, committed_not_billed: 0,
@@ -295,7 +306,8 @@ export function budgetTotals(lines: RolledLine[]): BudgetTotals {
   for (const line of lines) {
     t.original_budget += n(line.budgeted_amount)
     t.approved_changes += line.change_orders_amount
-    t.committed += line.committed_amount
+    // Not accumulated here any more - committedTotal() owns it below, so this
+    // screen and Master Money cannot drift apart again.
     t.actual += line.actual_amount
     t.projected_cost += lineExposure(line)
     const billed = line.actual_amount - line.materials_amount
@@ -308,6 +320,9 @@ export function budgetTotals(lines: RolledLine[]): BudgetTotals {
     t.materials += line.materials_amount
     t.committed_not_billed += Math.max(0, line.committed_amount - billed)
   }
+  // ONE derivation, shared with Master Money and the project Summary.
+  t.committed = committedTotal({ subcontracts, lines }).total
+
   t.revised_budget = t.original_budget + t.approved_changes
   t.remaining = t.revised_budget - t.projected_cost
   return t

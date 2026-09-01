@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { committedTotal } from '@/lib/committed'
 
 export const runtime = 'nodejs'
 
@@ -32,8 +33,8 @@ export async function GET(request: Request) {
   if (!ids.length) return NextResponse.json({ rows: [] })
 
   const [{ data: budgetLines }, { data: subs }, { data: invoices }, { data: clientPayments }] = await Promise.all([
-    db.from('budget_line_items').select('project_id, budgeted_amount').in('project_id', ids),
-    db.from('subcontracts').select('project_id, contract_amount').in('project_id', ids),
+    db.from('budget_line_items').select('project_id, budgeted_amount, subcontract_id, committed_amount').in('project_id', ids),
+    db.from('subcontracts').select('id, project_id, contract_amount').in('project_id', ids),
     db.from('invoices').select('project_id, amount, status, client_paid, escrow_paid').in('project_id', ids),
     db.from('client_payments').select('project_id, amount').in('project_id', ids),
   ])
@@ -44,7 +45,17 @@ export async function GET(request: Request) {
     return m
   }
   const budgeted = sumBy(budgetLines, 'project_id', r => Number(r.budgeted_amount ?? 0))
-  const committed = sumBy(subs, 'project_id', r => Number(r.contract_amount ?? 0))
+  // ONE derivation, shared with the Budget tab and the project Summary. This
+  // used to be the subcontract total alone, which lost every commitment that
+  // never became a contract - a materials order, an equipment hire - and so
+  // disagreed with the Budget screen by a quarter of a million on one job.
+  const committed = new Map<string, number>()
+  for (const id of ids) {
+    committed.set(id, committedTotal({
+      subcontracts: (subs ?? []).filter((s: any) => s.project_id === id),
+      lines: (budgetLines ?? []).filter((l: any) => l.project_id === id),
+    }).total)
+  }
   const billed = sumBy((invoices ?? []).filter(i => ACTUAL.has(i.status)), 'project_id', r => Number(r.amount ?? 0))
   // Total paid (escrow + client-direct) and escrow-only disbursements, honoring the split.
   const paidVal = (r: any) => (Number(r.client_paid || 0) || Number(r.escrow_paid || 0)) ? Number(r.client_paid || 0) + Number(r.escrow_paid || 0) : (r.status === 'paid' ? Number(r.amount || 0) : 0)
