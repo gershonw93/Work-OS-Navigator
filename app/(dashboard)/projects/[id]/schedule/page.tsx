@@ -244,12 +244,38 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
 
   useEffect(() => { load(); loadUnscheduled() }, [params.id])
 
-  // Jump the calendar to the earliest scheduled item the first time data loads
+  /**
+   * Where the calendar lands the first time data arrives.
+   *
+   * It used to jump to the EARLIEST scheduled item, always. On a job that has
+   * not started that is right; on an active one it opened months in the past
+   * (or, with a long lead item, the future) and the first thing you did every
+   * time was navigate back to now.
+   *
+   * Today, clamped into the schedule's own span - which needs no extra
+   * request, and answers all three cases correctly:
+   *   * today inside the schedule  -> today, the month you are working in
+   *   * schedule entirely ahead    -> its start, because there is nothing yet
+   *   * schedule entirely behind   -> its end, the last month with any work
+   */
   useEffect(() => {
     if (calInit.done || items.length === 0) return
-    const earliest = items.reduce((m, i) => (i.start_date < m ? i.start_date : m), items[0].start_date)
-    const d = new Date(earliest + 'T00:00:00')
-    setCalCursor(new Date(d.getFullYear(), d.getMonth(), 1))
+    const first = items.reduce((m, i) => (i.start_date < m ? i.start_date : m), items[0].start_date)
+    const last = items.reduce((m, i) => {
+      const end = i.end_date ?? i.start_date
+      return end > m ? end : m
+    }, items[0].end_date ?? items[0].start_date)
+
+    const today = new Date()
+    const monthOf = (iso: string) => { const d = new Date(iso + 'T00:00:00'); return new Date(d.getFullYear(), d.getMonth(), 1) }
+    const todayMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+
+    const target =
+      todayMonth < monthOf(first) ? monthOf(first)
+      : todayMonth > monthOf(last) ? monthOf(last)
+      : todayMonth
+
+    setCalCursor(target)
     calInit.done = true
   }, [items, calInit])
 

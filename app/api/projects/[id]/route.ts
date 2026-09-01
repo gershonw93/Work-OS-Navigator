@@ -2,11 +2,47 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { getActor, actorCan } from '@/lib/server-permissions'
 import { asContractType } from '@/lib/contract-type'
+import { requirePermission, denied } from '@/lib/api-guard'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
+
+/**
+ * One project.
+ *
+ * THIS DID NOT EXIST. The file exported PATCH and DELETE and no GET, so the
+ * Reports tab - which fetches exactly this URL - got a 405, `projRes.ok` was
+ * false, and the header printed "PROJECT -  CLIENT -  STATUS -" on every job.
+ * Nothing logged an error, because a 405 on a page that tolerates a failed
+ * fetch looks identical to a project with no data.
+ *
+ * Returns the row under `project`, which is the shape the Reports page already
+ * tries first (`d.project ?? d`).
+ */
+export async function GET(
+  request: Request,
+  { params }: { params: { id: string } },
+) {
+  const db = admin()
+  const gate = await requirePermission(db, request, 'projects', 'view')
+  if (denied(gate)) return gate.denied
+
+  // `customers(name)` joined rather than fetched separately - the client's
+  // name lives on the customer, not on the project, and a second round trip
+  // for one string is what made project pages slow in #325.
+  const { data, error } = await db
+    .from('projects')
+    .select('*, customers(name)')
+    .eq('id', params.id)
+    .maybeSingle()
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (!data) return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+
+  return NextResponse.json({ project: data })
+}
 
 export async function PATCH(
   request: Request,

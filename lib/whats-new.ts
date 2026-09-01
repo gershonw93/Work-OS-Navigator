@@ -49,6 +49,37 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-01',
+    title: 'Your client sees the real progress, and Reports fills in',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'The client portal showed 0% on every trade',
+        text: 'It was reading a field that only gets filled in when a sub bills by percentage - so on a job visibly underway, your client saw zeroes on everything. It now shows the same figure your Progress tab does, weighted by what each budget line is worth. And a trade nobody has marked up reads "In progress" rather than asserting 0%, because "not measured" and "nothing done" are different things to say to a customer.',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
+        title: 'Reports header was blank on every job',
+        text: 'Project, Client and Status all printed a dash. The page was asking for a project from an address that had no answer to give, and underneath that it was reading two column names that do not exist. Both fixed - it now shows the job, the client (the linked customer where there is one) and the status.',
+        href: '/projects',
+      },
+      {
+        kind: 'improved',
+        title: 'Schedule opens on the month you are in',
+        text: 'It used to jump to the earliest thing on the calendar, so an active job opened months in the past and the first thing you did was navigate back. It now opens on today - unless the whole schedule is ahead of you or behind you, in which case it opens where the work actually is.',
+        href: '/projects',
+      },
+      {
+        kind: 'improved',
+        title: 'Left to spend says why it differs from Committed',
+        text: 'It showed the subtraction but not the reason the subtracted figure is bigger than what you have signed. It now says: using actual where it exceeds committed.',
+        help: 'add-project-budget',
+        href: '/projects',
+      },
+    ],
+  },
+  {
+    date: '2026-09-01',
     title: 'Money screens now enforce who is allowed to change them',
     items: [
       {

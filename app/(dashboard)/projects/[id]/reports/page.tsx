@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { Printer, FileText, ShieldCheck, DollarSign } from 'lucide-react'
+import { clientLabel } from '@/lib/project-access'
 
 interface Invoice {
   id: string
@@ -37,13 +38,25 @@ interface Inspection {
   status: string
 }
 
+/**
+ * The REAL columns, which is not what this used to say.
+ *
+ * It declared `client_name` and `contract_value`. Neither exists: the table
+ * has `client` (free text) and `sellout_amount`, and the client's proper name
+ * lives on the joined customer. Both read back undefined and rendered "-",
+ * and TypeScript was satisfied throughout - an interface that lies about a row
+ * shape turns the compiler into an alibi rather than a check. Exactly the
+ * `data: null` trap CLAUDE.md warns about, one level up.
+ */
 interface Project {
   id: string
   name: string
   address: string | null
   status: string | null
-  client_name: string | null
-  contract_value: number | null
+  /** Free-text client on the project. The linked customer's name wins. */
+  client: string | null
+  customers?: { name: string | null } | null
+  sellout_amount: number | null
   updated_at: string | null
 }
 
@@ -223,16 +236,16 @@ export default function ReportsPage({ params }: { params: { id: string } }) {
                 </div>
                 <div>
                   <p className="text-xs text-faint uppercase tracking-wide mb-1">Client</p>
-                  <p className="text-sm font-semibold text-ink-soft">{project?.client_name ?? '-'}</p>
+                  <p className="text-sm font-semibold text-ink-soft">{clientLabel(project?.customers?.name, project?.client) ?? '-'}</p>
                 </div>
                 <div>
                   <p className="text-xs text-faint uppercase tracking-wide mb-1">Status</p>
                   {project?.status ? <StatusBadge status={project.status} /> : <span className="text-sm text-faint">-</span>}
                 </div>
-                {project?.contract_value != null && (
+                {project?.sellout_amount != null && (
                   <div>
                     <p className="text-xs text-faint uppercase tracking-wide mb-1">Contract Value</p>
-                    <p className="text-sm font-semibold text-ink-soft">{fmt(project.contract_value)}</p>
+                    <p className="text-sm font-semibold text-ink-soft">{fmt(project.sellout_amount)}</p>
                   </div>
                 )}
               </div>
