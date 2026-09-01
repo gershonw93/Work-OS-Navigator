@@ -69,6 +69,18 @@ export const RELEASES: Release[] = [
     items: [
       {
         kind: 'fixed',
+        title: 'The deposit box says what is wrong, under the box',
+        text: 'A rejected amount put a red message at the top of the card while the amount that caused it sat in the field looking fine. The message is now under the field itself, and Request stays greyed out until the amount is one the app will accept - so nothing is sent only to bounce back.',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
+        title: 'A money box can no longer show the word "undefined"',
+        text: 'Where an amount was missing, some boxes were filled with the word "undefined" instead of being left empty. Typing into one left something like "undefined-500", which the app then refused - for a reason that had nothing to do with what you typed. Missing amounts now leave the box empty, and a value that is not a number is called exactly that instead of being reported as a negative.',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
         title: 'A negative amount no longer turns into a positive one',
         text: 'Asking a client for -$500 raised a request for $500. The app was cleaning the number before checking it, and the clean removed the minus sign - so the check that would have caught it never saw a negative. Fixed everywhere it happened: payment requests, subcontract amounts, selection allowances. A negative is now refused with a message that says so.',
         href: '/projects',

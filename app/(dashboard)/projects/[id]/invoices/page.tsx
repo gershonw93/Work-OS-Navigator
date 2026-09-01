@@ -22,6 +22,7 @@ import {
 import { HARD_COST_CATEGORIES } from '@/lib/budget-categories'
 import { contractAmount, contractAmountLabel, isUnpriced } from '@/lib/contract-amount'
 import { parseDate } from '@/lib/dates'
+import { toAmountInput } from '@/lib/validate'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   pending_approval: { label: 'Pending Approval', color: 'bg-warn-tint border-warn/30 text-warn' },
@@ -156,7 +157,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
       // split rather than an empty form over the top of it.
       setSplits(Object.fromEntries((d.invoices ?? []).map((i: any) => [
         i.id, (i.allocations ?? []).map((a: any) => ({
-          budget_line_item_id: a.budget_line_item_id, amount: String(a.amount ?? ''),
+          budget_line_item_id: a.budget_line_item_id, amount: toAmountInput(a.amount),
         })),
       ])))
     }
@@ -177,7 +178,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
   useEffect(() => {
     if (scheduleItemId) {
       const item = paymentItems.find(p => p.id === scheduleItemId)
-      if (item?.amount) setAmount(item.amount.toString())
+      if (item?.amount) setAmount(toAmountInput(item.amount))
       if (item?.label) setDescription(item.label)
     }
   }, [scheduleItemId])
@@ -274,7 +275,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
       } else {
         setSubId(''); setScheduleItemId(''); setBillMode('fixed')
       }
-      if (draft.amount != null) setAmount(String(draft.amount))
+      if (draft.amount != null) setAmount(toAmountInput(draft.amount))
       if (draft.description) setDescription(draft.description)
       if (draft.due_date) setDueDate(draft.due_date)
       setLineItems(Array.isArray(draft.line_items) ? draft.line_items : [])
@@ -407,7 +408,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
   function openEditInvoice(invoice: Invoice) {
     setEditInvoice(invoice)
     setEditInvoiceNumber(invoice.invoice_number)
-    setEditAmount(String(invoice.amount))
+    setEditAmount(toAmountInput(invoice.amount))
     setEditNotes(invoice.description ?? '')
     setEditClientPaid(invoice.client_paid ? String(invoice.client_paid) : '')
     setEditEscrowPaid(invoice.escrow_paid ? String(invoice.escrow_paid) : '')
@@ -1121,7 +1122,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
                     <div className="flex items-center justify-between">
                       <Label>Amount</Label>
                       {selectedSub && remaining > 0 && (
-                        <button type="button" onClick={() => setAmount(String(remaining))}
+                        <button type="button" onClick={() => setAmount(toAmountInput(remaining))}
                           className="text-xs font-medium text-accent-fg hover:underline">
                           Bill full remaining (${remaining.toLocaleString()})
                         </button>
