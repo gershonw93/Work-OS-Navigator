@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server'
 import { getActor, actorCan } from '@/lib/server-permissions'
 import { asContractType } from '@/lib/contract-type'
 import { requirePermission, denied } from '@/lib/api-guard'
+import { guardActivation } from '@/lib/activation-check'
+import { isProjectStatus } from '@/lib/activation'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -65,6 +67,22 @@ export async function PATCH(
   const body = await request.json()
   const { name, address, client, type, status, start_date, end_date, customer_id, lat, lng, interior_sqft, exterior_sqft, billing_mode, default_retainage_pct, labor_rate, unit, floor, sellout_amount, contract_type, contractor_fee_pct, fee_on_materials } = body
 
+  // Going Active is the one transition worth stopping on, and it had NO gate
+  // at all: `updates.status = status` took any string, from any of three doors,
+  // and only one of them ever showed the pre-flight. So a Building To Sell job
+  // went live with no budget and no sale price and nothing said a word.
+  //
+  // Checked here rather than in the browser because the browser is what was
+  // bypassed. The concerns have to be named back in `acknowledge` - a caller
+  // cannot wave through a job it never looked at.
+  if (isProjectStatus(status) && status === 'active') {
+    const { data: before } = await db.from('projects').select('status').eq('id', params.id).maybeSingle()
+    if (((before as any)?.status ?? 'planning') === 'planning') {
+      const refusal = await guardActivation(db, params.id, body.acknowledge)
+      if (refusal) return refusal
+    }
+  }
+
   const updates: Record<string, unknown> = {}
 
   // name, type, status, billing_mode and default_retainage_pct are NOT NULL in
@@ -81,7 +99,14 @@ export async function PATCH(
   if (lat !== undefined && lng !== undefined && lat != null && lng != null) { updates.lat = lat; updates.lng = lng; updates.geocoded_address = address }
   if (client !== undefined) updates.client = client
   if (type != null) updates.type = type
-  if (status != null) updates.status = status
+  // Validated against the known set. Any string used to write straight through
+  // - the same hole #359 closed on pay-app status, still open one table over.
+  if (status != null) {
+    if (!isProjectStatus(status)) {
+      return NextResponse.json({ error: 'That is not a project status.' }, { status: 400 })
+    }
+    updates.status = status
+  }
   if (start_date !== undefined) updates.start_date = start_date
   if (end_date !== undefined) updates.end_date = end_date
   if (customer_id !== undefined) updates.customer_id = customer_id || null

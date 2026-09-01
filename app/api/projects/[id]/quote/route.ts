@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { requirePermission, denied } from '@/lib/api-guard'
+import { guardActivation } from '@/lib/activation-check'
 import { budgetAmount } from '@/lib/validate'
 
 export const runtime = 'nodejs'
@@ -220,6 +221,11 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   const body = await request.json()
 
   if (body.action === 'convert') {
+    // The third door to Active, and it had no pre-flight either. Same gate as
+    // the project PATCH, so a job cannot go live with no budget and no price
+    // just because it was won from a quote rather than from the status badge.
+    const refusal = await guardActivation(db, params.id, body.acknowledge)
+    if (refusal) return refusal
     const { error } = await db.from('projects').update({ status: 'active' }).eq('id', params.id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true, status: 'active' })

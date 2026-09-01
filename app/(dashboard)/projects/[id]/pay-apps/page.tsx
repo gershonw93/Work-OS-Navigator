@@ -227,6 +227,22 @@ function PayAppDetail({ projectId, appId, onBack, authHeaders }: { projectId: st
     setDirty(false); load()
   }
 
+  async function resync() {
+    setSaving(true)
+    setSaveError(null)
+    const res = await fetch(`/api/projects/${projectId}/pay-apps/${appId}`, {
+      method: 'PATCH', headers: await authHeaders(),
+      body: JSON.stringify({ action: 'resync_sov' }),
+    })
+    setSaving(false)
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({} as any))
+      setSaveError(d?.error ?? `That did not save (${res.status}).`)
+      return
+    }
+    load()
+  }
+
   async function remove() {
     guardDelete(async () => {
       await fetch(`/api/projects/${projectId}/pay-apps/${appId}`, { method: 'DELETE', headers: await authHeaders() })
@@ -258,6 +274,29 @@ function PayAppDetail({ projectId, appId, onBack, authHeaders }: { projectId: st
         <span className={cn('text-[11px] font-semibold rounded-full px-2 py-0.5', STATUS[app.status]?.cls)}>{STATUS[app.status]?.label}</span>
         <span className="text-sm text-muted-fg">To {app.bill_to}{app.period_end ? ` · period ending ${new Date(app.period_end + 'T00:00:00').toLocaleDateString()}` : ''}</span>
       </div>
+
+      {/* A DRAFT THAT PREDATES A CHANGE ORDER.
+          The schedule is seeded when the application is created, so approving a
+          $50,000 change order afterwards left this draft still reading a
+          contract sum of $300,000 - the change-order bug apparently still open.
+          Offered rather than applied: the amounts already typed into this
+          period sit against these lines. */}
+      {data.sov_drift && data.sov_drift.amount > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-warn/40 bg-warn-tint px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-warn">
+              {money(data.sov_drift.amount)} of approved change orders is not on this schedule yet.
+            </p>
+            <p className="mt-0.5 text-xs text-warn">
+              It was approved after this draft was started. Bringing it in raises the scheduled
+              values and the contract sum — the amounts you have already entered are left alone.
+            </p>
+          </div>
+          <Button variant="secondary" onClick={resync} disabled={saving}>
+            {saving ? 'Working…' : 'Bring them in'}
+          </Button>
+        </div>
+      )}
 
       {/* G702 summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

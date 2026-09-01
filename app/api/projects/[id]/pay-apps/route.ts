@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { requirePermission, denied } from '@/lib/api-guard'
-import { retainagePct as checkRetainage, scheduleOfValues } from '@/lib/pay-app-rules'
-import { approvedChangesByLine } from '@/lib/invoice-budget'
+import { retainagePct as checkRetainage } from '@/lib/pay-app-rules'
+import { ownerScheduleOfValues } from '@/lib/pay-app-sov'
 
 export const runtime = 'nodejs'
 
@@ -106,16 +106,10 @@ export async function POST(request: Request, { params }: { params: { id: string 
     // owner change order never reached the certificate and the contract sum
     // stayed at the original figure - on a G702 whose line 1 reads "Original
     // contract sum + change orders".
-    const [{ data: lines }, { data: cos }] = await Promise.all([
-      db.from('budget_line_items').select('id, cost_code, description, budgeted_amount, subcontract_id').eq('project_id', params.id).order('sort_order'),
-      db.from('change_orders').select('amount, status, budget_line_item_id, subcontract_id').eq('project_id', params.id),
-    ])
-    const { byLine, unmapped } = approvedChangesByLine((lines ?? []) as any, (cos ?? []) as any)
-    sov = scheduleOfValues({
-      budgetLines: (lines ?? []) as any,
-      changesByLine: byLine,
-      unmappedChanges: unmapped,
-    }).map(l => ({
+    //
+    // Shared with the drift check a draft runs against itself, so "what this
+    // schedule should say" has one answer rather than two careful ones.
+    sov = (await ownerScheduleOfValues(db, params.id)).map(l => ({
       id: l.budget_line_item_id,
       cost_code: l.cost_code,
       description: l.description,
