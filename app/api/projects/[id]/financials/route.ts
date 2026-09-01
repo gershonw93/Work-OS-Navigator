@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { requirePermission, denied } from '@/lib/api-guard'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -7,6 +8,13 @@ const admin = () => createClient(
 )
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
+  // Reading the money needs permission to see it. The nav hid these
+  // screens from a Field Supervisor; the ROUTE answered anybody with a
+  // login, so pasting the URL returned the whole budget. #337 guarded the
+  // writes and left every read open - a guard on the menu is not a guard.
+  const viewGate = await requirePermission(admin(), request, 'financials', 'view')
+  if (denied(viewGate)) return viewGate.denied
+
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

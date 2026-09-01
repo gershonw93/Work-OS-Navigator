@@ -49,6 +49,31 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-02',
+    title: 'Hiding a screen is not the same as locking it',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'A Field Supervisor could open your budget by pasting the URL',
+        text: 'The Budget, Bills, Billing, Pay Apps, Change Orders, Summary and Estimate tabs were hidden from roles without access - but typing the address opened them anyway, margins and all. Every one of those screens now refuses at the server, and a tab you cannot see says so instead of showing an empty version of itself.',
+        help: 'permissions',
+        href: '/settings?tab=permissions',
+      },
+      {
+        kind: 'fixed',
+        title: 'Master Money briefly showed itself to people who cannot use it',
+        text: 'The admin-only check ran a moment after the page drew, so Office Staff saw the Master Money layout before being told it was not for them. No figures were ever exposed - the server refused the data, which is why it showed zeros - but the screen should not have appeared at all. It now waits.',
+        href: '/master-money',
+      },
+      {
+        kind: 'fixed',
+        title: '"No projects yet" when the list simply failed to load',
+        text: 'If the projects list could not be loaded, the page said you had none and offered to create your first - on a company with four. A failure now says it failed, and offers to try again.',
+        href: '/projects',
+      },
+    ],
+  },
+  {
+    date: '2026-09-02',
     title: 'A spec build stops being asked for a client',
     items: [
       {

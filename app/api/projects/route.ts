@@ -22,8 +22,23 @@ export async function GET(request: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const db = admin()
-  const { data: profile } = await db.from('profiles').select('company_id, role, companies(type)').eq('id', user.id).single()
-  if (!profile) return NextResponse.json({ projects: [] })
+  const { data: profile, error: profileError } = await db
+    .from('profiles').select('company_id, role, companies(type)').eq('id', user.id).single()
+
+  // "We could not look you up" is not "you have no projects". Returning an
+  // empty list for both is why a signed-in admin saw a confident "No projects
+  // yet" with a Create button, on a company with four of them.
+  if (profileError) {
+    console.error('[GET /api/projects] profile lookup failed:', profileError.message)
+    return NextResponse.json({ error: 'Could not load your account.' }, { status: 500 })
+  }
+  if (!profile) return NextResponse.json({ error: 'No profile on this account.' }, { status: 500 })
+  if (!profile.company_id) {
+    return NextResponse.json(
+      { error: 'Your account is not linked to a company yet, so there are no projects to show.' },
+      { status: 409 },
+    )
+  }
 
   // Subcontractors: "Projects" lists the jobs they created/own. (Awarded GC
   // jobs live under My Jobs, since those projects are owned by the GC.)
@@ -80,6 +95,14 @@ export async function GET(request: Request) {
         .in('id', projectIds).order('created_at', { ascending: false })).data as any
     }
 
+    // Same rule as the company branch below: a failed query is not "you are
+    // assigned to nothing". Only the empty-assignments case above is a real
+    // empty, and it is checked explicitly.
+    if (e2) {
+      console.error('[GET /api/projects] assigned list failed:', e2.message)
+      return NextResponse.json({ error: 'Could not load your projects.' }, { status: 500 })
+    }
+
     return NextResponse.json({ projects: data ?? [] })
   }
 
@@ -108,6 +131,12 @@ export async function GET(request: Request) {
         .order('created_at', { ascending: false })
       data = retry2.data as any; error = retry2.error
     }
+  }
+
+  // Same rule as above: a failed query must not read as an empty company.
+  if (error) {
+    console.error('[GET /api/projects] list failed:', error.message)
+    return NextResponse.json({ error: 'Could not load projects.' }, { status: 500 })
   }
 
   return NextResponse.json({ projects: data ?? [] })

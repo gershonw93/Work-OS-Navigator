@@ -19,6 +19,13 @@ async function auth(request: Request) {
 // GET — list this project's pay applications (both directions) plus the context
 // needed to start a new one (contract sum, subcontract options).
 export async function GET(request: Request, { params }: { params: { id: string } }) {
+  // Reading the money needs permission to see it. The nav hid these
+  // screens from a Field Supervisor; the ROUTE answered anybody with a
+  // login, so pasting the URL returned the whole budget. #337 guarded the
+  // writes and left every read open - a guard on the menu is not a guard.
+  const viewGate = await requirePermission(admin(), request, 'pay-apps', 'view')
+  if (denied(viewGate)) return viewGate.denied
+
   const user = await auth(request)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()
