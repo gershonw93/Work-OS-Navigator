@@ -1,6 +1,10 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { requirePermission, denied } from '@/lib/api-guard'
+import {
+  retainagePct, checkLine, payAppProblems, isPayAppStatus,
+  STATUSES_NEEDING_A_SOUND_APP, type PayAppStatus,
+} from '@/lib/pay-app-rules'
 
 export const runtime = 'nodejs'
 
@@ -37,6 +41,12 @@ function summarize(app: any, lines: any[]) {
 }
 
 export async function GET(request: Request, { params }: { params: { id: string; appId: string } }) {
+  // #358 guarded the collection routes and missed the detail ones, so this
+  // still answered anybody with a login - the same hole reported on the Budget
+  // tab, one level down.
+  const viewGate = await requirePermission(admin(), request, 'pay-apps', 'view')
+  if (denied(viewGate)) return viewGate.denied
+
   const user = await auth(request)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()
@@ -82,26 +92,80 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   const body = await request.json().catch(() => ({}))
 
   // Line edits: [{ id, this_period?, materials_stored? }]
-  if (Array.isArray(body.lines)) {
+  //
+  // Checked against the STORED line, not against what the browser sent: the
+  // scheduled value and the previous certificates decide whether an amount is
+  // billable, and taking those from the request would let a caller declare its
+  // own limit. `Number(x) || 0` used to be the whole of this - it accepted a
+  // line at 110% and -$1,000 against a $0 scheduled value.
+  if (Array.isArray(body.lines) && body.lines.length) {
+    const ids = body.lines.map((l: any) => l.id).filter(Boolean)
+    const { data: stored } = await db
+      .from('pay_application_lines')
+      .select('id, description, scheduled_value, previous_completed, this_period, materials_stored')
+      .eq('pay_application_id', params.appId)
+      .in('id', ids)
+    const byId = new Map((stored ?? []).map((l: any) => [l.id, l]))
+
     for (const l of body.lines) {
+      const current = byId.get(l.id)
+      if (!current) continue
       const updates: Record<string, any> = {}
       if (l.this_period !== undefined) updates.this_period = Number(l.this_period) || 0
       if (l.materials_stored !== undefined) updates.materials_stored = Number(l.materials_stored) || 0
-      if (Object.keys(updates).length) await db.from('pay_application_lines').update(updates).eq('id', l.id).eq('pay_application_id', params.appId)
+      if (!Object.keys(updates).length) continue
+
+      const check = checkLine({ ...current, ...updates })
+      if (!check.ok) return NextResponse.json({ error: check.error }, { status: 400 })
+
+      await db.from('pay_application_lines').update(updates).eq('id', l.id).eq('pay_application_id', params.appId)
     }
   }
 
   const header: Record<string, any> = { updated_at: new Date().toISOString() }
-  if (body.retainage_pct !== undefined) header.retainage_pct = Number(body.retainage_pct) || 0
+  if (body.retainage_pct !== undefined) {
+    const pct = retainagePct(body.retainage_pct)
+    if (!pct.ok) return NextResponse.json({ error: pct.error }, { status: 400 })
+    header.retainage_pct = pct.value
+  }
   if (body.period_start !== undefined) header.period_start = body.period_start || null
   if (body.period_end !== undefined) header.period_end = body.period_end || null
   if (body.notes !== undefined) header.notes = body.notes || null
   if (body.certified_by !== undefined) header.certified_by = body.certified_by || null
   if (body.status !== undefined) {
-    header.status = body.status
-    if (body.status === 'submitted') header.submitted_at = new Date().toISOString()
-    if (body.status === 'certified') header.certified_at = new Date().toISOString()
-    if (body.status === 'funded') header.funded_at = new Date().toISOString()
+    // Any string used to write straight through.
+    if (!isPayAppStatus(body.status)) {
+      return NextResponse.json({ error: 'That is not a pay application status.' }, { status: 400 })
+    }
+    const next: PayAppStatus = body.status
+
+    // A draft may hold an overbilled line - the change order that fixes it may
+    // not be entered yet. A certificate may not: past this point it is an
+    // owner's, an architect's or a bank's copy. Nothing checked before, which
+    // is how a 105%-retainage G702 was submitted, certified AND funded.
+    if (STATUSES_NEEDING_A_SOUND_APP.includes(next)) {
+      const [{ data: current }, { data: lines }] = await Promise.all([
+        db.from('pay_applications').select('retainage_pct').eq('id', params.appId).single(),
+        db.from('pay_application_lines')
+          .select('id, description, scheduled_value, previous_completed, this_period, materials_stored')
+          .eq('pay_application_id', params.appId),
+      ])
+      const problems = payAppProblems(
+        { retainage_pct: body.retainage_pct ?? (current as any)?.retainage_pct },
+        lines ?? [],
+      )
+      if (problems.length) {
+        return NextResponse.json({
+          error: `This application cannot be ${next} yet: ${problems[0].message}`,
+          problems,
+        }, { status: 400 })
+      }
+    }
+
+    header.status = next
+    if (next === 'submitted') header.submitted_at = new Date().toISOString()
+    if (next === 'certified') header.certified_at = new Date().toISOString()
+    if (next === 'funded') header.funded_at = new Date().toISOString()
   }
   const { error } = await db.from('pay_applications').update(header).eq('id', params.appId).eq('project_id', params.id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

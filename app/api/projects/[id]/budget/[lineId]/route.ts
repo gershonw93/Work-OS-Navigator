@@ -23,6 +23,10 @@ const admin = () => createClient(
  * versus "this is that sub's line".
  */
 export async function GET(request: Request, { params }: { params: { id: string; lineId: string } }) {
+  // #358 guarded the collection routes and missed the detail ones.
+  const viewGate = await requirePermission(admin(), request, 'budget', 'view')
+  if (denied(viewGate)) return viewGate.denied
+
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
