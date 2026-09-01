@@ -49,6 +49,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-02',
+    title: 'A spec build no longer needs a client',
+    items: [
+      {
+        kind: 'fixed',
+        title: '"Building to sell" would not let you create the project',
+        text: 'Picking "Building to sell" showed a card saying "No client - you are building it to sell", and then Create Project refused with "Pick or enter a client." The only way through was to invent an owner for a job that has none, which then followed the job onto the proposal and the client portal. A spec build no longer asks for one, and the field says so. The other two pay models still require a client.',
+        href: '/projects/new',
+      },
+    ],
+  },
+  {
+    date: '2026-09-02',
     title: 'Job margin is its own permission now',
     items: [
       {
