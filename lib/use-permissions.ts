@@ -21,6 +21,12 @@ interface PermState {
   realRole: string
   previewing: boolean
   previewingUser: string | null
+  /**
+   * 'general_contractor' | 'subcontractor' | null. Answered by the server
+   * rather than re-derived in the browser - see the note in
+   * app/api/me/permissions/route.ts.
+   */
+  companyType: string | null
   permissions: PermMap | null
   loading: boolean
   /**
@@ -43,6 +49,7 @@ export function usePermissions(): PermState {
   const [realRole, setRealRole] = useState('')
   const [previewing, setPreviewing] = useState(false)
   const [previewingUser, setPreviewingUser] = useState<string | null>(null)
+  const [companyType, setCompanyType] = useState<string | null>(null)
   const [permissions, setPermissions] = useState<PermMap | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -80,6 +87,7 @@ export function usePermissions(): PermState {
         setRealRole(data.realRole ?? data.role ?? '')
         setPreviewing(!!data.previewing)
         setPreviewingUser(data.previewingUser ?? null)
+        setCompanyType(data.companyType ?? null)
         setPermissions(data.permissions ?? null)
       } catch (e: any) {
         if (active) setError(e?.message ?? 'Could not reach the server')
@@ -95,6 +103,7 @@ export function usePermissions(): PermState {
     realRole,
     previewing,
     previewingUser,
+    companyType,
     permissions,
     loading,
     error,

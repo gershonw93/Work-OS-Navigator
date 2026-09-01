@@ -1132,6 +1132,21 @@ export const HELP_ARTICLES: HelpArticle[] = [
     related: ['permissions', 'delete-protection'],
   },
   {
+    slug: 'data-security',
+    title: 'Who can see your data',
+    category: 'settings',
+    keywords: ['security', 'data', 'private', 'safe', 'who can see', 'portal link', 'share link', 'token', 'breach', 'encrypted', 'database', 'privacy', 'protect', 'access'],
+    summary: 'How your company\'s data is kept separate, and how client portal links work.',
+    blocks: [
+      { type: 'text', text: 'Your data lives in a database that only SyteNav itself can reach. Every table is closed by default: a request that does not come through the app is refused before it reads anything, so knowing your company name or your project address gets somebody nowhere.' },
+      { type: 'text', text: 'Inside the app, what you see is decided by your role - see "Control who can see and do what". Those checks run on the server, so hiding a button is not the only thing stopping someone.' },
+      { type: 'text', text: 'CLIENT PORTAL LINKS. When you send an invoice, the client gets a long unguessable link. Anyone holding that link can open it without signing in - that is the point, so your customer does not need an account. Treat it like a document you emailed: forwarding it forwards the access.' },
+      { type: 'warn', text: 'Portal links do not currently expire and cannot be revoked. If a link reaches the wrong person, tell us - expiry and a revoke button are on the list.' },
+      { type: 'text', text: 'FIXED IN SEPTEMBER 2026. Eight tables - including the one holding client invoices and their portal links - were readable without signing in. Nothing indicates it was used, but it was possible. Every table is now closed, and a check in the build refuses any future table that forgets it.' },
+    ],
+    related: ['permissions', 'auto-signout', 'create-invoice'],
+  },
+  {
     slug: 'permissions',
     title: 'Control who can see and do what',
     category: 'settings',
