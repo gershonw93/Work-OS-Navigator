@@ -63,6 +63,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     hasAddress: !!(p.address ?? '').trim(),
     hasContractType: !!p.contract_type,
     hasClient: !!((p.client ?? '').trim() || p.customer_id),
+    contractType: p.contract_type ?? null,
     budgetLines, plans, teamMembers, subcontracts, complianceDocs, scheduleItems,
     shared: shares > 0,
     billingMode: p.billing_mode ?? 'simple',

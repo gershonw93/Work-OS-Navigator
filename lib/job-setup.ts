@@ -26,6 +26,17 @@ export interface SetupFacts {
   shared: boolean
   /** AIA jobs bill by pay application, so some copy changes. */
   billingMode: string
+  /**
+   * 'cost_plus' | 'fixed_price' | 'spec', or null if not answered yet.
+   *
+   * A SPEC BUILD HAS NO CLIENT - the card that offers it says so in as many
+   * words: "No client - you are building it to sell." Without this the
+   * checklist listed "Put the client on the job" as ESSENTIAL on such a job,
+   * which can never be done, so the setup could never finish and the count
+   * read "1 still needed" forever. Same contradiction #344 fixed on the
+   * project form, in the one place that had not heard about it.
+   */
+  contractType?: string | null
 }
 
 export interface SetupStep {
@@ -69,7 +80,9 @@ export function setupSteps(f: SetupFacts): SetupStep[] {
       cta: 'Answer it on the Budget tab',
       essential: true,
     },
-    {
+    // Dropped entirely on a spec build rather than marked done: it is not a
+    // step somebody completed, it is a step that does not apply.
+    ...(f.contractType === 'spec' ? [] : [{
       key: 'client',
       label: 'Put the client on the job',
       why: 'They are who the invoices and the portal are for. Adding them now means you never retype the name onto a document later.',
@@ -78,7 +91,7 @@ export function setupSteps(f: SetupFacts): SetupStep[] {
       href: 'plans',
       cta: 'Add in project settings',
       essential: true,
-    },
+    }]),
     {
       key: 'budget',
       label: 'Bring the budget in',
