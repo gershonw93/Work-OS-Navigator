@@ -51,7 +51,7 @@ export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
-  const { can, realRole, companyType, loading: permsLoading, error: permsError, reload: reloadPerms } = usePermissions()
+  const { can, role, companyType, loading: permsLoading, error: permsError, reload: reloadPerms } = usePermissions()
   // Subcontractors get a different nav entirely. This arrives with the
   // permissions rather than from a second query the browser makes itself.
   const isSubcontractor = companyType === 'subcontractor'
@@ -81,7 +81,17 @@ export function Sidebar() {
   useEffect(() => { setMobileOpen(false) }, [pathname])
 
   // Build nav from permissions (Settings always available)
-  const isAdmin = realRole === 'admin' || realRole === 'manager'
+  //
+  // `role`, not `realRole`. Role preview exists to answer "what does a Field
+  // Supervisor actually see", and gating this on realRole meant an admin
+  // previewing one still had the Master section - cross-project money - sitting
+  // in their sidebar. The preview reported the wrong answer to the exact
+  // question it was built to answer, and it was the money half it got wrong.
+  //
+  // The server does NOT rely on this: /api/master/money and /api/dashboard/
+  // overview both check the real role from the database and 403 anybody else,
+  // so a real supervisor is refused the data whatever the nav renders.
+  const isAdmin = role === 'admin' || role === 'manager'
   const navItems = isSubcontractor
     ? SUB_NAV
     : GC_NAV_ITEMS.filter(item => item.resource === null || (!permsLoading && can(item.resource, 'view')))

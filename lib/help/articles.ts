@@ -1155,6 +1155,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
     blocks: [
       { type: 'text', text: 'Every screen (Budget, Invoices, Compliance, Equipment, etc.) has view/create/edit/delete permissions. Roles come with defaults; overrides let you adjust an individual.' },
       { type: 'text', text: 'THESE ARE ENFORCED BY THE SERVER, not just by hiding buttons. Every money screen - budgets, bills from subs, billing the client, change orders, subcontracts, pay apps and materials - checks your role before it writes anything. Until September 2026 the buttons were hidden but the change still went through if you reached it another way, so what role preview shows you is now genuinely what that person can do.' },
+      { type: 'text', text: 'ROLE PREVIEW SHOWS WHAT THEY SEE. Use "View as" to check a role before you rely on it. Until September 2026 the preview kept your own Master Calendar and Master Money links in the sidebar, which made it look as though a Field Supervisor could see company-wide money - they never could, but the preview said otherwise.' },
+      { type: 'tip', text: 'Field Supervisor sees no budgets, invoices, payments or reports by default - only the field side of a job. If you want a supervisor to see job costs, grant it per person under Team & Users.' },
       { type: 'steps', items: [
         'Open Settings and go to Team & Users.',
         'Open a member and adjust their access per screen.',

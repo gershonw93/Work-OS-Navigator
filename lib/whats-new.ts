@@ -48,6 +48,30 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    date: '2026-09-02',
+    title: 'Who sees the money, and forms that say what is wrong',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'The activity feed no longer showed the whole company to some people',
+        text: 'Everyone except an admin is meant to see only their own actions in the dashboard feed. The check was skipped for anyone whose profile had no name filled in - so they saw every action on every job, including budget changes with amounts on them. Anyone invited who never finished their profile was affected. It now matches on who you actually are, and shows nothing rather than everything if it cannot tell.',
+        href: '/dashboard',
+      },
+      {
+        kind: 'fixed',
+        title: 'Role preview now hides the Master money views too',
+        text: 'Previewing a role showed you that role\'s screens but kept your own Master Calendar and Master Money links in the sidebar - so checking what a Field Supervisor sees suggested they could see company-wide money. They could not: the server always refused them the data. The preview was wrong, not the permission.',
+        href: '/settings?tab=permissions',
+      },
+      {
+        kind: 'fixed',
+        title: 'A blank required field says so, instead of glowing green',
+        text: 'Leaving the Start Date empty on a new project gave no message at all - just the field\'s green outline, which looks like approval. Every required field on the project form now shows a red message under it saying what is missing, and an end date before the start date is caught.',
+        href: '/projects/new',
+      },
+    ],
+  },
+  {
     date: '2026-09-01',
     title: 'Your data is closed off at the database, not just in the app',
     items: [

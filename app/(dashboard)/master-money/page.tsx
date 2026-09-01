@@ -16,11 +16,13 @@ const money = (n: number) => `$${Number(n || 0).toLocaleString(undefined, { maxi
 
 export default function MasterMoneyPage() {
   const supabase = createClient()
-  const { realRole, loading: permLoading } = usePermissions()
+  // `role`, not `realRole`, so previewing a role shows what that role sees.
+  // The API behind this page checks the real role and 403s regardless.
+  const { role, loading: permLoading } = usePermissions()
   const [rows, setRows] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
 
-  const isAdmin = realRole === 'admin' || realRole === 'manager'
+  const isAdmin = role === 'admin' || role === 'manager'
 
   useEffect(() => {
     (async () => {
