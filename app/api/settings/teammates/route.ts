@@ -22,10 +22,16 @@ export async function GET(request: Request) {
 
   if (!profile?.company_id) return NextResponse.json({ teammates: [] })
 
-  const [{ data: teammates }, { data: rawInvites }] = await Promise.all([
+  const [{ data: teammates }, { data: rawInvites }, ownerRes] = await Promise.all([
     db.from('profiles').select('id, full_name, email, role').eq('company_id', profile.company_id).order('full_name'),
     db.from('company_invites').select('*').eq('company_id', profile.company_id).eq('status', 'pending'),
+    // Who owns this company, so the UI can mark them and hide the controls
+    // that would act on them. Null when migration 094 has not been applied -
+    // the SERVER still refuses those actions either way, so an out-of-date
+    // column here costs a badge, not the protection.
+    db.from('companies').select('owner_id').eq('id', profile.company_id).single(),
   ])
+  const ownerId = ownerRes.error ? null : ((ownerRes.data as any)?.owner_id ?? null)
 
   // Deduplicate by email (keep most recent), and exclude emails that are already active members
   const memberEmails = new Set((teammates ?? []).map((t: Record<string, unknown>) => t.email as string))
@@ -120,5 +126,5 @@ export async function GET(request: Request) {
       id: r.id, email: r.email, role: r.role ?? 'read_only', status: r.status, created_at: r.created_at,
     }))
 
-  return NextResponse.json({ teammates: finalTeammates, pendingInvites })
+  return NextResponse.json({ teammates: finalTeammates, pendingInvites, ownerId })
 }

@@ -247,6 +247,9 @@ export default function SettingsPage() {
 
   // Team
   const [teammates, setTeammates] = useState<Teammate[]>([])
+  // Who owns this company. The server refuses to remove or demote them either
+  // way; this is so the UI does not offer a button that will be refused.
+  const [ownerId, setOwnerId] = useState<string | null>(null)
   const [pendingRoles, setPendingRoles] = useState<Record<string, string>>({})
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([])
   const [showInvite, setShowInvite] = useState(false)
@@ -312,6 +315,7 @@ export default function SettingsPage() {
     if (res.ok) {
       const data = await res.json()
       if (data.teammates) setTeammates(data.teammates)
+      setOwnerId(data.ownerId ?? null)
       if (data.pendingInvites) setPendingInvites(data.pendingInvites)
     }
   }, [])
@@ -645,6 +649,27 @@ export default function SettingsPage() {
   }
 
   // ── Remove Member ─────────────────────────────────────────────────────────
+
+  async function makeOwner(memberId: string, name: string) {
+    if (!window.confirm(
+      `Make ${name} the owner of this account?\n\n` +
+      'They will be the one person no admin can remove - and you will lose that ' +
+      'protection. Only they can hand it back.'
+    )) return
+    try {
+      const headers = await authHeaders()
+      const res = await fetch('/api/settings/company/owner', {
+        method: 'POST', headers, body: JSON.stringify({ memberId }),
+      })
+      const d = await res.json().catch(() => ({} as any))
+      if (!res.ok) { setInviteMsg({ ok: false, text: d.error ?? 'Could not transfer ownership.' }); return }
+      setOwnerId(memberId)
+      setInviteMsg({ ok: true, text: `${name} now owns this account.` })
+      await loadSettings()
+    } catch {
+      setInviteMsg({ ok: false, text: 'Could not transfer ownership.' })
+    }
+  }
 
   async function removeMember(memberId: string, name: string) {
     if (!window.confirm(`Remove ${name} from the team? This cannot be undone.`)) return
@@ -1201,12 +1226,20 @@ export default function SettingsPage() {
                                   <div>
                                     <span className="font-medium text-ink-soft">{t.full_name || '-'}</span>
                                     {isSelf && <span className="ml-2 text-xs text-faint">(you)</span>}
+                                    {t.id === ownerId && (
+                                      <span
+                                        title="The account owner. No admin can remove or demote them."
+                                        className="ml-2 inline-flex items-center rounded-full bg-accent-tint px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent-fg"
+                                      >
+                                        Owner
+                                      </span>
+                                    )}
                                   </div>
                                 </div>
                               </td>
                               <td className="px-4 py-3 text-muted-fg">{t.email}</td>
                               <td className="px-4 py-3">
-                                {userRole === 'admin' && !isSelf ? (
+                                {userRole === 'admin' && !isSelf && t.id !== ownerId ? (
                                   <div className="flex items-center gap-2">
                                     <SearchableSelect
                                       value={pendingRoles[t.id] ?? t.role}
@@ -1243,13 +1276,30 @@ export default function SettingsPage() {
                                 </span>
                               </td>
                               <td className="px-4 py-3">
-                                {userRole === 'admin' && !isSelf && (
-                                  <button
-                                    onClick={() => removeMember(t.id, t.full_name ?? t.email)}
-                                    className="text-xs text-danger hover:text-danger hover:underline"
-                                  >
-                                    Remove
-                                  </button>
+                                {t.id === ownerId ? (
+                                  <span className="text-xs text-faint" title="Ownership has to be transferred first.">
+                                    Owner
+                                  </span>
+                                ) : (
+                                  <div className="flex items-center gap-3">
+                                    {/* Only the owner can hand it over, and only to an admin. */}
+                                    {ownerId && ownerId === profile?.id && t.role === 'admin' && (
+                                      <button
+                                        onClick={() => makeOwner(t.id, t.full_name ?? t.email)}
+                                        className="text-xs text-muted-fg hover:text-accent-fg hover:underline"
+                                      >
+                                        Make owner
+                                      </button>
+                                    )}
+                                    {userRole === 'admin' && !isSelf && (
+                                      <button
+                                        onClick={() => removeMember(t.id, t.full_name ?? t.email)}
+                                        className="text-xs text-danger hover:text-danger hover:underline"
+                                      >
+                                        Remove
+                                      </button>
+                                    )}
+                                  </div>
                                 )}
                               </td>
                             </tr>

@@ -49,6 +49,26 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-02',
+    title: 'Your account has an owner, and nobody can remove them',
+    items: [
+      {
+        kind: 'new',
+        title: 'One person owns the account and cannot be removed or demoted',
+        text: 'Every admin could remove or demote every other admin - including whoever set the company up. The person who created the company is now marked Owner, and no admin can remove them, change their role, or take their access away. Everything else about admins is unchanged.',
+        help: 'permissions',
+        href: '/settings?tab=team',
+      },
+      {
+        kind: 'new',
+        title: 'Ownership can be handed over',
+        text: 'Only the owner can do it, and only to somebody who is already an admin. Use it if the owner is leaving the company - once handed over, they become a normal admin and can be removed like anyone else.',
+        help: 'permissions',
+        href: '/settings?tab=team',
+      },
+    ],
+  },
+  {
+    date: '2026-09-02',
     title: 'Password reset emails come from SyteNav now too',
     items: [
       {

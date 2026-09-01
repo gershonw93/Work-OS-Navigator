@@ -1184,6 +1184,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'The new class shows up alongside the standard roles when inviting someone or changing a teammate\'s role.',
         'To remove a custom class, reassign anyone still on it first, then delete it.',
       ] },
+      { type: 'text', text: 'THE OWNER. One person owns the account - normally whoever set the company up. They are marked "Owner" in Team & Users, and no admin can remove them, change their role, or take their access away. Every other admin can be removed by any admin, so the owner is the account\'s floor: there is always somebody who cannot be locked out.' },
+      { type: 'text', text: 'To hand ownership over - if the owner is leaving, say - the owner clicks "Make owner" beside another admin. It only goes to somebody who is already an admin, and only the current owner can do it. Afterwards they are a normal admin and can be removed like anyone else.' },
       { type: 'tip', text: 'Admin access can never be edited or removed - this keeps at least one person always able to manage the account.' },
     ],
     related: ['permissions', 'invite-team-member'],

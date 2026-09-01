@@ -1,6 +1,26 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { ROLE_DEFAULTS } from '@/lib/permissions'
+import { mayChangeRole, mayRemoveMember, type MemberContext } from '@/lib/company-owner'
+
+/**
+ * The company's owner, and whether we actually know it.
+ *
+ * A failed read is NOT "no owner". If migration 094 has not been applied the
+ * column does not exist, the select errors, and treating that as "nobody owns
+ * this company" would leave the protection silently absent - the exact shape of
+ * the fail-open guards fixed in #342 and #347.
+ */
+async function readOwner(
+  db: ReturnType<typeof adminClient>,
+  companyId: string | null | undefined,
+): Promise<{ ownerId: string | null; ownerKnown: boolean }> {
+  if (!companyId) return { ownerId: null, ownerKnown: false }
+  const { data, error } = await db
+    .from('companies').select('owner_id').eq('id', companyId).single()
+  if (error) return { ownerId: null, ownerKnown: false }
+  return { ownerId: (data as any)?.owner_id ?? null, ownerKnown: true }
+}
 
 // Any built-in role, plus any custom class this company has defined. Checked
 // per-request so newly created classes are immediately assignable.
@@ -66,7 +86,7 @@ export async function PATCH(
   // Verify the target member belongs to the same company
   const { data: target } = await db
     .from('profiles')
-    .select('id, company_id')
+    .select('id, company_id, role')
     .eq('id', memberId)
     .single()
 
@@ -74,10 +94,14 @@ export async function PATCH(
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
-  // Prevent the caller from demoting themselves
-  if (memberId === caller.id) {
-    return NextResponse.json({ error: 'You cannot change your own role.' }, { status: 400 })
+  const { ownerId, ownerKnown } = await readOwner(db, caller.company_id)
+  const ctx: MemberContext = {
+    callerId: caller.id, callerRole: caller.role,
+    targetId: memberId, targetRole: (target as any).role ?? '',
+    ownerId, ownerKnown,
   }
+  const verdict = mayChangeRole(ctx)
+  if (!verdict.ok) return NextResponse.json({ error: verdict.error }, { status: 400 })
 
   const { data: updated, error } = await db
     .from('profiles')
@@ -125,21 +149,24 @@ export async function DELETE(
   const db = adminClient()
   const { memberId } = params
 
-  // Prevent self-removal
-  if (memberId === caller.id) {
-    return NextResponse.json({ error: 'You cannot remove yourself.' }, { status: 400 })
-  }
-
   // Verify the target belongs to the same company
   const { data: target } = await db
     .from('profiles')
-    .select('id, company_id')
+    .select('id, company_id, role')
     .eq('id', memberId)
     .single()
 
   if (!target || target.company_id !== caller.company_id) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
+
+  const { ownerId, ownerKnown } = await readOwner(db, caller.company_id)
+  const verdict = mayRemoveMember({
+    callerId: caller.id, callerRole: caller.role,
+    targetId: memberId, targetRole: (target as any).role ?? '',
+    ownerId, ownerKnown,
+  })
+  if (!verdict.ok) return NextResponse.json({ error: verdict.error }, { status: 400 })
 
   // Delete the profile row
   const { error: profileError } = await db
