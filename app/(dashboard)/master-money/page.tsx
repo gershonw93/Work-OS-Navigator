@@ -33,7 +33,14 @@ export default function MasterMoneyPage() {
     })()
   }, [])
 
-  if (!permLoading && !isAdmin) return <div className="p-8 text-sm text-muted-fg">This view is for admins only.</div>
+  // Nothing renders until permissions are KNOWN. This used to read
+  // `!permLoading && !isAdmin`, so while they were still loading the guard was
+  // skipped and the page painted its admin layout - Office Staff saw the whole
+  // Master Money screen. The data never leaked (the API refuses on the real
+  // role, which is why it showed zeros), but the surface did, and "you may not
+  // be here" arriving a second late is not a guard.
+  if (permLoading) return <div className="text-sm text-faint py-12 text-center">Loading…</div>
+  if (!isAdmin) return <div className="p-8 text-sm text-muted-fg">This view is for admins only.</div>
   if (loading) return <div className="text-sm text-faint py-12 text-center">Loading…</div>
 
   const t = rows.reduce((a, r) => ({

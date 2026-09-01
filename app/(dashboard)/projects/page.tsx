@@ -104,6 +104,7 @@ export default function ProjectsPage() {
   const [bulkToken, setBulkToken] = useState('')
   const [projectStats, setProjectStats] = useState<Record<string, ProjectStat>>({})
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [editProject, setEditProject] = useState<Project | null>(null)
   const [saving, setSaving] = useState(false)
 
@@ -133,6 +134,7 @@ export default function ProjectsPage() {
   }
 
   async function fetchProjects() {
+    setLoadError(null)
     // Use the API so role-based scoping (assigned-only for field roles) is enforced
     const token = await getToken()
     setBulkToken(token)
@@ -140,8 +142,14 @@ export default function ProjectsPage() {
     if (res.ok) {
       const data = await res.json()
       setItems(data.projects ?? [])
+      setLoadError(null)
     } else {
+      // A failed load used to become an empty list, which renders as "No
+      // projects yet" with a Create button - a confident wrong answer on a
+      // company that has four. Loading, empty and failed are three facts.
+      const d = await res.json().catch(() => ({} as any))
       setItems([])
+      setLoadError(d?.error ?? `Could not load your projects (${res.status}).`)
     }
     setLoading(false)
     // Stats are non-blocking - load after the list renders
@@ -525,7 +533,18 @@ export default function ProjectsPage() {
       )}
 
       {/* Content */}
-      {items.length === 0 ? (
+      {loadError ? (
+        <Card>
+          <CardContent className="p-0">
+            <EmptyState
+              icon={FolderKanban}
+              title="Could not load your projects"
+              description={loadError}
+              action={{ label: 'Try again', onClick: fetchProjects }}
+            />
+          </CardContent>
+        </Card>
+      ) : items.length === 0 ? (
         <Card>
           <CardContent className="p-0">
             <EmptyState

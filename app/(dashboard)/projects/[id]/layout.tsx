@@ -1,6 +1,7 @@
 import { ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { ProjectTabs } from '@/components/layout/project-tabs'
+import { ProjectTabGuard } from '@/components/layout/project-tab-guard'
 import { ProjectActivityButton } from '@/components/layout/project-activity-button'
 import { SharePortalButton } from '@/components/layout/share-portal-button'
 import { TeamQuickView } from '@/components/layout/team-quick-view'
@@ -107,9 +108,10 @@ export default async function ProjectLayout({ children, params }: ProjectLayoutP
         <ProjectTabs projectId={params.id} />
       </div>
 
-      {/* Content */}
+      {/* Content. Wrapped so a tab this person may not see says so, rather
+          than rendering an empty version of it - see ProjectTabGuard. */}
       <div className="flex-1 p-4 sm:p-6 print:p-0">
-        {children}
+        <ProjectTabGuard>{children}</ProjectTabGuard>
       </div>
     </div>
   )

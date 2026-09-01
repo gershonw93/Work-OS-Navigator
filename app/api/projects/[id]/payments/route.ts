@@ -28,6 +28,13 @@ const VENDOR_BILLED = ACTUAL_STATUSES
 
 // Client payments ledger + escrow summary for a project.
 export async function GET(request: Request, { params }: { params: { id: string } }) {
+  // Reading the money needs permission to see it. The nav hid these
+  // screens from a Field Supervisor; the ROUTE answered anybody with a
+  // login, so pasting the URL returned the whole budget. #337 guarded the
+  // writes and left every read open - a guard on the menu is not a guard.
+  const viewGate = await requirePermission(admin(), request, 'payments', 'view')
+  if (denied(viewGate)) return viewGate.denied
+
   const user = await auth(request)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()
