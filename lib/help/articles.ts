@@ -1127,6 +1127,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'In the Team section, invite a member by email and choose their role.',
         'They receive an invite; once they log in they join your company automatically.',
       ] },
+      { type: 'text', text: 'IF THE INVITE EMAIL DOES NOT ARRIVE. Every pending invite has a "Copy link" button next to it. Copy that and send it however you like - your own email, a text, a chat. It does the same thing the emailed link does: takes them to set a password and join your company.' },
+      { type: 'warn', text: 'That link signs the person in, so treat it like a password - send it to the person it is for and nobody else.' },
       { type: 'tip', text: 'Roles set sensible defaults, and you can fine-tune each person\'s permissions per screen.' },
     ],
     related: ['permissions', 'delete-protection'],

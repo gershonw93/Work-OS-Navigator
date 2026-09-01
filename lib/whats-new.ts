@@ -49,6 +49,25 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-02',
+    title: 'Copy an invite link instead of waiting on email',
+    items: [
+      {
+        kind: 'new',
+        title: 'Copy link on a pending invite',
+        text: 'Every pending invite now has a Copy link button. Paste it into your own email, a text or a chat and the person can set up their account - no waiting on the invite email to arrive. Same escape hatch the client portal has always had beside Send.',
+        help: 'invite-team-member',
+        href: '/settings?tab=team',
+      },
+      {
+        kind: 'fixed',
+        title: 'Dropdowns on Settings had their arrow outside the box',
+        text: 'Five dropdowns on the Settings screen - Company Type, Role, and the three project defaults - drew their arrow below and to the left of the box, with the text centred. They now look like every other dropdown in the app.',
+        href: '/settings',
+      },
+    ],
+  },
+  {
+    date: '2026-09-02',
     title: 'Resend tells you whether it actually resent',
     items: [
       {
