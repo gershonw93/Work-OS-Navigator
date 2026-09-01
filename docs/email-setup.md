@@ -1,66 +1,101 @@
-# Email: two senders, two keys
+# Email: one sender, and a fallback
 
-SyteNav sends mail two different ways, and they are configured in two different
-places. Nearly every question about "why didn't that email arrive" comes from
-not knowing which of the two a flow uses.
+Every email SyteNav sends goes out through **SendGrid, from the app**, using
+`SENDGRID_API_KEY` in the Vercel environment. There is nothing to configure
+anywhere else for mail to work.
 
-## The split
+Supabase Auth has its own SMTP settings, and they are a **fallback only** —
+used when `SENDGRID_API_KEY` is unset. Worth configuring so the fallback works,
+but nothing depends on them day to day.
 
-| Sent by | Which flows | Key lives in |
-|---|---|---|
-| **SendGrid, directly** (`lib/email.ts`) | Client portal links, quote requests, compliance requests, shared files, client invoices, notifications, **and team invites since #351** | `SENDGRID_API_KEY` in the app's environment (Vercel) |
-| **Supabase Auth** | Nothing, as of #352 | Supabase dashboard → Authentication → Emails → SMTP |
+| Sent by | Which flows |
+|---|---|
+| SendGrid, via `lib/email.ts` | Client portal links, quote requests, compliance requests, shared files, client invoices, notifications, **team invites**, **password resets** |
+| Supabase Auth SMTP | Only when `SENDGRID_API_KEY` is unset |
 
-**Everything moved off Supabase's mailer.** Team invites in #351 and password
-resets in #352, both by minting the link with `generateLink` (which returns it
-and sends nothing) and mailing it through `lib/email.ts`. Supabase's own send
-remains only as the fallback when `SENDGRID_API_KEY` is unset.
+## How it got this way
+
+Team invites (#351) and password resets (#352) used to be handed to Supabase
+Auth to deliver. That needed custom SMTP configured in the Supabase dashboard —
+a second mail setup, separate from `SENDGRID_API_KEY`, that nothing in this repo
+could see, test, or report on.
+
+The result was a working mail path and a broken one at the same time: a manual
+SendGrid send to an address arrived while every invite to that same address
+vanished, and nothing on screen could say which half was at fault, because the
+app only owned one of them.
+
+Both now mint their link with `generateLink` — which returns the link and sends
+nothing — and mail it themselves. **Password reset was the one that mattered
+most:** an invite that does not arrive can be re-sent by an admin, but somebody
+locked out of their account has no way in and no way to tell anybody.
 
 **Signup confirmation never applied here.** Sign-up is invite-only, and
 `app/(auth)/signup/page.tsx` calls `signInWithPassword` immediately after
 `signUp` — which fails outright if a project requires email confirmation. So
-confirmations are off, and there is no confirmation email to move. If you ever
-switch them on, that flow needs the SMTP settings below and this note is wrong.
+confirmations are off and there is no confirmation email to move. Turn them on
+and this paragraph becomes wrong.
 
-**So the Supabase SMTP settings are now belt-and-braces.** Worth configuring so
-the fallback works, but nothing depends on them day to day.
+## Two things the app now owns
 
-The three Supabase ones are:
+Taking those flows over meant taking on two things Supabase's mailer had been
+doing quietly.
 
-- `app/api/invite/route.ts` — `inviteUserByEmail`
-- `app/(auth)/forgot-password/page.tsx` — `resetPasswordForEmail`
-- `app/(auth)/signup/page.tsx` — `signUp`
+**`/api/auth/reset-password` is throttled, per address, 60 seconds.** It is an
+unauthenticated endpoint that sends email; without a limit it is a way to
+mail-bomb any address somebody can guess, on your SendGrid quota. The record is
+`password_reset_throttle` (migration 093) and the claim is written *before* the
+send, so two simultaneous requests cannot both pass the check. If that table is
+ever missing, the route hands the send back to Supabase's rate-limited mailer
+rather than carrying on unthrottled.
 
-They do not touch `lib/email.ts` at all. Setting `SENDGRID_API_KEY` does nothing
-for them.
+**It never reveals whether an account exists.** Every outcome — unknown address,
+throttled, SendGrid down, link refused — returns the same answer. An endpoint
+that responds differently for a real address is a way to test who uses this
+product, one address at a time. That is why the reasons go to the server log and
+not to the screen.
 
-## Why Supabase needs its own SMTP
+## When mail does not arrive
 
-Without custom SMTP, Supabase sends those three from its own built-in sender,
-which is rate-limited to a handful per hour and is documented as being for
-testing, not production. The invite route already expects this — it catches
-`email rate limit` and records the invite with `emailSent: false`, and Settings →
-Team & Users says "Recorded! Email may not have been sent" rather than claiming
-success.
+**Check SendGrid → Activity first**, and note that invites and resets are
+attributed to the **app's** `SENDGRID_API_KEY`, not to the fallback key below.
 
-**Password reset is the one that actually hurts.** An invite that does not arrive
-can be re-sent by an admin. A locked-out user who never gets a reset email has no
-way in at all.
+- **Nothing listed at all** — the app never reached SendGrid. Check
+  `SENDGRID_API_KEY` is set in Vercel.
+- **Bounced or Dropped** — SendGrid sent it and the address refused it. Usually
+  the mailbox does not exist: a domain used only for a website has no mailboxes
+  on it, so every address there bounces however perfect the config is. Test with
+  a Gmail address to separate "config is wrong" from "that mailbox is not real".
+- **Delivered** — it is in a spam folder, or forwarding somewhere you are not
+  looking.
 
-## Setting it up
+Then, per flow:
+
+- **An invite.** Settings → Team & Users reports the outcome honestly: "Invite
+  sent" means it left; anything else carries SendGrid's own error text, which
+  names the problem (e.g. *"The from address does not match a verified Sender
+  Identity"*). **Copy link** on the pending invite works regardless of email —
+  paste it into your own message and the person can still get in.
+- **A password reset.** The page cannot tell you anything, by design (see
+  above). Look for `[reset-password]` in the Vercel logs; SendGrid's own words
+  are there.
+
+## Configuring the Supabase fallback
+
+Only needed so the fallback works. Skip it and everything still sends.
 
 ### 1. A separate SendGrid key
 
 SendGrid → Settings → API Keys → Create API Key.
 
 - Name it `Supabase Auth SMTP`.
-- **Restricted Access**, with **Mail Send** on Full Access and nothing else.
+- **Restricted Access** (SendGrid labels it *Custom Access* on the create
+  screen), with **Mail Send** on Full Access and nothing else.
 - Copy it immediately. SendGrid shows a key exactly once and cannot show it
   again — that is by design, not a setting. If you lose it, make another.
 
-Use a key of its own rather than the app's. It can be revoked on its own without
-taking down portal and invoice email, SendGrid attributes activity per key so
-"did it send?" is answerable, and it needs only one permission.
+A key of its own can be revoked without taking down the app's mail, and SendGrid
+attributes activity per key, so "did it send?" stays answerable.
 
 ### 2. Verify the sender
 
@@ -68,7 +103,7 @@ The From address has to be one SendGrid trusts or it refuses the send.
 
 - **Preferred:** Domain Authentication on `sytenav.com` (Settings → Sender
   Authentication). Signs with DKIM and lets any address on the domain send.
-- **Quicker:** Single Sender Verification of `noreply@sytenav.com`.
+- **Quicker:** Single Sender Verification of one address.
 
 ### 3. Supabase → Authentication → Emails → SMTP Settings
 
@@ -100,28 +135,14 @@ Three of these have a trap in them:
   confusing while testing — if a repeat test "does not send", this is usually
   why.
 
-Sender email and name match the defaults in `lib/email.ts`, so an invite looks
-like every other mail the product sends. If you override `EMAIL_FROM` /
-`EMAIL_FROM_NAME` in the app, change these to match or the two halves of the
-product will mail from different addresses.
+Sender email and name match the defaults in `lib/email.ts`, so a fallback send
+looks like every other mail the product sends. If you override `EMAIL_FROM` /
+`EMAIL_FROM_NAME` in the app, change these to match.
 
 ### 4. Raise the rate limit
 
 Authentication → Rate Limits → emails per hour. It stays low after enabling
 custom SMTP. SendGrid's own limit should be what binds, not Supabase's.
-
-## Checking it worked
-
-1. Invite a throwaway address from Settings → Team & Users. The UI tells the two
-   outcomes apart, so this is a real test: "Invite sent" means it left,
-   "Recorded! Email may not have been sent…" means SMTP is still wrong.
-2. Request a password reset from `/forgot-password` for a real account. Test this
-   one explicitly — it is the path with no workaround.
-3. SendGrid → Activity should list both as Delivered, attributed to the
-   `Supabase Auth SMTP` key. **This is the step that proves it.** Mail arriving
-   is not proof on its own; Supabase falling back to its built-in sender looks
-   identical from the inbox.
-4. Send more than a handful in an hour to confirm the old ceiling is gone.
 
 ## A note on CRON_SECRET
 
