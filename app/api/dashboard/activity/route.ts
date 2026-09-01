@@ -60,9 +60,26 @@ export async function GET(request: Request) {
     .order('created_at', { ascending: false })
     .limit(30)
 
-  // Non-admin users only see their own actions
-  if (!isCompanyAdmin && fullName) {
-    query = query.eq('actor_name', fullName)
+  // Non-admin users only see their own actions.
+  //
+  // THE BUG: this used to read `if (!isCompanyAdmin && fullName)`, so a person
+  // with no full_name on their profile fell straight past the filter and got
+  // the WHOLE COMPANY's feed - including the budget_line_added entries, which
+  // carry amounts. An empty name is not rare: somebody invited who never
+  // finished their profile has one. A guard that only holds when an optional
+  // field happens to be filled in is not a guard.
+  //
+  // Fails closed now: no identity to match means no rows, never all of them.
+  // Matched on actor_id first because a display name is not an identity -
+  // two people called Mike Ryan saw each other's activity, and renaming
+  // yourself used to empty your own feed. actor_name stays in the OR for rows
+  // written before logActivity started recording an id.
+  if (!isCompanyAdmin) {
+    const clauses = [`actor_id.eq.${user.id}`]
+    // Quoted: a name with a comma in it would otherwise be read as the end of
+    // this filter and the start of another.
+    if (fullName) clauses.push(`actor_name.eq."${fullName.replace(/"/g, '\\"')}"`)
+    query = query.or(clauses.join(','))
   }
 
   const { data, error } = await query

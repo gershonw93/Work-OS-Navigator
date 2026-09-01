@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { AddressFields } from '@/components/ui/address-fields'
+import { Field } from '@/components/ui/field'
+import { projectFormErrors } from '@/lib/project-rules'
 import {
   type ContractType, CONTRACT_TYPES, CONTRACT_LABEL, CONTRACT_BLURB, asContractType,
 } from '@/lib/contract-type'
@@ -78,6 +80,18 @@ export function ProjectForm({
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [error, setError] = useState<string | null>(null)
+  /**
+   * What is wrong with each field, by field name.
+   *
+   * THE BUG: every required field here was marked `required` and nothing else,
+   * so a blank Start Date produced a browser tooltip and the field's ACCENT
+   * ring - which is lime green. A field that has just refused your submit
+   * looked like a field that had passed. Meanwhile Owner / Client, the one
+   * field with NO `required` attribute, got a proper red message, because it
+   * was checked in JavaScript and had somewhere to say so. The unvalidated
+   * field gave the better error than the validated ones.
+   */
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
 
   // Existing customers from the directory, so the client can be picked instead
@@ -106,20 +120,33 @@ export function ProjectForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  /** Drop a field's message as soon as it is being corrected - leaving it up
+   *  while somebody types tells them they are still wrong when they are not. */
+  const clearField = (k: string) =>
+    setFieldErrors(prev => (prev[k] ? { ...prev, [k]: '' } : prev))
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
     setLoading(true)
 
+    // Checked here rather than left to the browser, so every field says what
+    // is wrong in the same place and in the same words. The rules themselves
+    // live in lib/project-rules.ts so they can be tested without a form.
+    const errs = projectFormErrors({ name, address, client, startDate, endDate })
+    if (Object.keys(errs).length) {
+      setFieldErrors(errs)
+      setLoading(false)
+      // Take them to the first thing that is wrong. On a form this long the
+      // message can otherwise be off screen.
+      document.getElementById(Object.keys(errs)[0])?.focus()
+      return
+    }
+    setFieldErrors({})
+
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) {
       setError('You must be signed in.')
-      setLoading(false)
-      return
-    }
-
-    if (!client.trim()) {
-      setError('Pick or enter a client.')
       setLoading(false)
       return
     }
@@ -160,22 +187,25 @@ export function ProjectForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
-      <div className="space-y-1.5">
-        <Label htmlFor="name">Project Name</Label>
+    <form onSubmit={handleSubmit} noValidate className="space-y-5">
+      <Field label="Project Name" htmlFor="name" required error={fieldErrors.name}>
         <Input
           id="name"
           placeholder="e.g. Downtown Office Renovation"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          error={!!fieldErrors.name}
+          onChange={(e) => { setName(e.target.value); clearField('name') }}
+        />
+      </Field>
+
+      <Field label="Address" required error={fieldErrors.address}>
+        <AddressFields
+          value={address}
+          onChange={v => { setAddress(v); clearField('address') }}
+          onCoords={(lat, lng) => setCoords({ lat, lng })}
           required
         />
-      </div>
-
-      <div className="space-y-1.5">
-        <Label>Address</Label>
-        <AddressFields value={address} onChange={setAddress} onCoords={(lat, lng) => setCoords({ lat, lng })} required />
-      </div>
+      </Field>
 
       {lockedCustomer ? (
         <div className="space-y-1.5">
@@ -185,15 +215,16 @@ export function ProjectForm({
           </p>
         </div>
       ) : (
-      <div className="space-y-1.5">
-        <Label htmlFor="client">Owner / Client</Label>
+      <Field label="Owner / Client" htmlFor="client" required error={fieldErrors.client}>
         <Select
+          id="client"
           value={customerId}
           onChange={(e) => {
             const v = e.target.value
             setCustomerId(v)
             const c = customers.find(x => x.id === v)
             setClient(c ? c.name : '')
+            clearField('client')
           }}
         >
           <option value="" disabled>Select a client…</option>
@@ -202,15 +233,15 @@ export function ProjectForm({
         </Select>
         {customerId === '__new__' && (
           <Input
-            id="client"
+            id="client-name"
             placeholder="New client's name, e.g. Acme Corp"
             value={client}
-            onChange={(e) => setClient(e.target.value)}
-            required
+            error={!!fieldErrors.client}
+            onChange={(e) => { setClient(e.target.value); clearField('client') }}
             autoFocus
           />
         )}
-      </div>
+      </Field>
       )}
 
       <div className="space-y-1.5">
@@ -292,25 +323,29 @@ export function ProjectForm({
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="startDate">Start Date</Label>
+        <Field label="Start Date" htmlFor="startDate" required error={fieldErrors.startDate}>
           <Input
             id="startDate"
             type="date"
             value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            required
+            error={!!fieldErrors.startDate}
+            onChange={(e) => { setStartDate(e.target.value); clearField('startDate') }}
           />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="endDate">Target End Date <span className="text-faint font-normal">(optional)</span></Label>
+        </Field>
+        <Field
+          label="Target End Date"
+          htmlFor="endDate"
+          error={fieldErrors.endDate}
+          hint="Optional"
+        >
           <Input
             id="endDate"
             type="date"
             value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
+            error={!!fieldErrors.endDate}
+            onChange={(e) => { setEndDate(e.target.value); clearField('endDate') }}
           />
-        </div>
+        </Field>
       </div>
 
       {error && (

@@ -24,13 +24,15 @@ const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart
 export default function MasterCalendarPage() {
   const supabase = createClient()
   const router = useRouter()
-  const { realRole, loading: permLoading } = usePermissions()
+  // `role`, not `realRole`, so previewing a role shows what that role sees.
+  // The API behind this page checks the real role and 403s regardless.
+  const { role, loading: permLoading } = usePermissions()
   const [items, setItems] = useState<Item[]>([])
   const [loading, setLoading] = useState(true)
   const [cursor, setCursor] = useState(() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() } })
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
 
-  const isAdmin = realRole === 'admin' || realRole === 'manager'
+  const isAdmin = role === 'admin' || role === 'manager'
 
   useEffect(() => {
     (async () => {
