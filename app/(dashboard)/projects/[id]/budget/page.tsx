@@ -244,6 +244,15 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   const [form, setForm] = useState({ ...blankForm })
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState({ ...blankForm })
+  /**
+   * Why the last add or edit was refused.
+   *
+   * Both handlers used to read `if (res.ok) { ... }` with no else, so a
+   * rejected save did NOTHING visible - the button stopped spinning and the
+   * row sat there unchanged. A refusal nobody can see is worse than no
+   * refusal: the person believes it saved.
+   */
+  const [lineError, setLineError] = useState<string | null>(null)
   const [assigningSubId, setAssigningSubId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState('category')
@@ -527,6 +536,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   async function addLine() {
     if (!form.description.trim()) return
     setSaving(true)
+    setLineError(null)
     const token = await getToken()
     const res = await fetch(`/api/projects/${params.id}/budget`, {
       method: 'POST',
@@ -538,7 +548,10 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       setForm({ ...blankForm })
       setAdding(false)
       load()
+      return
     }
+    const body = await res.json().catch(() => ({} as any))
+    setLineError(body?.error ?? `That did not save (${res.status}).`)
   }
 
   function startEdit(item: BudgetItem) {
@@ -559,6 +572,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
 
   async function saveEdit(id: string) {
     setSaving(true)
+    setLineError(null)
     const token = await getToken()
     const res = await fetch(`/api/projects/${params.id}/budget/${id}`, {
       method: 'PATCH',
@@ -566,7 +580,9 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       body: JSON.stringify(editForm),
     })
     setSaving(false)
-    if (res.ok) { setEditingId(null); load() }
+    if (res.ok) { setEditingId(null); load(); return }
+    const body = await res.json().catch(() => ({} as any))
+    setLineError(body?.error ?? `That did not save (${res.status}).`)
   }
 
   function remove(id: string) {
@@ -1451,8 +1467,11 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
               </SearchableSelect>
             </div>
           )}
+          {lineError && (
+            <p role="alert" className="text-xs text-danger">{lineError}</p>
+          )}
           <div className="flex gap-2 justify-end">
-            <Button variant="outline" onClick={() => { setAdding(false); setForm({ ...blankForm }) }}>Cancel</Button>
+            <Button variant="outline" onClick={() => { setAdding(false); setForm({ ...blankForm }); setLineError(null) }}>Cancel</Button>
             <Button onClick={addLine} disabled={saving || !form.description.trim()}>{saving ? 'Saving…' : 'Add Line'}</Button>
           </div>
         </div>
@@ -1645,7 +1664,10 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                             </Field>
                           )}
                           <div className="flex gap-2 justify-end">
-                            <button onClick={() => setEditingId(null)} className="inline-flex items-center gap-1 text-xs text-muted-fg px-2 py-1.5 rounded-lg hover:bg-muted">
+                            {lineError && (
+                              <p role="alert" className="mr-auto text-xs text-danger">{lineError}</p>
+                            )}
+                            <button onClick={() => { setEditingId(null); setLineError(null) }} className="inline-flex items-center gap-1 text-xs text-muted-fg px-2 py-1.5 rounded-lg hover:bg-muted">
                               <X className="h-3.5 w-3.5" /> Cancel
                             </button>
                             <button onClick={() => saveEdit(item.id)} disabled={saving}

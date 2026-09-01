@@ -197,6 +197,33 @@ export const US_STATES: { code: string; name: string }[] = Object.entries(STATES
   .sort((a, b) => a.name.localeCompare(b.name))
 
 /**
+ * A cost on a budget line: budgeted, committed or actual.
+ *
+ * THE BUG: the routes wrote these with `Number(body[key]) || 0`, which accepts
+ * anything. A line took Committed -1 and Actual -2.50, saved them, and
+ * SUBTRACTED them from the project totals - so a job's committed and spent
+ * figures could be talked down by typing a minus. Nothing blocked it, on any
+ * of the three columns.
+ *
+ * `Number(x) || 0` has a second failure in the same expression: it turns
+ * anything unparseable into 0 silently, so a typo saves as zero and reads as
+ * a real, deliberate figure of nothing.
+ *
+ * The rule already existed one line below, on `markup_pct`, as
+ * `Math.max(0, ...)`. The same disease as every other one of these: the guard
+ * is real, it just was not put on the fields beside it.
+ *
+ * Zero IS allowed - a placeholder line, or a line not yet committed, is a
+ * normal thing to save.
+ */
+export function budgetAmount(raw: unknown, label = 'amount'): Checked<number> {
+  // Blank means zero here, unlike a form field where blank means unanswered:
+  // these three columns are NOT NULL and a cleared box means "nothing yet".
+  if (raw === '' || raw === null || raw === undefined) return { ok: true, value: 0 }
+  return money(raw, { allowZero: true, label })
+}
+
+/**
  * A number as the text a form field shows.
  *
  * THE BUG THIS PREVENTS. `String(x)` on a missing number does not produce an

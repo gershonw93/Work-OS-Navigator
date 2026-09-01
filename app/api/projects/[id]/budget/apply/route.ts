@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { requirePermission, denied } from '@/lib/api-guard'
+import { budgetAmount } from '@/lib/validate'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -122,6 +123,16 @@ export async function POST(request: Request, { params }: { params: { id: string 
   let inserted = 0
   if (rows.length) {
     const { count } = await db.from('budget_line_items').select('*', { count: 'exact', head: true }).eq('project_id', params.id)
+    // A template or a source project could itself hold a negative amount from
+    // before these were checked. Refuse the apply and name the line rather than
+    // seeding a fresh budget with a cost that subtracts from its own totals.
+    const badLine = rows.find(r => r.amount != null && !budgetAmount(r.amount, 'budget').ok)
+    if (badLine) {
+      return NextResponse.json({
+        error: `"${badLine.description}" has an amount of ${badLine.amount}, which is not a cost this can copy. Fix it on the template first.`,
+      }, { status: 400 })
+    }
+
     const base = count ?? 0
     const payload = rows.map((r, idx) => ({
       project_id: params.id,

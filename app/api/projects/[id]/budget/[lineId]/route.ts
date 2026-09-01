@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
 import { ACTUAL_STATUSES, lineExposure, rollupBudgetLines } from '@/lib/invoice-budget'
 import { requirePermission, denied } from '@/lib/api-guard'
+import { budgetAmount } from '@/lib/validate'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -161,9 +162,20 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   for (const key of ['cost_code', 'category', 'description', 'notes', 'subcontract_id']) {
     if (key in body) updates[key] = body[key] || null
   }
-  for (const key of ['budgeted_amount', 'committed_amount', 'actual_amount', 'sort_order']) {
-    if (key in body) updates[key] = Number(body[key]) || 0
+  // Costs, checked rather than coerced. `Number(x) || 0` took a negative
+  // happily - a line saved Committed -1 and Actual -2.50 and SUBTRACTED them
+  // from the project totals - and turned a typo into a silent, confident zero.
+  const LABELS: Record<string, string> = {
+    budgeted_amount: 'budget', committed_amount: 'committed amount', actual_amount: 'actual amount',
   }
+  for (const key of ['budgeted_amount', 'committed_amount', 'actual_amount']) {
+    if (!(key in body)) continue
+    const checked = budgetAmount(body[key], LABELS[key])
+    if (!checked.ok) return NextResponse.json({ error: checked.error }, { status: 400 })
+    updates[key] = checked.value
+  }
+  // Not money - a position in a list, where 0 is the right fallback.
+  if ('sort_order' in body) updates.sort_order = Number(body.sort_order) || 0
   if ('space_type' in body) updates.space_type = body.space_type === 'interior' || body.space_type === 'exterior' ? body.space_type : null
   if ('cost_type' in body) updates.cost_type = body.cost_type === 'soft' ? 'soft' : 'hard'
   // Markup for this trade. NULL is "follow the project rate" and 0 is "zero on
