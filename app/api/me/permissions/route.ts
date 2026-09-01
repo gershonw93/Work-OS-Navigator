@@ -47,7 +47,30 @@ export async function GET(request: Request) {
 
   const realRole = role
   const url = new URL(request.url)
-  const companyRoleMap = await loadCompanyRoleMap(db, companyId)
+
+  // Which KIND of company you belong to, answered here rather than in the
+  // browser.
+  //
+  // The sidebar used to ask for this itself, with the anon key:
+  //   supabase.auth.getUser()
+  //   supabase.from('profiles').select('companies(type)').eq('id', user.id)
+  // That works today - `profiles` and `companies` both carry a policy that
+  // lets you read your own row - but it costs an auth round trip plus a query
+  // on every mount, and it only works while BOTH of those policies stay
+  // exactly as they are. Tighten either one and the read returns empty, which
+  // the check reads as "not a subcontractor": a sub would silently get the
+  // general contractor's menu. A wrong answer, not an error.
+  //
+  // This route already holds the company id and the service-role key, so the
+  // answer comes back with the permissions the sidebar is waiting on anyway.
+  // Independent of the role map, so the two go together rather than one after
+  // the other - this route runs before the sidebar can draw anything.
+  const [companyRoleMap, companyType] = await Promise.all([
+    loadCompanyRoleMap(db, companyId),
+    companyId
+      ? db.from('companies').select('type').eq('id', companyId).single().then(r => r.data?.type ?? null)
+      : Promise.resolve(null),
+  ])
 
   // Admin-only "View as specific user" - preview that user's effective permissions
   const asUser = url.searchParams.get('as_user')
@@ -66,6 +89,7 @@ export async function GET(request: Request) {
         realRole,
         previewing: true,
         previewingUser: target.full_name || target.email,
+        companyType,
         permissions: getEffectivePermissions(target.role, (target.permission_overrides ?? null) as OverrideMap | null, targetBase),
       })
     }
@@ -79,6 +103,7 @@ export async function GET(request: Request) {
       role: viewAs,
       realRole,
       previewing: true,
+      companyType,
       permissions: resolveRoleBase(viewAs, companyRoleMap),
     })
   }
@@ -86,5 +111,5 @@ export async function GET(request: Request) {
   const baseDefaults = resolveRoleBase(role, companyRoleMap)
   const permissions = getEffectivePermissions(role, overrides, baseDefaults)
 
-  return NextResponse.json({ role, realRole, previewing: false, permissions })
+  return NextResponse.json({ role, realRole, previewing: false, companyType, permissions })
 }

@@ -51,8 +51,10 @@ export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
-  const { can, realRole, loading: permsLoading, error: permsError, reload: reloadPerms } = usePermissions()
-  const [isSubcontractor, setIsSubcontractor] = useState(false)
+  const { can, realRole, companyType, loading: permsLoading, error: permsError, reload: reloadPerms } = usePermissions()
+  // Subcontractors get a different nav entirely. This arrives with the
+  // permissions rather than from a second query the browser makes itself.
+  const isSubcontractor = companyType === 'subcontractor'
   const [mobileOpen, setMobileOpen] = useState(false)
 
   // Releases they haven't looked at yet. Read from localStorage after mount so
@@ -77,21 +79,6 @@ export function Sidebar() {
 
   // Close sidebar on route change
   useEffect(() => { setMobileOpen(false) }, [pathname])
-
-  // Detect subcontractor company (uses a different nav entirely)
-  useEffect(() => {
-    async function detect() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('companies(type)')
-        .eq('id', user.id)
-        .single()
-      if ((profile?.companies as any)?.type === 'subcontractor') setIsSubcontractor(true)
-    }
-    detect()
-  }, [])
 
   // Build nav from permissions (Settings always available)
   const isAdmin = realRole === 'admin' || realRole === 'manager'

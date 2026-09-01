@@ -49,6 +49,22 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-01',
+    title: 'Your data is closed off at the database, not just in the app',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'Client portal links can no longer be read out of the database',
+        text: 'Eight tables - including the one holding client invoices and their portal share links - were readable by anyone who knew the project address, without signing in. Nothing suggests this was used, but it was possible: someone could have listed every invoice share link, and those links open a portal showing invoices and payment history. Every table in the database is now closed by default, and only the app itself can reach them.',
+      },
+      {
+        kind: 'improved',
+        title: 'A new company can no longer be set up with the doors open',
+        text: 'The protection above was switched on by hand for most tables, so it was never written down anywhere. A brand-new SyteNav environment would have been built without it. It is now part of the setup itself, and a check refuses any future table that forgets it.',
+      },
+    ],
+  },
+  {
+    date: '2026-09-01',
     title: 'Fields tell you what is wrong instead of saving it anyway',
     items: [
       {
