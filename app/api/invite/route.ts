@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { appOrigin } from '@/lib/app-url'
+import { emailConfig, inviteEmail, sendEmail } from '@/lib/email'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -49,20 +50,66 @@ export async function POST(request: Request) {
   // APP url, not SITE url. SITE_URL is the marketing domain; an invite sent
   // there lands the recipient on a page that cannot finish signing them in.
   const siteUrl = appOrigin(origin)
-  const { error: inviteError } = await db.auth.admin.inviteUserByEmail(email, {
-    data: { company_id, role: role ?? 'read_only', full_name: body.full_name ?? '' },
-    redirectTo: `${siteUrl}/auth/callback`,
-  })
+  // ── Sending the invite ──────────────────────────────────────────────────
+  //
+  // Through OUR SendGrid, not Supabase's mailer.
+  //
+  // WHY. inviteUserByEmail asks Supabase Auth to send, which needs custom SMTP
+  // configured in the Supabase dashboard - a second mail setup, separate from
+  // SENDGRID_API_KEY, that nothing in this repo can see or test. Invites sat
+  // undelivered for a day against a SendGrid account that was demonstrably
+  // working: a manual send to the same address arrived while every invite
+  // vanished. Two mail paths meant a working one and a broken one at the same
+  // time, and no way to tell from in here which was which.
+  //
+  // generateLink does the half we actually need - it creates the user and
+  // returns the link WITHOUT sending anything - so the email goes out the same
+  // way client portal links, quote requests and beta invites already do, on
+  // the path app/api/admin/access-requests/route.ts has used since #287.
+  //
+  // Supabase's own send stays as the fallback for an environment where
+  // SENDGRID_API_KEY is unset, which is exactly what it was before.
+  const redirectTo = `${siteUrl}/auth/callback`
+  const userData = { company_id, role: role ?? 'read_only', full_name: body.full_name ?? '' }
 
   let emailSent = true
-  if (inviteError) {
-    const msg = inviteError.message?.toLowerCase() ?? ''
-    if (msg.includes('already') || msg.includes('email rate limit') || msg.includes('already registered')) {
-      // User already exists or rate limited - still record in DB
-      emailSent = false
-    } else {
-      return NextResponse.json({ error: inviteError.message }, { status: 500 })
+  let sendDetail: string | undefined
+
+  const { data: linkData, error: linkError } = await db.auth.admin.generateLink({
+    type: 'invite',
+    email,
+    options: { redirectTo, data: userData },
+  })
+
+  const actionLink = (linkData as any)?.properties?.action_link
+
+  if (!linkError && actionLink && emailConfig().configured) {
+    const { subject, text, html } = inviteEmail({ name: body.full_name ?? null, inviteUrl: actionLink })
+    const result = await sendEmail({ to: email, subject, text, html })
+    emailSent = result.sent
+    // SendGrid's own words, kept. "Failed" tells whoever is debugging nothing;
+    // "The from address does not match a verified Sender Identity" tells them
+    // exactly which of the two mail setups is wrong.
+    if (!result.sent) sendDetail = result.detail ?? result.reason
+  } else {
+    // No SendGrid configured, or the link could not be minted - ask Supabase to
+    // send it, which is what happened here before.
+    const { error: inviteError } = await db.auth.admin.inviteUserByEmail(email, {
+      data: userData,
+      redirectTo,
+    })
+    if (inviteError) {
+      const msg = inviteError.message?.toLowerCase() ?? ''
+      if (msg.includes('already') || msg.includes('email rate limit') || msg.includes('already registered')) {
+        // The row is still worth recording - the person is invited either way,
+        // and Copy link works on it.
+        emailSent = false
+        sendDetail = inviteError.message
+      } else {
+        return NextResponse.json({ error: inviteError.message }, { status: 500 })
+      }
     }
+    if (linkError && !emailConfig().configured) sendDetail ??= linkError.message
   }
 
   // Delete any existing invites for this email+company so we never duplicate
@@ -85,6 +132,11 @@ export async function POST(request: Request) {
   return NextResponse.json({
     success: true,
     emailSent,
-    note: emailSent ? undefined : 'Invite recorded but email could not be sent (user may already exist or rate limit reached)',
+    // The REASON, not a guess at it. This used to read "user may already exist
+    // or rate limit reached" whatever had gone wrong, which sent people to
+    // check the wrong thing.
+    note: emailSent
+      ? undefined
+      : `Invite recorded, but the email did not send${sendDetail ? `: ${sendDetail}` : ''}. Use Copy link to send it yourself.`,
   })
 }
