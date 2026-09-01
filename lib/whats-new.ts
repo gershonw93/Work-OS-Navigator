@@ -49,6 +49,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-02',
+    title: 'Resend tells you whether it actually resent',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'Resend on a pending invite always said it worked',
+        text: 'Resend reported "Invite resent" the moment the request came back, without checking whether anything was sent - so a resend that sent nothing said it had. It now says when the email did not go out, and that message stays on screen instead of clearing itself after three seconds.',
+        href: '/settings?tab=team',
+      },
+    ],
+  },
+  {
+    date: '2026-09-02',
     title: 'A budget line can no longer hold a negative cost',
     items: [
       {

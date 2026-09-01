@@ -665,13 +665,33 @@ export default function SettingsPage() {
   async function resendInvite(email: string, role: string) {
     try {
       const headers = await authHeaders()
-      await fetch('/api/invite', {
+      const res = await fetch('/api/invite', {
         method: 'POST',
         headers,
         body: JSON.stringify({ email, role }),
       })
-      setInviteMsg({ ok: true, text: `Invite resent to ${email}` })
-      setTimeout(() => setInviteMsg(null), 3000)
+      // Look at the answer. This used to report "Invite resent" the moment the
+      // request came back, whatever it said - it did not check res.ok and did
+      // not read emailSent, both of which the first-invite handler sixty lines
+      // above checks correctly. So a resend that sent NOTHING said it had.
+      //
+      // That is the worst possible outcome while somebody is trying to work out
+      // why an invite never arrived: the one control that reports on delivery
+      // tells them it worked, every time, and they go looking at their mail
+      // server instead.
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}))
+        setInviteMsg({ ok: false, text: d.error ?? 'Failed to resend invite.' })
+        return
+      }
+      const d = await res.json().catch(() => ({} as any))
+      setInviteMsg(
+        d.emailSent === false
+          ? { ok: false, text: `Not resent. ${d.note ?? 'The email could not be sent.'}` }
+          : { ok: true, text: `Invite resent to ${email}` },
+      )
+      // A failure stays on screen until it is read. Only clear the good news.
+      if (d.emailSent !== false) setTimeout(() => setInviteMsg(null), 3000)
     } catch {
       setInviteMsg({ ok: false, text: 'Failed to resend invite.' })
     }
