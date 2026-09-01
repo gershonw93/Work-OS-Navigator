@@ -275,9 +275,16 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
         )})}
       </div>
 
-      {/* Pay-vendors recommendation */}
+      {/* Pay-vendors recommendation.
+          `available` is clamped once and used for BOTH halves of the sentence
+          below. It used to say "only $0 is available" (clamped) and then
+          "you're short $35,000" (unclamped) in the same breath - subtracting a
+          NEGATIVE escrow balance added the $10,000 already paid back on top of
+          the $25,000 owed. Two figures for one fact, a comma apart. */}
       {s && s.outstandingToVendors > 0 && (
-        s.escrowBalance >= s.outstandingToVendors ? (
+        (() => {
+          const available = Math.max(s.escrowBalance, 0)
+          return available >= s.outstandingToVendors ? (
           <div className="rounded-xl border border-success/30 bg-success-tint px-4 py-3 flex flex-wrap items-center gap-3">
             <Banknote className="h-5 w-5 text-success shrink-0" />
             <div className="min-w-0 flex-1">
@@ -296,11 +303,12 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-ink">Hold off - not enough in escrow yet.</p>
               <p className="text-sm text-muted-fg">
-                {money(s.outstandingToVendors)} is owed to vendors but only {money(Math.max(s.escrowBalance, 0))} is available. You're short {money(s.outstandingToVendors - s.escrowBalance)} - collect from the client first.
+                {money(s.outstandingToVendors)} is owed to vendors but only {money(available)} is available. You&apos;re short {money(s.outstandingToVendors - available)} - collect from the client first.
               </p>
             </div>
           </div>
         )
+        })()
       )}
 
       {/* Secondary stats + fee setting */}

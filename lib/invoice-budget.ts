@@ -114,6 +114,44 @@ export interface RolledLine extends RollupLine {
  * those columns by hand are ignored, because the contract is the better answer.
  * An unlinked line keeps whatever was typed and just adds its receipts.
  */
+/**
+ * Approved change orders, mapped onto the budget lines they belong to.
+ *
+ * Exported because the Schedule of Values on a pay application needs exactly
+ * the same answer. It used to be inlined here, and the pay app seeded its SOV
+ * from `budgeted_amount` alone - so a $50,000 approved owner change order left
+ * the contract sum at $300,000 on a G702 whose own line 1 reads "Original
+ * contract sum + change orders". The label was a promise the code did not keep,
+ * and a GC billing approved work never saw it on the certificate.
+ *
+ * `unmapped` is the amount that belongs to NO line: an owner-side change order
+ * naming neither a budget line nor a subcontract has nowhere to land. The
+ * budget rollup drops it; the pay application gives it its own line, because
+ * money you may bill has to be billable from somewhere.
+ */
+export function approvedChangesByLine(
+  lines: { id: string; subcontract_id?: string | null }[],
+  changeOrders: RollupChangeOrder[],
+): { byLine: Map<string, number>; unmapped: number } {
+  // Most change orders name a subcontract rather than a budget line, so a
+  // sub-linked one is followed through to whichever line that contract sits on.
+  const lineIdForSub = new Map<string, string>()
+  for (const l of lines) {
+    if (l.subcontract_id && !lineIdForSub.has(l.subcontract_id)) lineIdForSub.set(l.subcontract_id, l.id)
+  }
+
+  const byLine = new Map<string, number>()
+  let unmapped = 0
+  for (const co of changeOrders) {
+    if (co.status !== 'approved') continue
+    const target = co.budget_line_item_id
+      ?? (co.subcontract_id ? lineIdForSub.get(co.subcontract_id) ?? null : null)
+    if (!target) { unmapped += n(co.amount); continue }
+    byLine.set(target, (byLine.get(target) ?? 0) + n(co.amount))
+  }
+  return { byLine, unmapped }
+}
+
 export function rollupBudgetLines(input: {
   lines: RollupLine[]
   invoices: RollupInvoice[]
@@ -137,18 +175,7 @@ export function rollupBudgetLines(input: {
   // Without that hop approving a change order raised the contract (and so the
   // line's Committed) while leaving its budget alone, which showed as a line
   // going over budget at the exact moment the overage was approved and funded.
-  const lineIdForSub = new Map<string, string>()
-  for (const l of lines) {
-    if (l.subcontract_id && !lineIdForSub.has(l.subcontract_id)) lineIdForSub.set(l.subcontract_id, l.id)
-  }
-  const changesByLine = new Map<string, number>()
-  for (const co of changeOrders) {
-    if (co.status !== 'approved') continue
-    const target = co.budget_line_item_id
-      ?? (co.subcontract_id ? lineIdForSub.get(co.subcontract_id) ?? null : null)
-    if (!target) continue
-    changesByLine.set(target, (changesByLine.get(target) ?? 0) + n(co.amount))
-  }
+  const { byLine: changesByLine } = approvedChangesByLine(lines, changeOrders)
 
   // An allocated invoice is accounted for entirely by its allocations. Any
   // amount it has NOT allocated is deliberately dropped rather than falling

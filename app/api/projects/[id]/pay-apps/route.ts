@@ -1,7 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { requirePermission, denied } from '@/lib/api-guard'
-import { retainagePct as checkRetainage } from '@/lib/pay-app-rules'
+import { retainagePct as checkRetainage, scheduleOfValues } from '@/lib/pay-app-rules'
+import { approvedChangesByLine } from '@/lib/invoice-budget'
 
 export const runtime = 'nodejs'
 
@@ -100,8 +101,26 @@ export async function POST(request: Request, { params }: { params: { id: string 
       sov = [{ id: null, cost_code: null, description: (sc as any)?.scope || (sc as any)?.trade || 'Contract', scheduled_value: Number((sc as any)?.contract_amount || 0) }]
     }
   } else {
-    const { data: lines } = await db.from('budget_line_items').select('id, cost_code, description, budgeted_amount').eq('project_id', params.id).order('sort_order')
-    sov = (lines ?? []).map((l: any) => ({ id: l.id, cost_code: l.cost_code, description: l.description, scheduled_value: Number(l.budgeted_amount || 0) }))
+    // GC -> Owner. The schedule of values is the budget PLUS approved change
+    // orders. It used to be `budgeted_amount` alone, so a $50,000 approved
+    // owner change order never reached the certificate and the contract sum
+    // stayed at the original figure - on a G702 whose line 1 reads "Original
+    // contract sum + change orders".
+    const [{ data: lines }, { data: cos }] = await Promise.all([
+      db.from('budget_line_items').select('id, cost_code, description, budgeted_amount, subcontract_id').eq('project_id', params.id).order('sort_order'),
+      db.from('change_orders').select('amount, status, budget_line_item_id, subcontract_id').eq('project_id', params.id),
+    ])
+    const { byLine, unmapped } = approvedChangesByLine((lines ?? []) as any, (cos ?? []) as any)
+    sov = scheduleOfValues({
+      budgetLines: (lines ?? []) as any,
+      changesByLine: byLine,
+      unmappedChanges: unmapped,
+    }).map(l => ({
+      id: l.budget_line_item_id,
+      cost_code: l.cost_code,
+      description: l.description,
+      scheduled_value: l.scheduled_value,
+    }))
   }
   if (sov.length === 0) return NextResponse.json({ error: 'Build the budget / schedule of values first.' }, { status: 400 })
 

@@ -49,6 +49,24 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-02',
+    title: 'Approved change orders now reach the pay application',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'A $50,000 approved change order never showed on the G702',
+        text: 'A change order could be approved, show as Approved on the Change Orders tab, and the next pay application would still bill against the original contract sum - so approved extra work was money left on the table. The schedule of values now includes approved change orders: one against a budget line raises that line, and an owner-side one with no line gets a row of its own to bill against.',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
+        title: 'The escrow warning said you were short more than you were',
+        text: 'With $25,000 owed to vendors and $10,000 already paid out, the banner said you were short $35,000 - it was adding the money you had already paid back on. It now says $25,000, and the two halves of that sentence use the same figure.',
+        href: '/projects',
+      },
+    ],
+  },
+  {
+    date: '2026-09-02',
     title: 'A pay application is checked before it goes to the bank',
     items: [
       {
