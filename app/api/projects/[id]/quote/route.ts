@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { requirePermission, denied } from '@/lib/api-guard'
 
 export const runtime = 'nodejs'
 
@@ -138,6 +139,9 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
 // POST - upload a quote file, AI-scan it into line items.
 export async function POST(request: Request, { params }: { params: { id: string } }) {
+  const gate = await requirePermission(admin(), request, 'quotes', 'edit')
+  if (denied(gate)) return gate.denied
+
   const user = await authUser(request)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()
@@ -197,6 +201,9 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
 // PATCH - convert Quote/Pending → Active (or update a line item's progress %).
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+  const gate = await requirePermission(admin(), request, 'quotes', 'edit')
+  if (denied(gate)) return gate.denied
+
   const user = await authUser(request)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()

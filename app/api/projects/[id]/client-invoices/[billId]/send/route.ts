@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { tokenLinkEmail } from '@/lib/email'
 import { deliverLink, readSendBody } from '@/lib/send-link'
 import { appOrigin } from '@/lib/app-url'
+import { requirePermission, denied } from '@/lib/api-guard'
 
 export const runtime = 'nodejs'
 
@@ -20,6 +21,9 @@ const admin = () => createClient(
  * address to pre-fill; the caller can still change it.
  */
 export async function POST(request: Request, { params }: { params: { id: string; billId: string } }) {
+  const gate = await requirePermission(admin(), request, 'payments', 'edit')
+  if (denied(gate)) return gate.denied
+
   const auth = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()

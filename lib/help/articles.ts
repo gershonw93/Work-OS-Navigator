@@ -1135,10 +1135,11 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'permissions',
     title: 'Control who can see and do what',
     category: 'settings',
-    keywords: ['permissions', 'roles', 'access', 'restrict', 'view', 'edit'],
+    keywords: ['permissions', 'roles', 'access', 'restrict', 'view', 'edit', 'read only', 'field supervisor', 'security', 'who can edit', 'role preview'],
     summary: 'Set per-screen permissions for each role or person.',
     blocks: [
       { type: 'text', text: 'Every screen (Budget, Invoices, Compliance, Equipment, etc.) has view/create/edit/delete permissions. Roles come with defaults; overrides let you adjust an individual.' },
+      { type: 'text', text: 'THESE ARE ENFORCED BY THE SERVER, not just by hiding buttons. Every money screen - budgets, bills from subs, billing the client, change orders, subcontracts, pay apps and materials - checks your role before it writes anything. Until September 2026 the buttons were hidden but the change still went through if you reached it another way, so what role preview shows you is now genuinely what that person can do.' },
       { type: 'steps', items: [
         'Open Settings and go to Team & Users.',
         'Open a member and adjust their access per screen.',
