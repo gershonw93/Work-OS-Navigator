@@ -63,9 +63,25 @@ function optionsFromChildren(children: ReactNode): SelectOption[] {
   return out
 }
 
+// `text-left` is not decoration: a <button> inherits text-align:center from the
+// user agent, and the label inside is an inline span, so its own text-left has
+// nothing to act on. Without this the label centres itself the moment the row
+// below stops being a flex container.
 const triggerClasses =
-  'flex h-9 w-full items-center justify-between gap-2 rounded-md border border-muted2 bg-panel px-3 py-1 text-sm text-ink ' +
+  'flex h-9 w-full items-center rounded-md border border-muted2 bg-panel px-3 py-1 text-sm text-ink text-left ' +
   'focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent disabled:cursor-not-allowed disabled:opacity-50 transition-colors'
+
+// The row lives on an INNER element, not on the button.
+//
+// THE BUG: the button carried `flex … justify-between` and a caller passed
+// `block` in its className. cn() is twMerge, and display is one merge group, so
+// `block` REPLACED `flex` - the row collapsed and the chevron dropped below the
+// label, outside the box. Five dropdowns on Settings looked broken because one
+// copy-pasted class string was wrong.
+//
+// A component's own layout should not be something a caller can switch off by
+// accident. On an inner span it survives whatever the button's display becomes.
+const rowClasses = 'flex w-full items-center justify-between gap-2 min-w-0'
 
 export function SearchableSelect({
   value,
@@ -208,10 +224,12 @@ export function SearchableSelect({
         aria-haspopup="listbox"
         aria-expanded={open}
       >
-        <span className={cn('truncate text-left', (!selected || selected.value === '') && 'text-faint')}>
-          {displayLabel}
+        <span className={rowClasses}>
+          <span className={cn('truncate text-left', (!selected || selected.value === '') && 'text-faint')}>
+            {displayLabel}
+          </span>
+          <ChevronsUpDown className="h-4 w-4 shrink-0 text-faint" />
         </span>
-        <ChevronsUpDown className="h-4 w-4 shrink-0 text-faint" />
       </button>
       {name && <input type="hidden" name={name} value={current} required={required} />}
 
