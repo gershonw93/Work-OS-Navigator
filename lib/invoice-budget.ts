@@ -84,6 +84,16 @@ export interface RolledLine extends RollupLine {
   committed_amount: number
   actual_amount: number
   materials_amount: number
+  /**
+   * The part of Actual that somebody TYPED, rather than a bill or a receipt.
+   *
+   * An unlinked line with no invoice splits keeps whatever was entered in its
+   * Actual column by hand - a real and useful thing to be able to do, and a
+   * third source of money in a total that looks like it only has one. On a
+   * live job this was $218,785 of a $428,615 Actual Spent, sitting silently
+   * between the bills and the receipts.
+   */
+  entered_amount: number
   /** Invoice money landing here by an explicit split rather than via a contract. */
   allocated_amount: number
   /** Approved change orders landing on this line. Zero, or signed. */
@@ -189,6 +199,9 @@ export function rollupBudgetLines(input: {
         committed_amount: n(sub.contract_amount),
         actual_amount: (actualBySub.get(line.subcontract_id!) ?? 0) + allocated_amount + materials_amount,
         materials_amount,
+        // A linked line derives everything from its contract's bills; nothing
+        // typed on it survives.
+        entered_amount: 0,
         allocated_amount,
         change_orders_amount,
         revised_budget,
@@ -204,6 +217,10 @@ export function rollupBudgetLines(input: {
       // somebody typed. Only a line with neither keeps the typed figure.
       actual_amount: (allocByLine.has(line.id) ? allocated_amount : n(line.actual_amount)) + materials_amount,
       materials_amount,
+      // Only the third case is hand-entered: unlinked AND with no splits.
+      // The line above is what decides it, so this mirrors that condition
+      // exactly rather than restating the rule in different words.
+      entered_amount: allocByLine.has(line.id) ? 0 : n(line.actual_amount),
       allocated_amount,
       change_orders_amount,
       revised_budget,
@@ -251,11 +268,17 @@ export interface BudgetTotals {
    * statuses (`ACTUAL_STATUSES` is approved, sent AND paid - the Bills tab was
    * showing one of the three). Neither was recoverable from the screen.
    *
-   * billed + materials === actual, always. That is the invariant the tile
-   * relies on to print a sum that closes.
+   * billed + entered + materials === actual, always. That is the invariant
+   * the tile relies on to print a sum that closes.
+   *
+   * It was written as two parts first, and that was WRONG on a real job: it
+   * labelled $426,705 as "in bills" when only $207,920 was. A total explained
+   * incorrectly is worse than one left unexplained.
    */
   billed: number
   materials: number
+  /** Typed into a line's Actual by hand - neither a bill nor a receipt. */
+  entered: number
   /** Best estimate of final cost given what is signed and billed. */
   projected_cost: number
   /** Revised budget still free to spend. Negative means the job is over. */
@@ -266,7 +289,7 @@ export function budgetTotals(lines: RolledLine[]): BudgetTotals {
   const t: BudgetTotals = {
     original_budget: 0, approved_changes: 0, revised_budget: 0,
     committed: 0, actual: 0, committed_not_billed: 0,
-    billed: 0, materials: 0,
+    billed: 0, materials: 0, entered: 0,
     projected_cost: 0, remaining: 0,
   }
   for (const line of lines) {
@@ -276,7 +299,12 @@ export function budgetTotals(lines: RolledLine[]): BudgetTotals {
     t.actual += line.actual_amount
     t.projected_cost += lineExposure(line)
     const billed = line.actual_amount - line.materials_amount
-    t.billed += billed
+    // THREE parts, not two. `billed` above still means "not a receipt",
+    // because that is what committed_not_billed has always compared against
+    // and changing it would move a number nobody asked about. The split the
+    // screen prints takes the hand-entered part back out.
+    t.billed += billed - line.entered_amount
+    t.entered += line.entered_amount
     t.materials += line.materials_amount
     t.committed_not_billed += Math.max(0, line.committed_amount - billed)
   }

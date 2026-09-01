@@ -626,6 +626,15 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   // hiding inside one number.
   const billedOnly = totals?.billed ?? Math.max(0, totalActual - (totals?.materials ?? 0))
   const materialsSpent = totals?.materials ?? 0
+  // Typed straight into a line's Actual, on a line with no subcontract and no
+  // invoice split. A third source of money in this total, and on a real job it
+  // was more than half of it.
+  const enteredByHand = totals?.entered ?? 0
+  const spentParts = [
+    billedOnly > 0 ? `${money(billedOnly)} in bills` : null,
+    enteredByHand > 0 ? `${money(enteredByHand)} entered by hand` : null,
+    materialsSpent > 0 ? `${money(materialsSpent)} materials` : null,
+  ].filter(Boolean)
   // Remaining now counts signed contracts, not just invoices. Budget minus
   // Actual told a GC with $450k signed and $200k billed that $300k was still
   // theirs to spend; it never was.
@@ -776,10 +785,8 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       // "approved" - and somebody comparing it to the Bills tab had to guess
       // at both. A total whose parts cannot be recovered from the screen reads
       // as a bug even when the arithmetic is right.
-      note: materialsSpent > 0
-        ? `${money(billedOnly)} in bills + ${money(materialsSpent)} materials`
-        : 'Approved, released and paid bills',
-      help: 'What has actually been billed to you.\n\nEvery invoice that is approved, sent for payment, or paid - plus material receipts assigned to a line. An invoice sitting in Pending Approval does NOT count yet; approving it is what moves this number.\n\nIf this looks bigger than your Bills tab, that tab is probably filtered to one status - this counts all three.',
+      note: spentParts.length > 1 ? spentParts.join(' + ') : 'Approved, released and paid bills',
+      help: `What has actually landed on the budget. THREE things add into it, which is why the split is printed under the number.\n\nBILLS - every invoice approved, sent for payment, or paid. One still in Pending Approval does not count; approving it is what moves this. If this looks bigger than your Bills tab, that tab is filtered to one status and this counts all three.\n\nENTERED BY HAND - an Actual typed straight onto a budget line that has no subcontract and no invoice split. Perfectly valid, and easy to forget is in here.\n\nMATERIALS - receipts assigned to a line. A receipt with no line is on the Materials tab but not on this number.`,
     },
     {
       label: overBudget ? 'Over Budget' : 'Left to spend',
