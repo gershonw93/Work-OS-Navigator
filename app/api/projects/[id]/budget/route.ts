@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
 import { ACTUAL_STATUSES, budgetTotals, rollupBudgetLines } from '@/lib/invoice-budget'
 import { feeForInvoice } from '@/lib/allocations'
+import { markUp } from '@/lib/markup'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -43,12 +44,12 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .eq('project_id', params.id),
     db
       .from('material_purchases')
-      .select('id, budget_line_id, amount, store_name, category, purchase_date, receipt_url, client_paid')
+      .select('id, budget_line_id, amount, store_name, category, purchase_date, receipt_url, client_paid, markup_pct, markup_excluded')
       .eq('project_id', params.id)
       .order('purchase_date', { ascending: false, nullsFirst: false }),
     db
       .from('projects')
-      .select('interior_sqft, exterior_sqft, contractor_fee_pct, status, billing_mode, sellout_amount, client, contract_type')
+      .select('interior_sqft, exterior_sqft, contractor_fee_pct, status, billing_mode, sellout_amount, client, contract_type, fee_on_materials')
       .eq('id', params.id)
       .single(),
     db
@@ -109,7 +110,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     if (!allocsByInvoice.has(a.invoice_id)) allocsByInvoice.set(a.invoice_id, [])
     allocsByInvoice.get(a.invoice_id)!.push(a)
   }
-  const markupEarned = (invoices ?? [])
+  const billsEarned = (invoices ?? [])
     .filter((i: any) => ACTUAL_STATUSES.has(i.status))
     .reduce((sum: number, i: any) => sum + feeForInvoice({
       invoice: i,
@@ -117,6 +118,24 @@ export async function GET(request: Request, { params }: { params: { id: string }
       lines: lineRates,
       projectPct,
     }).markup, 0)
+
+  // Fee on material receipts - OFF unless this job says otherwise.
+  //
+  // Whether materials carry the fee depends on the contract, so it is a
+  // per-project setting (migration 091) rather than a rule. `false` is the
+  // historic behaviour, which is why nothing any existing job has already
+  // earned moves when this ships.
+  //
+  // markUp() is the same function every other cost item goes through, so a
+  // receipt gets the same three answers an invoice does: billed at cost earns
+  // nothing, its own percent wins, otherwise the project rate. Nothing new to
+  // keep in step.
+  const feeOnMaterials = projectMeta?.fee_on_materials === true
+  const materialsEarned = feeOnMaterials
+    ? (materials ?? []).reduce((sum: number, m: any) => sum + markUp(m.amount, m, projectPct).markup, 0)
+    : 0
+
+  const markupEarned = billsEarned + materialsEarned
 
   // Categories this company has already used anywhere. A category typed by
   // hand on one job then shows up in the dropdown on the next one, so custom
@@ -156,6 +175,22 @@ export async function GET(request: Request, { params }: { params: { id: string }
     subcontracts: subOptions,
     materials: materials ?? [],
     materials_total,
+    // What the fee was actually earned ON, so the screen can name its basis
+    // instead of printing it beside a bigger, unrelated total. A reviewer read
+    // "Earned so far $20,792 of $428,615 spent" and correctly called it a bug:
+    // the fee is per-bill, the $428,615 was bills PLUS materials.
+    // The COST the fee was earned on, not the fee itself - that is what the
+    // label needs to name. Computed over exactly the same rows the fee was, so
+    // the sentence on screen cannot describe a different set of money than the
+    // number beside it.
+    fee_basis: {
+      bills: (invoices ?? [])
+        .filter((i: any) => ACTUAL_STATUSES.has(i.status))
+        .reduce((sum: number, i: any) => sum + Number(i.amount ?? 0), 0),
+      materials: feeOnMaterials ? materials_total : 0,
+      on_materials: feeOnMaterials,
+      earned: { bills: billsEarned, materials: materialsEarned },
+    },
     space_totals: spaceTotals,
     project_sqft: { interior: projectMeta?.interior_sqft ?? null, exterior: projectMeta?.exterior_sqft ?? null },
     contractor_fee_pct: Number(projectMeta?.contractor_fee_pct ?? 0),

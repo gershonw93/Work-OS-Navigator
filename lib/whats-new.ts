@@ -48,6 +48,33 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    date: '2026-09-01',
+    title: 'The budget numbers explain themselves',
+    items: [
+      {
+        kind: 'improved',
+        title: 'Actual Spent and Left to spend show their working',
+        text: 'Somebody checked the arithmetic and could not make it close. Two things were adding into Actual Spent with no way to tell them apart, so it now says which - "$207,920 in bills + $12,955 materials". And if it looks bigger than your Bills tab, that tab is filtered to one status; this counts approved, released and paid. Left to spend prints the subtraction it did rather than a total you have to work backwards from. The maths never changed - it just refused to show itself.',
+        help: 'add-project-budget',
+        href: '/projects',
+      },
+      {
+        kind: 'new',
+        title: 'Choose whether your fee applies to materials',
+        text: 'Some contracts mark up everything the job costs; some pass materials through at cost. It is now a tick next to your markup rate, per job, and individual receipts can be set at cost from the Materials tab. It is off unless you turn it on - the same as every job worked before - so nothing you have already earned has moved.',
+        help: 'add-project-budget',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
+        title: 'The fee line says what it was earned on',
+        text: 'It read "Earned so far $20,792 of $428,615 spent" - but the fee is worked out on your bills, while that larger figure was bills plus materials. Two different piles of money in one sentence, which read as a bug whether or not the number was right. It now names the actual basis.',
+        help: 'add-project-budget',
+        href: '/projects',
+      },
+    ],
+  },
+  {
     date: '2026-08-30',
     title: 'Correcting or deleting a sub bill now reaches QuickBooks',
     items: [

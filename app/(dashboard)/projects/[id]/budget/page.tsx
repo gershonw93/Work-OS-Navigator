@@ -33,7 +33,19 @@ const money = (n: number) => `$${Number(n || 0).toLocaleString(undefined, { maxi
  * back to markup-on-cost and print a confident green margin for a job whose
  * price nobody had ever given it.
  */
-function ProfitFigures({ profit, totalActual }: { profit: Profit; totalActual: number }) {
+/** What the cost-plus fee was actually earned on, so the screen can say so. */
+interface FeeBasis {
+  /** Cost of accepted bills the fee was computed over. */
+  bills: number
+  /** Cost of material receipts it was computed over - 0 when materials are at cost. */
+  materials: number
+  on_materials: boolean
+}
+
+function ProfitFigures(
+  { profit, totalActual, feeBasis, materialsSpentHint = 0 }:
+  { profit: Profit; totalActual: number; feeBasis?: FeeBasis | null; materialsSpentHint?: number },
+) {
   if (profit.projected == null) return null
   const earned = profit.basis === 'markup'
   return (
@@ -64,8 +76,26 @@ function ProfitFigures({ profit, totalActual }: { profit: Profit; totalActual: n
           </p>
           <p className={cn('text-lg font-semibold', profit.toDate < 0 ? 'text-danger' : 'text-ink-soft')}>
             {profit.toDate < 0 ? '-' : ''}{money(Math.abs(profit.toDate))}
-            <span className="ml-1.5 text-[11px] font-normal text-faint">of {money(totalActual)} spent</span>
+            {/* NAME THE BASIS. This said "of {totalActual} spent", which is
+                bills PLUS materials - while the fee itself is earned per bill,
+                and on materials only when the job says so. Two different
+                totals in one sentence reads as a bug whether or not the
+                arithmetic is right, and a reviewer called it exactly that. */}
+            <span className="ml-1.5 text-[11px] font-normal text-faint">
+              {earned && feeBasis
+                ? `on ${money(feeBasis.bills)} in bills${feeBasis.on_materials && feeBasis.materials > 0 ? ` + ${money(feeBasis.materials)} materials` : ''}`
+                : `of ${money(totalActual)} spent`}
+            </span>
           </p>
+          {earned && feeBasis && !feeBasis.on_materials && materialsSpentHint > 0 && (
+            // Say the quiet part. Materials earning no fee is a real choice
+            // some contracts make and others do not, and somebody whose
+            // contract DOES mark up materials should find that out here rather
+            // than at the end of the job.
+            <p className="mt-0.5 text-[11px] text-faint">
+              Materials are at cost on this job - no fee. Change it in project settings.
+            </p>
+          )}
         </div>
       )}
     </>
@@ -168,6 +198,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   const vc = useViewerContext(params.id)
   const [items, setItems] = useState<BudgetItem[]>([])
   const [totals, setTotals] = useState<BudgetTotals | null>(null)
+  const [feeBasis, setFeeBasis] = useState<FeeBasis | null>(null)
   const [subOptions, setSubOptions] = useState<SubOption[]>([])
   const [materials, setMaterials] = useState<any[]>([])
   const [materialsTotal, setMaterialsTotal] = useState(0)
@@ -257,6 +288,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       setSellout(d.sellout_amount != null ? String(d.sellout_amount) : '')
       setContractType(asContractType(d.contract_type))
       setMarkupEarned(Number(d.markup_earned) || 0)
+      setFeeBasis(d.fee_basis ?? null)
     }
     setLoading(false)
   }
@@ -280,6 +312,29 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
 
   // Persist the markup % (as a fraction) on the project. Reuses the payments
   // fee endpoint - markup and the billed contractor fee are the same number.
+  /**
+   * Does the fee apply to material receipts on this job?
+   *
+   * Reloads rather than patching state locally: turning this on changes the
+   * fee EARNED, which several tiles on this screen show. Setting the checkbox
+   * and leaving those stale would be the exact class of disagreement this
+   * whole change exists to end.
+   */
+  async function saveFeeOnMaterials(next: boolean) {
+    setSavingMarkup(true)
+    try {
+      const token = await getToken()
+      await fetch(`/api/projects/${params.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ fee_on_materials: next }),
+      })
+      await load()
+    } finally {
+      setSavingMarkup(false)
+    }
+  }
+
   async function saveMarkup() { return saveMarkupValue(markupPct) }
 
   // Takes the value rather than reading state: the locked field hands over the
@@ -566,6 +621,11 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   const totalCommitted = totals?.committed ?? items.reduce((s, i) => s + Number(i.committed_amount || 0), 0)
   const totalActual = totals?.actual ?? items.reduce((s, i) => s + Number(i.actual_amount || 0), 0)
   const committedNotBilled = totals?.committed_not_billed ?? 0
+  // The two halves of Actual Spent. A reviewer had to reverse-engineer why
+  // Actual Spent and the Bills figure differed by $220k; both of these were
+  // hiding inside one number.
+  const billedOnly = totals?.billed ?? Math.max(0, totalActual - (totals?.materials ?? 0))
+  const materialsSpent = totals?.materials ?? 0
   // Remaining now counts signed contracts, not just invoices. Budget minus
   // Actual told a GC with $450k signed and $200k billed that $300k was still
   // theirs to spend; it never was.
@@ -711,7 +771,15 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
     },
     {
       label: 'Actual Spent', value: totalActual, color: 'text-success', bg: 'bg-success-tint', icon: CheckCircle2,
-      help: 'What has actually been billed to you.\n\nEvery invoice that is approved, sent for payment, or paid - plus material receipts assigned to a line. An invoice sitting in Pending Approval does NOT count yet; approving it is what moves this number.',
+      // ON SCREEN, not in the tooltip. Two things were hiding in this total -
+      // material receipts, and bills in the two accepted statuses beyond
+      // "approved" - and somebody comparing it to the Bills tab had to guess
+      // at both. A total whose parts cannot be recovered from the screen reads
+      // as a bug even when the arithmetic is right.
+      note: materialsSpent > 0
+        ? `${money(billedOnly)} in bills + ${money(materialsSpent)} materials`
+        : 'Approved, released and paid bills',
+      help: 'What has actually been billed to you.\n\nEvery invoice that is approved, sent for payment, or paid - plus material receipts assigned to a line. An invoice sitting in Pending Approval does NOT count yet; approving it is what moves this number.\n\nIf this looks bigger than your Bills tab, that tab is probably filtered to one status - this counts all three.',
     },
     {
       label: overBudget ? 'Over Budget' : 'Left to spend',
@@ -721,7 +789,12 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       icon: overBudget ? TrendingDown : Wallet,
       // The whole point of the fix: this counts contracts you have signed, not
       // just invoices you have received.
-      note: 'After signed contracts, not just invoices',
+      //
+      // It is NOT budget minus committed, and the difference is the first thing
+      // anybody checking the maths notices. So show the subtraction that was
+      // actually done rather than asserting a total and hiding the working in a
+      // tooltip nobody hovers.
+      note: `${money(totalBudgeted)} − ${money(totalBudgeted - remaining)} spent or signed`,
       help: `Budget you have not spoken for yet.\n\nTotal budget, less whichever is bigger on each line: what you have signed, or what you have already been billed.\n\nIt is deliberately NOT budget minus invoices. If you have budgeted ${money(totalBudgeted)}, signed ${money(totalCommitted)} and been billed ${money(totalActual)}, the money still free to spend is ${money(Math.max(remaining, 0))} - not ${money(Math.max(totalBudgeted - totalActual, 0))}.`,
     },
   ]
@@ -1091,7 +1164,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
             </div>
           )}
 
-          <ProfitFigures profit={profit} totalActual={totalActual} />
+          <ProfitFigures profit={profit} totalActual={totalActual} feeBasis={feeBasis} materialsSpentHint={materialsSpent} />
         </div>
       ) : null}
 

@@ -20,6 +20,7 @@ type Material = {
   amount: number; tax: number | null; purchase_date: string | null; category: string | null
   notes: string | null; receipt_url: string | null; line_items: any[] | null; company_id: string | null
   budget_line_id: string | null; client_paid: boolean; created_at: string
+  markup_pct?: number | null; markup_excluded?: boolean | null
 }
 type ProjectOpt = { id: string; name: string }
 
@@ -261,6 +262,26 @@ export function MaterialsView({ lockedProjectId }: { lockedProjectId?: string })
   const [projectFilter, setProjectFilter] = useState('all')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [budgetLineLabels, setBudgetLineLabels] = useState<Record<string, string>>({})
+  // Does this job put the contractor fee on material receipts?
+  //
+  // Only asked when the list is ONE job's. Across jobs the answer differs per
+  // project, and a per-receipt fee control that might be about a different
+  // project's rule is worse than no control.
+  const [feeOnMaterials, setFeeOnMaterials] = useState(false)
+
+  useEffect(() => {
+    if (!lockedProjectId) { setFeeOnMaterials(false); return }
+    let alive = true
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/projects/${lockedProjectId}/budget`, { headers: await authHeaders() })
+        if (!res.ok) return
+        const d = await res.json()
+        if (alive) setFeeOnMaterials(d.fee_basis?.on_materials === true)
+      } catch { /* the control just stays hidden */ }
+    })()
+    return () => { alive = false }
+  }, [lockedProjectId])
 
   async function load() {
     const res = await fetch('/api/materials', { headers: await authHeaders() })
@@ -280,6 +301,25 @@ export function MaterialsView({ lockedProjectId }: { lockedProjectId?: string })
     const next = !m.client_paid
     setMaterials(prev => prev.map(x => x.id === m.id ? { ...x, client_paid: next } : x))
     await fetch(`/api/materials/${m.id}`, { method: 'PATCH', headers: await authHeaders(), body: JSON.stringify({ client_paid: next }) })
+  }
+
+  /**
+   * Bill this receipt at cost, or put the fee on it.
+   *
+   * Optimistic like the paid toggle above, and reverted on failure - a control
+   * about money must not show a state the server did not accept.
+   */
+  async function setReceiptMarkup(m: Material, patch: { markup_excluded?: boolean; markup_pct?: number | null }) {
+    const previous = materials
+    setMaterials(prev => prev.map(x => x.id === m.id ? { ...x, ...patch } : x))
+    try {
+      const res = await fetch(`/api/materials/${m.id}`, {
+        method: 'PATCH', headers: await authHeaders(), body: JSON.stringify(patch),
+      })
+      if (!res.ok) throw new Error('failed')
+    } catch {
+      setMaterials(previous)
+    }
   }
 
   async function toggleExpand(m: Material) {
@@ -407,6 +447,28 @@ export function MaterialsView({ lockedProjectId }: { lockedProjectId?: string })
                     )}
                     {m.notes && (
                       <div className="col-span-2 sm:col-span-3"><p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Notes</p><p className="text-ink-soft">{m.notes}</p></div>
+                    )}
+                    {/* Whether this receipt carries your fee.
+                        Only shown on jobs that mark materials up at all - on a
+                        job where materials are pass-through there is nothing to
+                        override, and a control that does nothing is worse than
+                        no control. */}
+                    {feeOnMaterials && lockedProjectId && (
+                      <div className="col-span-2 sm:col-span-3">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Your fee</p>
+                        <div className="mt-1 flex flex-wrap items-center gap-2">
+                          <button type="button" onClick={() => setReceiptMarkup(m, { markup_excluded: !m.markup_excluded })}
+                            className={cn('rounded-full px-2.5 py-1 text-xs font-medium border',
+                              m.markup_excluded ? 'border-warn/40 bg-warn-tint text-warn' : 'border-line text-muted-fg hover:bg-surface')}>
+                            {m.markup_excluded ? 'At cost - no fee' : 'Bill at cost'}
+                          </button>
+                          {!m.markup_excluded && (
+                            <span className="text-xs text-muted-fg">
+                              {m.markup_pct != null ? `${m.markup_pct}% on this one` : 'Project rate'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     )}
                   </div>
 
