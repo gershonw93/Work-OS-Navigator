@@ -8,8 +8,15 @@ not knowing which of the two a flow uses.
 
 | Sent by | Which flows | Key lives in |
 |---|---|---|
-| **SendGrid, directly** (`lib/email.ts`) | Client portal links, quote requests, compliance requests, shared files, client invoices, notifications | `SENDGRID_API_KEY` in the app's environment (Vercel) |
-| **Supabase Auth** | Team invites, password resets, signup confirmations | Supabase dashboard → Authentication → Emails → SMTP |
+| **SendGrid, directly** (`lib/email.ts`) | Client portal links, quote requests, compliance requests, shared files, client invoices, notifications, **and team invites since #351** | `SENDGRID_API_KEY` in the app's environment (Vercel) |
+| **Supabase Auth** | Password resets, signup confirmations | Supabase dashboard → Authentication → Emails → SMTP |
+
+**Team invites moved.** They used to be sent by Supabase Auth and were the only
+flow that depended on that second mail setup. They now mint the link with
+`generateLink` and send it through `lib/email.ts` like everything else, falling
+back to Supabase only when `SENDGRID_API_KEY` is unset. Password resets and
+signup confirmations still need the Supabase SMTP settings below — they are
+generated inside Supabase and there is no link for us to send.
 
 The three Supabase ones are:
 

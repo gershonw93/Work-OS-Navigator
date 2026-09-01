@@ -49,6 +49,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-02',
+    title: 'Team invites now send the same way everything else does',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'Invite emails go out through SyteNav\'s own sender',
+        text: 'Team invites were the only emails handed to a separate mail service to deliver, which meant they could fail while every other email in the app kept working - and nothing on screen could tell you which. They now go out the same way client portal links and quote requests do. If one still fails, the message says exactly why instead of guessing.',
+        href: '/settings?tab=team',
+      },
+    ],
+  },
+  {
+    date: '2026-09-02',
     title: 'Copy an invite link instead of waiting on email',
     items: [
       {
