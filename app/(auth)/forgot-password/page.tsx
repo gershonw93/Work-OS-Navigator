@@ -2,15 +2,11 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { clientAppOrigin } from '@/lib/app-url'
 
 export default function ForgotPasswordPage() {
-  const supabase = createClient()
-
   const [email, setEmail] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
@@ -21,22 +17,32 @@ export default function ForgotPasswordPage() {
     setError(null)
     setLoading(true)
 
-    const { error: authError } = await supabase.auth.resetPasswordForEmail(email, {
-      // The app domain when one is configured, otherwise wherever this page
-      // actually is. Supabase only honours this if it matches an entry in the
-      // project's Redirect URLs - otherwise it silently falls back to the
-      // dashboard's Site URL, which is how a stale link gets emailed out.
-      redirectTo: clientAppOrigin() + '/reset-password',
-    })
-
-    setLoading(false)
-
-    if (authError) {
-      setError(authError.message)
-      return
+    // Our own endpoint, not supabase.auth.resetPasswordForEmail - the mail goes
+    // out through SendGrid like everything else. See app/api/auth/reset-password.
+    //
+    // It answers { ok: true } for everything, on purpose: an unknown address, a
+    // throttled one and a failed send are indistinguishable from here, because
+    // an answer that differs is a way to test whether somebody has an account.
+    // So the only failure this page can report is not reaching the server at
+    // all - and it says exactly that rather than guessing at a cause.
+    try {
+      const res = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      if (!res.ok) {
+        setError('Could not reach the server. Check your connection and try again.')
+        return
+      }
+      setSuccess(true)
+    } catch {
+      setError('Could not reach the server. Check your connection and try again.')
+    } finally {
+      // Always ends, on every path - a loading state with one exit is a
+      // spinner somebody eventually reloads the page to escape.
+      setLoading(false)
     }
-
-    setSuccess(true)
   }
 
   return (
@@ -50,7 +56,7 @@ export default function ForgotPasswordPage() {
 
       {success ? (
         <div className="rounded-md bg-green-900/40 border border-green-700 px-4 py-3">
-          <p className="text-sm text-success">Check your email for a reset link</p>
+          <p className="text-sm text-success">If that address has a SyteNav account, a reset link is on its way. It expires in an hour.</p>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4">

@@ -277,6 +277,48 @@ export function inviteEmail({ name, inviteUrl }: { name: string | null | undefin
 }
 
 /**
+ * The password reset link.
+ *
+ * Deliberately terse, and deliberately says what to do if it was not you. A
+ * reset email is the one piece of mail an attacker can cause to be sent to
+ * somebody else's inbox, so it has to be readable as "somebody asked, nothing
+ * has happened yet" rather than as an alarm.
+ *
+ * No name on it: this is sent from an unauthenticated form where all we have
+ * is the address typed into it. Guessing at a greeting would mean looking the
+ * person up, and confirming an account exists is the thing that endpoint most
+ * needs to avoid.
+ */
+export function passwordResetEmail({ resetUrl }: { resetUrl: string }) {
+  const text = [
+    'Somebody asked to reset the password on your SyteNav account.',
+    '',
+    'Set a new password here:',
+    resetUrl,
+    '',
+    'The link expires in an hour and only works once.',
+    '',
+    "If this wasn't you, ignore this email - your password has not changed.",
+    '',
+    'SyteNav',
+  ].join('\n')
+
+  const html = emailLayout({
+    preheader: 'Set a new password for your SyteNav account.',
+    eyebrow: 'Password reset',
+    heading: 'Set a new password',
+    paragraphs: [
+      'Somebody asked to reset the password on your SyteNav account.',
+      'The link below expires in an hour and only works once.',
+    ],
+    cta: { label: 'Set a new password', url: resetUrl },
+    footNote: "If this wasn't you, ignore this email - your password has not changed.",
+  })
+
+  return { subject: 'Reset your SyteNav password', text, html }
+}
+
+/**
  * A notification, by email.
  *
  * Deliberately one line of content and one link. A notification email that
