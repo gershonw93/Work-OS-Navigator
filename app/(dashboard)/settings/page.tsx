@@ -1000,7 +1000,7 @@ export default function SettingsPage() {
                           id="companyType"
                           value={companyType}
                           onChange={(e) => setCompanyType(e.target.value)}
-                          className="mt-1 block w-full rounded-md border border-muted2 bg-panel px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent"
+                          className="mt-1"
                         >
                           <option value="">Select type…</option>
                           <option value="general_contractor">General Contractor</option>
@@ -1318,7 +1318,7 @@ export default function SettingsPage() {
                           id="inviteRole"
                           value={inviteRole}
                           onChange={(e) => setInviteRole(e.target.value)}
-                          className="mt-1 block w-full rounded-md border border-muted2 bg-panel px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent"
+                          className="mt-1"
                         >
                           {roleOptions.map((r) => (
                             <option key={r.value} value={r.value}>{r.label}</option>
@@ -1396,7 +1396,7 @@ export default function SettingsPage() {
                         id="pref-type"
                         value={prefDefaultType}
                         onChange={(e) => setPrefDefaultType(e.target.value)}
-                        className="mt-1 block w-full rounded-md border border-muted2 bg-panel px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent"
+                        className="mt-1"
                       >
                         <option value="residential">Residential</option>
                         <option value="commercial">Commercial</option>
@@ -1410,7 +1410,7 @@ export default function SettingsPage() {
                         id="pref-offset"
                         value={prefStartOffset}
                         onChange={(e) => setPrefStartOffset(e.target.value)}
-                        className="mt-1 block w-full rounded-md border border-muted2 bg-panel px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent"
+                        className="mt-1"
                       >
                         <option value="today">Today</option>
                         <option value="1week">1 week out</option>
@@ -1451,7 +1451,7 @@ export default function SettingsPage() {
                         id="pref-naming"
                         value={prefNamingPattern}
                         onChange={(e) => setPrefNamingPattern(e.target.value)}
-                        className="mt-1 block w-full rounded-md border border-muted2 bg-panel px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent"
+                        className="mt-1"
                       >
                         <option value="prefix_number">Prefix + Number (e.g. House 1)</option>
                         <option value="prefix_address">Prefix + Address (e.g. House - 95 Main St)</option>
