@@ -4,6 +4,7 @@ import { feeForInvoice } from '@/lib/allocations'
 import { ACTUAL_STATUSES } from '@/lib/invoice-budget'
 import { logActivity } from '@/lib/log-activity'
 import { pushPaymentForProject } from '@/lib/quickbooks-push'
+import { requirePermission, denied } from '@/lib/api-guard'
 
 export const runtime = 'nodejs'
 
@@ -101,6 +102,9 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
 // Create a client payment, or update the project fee % ({ fee_pct }).
 export async function POST(request: Request, { params }: { params: { id: string } }) {
+  const gate = await requirePermission(admin(), request, 'payments', 'edit')
+  if (denied(gate)) return gate.denied
+
   const user = await auth(request)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()

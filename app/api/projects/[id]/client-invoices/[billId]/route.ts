@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
 import { randomBytes } from 'crypto'
 import { pushClientInvoice, voidClientInvoiceInQbo } from '@/lib/quickbooks-push'
+import { requirePermission, denied } from '@/lib/api-guard'
 
 export const runtime = 'nodejs'
 
@@ -22,6 +23,9 @@ async function auth(request: Request) {
 const FIELDS = ['status', 'due_date', 'show_markup', 'notes', 'terms', 'invoice_number', 'issue_date']
 
 export async function PATCH(request: Request, { params }: { params: { id: string; billId: string } }) {
+  const gate = await requirePermission(admin(), request, 'payments', 'edit')
+  if (denied(gate)) return gate.denied
+
   const ctx = await auth(request)
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { db, user } = ctx
@@ -72,6 +76,9 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 }
 
 export async function DELETE(request: Request, { params }: { params: { id: string; billId: string } }) {
+  const gate = await requirePermission(admin(), request, 'payments', 'edit')
+  if (denied(gate)) return gate.denied
+
   const ctx = await auth(request)
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

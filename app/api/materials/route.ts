@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
+import { requirePermission, denied } from '@/lib/api-guard'
 
 export const runtime = 'nodejs'
 
@@ -49,6 +50,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const gate = await requirePermission(admin(), request, 'materials', 'edit')
+  if (denied(gate)) return gate.denied
+
   const c = await ctx(request)
   if (!c) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { db, user, companyId, actorName } = c

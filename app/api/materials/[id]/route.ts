@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { requirePermission, denied } from '@/lib/api-guard'
 
 export const runtime = 'nodejs'
 
@@ -16,6 +17,9 @@ async function userId(request: Request) {
 }
 
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+  const gate = await requirePermission(admin(), request, 'materials', 'edit')
+  if (denied(gate)) return gate.denied
+
   if (!(await userId(request))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()
   const body = await request.json()
@@ -50,6 +54,9 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 }
 
 export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+  const gate = await requirePermission(admin(), request, 'materials', 'edit')
+  if (denied(gate)) return gate.denied
+
   if (!(await userId(request))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { error } = await admin().from('material_purchases').delete().eq('id', params.id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

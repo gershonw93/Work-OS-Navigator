@@ -49,6 +49,19 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-01',
+    title: 'Money screens now enforce who is allowed to change them',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'View-only roles can no longer edit budgets, bills or payments',
+        text: 'A Field Supervisor could open a budget and change it. The screen hid the buttons from them, but hiding a button is not the same as refusing the change - and the server was not refusing. Every money screen now checks your role before it writes: budgets, bills from subs, billing the client, change orders, subcontracts, pay apps and materials. Nothing changes for admins, managers, PMs or office staff, and field crews can still log materials and file daily logs as before.',
+        help: 'permissions',
+        href: '/settings',
+      },
+    ],
+  },
+  {
+    date: '2026-09-01',
     title: 'The budget numbers explain themselves',
     items: [
       {

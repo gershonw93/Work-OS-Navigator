@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { requirePermission, denied } from '@/lib/api-guard'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -9,6 +10,9 @@ const admin = () => createClient(
 // Apply a budget template (or copy another project's budget) into this project's
 // budget. Amounts are BLANK by default; copy_amounts=true brings them in too.
 export async function POST(request: Request, { params }: { params: { id: string } }) {
+  const gate = await requirePermission(admin(), request, 'budget', 'edit')
+  if (denied(gate)) return gate.denied
+
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()

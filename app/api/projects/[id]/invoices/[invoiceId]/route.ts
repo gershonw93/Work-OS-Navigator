@@ -4,6 +4,7 @@ import { logActivity } from '@/lib/log-activity'
 import { notify } from '@/lib/notify'
 import { validateAllocations } from '@/lib/allocations'
 import { pushBill, pushBillPayment, updateBillInQbo, voidBillInQbo, billQboRefs } from '@/lib/quickbooks-push'
+import { requirePermission, denied } from '@/lib/api-guard'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,6 +15,9 @@ export async function PATCH(
   request: Request,
   { params }: { params: { id: string; invoiceId: string } },
 ) {
+  const gate = await requirePermission(admin(), request, 'invoices', 'edit')
+  if (denied(gate)) return gate.denied
+
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -224,6 +228,9 @@ export async function DELETE(
   request: Request,
   { params }: { params: { id: string; invoiceId: string } },
 ) {
+  const gate = await requirePermission(admin(), request, 'invoices', 'edit')
+  if (denied(gate)) return gate.denied
+
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

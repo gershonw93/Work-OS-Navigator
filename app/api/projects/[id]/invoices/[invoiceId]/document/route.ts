@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { requirePermission, denied } from '@/lib/api-guard'
 
 export const runtime = 'nodejs'
 
@@ -10,6 +11,9 @@ const admin = () => createClient(
 
 // Attach the vendor's actual invoice file (PDF/image) to an invoice record.
 export async function POST(request: Request, { params }: { params: { id: string; invoiceId: string } }) {
+  const gate = await requirePermission(admin(), request, 'invoices', 'edit')
+  if (denied(gate)) return gate.denied
+
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()

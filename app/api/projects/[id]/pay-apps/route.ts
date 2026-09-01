@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { requirePermission, denied } from '@/lib/api-guard'
 
 export const runtime = 'nodejs'
 
@@ -56,6 +57,9 @@ export async function GET(request: Request, { params }: { params: { id: string }
 // POST — start a new pay application. Seeds its lines from the Schedule of
 // Values and carries "previous completed" forward from earlier applications.
 export async function POST(request: Request, { params }: { params: { id: string } }) {
+  const gate = await requirePermission(admin(), request, 'pay-apps', 'edit')
+  if (denied(gate)) return gate.denied
+
   const user = await auth(request)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()

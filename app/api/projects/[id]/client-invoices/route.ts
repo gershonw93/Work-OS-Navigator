@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
 import { markUp } from '@/lib/markup'
 import { ACTUAL_STATUSES } from '@/lib/invoice-budget'
+import { requirePermission, denied } from '@/lib/api-guard'
 
 export const runtime = 'nodejs'
 
@@ -150,6 +151,9 @@ export async function GET(request: Request, { params }: { params: { id: string }
  * already been handed.
  */
 export async function POST(request: Request, { params }: { params: { id: string } }) {
+  const gate = await requirePermission(admin(), request, 'payments', 'edit')
+  if (denied(gate)) return gate.denied
+
   const ctx = await auth(request)
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { db, user } = ctx
