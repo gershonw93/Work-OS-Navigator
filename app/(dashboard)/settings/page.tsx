@@ -13,7 +13,7 @@ import Link from 'next/link'
 import {
   User, Building2, Users, Shield, Bell, CreditCard, AlertTriangle,
   Check, X, SlidersHorizontal, Plug, Palette, Camera, RefreshCw, Ban, Lock,
-  LayoutTemplate,
+  LayoutTemplate, Copy,
 } from 'lucide-react'
 import {
   type ContractType, CONTRACT_TYPES, CONTRACT_LABEL, CONTRACT_BLURB, asContractType,
@@ -697,6 +697,49 @@ export default function SettingsPage() {
     }
   }
 
+  // ── Copy Invite Link ──────────────────────────────────────────────────────
+
+  /**
+   * The escape hatch for an invite email that never turns up.
+   *
+   * Team invites are sent by Supabase Auth, and `inviteUserByEmail` refuses an
+   * address that already has an auth user - which every previously-invited
+   * address does, because the first invite created one. So Resend cannot fix
+   * the case people reach for it: the invite that did not arrive. A link you
+   * can paste into your own email sidesteps delivery entirely, the same way
+   * the client portal has always offered Copy Link beside Send.
+   */
+  const [linkFor, setLinkFor] = useState<string | null>(null)
+  const [copiedInvite, setCopiedInvite] = useState<string | null>(null)
+
+  async function copyInviteLink(inviteId: string) {
+    setLinkFor(inviteId)
+    setInviteMsg(null)
+    try {
+      const headers = await authHeaders()
+      const res = await fetch(`/api/invite/${inviteId}/link`, { method: 'POST', headers })
+      const d = await res.json().catch(() => ({} as any))
+      if (!res.ok || !d.link) {
+        setInviteMsg({ ok: false, text: d.error ?? 'Could not create a link.' })
+        return
+      }
+      // Clipboard access can be refused (an insecure origin, or the permission
+      // denied), and a silent failure here looks exactly like a copy that
+      // worked - so show the link to copy by hand instead of claiming success.
+      try {
+        await navigator.clipboard.writeText(d.link)
+        setCopiedInvite(inviteId)
+        setTimeout(() => setCopiedInvite(null), 2000)
+      } catch {
+        window.prompt('Copy this invite link:', d.link)
+      }
+    } catch {
+      setInviteMsg({ ok: false, text: 'Could not create a link.' })
+    } finally {
+      setLinkFor(null)
+    }
+  }
+
   // ── Cancel Invite ─────────────────────────────────────────────────────────
 
   async function cancelInvite(inviteId: string) {
@@ -1245,6 +1288,15 @@ export default function SettingsPage() {
                                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-warn-tint text-warn">
                                   Pending
                                 </span>
+                                <button
+                                  onClick={() => copyInviteLink(inv.id)}
+                                  disabled={linkFor === inv.id}
+                                  className="text-xs text-accent-fg hover:underline flex items-center gap-1 disabled:opacity-50"
+                                >
+                                  {copiedInvite === inv.id
+                                    ? <><Check className="h-3 w-3" /> Copied</>
+                                    : <><Copy className="h-3 w-3" /> Copy link</>}
+                                </button>
                                 <button
                                   onClick={() => resendInvite(inv.email, inv.role)}
                                   className="text-xs text-info hover:text-info hover:underline flex items-center gap-1"
