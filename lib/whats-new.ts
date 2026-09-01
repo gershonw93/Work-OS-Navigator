@@ -49,6 +49,26 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-02',
+    title: 'Job margin is its own permission now',
+    items: [
+      {
+        kind: 'new',
+        title: 'Costs and margin can be granted separately',
+        text: 'Seeing the Budget tab used to mean seeing the job\'s markup, contract value and projected profit - there was no way to let a project manager run a budget without showing them what you make on it. Margin is now its own permission. Project Manager and Office Staff keep the full budget and lose the margin figures; Admin and Manager keep both. Grant it back to anyone you like under Team & Users.',
+        help: 'permissions',
+        href: '/settings?tab=permissions',
+      },
+      {
+        kind: 'fixed',
+        title: 'The Company Settings, Team and Billing switches now do something',
+        text: 'Those three permissions sat in the grid and could be ticked and unticked, but nothing read them - the Settings screen decided access from the role name alone. So customising a role changed what someone saw everywhere except Settings. It now uses the same permissions as the rest of the app, and every standard role keeps exactly the tabs it had.',
+        help: 'permissions',
+        href: '/settings?tab=permissions',
+      },
+    ],
+  },
+  {
+    date: '2026-09-02',
     title: 'Who sees the money, and forms that say what is wrong',
     items: [
       {

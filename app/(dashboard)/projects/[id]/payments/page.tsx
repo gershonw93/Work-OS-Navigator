@@ -12,6 +12,7 @@ import Link from 'next/link'
 import { Plus, X, Wallet, TrendingDown, Banknote, Percent, Trash2, Pencil, Check, Landmark, ArrowRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toAmountInput } from '@/lib/validate'
+import { usePermissions } from '@/lib/use-permissions'
 
 interface Payment {
   id: string; paid_date: string | null; amount: number; method: string | null
@@ -33,6 +34,8 @@ const METHODS = ['Check', 'QuickPay', 'Wire', 'ACH', 'Cash', 'CC', 'Other']
 
 export default function PaymentsPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
+  const { can: canDo, loading: permLoading } = usePermissions()
+  const canSeeMargin = !permLoading && canDo('margin', 'view')
   const guardDelete = useDeleteGuard()
   const [payments, setPayments] = useState<Payment[]>([])
   const [summary, setSummary] = useState<Summary | null>(null)
@@ -306,7 +309,10 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
         <Stat label="Client paid direct" value={money(s?.clientPaidDirect ?? 0)} />
         <Stat label="Vendor billed" value={money(s?.vendorBilled ?? 0)} />
         <Stat label="Outstanding to vendors" value={money(s?.outstandingToVendors ?? 0)} cls={(s?.outstandingToVendors ?? 0) > 0 ? 'text-warn' : ''} />
-        <div>
+        {/* The markup, under another name - same permission as the Budget
+            tab's margin panel, or a project manager loses it on one screen and
+            reads it off the other. */}
+        {canSeeMargin && <div>
           <p className="text-xs text-faint mb-0.5">Contractor fee rate</p>
           {feeEditing ? (
             <div className="flex items-center gap-1">
@@ -320,7 +326,7 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
               {(feePct * 100).toFixed(feePct * 100 % 1 ? 1 : 0)}% <Pencil className="h-3 w-3 text-faint" />
             </button>
           )}
-        </div>
+        </div>}
       </div>
 
       {/* Billing the client. This is the half that was missing: Payments only

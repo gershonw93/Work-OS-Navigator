@@ -19,6 +19,8 @@ import {
   type ContractType, CONTRACT_TYPES, CONTRACT_LABEL, CONTRACT_BLURB, asContractType,
 } from '@/lib/contract-type'
 import { PermissionsPanel } from '@/components/settings/permissions-panel'
+import { usePermissions } from '@/lib/use-permissions'
+import type { Action } from '@/lib/permissions'
 import { QuickBooksCard } from '@/components/settings/quickbooks-card'
 import { PasswordInput } from '@/components/ui/password-input'
 import { ConnectCalendarButton } from '@/components/calendar/connect-calendar'
@@ -70,6 +72,26 @@ interface PendingInvite {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 // `href` items are links to their own page, not inline tabs.
+/**
+ * Which permission each Settings tab needs.
+ *
+ * The ACTION carries the tiering: `view` opens Company settings, `edit` is
+ * needed for Security, and the Danger Zone - which deletes the company -
+ * requires `delete`. That is what keeps a manager out of it without naming
+ * any role here.
+ */
+const SETTINGS_TAB_GATES: Record<string, { resource: string; action: Action }> = {
+  company:            { resource: 'settings_company', action: 'view' },
+  preferences:        { resource: 'settings_company', action: 'view' },
+  integrations:       { resource: 'settings_company', action: 'view' },
+  'budget-templates': { resource: 'settings_company', action: 'view' },
+  security:           { resource: 'settings_company', action: 'edit' },
+  danger:             { resource: 'settings_company', action: 'delete' },
+  team:               { resource: 'settings_team',    action: 'view' },
+  permissions:        { resource: 'settings_team',    action: 'view' },
+  billing:            { resource: 'settings_billing', action: 'view' },
+}
+
 const TABS: { id: string; label: string; icon: React.ElementType; danger?: boolean; href?: string }[] = [
   { id: 'profile',       label: 'Profile',       icon: User },
   { id: 'company',       label: 'Company',        icon: Building2 },
@@ -149,16 +171,32 @@ function RoleBadge({ role, label }: { role: string; label?: string }) {
 
 export default function SettingsPage() {
   const { theme } = useTheme()
+  const { can: canDo, loading: permsLoading } = usePermissions()
+  /**
+   * May this person open this tab? One answer, used by the tab strip AND by
+   * the ?tab= deep link - which used to set the active tab from the URL with
+   * no permission check at all, so a hidden tab was still reachable by typing
+   * its name. A filter on the menu is not a lock on the door.
+   */
+  const tabAllowed = useCallback((id: string) => {
+    if (id === 'profile' || id === 'notifications') return true
+    if (permsLoading) return false
+    const gate = SETTINGS_TAB_GATES[id]
+    return gate ? canDo(gate.resource, gate.action) : false
+  }, [canDo, permsLoading])
   // Anything that leads to buying a plan is hidden in the iOS build.
   const { allowed: canBuy } = useCanSignUp()
   const [activeTab, setActiveTab] = useState('profile')
   const [loading, setLoading] = useState(true)
 
-  // Open a specific tab when linked with ?tab= (e.g. the QuickBooks OAuth callback).
+  // Open a specific tab when linked with ?tab= (e.g. the QuickBooks OAuth
+  // callback). Waits for permissions rather than racing them - checking while
+  // they are still loading would refuse a tab the person is allowed.
   useEffect(() => {
+    if (permsLoading) return
     const tab = new URLSearchParams(window.location.search).get('tab')
-    if (tab && TABS.some(t => t.id === tab && !t.href)) setActiveTab(tab)
-  }, [])
+    if (tab && TABS.some(t => t.id === tab && !t.href) && tabAllowed(tab)) setActiveTab(tab)
+  }, [permsLoading, tabAllowed])
   const [userRole, setUserRole] = useState<string>('')
 
   // Profile
@@ -673,16 +711,24 @@ export default function SettingsPage() {
         <nav className="shrink-0 w-14 md:w-52">
           <ul className="space-y-1">
             {TABS.filter(({ id }) => {
-              // Don't render gated tabs until role is confirmed
-              if (!userRole) return id === 'profile'
-              const isAdmin = userRole === 'admin'
-              const isManager = isAdmin || userRole === 'project_manager' || userRole === 'manager' || userRole === 'office_staff'
-              const isRestricted = ['field_supervisor', 'worker', 'member', 'read_only'].includes(userRole)
-              // Restricted users: only Profile and Notifications
-              if (isRestricted) return id === 'profile' || id === 'notifications'
-              if (id === 'team' || id === 'permissions' || id === 'billing' || id === 'danger' || id === 'security') return isAdmin
-              if (id === 'company' || id === 'budget-templates') return isManager
-              return true
+              // Gated by the SAME permission map as everything else.
+              //
+              // This used to be a second, parallel permission model built from
+              // hardcoded role names - `isAdmin`, `isManager`, `isRestricted` -
+              // that never consulted settings_company / settings_team /
+              // settings_billing. Those three keys sat in the Permissions grid
+              // where an admin could tick and untick them, and NOTHING read
+              // them: the switches did nothing at all. So a company that
+              // customised a role got that customisation everywhere except the
+              // screen where roles are configured.
+              //
+              // The role defaults were adjusted in the same change so every
+              // shipped role keeps exactly the tabs it had before.
+              // Yours, whoever you are: profile and notifications need no
+              // permission. Everything else goes through tabAllowed, which the
+              // ?tab= deep link uses too.
+              if (permsLoading) return id === 'profile'
+              return tabAllowed(id)
             }).map(({ id, label, icon: Icon, danger, href }) => {
               // Budget Templates lives on its own page, so it's a link, not a tab.
               if (href) {
