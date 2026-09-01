@@ -921,7 +921,10 @@ export default function TasksPage({ params }: { params: { id: string } }) {
           {STATUSES.map(col => {
             const colTasks = filteredTasks.filter(t => t.status === col.value)
             return (
-              <div className={cn('rounded-xl border flex flex-col overflow-hidden', col.colBorder)}>
+              // Keyed on the status. Without it React reuses column DOM across
+              // renders by position, so a card dragged between columns can land
+              // in the wrong one - caught the first time rules-of-hooks lint ran.
+              <div key={col.value} className={cn('rounded-xl border flex flex-col overflow-hidden', col.colBorder)}>
                 {/* column header */}
                 <div className={cn('flex items-center justify-between px-3 py-2.5', col.headerBg)}>
                   <div className="flex items-center gap-2">

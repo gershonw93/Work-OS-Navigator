@@ -192,6 +192,19 @@ function PayAppDetail({ projectId, appId, onBack, authHeaders }: { projectId: st
   const [data, setData] = useState<any>(null)
   const [saving, setSaving] = useState(false)
   const [dirty, setDirty] = useState(false)
+  // UP HERE, WITH THE OTHERS, AND IT MATTERS.
+  //
+  // This sat below the `if (!data) return` further down, so the first render -
+  // data still null - ran six hooks and bailed, and the render after the fetch
+  // ran seven. React refuses that, and the whole screen became "Application
+  // error: a client-side exception has occurred". Every pay application, new or
+  // existing, because it is the loading -> loaded transition that breaks, not
+  // any particular application.
+  //
+  // Nothing caught it: tsc cannot see hook order, `next build` does not lint
+  // (there was no ESLint config in the repo at all), and the pay-app suites are
+  // pure logic. `react-hooks/rules-of-hooks` now runs and names this exactly.
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/projects/${projectId}/pay-apps/${appId}`, { headers: await authHeaders() })
@@ -250,7 +263,6 @@ function PayAppDetail({ projectId, appId, onBack, authHeaders }: { projectId: st
     }, { label: `Application #${app.application_number}`, protected: true })
   }
 
-  const [saveError, setSaveError] = useState<string | null>(null)
 
   // The same rules the server enforces, so the button can say why BEFORE the
   // round trip rather than only after it is refused.

@@ -49,6 +49,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-03',
+    title: 'Pay Apps opens again',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'Opening a pay application showed a blank error page',
+        text: 'Opening any pay application - or creating a new one - blanked out with "a client-side exception has occurred". It was every application, not a particular one: the screen broke on the changeover from loading to loaded. Fixed, and the check that catches this class of fault now runs before anything ships.',
+        href: '/projects',
+      },
+    ],
+  },
+  {
+    date: '2026-09-03',
     title: 'A job cannot go live without a budget or a price',
     items: [
       {
