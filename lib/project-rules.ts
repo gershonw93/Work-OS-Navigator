@@ -22,6 +22,23 @@ export interface ProjectDraft {
   client?: string
   startDate?: string
   endDate?: string
+  /** 'cost_plus' | 'fixed_price' | 'spec', or null if not answered yet. */
+  contractType?: string | null
+}
+
+/**
+ * A spec build has no client, and the form says so in as many words.
+ *
+ * THE BUG: picking "Building to sell" showed the card 'No client - you are
+ * building it to sell.' and then Create Project refused with 'Pick or enter a
+ * client.' The form contradicted itself in two places a thumb apart, and the
+ * only way out was to name a client for a job that by definition has none -
+ * which then puts a fictional owner on the job, the proposal and the portal.
+ *
+ * The rule was written before spec builds existed and nobody went back.
+ */
+export function needsClient(contractType?: string | null): boolean {
+  return contractType !== 'spec'
 }
 
 /**
@@ -36,7 +53,10 @@ export function projectFormErrors(d: ProjectDraft): Record<string, string> {
 
   if (!has(d.name)) errs.name = 'Give the project a name.'
   if (!has(d.address)) errs.address = 'Enter the job address.'
-  if (!has(d.client)) errs.client = 'Pick a client, or add a new one.'
+  // Not asked of a spec build - see needsClient above.
+  if (needsClient(d.contractType) && !has(d.client)) {
+    errs.client = 'Pick a client, or add a new one.'
+  }
   if (!has(d.startDate)) errs.startDate = 'Enter a start date.'
 
   // An end date is optional, but one that precedes the start is a typo every

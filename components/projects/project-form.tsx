@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { AddressFields } from '@/components/ui/address-fields'
 import { Field } from '@/components/ui/field'
-import { projectFormErrors } from '@/lib/project-rules'
+import { projectFormErrors, needsClient } from '@/lib/project-rules'
 import {
   type ContractType, CONTRACT_TYPES, CONTRACT_LABEL, CONTRACT_BLURB, asContractType,
 } from '@/lib/contract-type'
@@ -122,6 +122,9 @@ export function ProjectForm({
 
   /** Drop a field's message as soon as it is being corrected - leaving it up
    *  while somebody types tells them they are still wrong when they are not. */
+  /** A spec build has no client to name. */
+  const clientRequired = needsClient(contractType)
+
   const clearField = (k: string) =>
     setFieldErrors(prev => (prev[k] ? { ...prev, [k]: '' } : prev))
 
@@ -133,7 +136,7 @@ export function ProjectForm({
     // Checked here rather than left to the browser, so every field says what
     // is wrong in the same place and in the same words. The rules themselves
     // live in lib/project-rules.ts so they can be tested without a form.
-    const errs = projectFormErrors({ name, address, client, startDate, endDate })
+    const errs = projectFormErrors({ name, address, client, startDate, endDate, contractType })
     if (Object.keys(errs).length) {
       setFieldErrors(errs)
       setLoading(false)
@@ -161,7 +164,9 @@ export function ProjectForm({
       body: JSON.stringify({
         name,
         address,
-        client,
+        // null, not '' - a spec build HAS no owner, and an empty string reads
+        // downstream as a client whose name nobody filled in.
+        client: client.trim() || null,
         type,
         start_date: startDate,
         end_date: endDate || null,
@@ -215,7 +220,13 @@ export function ProjectForm({
           </p>
         </div>
       ) : (
-      <Field label="Owner / Client" htmlFor="client" required error={fieldErrors.client}>
+      <Field
+        label="Owner / Client"
+        htmlFor="client"
+        required={clientRequired}
+        error={fieldErrors.client}
+        hint={clientRequired ? undefined : 'Not needed - you are building this to sell.'}
+      >
         <Select
           id="client"
           value={customerId}
@@ -227,7 +238,12 @@ export function ProjectForm({
             clearField('client')
           }}
         >
-          <option value="" disabled>Select a client…</option>
+          {/* Selectable, not disabled, once a client is not required: picking
+              one on a job you then switch to "Building to sell" would otherwise
+              be irreversible - there was no way back to no-one. */}
+          <option value="" disabled={clientRequired}>
+            {clientRequired ? 'Select a client…' : 'No client - building to sell'}
+          </option>
           {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           <option value="__new__">+ New client…</option>
         </Select>
@@ -288,7 +304,13 @@ export function ProjectForm({
         <Label>How does this job pay you? <span className="text-faint font-normal">(optional)</span></Label>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {CONTRACT_TYPES.map(t => (
-            <button key={t} type="button" onClick={() => setContractType(contractType === t ? null : t)}
+            <button key={t} type="button" onClick={() => {
+                const next = contractType === t ? null : t
+                setContractType(next)
+                // A spec build does not need one, so a standing complaint about
+                // the client field stops being true the moment this is picked.
+                if (!needsClient(next)) clearField('client')
+              }}
               className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${contractType === t ? 'border-accent bg-accent-tint text-accent-fg' : 'border-line text-ink-soft hover:bg-panel'}`}>
               <span className="block text-sm font-semibold">{CONTRACT_LABEL[t]}</span>
               <span className="block text-xs text-muted-fg mt-0.5">{CONTRACT_BLURB[t]}</span>
