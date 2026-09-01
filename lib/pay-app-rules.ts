@@ -152,3 +152,66 @@ export const STATUSES_NEEDING_A_SOUND_APP: PayAppStatus[] = ['submitted', 'certi
 export function isPayAppStatus(v: unknown): v is PayAppStatus {
   return typeof v === 'string' && (PAY_APP_STATUSES as readonly string[]).includes(v)
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The Schedule of Values a pay application bills against.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface SovSource {
+  budgetLines: { id: string; cost_code?: string | null; description?: string | null; budgeted_amount?: unknown; subcontract_id?: string | null }[]
+  /** Approved amounts already mapped onto lines, from approvedChangesByLine. */
+  changesByLine: Map<string, number>
+  /** Approved change orders belonging to no line at all. */
+  unmappedChanges: number
+}
+
+export interface SovLine {
+  /** The budget line it came from, or null for the change-order line. */
+  budget_line_item_id: string | null
+  cost_code: string | null
+  description: string
+  scheduled_value: number
+}
+
+/** What an approved change order with no budget line is called on the G703. */
+export const CHANGE_ORDER_SOV_DESCRIPTION = 'Approved change orders'
+
+/**
+ * Build the SOV, with approved change orders in it.
+ *
+ * THE BUG. This was `budgeted_amount` and nothing else. A $50,000 owner change
+ * order was approved, showed as Approved on the Change Orders tab, and the next
+ * pay application still read a contract sum of $300,000 - on a G702 whose line
+ * 1 says "Original contract sum + change orders". A GC billing approved extra
+ * work would never have seen it on the certificate: real money, left behind.
+ *
+ * Two paths, because change orders arrive both ways:
+ *   * one naming a budget line (or a subcontract that sits on one) raises that
+ *     line's scheduled value, which is where an owner expects to see it;
+ *   * one naming neither - a plain owner-side change order - gets a line of its
+ *     own, because money that may be billed has to be billable from somewhere.
+ *     Dropping it is what the budget rollup does, and is why this went unseen.
+ */
+export function scheduleOfValues(src: SovSource): SovLine[] {
+  const sov: SovLine[] = src.budgetLines.map(l => ({
+    budget_line_item_id: l.id,
+    cost_code: l.cost_code ?? null,
+    description: l.description ?? '',
+    scheduled_value: n(l.budgeted_amount) + (src.changesByLine.get(l.id) ?? 0),
+  }))
+
+  if (src.unmappedChanges !== 0) {
+    sov.push({
+      budget_line_item_id: null,
+      cost_code: null,
+      description: CHANGE_ORDER_SOV_DESCRIPTION,
+      scheduled_value: src.unmappedChanges,
+    })
+  }
+  return sov
+}
+
+/** What the G702 calls the contract sum: everything on the schedule. */
+export function contractSum(sov: SovLine[]): number {
+  return sov.reduce((s, l) => s + n(l.scheduled_value), 0)
+}
