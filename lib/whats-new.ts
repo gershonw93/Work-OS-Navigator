@@ -54,7 +54,7 @@ export const RELEASES: Release[] = [
       {
         kind: 'improved',
         title: 'Actual Spent and Left to spend show their working',
-        text: 'Somebody checked the arithmetic and could not make it close. Two things were adding into Actual Spent with no way to tell them apart, so it now says which - "$207,920 in bills + $12,955 materials". And if it looks bigger than your Bills tab, that tab is filtered to one status; this counts approved, released and paid. Left to spend prints the subtraction it did rather than a total you have to work backwards from. The maths never changed - it just refused to show itself.',
+        text: 'Somebody checked the arithmetic and could not make it close. THREE different things add into Actual Spent - bills from subs, actuals typed straight onto a budget line, and material receipts - and the screen showed only the total. It now prints the split underneath. If it looks bigger than your Bills tab, that tab is filtered to one status; this counts approved, released and paid. Left to spend prints the subtraction it did rather than a total you have to work backwards from. The maths never changed - it just refused to show itself.',
         help: 'add-project-budget',
         href: '/projects',
       },
