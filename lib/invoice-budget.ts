@@ -313,6 +313,46 @@ export function budgetTotals(lines: RolledLine[]): BudgetTotals {
   return t
 }
 
+/**
+ * How far along the job is, weighted by value.
+ *
+ * TWO SCREENS WERE ANSWERING THIS DIFFERENTLY, and one of them was in front of
+ * the customer. The Progress tab weights each budget line's % by what that
+ * line is worth - a job 17% complete. The client portal read
+ * `subcontracts.progress_percent`, which is a MANUAL billing field only written
+ * when a sub bills by percentage, so it showed 0% on every trade of a job
+ * visibly underway. A client seeing zeroes on work they can watch happening is
+ * worse than showing them nothing.
+ *
+ * One derivation, here, so they cannot drift - the same reason lineExposure
+ * lives here rather than in whichever screen needed it first.
+ *
+ * NULL, NOT ZERO, when nothing is measurable. "Nobody has marked any progress"
+ * and "no progress has been made" are different facts, and collapsing them is
+ * precisely the bug: 0% is an assertion, and an unmeasured job should not make
+ * one. Callers decide whether to hide the bar or explain it.
+ *
+ * Lines with no budget are ignored rather than counted as zero - a $0 line
+ * marked complete should not drag a weighted average it contributes nothing to.
+ */
+export function weightedProgress(
+  lines: { budgeted_amount?: unknown; progress_pct?: unknown }[],
+): number | null {
+  let total = 0
+  let earned = 0
+  let measured = false
+  for (const l of lines) {
+    const value = n(l.budgeted_amount)
+    if (value <= 0) continue
+    total += value
+    const pct = n(l.progress_pct)
+    if (pct > 0) measured = true
+    earned += value * (Math.min(Math.max(pct, 0), 100) / 100)
+  }
+  if (total <= 0 || !measured) return null
+  return Math.round((earned / total) * 100)
+}
+
 /** What an invoice screen needs to say about the line the money is going to. */
 export interface BudgetDestination {
   id: string

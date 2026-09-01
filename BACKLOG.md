@@ -180,6 +180,17 @@ Shipped in #218: bulk creation makes a site + a job per unit/floor/house, with a
 ## ✅ Recently shipped (for reference)
 - Money write routes enforce permissions server-side (#337). A reviewer saw a Field Supervisor with budget edit controls and guessed role preview was broken. It was not: of 152 API routes accepting writes, SEVEN checked anything beyond "are you signed in", so the buttons were the entire defence and hiding them was cosmetic. New `lib/api-guard.ts` - `requirePermission(db, request, resource, action)` in two lines, using the same role -> company override -> per-user resolution as the UI and `usersWhoCan`, so what a screen hides and what the API refuses cannot drift. Applied to 36 write methods across budget, invoices, client invoices, payments, change orders, subcontracts, pay apps, quotes and materials. DELETE gates on `edit` deliberately: project_manager has edit-without-delete on invoices/payments/team, and gating on `delete` would quietly remove something PMs do today.
 
+## ✅ Second review pass - fixed (#338)
+- Client portal 0% on every trade: it read `subcontracts.progress_percent`, a manual billing field only written when a sub bills by percentage, while the Progress tab used amount-weighted `budget_line_items.progress_pct`. New `weightedProgress()` in `lib/invoice-budget.ts` is now the single derivation for both. Returns **null, not 0**, when nothing is marked - a confident 0% in front of a customer was the actual damage.
+- Reports header blank: `/api/projects/[id]` exported PATCH and DELETE and **no GET**, so the fetch 405'd silently. Added, guarded. The page's `Project` interface also declared `client_name` and `contract_value`, neither of which exists - a type vouching for a row shape it had never seen.
+- Schedule opened on the earliest item; now today, clamped into the schedule's own span.
+- "Left to spend" said the subtraction but not why it differs from Committed.
+
+## 📋 Reported and NOT a code bug - data
+- `Elecric`, `cm electrical maintenace corp`, companies named `gershon` / `accounting` / `jacob`. **Now confirmed reaching the client portal.**
+- Roofing selections linked to wrong budget lines - "Ridge vent" on Concrete/Foundations, "Shingle product and color" on Flooring/LVT. Checked: `matchBudgetLine` returns Roofing correctly and the bulk-apply keys by selection id, so these were set by hand.
+- Both fixable in one statement when the user says so.
+
 ## 🔒 Still open from the same review (in order)
 - **Cross-company scoping on writes.** The guard checks your ROLE, not that your company owns the project. Subs legitimately write to jobs they do not own (bills, daily logs, time), which is why `ownsProject` is a separate question - so this needs a per-route decision about which writes a sub may make, not a blanket rule.
 - **The other ~110 unguarded write routes** - everything outside money/project data.

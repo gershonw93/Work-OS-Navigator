@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { daysUntil, isOutstanding } from '@/lib/selections'
+import { weightedProgress } from '@/lib/invoice-budget'
 
 const admin = () =>
   createClient(
@@ -68,6 +69,7 @@ export default async function PortalPage({ params }: { params: { token: string }
   // Fetch all data in parallel
   const [
     { data: subcontracts },
+    { data: progressLines },
     { data: milestones },
     { data: permits },
     { data: dailyLogs },
@@ -77,6 +79,10 @@ export default async function PortalPage({ params }: { params: { token: string }
     { data: clientPayments },
   ] = await Promise.all([
     db.from('subcontracts').select('*').eq('project_id', project.id),
+    // Progress comes from the budget lines, same as the Progress tab. Reading
+    // subcontracts.progress_percent showed the client 0% on every trade,
+    // because that field is only written when a sub bills by percentage.
+    db.from('budget_line_items').select('budgeted_amount, progress_pct').eq('project_id', project.id),
     db.from('schedule_items').select('*').eq('project_id', project.id).order('start_date', { ascending: true }),
     db.from('permits').select('*').eq('project_id', project.id).order('created_at', { ascending: false }),
     db.from('daily_logs').select('*').eq('project_id', project.id).order('log_date', { ascending: false }).limit(5),
@@ -132,12 +138,11 @@ export default async function PortalPage({ params }: { params: { token: string }
   const owed = (selections ?? []).filter(s => isOutstanding(s.status))
   const owedLate = owed.filter(s => { const d = daysUntil(s.needed_by); return d != null && d < 0 }).length
 
-  const overallPct =
-    subcontracts && subcontracts.length > 0
-      ? Math.round(
-          subcontracts.reduce((sum, s) => sum + (s.progress_percent ?? 0), 0) / subcontracts.length,
-        )
-      : 0
+  // Weighted by what each line is worth, not a flat average of trades - the
+  // old version gave a $2,000 gutter line the same say as a $300,000 frame.
+  // null means nobody has marked any progress, which is NOT the same as none
+  // having been made, so the section is hidden rather than asserting 0%.
+  const overallPct = weightedProgress(progressLines ?? [])
 
   const lastUpdated = project.updated_at
     ? new Date(project.updated_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
@@ -181,30 +186,37 @@ export default async function PortalPage({ params }: { params: { token: string }
         {/* Progress summary */}
         <div className="bg-panel rounded-xl border border-line p-4 sm:p-6">
           <h2 className="text-base font-semibold text-ink-soft mb-4">Progress Summary</h2>
-          <div className="mb-4">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-sm font-medium text-muted-fg">Overall Progress</span>
-              <span className="text-sm font-bold text-ink-soft">{overallPct}%</span>
+          {overallPct != null ? (
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-sm font-medium text-muted-fg">Overall Progress</span>
+                <span className="text-sm font-bold text-ink-soft">{overallPct}%</span>
+              </div>
+              <ProgressBar pct={overallPct} />
             </div>
-            <ProgressBar pct={overallPct} />
-          </div>
-          {subcontracts && subcontracts.length > 0 ? (
+          ) : (
+            <p className="text-sm text-faint">Progress has not been marked up yet.</p>
+          )}
+          {subcontracts && subcontracts.length > 0 && (
             <div className="space-y-3 mt-5">
               {subcontracts.map((sub) => {
-                const pct = sub.progress_percent ?? 0
+                // A trade with no figure gets no bar. Printing 0% next to work
+                // the client can watch happening outside their window is how a
+                // portal loses its credibility in one glance.
+                const pct = sub.progress_percent
                 return (
                   <div key={sub.id}>
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-sm text-muted-fg">{sub.trade ?? sub.scope_summary ?? 'Subcontract'}</span>
-                      <span className="text-xs font-semibold text-ink-soft">{pct}%</span>
+                      <span className="text-xs font-semibold text-ink-soft">
+                        {pct == null || pct === 0 ? 'In progress' : `${pct}%`}
+                      </span>
                     </div>
-                    <ProgressBar pct={pct} />
+                    {pct != null && pct > 0 && <ProgressBar pct={pct} />}
                   </div>
                 )
               })}
             </div>
-          ) : (
-            <p className="text-sm text-faint">No subcontracts on record.</p>
           )}
         </div>
 

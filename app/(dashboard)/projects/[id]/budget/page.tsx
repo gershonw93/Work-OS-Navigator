@@ -801,7 +801,11 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       // anybody checking the maths notices. So show the subtraction that was
       // actually done rather than asserting a total and hiding the working in a
       // tooltip nobody hovers.
-      note: `${money(totalBudgeted)} − ${money(totalBudgeted - remaining)} spent or signed`,
+      // Says WHY the subtracted figure is not simply Committed. Printing the
+      // two side by side with no reason - which is what the first version of
+      // this note did - replaced "unexplained" with "two numbers and no
+      // explanation", which is barely an improvement.
+      note: `${money(totalBudgeted)} − ${money(totalBudgeted - remaining)}, using actual where it exceeds committed`,
       help: `Budget you have not spoken for yet.\n\nTotal budget, less whichever is bigger on each line: what you have signed, or what you have already been billed.\n\nIt is deliberately NOT budget minus invoices. If you have budgeted ${money(totalBudgeted)}, signed ${money(totalCommitted)} and been billed ${money(totalActual)}, the money still free to spend is ${money(Math.max(remaining, 0))} - not ${money(Math.max(totalBudgeted - totalActual, 0))}.`,
     },
   ]

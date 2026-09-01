@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { weightedProgress } from '@/lib/invoice-budget'
 
 interface LineTask { id: string; title: string; status: string }
 interface Line {
@@ -154,8 +155,13 @@ export function QuoteLineItems({ projectId, mode }: { projectId: string; mode: '
   if (loading) return <div className="text-sm text-faint py-12 text-center">Loading…</div>
 
   const total = project?.quote_total ?? lines.reduce((s, l) => s + Number(l.budgeted_amount || 0), 0)
+  // The SAME function the client portal uses. Two screens each doing their own
+  // arithmetic on "how far along is this job" is how the portal ended up
+  // showing 0% while this showed 17%.
+  const overallPct = weightedProgress(lines) ?? 0
+  // Still needed on its own: the screen shows the money earned as well as the
+  // percentage, and that is a value not a ratio.
   const earned = lines.reduce((s, l) => s + Number(l.budgeted_amount || 0) * (Number(l.progress_pct || 0) / 100), 0)
-  const overallPct = total > 0 ? Math.round((earned / total) * 100) : 0
 
   const sections: { name: string; rows: Line[] }[] = []
   for (const l of lines) {
