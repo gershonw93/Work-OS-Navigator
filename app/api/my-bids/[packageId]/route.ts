@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
+import { audienceFor } from '@/lib/notification-audience'
 import { notify } from '@/lib/notify'
 
 const admin = () => createClient(
@@ -175,14 +176,15 @@ export async function POST(request: Request, { params }: { params: { packageId: 
       .eq('id', pkg.project_id)
       .single()
     if (projectRow?.gc_company_id) {
-      const { data: gcProfiles } = await db
-        .from('profiles')
-        .select('id')
-        .eq('company_id', projectRow.gc_company_id)
-      if (gcProfiles?.length) {
+      // Was every profile at the GC. A bid arriving is for whoever prices work,
+      // not for the whole company - defaults to whoever can edit bids.
+      const audience = await audienceFor({
+        db, companyId: projectRow.gc_company_id, type: 'new_bid',
+      })
+      if (audience.length) {
         await notify({
           db,
-          userIds: gcProfiles.map(p => p.id),
+          userIds: audience,
           type: 'bid',
           title: `New Bid: ${pkg.scope}`,
           message: `${companyName} ${verb} a bid - $${Number(amount).toLocaleString()}`,

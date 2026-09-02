@@ -1136,6 +1136,32 @@ export const HELP_ARTICLES: HelpArticle[] = [
     related: ['add-project-budget', 'materials-receipt', 'time-clock'],
   },
   {
+    slug: 'who-gets-notified',
+    title: 'Choose who gets notified when something happens',
+    category: 'settings',
+    keywords: [
+      'notifications', 'who gets notified', 'routing', 'alerts', 'recipients', 'inspection',
+      'rfi', 'change order', 'bill approval', 'expiring', 'bid', 'too many notifications',
+      'noise', 'role', 'notify', 'settings',
+    ],
+    summary: 'Settings → Notifications → Who gets told: pick the roles and people who hear about each event.',
+    blocks: [
+      { type: 'text', text: 'There are two separate questions about notifications, and they belong to different people. WHAT DO I WANT TO HEAR ABOUT is yours, and you answer it with your own switches at the top of Settings → Notifications. WHO GETS TOLD AT ALL is the company\'s, and an admin answers it underneath, in "Who gets told".' },
+      { type: 'steps', items: [
+        'Go to Settings → Notifications. You need admin access to see the second section.',
+        'Find the event, for example "Work marked ready for inspection".',
+        'Click Change.',
+        'Pick roles, specific people, or both. Somebody matched twice is only told once.',
+        'Save. "Back to the default" undoes it.',
+      ] },
+      { type: 'text', text: 'WHAT THE DEFAULT IS. Before you change anything, each of these goes to whoever can act on it - a bill waiting for approval goes to the people who can approve bills, an inspection to the people who can manage inspections. The screen shows you who that actually is right now, by name, so you are not guessing.' },
+      { type: 'tip', text: 'Naming a person adds them whatever their role - that is the point of naming them. Useful when one particular site manager should see everything on inspections regardless of what their role normally allows.' },
+      { type: 'text', text: 'WHAT YOU CANNOT CHANGE, AND WHY. Some notifications go to the person they are about: a task assigned to you, an invitation to bid, a sign-off somebody asked you for. Those never appear in this list. Being able to route them by role would mean being able to stop the assignee from ever being told they were assigned something, and nothing would look broken.' },
+      { type: 'tip', text: 'You cannot save an empty list. Leaving nobody selected would stop the notification without saying so - if you want an event off for yourself, use your own switches at the top of the page instead.' },
+    ],
+    related: ['notification-preferences', 'custom-roles', 'invite-team-member'],
+  },
+  {
     slug: 'notification-preferences',
     title: 'Choose what you get told about',
     category: 'settings',

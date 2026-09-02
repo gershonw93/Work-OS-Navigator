@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
+import { audienceFor } from '@/lib/notification-audience'
 import { notify } from '@/lib/notify'
 
 const admin = () => createClient(
@@ -96,14 +97,18 @@ export async function POST(request: Request, { params }: { params: { id: string 
     .eq('id', params.id)
     .single()
   if (project?.gc_company_id) {
-    const { data: gcProfiles } = await db
-      .from('profiles')
-      .select('id')
-      .eq('company_id', project.gc_company_id)
-    if (gcProfiles?.length) {
+    // Was EVERY profile at the GC company - the labourer, the read-only
+    // bookkeeper, everyone. An RFI needs answering by whoever the company
+    // decided answers RFIs, and telling the rest is how the bell stops being
+    // read. Defaults to whoever can edit RFIs, which is close to who was
+    // meaningfully being reached before.
+    const audience = await audienceFor({
+      db, companyId: project.gc_company_id, type: 'rfi_submitted', exclude: user.id,
+    })
+    if (audience.length) {
       await notify({
         db,
-        userIds: gcProfiles.map(p => p.id),
+        userIds: audience,
         type: 'rfi',
         title: `New RFI #${rfi_number}`,
         message: `${actorName} submitted RFI: ${subject}`,

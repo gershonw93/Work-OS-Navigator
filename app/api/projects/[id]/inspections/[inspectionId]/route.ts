@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
+import { audienceFor } from '@/lib/notification-audience'
 import { notify } from '@/lib/notify'
 
 const admin = () => createClient(
@@ -101,16 +102,23 @@ export async function PATCH(
       user.id,
     )
 
-    // Whoever asked for it and whoever books it; fall back to the GC's office
-    // when the inspection was raised by the sub side.
+    // STRUCTURAL first, then whoever the company said should hear it.
+    //
+    // Whoever asked for it and whoever books it are told because of their part
+    // in this inspection, not because of their role - that is not a setting and
+    // must not become one. Everyone else comes from Settings -> Notifications ->
+    // Who gets told.
+    //
+    // This used to fall back to EVERY profile at the GC company. Ten office
+    // staff, ten notifications, every time somebody marked work ready - which
+    // is how people learn to ignore the bell.
     const recipients = new Set<string>()
     if (inspection.requested_by_id) recipients.add(inspection.requested_by_id)
     if (inspection.scheduler_profile_id) recipients.add(inspection.scheduler_profile_id)
+    for (const id of await audienceFor({
+      db, companyId: proj?.gc_company_id, type: 'inspection_ready', exclude: user.id,
+    })) recipients.add(id)
     recipients.delete(user.id)
-    if (!recipients.size && proj?.gc_company_id) {
-      const { data: office } = await db.from('profiles').select('id').eq('company_id', proj.gc_company_id)
-      for (const p of office ?? []) if (p.id !== user.id) recipients.add(p.id)
-    }
     if (recipients.size) {
       await notify({
         db, userIds: Array.from(recipients), type: 'inspection_ready',
@@ -124,7 +132,7 @@ export async function PATCH(
   // Follow-up notifications on status changes: keep the requester (and scheduler)
   // in the loop when the inspection is booked, passes, or fails.
   if (newStatus && ['scheduled', 'passed', 'failed', 'pending_reinspection'].includes(newStatus)) {
-    const { data: proj } = await db.from('projects').select('name').eq('id', params.id).single()
+    const { data: proj } = await db.from('projects').select('name, gc_company_id').eq('id', params.id).single()
     const label = inspection.type ? `${inspection.type}${inspection.trade ? ` (${inspection.trade})` : ''}` : 'Inspection'
     const at = proj?.name ? ` at ${proj.name}` : ''
     let msg = ''
@@ -137,6 +145,12 @@ export async function PATCH(
     if (inspection.requested_by_id) recipients.add(inspection.requested_by_id)
     // Passed/failed also loops in the scheduler; scheduling itself only pings the requester.
     if (newStatus !== 'scheduled' && inspection.scheduler_profile_id) recipients.add(inspection.scheduler_profile_id)
+    // Plus whoever the company said should hear an inspection result. A failed
+    // inspection is the one somebody other than the requester needs to know
+    // about, and before this only the requester and the booker were told.
+    for (const id of await audienceFor({
+      db, companyId: (proj as any)?.gc_company_id, type: 'inspection_result', exclude: user.id,
+    })) recipients.add(id)
     recipients.delete(user.id) // don't notify the person who made the change
     if (msg && recipients.size) {
       // The type used to be built from newStatus - `inspection_scheduled`,
