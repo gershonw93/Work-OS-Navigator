@@ -925,6 +925,32 @@ export const HELP_ARTICLES: HelpArticle[] = [
 
   // ── Field & Daily Logs ─────────────────────────────────────────────────────
   {
+    slug: 'sytenav-on-your-phone',
+    title: 'Using SyteNav on your phone',
+    category: 'field',
+    keywords: [
+      'phone', 'mobile', 'ipad', 'tablet', 'iphone', 'android', 'app', 'app store',
+      'download', 'install', 'home screen', 'add to home screen', 'offline', 'on site',
+      'jobsite', 'camera', 'photos', 'notifications', 'push',
+    ],
+    summary: 'SyteNav works in your phone browser today - add it to your home screen and it behaves like an app.',
+    blocks: [
+      { type: 'text', text: 'SyteNav is built to be used on site, not only at a desk. Everything works in the browser on a phone or tablet right now - the same account, the same jobs, the same data. There is nothing separate to sign up for.' },
+      { type: 'text', text: 'ADD IT TO YOUR HOME SCREEN. This is the part most people miss. Once you do it, SyteNav opens full-screen with its own icon and no browser bars, which is most of what makes an app feel like an app.' },
+      { type: 'steps', items: [
+        'iPhone or iPad: open app.sytenav.com in Safari, tap the Share button, then "Add to Home Screen".',
+        'Android: open app.sytenav.com in Chrome, tap the three-dot menu, then "Add to Home screen" or "Install app".',
+        'Open it from the icon from then on - you stay signed in.',
+      ] },
+      { type: 'text', text: 'WHAT WORKS WELL ON A PHONE. Daily logs with photos straight from the camera. The time clock, which records where you clocked in and out. Scanning an invoice, quote or permit by photographing it. Approving a bill. Checking what a job is costing while you are standing on it.' },
+      { type: 'tip', text: 'Crew on the Worker role get Field Mode automatically - a stripped-back screen built for gloves and sunlight, with just today\'s work on it. See "Field Mode for field workers".' },
+      { type: 'text', text: 'WHAT TO EXPECT ON POOR SIGNAL. SyteNav needs a connection - it is not an offline app. On one bar it will be slow rather than broken. If you are about to lose signal completely, write the daily log when you are back in range rather than losing what you typed.' },
+      { type: 'text', text: 'NOTIFICATIONS. Email notifications work on a phone today, and you control which ones you get under Settings then Notifications. Notifications that pop up on the phone itself arrive with the app.' },
+      { type: 'text', text: 'THE APP ITSELF. A native iPhone and iPad app is in the works. When it lands you will sign in with the account you already have and everything will be where you left it. Accounts, plans and billing stay on the website; the app is for the work. We will tell you here and in What\'s New the day it is downloadable.' },
+    ],
+    related: ['field-mode', 'daily-log-create', 'time-clock'],
+  },
+  {
     slug: 'field-mode',
     title: 'Field Mode for field workers',
     category: 'field',

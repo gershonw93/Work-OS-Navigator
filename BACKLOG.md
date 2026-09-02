@@ -27,7 +27,27 @@ the biggest build yet while the books are half-wired ends with both half-done.
     server half ships inert (`/.well-known/apple-app-site-association`, 404
     until `APPLE_TEAM_ID` is set); the entitlement waits until after the first
     successful build, because one the App ID does not carry fails code signing.
-  - **A What's New entry and a Help article** - deliberately NOT written yet.
+  - **The six Apple steps** are now written out in order at the top of
+    `MOBILE.md` ("YOU ARE HERE"), for the state the account is actually in -
+    approved, no keys. Five of the six are on Apple's side.
+  - **Android is done** (#365): project committed, camera/photo/location/
+    notification permissions declared. Needs a keystore and a Play
+    service-account JSON before Codemagic can upload it. Does not block iOS.
+  - **App Privacy** is answered ahead of time in `store/app-privacy.md`, and
+    the store URLs are corrected - they pointed at `/homepage/...`, which has
+    not existed since the marketing site moved to the root, and they are the
+    strings pasted into App Store Connect.
+  - **Launch copy is written and deliberately unpublished**
+    (`store/launch-copy.md`). The What's New entry's `date` drives the unread
+    badge, so publishing "SyteNav is on the App Store" before it is would
+    notify every customer of something untrue. A Help article that IS true
+    today - using SyteNav from a phone browser - is live.
+  - **No cookie-consent banner, on purpose.** Only sign-in and preference
+    cookies are set; there is no analytics, tag manager or advertising script,
+    so there is nothing to consent to and a banner would imply tracking that
+    does not happen. The Cookie Policy said otherwise and has been corrected.
+    A guard test now fails if an analytics integration is added while the
+    policy still claims there is none - and the other way round too.
     Nothing about this is visible to a web user, and an article about a phone
     app nobody can install is Help drifting the other way. Due the day it hits
     TestFlight, along with the notifications article.
