@@ -87,9 +87,19 @@ const TYPE_ACCENT: Record<string, string> = {
 // Aug 31, on the screen everybody looks at. See lib/dates.ts.
 const fmtDate = (d: string | null) => formatDate(d)
 
-// A site has no work of its own, so it opens onto its units rather than plans.
+// A site has no work of its own, so it opens onto its units.
+//
+// Everything else opens on /projects/<id>, which redirects to the Overview -
+// where the job actually stands, and what has piled up since you last looked.
+// This used to link straight to /plans, so the front door of a live job was a
+// file list, and the redirect that exists to prevent exactly that was skipped
+// by the one screen everybody opens jobs from.
+//
+// NOT /overview directly: a subcontractor and a site have no overview, and that
+// page sends them on to Plans itself. Linking there keeps that one decision in
+// one place instead of asking every caller to know about it.
 function projectHref(p: { id: string; is_site?: boolean | null }) {
-  return p.is_site ? `/projects/${p.id}/units` : `/projects/${p.id}/plans`
+  return p.is_site ? `/projects/${p.id}/units` : `/projects/${p.id}`
 }
 
 export default function ProjectsPage() {

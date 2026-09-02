@@ -5,6 +5,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
 import { NotificationSettings } from '@/components/settings/notification-settings'
 import { NotificationRouting } from '@/components/settings/notification-routing'
+import { PLANS, PLAN_CTA_HREF } from '@/lib/plans'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -1782,60 +1783,56 @@ export default function SettingsPage() {
                 </CardContent>
               </Card>
 
-              {/* Plans comparison */}
+              {/* Plans comparison.
+                  FROM lib/plans.ts, the same list the pricing page renders.
+                  This used to be its own hardcoded set - Starter / Pro /
+                  Enterprise, different limits, and **$49 / mo** on the middle
+                  one. The website offers Crew / Company / Scale with no prices
+                  at all, and has an FAQ entry headed "Why is there no price on
+                  this page?", so the absence is a decision. The app was quoting
+                  a price the business had chosen not to publish, under three
+                  tier names that do not exist. */}
               <div>
-                <h3 className="text-base font-semibold text-ink mb-3">Available Plans</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {[
-                    {
-                      name: 'Starter',
-                      price: 'Free',
-                      current: true,
-                      features: ['Up to 5 users', '10 projects', '5 GB storage', 'Core features'],
-                    },
-                    {
-                      name: 'Pro',
-                      price: '$49 / mo',
-                      current: false,
-                      features: ['Up to 25 users', 'Unlimited projects', '50 GB storage', 'Priority support', 'Advanced reports'],
-                    },
-                    {
-                      name: 'Enterprise',
-                      price: 'Custom',
-                      current: false,
-                      features: ['Unlimited users', 'Unlimited projects', 'Custom storage', 'Dedicated support', 'SSO / SAML', 'Custom integrations'],
-                    },
-                  ].map((plan) => (
+                <h3 className="text-base font-semibold text-ink mb-1">Plans</h3>
+                <p className="mb-3 text-sm text-muted-fg">
+                  Everything is free while SyteNav is in beta. When plans start, these are the shapes -
+                  we price a setup around your team rather than off a list.
+                </p>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  {PLANS.map((plan) => (
                     <div
                       key={plan.name}
-                      className={`rounded-xl border p-5 ${plan.current ? 'border-accent bg-accent-tint' : 'border-line bg-panel'}`}
+                      className={`rounded-xl border p-5 ${plan.featured ? 'border-accent bg-accent-tint' : 'border-line bg-panel'}`}
                     >
-                      <div className="flex items-center justify-between mb-1">
+                      <div className="mb-1 flex items-center justify-between">
                         <p className="font-semibold text-ink">{plan.name}</p>
-                        {plan.current && (
-                          <span className="text-xs bg-accent-tint text-accent-fg px-2 py-0.5 rounded-full font-medium">
-                            Current
+                        {plan.featured && (
+                          <span className="rounded-full bg-accent-tint px-2 py-0.5 text-xs font-medium text-accent-fg">
+                            Most popular
                           </span>
                         )}
                       </div>
-                      <p className="text-lg font-bold text-ink mb-3">{plan.price}</p>
+                      <p className="mb-3 text-sm text-muted-fg">{plan.who}</p>
                       <ul className="space-y-1.5">
+                        {plan.limits.map((l) => (
+                          <li key={l.t} className="flex items-center gap-2 text-sm font-medium text-ink-soft">
+                            <Check className="h-3.5 w-3.5 shrink-0 text-accent-fg" />
+                            {l.t}
+                          </li>
+                        ))}
                         {plan.features.map((f) => (
                           <li key={f} className="flex items-center gap-2 text-sm text-muted-fg">
-                            <Check className="h-3.5 w-3.5 text-success shrink-0" />
+                            <Check className="h-3.5 w-3.5 shrink-0 text-success" />
                             {f}
                           </li>
                         ))}
                       </ul>
-                      {!plan.current && (
-                        <Button
-                          disabled
-                          variant="outline"
-                          className="mt-4 w-full opacity-60 cursor-not-allowed"
-                        >
-                          Coming Soon
-                        </Button>
-                      )}
+                      <a
+                        href={PLAN_CTA_HREF}
+                        className="mt-4 block w-full rounded-lg border border-line py-2 text-center text-sm font-medium text-ink-soft hover:bg-surface"
+                      >
+                        {plan.cta}
+                      </a>
                     </div>
                   ))}
                 </div>

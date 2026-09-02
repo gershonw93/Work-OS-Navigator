@@ -24,7 +24,7 @@ export default function NewProjectPage() {
       <Card>
         <CardContent className="pt-6">
           <ProjectForm
-            onCreated={(project) => router.push(`/projects/${project.id}/plans`)}
+            onCreated={(project) => router.push(`/projects/${project.id}`)}
             onCancel={() => router.back()}
           />
         </CardContent>
