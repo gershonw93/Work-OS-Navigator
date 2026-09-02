@@ -192,6 +192,19 @@ function AddModal({ projects, lockedProjectId, onClose, onSaved }: { projects: P
                   {budgetLines.map(l => <option key={l.id} value={l.id}>{l.label}</option>)}
                   <option value="__new__">+ Create new budget line…</option>
                 </Select>
+                {/* WHAT "NOT LINKED" ACTUALLY COSTS, said before they save.
+                    The budget rollup only counts a receipt that has a budget
+                    line, so leaving this at its default quietly keeps the money
+                    out of the job - a $186.51 Home Depot receipt scanned
+                    perfectly, saved, and moved nothing. The page says receipts
+                    flow into project costs; for an unlinked one that was not
+                    true and nothing said so. */}
+                {!budgetLineId && (
+                  <p className="text-xs text-warn">
+                    Without a budget line this receipt is recorded, but it will not appear in the
+                    project&apos;s Budget, its costs, or Master Money. Pick a line if this is a job cost.
+                  </p>
+                )}
                 {budgetLineId === '__new__' && (
                   <div className="grid grid-cols-2 gap-2 pt-1">
                     <div><Label className="text-xs">Category</Label><Input value={newLineCategory} onChange={e => setNewLineCategory(e.target.value)} placeholder="e.g. Electrical" /></div>
@@ -415,6 +428,15 @@ export function MaterialsView({ lockedProjectId }: { lockedProjectId?: string })
                     <p className="truncate font-semibold text-ink">{m.store_name || 'Material purchase'}</p>
                     {m.category && <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-fg">{m.category}</span>}
                     {m.client_paid && <span className="inline-flex items-center gap-1 rounded-full bg-success-tint px-1.5 py-0.5 text-[10px] font-medium text-success"><CheckCircle2 className="h-3 w-3" />Paid</span>}
+                    {/* Findable after the fact. A receipt on a job with no
+                        budget line is money the Budget tab cannot see, and
+                        without this the only way to notice is to add up the
+                        receipts by hand and wonder. */}
+                    {m.project_id && !m.budget_line_id && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-warn-tint px-1.5 py-0.5 text-[10px] font-medium text-warn">
+                        Not in the budget
+                      </span>
+                    )}
                   </div>
                   <p className="truncate text-xs text-muted-fg">
                     {lockedProjectId ? '' : `${m.project_name}`}{m.purchase_date ? `${lockedProjectId ? '' : ' · '}${new Date(m.purchase_date + 'T00:00:00').toLocaleDateString()}` : ''}

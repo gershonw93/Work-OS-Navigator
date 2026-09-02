@@ -242,10 +242,41 @@ export function ComparisonBlock({ comp, projectId, onChanged }: { comp: Comparis
           </div>
         </div>
         {comp.analysis?.recommendation && (
-          <div className="rounded-lg bg-accent-tint/50 border border-accent/30 px-3 py-2.5">
-            <p className="text-xs font-semibold text-accent-fg mb-0.5 flex items-center gap-1"><Sparkles className="h-3.5 w-3.5" /> Recommendation</p>
-            <p className="text-sm text-ink-soft">{comp.analysis.recommendation}</p>
-          </div>
+          // STALE ANALYSIS, SAID OUT LOUD.
+          //
+          // The analysis is a snapshot of the quotes that existed when it ran,
+          // and nothing invalidated it when another arrived. A comparison with
+          // two quotes on screen was reading "This is the only quote submitted,
+          // so it wins by default" - the second had been uploaded 59 seconds
+          // after the analysis was generated.
+          //
+          // Worked out from the stored `per_quote` list rather than a
+          // timestamp: it already records exactly which quotes were looked at,
+          // so no new column and no way for the two to disagree.
+          (() => {
+            const seen = new Set((comp.analysis?.per_quote ?? []).map(p => p.quote_id))
+            const stale = quotes.length > 0 && quotes.some(q => !seen.has(q.id))
+            const missing = quotes.filter(q => !seen.has(q.id)).length
+            return (
+              <div className={cn('rounded-lg border px-3 py-2.5',
+                stale ? 'border-warn/40 bg-warn-tint' : 'border-accent/30 bg-accent-tint/50')}>
+                <p className={cn('mb-0.5 flex items-center gap-1 text-xs font-semibold',
+                  stale ? 'text-warn' : 'text-accent-fg')}>
+                  <Sparkles className="h-3.5 w-3.5" />
+                  {stale ? 'Recommendation is out of date' : 'Recommendation'}
+                </p>
+                {stale && (
+                  <p className="mb-1.5 text-xs text-warn">
+                    {missing === 1 ? 'A quote was' : `${missing} quotes were`} added after this was written,
+                    so it does not take {missing === 1 ? 'it' : 'them'} into account. Re-analyze to update it.
+                  </p>
+                )}
+                <p className={cn('text-sm', stale ? 'text-muted-fg' : 'text-ink-soft')}>
+                  {comp.analysis.recommendation}
+                </p>
+              </div>
+            )
+          })()
         )}
       </div>
 

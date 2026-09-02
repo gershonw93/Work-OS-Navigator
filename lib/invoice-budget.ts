@@ -289,6 +289,16 @@ export interface BudgetTotals {
   /** Signed but not yet invoiced - the money that used to hide. */
   committed_not_billed: number
   /**
+   * How much of `committed` sits in contracts NO budget line points at.
+   *
+   * Part of the total, not extra - but a screen has to be able to say so,
+   * because otherwise the headline is bigger than the rows below it add up to
+   * and there is no way to find out why. On a job with $80,000 typed on a line
+   * AND an $80,000 subcontract nobody linked, that is very often the SAME
+   * money entered twice, and this is what lets the screen point at it.
+   */
+  committed_unlinked: number
+  /**
    * The two halves of `actual`, so a screen can SAY what it is made of.
    *
    * A reviewer worked out that Actual Spent and the Bills figure disagreed by
@@ -326,7 +336,7 @@ export function budgetTotals(
 ): BudgetTotals {
   const t: BudgetTotals = {
     original_budget: 0, approved_changes: 0, revised_budget: 0,
-    committed: 0, actual: 0, committed_not_billed: 0,
+    committed: 0, actual: 0, committed_not_billed: 0, committed_unlinked: 0,
     billed: 0, materials: 0, entered: 0,
     projected_cost: 0, remaining: 0,
   }
@@ -348,7 +358,26 @@ export function budgetTotals(
     t.committed_not_billed += Math.max(0, line.committed_amount - billed)
   }
   // ONE derivation, shared with Master Money and the project Summary.
-  t.committed = committedTotal({ subcontracts, lines }).total
+  const c = committedTotal({ subcontracts, lines })
+  t.committed = c.total
+
+  // THE CARD USED TO HOLD TWO DIFFERENT COMMITTED NUMBERS AT ONCE.
+  //
+  // The headline came from committedTotal - every contract, plus what is typed
+  // on lines that have no contract. The "signed, not yet billed" note under it
+  // was still summed per LINE, so a contract nobody had linked to a budget line
+  // was in one and not the other. On a job with one $80,000 subcontract and
+  // $80,000 typed on a line, the card read "$160,000" over "$55,000 signed" and
+  // the rows below added to $80,000. Three numbers, one question.
+  //
+  // #356 moved the headline to a shared derivation and left this behind, which
+  // is the same drift it existed to end.
+  t.committed_unlinked = c.subcontractsWithNoBudgetLine
+  // Added whole. What has been billed against a contract that is on no budget
+  // line cannot be seen from the line rollup - by definition, nothing points at
+  // it - so this is deliberately the contract value rather than a figure that
+  // looks netted-off and is not.
+  t.committed_not_billed += c.subcontractsWithNoBudgetLine
 
   t.revised_budget = t.original_budget + t.approved_changes
   t.remaining = t.revised_budget - t.projected_cost
