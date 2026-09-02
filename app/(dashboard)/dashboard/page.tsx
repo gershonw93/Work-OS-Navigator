@@ -176,19 +176,38 @@ export default function DashboardPage() {
         )
       }
 
+      // A FAILED FETCH IS NOT AN EMPTY COMPANY.
+      //
+      // These were `if (res.ok)` with no else, so a 500 left `projects` at []
+      // and the screen said "Let's set up your first job" - to an account whose
+      // company has a live job on it. That is what hid a broken /api/projects
+      // for hours: the dashboard cheerfully reported nothing was there.
+      //
+      // Projects and stats decide what the whole screen says, so a failure in
+      // either is the screen's failure. Notifications, activity and the admin
+      // overview are additions to it - those stay quiet, because losing the
+      // activity feed should not blank out a working dashboard.
       if (projRes.ok) {
         const data = await projRes.json()
         setProjects(data.projects ?? [])
+      } else {
+        const d = await projRes.json().catch(() => ({} as any))
+        throw new Error(d?.error ?? `Could not load your projects (${projRes.status})`)
       }
 
       if (statsRes.ok) {
         setStats(await statsRes.json())
+      } else {
+        const d = await statsRes.json().catch(() => ({} as any))
+        throw new Error(d?.error ?? `Could not load your numbers (${statsRes.status})`)
       }
 
       if (activityRes.ok) {
         const data = await activityRes.json()
         setActivity(data.activity ?? [])
         setActivityIsAdmin(data.isAdmin ?? false)
+      } else {
+        console.error('[dashboard] activity failed:', activityRes.status)
       }
 
       } catch (e: any) {

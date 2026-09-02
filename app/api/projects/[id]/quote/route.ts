@@ -74,7 +74,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const user = await authUser(request)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()
-  const { data: profile } = await db.from('profiles').select('companies(default_payment_terms)').eq('id', user.id).single()
+  const { data: profile } = await db.from('profiles').select('companies:company_id(default_payment_terms)').eq('id', user.id).single()
   const defaultTerms = (profile?.companies as any)?.default_payment_terms ?? null
   const [{ data: project }, { data: lines }, { data: materials }, { data: entries }, { data: payments }] = await Promise.all([
     db.from('projects').select('status, quote_file_url, quote_file_name, quote_total, payment_terms, payment_stages').eq('id', params.id).single(),
@@ -172,7 +172,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     : items.reduce((s, i) => s + (lineAmount(i) || 0), 0)
 
   // Payment terms: from the quote if found, else fall back to the company default.
-  const { data: profile } = await db.from('profiles').select('companies(default_payment_terms)').eq('id', user.id).single()
+  const { data: profile } = await db.from('profiles').select('companies:company_id(default_payment_terms)').eq('id', user.id).single()
   const defaultTerms = (profile?.companies as any)?.default_payment_terms ?? null
   const paymentTerms = (typeof parsed?.payment_terms === 'string' && parsed.payment_terms.trim()) ? parsed.payment_terms.trim() : defaultTerms
   const stages = Array.isArray(parsed?.payment_stages) && parsed.payment_stages.length ? parsed.payment_stages : null

@@ -16,7 +16,7 @@ export async function GET(request: Request) {
 
   const { data: profile } = await db
     .from('profiles')
-    .select('company_id, role, full_name, companies(type)')
+    .select('company_id, role, full_name, companies:company_id(type)')
     .eq('id', user.id)
     .single()
 

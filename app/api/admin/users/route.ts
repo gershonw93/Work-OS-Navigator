@@ -20,9 +20,22 @@ export async function GET(request: Request) {
   const url = new URL(request.url)
   const q = (url.searchParams.get('q') ?? '').trim()
 
+  // `companies:company_id(name)`, NOT `companies(name)`.
+  //
+  // THE BUG. Migration 094 added `companies.owner_id -> profiles.id` for owner
+  // protection. `profiles.company_id -> companies.id` already existed, so there
+  // are now TWO relationships between these tables and an unqualified embed is
+  // ambiguous - PostgREST cannot tell which one is meant and refuses the whole
+  // query. This tab went blank, and it said "No users found" rather than saying
+  // anything was wrong, because lib/admin-fetch.ts turned the failure into null.
+  //
+  // Naming the COLUMN pins it for good: another foreign key between these two
+  // tables cannot make this ambiguous again. Same fix already in
+  // admin/projects, which says `companies:gc_company_id(name)` because
+  // projects -> companies has two of its own.
   let query = db
     .from('profiles')
-    .select('id, full_name, email, role, company_id, companies(name)')
+    .select('id, full_name, email, role, company_id, companies:company_id(name)')
     .order('full_name')
     .limit(50)
 
@@ -31,7 +44,13 @@ export async function GET(request: Request) {
   }
 
   const { data, error } = await query
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    // Logged with the CODE. A PostgREST embed failure is PGRST201 and its
+    // message names both candidate relationships - the one line that would have
+    // identified this in seconds.
+    console.error('[GET /api/admin/users] failed:', (error as any).code, error.message)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
 
   const users = (data ?? []).map((p: any) => ({
     id: p.id,

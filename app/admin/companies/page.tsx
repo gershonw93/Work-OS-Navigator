@@ -16,10 +16,12 @@ export default function AdminCompanies() {
   const [q, setQ] = useState('')
   const [rows, setRows] = useState<CompanyRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async (term: string) => {
     setLoading(true)
-    const d = await adminGet<{ companies: CompanyRow[] }>(`/api/admin/companies?q=${encodeURIComponent(term)}`)
+    const { data: d, error: e } = await adminGet<{ companies: CompanyRow[] }>(`/api/admin/companies?q=${encodeURIComponent(term)}`)
+    setError(e)
     setRows(d?.companies ?? [])
     setLoading(false)
   }, [])
@@ -54,8 +56,14 @@ export default function AdminCompanies() {
           </thead>
           <tbody className="divide-y divide-line-soft">
             {loading && <tr><td colSpan={4} className="px-4 py-8 text-center text-faint">Loading…</td></tr>}
-            {!loading && rows.length === 0 && <tr><td colSpan={4} className="px-4 py-8 text-center text-faint">No companies found.</td></tr>}
-            {!loading && rows.map(c => (
+            {!loading && error && (
+              <tr><td colSpan={4} className="px-4 py-8 text-center">
+                <p className="text-sm font-medium text-danger">Could not load the companies.</p>
+                <p className="mt-1 text-xs text-muted-fg">{error}</p>
+              </td></tr>
+            )}
+            {!loading && !error && rows.length === 0 && <tr><td colSpan={4} className="px-4 py-8 text-center text-faint">No companies found.</td></tr>}
+            {!loading && !error && rows.map(c => (
               <tr key={c.id} className="hover:bg-surface">
                 <td className="px-4 py-2.5 font-medium text-ink-soft">{c.name || '-'}</td>
                 <td className="px-4 py-2.5 text-muted-fg">{c.user_count}</td>
