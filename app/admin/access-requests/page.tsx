@@ -32,12 +32,14 @@ export default function AccessRequestsPage() {
   const supabase = createClient()
   const [requests, setRequests] = useState<AccessRequest[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [outcomes, setOutcomes] = useState<Record<string, EmailOutcome>>({})
 
   async function load() {
-    const d = await adminGet<{ requests: AccessRequest[] }>('/api/admin/access-requests')
+    const { data: d, error: e } = await adminGet<{ requests: AccessRequest[] }>('/api/admin/access-requests')
+    setError(e)
     setRequests(d?.requests ?? [])
     setLoading(false)
   }
@@ -143,6 +145,11 @@ export default function AccessRequestsPage() {
 
       {loading ? (
         <p className="py-12 text-center text-sm text-faint">Loading…</p>
+      ) : error ? (
+        <div className="py-12 text-center">
+          <p className="text-sm font-medium text-danger">Could not load the access requests.</p>
+          <p className="mt-1 text-xs text-muted-fg">{error}</p>
+        </div>
       ) : requests.length === 0 ? (
         <p className="py-12 text-center text-sm text-faint">No requests yet - they&apos;ll appear here when someone fills the Request Access form.</p>
       ) : (

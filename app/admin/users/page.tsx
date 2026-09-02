@@ -17,12 +17,16 @@ export default function AdminUsers() {
   const [q, setQ] = useState('')
   const [users, setUsers] = useState<AccountRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
 
   const load = useCallback(async (term: string) => {
     setLoading(true)
-    const d = await adminGet<{ users: AccountRow[] }>(`/api/admin/users?q=${encodeURIComponent(term)}`)
-    setUsers(d?.users ?? [])
+    // "No users found" used to be what a 500 looked like. It is now only ever
+    // what an empty result looks like.
+    const { data, error: e } = await adminGet<{ users: AccountRow[] }>(`/api/admin/users?q=${encodeURIComponent(term)}`)
+    setUsers(data?.users ?? [])
+    setError(e)
     setLoading(false)
   }, [])
 
@@ -63,8 +67,14 @@ export default function AdminUsers() {
           </thead>
           <tbody className="divide-y divide-line-soft">
             {loading && <tr><td colSpan={5} className="px-4 py-8 text-center text-faint">Loading…</td></tr>}
-            {!loading && users.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-faint">No users found.</td></tr>}
-            {!loading && users.map(u => (
+            {!loading && error && (
+              <tr><td colSpan={5} className="px-4 py-8 text-center">
+                <p className="text-sm font-medium text-danger">Could not load the accounts.</p>
+                <p className="mt-1 text-xs text-muted-fg">{error}</p>
+              </td></tr>
+            )}
+            {!loading && !error && users.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-faint">No users found.</td></tr>}
+            {!loading && !error && users.map(u => (
               <tr key={u.id} className="hover:bg-surface">
                 <td className="px-4 py-2.5 font-medium text-ink-soft">{u.full_name || '-'}</td>
                 <td className="px-4 py-2.5 text-muted-fg hidden sm:table-cell">{u.email}</td>

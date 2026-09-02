@@ -72,7 +72,7 @@ export async function POST(request: Request, { params }: { params: { packageId: 
 
   const { data: profile } = await db
     .from('profiles')
-    .select('company_id, full_name, companies(name)')
+    .select('company_id, full_name, companies:company_id(name)')
     .eq('id', user.id)
     .single()
   if (!profile) return NextResponse.json({ error: 'Profile not found' }, { status: 400 })

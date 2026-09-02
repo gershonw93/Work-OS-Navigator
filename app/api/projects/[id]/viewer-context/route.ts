@@ -21,7 +21,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: profile } = await db.from('profiles').select('company_id, companies(type)').eq('id', user.id).single()
+  const { data: profile } = await db.from('profiles').select('company_id, companies:company_id(type)').eq('id', user.id).single()
   const companyType = (profile?.companies as any)?.type ?? 'gc'
   const companyId = profile?.company_id ?? null
 

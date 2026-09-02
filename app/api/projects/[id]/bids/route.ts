@@ -80,7 +80,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     return NextResponse.json({ error: 'Scope and description are required' }, { status: 400 })
   }
 
-  const { data: profile } = await db.from('profiles').select('full_name, companies(name)').eq('id', user.id).single()
+  const { data: profile } = await db.from('profiles').select('full_name, companies:company_id(name)').eq('id', user.id).single()
   const actorName = (profile as any)?.full_name ?? 'Someone'
 
   // The scope questions are stored ON the package, not looked up from the

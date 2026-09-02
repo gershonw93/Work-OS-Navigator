@@ -18,10 +18,12 @@ export default function AdminProjects() {
   const [q, setQ] = useState('')
   const [rows, setRows] = useState<ProjectRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async (term: string) => {
     setLoading(true)
-    const d = await adminGet<{ projects: ProjectRow[] }>(`/api/admin/projects?q=${encodeURIComponent(term)}`)
+    const { data: d, error: e } = await adminGet<{ projects: ProjectRow[] }>(`/api/admin/projects?q=${encodeURIComponent(term)}`)
+    setError(e)
     setRows(d?.projects ?? [])
     setLoading(false)
   }, [])
@@ -57,8 +59,14 @@ export default function AdminProjects() {
           </thead>
           <tbody className="divide-y divide-line-soft">
             {loading && <tr><td colSpan={5} className="px-4 py-8 text-center text-faint">Loading…</td></tr>}
-            {!loading && rows.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-faint">No projects found.</td></tr>}
-            {!loading && rows.map(p => (
+            {!loading && error && (
+              <tr><td colSpan={5} className="px-4 py-8 text-center">
+                <p className="text-sm font-medium text-danger">Could not load the projects.</p>
+                <p className="mt-1 text-xs text-muted-fg">{error}</p>
+              </td></tr>
+            )}
+            {!loading && !error && rows.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-faint">No projects found.</td></tr>}
+            {!loading && !error && rows.map(p => (
               <tr key={p.id} className="hover:bg-surface">
                 <td className="px-4 py-2.5 font-medium text-ink-soft">{p.name || '-'}</td>
                 <td className="px-4 py-2.5 text-muted-fg hidden md:table-cell">{p.company_name || '-'}</td>

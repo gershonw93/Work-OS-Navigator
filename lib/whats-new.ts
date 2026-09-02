@@ -49,6 +49,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-03',
+    title: 'Screens that said "nothing here" when they meant "this did not load"',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'The dashboard invited you to create your first job when you already had one',
+        text: 'A change to the database made several queries fail, and the screens that used them quietly showed an empty state instead of an error. The dashboard offered to set up your first job on a company with a live job on it, and the admin Users list read "No users found" beside a count of 27. The queries are fixed, and those screens now tell you when something did not load instead of reporting that you have nothing.',
+        href: '/dashboard',
+      },
+    ],
+  },
+  {
+    date: '2026-09-03',
     title: 'Pay Apps opens again',
     items: [
       {

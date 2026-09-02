@@ -14,11 +14,13 @@ export default function AdminAudit() {
   const [rows, setRows] = useState<LogRow[]>([])
   const [note, setNote] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    adminGet<{ log: LogRow[]; note?: string }>('/api/admin/audit').then(d => {
-      setRows(d?.log ?? [])
-      setNote(d?.note ?? null)
+    adminGet<{ log: LogRow[]; note?: string }>('/api/admin/audit').then(({ data, error: e }) => {
+      setRows(data?.log ?? [])
+      setNote(data?.note ?? null)
+      setError(e)
       setLoading(false)
     })
   }, [])
@@ -40,8 +42,14 @@ export default function AdminAudit() {
           </thead>
           <tbody className="divide-y divide-line-soft">
             {loading && <tr><td colSpan={3} className="px-4 py-8 text-center text-faint">Loading…</td></tr>}
-            {!loading && rows.length === 0 && <tr><td colSpan={3} className="px-4 py-8 text-center text-faint">No impersonation events yet.</td></tr>}
-            {!loading && rows.map(r => (
+            {!loading && error && (
+              <tr><td colSpan={3} className="px-4 py-8 text-center">
+                <p className="text-sm font-medium text-danger">Could not load the audit log.</p>
+                <p className="mt-1 text-xs text-muted-fg">{error}</p>
+              </td></tr>
+            )}
+            {!loading && !error && rows.length === 0 && <tr><td colSpan={3} className="px-4 py-8 text-center text-faint">No impersonation events yet.</td></tr>}
+            {!loading && !error && rows.map(r => (
               <tr key={r.id} className="hover:bg-surface">
                 <td className="px-4 py-2.5 text-muted-fg">{new Date(r.created_at).toLocaleString()}</td>
                 <td className="px-4 py-2.5 text-ink-soft">{r.actor_email || '-'}</td>

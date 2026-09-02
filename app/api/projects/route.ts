@@ -23,13 +23,13 @@ export async function GET(request: Request) {
 
   const db = admin()
   const { data: profile, error: profileError } = await db
-    .from('profiles').select('company_id, role, companies(type)').eq('id', user.id).single()
+    .from('profiles').select('company_id, role, companies:company_id(type)').eq('id', user.id).single()
 
   // "We could not look you up" is not "you have no projects". Returning an
   // empty list for both is why a signed-in admin saw a confident "No projects
   // yet" with a Create button, on a company with four of them.
   if (profileError) {
-    console.error('[GET /api/projects] profile lookup failed:', profileError.message)
+    console.error('[GET /api/projects] profile lookup failed:', (profileError as any).code, profileError.message)
     return NextResponse.json({ error: 'Could not load your account.' }, { status: 500 })
   }
   if (!profile) return NextResponse.json({ error: 'No profile on this account.' }, { status: 500 })
