@@ -10,6 +10,31 @@ the cloud via Codemagic - no Mac needed).
 
 ---
 
+## YOU ARE HERE: Developer Program approved, no keys yet
+
+Everything in this repo is done. What is left is six steps, and five of them are
+on Apple's side. In this order, because each one unblocks the next:
+
+| # | Where | Do | Unblocks | Time |
+|---|---|---|---|---|
+| 1 | App Store Connect | **My Apps → + → New App.** Bundle ID `com.sytenav.app`, name `SyteNav`, primary language, SKU (anything - `sytenav-ios`). If the bundle ID is not in the dropdown, do step 2 first. | Everything - Codemagic uploads into this record | 5 min |
+| 2 | Developer portal → Identifiers | Register the App ID `com.sytenav.app` if it does not exist, and tick **Push Notifications** and **Associated Domains**. Tick Associated Domains NOW even though the entitlement is added later - it is free to have and awkward to add mid-build. | Push, and Universal Links later | 5 min |
+| 3 | Developer portal → Keys | Create **two** `.p8` keys, and download each one - Apple shows them once and never again. (a) **APNs**, for push. (b) **App Store Connect API** with the *App Manager* role, for Codemagic. Note the Key ID of each, and your **Team ID** (top right of the portal). | Steps 4 and 5 | 10 min |
+| 4 | Vercel → Settings → Environment Variables (Production) | `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_PRIVATE_KEY` (the whole `.p8` file, newlines and all - pasted `\n` is handled), and `APPLE_TEAM_ID`. Redeploy. | Push actually sends; `/.well-known/apple-app-site-association` stops 404ing | 5 min |
+| 5 | Codemagic | Connect the repo. Add the **App Store Connect API key** from 3(b) as an integration named exactly `SyteNav ASC` - `codemagic.yaml` refers to it by that name. Enable automatic code signing. Run the **`ios-capacitor`** workflow. | A TestFlight build | 20 min + build |
+| 6 | After the build succeeds | Associated Domains entitlement (section 2), re-seed the demo account, and look at the safe areas on a real device. Then submit. | Submission | - |
+
+**Why the entitlement waits until after step 5.** An entitlement the App ID does
+not carry fails code signing, and the error does not name which one. Get one
+clean build first, then add it.
+
+**What you can prove without a build:** once step 4 is done, push is live on the
+web app. Sign in on your phone's browser, then **Settings → Notifications → Send
+test**. It only ever reaches your own phones, and it says which of the three
+things is wrong when nothing arrives.
+
+---
+
 ## 0. Accounts you need
 Start these FIRST - they involve waiting on other people, and everything else is
 blocked behind them.
@@ -42,8 +67,12 @@ npx cap sync ios
 `pod install` is skipped on Linux and runs in the Codemagic build - that warning
 is expected, not a failure.
 
-**Android is not set up.** `npx cap add android` when you want it; the
-`android-capacitor` workflow in `codemagic.yaml` is already written.
+**Android is set up too.** `android/` is committed, with the camera, photo,
+location and notification permissions declared in `AndroidManifest.xml` - the
+same capabilities the iOS `Info.plist` strings cover. The `android-capacitor`
+workflow in `codemagic.yaml` builds it; it needs a keystore and a Play
+service-account JSON (section 5) before it can upload. Nothing about Android
+blocks the iOS submission - do iOS first.
 
 ---
 
@@ -164,10 +193,14 @@ Generated from the SyteNav mark, so the home-screen icon and the app agree.
 `scripts/gen-app-assets.mjs` draws the sources; to regenerate after a brand change:
 ```bash
 node scripts/gen-app-assets.mjs
-npx capacitor-assets generate --ios \
+npx capacitor-assets generate --ios --android \
   --iconBackgroundColor '#0F1113' --iconBackgroundColorDark '#0F1113' \
   --splashBackgroundColor '#f3f4ef' --splashBackgroundColorDark '#0F1113'
 ```
+`--android` matters: `npx cap add android` scaffolds Capacitor's own generic
+launcher icon, and shipping that is how an app reaches a store looking like a
+template. Both platforms are generated from the same `resources/icon.png`, so
+they cannot drift apart.
 The icon is a **full-bleed square with no transparency and no rounded corners** -
 iOS applies its own mask, and an icon with an alpha channel is rejected outright.
 
@@ -184,9 +217,9 @@ iOS applies its own mask, and an icon with an alpha channel is rejected outright
 
 ## 6. Store submission checklist
 - App name, subtitle, description, keywords, screenshots (see `store/listing.md`)
-- Privacy policy URL: **https://sytenav.com/homepage/privacy** (already built)
+- Privacy policy URL: **https://sytenav.com/privacy** (already built)
 - App privacy "nutrition label" (data collected via Supabase auth: name, email, usage)
-- Support URL: `/homepage/contact`
+- Support URL: `/contact`
 - Age rating, category (Business / Productivity)
 - **Review notes** saying accounts are created on the website - otherwise the
   reviewer wonders why there is no sign-up button. (Nothing in the app leads to
@@ -202,5 +235,21 @@ iOS applies its own mask, and an icon with an alpha channel is rejected outright
   the reviewer's login; credentials and the review notes are in
   `store/listing.md`. Apple rejects without working credentials, every time -
   and with no sign-up in the iOS build, a reviewer without a login has no way in
-- **Android** - `npx cap add android`; the Codemagic workflow is written
-- A cookie-consent banner + App Privacy details doc
+- **Safe areas on a real device** (section 3) - cannot be judged from a desktop
+- **Android store assets**: keystore, Play service-account JSON, and screenshots
+  at Android sizes. The project itself is done
+- **Launch copy** is written and deliberately unpublished - `store/launch-copy.md`
+  says what to paste, where, and in what order, on the day it goes live
+
+**Done since this file was last updated:** Android project added; App Privacy
+answered in `store/app-privacy.md`; store URLs corrected (they pointed at
+`/homepage/...`, which has not existed since the marketing site moved to the
+root, and they are what gets pasted into App Store Connect).
+
+**No cookie-consent banner, on purpose.** SyteNav sets only sign-in and
+preference cookies - there is no analytics, no tag manager, no advertising
+script - so there is nothing to consent to, and a banner would ask permission
+for tracking that does not happen. The Cookie Policy now says exactly that. A
+guard in the test suite fails if an analytics integration is ever added while
+the policy still claims there is none, which is the point at which a banner
+becomes required.
