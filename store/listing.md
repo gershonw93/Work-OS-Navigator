@@ -88,4 +88,11 @@ and a project. If any of those are empty the seed did not finish.
 4. Payments & escrow
 5. Daily log with photos
 6. Master calendar
-Capture at required device sizes (6.7" + 6.5" iPhone, 12.9" iPad, plus Android phone/tablet).
+**Capture from the installed app on a real device, not a resized browser.** The
+shell is a webview of the same site, so the DOM matches - but safe areas resolve
+to zero on a desktop, and the status bar and home indicator belong in the shot.
+No Mac here means no Simulator, so these come off your own iPhone and iPad once
+the TestFlight build is on them.
+
+Required sizes: **6.7" iPhone** and **13" iPad** (the target is universal, so
+Apple asks for both), plus Android phone/tablet when that store comes.

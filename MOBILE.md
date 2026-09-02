@@ -19,7 +19,7 @@ on Apple's side. In this order, because each one unblocks the next:
 |---|---|---|---|---|
 | 1 | App Store Connect | **My Apps → + → New App.** Bundle ID `com.sytenav.app`, name `SyteNav`, primary language, SKU (anything - `sytenav-ios`). If the bundle ID is not in the dropdown, do step 2 first. | Everything - Codemagic uploads into this record | 5 min |
 | 2 | Developer portal → Identifiers | Register the App ID `com.sytenav.app` if it does not exist, and tick **Push Notifications** and **Associated Domains**. Tick Associated Domains NOW even though the entitlement is added later - it is free to have and awkward to add mid-build. | Push, and Universal Links later | 5 min |
-| 3 | Developer portal → Keys | Create **two** `.p8` keys, and download each one - Apple shows them once and never again. (a) **APNs**, for push. (b) **App Store Connect API** with the *App Manager* role, for Codemagic. Note the Key ID of each, and your **Team ID** (top right of the portal). | Steps 4 and 5 | 10 min |
+| 3 | **Two different sites** | Create **two** `.p8` keys and download each one - Apple shows a `.p8` ONCE and never again; close the tab and you revoke and start over. (a) **APNs**, for push: developer.apple.com → Certificates, Identifiers & Profiles → **Keys**. (b) **App Store Connect API**, for Codemagic, with the *App Manager* role: appstoreconnect.apple.com → **Users and Access → Integrations → App Store Connect API** - NOT the developer portal, they are in different places. Note each Key ID, the ASC key's **Issuer ID**, and your **Team ID** (developer.apple.com/account → Membership details). | Steps 4 and 5 | 10 min |
 | 4 | Vercel → Settings → Environment Variables (Production) | `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_PRIVATE_KEY` (the whole `.p8` file, newlines and all - pasted `\n` is handled), and `APPLE_TEAM_ID`. Redeploy. | Push actually sends; `/.well-known/apple-app-site-association` stops 404ing | 5 min |
 | 5 | Codemagic | Connect the repo. Add the **App Store Connect API key** from 3(b) as an integration named exactly `SyteNav ASC` - `codemagic.yaml` refers to it by that name. Enable automatic code signing. Run the **`ios-capacitor`** workflow. | A TestFlight build | 20 min + build |
 | 6 | After the build succeeds | Associated Domains entitlement (section 2), re-seed the demo account, and look at the safe areas on a real device. Then submit. | Submission | - |
@@ -27,6 +27,17 @@ on Apple's side. In this order, because each one unblocks the next:
 **Why the entitlement waits until after step 5.** An entitlement the App ID does
 not carry fails code signing, and the error does not name which one. Get one
 clean build first, then add it.
+
+**Screenshots need a real device, not a resized browser.** The shell is a
+WKWebView loading the live site, so the DOM is identical - but the pixels are
+not. Safe-area insets resolve to real values on a phone and to zero on a
+desktop, the status bar and home indicator are part of an iPhone screenshot,
+and font rendering differs. There is no Mac here, so no Simulator either:
+capture them off your own iPhone and iPad once the TestFlight build is
+installed. **Both sets are required** - the target is universal
+(`TARGETED_DEVICE_FAMILY = "1,2"`), so Apple wants 6.7" iPhone *and* 13" iPad,
+and the reviewer will run it on an iPad. Decided deliberately: iPad support
+stays in v1. Dropping it later is a downgrade for anyone already using it.
 
 **What you can prove without a build:** once step 4 is done, push is live on the
 web app. Sign in on your phone's browser, then **Settings → Notifications → Send
