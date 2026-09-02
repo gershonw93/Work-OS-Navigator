@@ -796,10 +796,18 @@ export default function SettingsPage() {
     <div className="max-w-6xl mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold text-ink mb-6">Settings</h1>
 
-      <div className="flex gap-6">
-        {/* ── Left Sidebar ─────────────────────────────────────────────── */}
-        <nav className="shrink-0 w-14 md:w-52">
-          <ul className="space-y-1">
+      {/* A COLUMN ON A PHONE, A SIDEBAR ON A DESKTOP.
+          This was a fixed 56px icon rail at every width, so on a 390px phone it
+          took the rail plus a 24px gap out of the content before anything was
+          drawn - and the card that was left squeezed "Task assigned to me" onto
+          three lines with the switches jammed against the edge. Icon-only also
+          meant guessing which tab was which.
+          On a phone the tabs become a horizontal strip you scroll, with their
+          labels, and the content gets the whole width. */}
+      <div className="flex flex-col gap-4 md:flex-row md:gap-6">
+        {/* ── Tabs: strip on mobile, sidebar from md ───────────────────── */}
+        <nav className="shrink-0 md:w-52">
+          <ul className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:block md:space-y-1 md:overflow-visible md:px-0 md:pb-0">
             {TABS.filter(({ id }) => {
               // Gated by the SAME permission map as everything else.
               //
@@ -826,10 +834,10 @@ export default function SettingsPage() {
                   <li key={id}>
                     <Link
                       href={href}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium transition-colors rounded-lg text-muted-fg hover:bg-surface"
+                      className="flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium text-muted-fg transition-colors hover:bg-surface md:w-full md:gap-3 md:py-2.5"
                     >
                       <Icon className="h-5 w-5 shrink-0" />
-                      <span className="hidden md:block">{label}</span>
+                      {label}
                     </Link>
                   </li>
                 )
@@ -840,15 +848,15 @@ export default function SettingsPage() {
                   <button
                     onClick={() => setActiveTab(id)}
                     className={[
-                      'w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium transition-colors',
-                      active && !danger ? 'rounded-r-lg border-l-4 border-accent bg-accent-tint text-accent-fg pl-2' : '',
-                      active && danger  ? 'rounded-r-lg border-l-4 border-danger bg-danger-tint text-danger pl-2' : '',
-                      !active && !danger ? 'rounded-lg text-muted-fg hover:bg-surface' : '',
-                      !active && danger  ? 'rounded-lg text-danger hover:bg-danger-tint' : '',
+                      'flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors md:w-full md:gap-3 md:py-2.5',
+                      active && !danger ? 'bg-accent-tint text-accent-fg md:rounded-r-lg md:border-l-4 md:border-accent md:pl-2' : '',
+                      active && danger  ? 'bg-danger-tint text-danger md:rounded-r-lg md:border-l-4 md:border-danger md:pl-2' : '',
+                      !active && !danger ? 'text-muted-fg hover:bg-surface' : '',
+                      !active && danger  ? 'text-danger hover:bg-danger-tint' : '',
                     ].join(' ')}
                   >
                     <Icon className="h-5 w-5 shrink-0" />
-                    <span className="hidden md:block">{label}</span>
+                    {label}
                   </button>
                 </li>
               )
