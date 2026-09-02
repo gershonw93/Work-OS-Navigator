@@ -3,6 +3,7 @@ import { ReactNode } from 'react'
 import { currentUser, currentProfile } from '@/lib/supabase/current-user'
 import { Sidebar } from '@/components/layout/sidebar'
 import { TopNav } from '@/components/layout/top-nav'
+import { MobileTabBar } from '@/components/layout/mobile-tab-bar'
 import { ViewAsBanner } from '@/components/layout/view-as-switcher'
 import { ImpersonationBanner } from '@/components/layout/impersonate-switcher'
 import { DeleteGuardProvider } from '@/components/ui/delete-guard'
@@ -43,9 +44,15 @@ export default async function DashboardLayout({ children }: { children: ReactNod
             <ViewAsBanner />
             <TopNav />
           </div>
-          <main className="flex-1 overflow-y-auto overflow-x-hidden print:overflow-visible pb-safe px-safe">
+          <main className="flex-1 overflow-y-auto overflow-x-hidden print:overflow-visible px-safe pb-tab-bar">
             {children}
           </main>
+        </div>
+        {/* Phone only. The shell is a webview of this same site, so what the
+            site does on a phone is what the app does - and a hamburger as the
+            only way to navigate is what Apple's rule 4.2 is really about. */}
+        <div className="print:hidden">
+          <MobileTabBar />
         </div>
       </div>
     </DeleteGuardProvider>

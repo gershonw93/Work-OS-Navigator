@@ -138,9 +138,17 @@ production branch.** Do NOT ask the user to merge or deploy.
   light + dark. Use token classes (bg-panel, text-ink, text-muted-fg, border-line,
   bg-accent/text-accent-fg, success/warn/danger/info), NOT raw slate/white/orange.
 - Storage buckets: `daily-log-photos`, `submittals`.
-- Always run `npx tsc --noEmit`, `npx next build` AND `npm run lint:hooks`
-  before merging. The lint step is not optional and not about style: it is the
+- Always run `npx tsc --noEmit`, `npx next build`, `npm run lint:hooks` AND
+  `npm test` before merging. The lint step is not optional and not about style: it is the
   only one of the three that can see React hook order. A conditional `useState`
   shipped past a clean tsc and a clean build and blanked the whole Pay Apps
   screen. The config is deliberately narrow (hooks + jsx-key, everything else
   off) so it never fails for a reason nobody would act on.
+- **Tests live in `lib/__tests__/` and run with `npm test`.** They used to be
+  written into a session scratch directory, which meant nobody but the agent
+  could run them, they were never in CI, and sixty-five of them vanished the
+  moment the container reset - silently, while the code they guarded carried on
+  working. A test that only one process can run is not a test. See
+  `lib/__tests__/README.md` for the convention, of which the important half is:
+  reintroduce the bug and confirm the test goes red, because a test that has
+  never failed is a guess about what it covers.
