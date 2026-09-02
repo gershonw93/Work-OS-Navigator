@@ -49,6 +49,26 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-03',
+    title: 'Choose who gets told what',
+    items: [
+      {
+        kind: 'new',
+        title: 'Settings → Notifications → Who gets told',
+        text: 'Pick who hears about each thing that happens: an inspection marked ready, a bill waiting for approval, an RFI raised, a bid arriving, a document about to expire. By role, by named person, or both. Everyone still controls which of their own notifications they want - this decides who is told in the first place.',
+        help: 'who-gets-notified',
+        href: '/settings?tab=notifications',
+      },
+      {
+        kind: 'fixed',
+        title: 'Four notifications went to everybody at the company',
+        text: 'RFIs, bids received, expiring documents and work marked ready for inspection were sent to every single person at the company - the labourer, the bookkeeper, everyone. They now go to whoever can act on them, and you can change that. If your team had started ignoring the bell, this is why.',
+        help: 'who-gets-notified',
+        href: '/settings?tab=notifications',
+      },
+    ],
+  },
+  {
+    date: '2026-09-03',
     title: 'Add SyteNav to your home screen and it opens like an app',
     items: [
       {

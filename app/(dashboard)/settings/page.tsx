@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
 import { NotificationSettings } from '@/components/settings/notification-settings'
+import { NotificationRouting } from '@/components/settings/notification-routing'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -1472,6 +1473,7 @@ export default function SettingsPage() {
 
           {/* ══════════════════════════════════════ TAB: NOTIFICATIONS */}
           {activeTab === 'notifications' && (
+            <div className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>Notification Preferences</CardTitle>
@@ -1480,6 +1482,21 @@ export default function SettingsPage() {
                 <NotificationSettings />
               </CardContent>
             </Card>
+            {/* Two different questions, and they belong to different people.
+                Above: what do I want to be told. Here: who gets told at all,
+                which is the company's decision - so it is gated on company
+                settings the same way Team & Users is. */}
+            {canDo('settings_company', 'edit') && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Who gets told</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <NotificationRouting />
+                </CardContent>
+              </Card>
+            )}
+            </div>
           )}
 
           {/* ══════════════════════════════════════ TAB: PREFERENCES */}

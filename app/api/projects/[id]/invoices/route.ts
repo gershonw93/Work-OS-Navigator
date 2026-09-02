@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
-import { usersWhoCan } from '@/lib/server-permissions'
 import { destinationsBySubcontract, rollupBudgetLines } from '@/lib/invoice-budget'
+import { audienceFor } from '@/lib/notification-audience'
 import { notify } from '@/lib/notify'
 import { requirePermission, denied } from '@/lib/api-guard'
 
@@ -239,9 +239,13 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const { data: project } = await db.from('projects')
     .select('gc_company_id, created_by_company_id, name').eq('id', params.id).maybeSingle()
   const owner = (project as any)?.gc_company_id ?? (project as any)?.created_by_company_id ?? null
-  const approvers = (await usersWhoCan(db, owner, 'invoices', 'edit'))
-    // No point telling somebody about the thing they are looking at.
-    .filter(id => id !== user.id)
+  // Whoever can approve a bill, unless the company named somebody else in
+  // Settings -> Notifications -> Who gets told. `audienceFor` falls back to
+  // exactly this permission when nothing is configured, so the behaviour here
+  // is unchanged until an admin decides otherwise.
+  const approvers = await audienceFor({
+    db, companyId: owner, type: 'invoice_pending', exclude: user.id,
+  })
 
   if (approvers.length) {
     await notify({

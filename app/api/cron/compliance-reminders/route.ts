@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { audienceFor } from '@/lib/notification-audience'
 import { notify } from '@/lib/notify'
 import { checkCronAuth } from '@/lib/cron-auth'
 
@@ -45,8 +46,12 @@ export async function GET(request: Request) {
 
   let notified = 0
   for (const doc of docs ?? []) {
-    // Recipients: everyone at the company that owns the doc
-    const { data: people } = await db.from('profiles').select('id').eq('company_id', doc.company_id)
+    // The company that owns the document decides who hears its certificates are
+    // expiring - it is their insurance, and their choice. Was everyone at that
+    // company, which on a twenty-person sub is nineteen people who cannot
+    // upload the renewal.
+    const audience = await audienceFor({ db, companyId: doc.company_id, type: 'compliance_expiring' })
+    const people = audience.map(id => ({ id }))
     const { data: company } = await db.from('companies').select('name').eq('id', doc.company_id).single()
     const days = Math.max(0, Math.ceil((new Date(doc.expiry_date + 'T00:00:00').getTime() - now.getTime()) / 86400000))
     const label = (doc.type ?? 'compliance document').replace(/_/g, ' ')

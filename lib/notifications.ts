@@ -58,7 +58,39 @@ export interface NotificationType {
    * then the one that mattered never arrives either.
    */
   push?: boolean
+  /**
+   * WHO gets told - which is a different question from who wants to be told.
+   *
+   * 'direct'  the structural person, and only them: the assignee, the sub who
+   *           was invited, whoever asked for the sign-off. NOT configurable and
+   *           deliberately absent from the settings screen - route these by
+   *           role and the assignee silently stops being told they were
+   *           assigned something.
+   * 'team'    a company-side audience, which IS a policy choice: who else hears
+   *           that an inspection is ready or a change order was raised. This is
+   *           what Settings -> Notifications -> Who gets told owns.
+   *
+   * A single notification can have both - the requester plus whoever the
+   * company decided should know.
+   */
+  audience: Audience
+  /**
+   * Where a 'team' audience lands when nobody has configured one.
+   *
+   * A PERMISSION, not a role list, and on purpose: it is exactly what each of
+   * these call sites already does today, so turning routing on changes nothing
+   * until somebody opens the screen. It also stays right when roles are
+   * customised - "whoever can approve a bill" survives a company inventing its
+   * own approver role, where a hardcoded ['admin','office_staff'] would not.
+   */
+  defaultAudience?: PermissionRef
 }
+
+/** @see NotificationType.audience */
+export type Audience = 'direct' | 'team'
+
+/** A resource and action from lib/permissions.ts, e.g. ['invoices', 'edit']. */
+export type PermissionRef = readonly [resource: string, action: 'view' | 'edit']
 
 /**
  * Email defaults are ON for six, and only six: where not knowing until you next
@@ -76,16 +108,19 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
   {
     key: 'task_assigned', label: 'Task assigned to me', group: 'Work',
     description: 'Somebody assigns you a task, or pins one to you from a plan.',
+    audience: 'direct',
     defaults: { inApp: true, email: false }, push: true, status: 'live',
   },
   {
     key: 'signoff_requested', label: 'Sign-off requested', group: 'Work',
     description: 'Someone needs you to sign off on a task before it can close.',
+    audience: 'direct',
     defaults: { inApp: true, email: true }, push: true, status: 'live',
   },
   {
     key: 'milestone', label: 'Milestone reached', group: 'Work',
     description: 'A job hits a milestone you are on.',
+    audience: 'direct',
     // PLANNED, not live: nothing in the app raises a "milestone reached" event.
     // The only milestones that exist are payment-schedule line types on a
     // subcontract, which are a billing shape, not a moment in a job's life.
@@ -96,6 +131,7 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
   {
     key: 'daily_log', label: 'Daily log posted', group: 'Work',
     description: 'A daily log is submitted on one of your jobs.',
+    audience: 'direct',
     defaults: { inApp: true, email: false }, status: 'planned',
   },
 
@@ -103,6 +139,7 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
   {
     key: 'invoice_pending', label: 'Invoice waiting for approval', group: 'Money',
     description: 'A sub sends you a bill that needs approving.',
+    audience: 'team', defaultAudience: ['invoices', 'edit'],
     defaults: { inApp: true, email: true }, push: true, status: 'live',
   },
   {
@@ -112,11 +149,13 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
     // switch. ALIASES below keeps the old callers working.
     key: 'invoice_decision', label: 'My invoice approved, released or paid', group: 'Money',
     description: 'A bill you submitted is approved, released for payment, or paid.',
+    audience: 'direct',
     defaults: { inApp: true, email: true }, push: true, status: 'live',
   },
   {
     key: 'change_order', label: 'Change order raised or decided', group: 'Money',
     description: 'A change order is raised, approved or rejected on your job.',
+    audience: 'team', defaultAudience: ['change-orders', 'edit'],
     defaults: { inApp: true, email: false }, status: 'planned',
   },
 
@@ -127,6 +166,7 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
     // sub who turned off "bid received" would stop being invited to quote.
     key: 'new_bid', label: 'Bid received', group: 'Bids',
     description: 'A sub submits or revises a bid on one of your packages.',
+    audience: 'team', defaultAudience: ['bids', 'edit'],
     defaults: { inApp: true, email: false }, status: 'live',
   },
   {
@@ -136,11 +176,13 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
     // GC who sent it as much as the sub who missed it.
     key: 'bid_invited', label: 'Invited to bid', group: 'Bids',
     description: 'A GC invites you to quote a package.',
+    audience: 'direct',
     defaults: { inApp: true, email: true }, push: true, status: 'live',
   },
   {
     key: 'bid_revision', label: 'Bid revision requested', group: 'Bids',
     description: 'A GC asks you to revise a bid you submitted.',
+    audience: 'direct',
     // PLANNED, not live: there is no "ask for a revision" action anywhere in
     // the quotes flow, so nothing can emit this. A sub revises by opening
     // their link again and re-submitting, which replaces the old quote.
@@ -151,11 +193,13 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
   {
     key: 'bid_reminder', label: 'Bid reminder', group: 'Bids',
     description: 'A nudge about a bid you were invited to and have not sent.',
+    audience: 'direct',
     defaults: { inApp: true, email: false }, status: 'live',
   },
   {
     key: 'bid_awarded', label: 'Bid awarded', group: 'Bids',
     description: 'A package you bid on is awarded - to you or to somebody else.',
+    audience: 'direct',
     defaults: { inApp: true, email: true }, push: true, status: 'live',
   },
 
@@ -163,16 +207,19 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
   {
     key: 'compliance_expiring', label: 'Document expiring', group: 'Compliance',
     description: 'An insurance certificate, licence or W-9 is within 30 days of expiry.',
+    audience: 'team', defaultAudience: ['compliance', 'edit'],
     defaults: { inApp: true, email: true }, push: true, status: 'live',
   },
   {
     key: 'inspection_to_schedule', label: 'Inspection to book', group: 'Compliance',
     description: 'An inspection is ready to be scheduled.',
+    audience: 'team', defaultAudience: ['inspections', 'edit'],
     defaults: { inApp: true, email: false }, status: 'live',
   },
   {
     key: 'inspection_ready', label: 'Work marked ready for inspection', group: 'Compliance',
     description: 'Somebody marks work ready so the inspector can be booked.',
+    audience: 'team', defaultAudience: ['inspections', 'edit'],
     defaults: { inApp: true, email: false }, status: 'live',
   },
   {
@@ -180,11 +227,13 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
     // producing three strings no switch had ever heard of. Aliased below.
     key: 'inspection_result', label: 'Inspection scheduled, passed or failed', group: 'Compliance',
     description: 'An inspection is booked, or comes back passed or failed.',
+    audience: 'team', defaultAudience: ['inspections', 'edit'],
     defaults: { inApp: true, email: false }, status: 'live',
   },
   {
     key: 'rfi_submitted', label: 'RFI raised', group: 'Compliance',
     description: 'Somebody raises an RFI on one of your jobs.',
+    audience: 'team', defaultAudience: ['rfis', 'edit'],
     defaults: { inApp: true, email: false }, status: 'live',
   },
   {
@@ -193,6 +242,7 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
     // not after.
     key: 'rfi_response', label: 'RFI answered', group: 'Compliance',
     description: 'Somebody answers an RFI you raised.',
+    audience: 'team', defaultAudience: ['rfis', 'edit'],
     defaults: { inApp: true, email: false }, status: 'planned',
   },
 ]

@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { audienceFor } from '@/lib/notification-audience'
 import { notify } from '@/lib/notify'
 
 const admin = () => createClient(
@@ -111,11 +112,17 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   // Notify the assigned scheduler that there's an inspection to book.
   if (scheduler_profile_id) {
-    const { data: proj } = await db.from('projects').select('name').eq('id', params.id).single()
+    const { data: proj } = await db.from('projects').select('name, gc_company_id').eq('id', params.id).single()
     const when = scheduled_date ? ` - preferred ${scheduled_date}${scheduled_time ? ` ${scheduled_time}` : ''}` : ''
     const contact = inspector_name ? ` Contact: ${inspector_name}${inspector_phone ? ` (${inspector_phone})` : ''}.` : ''
+    // The assigned scheduler because it is their job - structural, not a
+    // setting - plus anyone the company wants copied in.
+    const bookers = new Set<string>([scheduler_profile_id])
+    for (const id of await audienceFor({
+      db, companyId: (proj as any)?.gc_company_id, type: 'inspection_to_schedule', exclude: user.id,
+    })) bookers.add(id)
     await notify({
-      db, userIds: [scheduler_profile_id], type: 'inspection_to_schedule',
+      db, userIds: Array.from(bookers), type: 'inspection_to_schedule',
       title: 'Inspection to book',
       message: `Schedule an inspection: ${inspection_type} at ${proj?.name ?? 'a project'}${when}. Requested by ${(me as any)?.full_name ?? 'the field'}.${contact}`,
       link: `/projects/${params.id}/inspections`,

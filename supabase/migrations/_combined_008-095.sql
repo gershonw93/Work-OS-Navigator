@@ -2294,3 +2294,19 @@ where first_profile.company_id = c.id
   and c.owner_id is null;
 
 create index if not exists idx_companies_owner on public.companies (owner_id);
+
+-- ── 095: who gets notified when what happens ────────────────────────────────
+create table if not exists public.notification_routing (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid not null references public.companies (id) on delete cascade,
+  type text not null,
+  roles text[] not null default '{}',
+  user_ids uuid[] not null default '{}',
+  updated_by uuid references public.profiles (id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (company_id, type)
+);
+create index if not exists idx_notification_routing_company
+  on public.notification_routing (company_id);
+alter table public.notification_routing enable row level security;
