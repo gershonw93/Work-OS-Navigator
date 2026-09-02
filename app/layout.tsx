@@ -59,6 +59,29 @@ export const metadata: Metadata = {
     title: 'SyteNav',
     description,
   },
+  // ADD TO HOME SCREEN, PROPERLY.
+  //
+  // Without these, an installed icon opened in a browser view with the address
+  // bar still there - while the Help article told people to install it and said
+  // it would behave like an app.
+  //
+  // `capable: true` is the iOS half of `display: standalone` in the manifest;
+  // Safari has honoured the manifest since 16.4 but plenty of phones on a
+  // jobsite are older than that, and this one line is what they read.
+  //
+  // `statusBarStyle: 'default'` deliberately, NOT 'black-translucent'. The
+  // translucent one puts the page underneath the clock and battery, which is
+  // only right for an app that paints its own header behind them - ours does
+  // not, and the result is a title sitting under the time.
+  appleWebApp: {
+    capable: true,
+    title: 'SyteNav',
+    statusBarStyle: 'default',
+  },
+  icons: {
+    icon: [{ url: '/favicon-32.png', sizes: '32x32', type: 'image/png' }],
+    apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
+  },
 }
 
 /**
