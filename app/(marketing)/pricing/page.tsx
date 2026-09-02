@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import { ArrowRight, Check, HardHat, Building2, Landmark, Users, FolderKanban, ScanLine, Equal } from 'lucide-react'
+import { PLANS } from '@/lib/plans'
 import { marketingMeta } from '@/components/marketing/meta'
 import { Reveal } from '@/components/marketing/reveal'
 import { Eyebrow, SectionHead } from '@/components/marketing/section'
@@ -13,71 +14,16 @@ export const metadata: Metadata = marketingMeta({
   path: '/pricing',
 })
 
-const TIERS = [
-  {
-    icon: HardHat,
-    name: 'Crew',
-    who: 'For solo subs and small crews',
-    blurb: 'Everything you need to turn quotes into running jobs and get paid on time.',
-    limits: [
-      { icon: Users, t: '5 team members' },
-      { icon: FolderKanban, t: '5 active projects' },
-      { icon: ScanLine, t: '50 AI scans / mo' },
-    ],
-    features: [
-      'AI quote & receipt scanning',
-      'Line-item budgets & progress',
-      'Scheduling with overlap warnings',
-      'Daily logs, tasks & photos',
-      'Stage invoicing',
-      'Time clock for your crew',
-    ],
-    cta: 'Book a setup',
-    featured: false,
-  },
-  {
-    icon: Building2,
-    name: 'Company',
-    who: 'For GCs and growing teams',
-    blurb: 'Run multiple jobs and subs with the master views, RFQs, and approvals that keep a company straight.',
-    limits: [
-      { icon: Users, t: '15 team members' },
-      { icon: FolderKanban, t: 'Unlimited projects' },
-      { icon: ScanLine, t: '300 AI scans / mo' },
-    ],
-    features: [
-      'Everything in Crew',
-      'RFQs out & AI bid comparison',
-      'Client payments & escrow tracking',
-      'Master calendar & money views',
-      'Roles & approval workflows',
-      'Permits, inspections & compliance',
-    ],
-    cta: 'Book a setup',
-    featured: true,
-  },
-  {
-    icon: Landmark,
-    name: 'Scale',
-    who: 'For high-volume operations',
-    blurb: 'For companies running serious volume, with the controls, support, and onboarding to match.',
-    limits: [
-      { icon: Users, t: 'Unlimited team' },
-      { icon: FolderKanban, t: 'Unlimited projects' },
-      { icon: ScanLine, t: '1,000 AI scans / mo' },
-    ],
-    features: [
-      'Everything in Company',
-      'Priority support & onboarding',
-      'Advanced permissions & audit trail',
-      'Company-wide reporting',
-      'Dedicated success contact',
-      'Custom scan volume available',
-    ],
-    cta: 'Book a setup',
-    featured: false,
-  },
-]
+// The tiers live in lib/plans.ts so the app's Settings -> Billing shows the
+// same three. It used to show Starter / Pro / Enterprise with $49 on the middle
+// one - a price this page deliberately does not print.
+const TIER_ICONS = { HardHat, Building2, Landmark } as const
+const LIMIT_ICONS = { Users, FolderKanban, ScanLine } as const
+const TIERS = PLANS.map(p => ({
+  ...p,
+  icon: TIER_ICONS[p.icon],
+  limits: p.limits.map(l => ({ icon: LIMIT_ICONS[l.icon], t: l.t })),
+}))
 
 // The replacement math, no competitor names, honest ranges.
 const STACK = [

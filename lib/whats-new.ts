@@ -49,6 +49,24 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-03',
+    title: 'Jobs open on the Overview, and the plans finally match',
+    items: [
+      {
+        kind: 'improved',
+        title: 'Opening a job shows you where it stands, not a file list',
+        text: 'Clicking a job from Projects used to land you on Plans. It now opens the Overview - what has happened since you last looked, what is outstanding, and how the setup is going. Sites still open on their units, and anyone without an overview still goes to Plans.',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
+        title: 'The plans in Settings did not match the ones on our website',
+        text: 'Settings showed Starter, Pro at $49 a month, and Enterprise. The website offers Crew, Company and Scale, and deliberately does not print a price - we work out a setup around your team. Settings now shows the same three, from the same list, so they cannot drift apart again. Everything is still free during beta.',
+        href: '/settings?tab=billing',
+      },
+    ],
+  },
+  {
+    date: '2026-09-03',
     title: 'Three numbers that were not telling you the truth',
     items: [
       {
