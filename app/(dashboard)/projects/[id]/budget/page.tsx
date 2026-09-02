@@ -648,6 +648,11 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   const totalCommitted = totals?.committed ?? items.reduce((s, i) => s + Number(i.committed_amount || 0), 0)
   const totalActual = totals?.actual ?? items.reduce((s, i) => s + Number(i.actual_amount || 0), 0)
   const committedNotBilled = totals?.committed_not_billed ?? 0
+  // Committed money sitting in contracts no budget line points at. Part of the
+  // total, but invisible in the rows below - which is how the headline ends up
+  // bigger than the list adds to, with nothing on screen to explain it.
+  const committedUnlinked = totals?.committed_unlinked ?? 0
+  const committedOnLines = Math.max(0, totalCommitted - committedUnlinked)
   // The two halves of Actual Spent. A reviewer had to reverse-engineer why
   // Actual Spent and the Bills figure differed by $220k; both of these were
   // hiding inside one number.
@@ -802,8 +807,14 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
     },
     {
       label: 'Committed', value: totalCommitted, color: 'text-info', bg: 'bg-info-tint', icon: TrendingUp,
-      note: committedNotBilled > 0 ? `${money(committedNotBilled)} signed, not yet billed` : undefined,
-      help: `What you have promised in signed contracts.\n\nEvery subcontract on the job added up. This is money that is gone whether or not the sub has invoiced yet.${committedNotBilled > 0 ? `\n\n${money(committedNotBilled)} of it has not been invoiced yet - that is the bit that catches people out.` : ''}`,
+      // WHERE THE NUMBER COMES FROM, when the rows below do not add up to it.
+      // A contract nobody linked to a budget line is in this total and on no
+      // row, so the card read $160,000 over a list adding to $80,000 with no
+      // way to find out why.
+      note: committedUnlinked > 0
+        ? `${money(committedOnLines)} on lines + ${money(committedUnlinked)} not linked`
+        : committedNotBilled > 0 ? `${money(committedNotBilled)} signed, not yet billed` : undefined,
+      help: `What you have promised in signed contracts.\n\nEvery subcontract on the job added up, plus anything typed into Committed on a line that has no contract behind it.${committedUnlinked > 0 ? `\n\n${money(committedUnlinked)} of this is in subcontracts that are not linked to any budget line, which is why the rows below add up to less than this figure.\n\nIf that contract is the SAME money as a Committed amount you typed onto a line, it is being counted twice - link the subcontract to that line on Subs & Team and the duplicate goes away.` : ''}${committedNotBilled > 0 ? `\n\n${money(committedNotBilled)} has not been invoiced yet - that is the bit that catches people out.` : ''}`,
     },
     {
       label: 'Actual Spent', value: totalActual, color: 'text-success', bg: 'bg-success-tint', icon: CheckCircle2,

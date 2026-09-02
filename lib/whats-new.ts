@@ -49,6 +49,30 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-03',
+    title: 'Three numbers that were not telling you the truth',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'Committed could show double what you had actually committed',
+        text: 'On a job with one $80,000 subcontract, Committed read $160,000 - because the same money was typed onto a budget line AND signed as a contract, with nothing linking the two. The card now shows the split ("$80,000 on lines + $80,000 not linked") so the figure matches the rows below it, and tells you to link the subcontract to that line if it is the same money. It also no longer shows two different committed figures in the one card.',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
+        title: 'A receipt with no budget line never reached your budget',
+        text: 'Scanned receipts save whether or not you pick a budget line, but only a linked one shows up in the project budget, its costs, or Master Money. Nothing said so. The form now warns you before you save, and any receipt already sitting outside the budget is flagged "Not in the budget" in the list so you can find it and fix it.',
+        href: '/materials',
+      },
+      {
+        kind: 'fixed',
+        title: 'The quote recommendation could be out of date without saying so',
+        text: 'The AI recommendation is a snapshot of the quotes that existed when it ran. Add another quote and it did not update, so a comparison with two quotes could still read "this is the only quote submitted". It now says when it is out of date and how many quotes it has not seen.',
+        href: '/projects',
+      },
+    ],
+  },
+  {
+    date: '2026-09-03',
     title: 'Choose who gets told what',
     items: [
       {

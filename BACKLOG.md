@@ -233,7 +233,22 @@ Until then `npm test` reports on a fraction of what was covered an hour ago. It
 does not mean the app is less correct; it means a green run proves less than it
 looks like it does.
 
+## 🔍 Reported by the tester, NOT yet fixed
+
+- **The scan form has no invoice-number field, and vendor/invoice number are not
+  always pulled.** Reported against the pink carbon invoice: the OCR got the
+  printed $4,783.50 and all twelve lines exactly, and correctly ignored the
+  handwritten add-on rather than inventing a number - but no vendor and no
+  invoice number. `material_purchases` has `store_name` (which WAS populated on
+  that row) and **no invoice-number column at all**, so this needs a column, a
+  form field, and the extraction prompt taught to look for it. There are also
+  two scan paths - material receipts and sub invoices - and it is not yet
+  confirmed which one the report is about. Worth doing: an invoice number is how
+  you avoid paying the same bill twice.
+
 ## ✅ Recently shipped (for reference)
+- Three numbers that were not telling the truth (#370). **Committed read $160,000 on a job with one $80,000 subcontract.** The card held two derivations at once: the headline from `committedTotal` (every contract, plus committed typed on lines with no contract) and the "signed, not yet billed" note beneath it still summed per LINE. Rows added to $80,000, the note said $55,000, the headline said $160,000 - three numbers for one question, in one card. #356 moved the headline to a shared derivation and left the note behind, which is the exact drift it existed to end. The underlying cause is real and will recur in production: a GC types committed from their estimate and then signs a subcontract for the same work, and nothing links them, so the app cannot know it is the same money. It no longer guesses - the card shows "$80,000 on lines + $80,000 not linked" so the headline matches the rows, and says to link the contract to the line if they are the same money (linking makes it $80,000, counted once). **A receipt with no budget line never reached the budget** - the rollup only counts materials with a `budget_line_id`, three of the six most recent receipts had none, and the page claimed receipts flow into project costs. The form now warns before saving and the list flags them. **A quote recommendation read "this is the only quote submitted" with two quotes on screen** - the second arrived 59 seconds after the analysis ran and nothing invalidated it. Staleness is worked out from the `per_quote` list the analysis already stores, so no new column and no way for the two to disagree.
+
 - Who gets notified when what happens, as a setting (#369). `lib/notifications.ts` already said WHAT the events are and each person could mute their own; nothing said who gets told in the FIRST place. `notify()` takes user ids, so the choice was hand-rolled at twenty call sites - and **four of them resolved to every profile at the company**: RFIs, bids received, expiring documents, and work marked ready for inspection. Ten office staff, ten notifications, which is how a team learns to ignore the bell. **The line the design turns on**: some recipients are STRUCTURAL - the assignee, the sub who was invited, whoever asked for the sign-off - and routing those by role would stop the assignee being told they were assigned something, silently. So every event declares `audience: 'direct' | 'team'`, direct ones never reach the settings screen, and the API refuses a rule for one rather than trusting the screen. Defaults are a PERMISSION, not a role list (`['invoices','edit']`), so day-one behaviour is identical and a company that customises its roles keeps working. Migration 095, `lib/notification-routing.ts` pure + `lib/notification-audience.ts` wired, Settings → Notifications → Who gets told (admin only). An empty audience is refused at save: "nobody" is a notification that stops arriving with nothing to see.
 
 **Follow-ups this opened, not built:**
