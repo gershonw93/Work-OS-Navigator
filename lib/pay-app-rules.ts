@@ -66,6 +66,8 @@ export interface PayAppLine {
   previous_completed?: unknown
   this_period?: unknown
   materials_stored?: unknown
+  /** The budget line this bills against. Null on a contract-amount row. */
+  budget_line_item_id?: string | null
 }
 
 /** previous + this period + stored. What the G703 calls completed to date. */
@@ -86,31 +88,66 @@ export function lineCompletedToDate(l: PayAppLine): number {
  * would remove the only way to fix a mistake in an earlier certificate.
  */
 export function checkLine(l: PayAppLine): Checked<number> {
+  return lineProblem(l) ?? { ok: true, value: lineCompletedToDate(l) }
+}
+
+/**
+ * The same judgement as checkLine, with the FACTS behind the sentence.
+ *
+ * The screen turns "Raise it with a change order first" into a link that opens
+ * the change order already filled in, and it needs the overage and the budget
+ * line to do that. Reading them back out of the English would be a parser for a
+ * string this module writes - so the module hands them over instead.
+ */
+export function lineProblem(l: PayAppLine): { ok: false; error: string; problem: Omit<PayAppProblem, 'lineId'> } | null {
   const scheduled = n(l.scheduled_value)
   const toDate = lineCompletedToDate(l)
   const name = (l.description ?? '').trim() || 'This line'
+  const common = {
+    scheduledValue: scheduled,
+    budgetLineItemId: l.budget_line_item_id ?? null,
+    lineDescription: name,
+  }
 
   if (toDate < 0) {
-    return { ok: false, error: `${name} would be billed below zero.` }
+    const error = `${name} would be billed below zero.`
+    return { ok: false, error, problem: { kind: 'below_zero', message: error, ...common } }
   }
   if (toDate > scheduled) {
     const over = toDate - scheduled
-    return {
-      ok: false,
-      error: scheduled === 0
-        ? `${name} has no scheduled value, so there is nothing to bill against it.`
-        : `${name} is billed ${fmt(over)} over its scheduled value of ${fmt(scheduled)}. Raise it with a change order first.`,
+    if (scheduled === 0) {
+      const error = `${name} has no scheduled value, so there is nothing to bill against it.`
+      return { ok: false, error, problem: { kind: 'no_scheduled_value', message: error, overBy: over, ...common } }
     }
+    const error = `${name} is billed ${fmt(over)} over its scheduled value of ${fmt(scheduled)}. Raise it with a change order first.`
+    return { ok: false, error, problem: { kind: 'over_scheduled', message: error, overBy: over, ...common } }
   }
-  return { ok: true, value: toDate }
+  return null
 }
 
 const fmt = (v: number) => `$${Math.abs(v).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
 
+/**
+ * What KIND of problem, so a caller can act on it rather than read it.
+ *
+ * 'over_scheduled' is the only one a change order fixes, which is why the screen
+ * needs to tell them apart: offering to raise a change order against "billed
+ * below zero" or "retainage over 100%" would be advice that does not work.
+ */
+export type PayAppProblemKind = 'over_scheduled' | 'below_zero' | 'no_scheduled_value' | 'retainage'
+
 export interface PayAppProblem {
   /** The line it belongs to, or null for the application as a whole. */
   lineId: string | null
+  kind: PayAppProblemKind
   message: string
+  /** How far over, on 'over_scheduled'. The exact figure a change order needs. */
+  overBy?: number
+  scheduledValue?: number
+  /** The budget line to raise. Null when the row has none to raise. */
+  budgetLineItemId?: string | null
+  /** The line's own name, for the change order's title. */
+  lineDescription?: string
 }
 
 /**
@@ -127,11 +164,11 @@ export function payAppProblems(
   const problems: PayAppProblem[] = []
 
   const pct = retainagePct(app.retainage_pct)
-  if (!pct.ok) problems.push({ lineId: null, message: pct.error })
+  if (!pct.ok) problems.push({ lineId: null, kind: 'retainage', message: pct.error })
 
   for (const l of lines) {
-    const c = checkLine(l)
-    if (!c.ok) problems.push({ lineId: l.id ?? null, message: c.error })
+    const p = lineProblem(l)
+    if (p) problems.push({ lineId: l.id ?? null, ...p.problem })
   }
   return problems
 }

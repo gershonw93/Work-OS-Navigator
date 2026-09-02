@@ -5,7 +5,7 @@ import {
   retainagePct, checkLine, payAppProblems, isPayAppStatus, sovDrift,
   STATUSES_NEEDING_A_SOUND_APP, CHANGE_ORDER_SOV_DESCRIPTION, type PayAppStatus,
 } from '@/lib/pay-app-rules'
-import { ownerScheduleOfValues } from '@/lib/pay-app-sov'
+import { ownerScheduleOfValues, subcontractScheduleOfValues } from '@/lib/pay-app-sov'
 
 export const runtime = 'nodejs'
 
@@ -77,10 +77,14 @@ export async function GET(request: Request, { params }: { params: { id: string; 
   // the record of what a bank was told and does not get to change later, and a
   // subcontract's schedule comes from its contract rather than from the budget.
   let drift: { amount: number } | null = null
-  if (app.status === 'draft' && !app.subcontract_id) {
+  if (app.status === 'draft') {
     try {
-      const fresh = await ownerScheduleOfValues(db, params.id)
-      const d = sovDrift((lines ?? []) as any, fresh)
+      const fresh = app.subcontract_id
+        ? await subcontractScheduleOfValues(db, params.id, app.subcontract_id)
+        : await ownerScheduleOfValues(db, params.id)
+      // An empty schedule means there is nothing to compare against - a sub
+      // billing a single contract-amount row - not that the draft is complete.
+      const d = fresh.length ? sovDrift((lines ?? []) as any, fresh) : { amount: 0, raise: [], add: null }
       if (d.amount > 0) drift = { amount: d.amount }
     } catch {
       // A drift we could not work out is not a reason to fail the page. The
@@ -131,14 +135,16 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     if ((app as any).status !== 'draft') {
       return NextResponse.json({ error: 'Only a draft can be brought up to date. A certified application is the record of what was sent.' }, { status: 400 })
     }
-    if ((app as any).subcontract_id) {
-      return NextResponse.json({ error: "A subcontractor's schedule comes from their contract, not from the budget." }, { status: 400 })
-    }
-
     const { data: stored } = await db.from('pay_application_lines')
       .select('id, budget_line_item_id, description, scheduled_value, sort_order')
       .eq('pay_application_id', params.appId).order('sort_order')
-    const fresh = await ownerScheduleOfValues(db, params.id)
+    const subId = (app as any).subcontract_id
+    const fresh = subId
+      ? await subcontractScheduleOfValues(db, params.id, subId)
+      : await ownerScheduleOfValues(db, params.id)
+    if (!fresh.length) {
+      return NextResponse.json({ error: 'There is nothing to bring in - this application bills against a contract amount rather than budget lines.' }, { status: 400 })
+    }
     const d = sovDrift((stored ?? []) as any, fresh)
 
     for (const r of d.raise) {

@@ -10,7 +10,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
-import { payAppProblems, retainagePct as checkRetainage } from '@/lib/pay-app-rules'
+import { payAppProblems, retainagePct as checkRetainage, type PayAppProblem } from '@/lib/pay-app-rules'
+import { isFixableByChangeOrder, prefillFor, changeOrderHref } from '@/lib/change-order-prefill'
 
 const money = (n: number) => `$${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
@@ -407,7 +408,9 @@ function PayAppDetail({ projectId, appId, onBack, authHeaders }: { projectId: st
           </p>
           <ul className="mt-1 space-y-0.5">
             {problems.map((p, i) => (
-              <li key={i} className="text-xs text-danger">{p.message}</li>
+              <li key={i} className="text-xs text-danger">
+                <ProblemText problem={p} projectId={projectId} app={app} />
+              </li>
             ))}
           </ul>
         </div>
@@ -416,5 +419,46 @@ function PayAppDetail({ projectId, appId, onBack, authHeaders }: { projectId: st
         <p role="alert" className="text-sm text-danger">{saveError}</p>
       )}
     </div>
+  )
+}
+
+/**
+ * A problem, with its fix as a link where there IS one.
+ *
+ * "Raise it with a change order first" named the fix and left you to go and
+ * find the screen, work the number out again and type it in. The words are now
+ * a link that opens the change order already filled in - the right amount,
+ * against the right budget line, which is the part that makes approving it
+ * actually clear the block.
+ *
+ * ONLY on an overbill. "Billed below zero" and "retainage over 100%" are not
+ * fixed by a change order, and offering one would be advice that does not work.
+ */
+function ProblemText({
+  problem, projectId, app,
+}: {
+  problem: PayAppProblem
+  projectId: string
+  app: any
+}) {
+  const LINK_TEXT = 'change order'
+  if (!isFixableByChangeOrder(problem) || !problem.message.includes(LINK_TEXT)) {
+    return <>{problem.message}</>
+  }
+
+  const href = changeOrderHref(projectId, prefillFor(problem, {
+    applicationNumber: app.application_number,
+    subcontractId: app.subcontract_id ?? null,
+  }))
+
+  const at = problem.message.indexOf(LINK_TEXT)
+  return (
+    <>
+      {problem.message.slice(0, at)}
+      <Link href={href} className="font-semibold underline underline-offset-2 hover:no-underline">
+        {LINK_TEXT}
+      </Link>
+      {problem.message.slice(at + LINK_TEXT.length)}
+    </>
   )
 }

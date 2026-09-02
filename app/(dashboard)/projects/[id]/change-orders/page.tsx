@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -9,8 +10,9 @@ import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 import {
   Plus, X, ChevronDown, ChevronUp, ClipboardList,
-  CheckCircle2, XCircle, Clock, Trash2,
+  CheckCircle2, XCircle, Clock, Trash2, Link2,
 } from 'lucide-react'
+import { readPrefill } from '@/lib/change-order-prefill'
 
 const REASONS = [
   'Scope Addition',
@@ -53,7 +55,14 @@ const STATUS_CONFIG: Record<string, { label: string; pillClass: string; icon: an
 }
 
 export default function ChangeOrdersPage({ params }: { params: { id: string } }) {
+  // useSearchParams needs a Suspense boundary at the route level - same shape
+  // as app/(dashboard)/help/page.tsx, which hit this first.
+  return <Suspense fallback={null}><ChangeOrdersPageInner params={params} /></Suspense>
+}
+
+function ChangeOrdersPageInner({ params }: { params: { id: string } }) {
   const supabase = createClient()
+  const searchParams = useSearchParams()
 
   const [changeOrders, setChangeOrders] = useState<ChangeOrder[]>([])
   const [subs, setSubs] = useState<Subcontract[]>([])
@@ -70,6 +79,12 @@ export default function ChangeOrdersPage({ params }: { params: { id: string } })
   const [reason, setReason] = useState(REASONS[0])
   const [requestedByType, setRequestedByType] = useState<'gc' | 'sub'>('gc')
   const [subcontractId, setSubcontractId] = useState('')
+  // The budget line this change order raises. Carried through the form rather
+  // than only on the link, because it is the field that decides whether
+  // approving this actually clears the overbilled line or quietly lands on a
+  // catch-all row instead.
+  const [budgetLineId, setBudgetLineId] = useState<string | null>(null)
+  const [budgetLineName, setBudgetLineName] = useState<string | null>(null)
 
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -99,7 +114,42 @@ export default function ChangeOrdersPage({ params }: { params: { id: string } })
   function resetForm() {
     setTitle(''); setDescription(''); setAmount(''); setReason(REASONS[0])
     setRequestedByType('gc'); setSubcontractId('')
+    setBudgetLineId(null); setBudgetLineName(null)
   }
+
+  // Arrived from "Raise it with a change order first" on a pay application.
+  // Open the form with it filled in, rather than dropping somebody on a list
+  // and making them work the same number out a second time.
+  useEffect(() => {
+    const pre = readPrefill(searchParams)
+    if (!pre) return
+    setTitle(pre.title)
+    setDescription(pre.description)
+    setAmount(String(pre.amount))
+    // The link's reason only counts if it is one this form offers - otherwise
+    // the select would sit on a value that is not in its own list.
+    setReason(REASONS.includes(pre.reason) ? pre.reason : REASONS[0])
+    setBudgetLineId(pre.budgetLineItemId)
+    if (pre.subcontractId) { setRequestedByType('sub'); setSubcontractId(pre.subcontractId) }
+    setShowForm(true)
+  }, [searchParams])
+
+  // The line's name, for the chip. Fetched rather than passed on the URL: a
+  // name in a query string is a copy that can be stale or edited, and this one
+  // has to match what the budget actually calls the line.
+  useEffect(() => {
+    if (!budgetLineId) { setBudgetLineName(null); return }
+    let cancelled = false
+    ;(async () => {
+      const token = await getToken()
+      const res = await fetch(`/api/projects/${params.id}/budget`, { headers: { Authorization: `Bearer ${token}` } })
+      if (!res.ok || cancelled) return
+      const d = await res.json()
+      const line = (d.lines ?? []).find((l: any) => l.id === budgetLineId)
+      if (!cancelled) setBudgetLineName(line ? (line.description || line.cost_code || 'a budget line') : null)
+    })()
+    return () => { cancelled = true }
+  }, [budgetLineId, params.id])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -115,6 +165,7 @@ export default function ChangeOrdersPage({ params }: { params: { id: string } })
         reason,
         requested_by_type: requestedByType,
         subcontract_id: subcontractId || null,
+        budget_line_item_id: budgetLineId,
       }),
     })
     resetForm()
@@ -340,6 +391,35 @@ export default function ChangeOrdersPage({ params }: { params: { id: string } })
             </div>
             <form onSubmit={handleSubmit}>
               <div className="px-4 sm:px-6 py-5 space-y-4">
+                {/* WHAT THIS RAISES, SAID OUT LOUD.
+                    The budget line arrives on the link and decides whether
+                    approving this clears the overbilled line or lands on a
+                    catch-all "Approved change orders" row instead. Hidden,
+                    it is how somebody approves a change order believing it
+                    does something it does not - so it is on the form, and it
+                    can be taken off. */}
+                {budgetLineId && (
+                  <div className="flex items-start gap-2 rounded-lg border border-accent/40 bg-accent-tint/40 px-3 py-2.5">
+                    <Link2 className="mt-0.5 h-4 w-4 shrink-0 text-accent-fg" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-ink-soft">
+                        Raises {budgetLineName ?? 'a budget line'}
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted-fg">
+                        Once approved, this amount is added to that line&apos;s budget and its
+                        scheduled value on pay applications.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setBudgetLineId(null)}
+                      className="shrink-0 text-xs font-medium text-muted-fg hover:text-ink"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
+
                 <div className="space-y-1.5">
                   <Label>Title <span className="text-danger">*</span></Label>
                   <Input

@@ -49,6 +49,33 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-03',
+    title: 'Raise a change order straight from the pay application',
+    items: [
+      {
+        kind: 'new',
+        title: '"Raise it with a change order" is now a link that does it',
+        text: 'When a pay-app line is billed past its scheduled value, the words "change order" are a link. It opens the Change Orders screen with the change order already filled in - the exact overage, the line it belongs to, and a note saying which application it came from. Approve it and the draft offers to bring it in, and the line stops being over.',
+        help: 'pay-applications',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
+        title: 'Change orders can now raise a specific budget line',
+        text: 'A change order raised on the Change Orders screen never attached to a budget line, so it showed as its own "Approved change orders" row instead of raising the line it was for. That meant approving one to fix an overbilled line did not actually fix it. Change orders now carry the line they raise, and the form says which one so it is not a hidden setting.',
+        help: 'change-order-basics',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
+        title: 'Subcontractor pay applications pick up change orders too',
+        text: 'The "these approved change orders are not on this schedule yet" prompt only appeared on applications you send to the owner. It now appears on a subcontractor application as well, so approving a change order for their work updates their schedule the same way.',
+        help: 'pay-applications',
+        href: '/projects',
+      },
+    ],
+  },
+  {
+    date: '2026-09-03',
     title: 'Screens that said "nothing here" when they meant "this did not load"',
     items: [
       {
