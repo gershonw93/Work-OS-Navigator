@@ -49,6 +49,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-03',
+    title: 'Add SyteNav to your home screen and it opens like an app',
+    items: [
+      {
+        kind: 'improved',
+        title: 'No address bar, no browser buttons',
+        text: 'Adding SyteNav to your phone\'s home screen now opens it full screen with its own icon, the way an app does - before, you got the icon but it still opened inside the browser. Nothing to reinstall if you added it already: remove it from the home screen and add it again to pick this up.',
+        help: 'sytenav-on-your-phone',
+      },
+    ],
+  },
+  {
+    date: '2026-09-03',
     title: 'A bottom bar on your phone',
     items: [
       {
