@@ -299,6 +299,13 @@ export interface BudgetTotals {
    */
   committed_unlinked: number
   /**
+   * Receipts on this job with no budget line. Inside `actual` and `materials`,
+   * not extra - but named so the screen can show them as their own row and
+   * offer to file them, rather than leaving somebody to wonder why Actual Spent
+   * is bigger than the lines add up to.
+   */
+  materials_unassigned: number
+  /**
    * The two halves of `actual`, so a screen can SAY what it is made of.
    *
    * A reviewer worked out that Actual Spent and the Bills figure disagreed by
@@ -333,10 +340,21 @@ export function budgetTotals(
    * gets the old, incomplete figure.
    */
   subcontracts: CommittedSubcontract[] = [],
+  /**
+   * Receipts on this job that carry NO budget line.
+   *
+   * A budget line is attribution, not eligibility - money spent on a job is a
+   * job cost whether or not somebody has filed it against a line. Without this
+   * a scanned $186.51 receipt sat in Materials and moved nothing: not Actual
+   * Spent, not billing, not Master Money, while the page said receipts flow
+   * into project costs.
+   */
+  unassignedMaterials: { amount?: unknown }[] = [],
 ): BudgetTotals {
   const t: BudgetTotals = {
     original_budget: 0, approved_changes: 0, revised_budget: 0,
     committed: 0, actual: 0, committed_not_billed: 0, committed_unlinked: 0,
+    materials_unassigned: 0,
     billed: 0, materials: 0, entered: 0,
     projected_cost: 0, remaining: 0,
   }
@@ -378,6 +396,24 @@ export function budgetTotals(
   // it - so this is deliberately the contract value rather than a figure that
   // looks netted-off and is not.
   t.committed_not_billed += c.subcontractsWithNoBudgetLine
+
+  // MONEY IN A TOTAL HAS TO BE IN THE EXPOSURE TOO.
+  //
+  // `projected_cost` was summed per LINE, so a contract no line points at was in
+  // Committed and NOT in Left to spend. On a job with $100,000 budgeted,
+  // $80,000 typed on a line and a separate $80,000 subcontract, the card read
+  // Committed $160,000 over Left to spend $20,000 - the second figure quietly
+  // pretending the contract did not exist. Left to spend is now -$60,000, which
+  // is the honest answer for $160,000 committed against a $100,000 budget.
+  t.projected_cost += c.subcontractsWithNoBudgetLine
+
+  // Receipts with no line, added to what has actually been spent and to the
+  // exposure. Counted once: they are excluded from every line's rollup by
+  // definition, because nothing points at them.
+  t.materials_unassigned = unassignedMaterials.reduce((sum, m) => sum + n(m.amount), 0)
+  t.actual += t.materials_unassigned
+  t.materials += t.materials_unassigned
+  t.projected_cost += t.materials_unassigned
 
   t.revised_budget = t.original_budget + t.approved_changes
   t.remaining = t.revised_budget - t.projected_cost

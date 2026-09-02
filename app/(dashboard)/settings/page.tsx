@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils'
 import { Label } from '@/components/ui/label'
 import Link from 'next/link'
 import {
-  User, Building2, Users, Shield, Bell, CreditCard, AlertTriangle,
+  User, Building2, Users, Shield, Bell, BellRing, CreditCard, AlertTriangle,
   Check, X, SlidersHorizontal, Plug, Palette, Camera, RefreshCw, Ban, Lock,
   LayoutTemplate, Copy,
 } from 'lucide-react'
@@ -88,6 +88,12 @@ const SETTINGS_TAB_GATES: Record<string, { resource: string; action: Action }> =
   integrations:       { resource: 'settings_company', action: 'view' },
   'budget-templates': { resource: 'settings_company', action: 'view' },
   security:           { resource: 'settings_company', action: 'edit' },
+  // Its OWN tab, not a second card under Notifications. It was there, below the
+  // whole preferences card - eighteen event rows plus the push card - so on a
+  // phone you scrolled past all of it and concluded the feature did not exist.
+  // A company-level setting belongs beside Team & Users, not under somebody's
+  // personal switches.
+  'who-gets-told':    { resource: 'settings_company', action: 'edit' },
   danger:             { resource: 'settings_company', action: 'delete' },
   team:               { resource: 'settings_team',    action: 'view' },
   permissions:        { resource: 'settings_team',    action: 'view' },
@@ -100,6 +106,7 @@ const TABS: { id: string; label: string; icon: React.ElementType; danger?: boole
   { id: 'team',          label: 'Team & Users',   icon: Users },
   { id: 'permissions',   label: 'Permissions',    icon: Shield },
   { id: 'notifications', label: 'Notifications',  icon: Bell },
+  { id: 'who-gets-told', label: 'Who gets told',  icon: BellRing },
   { id: 'preferences',   label: 'Preferences',    icon: SlidersHorizontal },
   { id: 'security',      label: 'Security',       icon: Lock },
   { id: 'billing',       label: 'Billing',        icon: CreditCard },
@@ -1495,17 +1502,19 @@ export default function SettingsPage() {
                 Above: what do I want to be told. Here: who gets told at all,
                 which is the company's decision - so it is gated on company
                 settings the same way Team & Users is. */}
-            {canDo('settings_company', 'edit') && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Who gets told</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <NotificationRouting />
-                </CardContent>
-              </Card>
-            )}
             </div>
+          )}
+
+          {/* ══════════════════════════════════════ TAB: WHO GETS TOLD */}
+          {activeTab === 'who-gets-told' && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Who gets told</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <NotificationRouting />
+              </CardContent>
+            </Card>
           )}
 
           {/* ══════════════════════════════════════ TAB: PREFERENCES */}

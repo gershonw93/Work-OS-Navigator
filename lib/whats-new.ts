@@ -49,6 +49,37 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-03',
+    title: 'Money that was in your totals but on no line',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'Committed and Left to spend disagreed with each other',
+        text: 'A subcontract that is not linked to a budget line was counted in Committed but left out of Left to spend, so the two figures contradicted each other and the contract itself appeared on no row. Both now count it, and it shows up under "Not on a budget line" with a way to file it against a line - which also stops it being counted twice if you had already typed that amount onto a line.',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
+        title: 'Receipts now reach the budget even before you file them',
+        text: 'A scanned receipt with no budget line was recorded and then invisible - not in Actual Spent, not in billing, not in Master Money. It now counts toward the job straight away and appears under "Not on a budget line" so you can file it against the right line whenever you like.',
+        href: '/projects',
+      },
+      {
+        kind: 'improved',
+        title: '"Who gets told" is its own Settings tab',
+        text: 'Choosing who gets notified about inspections, bills, RFIs and change orders was buried below the whole personal-preferences list, so most people never found it. It now sits in the Settings menu next to Team & Users.',
+        help: 'who-gets-notified',
+        href: '/settings?tab=who-gets-told',
+      },
+      {
+        kind: 'fixed',
+        title: 'An out-of-date quote recommendation is no longer displayed',
+        text: 'When a quote arrived after the AI analysis ran, the old recommendation stayed on screen - sometimes saying "this is the only quote submitted" with two quotes visible. The out-of-date text is now hidden behind a link, with a prompt to re-analyze.',
+        href: '/projects',
+      },
+    ],
+  },
+  {
+    date: '2026-09-03',
     title: 'Settings is usable on a phone',
     items: [
       {

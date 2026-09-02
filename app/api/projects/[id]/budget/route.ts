@@ -104,7 +104,29 @@ export async function GET(request: Request, { params }: { params: { id: string }
     changeOrders: (changeOrders ?? []) as any,
     allocations: (allocations ?? []) as any,
   })
-  const totals = budgetTotals(items, (subcontracts ?? []) as any)
+  // Receipts on this job that carry no budget line. The rollup above cannot see
+  // them - nothing points at them - so they were saved and then invisible to
+  // Budget, billing and Master Money while the Materials page said they flowed
+  // into project costs.
+  const unassignedMaterials = (materials ?? []).filter((m: any) => !m.budget_line_id)
+  const totals = budgetTotals(items, (subcontracts ?? []) as any, unassignedMaterials as any)
+
+  // The two kinds of money that are in a total and on no row, so the screen can
+  // show each as its own line with a way to file it.
+  const linkedSubIds = new Set((data ?? []).map((l: any) => l.subcontract_id).filter(Boolean))
+  const unlinkedSubcontracts = (subcontracts ?? [])
+    .filter((sc: any) => !linkedSubIds.has(sc.id))
+    .map((sc: any) => ({
+      id: sc.id,
+      label: sc.companies?.name ? `${sc.companies.name}${sc.trade ? ` · ${sc.trade}` : ''}` : (sc.trade ?? 'Subcontract'),
+      contract_amount: Number(sc.contract_amount ?? 0),
+    }))
+  const unassignedReceipts = unassignedMaterials.map((m: any) => ({
+    id: m.id,
+    label: m.store_name || 'Receipt',
+    amount: Number(m.amount ?? 0),
+    purchase_date: m.purchase_date ?? null,
+  }))
 
   const subOptions = (subcontracts ?? []).map((s: any) => ({
     id: s.id,
@@ -189,6 +211,11 @@ export async function GET(request: Request, { params }: { params: { id: string }
   return NextResponse.json({
     items,
     totals,
+    // Money that is inside `totals` and on no line above. Sent so the screen can
+    // show each as its own row with a way to file it, rather than leaving the
+    // headline bigger than the list adds up to with nothing to click.
+    unlinked_subcontracts: unlinkedSubcontracts,
+    unassigned_receipts: unassignedReceipts,
     subcontracts: subOptions,
     materials: materials ?? [],
     materials_total,
