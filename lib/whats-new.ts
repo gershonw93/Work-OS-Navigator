@@ -49,6 +49,19 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-03',
+    title: 'A bottom bar on your phone',
+    items: [
+      {
+        kind: 'improved',
+        title: 'The screens you use most are one tap away on a phone',
+        text: 'On a phone there is now a bar along the bottom: Home, Projects and Approvals, plus More for everything else. Subcontractors get Home, My Jobs and My Bids. It only shows tabs your role can actually open, and the full menu is still there under More. Nothing changes on a computer, and Field Mode keeps its own bar.',
+        help: 'sytenav-on-your-phone',
+        href: '/dashboard',
+      },
+    ],
+  },
+  {
+    date: '2026-09-03',
     title: 'Raise a change order straight from the pay application',
     items: [
       {

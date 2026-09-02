@@ -206,6 +206,33 @@ Shipped in #218: bulk creation makes a site + a job per unit/floor/house, with a
 ## 📄 Pay apps - smaller follow-ups
 - *(nothing outstanding - the stale-draft SOV shipped in #361)*
 
+## 🧪 Test coverage that was LOST (be honest about this)
+
+Sixty-five guard suites were written this session into a **session scratch
+directory** rather than the repo. That directory is ephemeral; it went when the
+container reset, along with an uncommitted change. **The code they guarded is
+all shipped and working** - #339 through #366 are merged and live. What is gone
+is the guards, silently, which is the worst way for a test to disappear.
+
+`lib/__tests__/` + `npm test` now exists so this cannot recur, and `CLAUDE.md`
+names it in the pre-merge checklist. Rebuilt so far:
+
+- `mobile-tabs` - the phone tab bar (five traps)
+
+**Not yet rebuilt**, and worth doing before anyone leans on a green run:
+`co-link-chain` (the change-order link clears an overbill end to end),
+`store-docs` (store URLs resolve; the cookie policy claims analytics iff
+analytics exist), `sov-drift` (a stale draft picks up an approved change order),
+`embed-ambiguity` (no unqualified `profiles → companies` join), plus the
+pay-app rules, the activation gate, the committed derivation, QuickBooks push,
+and the permission parity checks. Those were written earlier and their content
+is gone from the agent's context as well as from disk - they have to be written
+again from the code and the reports, not recovered.
+
+Until then `npm test` reports on a fraction of what was covered an hour ago. It
+does not mean the app is less correct; it means a green run proves less than it
+looks like it does.
+
 ## ✅ Recently shipped (for reference)
 - A migration broke every `profiles -> companies` join (#363). Migration 094 added `companies.owner_id -> profiles.id` for owner protection. `profiles.company_id -> companies.id` already existed, so there were suddenly TWO relationships between the pair and every unqualified `companies(…)` embed became ambiguous - PostgREST refuses the whole query. Eleven call sites, including `/api/projects`, the dashboard, Approvals and `viewer-context`. All now name the column (`companies:company_id(…)`), which cannot go ambiguous again whatever keys get added later; the same fix `admin/projects` has carried for ages as `companies:gc_company_id(name)`. **What made it expensive was not the join but the silence**: `lib/admin-fetch.ts` returned `null` for every failure and the dashboard had four `if (res.ok)` blocks with no `else`, so a 500 rendered as "No users found" and as "Let's set up your first job" on a company with a live job. Several routes are worse than empty - `viewer-context` reads `?? 'gc'`, so a failed lookup showed a subcontractor the general contractor's view. Guard test added, because tsc, the build and the hooks lint are all blind to a string in a `.select()`.
 

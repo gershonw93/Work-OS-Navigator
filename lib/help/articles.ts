@@ -942,6 +942,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'Android: open app.sytenav.com in Chrome, tap the three-dot menu, then "Add to Home screen" or "Install app".',
         'Open it from the icon from then on - you stay signed in.',
       ] },
+      { type: 'text', text: 'GETTING AROUND. On a phone there is a bar along the bottom with the screens you use most - Home, Projects and Approvals, or Home, My Jobs and My Bids if you are a subcontractor. "More" opens the full menu, which is everything the sidebar has on a computer. You only see tabs for screens your role can open.' },
       { type: 'text', text: 'WHAT WORKS WELL ON A PHONE. Daily logs with photos straight from the camera. The time clock, which records where you clocked in and out. Scanning an invoice, quote or permit by photographing it. Approving a bill. Checking what a job is costing while you are standing on it.' },
       { type: 'tip', text: 'Crew on the Worker role get Field Mode automatically - a stripped-back screen built for gloves and sunlight, with just today\'s work on it. See "Field Mode for field workers".' },
       { type: 'text', text: 'WHAT TO EXPECT ON POOR SIGNAL. SyteNav needs a connection - it is not an offline app. On one bar it will be slow rather than broken. If you are about to lose signal completely, write the daily log when you are back in range rather than losing what you typed.' },

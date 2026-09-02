@@ -211,4 +211,13 @@
      BOTH - the nav and the indicator underneath it - so this is one value,
      not pb-24 and pb-safe fighting over the same property. */
   .pb-field-nav { padding-bottom: calc(6rem + env(safe-area-inset-bottom)); }
+  /* Clears the phone tab bar so the last row of a list is not sitting under it.
+     Above lg it falls back to the safe inset rather than to zero: an iPad in
+     landscape is past that breakpoint and still has a home indicator, and iPad
+     support is staying in v1.
+     Used INSTEAD of pb-safe, never alongside it - two classes setting
+     padding-bottom on one element works only while the later definition happens
+     to be the one you wanted, which is the trap the note above describes. */
+  .pb-tab-bar { padding-bottom: calc(4rem + env(safe-area-inset-bottom)); }
+  @media (min-width: 1024px) { .pb-tab-bar { padding-bottom: env(safe-area-inset-bottom); } }
 }
