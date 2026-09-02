@@ -45,6 +45,8 @@ export function ComparisonBlock({ comp, projectId, onChanged }: { comp: Comparis
   const guardDelete = useDeleteGuard()
   const [uploadingFor, setUploadingFor] = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
+  // The stale recommendation is hidden by default, not deleted.
+  const [showStale, setShowStale] = useState(false)
   const fileRef = useRef<HTMLInputElement | null>(null)
   const [awardTarget, setAwardTarget] = useState<{ quoteId: string; vendor: string } | null>(null)
   const [awarding, setAwarding] = useState(false)
@@ -265,15 +267,36 @@ export function ComparisonBlock({ comp, projectId, onChanged }: { comp: Comparis
                   <Sparkles className="h-3.5 w-3.5" />
                   {stale ? 'Recommendation is out of date' : 'Recommendation'}
                 </p>
-                {stale && (
-                  <p className="mb-1.5 text-xs text-warn">
-                    {missing === 1 ? 'A quote was' : `${missing} quotes were`} added after this was written,
-                    so it does not take {missing === 1 ? 'it' : 'them'} into account. Re-analyze to update it.
-                  </p>
+                {stale ? (
+                  // THE WRONG SENTENCE IS NOT LEFT ON THE SCREEN.
+                  //
+                  // A caveat above a false statement still leaves the false
+                  // statement there: this read "This is the only quote
+                  // submitted, so it wins by default" with two quotes visible
+                  // underneath it. Hidden, not deleted - the old text is still
+                  // one click away if somebody wants to see what changed.
+                  <>
+                    <p className="mb-1.5 text-xs text-warn">
+                      {missing === 1 ? 'A quote was' : `${missing} quotes were`} added after this was written,
+                      so it does not take {missing === 1 ? 'it' : 'them'} into account. Re-analyze for an
+                      up-to-date recommendation.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setShowStale(v => !v)}
+                      className="text-xs font-medium text-warn underline underline-offset-2"
+                    >
+                      {showStale ? 'Hide the old recommendation' : 'Show the old recommendation'}
+                    </button>
+                    {showStale && (
+                      <p className="mt-1.5 text-sm text-muted-fg line-through decoration-warn/40">
+                        {comp.analysis.recommendation}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-sm text-ink-soft">{comp.analysis.recommendation}</p>
                 )}
-                <p className={cn('text-sm', stale ? 'text-muted-fg' : 'text-ink-soft')}>
-                  {comp.analysis.recommendation}
-                </p>
               </div>
             )
           })()
