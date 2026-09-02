@@ -49,6 +49,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-03',
+    title: 'Settings is usable on a phone',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'The Settings tabs were a squeezed strip of unlabelled icons',
+        text: 'On a phone the tab rail took a fixed slice off the left at every width, so the panel beside it was squashed - notification names broke onto three lines and the switches were jammed against the edge. The tabs now sit across the top with their names on them, and the panel gets the full width of the screen.',
+        href: '/settings',
+      },
+    ],
+  },
+  {
+    date: '2026-09-03',
     title: 'Jobs open on the Overview, and the plans finally match',
     items: [
       {
