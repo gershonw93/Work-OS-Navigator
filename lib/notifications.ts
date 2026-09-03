@@ -39,6 +39,20 @@ export interface NotificationType {
    */
   status: 'live' | 'planned'
   /**
+   * Who hears this NO MATTER WHAT the company configures, in plain words.
+   *
+   * Some recipients are structural - the person assigned to book an inspection,
+   * whoever asked for one. They are added to the routed audience, never
+   * replaced by it. The settings screen used to list only the configurable half
+   * and present it as the whole answer, so a tester who assigned an inspection
+   * to one person could not tell whether that replaced the four the screen had
+   * just named, added to them, or overlapped. It adds.
+   *
+   * Declared here beside `audience`, not written into the settings screen, so
+   * there is one sentence to keep true rather than two.
+   */
+  alsoTold?: string
+  /**
    * Is this worth making somebody's phone buzz?
    *
    * NOT a user switch, and deliberately so. There are two questions here and
@@ -214,12 +228,14 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
     key: 'inspection_to_schedule', label: 'Inspection to book', group: 'Compliance',
     description: 'An inspection is ready to be scheduled.',
     audience: 'team', defaultAudience: ['inspections', 'edit'],
+    alsoTold: 'whoever is assigned to book it',
     defaults: { inApp: true, email: false }, status: 'live',
   },
   {
     key: 'inspection_ready', label: 'Work marked ready for inspection', group: 'Compliance',
     description: 'Somebody marks work ready so the inspector can be booked.',
     audience: 'team', defaultAudience: ['inspections', 'edit'],
+    alsoTold: 'whoever requested it, and whoever is assigned to book it',
     defaults: { inApp: true, email: false }, status: 'live',
   },
   {
@@ -228,6 +244,7 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
     key: 'inspection_result', label: 'Inspection scheduled, passed or failed', group: 'Compliance',
     description: 'An inspection is booked, or comes back passed or failed.',
     audience: 'team', defaultAudience: ['inspections', 'edit'],
+    alsoTold: 'whoever requested it, and whoever is assigned to book it',
     defaults: { inApp: true, email: false }, status: 'live',
   },
   {

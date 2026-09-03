@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
 import { audienceFor } from '@/lib/notification-audience'
+import { withStructural } from '@/lib/notification-routing'
 import { notify } from '@/lib/notify'
 
 const admin = () => createClient(
@@ -60,6 +61,17 @@ export async function PATCH(
     updates.completed_date = new Date().toISOString().split('T')[0]
   }
 
+  // Who was on it BEFORE, so a genuine reassignment can be told apart from the
+  // Edit form re-sending the same value with a changed note. Only read when the
+  // field is actually in play, and only this one column.
+  let priorScheduler: string | null = null
+  if ('scheduler_profile_id' in updates) {
+    const { data: before } = await db
+      .from('inspections').select('scheduler_profile_id')
+      .eq('id', params.inspectionId).eq('project_id', params.id).maybeSingle()
+    priorScheduler = (before as any)?.scheduler_profile_id ?? null
+  }
+
   const { data: inspection, error } = await db
     .from('inspections')
     .update(updates)
@@ -112,18 +124,45 @@ export async function PATCH(
     // This used to fall back to EVERY profile at the GC company. Ten office
     // staff, ten notifications, every time somebody marked work ready - which
     // is how people learn to ignore the bell.
-    const recipients = new Set<string>()
-    if (inspection.requested_by_id) recipients.add(inspection.requested_by_id)
-    if (inspection.scheduler_profile_id) recipients.add(inspection.scheduler_profile_id)
-    for (const id of await audienceFor({
-      db, companyId: proj?.gc_company_id, type: 'inspection_ready', exclude: user.id,
-    })) recipients.add(id)
-    recipients.delete(user.id)
-    if (recipients.size) {
+    const recipients = withStructural(
+      await audienceFor({
+        db, companyId: proj?.gc_company_id, type: 'inspection_ready', exclude: user.id,
+      }),
+      [inspection.requested_by_id, inspection.scheduler_profile_id],
+      user.id,
+    )
+    if (recipients.length) {
       await notify({
-        db, userIds: Array.from(recipients), type: 'inspection_ready',
+        db, userIds: recipients, type: 'inspection_ready',
         title: 'Ready for inspection',
         message: `${updates.ready_marked_by} marked ${label}${at} ready for inspection. Book the inspector when you can.`,
+        link: `/projects/${params.id}/inspections`,
+      })
+    }
+  }
+
+  // Somebody was just put on the hook for booking this, and until now nothing
+  // told them. `scheduler_profile_id` has always been editable here and no
+  // notification fired on it, so assigning a scheduler through Edit - rather
+  // than on the original request - was silent. The person found out by opening
+  // the inspections list, if they ever did.
+  const newScheduler = updates.scheduler_profile_id as string | null | undefined
+  if (newScheduler && newScheduler !== priorScheduler) {
+    const { data: proj } = await db.from('projects').select('name, gc_company_id').eq('id', params.id).single()
+    const label = inspection.type ? `${inspection.type}${inspection.trade ? ` (${inspection.trade})` : ''}` : 'Inspection'
+    const at = proj?.name ? ` at ${proj.name}` : ''
+    const bookers = withStructural(
+      await audienceFor({
+        db, companyId: (proj as any)?.gc_company_id, type: 'inspection_to_schedule', exclude: user.id,
+      }),
+      [newScheduler],
+      user.id,
+    )
+    if (bookers.length) {
+      await notify({
+        db, userIds: bookers, type: 'inspection_to_schedule',
+        title: 'Inspection to book',
+        message: `${actorName} put you on booking the ${label} inspection${at}.`,
         link: `/projects/${params.id}/inspections`,
       })
     }
@@ -141,24 +180,27 @@ export async function PATCH(
     else if (newStatus === 'failed') msg = `❌ ${label} inspection${at} FAILED.${inspection.notes ? ` ${inspection.notes}` : ''}`
     else if (newStatus === 'pending_reinspection') msg = `${label} inspection${at} needs a re-inspection.`
 
-    const recipients = new Set<string>()
-    if (inspection.requested_by_id) recipients.add(inspection.requested_by_id)
-    // Passed/failed also loops in the scheduler; scheduling itself only pings the requester.
-    if (newStatus !== 'scheduled' && inspection.scheduler_profile_id) recipients.add(inspection.scheduler_profile_id)
-    // Plus whoever the company said should hear an inspection result. A failed
-    // inspection is the one somebody other than the requester needs to know
-    // about, and before this only the requester and the booker were told.
-    for (const id of await audienceFor({
-      db, companyId: (proj as any)?.gc_company_id, type: 'inspection_result', exclude: user.id,
-    })) recipients.add(id)
-    recipients.delete(user.id) // don't notify the person who made the change
-    if (msg && recipients.size) {
+    // Passed/failed also loops in the scheduler; scheduling itself only pings the
+    // requester. Plus whoever the company said should hear an inspection result -
+    // a failed inspection is the one somebody other than the requester needs to
+    // know about, and before this only the requester and the booker were told.
+    const recipients = withStructural(
+      await audienceFor({
+        db, companyId: (proj as any)?.gc_company_id, type: 'inspection_result', exclude: user.id,
+      }),
+      [
+        inspection.requested_by_id,
+        newStatus !== 'scheduled' ? inspection.scheduler_profile_id : null,
+      ],
+      user.id, // don't notify the person who made the change
+    )
+    if (msg && recipients.length) {
       // The type used to be built from newStatus - `inspection_scheduled`,
       // `inspection_passed`, `inspection_failed` - three strings no preference
       // had ever heard of. One type now, with the outcome in the message where
       // a person reads it.
       await notify({
-        db, userIds: Array.from(recipients), type: 'inspection_result',
+        db, userIds: recipients, type: 'inspection_result',
         title: 'Inspection update', message: msg,
         link: `/projects/${params.id}/inspections`,
       })

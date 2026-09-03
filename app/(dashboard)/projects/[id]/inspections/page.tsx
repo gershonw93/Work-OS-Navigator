@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 import { Plus, X, ClipboardCheck, Phone, Calendar, CheckCircle2, XCircle, Clock, AlertCircle, ChevronDown, ChevronUp, Loader2, Upload, Trash2, Pencil } from 'lucide-react'
 import { ContactPicker } from '@/components/contact-picker'
+import { withStructural } from '@/lib/notification-routing'
 
 const INSPECTION_TYPES = [
   'Foundation', 'Framing', 'Rough Electrical', 'Rough Plumbing', 'Rough Mechanical',
@@ -58,6 +59,15 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
   const [schedulerId, setSchedulerId] = useState('')
   const [notes, setNotes] = useState('')
   const [teammates, setTeammates] = useState<Teammate[]>([])
+  const [submitError, setSubmitError] = useState<string | null>(null)
+
+  // Who will hear about this request. Asked for once and shown under the
+  // assignee, because the form used to let you create an inspection nobody was
+  // told about - the exact thing Settings refuses to let an admin configure.
+  // `null` means we could not work it out, which is NOT the same fact as
+  // "nobody", and the two must not render the same way.
+  const [myId, setMyId] = useState('')
+  const [routedIds, setRoutedIds] = useState<string[] | null>(null)
 
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -77,11 +87,26 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
     if (res.ok) { const d = await res.json(); setTeammates(d.teammates ?? d.members ?? []) }
   }
 
+  async function fetchRoutedAudience() {
+    try {
+      const token = await getToken()
+      const res = await fetch('/api/notifications/audience?type=inspection_to_schedule', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) { setRoutedIds(null); return }
+      setRoutedIds((await res.json()).userIds ?? [])
+    } catch {
+      setRoutedIds(null)
+    }
+  }
+
   useEffect(() => {
     fetchInspections()
     fetchTeammates()
+    fetchRoutedAudience()
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user?.email) setCurrentUser(session.user.email)
+      if (session?.user?.id) setMyId(session.user.id)
     })
   }, [params.id])
 
@@ -105,33 +130,57 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
     fetchInspections()
   }
 
+  // The response used to be discarded entirely, so a 500 closed the modal and
+  // looked exactly like success - and everything the person had typed went with
+  // it. On failure the modal stays open with the message, and setSubmitting is
+  // in a `finally` because a throw used to leave the button spinning for good.
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setSubmitting(true)
-    const token = await getToken()
+    setSubmitError(null)
+    try {
+      const token = await getToken()
 
-    if (editingInsp) {
-      await fetch(`/api/projects/${params.id}/inspections/${editingInsp.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          type: inspType,
-          trade: trade || null,
-          scheduled_date: scheduledDate || null,
-          scheduled_time: scheduledTime || null,
-          inspector_name: inspectorName || null,
-          inspector_phone: inspectorPhone || null,
-          scheduling_phone: schedulingPhone || null,
-          scheduler_profile_id: schedulerId || null,
-          scheduler_name: teammates.find(t => t.id === schedulerId)?.full_name || null,
-          notes: notes || null,
-        }),
-      })
+      const res = editingInsp
+        ? await fetch(`/api/projects/${params.id}/inspections/${editingInsp.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            type: inspType,
+            trade: trade || null,
+            scheduled_date: scheduledDate || null,
+            scheduled_time: scheduledTime || null,
+            inspector_name: inspectorName || null,
+            inspector_phone: inspectorPhone || null,
+            scheduling_phone: schedulingPhone || null,
+            scheduler_profile_id: schedulerId || null,
+            scheduler_name: teammates.find(t => t.id === schedulerId)?.full_name || null,
+            notes: notes || null,
+          }),
+        })
+        : await fetch(`/api/projects/${params.id}/inspections`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: buildCreateForm(),
+        })
+
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}))
+        setSubmitError(d?.error ?? `That did not save (${res.status}). Nothing has been lost - try again.`)
+        return
+      }
+
       resetForm()
-      setShowForm(false); setSubmitting(false); fetchInspections()
-      return
+      setShowForm(false)
+      fetchInspections()
+    } catch {
+      setSubmitError('That did not save - check your connection and try again.')
+    } finally {
+      setSubmitting(false)
     }
+  }
 
+  function buildCreateForm() {
     const form = new FormData()
     form.append('inspection_type', inspType)
     if (trade) form.append('trade', trade)
@@ -143,13 +192,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
     if (schedulingPhone) form.append('scheduling_phone', schedulingPhone)
     if (schedulerId) { form.append('scheduler_profile_id', schedulerId); form.append('scheduler_name', teammates.find(t => t.id === schedulerId)?.full_name || '') }
     if (notes) form.append('notes', notes)
-    await fetch(`/api/projects/${params.id}/inspections`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-      body: form,
-    })
-    resetForm()
-    setShowForm(false); setSubmitting(false); fetchInspections()
+    return form
   }
 
   function resetForm() {
@@ -380,7 +423,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
                     <option value="">No one assigned yet</option>
                     {teammates.map(t => <option key={t.id} value={t.id}>{t.full_name || t.email}</option>)}
                   </SearchableSelect>
-                  <p className="text-xs text-faint">Assign the person who books inspections - they'll get a notification to schedule it.</p>
+                  <WhoWillHear routedIds={routedIds} schedulerId={schedulerId} myId={myId} teammates={teammates} />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
@@ -409,7 +452,10 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
                     className="w-full rounded-md border border-muted2 px-3 py-2 text-sm focus:border-accent focus:outline-none resize-none" />
                 </div>
               </div>
-              <div className="px-4 sm:px-6 py-4 border-t border-line-soft flex flex-wrap gap-2 justify-end">
+              <div className="px-4 sm:px-6 py-4 border-t border-line-soft flex flex-wrap items-center gap-2 justify-end">
+                {submitError && (
+                  <p role="alert" className="mr-auto text-sm text-danger">{submitError}</p>
+                )}
                 <Button type="button" variant="secondary" onClick={() => { setShowForm(false); setEditingInsp(null) }}>Cancel</Button>
                 <Button type="submit" disabled={submitting}>{submitting ? 'Saving...' : editingInsp ? 'Save Changes' : 'Request Inspection'}</Button>
               </div>
@@ -451,5 +497,69 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
         </div>
       )}
     </div>
+  )
+}
+
+/**
+ * Who will actually be told, said before the button is pressed.
+ *
+ * THE BUG. Requesting an inspection with nobody assigned created it and
+ * notified nobody, with no warning - because the create route wrapped its whole
+ * notification block in `if (scheduler_profile_id)`, so a blank assignee
+ * suppressed the routed audience too. Settings carefully refuses to store an
+ * empty audience on the grounds that it "would stop the notification without
+ * saying so", and then this form did exactly that through a different door.
+ *
+ * It also answers the question nothing on screen answered: assigning somebody
+ * ADDS them to the routed list, it does not replace it. That was unverifiable
+ * from outside without reading four people's inboxes.
+ *
+ * The union is `withStructural` - the same function the routes send through, so
+ * this cannot drift into a second opinion about who hears what.
+ *
+ * Loading, failed and nobody are three different facts and render as three
+ * different sentences. Collapsing the middle one into "nobody" would be a
+ * confident wrong answer about whether a request is going to reach anyone.
+ */
+function WhoWillHear({ routedIds, schedulerId, myId, teammates }: {
+  routedIds: string[] | null
+  schedulerId: string
+  myId: string
+  teammates: Teammate[]
+}) {
+  if (routedIds === null) {
+    return (
+      <p className="text-xs text-faint">
+        Assign the person who books inspections. We could not work out who else will be told —
+        check Settings → Notifications → Who gets told.
+      </p>
+    )
+  }
+
+  const will = withStructural(routedIds, [schedulerId], myId)
+  const nameOf = (id: string) => {
+    const t = teammates.find(x => x.id === id)
+    return t?.full_name || t?.email || 'a teammate'
+  }
+
+  if (!will.length) {
+    return (
+      <p className="text-xs text-warn">
+        Nobody will be told. Assign somebody above, or set who hears about inspections in
+        Settings → Notifications → Who gets told.
+      </p>
+    )
+  }
+
+  const names = will.map(nameOf)
+  const listed = names.length <= 3
+    ? names.join(names.length === 2 ? ' and ' : ', ').replace(/, ([^,]*)$/, ' and $1')
+    : `${names.slice(0, 3).join(', ')} and ${names.length - 3} more`
+
+  return (
+    <p className="text-xs text-muted-fg">
+      {listed} will be told{names.length > 1 ? ` — ${names.length} people` : ''}.
+      {schedulerId && ' Assigning somebody adds them; it does not replace the rest.'}
+    </p>
   )
 }

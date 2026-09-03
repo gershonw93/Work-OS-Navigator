@@ -109,6 +109,52 @@ const clean = (v: unknown): string[] =>
  * the thing they just did, and it is the difference between a useful bell and
  * one people stop opening.
  */
+/**
+ * Structural recipients, plus whoever the company routed the event to.
+ *
+ * THE BUG THIS EXISTS TO STOP. Three inspection paths each hand-rolled this
+ * union, and one of them got it backwards:
+ *
+ *     if (scheduler_profile_id) {
+ *       const bookers = new Set([scheduler_profile_id])
+ *       for (const id of await audienceFor({ ... })) bookers.add(id)
+ *
+ * The assigned person GATED the routed audience instead of joining it, so
+ * requesting an inspection with nobody assigned told nobody at all - including
+ * the four people the settings screen promises will hear about it, and
+ * including a rule a company had explicitly saved. The settings screen refuses
+ * to store an empty audience because that "would stop the notification without
+ * saying so"; this did exactly that through a different door.
+ *
+ * So the union lives here, once, and every path calls it. Pure, and importable
+ * from a client component - which is what stops the request form from deriving
+ * the same answer a second time in the browser to show who will be told.
+ *
+ * The actor is removed LAST and always. Doing it inside `audienceFor` only
+ * covers the routed half; the create route seeded itself with the scheduler
+ * afterwards, so assigning an inspection to yourself notified you.
+ */
+export function withStructural(
+  routed: string[],
+  structural: (string | null | undefined)[],
+  actor?: string | null,
+): string[] {
+  const ids = new Set<string>()
+  // Blanks are dropped rather than added: a missing assignee is `undefined` or
+  // '' at half these call sites, and an empty-string user id is a row that
+  // matches nobody and errors nowhere.
+  for (const id of structural) {
+    const v = String(id ?? '').trim()
+    if (v) ids.add(v)
+  }
+  for (const id of routed) {
+    const v = String(id ?? '').trim()
+    if (v) ids.add(v)
+  }
+  if (actor) ids.delete(actor)
+  return Array.from(ids)
+}
+
 export function resolveRecipients(input: {
   /** Everybody in the company, with their role. */
   members: { id: string; role?: string | null }[]
