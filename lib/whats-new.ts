@@ -48,6 +48,38 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    date: '2026-09-04',
+    title: 'An inspection request that reaches somebody',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'Requesting an inspection with nobody assigned told nobody',
+        text: 'If you left "Who schedules this?" on "No one assigned yet", the inspection was created and not one notification went out - not even to the people you had chosen in "Who gets told". The people who manage inspections are now told either way, and the unassigned request is exactly the one somebody else needs to see.',
+        href: '/projects',
+      },
+      {
+        kind: 'new',
+        title: 'The request form tells you who will hear, before you send it',
+        text: 'Under "Who schedules this?" you now see the people who will actually be notified, by name. If that comes to nobody, it says so and points you at the setting, instead of letting the request quietly go nowhere.',
+        help: 'inspections',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
+        title: 'Putting somebody on an inspection from Edit now notifies them',
+        text: 'Assigning a scheduler when you first requested the inspection sent them a notification; assigning one later through Edit sent nothing at all. It does now.',
+        href: '/projects',
+      },
+      {
+        kind: 'improved',
+        title: '"Who gets told" says who is always told as well',
+        text: 'Naming somebody on an inspection ADDS them to the people you have routed the event to - it does not replace them. The settings screen now says so on each row, so you are not left guessing whether an assignment quietly narrowed the list.',
+        help: 'who-gets-notified',
+        href: '/settings?tab=who-gets-told',
+      },
+    ],
+  },
+  {
     date: '2026-09-03',
     title: 'Money that was in your totals but on no line',
     items: [

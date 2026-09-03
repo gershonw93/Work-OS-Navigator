@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { audienceFor } from '@/lib/notification-audience'
+import { withStructural } from '@/lib/notification-routing'
 import { notify } from '@/lib/notify'
 
 const admin = () => createClient(
@@ -110,24 +111,37 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Notify the assigned scheduler that there's an inspection to book.
-  if (scheduler_profile_id) {
-    const { data: proj } = await db.from('projects').select('name, gc_company_id').eq('id', params.id).single()
-    const when = scheduled_date ? ` - preferred ${scheduled_date}${scheduled_time ? ` ${scheduled_time}` : ''}` : ''
-    const contact = inspector_name ? ` Contact: ${inspector_name}${inspector_phone ? ` (${inspector_phone})` : ''}.` : ''
-    // The assigned scheduler because it is their job - structural, not a
-    // setting - plus anyone the company wants copied in.
-    const bookers = new Set<string>([scheduler_profile_id])
-    for (const id of await audienceFor({
+  // Somebody has to hear that an inspection was asked for.
+  //
+  // THIS WHOLE BLOCK USED TO BE INSIDE `if (scheduler_profile_id)`. The assigned
+  // person GATED the audience instead of joining it, so leaving "Who schedules
+  // this?" on "No one assigned yet" told nobody at all - not the people who can
+  // manage inspections, not even a rule a company had explicitly saved for this
+  // event. The row was created, a 201 came back, and nothing anywhere said the
+  // request had gone into a drawer. An unassigned inspection is exactly the one
+  // somebody else needs to hear about.
+  const { data: proj } = await db.from('projects').select('name, gc_company_id').eq('id', params.id).single()
+  const when = scheduled_date ? ` - preferred ${scheduled_date}${scheduled_time ? ` ${scheduled_time}` : ''}` : ''
+  const contact = inspector_name ? ` Contact: ${inspector_name}${inspector_phone ? ` (${inspector_phone})` : ''}.` : ''
+  // The assigned scheduler because it is their job - structural, not a setting -
+  // PLUS anyone the company wants copied in. Never one instead of the other.
+  const bookers = withStructural(
+    await audienceFor({
       db, companyId: (proj as any)?.gc_company_id, type: 'inspection_to_schedule', exclude: user.id,
-    })) bookers.add(id)
+    }),
+    [scheduler_profile_id],
+    user.id,
+  )
+  if (bookers.length) {
     await notify({
-      db, userIds: Array.from(bookers), type: 'inspection_to_schedule',
+      db, userIds: bookers, type: 'inspection_to_schedule',
       title: 'Inspection to book',
       message: `Schedule an inspection: ${inspection_type} at ${proj?.name ?? 'a project'}${when}. Requested by ${(me as any)?.full_name ?? 'the field'}.${contact}`,
       link: `/projects/${params.id}/inspections`,
     })
   }
 
-  return NextResponse.json({ inspection }, { status: 201 })
+  // What actually happened, so the form can say it rather than guess. A create
+  // that told nobody is a fact the person who pressed the button should have.
+  return NextResponse.json({ inspection, notified: bookers.length }, { status: 201 })
 }

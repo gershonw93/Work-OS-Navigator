@@ -26,6 +26,7 @@ interface RoutedEvent {
   description: string
   group: string
   status: 'live' | 'planned'
+  alsoTold: string | null
   configured: boolean
   roles: string[]
   userIds: string[]
@@ -167,6 +168,15 @@ export function NotificationRouting() {
                         {summary}
                         {!ev.configured && ev.defaultUserIds.length > 0 && ' (default)'}
                       </p>
+                      {/* The half this screen does not decide. A tester assigned
+                          an inspection to one person and could not tell whether
+                          that replaced the four named above, added to them, or
+                          overlapped - because nothing here said. It adds. */}
+                      {ev.alsoTold && (
+                        <p className="mt-0.5 text-xs text-faint">
+                          Always told as well: {ev.alsoTold}.
+                        </p>
+                      )}
                     </div>
                     <span className="shrink-0 text-xs font-medium text-accent-fg">
                       {isOpen ? 'Close' : 'Change'}

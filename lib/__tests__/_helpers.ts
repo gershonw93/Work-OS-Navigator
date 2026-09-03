@@ -34,7 +34,19 @@ export const read = (rel: string): string => readFileSync(join(root(), rel), 'ut
  * comments and the assertion is about the code.
  */
 export const code = (rel: string): string =>
-  read(rel).replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '')
+  read(rel)
+    .replace(/\/\/[^\n]*/g, '')
+    // A block comment only opens at the start of a line or inside a JSX `{...}`.
+    //
+    // IT USED TO BE `/\/\*[\s\S]*?\*\//g`, and that quietly ate 183 lines of the
+    // inspections page: `accept="image/*,application/pdf"` contains `/*`, which
+    // opened a comment that ran to the next `*/` hundreds of lines later. Every
+    // source assertion about the JSX in between was searching text that was no
+    // longer there - so a positive check could never pass and a negative one
+    // could never fail. A test that cannot fail is a guess about what it covers,
+    // and this one was hiding inside the helper the other suites all share.
+    .replace(/(^|\n)([ \t]*)\/\*[\s\S]*?\*\//g, '$1$2')
+    .replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, '')
 
 /** Every .ts/.tsx under a directory, skipping what is not ours. */
 export function walk(rel: string, out: string[] = []): string[] {

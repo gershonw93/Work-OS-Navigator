@@ -72,6 +72,9 @@ export async function GET(request: Request) {
       description: t.description,
       group: t.group,
       status: t.status,
+      // What this screen does NOT control, so it stops presenting the
+      // configurable half as the whole answer.
+      alsoTold: t.alsoTold ?? null,
       configured: !!row,
       roles: row?.roles ?? [],
       userIds: row?.user_ids ?? [],
