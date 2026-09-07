@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { ClockCard } from './clock-card'
 import { TaskRow, type FieldTask } from './task-row'
 
+import { formatDate } from '@/lib/dates'
 interface FieldData {
   projects: { id: string; name: string }[]
   tasks: FieldTask[]
@@ -51,7 +52,7 @@ export default function FieldHome() {
         {greeting()}{firstName ? `, ${firstName}` : ''}
       </h1>
       <p className="mb-5 text-sm text-muted-fg">
-        {new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}
+        {formatDate(new Date(), { weekday: 'long', month: 'long', day: 'numeric' })}
       </p>
 
       <ClockCard projects={data?.projects ?? []} openEntry={data?.openEntry ?? null} onChange={load} />

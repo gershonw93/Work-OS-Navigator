@@ -8,6 +8,7 @@ import { Check, X, Copy, Mail, RotateCcw, Send } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { timeAgo } from '@/lib/time-ago'
 
+import { formatDate } from '@/lib/dates'
 interface AccessRequest {
   id: string; name: string; email: string; company_name: string | null
   company_type: string | null; phone: string | null; message: string | null
@@ -125,7 +126,7 @@ export default function AccessRequestsPage() {
     if (r.invite_sent_at) {
       return (
         <span className="text-xs text-success">
-          Invite emailed {new Date(r.invite_sent_at).toLocaleDateString()}
+          Invite emailed {formatDate(r.invite_sent_at)}
         </span>
       )
     }
@@ -163,7 +164,7 @@ export default function AccessRequestsPage() {
                 <AccountNote r={r} />
                 {r.company_type && <span className="rounded-full bg-surface px-2 py-0.5 text-xs text-muted-fg uppercase">{r.company_type === 'gc' ? 'GC' : 'Sub'}</span>}
                 <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium capitalize', STATUS_CLS[r.status] ?? '')}>{r.status}</span>
-                <span className="ml-auto text-xs text-faint">{new Date(r.created_at).toLocaleDateString()}</span>
+                <span className="ml-auto text-xs text-faint">{formatDate(r.created_at)}</span>
               </div>
               {(r.message || r.phone) && (
                 <p className="mt-1 text-sm text-muted-fg">{r.message}{r.phone ? ` · ${r.phone}` : ''}</p>

@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
 
+import { formatDate } from '@/lib/dates'
 export const runtime = 'nodejs'
 
 const admin = () => createClient(
@@ -155,7 +156,7 @@ export async function GET(request: Request, { params }: { params: { id: string; 
   }
   function gap2(n: number) { y -= n }
 
-  const dateStr = new Date(log.log_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+  const dateStr = formatDate(log.log_date, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
 
   // Header - company logo top-right when the company has one uploaded
   if (project?.gc_company_id) {

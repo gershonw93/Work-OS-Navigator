@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 
+import { formatDate } from '@/lib/dates'
 // ─── constants ───────────────────────────────────────────────────────────────
 
 const PRIORITIES = [
@@ -77,7 +78,7 @@ function formatDue(due: string) {
   if (diff < 0) return `${Math.abs(diff)}d overdue`
   if (diff === 0) return 'Due today'
   if (diff === 1) return 'Due tomorrow'
-  return `Due ${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
+  return `Due ${formatDate(d, { month: 'short', day: 'numeric' })}`
 }
 
 /**
@@ -154,7 +155,7 @@ function timeAgo(dateStr: string) {
   if (diffMins < 60) return `${diffMins}m ago`
   if (diffHours < 24) return `${diffHours}h ago`
   if (diffDays < 7) return `${diffDays}d ago`
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  return formatDate(d, { month: 'short', day: 'numeric' })
 }
 
 // ─── small components ─────────────────────────────────────────────────────────
@@ -311,7 +312,7 @@ function TaskDetailPanel({ task, notes, notesLoading, onAddNote, projectId, onCh
           {task.follow_up_date && (
             <div className="flex items-center gap-1.5 text-sm text-info">
               <CalendarClock className="h-3.5 w-3.5 shrink-0" />
-              <span>Follow up {new Date(task.follow_up_date + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+              <span>Follow up {formatDate(task.follow_up_date, { month: 'short', day: 'numeric' })}</span>
             </div>
           )}
 
@@ -341,7 +342,7 @@ function TaskDetailPanel({ task, notes, notesLoading, onAddNote, projectId, onCh
                   <span className="inline-flex items-center gap-1.5 text-sm font-medium text-success">
                     <CheckSquare className="h-4 w-4" /> Signed off by {task.signoff_signed_by}
                   </span>
-                  <span className="text-xs text-faint">{new Date(task.signoff_signed_at).toLocaleDateString()}</span>
+                  <span className="text-xs text-faint">{formatDate(task.signoff_signed_at)}</span>
                   {task.signoff_signature_url && (
                     <a href={task.signoff_signature_url} target="_blank" rel="noreferrer" className="text-xs text-accent-fg hover:underline">View signature</a>
                   )}
@@ -370,7 +371,7 @@ function TaskDetailPanel({ task, notes, notesLoading, onAddNote, projectId, onCh
           )}
 
           <div className="text-xs text-faint">
-            Created {new Date(task.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+            Created {formatDate(task.created_at, { month: 'short', day: 'numeric', year: 'numeric' })}
           </div>
 
           {showSignoff && (

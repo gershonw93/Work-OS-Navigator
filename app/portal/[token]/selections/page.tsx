@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { daysUntil, isOutstanding, STATUS_TINT, type SelectionStatus } from '@/lib/selections'
 
+import { formatDate } from '@/lib/dates'
 const money = (n: number | null | undefined) =>
   n == null ? null : `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 
@@ -295,7 +296,7 @@ export default function PortalSelectionsPage({ params }: { params: { token: stri
                         )}
                         {sel.status === 'ordered' && sel.expected_delivery && (
                           <p className="text-[11px] text-accent-fg inline-flex items-center gap-1 mt-0.5">
-                            <Truck className="h-3 w-3" /> Due {new Date(sel.expected_delivery + 'T00:00:00').toLocaleDateString()}
+                            <Truck className="h-3 w-3" /> Due {formatDate(sel.expected_delivery)}
                           </p>
                         )}
                         {sel.change_requested_at && (

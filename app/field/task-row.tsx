@@ -5,6 +5,7 @@ import { Check, Loader2, MapPin } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 
+import { formatDate } from '@/lib/dates'
 export interface FieldTask {
   id: string
   project_id: string
@@ -29,7 +30,7 @@ function dueLabel(due?: string | null) {
   if (diff < 0) return { text: `${-diff}d overdue`, overdue: true }
   if (diff === 0) return { text: 'Today', overdue: false }
   if (diff === 1) return { text: 'Tomorrow', overdue: false }
-  return { text: d.toLocaleDateString([], { month: 'short', day: 'numeric' }), overdue: false }
+  return { text: formatDate(d, { month: 'short', day: 'numeric' }), overdue: false }
 }
 
 // A single task with a big check-off target. Optimistically hides on complete.

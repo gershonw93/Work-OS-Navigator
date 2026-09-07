@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils'
 import { useViewerContext } from '@/lib/use-viewer-context'
 import { SubSchedule } from '@/components/projects/sub-schedule'
 
+import { formatDate, formatDateShort } from '@/lib/dates'
 const MILESTONE_COLORS = [
   { label: 'Blue',   value: 'blue',   bg: 'bg-info-solid',   light: 'bg-info-tint text-info border-info/30' },
   { label: 'Green',  value: 'green',  bg: 'bg-success-solid',  light: 'bg-success-tint text-success border-success/30' },
@@ -80,13 +81,7 @@ function addDays(date: string, days: number) {
   return d.toISOString().split('T')[0]
 }
 
-function formatDate(d: string) {
-  return new Date(d + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-}
 
-function formatDateFull(d: string) {
-  return new Date(d + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-}
 
 // Local YYYY-MM-DD (avoids UTC offset bugs)
 function ymd(dt: Date) {
@@ -349,7 +344,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     const clampedEnd = monthEnd < endCursor ? monthEnd : endCursor
     const startDay = daysBetween(minDate, clampedStart.toISOString().split('T')[0])
     const days = daysBetween(clampedStart.toISOString().split('T')[0], clampedEnd.toISOString().split('T')[0]) + 1
-    months.push({ label: cursor.toLocaleDateString(undefined, { month: 'short', year: 'numeric' }), startDay, days })
+    months.push({ label: formatDate(cursor, { month: 'short', year: 'numeric' }), startDay, days })
     cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1)
   }
 
@@ -544,7 +539,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                   <div className="flex items-center gap-2">
                     <CalendarRange className="h-4 w-4 text-faint" />
                     <span className="text-sm font-semibold text-ink-soft">
-                      {calCursor.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+                      {formatDate(calCursor, { month: 'long', year: 'numeric' })}
                     </span>
                   </div>
                   <div className="flex items-center gap-1">
@@ -603,7 +598,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
             <div className="px-5 py-3 border-b border-line-soft flex items-center gap-2 flex-wrap">
               <CalendarDays className="h-4 w-4 text-faint" />
               <span className="text-sm font-semibold text-ink-soft">Timeline</span>
-              <span className="text-xs text-faint ml-1">{formatDateFull(minDate)} - {formatDateFull(maxDate)}</span>
+              <span className="text-xs text-faint ml-1">{formatDateShort(minDate)} - {formatDateShort(maxDate)}</span>
             </div>
             <div className="overflow-x-auto">
               <div style={{ minWidth: Math.max(700, totalDays * 18) + 220 }}>
@@ -680,7 +675,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                       <span className={cn('text-xs font-medium px-2 py-0.5 rounded-full border', lightColor(item))}>
                         {item.subcontract_id ? 'Sub Work' : 'Milestone'}
                       </span>
-                      <span>{formatDate(item.start_date)} – {formatDate(item.end_date)}</span>
+                      <span>{formatDateShort(item.start_date)} – {formatDateShort(item.end_date)}</span>
                       <span className="text-faint">{duration} day{duration !== 1 ? 's' : ''}</span>
                     </div>
                   </div>
@@ -717,8 +712,8 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                           {item.subcontract_id ? 'Sub Work' : 'Milestone'}
                         </span>
                       </td>
-                      <td className="px-5 py-3 text-muted-fg">{formatDate(item.start_date)}</td>
-                      <td className="px-5 py-3 text-muted-fg">{formatDate(item.end_date)}</td>
+                      <td className="px-5 py-3 text-muted-fg">{formatDateShort(item.start_date)}</td>
+                      <td className="px-5 py-3 text-muted-fg">{formatDateShort(item.end_date)}</td>
                       <td className="px-5 py-3 text-muted-fg">{duration} day{duration !== 1 ? 's' : ''}</td>
                       <td className="px-5 py-3 text-right">
                         <button onClick={() => openEdit(item)} className="text-faint hover:text-muted-fg p-1 rounded">

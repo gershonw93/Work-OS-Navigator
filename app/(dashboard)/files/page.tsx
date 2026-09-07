@@ -19,6 +19,7 @@ import { uploadCompanyFile } from '@/lib/upload-company-file'
 import { ShareFilesModal } from '@/components/files/share-files-modal'
 import { ACCEPT_DOCS } from '@/lib/file-accept'
 
+import { formatDate } from '@/lib/dates'
 const CATEGORIES = ['Insurance', 'License', 'W-9', 'Site Plans', 'ID/Legal', 'Permits', 'Other'] as const
 
 const CATEGORY_ICONS: Record<string, any> = {
@@ -581,7 +582,7 @@ export default function FilesPage() {
                       <div className="min-w-0 flex-1">
                         <p className="font-semibold text-ink text-sm truncate" title={file.name}>{file.name}</p>
                         <p className="text-xs text-faint mt-0.5">
-                          {new Date(file.created_at).toLocaleDateString()}
+                          {formatDate(file.created_at)}
                           {file.size_bytes ? ` · ${formatSize(file.size_bytes)}` : ''}
                         </p>
                         {file.filled_from_id && (
@@ -663,7 +664,7 @@ export default function FilesPage() {
                           </Link>
                         )}
                         {doc.expiry_date && (
-                          <p className="text-xs text-faint">Exp {new Date(doc.expiry_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                          <p className="text-xs text-faint">Exp {formatDate(doc.expiry_date, { month: 'short', day: 'numeric', year: 'numeric' })}</p>
                         )}
                         {doc.notes && <p className="text-xs text-muted-fg line-clamp-2">{doc.notes}</p>}
                         <a href={doc.file_url} target="_blank" rel="noopener noreferrer"
@@ -768,7 +769,7 @@ export default function FilesPage() {
                         {[
                           sh.recipient_name && `To ${sh.recipient_name}`,
                           `${(sh.files ?? []).length} document${(sh.files ?? []).length !== 1 ? 's' : ''}`,
-                          new Date(sh.created_at).toLocaleDateString(),
+                          formatDate(sh.created_at),
                         ].filter(Boolean).join(' · ')}
                       </p>
                     </div>

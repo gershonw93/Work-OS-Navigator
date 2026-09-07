@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { X, ChevronDown, ChevronUp, MessageSquare, DollarSign, CheckCircle2, Clock, AlertCircle, Check, XCircle, RefreshCw, Paperclip, Trash2, Pencil, Link2 } from 'lucide-react'
 import { clientAppOrigin } from '@/lib/app-url'
 
+import { formatDate } from '@/lib/dates'
 interface RFI {
   id: string; rfi_number: number; submitted_by_name: string; company_name: string | null
   subject: string; description: string; is_change_order: boolean
@@ -174,7 +175,7 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
               <span className="text-xs text-faint flex items-center gap-0.5"><Paperclip className="h-3 w-3" />{rfi.attachments?.length}</span>
             )}
           </div>
-          <p className="text-xs text-faint mt-2">{new Date(rfi.created_at).toLocaleDateString()}</p>
+          <p className="text-xs text-faint mt-2">{formatDate(rfi.created_at)}</p>
           {rfi.status === 'open' && (
             <div className="mt-3 pt-2 border-t border-line-soft">
               <span className="text-xs font-medium text-accent-fg">Click to respond →</span>

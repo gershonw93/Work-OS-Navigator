@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils'
 import { toAmountInput } from '@/lib/validate'
 import { usePermissions } from '@/lib/use-permissions'
 
+import { formatDate } from '@/lib/dates'
 interface Payment {
   id: string; paid_date: string | null; amount: number; method: string | null
   memo: string | null; retainer: boolean; qb_entered: boolean
@@ -453,7 +454,7 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
               </div>
             ) : (
               <div key={p.id} className="group md:grid md:grid-cols-[7rem_1fr_8rem_1fr_5rem_3rem] md:gap-2 md:items-center px-4 py-3 hover:bg-surface">
-                <span className="text-sm text-ink-soft">{p.paid_date ? new Date(p.paid_date + 'T00:00:00').toLocaleDateString() : '-'}</span>
+                <span className="text-sm text-ink-soft">{p.paid_date ? formatDate(p.paid_date) : '-'}</span>
                 <span className="text-sm text-ink-soft truncate">
                   {p.reference && <span className="font-medium text-ink">{p.reference}</span>}
                   {p.reference && p.memo ? ' · ' : ''}

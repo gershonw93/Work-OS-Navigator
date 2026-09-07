@@ -48,6 +48,24 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    date: '2026-09-07',
+    title: 'Dates now show the day they actually are',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'Every date was showing one day early',
+        text: 'A date entered as January 15 could display as January 14, and an inspection marked passed in the evening could be stamped with the day before. It affected dates across the app — inspections, permits, compliance expiry, invoice due dates, daily logs, and the client portal your customers see. Every date in SyteNav now shows the day it actually is, in your own timezone.',
+        href: '/projects',
+      },
+      {
+        kind: 'improved',
+        title: 'Dates look the same on every screen and every account',
+        text: 'Two people could open the same record and see 1/14/2020 and 2020-01-14. Dates are now written the same way everywhere — Jan 15, 2020 — so a month can never be mistaken for a day.',
+        href: '/projects',
+      },
+    ],
+  },
+  {
     date: '2026-09-04',
     title: 'An inspection request that reaches somebody',
     items: [

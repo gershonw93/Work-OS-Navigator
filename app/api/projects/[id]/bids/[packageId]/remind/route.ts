@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
 import { notify } from '@/lib/notify'
 
+import { formatDate } from '@/lib/dates'
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -36,7 +37,7 @@ export async function POST(
   }
 
   const projectName = (pkg?.projects as any)?.name ?? 'a project'
-  const duePart = pkg?.due_date ? ` Bid due ${new Date(pkg.due_date).toLocaleDateString()}.` : ''
+  const duePart = pkg?.due_date ? ` Bid due ${formatDate(pkg.due_date)}.` : ''
 
   await notify({
     db, userIds: [profile.data.id], type: 'bid_reminder', title: 'Bid reminder',

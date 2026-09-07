@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { Search } from 'lucide-react'
 import { adminGet } from '@/lib/admin-fetch'
 
+import { formatDate } from '@/lib/dates'
 interface ProjectRow {
   id: string
   name: string | null
@@ -72,7 +73,7 @@ export default function AdminProjects() {
                 <td className="px-4 py-2.5 text-muted-fg hidden md:table-cell">{p.company_name || '-'}</td>
                 <td className="px-4 py-2.5 text-muted-fg hidden sm:table-cell">{p.client || '-'}</td>
                 <td className="px-4 py-2.5"><span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-fg capitalize">{p.status || '-'}</span></td>
-                <td className="px-4 py-2.5 text-muted-fg hidden sm:table-cell">{p.created_at ? new Date(p.created_at).toLocaleDateString() : '-'}</td>
+                <td className="px-4 py-2.5 text-muted-fg hidden sm:table-cell">{p.created_at ? formatDate(p.created_at) : '-'}</td>
               </tr>
             ))}
           </tbody>

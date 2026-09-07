@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ConnectCalendarButton } from '@/components/calendar/connect-calendar'
 
+import { formatDate } from '@/lib/dates'
 interface Item {
   id: string; kind: 'schedule' | 'task' | 'inspection'; project_id: string; project_name: string
   title: string; start: string; end: string; color: string; done?: boolean; href: string
@@ -73,7 +74,7 @@ export default function MasterCalendarPage() {
   for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(cursor.y, cursor.m, d))
   while (cells.length % 7 !== 0) cells.push(null)
   const todayIso = iso(new Date())
-  const monthLabel = first.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+  const monthLabel = formatDate(first, { month: 'long', year: 'numeric' })
 
   const move = (delta: number) => setCursor(c => {
     const d = new Date(c.y, c.m + delta, 1); return { y: d.getFullYear(), m: d.getMonth() }
@@ -129,7 +130,7 @@ export default function MasterCalendarPage() {
           <div className="w-full max-w-md max-h-[85vh] overflow-y-auto rounded-xl bg-panel shadow-xl" onClick={e => e.stopPropagation()}>
             <div className="sticky top-0 flex items-center justify-between border-b border-line bg-panel px-5 py-4">
               <h2 className="text-lg font-bold text-ink">
-                {new Date(selectedDay + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+                {formatDate(selectedDay, { weekday: 'long', month: 'long', day: 'numeric' })}
               </h2>
               <button onClick={() => setSelectedDay(null)} className="text-faint hover:text-ink text-2xl leading-none">×</button>
             </div>

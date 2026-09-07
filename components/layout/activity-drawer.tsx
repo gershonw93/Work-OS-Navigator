@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { timeAgo } from '@/lib/time-ago'
 
+import { formatDate } from '@/lib/dates'
 interface ActivityItem {
   id: string
   actor_name: string
@@ -42,7 +43,7 @@ function groupByDate(items: ActivityItem[]) {
     let label: string
     if (d.toDateString() === today.toDateString()) label = 'Today'
     else if (d.toDateString() === yesterday.toDateString()) label = 'Yesterday'
-    else label = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: d.getFullYear() !== today.getFullYear() ? 'numeric' : undefined })
+    else label = formatDate(d, { month: 'short', day: 'numeric', year: d.getFullYear() !== today.getFullYear() ? 'numeric' : undefined })
 
     if (!groups[label]) groups[label] = []
     groups[label].push(item)

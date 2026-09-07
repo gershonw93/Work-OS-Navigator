@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { readPrefill } from '@/lib/change-order-prefill'
 
+import { formatDate } from '@/lib/dates'
 const REASONS = [
   'Scope Addition',
   'Scope Reduction',
@@ -254,7 +255,7 @@ function ChangeOrdersPageInner({ params }: { params: { id: string } }) {
             </div>
             <p className="text-xs text-faint mt-0.5">
               {co.reason && `${co.reason} · `}
-              {new Date(co.created_at).toLocaleDateString()}
+              {formatDate(co.created_at)}
               {co.subcontract_id && ` · ${getSubName(co.subcontract_id)}`}
             </p>
             {co.applied_to_contract && co.subcontract_id && (
@@ -300,7 +301,7 @@ function ChangeOrdersPageInner({ params }: { params: { id: string } }) {
               )}
               <div>
                 <p className="text-xs text-faint">Created</p>
-                <p className="font-medium text-ink-soft">{new Date(co.created_at).toLocaleDateString()}</p>
+                <p className="font-medium text-ink-soft">{formatDate(co.created_at)}</p>
               </div>
             </div>
 

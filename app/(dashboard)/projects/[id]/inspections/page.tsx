@@ -11,6 +11,7 @@ import { Plus, X, ClipboardCheck, Phone, Calendar, CheckCircle2, XCircle, Clock,
 import { ContactPicker } from '@/components/contact-picker'
 import { withStructural } from '@/lib/notification-routing'
 
+import { formatDate, todayDateInput } from '@/lib/dates'
 const INSPECTION_TYPES = [
   'Foundation', 'Framing', 'Rough Electrical', 'Rough Plumbing', 'Rough Mechanical',
   'Insulation', 'Drywall', 'Final Electrical', 'Final Plumbing', 'Final Mechanical',
@@ -203,10 +204,19 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
 
   async function updateStatus(insp: Inspection, newStatus: string) {
     const token = await getToken()
+    // The DAY this happened, from the browser, because only the browser knows
+    // which day the person is having. The server derived it from
+    // `new Date().toISOString()` - that is UTC's day, so an inspection marked
+    // passed on a west-coast evening was stamped tomorrow. The mirror image of
+    // the render bug, and it never showed up because the render bug was
+    // shifting it back again.
+    const completed = newStatus === 'passed' || newStatus === 'failed'
+      ? { completed_date: todayDateInput() }
+      : {}
     await fetch(`/api/projects/${params.id}/inspections/${insp.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ status: newStatus }),
+      body: JSON.stringify({ status: newStatus, ...completed }),
     })
     fetchInspections()
   }
@@ -267,7 +277,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
               )}
             </div>
             <p className="text-xs text-faint mt-0.5">
-              {insp.scheduled_date ? `${new Date(insp.scheduled_date).toLocaleDateString()}${insp.scheduled_time ? ` ${insp.scheduled_time}` : ''}` : 'No date yet'}
+              {insp.scheduled_date ? `${formatDate(insp.scheduled_date)}${insp.scheduled_time ? ` ${insp.scheduled_time}` : ''}` : 'No date yet'}
               {insp.inspector_name && ` · ${insp.inspector_name}`}
               {insp.status === 'requested' && insp.scheduler_name && ` · ${insp.scheduler_name} to schedule`}
             </p>
@@ -279,13 +289,13 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
           <div className="border-t border-line-soft px-5 py-5 space-y-4">
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
               {insp.scheduled_date && (
-                <div><p className="text-xs text-faint">Scheduled Date</p><p className="font-medium text-ink-soft">{new Date(insp.scheduled_date).toLocaleDateString()}</p></div>
+                <div><p className="text-xs text-faint">Scheduled Date</p><p className="font-medium text-ink-soft">{formatDate(insp.scheduled_date)}</p></div>
               )}
               {insp.scheduled_time && (
                 <div><p className="text-xs text-faint">Time</p><p className="font-medium text-ink-soft">{insp.scheduled_time}</p></div>
               )}
               {insp.completed_date && (
-                <div><p className="text-xs text-faint">Completed</p><p className="font-medium text-ink-soft">{new Date(insp.completed_date).toLocaleDateString()}</p></div>
+                <div><p className="text-xs text-faint">Completed</p><p className="font-medium text-ink-soft">{formatDate(insp.completed_date)}</p></div>
               )}
               {insp.scheduler_name && (
                 <div><p className="text-xs text-faint">Scheduler</p><p className="font-medium text-ink-soft">{insp.scheduler_name}</p></div>
@@ -317,7 +327,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
             {insp.ready_marked_by && (
               <div className="rounded-lg bg-success-tint border border-green-100 px-3 py-2 text-xs text-success">
                 Marked ready by <strong>{insp.ready_marked_by}</strong>
-                {insp.ready_marked_at && ` on ${new Date(insp.ready_marked_at).toLocaleDateString()}`}
+                {insp.ready_marked_at && ` on ${formatDate(insp.ready_marked_at)}`}
               </div>
             )}
 

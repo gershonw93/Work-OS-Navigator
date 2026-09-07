@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 import { daysUntil, isOutstanding } from '@/lib/selections'
 import { weightedProgress } from '@/lib/invoice-budget'
 
+import { formatDate } from '@/lib/dates'
 const admin = () =>
   createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -145,7 +146,7 @@ export default async function PortalPage({ params }: { params: { token: string }
   const overallPct = weightedProgress(progressLines ?? [])
 
   const lastUpdated = project.updated_at
-    ? new Date(project.updated_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    ? formatDate(project.updated_at, { month: 'long', day: 'numeric', year: 'numeric' })
     : null
 
   return (
@@ -235,9 +236,9 @@ export default async function PortalPage({ params }: { params: { token: string }
                     </div>
                     {(m.start_date || m.end_date) && (
                       <p className="text-xs text-faint mt-0.5">
-                        {m.start_date && new Date(m.start_date + 'T00:00:00').toLocaleDateString()}
+                        {m.start_date && formatDate(m.start_date)}
                         {m.start_date && m.end_date && ' – '}
-                        {m.end_date && new Date(m.end_date + 'T00:00:00').toLocaleDateString()}
+                        {m.end_date && formatDate(m.end_date)}
                       </p>
                     )}
                   </div>
@@ -316,8 +317,8 @@ export default async function PortalPage({ params }: { params: { token: string }
                   <span className="min-w-0">
                     <span className="block text-sm font-semibold text-ink">Invoice {b.invoice_number}</span>
                     <span className="block text-xs text-muted-fg">
-                      {b.issue_date && new Date(b.issue_date + 'T00:00:00').toLocaleDateString()}
-                      {b.status === 'sent' && b.due_date && ` · due ${new Date(b.due_date + 'T00:00:00').toLocaleDateString()}`}
+                      {b.issue_date && formatDate(b.issue_date)}
+                      {b.status === 'sent' && b.due_date && ` · due ${formatDate(b.due_date)}`}
                     </span>
                   </span>
                   <span className="flex items-center gap-2 shrink-0">
@@ -359,7 +360,7 @@ export default async function PortalPage({ params }: { params: { token: string }
                 <div key={p.id} className="flex flex-wrap items-baseline justify-between gap-2 border-t border-success/20 pt-1.5">
                   <span className="min-w-0 text-sm text-ink-soft">
                     {p.paid_date && (
-                      <span className="font-medium">{new Date(p.paid_date + 'T00:00:00').toLocaleDateString()}</span>
+                      <span className="font-medium">{formatDate(p.paid_date)}</span>
                     )}
                     {p.memo && <span className="text-muted-fg"> · {p.memo}</span>}
                     {p.retainer && (
@@ -427,7 +428,7 @@ export default async function PortalPage({ params }: { params: { token: string }
                   <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
                     <span className="text-sm font-semibold text-ink-soft">
                       {log.log_date
-                        ? new Date(log.log_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+                        ? formatDate(log.log_date, { weekday: 'short', month: 'short', day: 'numeric' })
                         : 'Date unknown'}
                     </span>
                     <div className="flex items-center gap-3 text-xs text-muted-fg">

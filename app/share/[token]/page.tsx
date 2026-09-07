@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils'
 import { DocumentViewer } from '@/components/ui/image-lightbox'
 import { ACCEPT_DOCS } from '@/lib/file-accept'
 
+import { formatDate } from '@/lib/dates'
 interface SharedFile { name: string; url: string; type?: string | null; size?: number | null; added_at?: string | null }
 interface Data {
   name: string
@@ -164,7 +165,7 @@ export default function SharePage({ params }: { params: { token: string } }) {
                           anyone adds to a link they already sent. */}
                       {f.added_at && (
                         <span className="ml-2 rounded-full bg-accent-tint px-1.5 py-0.5 text-[10px] font-semibold text-accent-fg align-middle">
-                          Added {new Date(f.added_at).toLocaleDateString()}
+                          Added {formatDate(f.added_at)}
                         </span>
                       )}
                     </span>

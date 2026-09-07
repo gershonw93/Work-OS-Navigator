@@ -14,6 +14,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { cn } from '@/lib/utils'
 import { uploadPlan, guessPlanType, baseName } from '@/lib/upload-plan'
 
+import { formatDate } from '@/lib/dates'
 interface PlanFolder { id: string; name: string; project_id: string; created_at: string }
 interface Plan { id: string; name: string; plan_type: string; file_url: string; folder_id: string | null; created_at: string }
 
@@ -539,7 +540,7 @@ export default function PlansPage({ params }: { params: { id: string } }) {
                           <span className={cn('rounded-full px-1.5 py-0 font-medium', PLAN_TYPE_TINT[plan.plan_type] ?? PLAN_TYPE_TINT.other)}>
                             {PLAN_TYPES.find(t => t.value === plan.plan_type)?.label ?? plan.plan_type}
                           </span>
-                          <span>{new Date(plan.created_at).toLocaleDateString()}</span>
+                          <span>{formatDate(plan.created_at)}</span>
                           {/* Only while searching - search spans the whole job,
                               so where a match actually lives is the useful bit. */}
                           {searching && folder && (

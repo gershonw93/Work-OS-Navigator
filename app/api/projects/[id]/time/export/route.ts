@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
+import { formatDate } from '@/lib/dates'
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -37,7 +38,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     const flagged = e.clock_in_flagged || e.clock_out_flagged ? 'YES' : ''
     return [
       e.worker_name ?? '',
-      new Date(e.clock_in_at).toLocaleDateString('en-US'),
+      formatDate(e.clock_in_at),
       new Date(e.clock_in_at).toLocaleTimeString('en-US'),
       e.clock_out_at ? new Date(e.clock_out_at).toLocaleTimeString('en-US') : '',
       hours,

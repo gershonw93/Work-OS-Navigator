@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { contractAmountLabel } from '@/lib/contract-amount'
-import { parseDate } from '@/lib/dates'
+import { parseDate, formatDate } from '@/lib/dates'
 
 type Tab = 'overview' | 'tasks' | 'rfis' | 'inspections' | 'invoices' | 'compliance'
 
@@ -238,7 +238,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
     // Check if invoice already exists for this week
     const existing = (data?.invoices ?? []).find((inv: any) =>
       inv.subcontract_id === sub.id &&
-      inv.description?.includes(weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }))
+      inv.description?.includes(formatDate(weekStart, { month: 'short', day: 'numeric' }))
     )
     if (!existing) {
       await fetch(`/api/projects/${params.projectId}/subcontracts/${sub.id}/billing`, {
@@ -479,7 +479,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
             </div>
             <div className="flex items-center gap-3 mt-1 text-sm text-muted-fg flex-wrap">
               {project.address && <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{project.address}</span>}
-              {project.start_date && <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" />{parseDate(project.start_date)!.toLocaleDateString()}</span>}
+              {project.start_date && <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" />{formatDate(project.start_date)}</span>}
               <span className="capitalize">{project.type?.replace('_', ' ')}</span>
             </div>
           </div>
@@ -711,7 +711,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                       ? <AlertCircle className="h-4 w-4 text-danger shrink-0" />
                       : <div className="h-4 w-4 rounded-full bg-success-tint flex items-center justify-center shrink-0"><div className="h-1.5 w-1.5 rounded-full bg-success-solid" /></div>}
                     <span className="font-medium text-ink-soft">
-                      {new Date(log.log_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                      {formatDate(log.log_date, { weekday: 'short', month: 'short', day: 'numeric' })}
                     </span>
                     <span className="text-faint text-xs">{log.created_by_name}</span>
                     {log.has_issues && <span className="ml-auto text-xs text-danger font-medium">Issue flagged</span>}
@@ -759,7 +759,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                   {task.due_date && (
                     <span className={cn('text-xs', isOverdue ? 'text-danger font-medium' : 'text-faint')}>
                       {isOverdue && '⚠ '}
-                      {new Date(task.due_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      {formatDate(task.due_date, { month: 'short', day: 'numeric' })}
                     </span>
                   )}
                   <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5',
@@ -783,7 +783,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                   )}
                   <div className="flex flex-wrap gap-3 text-xs text-muted-fg">
                     {task.created_by && <span>Created by: <span className="font-medium text-ink-soft">{task.created_by}</span></span>}
-                    {task.due_date && <span>Due: <span className={cn('font-medium', isOverdue ? 'text-danger' : 'text-ink-soft')}>{new Date(task.due_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span></span>}
+                    {task.due_date && <span>Due: <span className={cn('font-medium', isOverdue ? 'text-danger' : 'text-ink-soft')}>{formatDate(task.due_date, { weekday: 'short', month: 'short', day: 'numeric' })}</span></span>}
                   </div>
                   <div className="flex gap-2 pt-1">
                     {task.status === 'open' && (
@@ -1103,7 +1103,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                     {rfi.response && <span className="text-xs text-success font-medium">Responded ✓</span>}
                     {rfi.attachments?.length > 0 && <span className="text-xs text-faint flex items-center gap-0.5"><Paperclip className="h-3 w-3" />{rfi.attachments.length}</span>}
                   </div>
-                  <p className="text-xs text-faint mt-2">{new Date(rfi.created_at).toLocaleDateString()}</p>
+                  <p className="text-xs text-faint mt-2">{formatDate(rfi.created_at)}</p>
                 </button>
               ))}
             </div>
@@ -1130,7 +1130,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                     {selectedInspection.ready_marked_by && <span className="text-xs text-success font-medium">Ready ✓</span>}
                   </div>
                   {selectedInspection.scheduled_date && (
-                    <p className="text-sm text-ink-soft">Scheduled: <strong>{new Date(selectedInspection.scheduled_date).toLocaleDateString()}</strong></p>
+                    <p className="text-sm text-ink-soft">Scheduled: <strong>{formatDate(selectedInspection.scheduled_date)}</strong></p>
                   )}
                   {selectedInspection.scheduling_phone && (
                     <a href={`tel:${selectedInspection.scheduling_phone}`} className="flex items-center gap-2 text-sm text-accent-fg hover:underline font-medium">
@@ -1172,7 +1172,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                   </div>
                   <p className="text-sm font-semibold text-ink leading-snug">{insp.inspection_type}</p>
                   {insp.trade && <p className="text-xs text-faint mt-1">{insp.trade}</p>}
-                  {insp.scheduled_date && <p className="text-xs text-info mt-1">{new Date(insp.scheduled_date).toLocaleDateString()}</p>}
+                  {insp.scheduled_date && <p className="text-xs text-info mt-1">{formatDate(insp.scheduled_date)}</p>}
                   {insp.scheduling_phone && <p className="text-xs text-accent-fg mt-1 flex items-center gap-1"><Phone className="h-3 w-3" />{insp.scheduling_phone}</p>}
                   {insp.ready_marked_by && <p className="text-xs text-success font-medium mt-1">Ready ✓</p>}
                 </button>
@@ -1288,7 +1288,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                       {selectedInvoice.status.replace(/_/g, ' ')}
                     </span>
                     {selectedInvoice.description && <p className="text-sm text-ink-soft">{selectedInvoice.description}</p>}
-                    {selectedInvoice.due_date && <p className="text-sm text-muted-fg">Due: {parseDate(selectedInvoice.due_date)!.toLocaleDateString()}</p>}
+                    {selectedInvoice.due_date && <p className="text-sm text-muted-fg">Due: {formatDate(selectedInvoice.due_date)}</p>}
                     {(selectedInvoice.status === 'approved' || selectedInvoice.status === 'sent') && (
                       <Link href={`/projects/${project.id}/invoices/${selectedInvoice.id}/print`}
                         className="flex items-center justify-center gap-2 w-full mt-2 py-2 text-sm font-medium text-accent-fg border border-accent/40 rounded-lg hover:bg-accent-tint transition-colors">
@@ -1317,7 +1317,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                     </div>
                     <p className="text-2xl font-bold text-ink">${Number(inv.amount).toLocaleString()}</p>
                     {inv.description && <p className="text-xs text-faint mt-1 line-clamp-2">{inv.description}</p>}
-                    {inv.due_date && <p className="text-xs text-faint mt-2">{parseDate(inv.due_date)!.toLocaleDateString()}</p>}
+                    {inv.due_date && <p className="text-xs text-faint mt-2">{formatDate(inv.due_date)}</p>}
                   </button>
                 ))}
               </div>
@@ -1569,7 +1569,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                               status === 'expiring_soon' ? 'text-accent-fg font-medium' :
                               status === 'expired' ? 'text-danger' : 'text-faint')}>
                               {status === 'expiring_soon' && <AlertTriangle className="inline h-3 w-3 mr-0.5 -mt-0.5" />}
-                              Exp {new Date(doc.expiry_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                              Exp {formatDate(doc.expiry_date, { month: 'short', day: 'numeric', year: 'numeric' })}
                             </span>
                           )}
                           {doc?.file_url && (

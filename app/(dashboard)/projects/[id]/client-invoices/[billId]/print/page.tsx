@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { Printer } from 'lucide-react'
 
+import { formatDate } from '@/lib/dates'
 const money = (n: unknown) =>
   `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
@@ -87,11 +88,11 @@ export default function ClientInvoicePrintPage({ params }: { params: { id: strin
           <div className="text-right text-sm">
             {company?.name && <p className="font-semibold text-ink">{company.name}</p>}
             <p className="text-muted-fg">
-              Issued {new Date((bill.issue_date ?? '') + 'T00:00:00').toLocaleDateString()}
+              Issued {formatDate((bill.issue_date ?? ''))}
             </p>
             {bill.due_date && (
               <p className="text-muted-fg">
-                Due {new Date(bill.due_date + 'T00:00:00').toLocaleDateString()}
+                Due {formatDate(bill.due_date)}
               </p>
             )}
           </div>

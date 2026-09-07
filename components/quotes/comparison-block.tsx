@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 
+import { formatDate } from '@/lib/dates'
 export interface Quote {
   id: string
   comparison_id: string
@@ -330,7 +331,7 @@ export function ComparisonBlock({ comp, projectId, onChanged }: { comp: Comparis
                     <span className={cn('text-2xl font-bold', isLowest ? 'text-success' : 'text-ink')}>{money(q.total_amount)}</span>
                     {isLowest && <span className="text-[10px] font-semibold rounded-full bg-success-tint text-success px-1.5 py-0.5">Lowest</span>}
                   </div>
-                  {q.valid_until && <p className="text-xs text-faint">Valid until {new Date(q.valid_until + 'T00:00:00').toLocaleDateString()}</p>}
+                  {q.valid_until && <p className="text-xs text-faint">Valid until {formatDate(q.valid_until)}</p>}
                 </div>
                 {(q.data?.contact?.name || q.data?.contact?.email || q.data?.contact?.phone) && (
                   <p className="text-xs text-muted-fg">

@@ -8,11 +8,12 @@ import { Label } from '@/components/ui/label'
 import { CalendarDays, Users, Clock, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
+import { formatDate } from '@/lib/dates'
 interface Job { id: string; name: string; sched_start: string | null; sched_days: number | null; sched_workers: number | null }
 
 const DAY = 86400000
 const parse = (d: string) => new Date(d + 'T00:00:00')
-const fmt = (d: Date) => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+const fmt = (d: Date) => formatDate(d, { month: 'short', day: 'numeric' })
 // Inclusive end date given a start + working days.
 const endOf = (start: string, days: number) => new Date(parse(start).getTime() + (Math.max(days, 1) - 1) * DAY)
 

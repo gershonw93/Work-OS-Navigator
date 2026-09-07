@@ -21,6 +21,7 @@ import {
 } from '@/lib/selections'
 import { clientAppOrigin } from '@/lib/app-url'
 
+import { formatDate } from '@/lib/dates'
 const money = (n: number | null | undefined) =>
   n == null ? '-' : `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 
@@ -887,7 +888,7 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
 
                             {sel.selected_at && (
                               <p className="text-[11px] text-faint">
-                                Decided {new Date(sel.selected_at).toLocaleDateString()}
+                                Decided {formatDate(sel.selected_at)}
                                 {sel.selected_by_name ? ` by ${sel.selected_by_name}` : ''}
                               </p>
                             )}
@@ -1092,8 +1093,8 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
                             {sel.ordered_at && (
                               <p className="text-xs text-success inline-flex items-center gap-1.5">
                                 <Truck className="h-3.5 w-3.5" />
-                                Ordered {new Date(sel.ordered_at).toLocaleDateString()}
-                                {sel.expected_delivery ? ` · due ${new Date(sel.expected_delivery + 'T00:00:00').toLocaleDateString()}` : ''}
+                                Ordered {formatDate(sel.ordered_at)}
+                                {sel.expected_delivery ? ` · due ${formatDate(sel.expected_delivery)}` : ''}
                               </p>
                             )}
 

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { contractAmountLabel, isUnpriced } from '@/lib/contract-amount'
 
+import { formatDate } from '@/lib/dates'
 interface FinancialsData {
   budget: number
   total_contracted: number; revised_contract: number; change_orders_on_top: number; total_paid: number; total_approved: number
@@ -340,7 +341,7 @@ export default function FinancialsPage({ params }: { params: { id: string } }) {
               <div key={m.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 sm:px-5 py-3 text-sm">
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-ink-soft truncate">{m.store_name || 'Material purchase'}</p>
-                  <p className="text-xs text-faint truncate">{[m.category, m.purchase_date && new Date(m.purchase_date + 'T00:00:00').toLocaleDateString()].filter(Boolean).join(' · ')}</p>
+                  <p className="text-xs text-faint truncate">{[m.category, m.purchase_date && formatDate(m.purchase_date)].filter(Boolean).join(' · ')}</p>
                 </div>
                 {m.client_paid ? (
                   <span className="text-xs font-medium text-success">Paid</span>

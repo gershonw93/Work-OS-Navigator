@@ -12,6 +12,7 @@ import { useDeleteGuard } from '@/components/ui/delete-guard'
 import { cn } from '@/lib/utils'
 import { Plus, X, ShoppingCart, Camera, Upload, Loader2, Receipt, Trash2, ExternalLink, Search, ChevronDown, ChevronRight, CheckCircle2, Circle } from 'lucide-react'
 
+import { formatDate } from '@/lib/dates'
 const CATEGORIES = ['Lumber', 'Electrical', 'Plumbing', 'Hardware', 'Concrete', 'Paint', 'Drywall', 'Tools', 'Fuel', 'Rental', 'Other']
 const money = (n: number) => `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
 
@@ -439,7 +440,7 @@ export function MaterialsView({ lockedProjectId }: { lockedProjectId?: string })
                     )}
                   </div>
                   <p className="truncate text-xs text-muted-fg">
-                    {lockedProjectId ? '' : `${m.project_name}`}{m.purchase_date ? `${lockedProjectId ? '' : ' · '}${new Date(m.purchase_date + 'T00:00:00').toLocaleDateString()}` : ''}
+                    {lockedProjectId ? '' : `${m.project_name}`}{m.purchase_date ? `${lockedProjectId ? '' : ' · '}${formatDate(m.purchase_date)}` : ''}
                   </p>
                 </div>
                 <div className="shrink-0 text-right">
@@ -459,7 +460,7 @@ export function MaterialsView({ lockedProjectId }: { lockedProjectId?: string })
 
                   <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
                     <div><p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Store</p><p className="text-ink-soft">{m.store_name || '-'}</p></div>
-                    <div><p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Date</p><p className="text-ink-soft">{m.purchase_date ? new Date(m.purchase_date + 'T00:00:00').toLocaleDateString() : '-'}</p></div>
+                    <div><p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Date</p><p className="text-ink-soft">{m.purchase_date ? formatDate(m.purchase_date) : '-'}</p></div>
                     <div><p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Category</p><p className="text-ink-soft">{m.category || 'Uncategorized'}</p></div>
                     <div><p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Job</p><p className="text-ink-soft">{m.project_name}</p></div>
                     <div><p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Tax</p><p className="text-ink-soft">{m.tax != null ? money(m.tax) : '-'}</p></div>

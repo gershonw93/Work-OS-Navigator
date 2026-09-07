@@ -11,7 +11,7 @@ import { Select } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
 import { cn } from '@/lib/utils'
-import { parseDate } from '@/lib/dates'
+import { parseDate, formatDate } from '@/lib/dates'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -933,10 +933,10 @@ export default function DirectoryPage() {
                                       </span>
                                     </td>
                                     <td className="px-4 py-3 text-muted-fg text-xs">
-                                      {doc.expiry_date ? new Date(doc.expiry_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'}
+                                      {doc.expiry_date ? formatDate(doc.expiry_date, { month: 'short', day: 'numeric', year: 'numeric' }) : '-'}
                                     </td>
                                     <td className="px-4 py-3 text-faint text-xs">
-                                      {doc.created_at ? new Date(doc.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'}
+                                      {doc.created_at ? formatDate(doc.created_at, { month: 'short', day: 'numeric', year: 'numeric' }) : '-'}
                                     </td>
                                     <td className="px-4 py-3 text-right">
                                       {doc.file_url ? (
@@ -968,7 +968,7 @@ export default function DirectoryPage() {
                               <div key={inv.id} className="rounded-lg border border-line bg-panel p-3 flex items-center justify-between gap-3">
                                 <div className="min-w-0">
                                   <p className="text-sm font-medium text-ink-soft truncate">{inv.invoice_number ?? `Invoice`}</p>
-                                  <p className="text-xs text-faint">{inv.projects?.name ?? ''}{inv.due_date ? ` · Due ${parseDate(inv.due_date)!.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}</p>
+                                  <p className="text-xs text-faint">{inv.projects?.name ?? ''}{inv.due_date ? ` · Due ${formatDate(inv.due_date, { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}</p>
                                 </div>
                                 <div className="text-right shrink-0">
                                   <p className="text-sm font-semibold text-ink">${Number(inv.amount).toLocaleString()}</p>

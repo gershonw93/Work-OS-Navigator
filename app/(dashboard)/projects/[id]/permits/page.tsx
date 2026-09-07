@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import { Plus, X, FileCheck, FileText, ChevronDown, ChevronUp, Phone, Building, ExternalLink, Sparkles, Loader2, AlertCircle, Trash2, Pencil, Check, UserPlus } from 'lucide-react'
 import { ContactPicker } from '@/components/contact-picker'
 
+import { formatDate } from '@/lib/dates'
 const PERMIT_TYPES = [
   'Building', 'Electrical', 'Plumbing', 'Mechanical/HVAC',
   'Fire Protection', 'Fire Alarm', 'Sprinkler',
@@ -457,7 +458,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                         : null}
                       {permit.description && (permit.issuing_authority || permit.expiry_date) && <span className="text-faint mx-1">·</span>}
                       {permit.issuing_authority}
-                      {permit.expiry_date && ` · Expires ${new Date(permit.expiry_date).toLocaleDateString()}`}
+                      {permit.expiry_date && ` · Expires ${formatDate(permit.expiry_date)}`}
                     </p>
                   </div>
                   {permit.file_url && <FileText className="h-4 w-4 text-accent-fg shrink-0" />}
@@ -467,8 +468,8 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                 {isExpanded && (
                   <div className="border-t border-line-soft px-5 py-5 space-y-4">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                      {permit.issued_date && <div><p className="text-xs text-faint">Issued</p><p className="font-medium text-ink-soft">{new Date(permit.issued_date).toLocaleDateString()}</p></div>}
-                      {permit.expiry_date && <div><p className="text-xs text-faint">Expires</p><p className={cn('font-medium', expiring ? 'text-danger' : 'text-ink-soft')}>{new Date(permit.expiry_date).toLocaleDateString()}</p></div>}
+                      {permit.issued_date && <div><p className="text-xs text-faint">Issued</p><p className="font-medium text-ink-soft">{formatDate(permit.issued_date)}</p></div>}
+                      {permit.expiry_date && <div><p className="text-xs text-faint">Expires</p><p className={cn('font-medium', expiring ? 'text-danger' : 'text-ink-soft')}>{formatDate(permit.expiry_date)}</p></div>}
                       {permit.issuing_authority && <div><p className="text-xs text-faint">Issued By</p><p className="font-medium text-ink-soft">{permit.issuing_authority}</p></div>}
                       {permit.inspector_name && (
                         <div>

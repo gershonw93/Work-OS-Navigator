@@ -174,7 +174,7 @@ export default function TimeClockPage({ params }: { params: { id: string } }) {
   }
   const timesheet = Array.from(byWorker.values()).sort((a, b) => b.hours - a.hours)
   const weekTotal = timesheet.reduce((t, w) => t + w.hours, 0)
-  const weekLabel = `${weekCursor.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – ${new Date(weekEnd.getTime() - 1).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
+  const weekLabel = `${formatDateShort(weekCursor)} – ${formatDateShort(new Date(weekEnd.getTime() - 1))}`
 
   return (
     <div className="space-y-6">

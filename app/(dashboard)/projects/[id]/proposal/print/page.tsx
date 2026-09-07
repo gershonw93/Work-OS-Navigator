@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { asContractType, usesMarkup } from '@/lib/contract-type'
 import { Printer } from 'lucide-react'
 
+import { formatDate } from '@/lib/dates'
 type Detail = 'lump' | 'category' | 'line'
 
 interface BudgetItem {
@@ -108,7 +109,7 @@ export default function ProposalPrintPage({ params }: { params: { id: string } }
   const feePctLabel = `${(markup * 100).toFixed(markup * 100 % 1 === 0 ? 0 : 2)}%`
   const validUntil = useMemo(() => {
     const d = new Date(); d.setDate(d.getDate() + 30)
-    return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    return formatDate(d, { month: 'long', day: 'numeric', year: 'numeric' })
   }, [])
 
   if (loading) return <div className="p-8 text-sm text-faint">Loading proposal...</div>
@@ -154,9 +155,9 @@ export default function ProposalPrintPage({ params }: { params: { id: string } }
             {costPlus && (
               <p className="text-sm font-semibold text-muted-fg mt-0.5">Cost plus {feePctLabel}</p>
             )}
-            <p className="text-sm text-muted-fg mt-2">Date: {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+            <p className="text-sm text-muted-fg mt-2">Date: {formatDate(new Date(), { month: 'long', day: 'numeric', year: 'numeric' })}</p>
             <p className="text-sm text-muted-fg">
-              {costPlus ? 'Estimate dated' : 'Valid until'}: {costPlus ? new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : validUntil}
+              {costPlus ? 'Estimate dated' : 'Valid until'}: {costPlus ? formatDate(new Date(), { month: 'long', day: 'numeric', year: 'numeric' }) : validUntil}
             </p>
           </div>
         </div>

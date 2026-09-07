@@ -63,7 +63,7 @@ function timeAgo(iso: string) {
   if (days <= 0) return 'today'
   if (days === 1) return 'yesterday'
   if (days < 30) return `${days}d ago`
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return formatDate(d, { month: 'short', day: 'numeric' })
 }
 
 const fmtDate = (iso: string) => formatDate(iso)

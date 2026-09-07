@@ -29,6 +29,7 @@ import { ConnectCalendarButton } from '@/components/calendar/connect-calendar'
 import { ThemeToggle, useTheme } from '@/components/ui/theme-toggle'
 import { useCanSignUp } from '@/lib/use-native'
 
+import { formatDate } from '@/lib/dates'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Profile {
@@ -1349,7 +1350,7 @@ export default function SettingsPage() {
                           <tr key={inv.id} className="border-b border-line-soft last:border-0 hover:bg-surface/50">
                             <td className="px-4 py-3 text-ink-soft">{inv.email}</td>
                             <td className="px-4 py-3"><RoleBadge role={inv.role} label={roleLabel(inv.role)} /></td>
-                            <td className="px-4 py-3 text-muted-fg text-xs">{new Date(inv.created_at).toLocaleDateString()}</td>
+                            <td className="px-4 py-3 text-muted-fg text-xs">{formatDate(inv.created_at)}</td>
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-3">
                                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-warn-tint text-warn">
