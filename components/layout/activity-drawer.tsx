@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { X, History, Package, Users, Award, RotateCcw, Bell, FileText, Upload, ChevronRight, CheckSquare, MessageSquare, Pencil, Trash2 } from 'lucide-react'
+import { X, History, Package, Users, Award, RotateCcw, Bell, FileText, Upload, ChevronRight, CheckSquare, MessageSquare, Pencil, Trash2, ClipboardCheck, CalendarCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { timeAgo } from '@/lib/time-ago'
@@ -30,6 +30,18 @@ const TYPE_CONFIG: Record<string, { icon: React.ElementType; color: string; bg: 
   task_updated:    { icon: Pencil,     color: 'text-accent-fg', bg: 'bg-accent-tint' },
   task_note:       { icon: MessageSquare, color: 'text-special', bg: 'bg-special-tint' },
   task_deleted:    { icon: Trash2,     color: 'text-danger',    bg: 'bg-danger-tint' },
+  // Inspections logged two events and had no entries here, so both of them fell
+  // through to the generic file icon. They now log eight, and an audit trail
+  // where every row looks identical is one nobody scans.
+  inspection_created:      { icon: ClipboardCheck, color: 'text-info',      bg: 'bg-info-tint' },
+  inspection_updated:      { icon: Pencil,         color: 'text-accent-fg', bg: 'bg-accent-tint' },
+  inspection_scheduled:    { icon: CalendarCheck,  color: 'text-info',      bg: 'bg-info-tint' },
+  inspection_ready:        { icon: ClipboardCheck, color: 'text-warn',      bg: 'bg-warn-tint' },
+  inspection_passed:       { icon: CheckSquare,    color: 'text-success',   bg: 'bg-success-tint' },
+  inspection_failed:       { icon: X,              color: 'text-danger',    bg: 'bg-danger-tint' },
+  inspection_reinspection: { icon: RotateCcw,      color: 'text-warn',      bg: 'bg-warn-tint' },
+  inspection_voided:       { icon: Trash2,         color: 'text-danger',    bg: 'bg-danger-tint' },
+  inspection_restored:     { icon: RotateCcw,      color: 'text-success',   bg: 'bg-success-tint' },
 }
 
 function groupByDate(items: ActivityItem[]) {

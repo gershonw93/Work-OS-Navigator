@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { committedTotal } from '@/lib/committed'
 import { ACTUAL_STATUSES } from '@/lib/invoice-budget'
+import { TO_BOOK } from '@/lib/inspection-status'
 
 export const runtime = 'nodejs'
 
@@ -16,7 +17,13 @@ const admin = () => createClient(
 // wrong on a screen whose whole job is to say what is outstanding.
 const INVOICE_AWAITING = 'pending_approval'
 const RFI_OPEN = 'open'
-const INSPECTION_TO_BOOK = 'requested'
+// #8 - "1 inspection to book" with two pending. This counted 'requested' and
+// nothing else, but the request form saves an inspection with nobody assigned
+// as 'not_scheduled' - so the one with no owner, which is the one most needing
+// attention, was invisible to the counter whose whole job is to say what still
+// needs booking. Imported rather than restated so this and the inspections page
+// cannot drift apart again; they already had.
+const INSPECTION_TO_BOOK = TO_BOOK
 const SELECTION_OPEN = new Set(['pending', 'waiting'])
 
 const days = (d: string | null | undefined): number | null => {
@@ -82,7 +89,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
   ] = await Promise.all([
     db.from('invoices').select('id, amount, status, company_name, created_at, client_paid, escrow_paid').eq('project_id', params.id),
     db.from('rfis').select('id, subject, status, created_at, company_name').eq('project_id', params.id),
-    db.from('inspections').select('id, type, trade, status, scheduled_date, ready_marked_at').eq('project_id', params.id),
+    db.from('inspections').select('id, type, trade, status, scheduled_date, ready_marked_at').eq('project_id', params.id).neq('status', 'void'),
     db.from('project_selections').select('id, item, status, needed_by').eq('project_id', params.id),
     // Compliance is company-wide, not per project - a lapsed certificate is
     // lapsed everywhere. Narrowed to the companies actually on THIS job below.
@@ -119,7 +126,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
   // ── Waiting on you ───────────────────────────────────────────────────────
   const awaitingApproval = inv.filter((i: any) => i.status === INVOICE_AWAITING)
   const openRfis = (rfis ?? []).filter((r: any) => r.status === RFI_OPEN)
-  const toBook = (inspections ?? []).filter((i: any) => i.status === INSPECTION_TO_BOOK)
+  const toBook = (inspections ?? []).filter((i: any) => (INSPECTION_TO_BOOK as readonly string[]).includes(i.status))
   const signoffs = (tasks ?? []).filter((t: any) => t.signoff_requested_at && !t.signoff_signed_at)
   const unsentRequests = (paymentRequests ?? []).filter((r: any) => !r.sent_at)
 

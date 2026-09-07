@@ -4,6 +4,8 @@ import { logActivity } from '@/lib/log-activity'
 import { audienceFor } from '@/lib/notification-audience'
 import { withStructural } from '@/lib/notification-routing'
 import { notify } from '@/lib/notify'
+import { requirePermission, denied } from '@/lib/api-guard'
+import { clearsCompletion, notifiesRoutedAudience, scheduleProblem } from '@/lib/inspection-status'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -25,6 +27,7 @@ const ALLOWED_FIELDS = [
   'notes',
   'ready_marked_by',
   'ready_marked_at',
+  'failure_reason',
 ] as const
 
 export async function PATCH(
@@ -53,6 +56,38 @@ export async function PATCH(
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
+  }
+
+  // #2 - "Scheduled" with no date was a storable state, and it lied four
+  // different ways at once: it fired an "is scheduled" notification to the
+  // office, the card read "No date yet", and the overview's booked list never
+  // showed it because that list needs a date. Refused HERE and not only in the
+  // form, because a form is not where invalid states are prevented.
+  if (updates.status === 'scheduled') {
+    const { data: current } = await db
+      .from('inspections').select('scheduled_date')
+      .eq('id', params.inspectionId).eq('project_id', params.id).maybeSingle()
+    const effective = 'scheduled_date' in updates
+      ? (updates.scheduled_date as string | null)
+      : (current as any)?.scheduled_date
+    const problem = scheduleProblem('scheduled', effective)
+    if (problem) return NextResponse.json({ error: problem }, { status: 400 })
+  }
+
+  // #6 - a record cannot be pending AND completed. Moving back to a waiting
+  // state clears the stamp, or the card reads "PENDING Re-inspection" beside
+  // "Completed 9/5/2026" and tells two stories about the same day.
+  if (clearsCompletion(updates.status)) updates.completed_date = null
+
+  // #6 - a failure with no reason is the least useful record in the app, and
+  // "what keeps failing" is a question a GC actually asks.
+  if (updates.status === 'failed' && !String(updates.failure_reason ?? '').trim()) {
+    const { data: current } = await db
+      .from('inspections').select('failure_reason')
+      .eq('id', params.inspectionId).eq('project_id', params.id).maybeSingle()
+    if (!String((current as any)?.failure_reason ?? '').trim()) {
+      return NextResponse.json({ error: 'Say why it failed - that is the part somebody needs later.' }, { status: 400 })
+    }
   }
 
   // If status is being set to 'passed' or 'failed', ensure completed_date is set.
@@ -90,17 +125,45 @@ export async function PATCH(
 
   const actorName = (profile as any)?.full_name ?? 'Someone'
 
-  if (newStatus === 'passed' || newStatus === 'failed') {
-    const activityType = newStatus === 'passed' ? 'inspection_passed' : 'inspection_failed'
-    const trade = inspection.trade ? ` (${inspection.trade})` : ''
-    const inspectionLabel = inspection.type ? `${inspection.type}${trade}` : 'Inspection'
+  const label = inspection.type
+    ? `${inspection.type}${inspection.trade ? ` (${inspection.trade})` : ''}`
+    : 'Inspection'
+
+  // #4 - Job History logged passed and failed and NOTHING ELSE, while the panel
+  // promises "every action on this project". Creation and destruction of
+  // compliance records is most of what an audit trail is for.
+  const STATUS_HISTORY: Record<string, { type: string; say: string }> = {
+    scheduled: { type: 'inspection_scheduled', say: 'scheduled' },
+    passed: { type: 'inspection_passed', say: 'passed' },
+    failed: { type: 'inspection_failed', say: 'failed' },
+    pending_reinspection: { type: 'inspection_reinspection', say: 'sent back for re-inspection' },
+    requested: { type: 'inspection_updated', say: 'moved back to requested' },
+    not_scheduled: { type: 'inspection_updated', say: 'moved back to not scheduled' },
+  }
+  const hist = newStatus ? STATUS_HISTORY[newStatus] : undefined
+  if (hist) {
+    const when = newStatus === 'scheduled' && inspection.scheduled_date
+      ? ` for ${inspection.scheduled_date}` : ''
+    const why = newStatus === 'failed' && inspection.failure_reason
+      ? `: ${inspection.failure_reason}` : ''
     await logActivity(
-      db,
-      params.id,
-      actorName,
-      activityType,
-      `${inspectionLabel} ${newStatus}`,
-      { inspection_id: inspection.id, inspection_type: inspection.type, trade: inspection.trade, status: newStatus },
+      db, params.id, actorName, hist.type,
+      `${label} ${hist.say}${when}${why}`,
+      {
+        inspection_id: inspection.id, inspection_type: inspection.type,
+        trade: inspection.trade, status: newStatus,
+        ...(inspection.failure_reason ? { failure_reason: inspection.failure_reason } : {}),
+      },
+      user.id,
+    )
+  } else if (!('ready_marked_by' in updates)) {
+    // An edit that changed no status is still an action on the project. The
+    // "ready" path logs its own entry, so it is excluded rather than doubled.
+    await logActivity(
+      db, params.id, actorName, 'inspection_updated',
+      `${label} updated`,
+      { inspection_id: inspection.id, fields: Object.keys(updates) },
+      user.id,
     )
   }
 
@@ -108,8 +171,6 @@ export async function PATCH(
   // status, so it falls outside the status-change notifications below. Tell the
   // GC anyway, otherwise the hand goes up and nobody sees it.
   if ('ready_marked_by' in updates && updates.ready_marked_by) {
-    const trade = inspection.trade ? ` (${inspection.trade})` : ''
-    const label = inspection.type ? `${inspection.type}${trade}` : 'Inspection'
     const { data: proj } = await db.from('projects').select('name, gc_company_id').eq('id', params.id).single()
     const at = proj?.name ? ` at ${proj.name}` : ''
 
@@ -142,7 +203,7 @@ export async function PATCH(
         db, userIds: recipients, type: 'inspection_ready',
         title: 'Ready for inspection',
         message: `${updates.ready_marked_by} marked ${label}${at} ready for inspection. Book the inspector when you can.`,
-        link: `/projects/${params.id}/inspections`,
+        link: `/projects/${params.id}/inspections?inspection=${params.inspectionId}`,
       })
     }
   }
@@ -155,7 +216,6 @@ export async function PATCH(
   const newScheduler = updates.scheduler_profile_id as string | null | undefined
   if (newScheduler && newScheduler !== priorScheduler) {
     const { data: proj } = await db.from('projects').select('name, gc_company_id').eq('id', params.id).single()
-    const label = inspection.type ? `${inspection.type}${inspection.trade ? ` (${inspection.trade})` : ''}` : 'Inspection'
     const at = proj?.name ? ` at ${proj.name}` : ''
     const bookers = withStructural(
       await audienceFor({
@@ -169,7 +229,7 @@ export async function PATCH(
         db, userIds: bookers, type: 'inspection_to_schedule',
         title: 'Inspection to book',
         message: `${actorName} put you on booking the ${label} inspection${at}.`,
-        link: `/projects/${params.id}/inspections`,
+        link: `/projects/${params.id}/inspections?inspection=${params.inspectionId}`,
       })
     }
   }
@@ -178,26 +238,31 @@ export async function PATCH(
   // in the loop when the inspection is booked, passes, or fails.
   if (newStatus && ['scheduled', 'passed', 'failed', 'pending_reinspection'].includes(newStatus)) {
     const { data: proj } = await db.from('projects').select('name, gc_company_id').eq('id', params.id).single()
-    const label = inspection.type ? `${inspection.type}${inspection.trade ? ` (${inspection.trade})` : ''}` : 'Inspection'
     const at = proj?.name ? ` at ${proj.name}` : ''
     let msg = ''
     if (newStatus === 'scheduled') msg = `Your ${label} inspection${at} is scheduled${inspection.scheduled_date ? ` for ${inspection.scheduled_date}${inspection.scheduled_time ? ` ${inspection.scheduled_time}` : ''}` : ''}.`
     else if (newStatus === 'passed') msg = `✅ ${label} inspection${at} PASSED.`
-    else if (newStatus === 'failed') msg = `❌ ${label} inspection${at} FAILED.${inspection.notes ? ` ${inspection.notes}` : ''}`
+    else if (newStatus === 'failed') msg = `❌ ${label} inspection${at} FAILED.${inspection.failure_reason ? ` ${inspection.failure_reason}` : ''}`
     else if (newStatus === 'pending_reinspection') msg = `${label} inspection${at} needs a re-inspection.`
 
-    // Passed/failed also loops in the scheduler; scheduling itself only pings the
-    // requester. Plus whoever the company said should hear an inspection result -
-    // a failed inspection is the one somebody other than the requester needs to
-    // know about, and before this only the requester and the booker were told.
-    const recipients = withStructural(
-      await audienceFor({
+    // #9 - OUTCOMES reach everyone, LOGISTICS reach the job.
+    //
+    // Every status flip used to notify the whole routed audience: ten minutes of
+    // testing sent eight notifications to the office. Passed, failed and
+    // re-inspection are news the office acts on. "Scheduled" is a diary entry -
+    // it matters to whoever asked and whoever is booking it, and to nobody else.
+    //
+    // A principle rather than a rate limit, deliberately. A threshold is a rule
+    // people cannot predict, and a bell that sometimes fires is one people stop
+    // opening. This way "why didn't I hear about that" has a one-sentence answer.
+    const routed = notifiesRoutedAudience(newStatus)
+      ? await audienceFor({
         db, companyId: (proj as any)?.gc_company_id, type: 'inspection_result', exclude: user.id,
-      }),
-      [
-        inspection.requested_by_id,
-        newStatus !== 'scheduled' ? inspection.scheduler_profile_id : null,
-      ],
+      })
+      : []
+    const recipients = withStructural(
+      routed,
+      [inspection.requested_by_id, inspection.scheduler_profile_id],
       user.id, // don't notify the person who made the change
     )
     if (msg && recipients.length) {
@@ -208,7 +273,7 @@ export async function PATCH(
       await notify({
         db, userIds: recipients, type: 'inspection_result',
         title: 'Inspection update', message: msg,
-        link: `/projects/${params.id}/inspections`,
+        link: `/projects/${params.id}/inspections?inspection=${params.inspectionId}`,
       })
     }
   }
@@ -216,23 +281,127 @@ export async function PATCH(
   return NextResponse.json({ inspection })
 }
 
+/**
+ * Void an inspection. Nothing here is ever hard-deleted.
+ *
+ * WHAT THIS USED TO BE. A `.delete()` guarded by nothing but "are you signed
+ * in" - no permission check, and no check that the project belonged to the
+ * caller's company. A `worker` or `read_only`, neither of whom can so much as
+ * VIEW inspections, could permanently destroy any inspection on any project in
+ * any company. It logged nothing, and returned `{ success: true }` when it had
+ * matched no rows at all.
+ *
+ * The tester reported "Office Staff can delete inspections". It was worse.
+ *
+ * Voiding rather than deleting is what this codebase already does with client
+ * invoices, whose comment is the doctrine: "Not delete. A client already has
+ * this document, so it stays in the list with its number, greyed out." A
+ * compliance record deserves at least that - and it means the audit trail
+ * records something that still exists, and a notification about it still
+ * resolves to a record rather than to a gap.
+ *
+ * Gated on `edit`, not `delete`: no route in this repo uses the `delete`
+ * action, and voiding is a reversible edit rather than destruction.
+ */
 export async function DELETE(
   request: Request,
   { params }: { params: { id: string; inspectionId: string } },
 ) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
+  const gate = await requirePermission(db, request, 'inspections', 'edit')
+  if (denied(gate)) return gate.denied
+
+  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+  const { data: { user } } = await db.auth.getUser(token ?? '')
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { error } = await db
+  const { data: profile } = await db
+    .from('profiles').select('full_name').eq('id', user.id).maybeSingle()
+
+  // Read it first so the history entry can NAME what was voided - the trick the
+  // budget-line delete already uses. "Inspection voided" tells nobody anything.
+  const { data: before } = await db
+    .from('inspections').select('type, trade, status')
+    .eq('id', params.inspectionId).eq('project_id', params.id).maybeSingle()
+  if (!before) return NextResponse.json({ error: 'Not found on this project.' }, { status: 404 })
+  if ((before as any).status === 'void') return NextResponse.json({ ok: true, alreadyVoid: true })
+
+  const { data: inspection, error } = await db
     .from('inspections')
-    .delete()
+    .update({ status: 'void', voided_at: new Date().toISOString(), voided_by: user.id })
     .eq('id', params.inspectionId)
     .eq('project_id', params.id)
+    .select()
+    .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ success: true })
+
+  const voidedLabel = (before as any).type
+    ? `${(before as any).type}${(before as any).trade ? ` (${(before as any).trade})` : ''}`
+    : 'Inspection'
+  await logActivity(
+    db, params.id, (profile as any)?.full_name ?? 'Someone', 'inspection_voided',
+    `${voidedLabel} voided`,
+    { inspection_id: params.inspectionId, was_status: (before as any).status },
+    user.id,
+  )
+
+  return NextResponse.json({ ok: true, inspection })
+}
+
+/**
+ * Put a voided inspection back.
+ *
+ * If nothing is ever deleted, a mis-void needs a way back - otherwise people
+ * route around it by creating a duplicate, and the audit trail ends up holding
+ * two records of one inspection with the wrong dates on one of them.
+ */
+export async function POST(
+  request: Request,
+  { params }: { params: { id: string; inspectionId: string } },
+) {
+  const db = admin()
+  const gate = await requirePermission(db, request, 'inspections', 'edit')
+  if (denied(gate)) return gate.denied
+
+  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+  const { data: { user } } = await db.auth.getUser(token ?? '')
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const body = await request.json().catch(() => ({}))
+  if (body?.action !== 'restore') {
+    return NextResponse.json({ error: 'Unknown action.' }, { status: 400 })
+  }
+
+  const { data: before } = await db
+    .from('inspections').select('type, trade, status, completed_date')
+    .eq('id', params.inspectionId).eq('project_id', params.id).maybeSingle()
+  if (!before) return NextResponse.json({ error: 'Not found on this project.' }, { status: 404 })
+  if ((before as any).status !== 'void') return NextResponse.json({ ok: true, notVoid: true })
+
+  // Back to where it can be worked on. A restored inspection with a completion
+  // date is finished; one without is waiting to be booked.
+  const restored = (before as any).completed_date ? 'passed' : 'not_scheduled'
+
+  const { data: inspection, error } = await db
+    .from('inspections')
+    .update({ status: restored, voided_at: null, voided_by: null })
+    .eq('id', params.inspectionId).eq('project_id', params.id)
+    .select().single()
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  const { data: profile } = await db
+    .from('profiles').select('full_name').eq('id', user.id).maybeSingle()
+  const restoredLabel = (before as any).type
+    ? `${(before as any).type}${(before as any).trade ? ` (${(before as any).trade})` : ''}`
+    : 'Inspection'
+  await logActivity(
+    db, params.id, (profile as any)?.full_name ?? 'Someone', 'inspection_restored',
+    `${restoredLabel} restored`,
+    { inspection_id: params.inspectionId, status: restored },
+    user.id,
+  )
+
+  return NextResponse.json({ ok: true, inspection })
 }

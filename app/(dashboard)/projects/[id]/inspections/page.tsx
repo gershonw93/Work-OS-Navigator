@@ -12,6 +12,8 @@ import { ContactPicker } from '@/components/contact-picker'
 import { withStructural } from '@/lib/notification-routing'
 
 import { formatDate, todayDateInput } from '@/lib/dates'
+import { OPEN, CLOSED, isVoid, scheduleProblem } from '@/lib/inspection-status'
+import { ACCEPT_SCAN } from '@/lib/file-accept'
 const INSPECTION_TYPES = [
   'Foundation', 'Framing', 'Rough Electrical', 'Rough Plumbing', 'Rough Mechanical',
   'Insulation', 'Drywall', 'Final Electrical', 'Final Plumbing', 'Final Mechanical',
@@ -32,6 +34,7 @@ interface Inspection {
   inspector_name: string | null; inspector_phone: string | null; scheduling_phone: string | null
   scheduler_profile_id: string | null; scheduler_name: string | null; requested_by_name: string | null
   notes: string | null; ready_marked_by: string | null; ready_marked_at: string | null
+  failure_reason?: string | null; voided_at?: string | null; voided_by?: string | null
   card_image_url: string | null; created_at: string
 }
 
@@ -70,14 +73,28 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
   const [myId, setMyId] = useState('')
   const [routedIds, setRoutedIds] = useState<string[] | null>(null)
 
+  // Voided inspections are kept for the record and hidden from the working
+  // list. A notification linking to one has to be able to reveal it, or the
+  // bell points at a row nobody can see.
+  const [showVoided, setShowVoided] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
+  // Marking Failed asks WHY before it saves. A failure with no reason is the
+  // least useful record in the app.
+  const [voiding, setVoiding] = useState<Inspection | null>(null)
+  const [failing, setFailing] = useState<Inspection | null>(null)
+  const [failReason, setFailReason] = useState('')
+
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
     return session?.access_token ?? ''
   }
 
-  async function fetchInspections() {
+  async function fetchInspections(voided = showVoided) {
     const token = await getToken()
-    const res = await fetch(`/api/projects/${params.id}/inspections`, { headers: { Authorization: `Bearer ${token}` } })
+    const res = await fetch(
+      `/api/projects/${params.id}/inspections${voided ? '?voided=1' : ''}`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    )
     if (res.ok) setInspections((await res.json()).inspections)
     setLoading(false)
   }
@@ -101,6 +118,18 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
     }
   }
 
+  // A notification links to `?inspection=<id>`. If that row has since been
+  // voided it is not in the default list, so the bell would point at nothing -
+  // which is the whole reason voiding beats deleting. Ask for voided rows too
+  // when we have been sent to a specific one, and open it.
+  useEffect(() => {
+    const wanted = new URLSearchParams(window.location.search).get('inspection')
+    if (!wanted) return
+    setShowVoided(true)
+    setExpanded(wanted)
+    fetchInspections(true)
+  }, [])
+
   useEffect(() => {
     fetchInspections()
     fetchTeammates()
@@ -123,7 +152,14 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
     })
     const data = await res.json().catch(() => ({}))
     setUploadingCardId(null)
-    if (res.ok && data.suggested_status && insp.status !== data.suggested_status
+    // #3 - a .txt upload was refused by the server with a perfectly good
+    // message ("Use a photo or PDF.") and this threw it away, so nothing
+    // appeared, nothing errored, and the GC believed the card was on file.
+    if (!res.ok) {
+      setActionError(data?.error ?? `That file would not upload (${res.status}).`)
+      return
+    }
+    if (data.suggested_status && insp.status !== data.suggested_status
       && window.confirm(`The card looks ${data.suggested_status.toUpperCase()}. Mark this inspection ${data.suggested_status}?`)) {
       await updateStatus(insp, data.suggested_status)
       return
@@ -202,7 +238,13 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
     setInspectorName(''); setInspectorPhone(''); setSchedulingPhone(''); setSchedulerId(''); setNotes('')
   }
 
-  async function updateStatus(insp: Inspection, newStatus: string) {
+  async function updateStatus(insp: Inspection, newStatus: string, reason?: string) {
+    // Failed asks WHY before it saves. The server refuses a failure with no
+    // reason too - a rule enforced only in a form is not a rule.
+    if (newStatus === 'failed' && !reason && !insp.failure_reason) {
+      setFailReason(''); setFailing(insp); return
+    }
+    setActionError(null)
     const token = await getToken()
     // The DAY this happened, from the browser, because only the browser knows
     // which day the person is having. The server derived it from
@@ -213,11 +255,19 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
     const completed = newStatus === 'passed' || newStatus === 'failed'
       ? { completed_date: todayDateInput() }
       : {}
-    await fetch(`/api/projects/${params.id}/inspections/${insp.id}`, {
+    const res = await fetch(`/api/projects/${params.id}/inspections/${insp.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ status: newStatus, ...completed }),
+      body: JSON.stringify({ status: newStatus, ...completed, ...(reason ? { failure_reason: reason } : {}) }),
     })
+    // The server now REFUSES some of these - "scheduled" with no date, "failed"
+    // with no reason. A refusal the screen throws away is a button that looks
+    // like it worked, which is how the invalid states got in.
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}))
+      setActionError(d?.error ?? `That did not save (${res.status}).`)
+      return
+    }
     fetchInspections()
   }
 
@@ -235,13 +285,41 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
     setShowForm(true)
   }
 
-  async function handleDeleteInsp(inspId: string) {
-    if (!window.confirm('Delete this inspection? This cannot be undone.')) return
+  // Void, not delete. It stays on the record - which is the point of keeping a
+  // compliance history at all - and it can be put back.
+  //
+  // Deliberately NOT the shared useDeleteGuard: its modal reads "Confirm
+  // delete" and "This can't be undone", and both halves are untrue here. A
+  // reversible action described as permanent is the same kind of lie as a
+  // failed save that looks like a success.
+  async function voidInsp(insp: Inspection) {
+    setVoiding(null)
+    setActionError(null)
     const token = await getToken()
-    await fetch(`/api/projects/${params.id}/inspections/${inspId}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
+    const res = await fetch(`/api/projects/${params.id}/inspections/${insp.id}`, {
+      method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
     })
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}))
+      setActionError(d?.error ?? `Could not void that (${res.status}).`)
+      return
+    }
+    fetchInspections()
+  }
+
+  async function restoreInsp(insp: Inspection) {
+    setActionError(null)
+    const token = await getToken()
+    const res = await fetch(`/api/projects/${params.id}/inspections/${insp.id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ action: 'restore' }),
+    })
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}))
+      setActionError(d?.error ?? `Could not restore that (${res.status}).`)
+      return
+    }
     fetchInspections()
   }
 
@@ -255,15 +333,25 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
     fetchInspections()
   }
 
-  const pending = inspections.filter(i => i.status === 'requested' || i.status === 'not_scheduled' || i.status === 'scheduled' || i.status === 'pending_reinspection')
-  const completed = inspections.filter(i => i.status === 'passed' || i.status === 'failed')
+  // From the shared sets, so this and the project Overview cannot disagree
+  // about what is outstanding. They already had: the Overview counted only
+  // 'requested' while this counted four statuses.
+  const pending = inspections.filter(i => (OPEN as readonly string[]).includes(i.status))
+  const completed = inspections.filter(i => (CLOSED as readonly string[]).includes(i.status))
+  const voided = inspections.filter(i => isVoid(i.status))
 
   function InspCard({ insp }: { insp: Inspection }) {
     const isExpanded = expanded === insp.id
     const cfg = STATUS_CONFIG[insp.status] ?? STATUS_CONFIG.not_scheduled
     const Icon = cfg.icon
     return (
-      <div className="rounded-xl border border-line bg-panel overflow-hidden">
+      <div className={cn('rounded-xl border bg-panel overflow-hidden',
+        isVoid(insp.status) ? 'border-dashed border-line opacity-70' : 'border-line')}>
+        {isVoid(insp.status) && (
+          <p className="bg-muted px-5 py-2 text-xs text-muted-fg">
+            Voided{insp.voided_at ? ` on ${formatDate(insp.voided_at)}` : ''}. Kept for the record — Restore puts it back.
+          </p>
+        )}
         <button className="w-full flex items-center gap-4 px-5 py-4 hover:bg-surface transition-colors text-left"
           onClick={() => setExpanded(isExpanded ? null : insp.id)}>
           <Icon className={cn('h-5 w-5 shrink-0', insp.status === 'passed' ? 'text-success' : insp.status === 'failed' ? 'text-danger' : insp.status === 'scheduled' ? 'text-info' : 'text-faint')} />
@@ -293,6 +381,9 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
               )}
               {insp.scheduled_time && (
                 <div><p className="text-xs text-faint">Time</p><p className="font-medium text-ink-soft">{insp.scheduled_time}</p></div>
+              )}
+              {insp.failure_reason && (
+                <div className="col-span-2"><p className="text-xs text-faint">Why it failed</p><p className="font-medium text-danger break-words">{insp.failure_reason}</p></div>
               )}
               {insp.completed_date && (
                 <div><p className="text-xs text-faint">Completed</p><p className="font-medium text-ink-soft">{formatDate(insp.completed_date)}</p></div>
@@ -347,7 +438,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
                   <p className="text-xs font-semibold text-ink-soft">{insp.card_image_url ? "Inspector's card attached" : "Inspector's card / paperwork"}</p>
                   <p className="text-xs text-faint">Upload the card you got from the inspector - AI reads it and fills the details.</p>
                 </div>
-                <input type="file" accept="image/*,application/pdf" className="sr-only"
+                <input type="file" {...{ accept: ACCEPT_SCAN }} className="sr-only"
                   ref={el => { cardInputRefs.current[insp.id] = el }}
                   onChange={e => { const f = e.target.files?.[0]; if (f) uploadCard(insp, f); e.target.value = '' }} />
                 <button type="button" disabled={uploadingCardId === insp.id}
@@ -377,9 +468,15 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
               <button onClick={() => openEditInsp(insp)} className="text-faint hover:text-muted-fg p-1 ml-auto" title="Edit inspection">
                 <Pencil className="h-4 w-4" />
               </button>
-              <button onClick={() => handleDeleteInsp(insp.id)} className="text-danger hover:text-danger p-1" title="Delete inspection">
-                <Trash2 className="h-4 w-4" />
-              </button>
+              {isVoid(insp.status) ? (
+                <button onClick={() => restoreInsp(insp)} className="text-xs font-medium text-accent-fg hover:underline p-1" title="Put this back">
+                  Restore
+                </button>
+              ) : (
+                <button onClick={() => setVoiding(insp)} className="text-danger hover:text-danger p-1" title="Void inspection">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -389,6 +486,60 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
 
   return (
     <div className="p-4 sm:p-6 space-y-5">
+      {actionError && (
+        <p role="alert" className="rounded-lg border border-danger/30 bg-danger-tint px-3 py-2 text-sm text-danger">
+          {actionError}
+        </p>
+      )}
+
+      {/* Void, described truthfully. It is reversible, and saying otherwise
+          would be the same lie as a failed save that looks like a success. */}
+      {voiding && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-panel rounded-xl shadow-xl w-full max-w-sm p-5 space-y-3">
+            <h2 className="font-semibold text-ink flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 text-danger" /> Void this inspection?
+            </h2>
+            <p className="text-sm text-muted-fg">
+              <span className="font-medium text-ink-soft">{voiding.type}{voiding.trade ? ` (${voiding.trade})` : ''}</span> stays
+              on the record and drops out of the working list. It shows under “Show voided”, and you can restore it.
+            </p>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button type="button" variant="secondary" onClick={() => setVoiding(null)}>Cancel</Button>
+              <Button type="button" onClick={() => voidInsp(voiding)}>Void it</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* A failure with no reason is the least useful record in the app, and
+          "what keeps failing" is a question a GC actually asks. */}
+      {failing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-panel rounded-xl shadow-xl w-full max-w-sm p-5 space-y-3">
+            <h2 className="font-semibold text-ink">Why did it fail?</h2>
+            <p className="text-sm text-muted-fg">
+              {failing.type}{failing.trade ? ` (${failing.trade})` : ''} — what did the inspector call out?
+            </p>
+            <textarea
+              value={failReason} onChange={e => setFailReason(e.target.value)} rows={3} autoFocus
+              placeholder="e.g. Missing fire blocking at the second-floor chase"
+              className="w-full rounded-md border border-muted2 bg-panel px-3 py-2 text-sm focus:border-accent focus:outline-none"
+            />
+            <div className="flex justify-end gap-2 pt-1">
+              <Button type="button" variant="secondary" onClick={() => setFailing(null)}>Cancel</Button>
+              <Button
+                type="button"
+                disabled={!failReason.trim()}
+                onClick={() => { const i = failing; const r = failReason.trim(); setFailing(null); updateStatus(i, 'failed', r) }}
+              >
+                Mark failed
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-panel rounded-xl shadow-xl w-full min-w-0 max-w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
@@ -479,7 +630,19 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
           <h1 className="text-2xl font-bold text-ink">Inspections</h1>
           <p className="text-sm text-muted-fg mt-0.5">Track all required inspections, status, and inspector contacts.</p>
         </div>
-        <Button onClick={() => setShowForm(true)}><Plus className="h-4 w-4" /> Request Inspection</Button>
+        <div className="flex items-center gap-3">
+          {/* Voided rows are kept, not destroyed - so there has to be a way to
+              look at them, or "kept for the record" is a claim nobody can check. */}
+          <label className="flex items-center gap-1.5 text-xs text-muted-fg cursor-pointer select-none">
+            <input
+              type="checkbox" checked={showVoided}
+              onChange={e => { setShowVoided(e.target.checked); fetchInspections(e.target.checked) }}
+              className="rounded border-muted2"
+            />
+            Show voided
+          </label>
+          <Button onClick={() => setShowForm(true)}><Plus className="h-4 w-4" /> Request Inspection</Button>
+        </div>
       </div>
 
       {loading ? (
@@ -502,6 +665,12 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
             <div className="space-y-2">
               <p className="text-xs font-semibold text-faint uppercase tracking-wide">Completed ({completed.length})</p>
               {completed.map(i => <InspCard key={i.id} insp={i} />)}
+            </div>
+          )}
+          {voided.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-faint uppercase tracking-wide">Voided ({voided.length})</p>
+              {voided.map(i => <InspCard key={i.id} insp={i} />)}
             </div>
           )}
         </div>
