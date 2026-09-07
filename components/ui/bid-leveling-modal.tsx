@@ -4,6 +4,7 @@ import { X, Award } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
+import { formatDate } from '@/lib/dates'
 interface ScopeItem {
   id: string
   item: string
@@ -249,7 +250,7 @@ export function BidLevelingModal({
                 {sorted.map(bid => (
                   <td key={bid.id} className="px-4 py-3 text-center text-ink-soft">
                     {bid.earliest_start_date
-                      ? new Date(bid.earliest_start_date).toLocaleDateString()
+                      ? formatDate(bid.earliest_start_date)
                       : <span className="text-faint">-</span>}
                   </td>
                 ))}

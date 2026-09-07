@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
+import { formatDate } from '@/lib/dates'
 export const runtime = 'nodejs'
 
 const admin = () => createClient(
@@ -73,8 +74,8 @@ export async function GET(request: Request) {
     idx.set(keyOf(d), months.length)
     months.push({
       label: range === 'weekly'
-        ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-        : d.toLocaleDateString(undefined, { month: 'short' }),
+        ? formatDate(d, { month: 'short', day: 'numeric' })
+        : formatDate(d, { month: 'short' }),
       in: 0, out: 0,
     })
   }

@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { requirePermission, denied } from '@/lib/api-guard'
 
+import { formatDate } from '@/lib/dates'
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -88,8 +89,8 @@ export async function POST(
     amount = Number(sub.weekly_amount ?? 0)
     if (amount <= 0) return NextResponse.json({ error: 'No weekly amount configured on this subcontract' }, { status: 400 })
     const weekLabel = week_start
-      ? new Date(week_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-      : new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      ? formatDate(week_start, { month: 'short', day: 'numeric' })
+      : formatDate(new Date(), { month: 'short', day: 'numeric' })
     description = `Weekly billing - week of ${weekLabel}`
   } else {
     return NextResponse.json({ error: 'Invalid billing_type' }, { status: 400 })

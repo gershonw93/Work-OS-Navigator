@@ -6,8 +6,9 @@ import { cn } from '@/lib/utils'
 import { Sparkles, BookOpen, ArrowRight } from 'lucide-react'
 import { RELEASES, KIND_LABEL, KIND_TINT, LATEST_RELEASE, SEEN_KEY } from '@/lib/whats-new'
 
+import { formatDate } from '@/lib/dates'
 const fmt = (iso: string) =>
-  new Date(iso + 'T00:00:00').toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
+  formatDate(iso, { month: 'long', day: 'numeric', year: 'numeric' })
 
 export default function WhatsNewPage() {
   // Whatever they had seen when they arrived. Read once, before the visit is

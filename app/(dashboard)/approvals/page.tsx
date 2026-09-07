@@ -9,6 +9,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
 
+import { formatDate } from '@/lib/dates'
 type FilterTab = 'all' | 'invoices' | 'rfis'
 
 const STATUS_COLORS: Record<string, string> = {
@@ -174,7 +175,7 @@ export default function ApprovalsPage() {
                         </p>
                       )}
                       <p className="text-xs text-faint mt-1">
-                        {new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        {formatDate(item.date, { month: 'short', day: 'numeric', year: 'numeric' })}
                       </p>
                     </div>
 
@@ -264,7 +265,7 @@ export default function ApprovalsPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-muted-fg whitespace-nowrap">
-                          {new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          {formatDate(item.date, { month: 'short', day: 'numeric', year: 'numeric' })}
                         </td>
                         <td className="px-4 py-3">
                           {!isSub && item.type === 'invoice' && (

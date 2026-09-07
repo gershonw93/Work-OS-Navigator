@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import { Printer, FileText, ShieldCheck, DollarSign } from 'lucide-react'
 import { clientLabel } from '@/lib/project-access'
 
+import { formatDate } from '@/lib/dates'
 interface Invoice {
   id: string
   invoice_number: string | null
@@ -323,7 +324,7 @@ export default function ReportsPage({ params }: { params: { id: string } }) {
                               <span className="text-sm text-muted-fg">
                                 {inv.invoice_number ? `Invoice #${inv.invoice_number}` : 'Invoice'}
                                 <span className="text-faint ml-2 text-xs">
-                                  {new Date(inv.created_at).toLocaleDateString()}
+                                  {formatDate(inv.created_at)}
                                 </span>
                               </span>
                               <div className="flex items-center gap-3">
@@ -371,7 +372,7 @@ export default function ReportsPage({ params }: { params: { id: string } }) {
                                   </span>
                                   {doc.expiry_date && (
                                     <span className={cn('ml-2 text-xs', rowBad ? 'text-danger' : 'text-faint')}>
-                                      Expires {new Date(doc.expiry_date + 'T00:00:00').toLocaleDateString()}
+                                      Expires {formatDate(doc.expiry_date)}
                                     </span>
                                   )}
                                 </div>

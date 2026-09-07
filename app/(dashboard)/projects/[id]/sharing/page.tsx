@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { Send, Copy, Check, Ban, Inbox, Share2, RotateCcw, Plus } from 'lucide-react'
 import { ShareFilesModal, type ShareableFile } from '@/components/files/share-files-modal'
 
+import { formatDate } from '@/lib/dates'
 interface Share {
   id: string
   name: string
@@ -113,8 +114,8 @@ export default function SharingPage({ params }: { params: { id: string } }) {
                       {[
                         sh.recipient_name && `To ${sh.recipient_name}`,
                         `${(sh.files ?? []).length} document${(sh.files ?? []).length !== 1 ? 's' : ''}`,
-                        `Sent ${new Date(sh.created_at).toLocaleDateString()}`,
-                        sh.viewed_at && `Opened ${new Date(sh.viewed_at).toLocaleDateString()}`,
+                        `Sent ${formatDate(sh.created_at)}`,
+                        sh.viewed_at && `Opened ${formatDate(sh.viewed_at)}`,
                       ].filter(Boolean).join(' · ')}
                     </p>
                   </div>

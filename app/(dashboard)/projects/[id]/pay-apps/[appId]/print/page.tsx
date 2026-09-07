@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
+import { formatDate } from '@/lib/dates'
 const money = (n: number) => `$${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-const dt = (d: string | null) => d ? new Date(d + 'T00:00:00').toLocaleDateString() : '—'
+const dt = (d: string | null) => d ? formatDate(d) : '—'
 
 export default function PayAppPrint({ params }: { params: { id: string; appId: string } }) {
   const [data, setData] = useState<any>(null)

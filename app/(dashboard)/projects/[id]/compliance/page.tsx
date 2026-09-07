@@ -16,6 +16,7 @@ import {
 import { clientAppOrigin } from '@/lib/app-url'
 import { SendLinkBox } from '@/components/ui/send-link-box'
 
+import { formatDate } from '@/lib/dates'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type DocStatus = 'missing' | 'pending' | 'approved' | 'expired' | 'expiring_soon' | 'optional' | 'not_required'
@@ -778,7 +779,7 @@ function SubCard({ sub, docs, requests, requirements, projectId, token, onRefres
                 </td>
                 <td className="px-5 py-3 text-xs text-faint">
                   {doc?.expiry_date
-                    ? new Date(doc.expiry_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                    ? formatDate(doc.expiry_date, { month: 'short', day: 'numeric', year: 'numeric' })
                     : '-'}
                 </td>
                 <td className="px-5 py-3">
@@ -834,7 +835,7 @@ function SubCard({ sub, docs, requests, requirements, projectId, token, onRefres
                         : <p className="text-xs text-faint">No extracted details - open the file to review, or hit Update to add them.</p>}
                       <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-xs text-muted-fg">
                         <span>Status: <span className="text-ink-soft font-medium">{STATUS_CONFIG[status].label}</span></span>
-                        {doc.expiry_date && <span>Expires: <span className="text-ink-soft font-medium">{new Date(doc.expiry_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span></span>}
+                        {doc.expiry_date && <span>Expires: <span className="text-ink-soft font-medium">{formatDate(doc.expiry_date, { month: 'short', day: 'numeric', year: 'numeric' })}</span></span>}
                         {doc.file_url && <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="text-accent-fg hover:underline inline-flex items-center gap-1"><ExternalLink className="h-3 w-3" /> Open document</a>}
                       </div>
                     </div>
@@ -1013,7 +1014,7 @@ export default function CompliancePage({ params }: { params: { id: string } }) {
                       </span>
                       <span className={cn('text-xs font-medium', days < 0 ? 'text-danger' : 'text-warn')}>
                         {days < 0 ? `Expired ${Math.abs(days)} day${Math.abs(days) !== 1 ? 's' : ''} ago` : days === 0 ? 'Expires today' : `Expires in ${days} day${days !== 1 ? 's' : ''}`}
-                        {d.expiry_date && <span className="text-faint"> · {new Date(d.expiry_date + 'T00:00:00').toLocaleDateString()}</span>}
+                        {d.expiry_date && <span className="text-faint"> · {formatDate(d.expiry_date)}</span>}
                       </span>
                     </div>
                   ))}

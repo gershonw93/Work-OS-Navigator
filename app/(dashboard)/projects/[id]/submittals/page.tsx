@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { ACCEPT_DOCS } from '@/lib/file-accept'
 
+import { formatDate } from '@/lib/dates'
 const SUBMITTAL_TYPES = ['Tech Sheet', 'Shop Drawing', 'Product Data', 'Sample', 'Other']
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
@@ -170,7 +171,7 @@ export default function SubmittalsPage({ params }: { params: { id: string } }) {
               {sub.file_url && <Paperclip className="h-3.5 w-3.5 text-faint" />}
             </div>
             <p className="text-xs text-faint mt-0.5">
-              Submitted {new Date(sub.created_at).toLocaleDateString()}
+              Submitted {formatDate(sub.created_at)}
               {sub.manufacturer && ` · ${sub.manufacturer}`}
               {sub.model_number && ` ${sub.model_number}`}
             </p>
@@ -186,7 +187,7 @@ export default function SubmittalsPage({ params }: { params: { id: string } }) {
               {sub.spec_section && <div><p className="text-xs text-faint">Spec Section</p><p className="font-medium text-ink-soft">{sub.spec_section}</p></div>}
               {sub.manufacturer && <div><p className="text-xs text-faint">Manufacturer</p><p className="font-medium text-ink-soft">{sub.manufacturer}</p></div>}
               {sub.model_number && <div><p className="text-xs text-faint">Model Number</p><p className="font-medium text-ink-soft">{sub.model_number}</p></div>}
-              <div><p className="text-xs text-faint">Submitted</p><p className="font-medium text-ink-soft">{new Date(sub.created_at).toLocaleDateString()}</p></div>
+              <div><p className="text-xs text-faint">Submitted</p><p className="font-medium text-ink-soft">{formatDate(sub.created_at)}</p></div>
             </div>
 
             {sub.file_url && (

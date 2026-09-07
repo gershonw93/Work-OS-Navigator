@@ -6,6 +6,7 @@ import { Bell, Mail, Smartphone, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Channel, NotificationType, Prefs } from '@/lib/notifications'
 
+import { formatDate } from '@/lib/dates'
 /**
  * What you want to be told about, and how.
  *
@@ -128,7 +129,7 @@ export function NotificationSettings() {
               <p className="mt-0.5 text-sm text-muted-fg">
                 {push.devices === 0
                   ? 'No phone registered yet. Open SyteNav on your phone, sign in, and allow notifications when it asks.'
-                  : `${push.devices === 1 ? 'One phone is' : `${push.devices} phones are`} set up for notifications${push.lastSeen ? `, last seen ${new Date(push.lastSeen).toLocaleDateString()}` : ''}.`}
+                  : `${push.devices === 1 ? 'One phone is' : `${push.devices} phones are`} set up for notifications${push.lastSeen ? `, last seen ${formatDate(push.lastSeen)}` : ''}.`}
               </p>
               {testResult && (
                 <p className={cn('mt-2 rounded-lg px-3 py-2 text-sm',

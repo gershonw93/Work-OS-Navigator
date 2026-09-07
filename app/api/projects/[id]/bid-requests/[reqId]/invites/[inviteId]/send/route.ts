@@ -5,6 +5,7 @@ import { deliverLink, readSendBody } from '@/lib/send-link'
 import { notify } from '@/lib/notify'
 import { appOrigin } from '@/lib/app-url'
 
+import { formatDate } from '@/lib/dates'
 export const runtime = 'nodejs'
 
 const admin = () => createClient(
@@ -47,7 +48,7 @@ export async function POST(request: Request, { params }: { params: { id: string;
 
   const scope = [(req as any)?.title, (req as any)?.trade].filter(Boolean).join(' - ') || 'a scope of work'
   const due = (req as any)?.due_date
-    ? `Please get it back by ${new Date((req as any).due_date + 'T00:00:00').toLocaleDateString()}.`
+    ? `Please get it back by ${formatDate((req as any).due_date)}.`
     : null
 
   const email = tokenLinkEmail({

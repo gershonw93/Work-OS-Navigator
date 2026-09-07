@@ -13,6 +13,7 @@ import { useDeleteGuard } from '@/components/ui/delete-guard'
 import { payAppProblems, retainagePct as checkRetainage, type PayAppProblem } from '@/lib/pay-app-rules'
 import { isFixableByChangeOrder, prefillFor, changeOrderHref } from '@/lib/change-order-prefill'
 
+import { formatDate } from '@/lib/dates'
 const money = (n: number) => `$${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 const STATUS: Record<string, { label: string; cls: string }> = {
@@ -91,7 +92,7 @@ export default function PayAppsPage({ params }: { params: { id: string } }) {
                 App #{a.application_number}
               </span>
               <span className="text-sm text-muted-fg flex-1 min-w-0 truncate">
-                To {a.bill_to}{a.period_end ? ` · period ending ${new Date(a.period_end + 'T00:00:00').toLocaleDateString()}` : ''}
+                To {a.bill_to}{a.period_end ? ` · period ending ${formatDate(a.period_end)}` : ''}
               </span>
               <span className="text-sm font-bold text-ink shrink-0">{money(a.current_due)}</span>
               <span className={cn('text-[10px] font-semibold rounded-full px-1.5 py-0.5 shrink-0', STATUS[a.status]?.cls)}>{STATUS[a.status]?.label ?? a.status}</span>
@@ -285,7 +286,7 @@ function PayAppDetail({ projectId, appId, onBack, authHeaders }: { projectId: st
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-bold text-ink">Application #{app.application_number}</h1>
         <span className={cn('text-[11px] font-semibold rounded-full px-2 py-0.5', STATUS[app.status]?.cls)}>{STATUS[app.status]?.label}</span>
-        <span className="text-sm text-muted-fg">To {app.bill_to}{app.period_end ? ` · period ending ${new Date(app.period_end + 'T00:00:00').toLocaleDateString()}` : ''}</span>
+        <span className="text-sm text-muted-fg">To {app.bill_to}{app.period_end ? ` · period ending ${formatDate(app.period_end)}` : ''}</span>
       </div>
 
       {/* A DRAFT THAT PREDATES A CHANGE ORDER.

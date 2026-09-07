@@ -12,6 +12,7 @@ import { blockedReason, isRequestable, percentOfTotal, type ResolvedStage } from
 import { money as checkMoney, percent as checkPercent } from '@/lib/validate'
 import { useClientEmail } from '@/lib/use-client-email'
 
+import { formatDate } from '@/lib/dates'
 interface Req {
   id: string
   label: string
@@ -257,7 +258,7 @@ export function PaymentRequests({
                   <p className="text-sm font-medium text-ink">{r.label}</p>
                   <p className="text-xs text-muted-fg">
                     {r.sent_at
-                      ? `Sent to ${r.sent_to ?? 'the client'} on ${new Date(r.sent_at).toLocaleDateString()}`
+                      ? `Sent to ${r.sent_to ?? 'the client'} on ${formatDate(r.sent_at)}`
                       : 'Not sent to the client yet'}
                   </p>
                 </div>

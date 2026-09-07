@@ -7,6 +7,7 @@ import { SyteNavLogo } from '@/components/ui/logo'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { lineTotal, pricedCount, pricedTotal, type ItemLine, type PricedLine } from '@/lib/item-list'
 
+import { formatDate } from '@/lib/dates'
 interface Data {
   request: {
     title: string; trade: string | null; description: string | null; due_date: string | null; status: string
@@ -122,7 +123,7 @@ export default function BidPage({ params }: { params: { token: string } }) {
           <p className="text-sm text-muted-fg mt-1">
             {r.trade ? `${r.trade} · ` : ''}{r.project_name}{r.project_address ? ` · ${r.project_address}` : ''}
           </p>
-          {r.due_date && <p className="text-xs text-warn mt-2 inline-flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> Due {new Date(r.due_date + 'T00:00:00').toLocaleDateString()}</p>}
+          {r.due_date && <p className="text-xs text-warn mt-2 inline-flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> Due {formatDate(r.due_date)}</p>}
         </div>
 
         <div className="px-5 py-5 space-y-5">
@@ -205,7 +206,7 @@ export default function BidPage({ params }: { params: { token: string } }) {
                   ? ` · ${money(lineSum)} · ${lineCount} of ${priced.length} lines priced`
                   : (data.submission?.amount != null || amount) ? ` · $${Number(data.submission?.amount ?? amount).toLocaleString()}` : ''}
               </p>
-              {data.submission?.created_at && <p className="text-xs text-faint mt-1">Received {new Date(data.submission.created_at).toLocaleDateString()}</p>}
+              {data.submission?.created_at && <p className="text-xs text-faint mt-1">Received {formatDate(data.submission.created_at)}</p>}
             </div>
           ) : null}
 

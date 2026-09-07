@@ -19,6 +19,7 @@ import { ACCEPT_DOCS } from '@/lib/file-accept'
 import { SendLinkBox } from '@/components/ui/send-link-box'
 import { clientAppOrigin } from '@/lib/app-url'
 
+import { formatDate } from '@/lib/dates'
 const money = (n: number | null) => n == null ? '-' : `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 const STATUS: Record<string, string> = {
   invited: 'bg-muted text-muted-fg', viewed: 'bg-info-tint text-info',
@@ -220,7 +221,7 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
   function copy(text: string, key: string) { navigator.clipboard?.writeText(text); setCopied(key); setTimeout(() => setCopied(null), 1500) }
   function emailFor(req: any, inv: any) {
     const subject = `Request for Quote - ${req.title}`
-    const body = `Hi ${inv.vendor_name ?? ''},\n\nWe'd like your quote for: ${req.title}${req.trade ? ` (${req.trade})` : ''}.\nView the scope and plans, and submit your quote here (no account needed):\n${linkFor(inv.token)}\n\n${req.due_date ? `Please respond by ${new Date(req.due_date + 'T00:00:00').toLocaleDateString()}.\n\n` : ''}Thank you.`
+    const body = `Hi ${inv.vendor_name ?? ''},\n\nWe'd like your quote for: ${req.title}${req.trade ? ` (${req.trade})` : ''}.\nView the scope and plans, and submit your quote here (no account needed):\n${linkFor(inv.token)}\n\n${req.due_date ? `Please respond by ${formatDate(req.due_date)}.\n\n` : ''}Thank you.`
     return { subject, body, mailto: `mailto:${inv.vendor_email ?? ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}` }
   }
 
@@ -332,7 +333,7 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
                       {status.label}
                     </span>
                   </div>
-                  <p className={cn('text-xs', overdue ? 'text-danger' : 'text-faint')}>{req.trade ? `${req.trade} · ` : ''}{invites.length} invited · {submissions.length} responded{req.due_date ? ` · ${overdue ? 'was due' : 'due'} ${new Date(req.due_date + 'T00:00:00').toLocaleDateString()}` : ''}</p>
+                  <p className={cn('text-xs', overdue ? 'text-danger' : 'text-faint')}>{req.trade ? `${req.trade} · ` : ''}{invites.length} invited · {submissions.length} responded{req.due_date ? ` · ${overdue ? 'was due' : 'due'} ${formatDate(req.due_date)}` : ''}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>

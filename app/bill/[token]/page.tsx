@@ -5,6 +5,7 @@ import { SyteNavLogo } from '@/components/ui/logo'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { Printer, AlertTriangle } from 'lucide-react'
 
+import { formatDate } from '@/lib/dates'
 const money = (n: unknown) =>
   `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
@@ -105,11 +106,11 @@ export default function ClientBillPage({ params }: { params: { token: string } }
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-faint">Dates</p>
               <p className="mt-1 text-muted-fg">
-                Issued {new Date((data.issue_date ?? '') + 'T00:00:00').toLocaleDateString()}
+                Issued {formatDate((data.issue_date ?? ''))}
               </p>
               {data.due_date && (
                 <p className="font-medium text-ink">
-                  Due {new Date(data.due_date + 'T00:00:00').toLocaleDateString()}
+                  Due {formatDate(data.due_date)}
                 </p>
               )}
             </div>

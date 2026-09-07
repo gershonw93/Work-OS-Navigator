@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
 import { FIELD_ROLES } from '@/lib/permissions'
 
+import { formatDate } from '@/lib/dates'
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -170,7 +171,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const actorName = (profile as any)?.full_name ?? 'Someone'
   const safetyNote = safety_observation ? ' · ⚠ Safety observation' : ''
   await logActivity(db, params.id, actorName, 'daily_log_submitted',
-    `Daily log submitted for ${new Date(log_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}${safetyNote}`,
+    `Daily log submitted for ${formatDate(log_date, { month: 'short', day: 'numeric', year: 'numeric' })}${safetyNote}`,
     { log_id: log.id, log_date }
   )
 

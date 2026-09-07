@@ -10,7 +10,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge, getStatusVariant } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
 import Link from 'next/link'
-import { parseDate } from '@/lib/dates'
+import { parseDate, formatDate } from '@/lib/dates'
 
 interface Notification {
   id: string
@@ -114,7 +114,7 @@ function timeAgo(dateStr: string) {
   if (hrs < 24) return `${hrs}h ago`
   const days = Math.floor(hrs / 24)
   if (days < 7) return `${days}d ago`
-  return new Date(dateStr).toLocaleDateString()
+  return formatDate(dateStr)
 }
 
 function greeting() {
@@ -470,7 +470,7 @@ export default function DashboardPage() {
                         <span className="font-medium text-ink">{p.name}</span>
                         <Badge variant={getStatusVariant(p.status)}>{p.status.replace('_', ' ')}</Badge>
                       </div>
-                      <p className="mt-1 text-xs text-muted-fg">{parseDate(p.start_date)!.toLocaleDateString()}</p>
+                      <p className="mt-1 text-xs text-muted-fg">{formatDate(p.start_date)}</p>
                     </Link>
                   ))}
                 </div>
@@ -494,7 +494,7 @@ export default function DashboardPage() {
                         <td className="px-5 py-3">
                           <Badge variant={getStatusVariant(p.status)}>{p.status.replace('_', ' ')}</Badge>
                         </td>
-                        <td className="px-5 py-3 text-muted-fg">{parseDate(p.start_date)!.toLocaleDateString()}</td>
+                        <td className="px-5 py-3 text-muted-fg">{formatDate(p.start_date)}</td>
                       </tr>
                     ))}
                   </tbody>

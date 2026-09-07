@@ -23,6 +23,7 @@ import {
 import { contractAmountLabel } from '@/lib/contract-amount'
 import { usePermissions } from '@/lib/use-permissions'
 
+import { formatDate } from '@/lib/dates'
 const money = (n: number) => `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 
 /**
@@ -1921,7 +1922,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-ink-soft truncate">{m.store_name || 'Material purchase'}</p>
                   <p className="text-xs text-faint truncate">
-                    {[m.category, m.budget_line_id ? 'in a budget line' : 'not linked to a line', m.purchase_date && new Date(m.purchase_date + 'T00:00:00').toLocaleDateString()].filter(Boolean).join(' · ')}
+                    {[m.category, m.budget_line_id ? 'in a budget line' : 'not linked to a line', m.purchase_date && formatDate(m.purchase_date)].filter(Boolean).join(' · ')}
                   </p>
                 </div>
                 {m.client_paid ? (

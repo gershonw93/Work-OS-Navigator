@@ -6,6 +6,7 @@ import { TrendingUp, CalendarDays, FileText, ClipboardCheck, Banknote, Truck, Ch
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 
+import { formatDate } from '@/lib/dates'
 export interface OverviewData {
   months: { label: string; in: number; out: number }[]
   week: { kind: string; label: string; project: string; project_id: string; date: string }[]
@@ -112,7 +113,7 @@ export function AdminOverview({ data }: { data: OverviewData }) {
                     <Icon className={cn('h-4 w-4 shrink-0', w.kind === 'delivery' ? 'text-warn' : w.kind === 'task' ? 'text-info' : 'text-success')} />
                     <span className="text-sm text-ink-soft truncate group-hover:text-ink">{w.label}</span>
                     <span className="text-xs text-faint truncate">· {w.project}</span>
-                    <span className="ml-auto text-xs text-muted-fg shrink-0">{new Date(w.date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short' })}</span>
+                    <span className="ml-auto text-xs text-muted-fg shrink-0">{formatDate(w.date, { weekday: 'short' })}</span>
                   </Link>
                 )
               })}

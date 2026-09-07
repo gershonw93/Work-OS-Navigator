@@ -5,6 +5,7 @@ import { deliverLink, readSendBody } from '@/lib/send-link'
 import { appOrigin } from '@/lib/app-url'
 import { requirePermission, denied } from '@/lib/api-guard'
 
+import { formatDate } from '@/lib/dates'
 export const runtime = 'nodejs'
 
 const admin = () => createClient(
@@ -44,7 +45,7 @@ export async function POST(request: Request, { params }: { params: { id: string;
     : { data: null }
 
   const due = (bill as any)?.due_date
-    ? `It is due ${new Date((bill as any).due_date + 'T00:00:00').toLocaleDateString()}.`
+    ? `It is due ${formatDate((bill as any).due_date)}.`
     : null
 
   const email = tokenLinkEmail({

@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Plug, Check, Loader2, RefreshCw, Users, Building2, AlertTriangle, FileText, Banknote } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
+import { formatDate } from '@/lib/dates'
 interface Connection {
   realm_id: string
   qbo_company_name: string | null
@@ -192,7 +193,7 @@ export function QuickBooksCard() {
                   </span>
                   <span className="text-muted-fg">
                     {' '}- use Sync below to push the backlog.
-                    {status.lastSyncAt && ` Last activity ${new Date(status.lastSyncAt).toLocaleDateString()}.`}
+                    {status.lastSyncAt && ` Last activity ${formatDate(status.lastSyncAt)}.`}
                   </span>
                 </p>
               ) : (

@@ -55,7 +55,13 @@ export async function PATCH(
     return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
   }
 
-  // If status is being set to 'passed' or 'failed', ensure completed_date is set
+  // If status is being set to 'passed' or 'failed', ensure completed_date is set.
+  //
+  // The client sends its OWN day (`todayDateInput()`), because a calendar date
+  // belongs to whoever is living it and the server has no idea what timezone
+  // that is. `toISOString()` is UTC's day: right on the east coast, a day ahead
+  // for anyone marking an inspection passed on a west-coast evening. Kept only
+  // as a fallback so a direct API call still gets a date rather than none.
   const newStatus = updates.status as string | undefined
   if ((newStatus === 'passed' || newStatus === 'failed') && !updates.completed_date) {
     updates.completed_date = new Date().toISOString().split('T')[0]

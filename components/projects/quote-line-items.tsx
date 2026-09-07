@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { weightedProgress } from '@/lib/invoice-budget'
 
+import { formatDate } from '@/lib/dates'
 interface LineTask { id: string; title: string; status: string }
 interface Line {
   id: string; description: string; budgeted_amount: number; progress_pct: number; progress_status: string
@@ -348,7 +349,7 @@ export function QuoteLineItems({ projectId, mode }: { projectId: string; mode: '
                       </button>
                       {l.progress_status === 'done' && (
                         l.signoff_signed_at ? (
-                          <span className="inline-flex items-center gap-1 text-xs text-success" title={`Signed off ${new Date(l.signoff_signed_at).toLocaleDateString()}`}>
+                          <span className="inline-flex items-center gap-1 text-xs text-success" title={`Signed off ${formatDate(l.signoff_signed_at)}`}>
                             <PenLine className="h-3.5 w-3.5" /> Signed off by {l.signoff_signed_by}
                             {l.signoff_signature_url && <a href={l.signoff_signature_url} target="_blank" rel="noreferrer" className="text-accent-fg hover:underline ml-0.5">view</a>}
                           </span>

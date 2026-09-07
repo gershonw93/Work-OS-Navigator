@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Printer } from 'lucide-react'
-import { parseDate } from '@/lib/dates'
+import { parseDate, formatDate } from '@/lib/dates'
 
 export default function InvoicePrintPage({ params }: { params: { id: string; invoiceId: string } }) {
   const supabase = createClient()
@@ -66,9 +66,9 @@ export default function InvoicePrintPage({ params }: { params: { id: string; inv
           <div className="text-right">
             <p className="text-3xl font-black text-ink">INVOICE</p>
             <p className="text-lg font-mono font-semibold text-accent-fg mt-1">{invoice.invoice_number}</p>
-            <p className="text-sm text-muted-fg mt-2">Date: {new Date(invoice.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+            <p className="text-sm text-muted-fg mt-2">Date: {formatDate(invoice.created_at, { month: 'long', day: 'numeric', year: 'numeric' })}</p>
             {invoice.due_date && (
-              <p className="text-sm text-muted-fg">Due: {parseDate(invoice.due_date)!.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+              <p className="text-sm text-muted-fg">Due: {formatDate(invoice.due_date, { month: 'long', day: 'numeric', year: 'numeric' })}</p>
             )}
           </div>
         </div>
@@ -129,7 +129,7 @@ export default function InvoicePrintPage({ params }: { params: { id: string; inv
             {invoice.approved_at && (
               <div>
                 <p className="text-xs text-faint mb-0.5">Approved On</p>
-                <p className="font-semibold text-ink-soft">{new Date(invoice.approved_at).toLocaleDateString()}</p>
+                <p className="font-semibold text-ink-soft">{formatDate(invoice.approved_at)}</p>
               </div>
             )}
           </div>

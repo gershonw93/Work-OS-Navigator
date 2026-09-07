@@ -12,6 +12,7 @@ import { FileText, Plus, Printer, Loader2, Trash2, Check, Copy, Mail, MoreHorizo
 import { useClientEmail } from '@/lib/use-client-email'
 import { invoiceQbChip, openedLabel } from '@/lib/invoice-qb-state'
 
+import { formatDate } from '@/lib/dates'
 const money = (n: unknown) => `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
 
 interface Billable {
@@ -68,7 +69,7 @@ const STATUS: Record<string, string> = {
 }
 
 const shortDate = (iso: string) =>
-  new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  formatDate(iso, { month: 'short', day: 'numeric' })
 
 /**
  * The rest of a row's actions, behind one button.
@@ -314,7 +315,7 @@ export function ClientInvoices({
     const body = [
       `Hi${clientName ? ` ${clientName}` : ''},`,
       '',
-      `Invoice ${b.invoice_number} for ${money(total)} is ready${b.due_date ? `, due ${new Date(b.due_date + 'T00:00:00').toLocaleDateString()}` : ''}.`,
+      `Invoice ${b.invoice_number} for ${money(total)} is ready${b.due_date ? `, due ${formatDate(b.due_date)}` : ''}.`,
       '',
       'You can view it here:',
       linkFor(b),
@@ -487,7 +488,7 @@ export function ClientInvoices({
                     {(b.client_invoice_lines ?? []).length} line{(b.client_invoice_lines ?? []).length !== 1 ? 's' : ''}
                     {' · '}{b.show_markup ? 'markup shown' : 'flat amounts'}
                     {opened ? ` · ${opened}` : ''}
-                    {b.due_date ? ` · due ${new Date(b.due_date + 'T00:00:00').toLocaleDateString()}` : ''}
+                    {b.due_date ? ` · due ${formatDate(b.due_date)}` : ''}
                   </span>
                 </span>
                 <span className={cn('rounded-full border px-2 py-0.5 text-[11px] font-medium shrink-0', STATUS[b.status] ?? STATUS.draft)}>
