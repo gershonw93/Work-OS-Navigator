@@ -22,7 +22,11 @@ export async function POST(request: Request, { params }: { params: { id: string;
   const file = formData.get('file') as File | null
   if (!file || file.size === 0) return NextResponse.json({ error: 'No file' }, { status: 400 })
 
-  const imageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+  // heic/heif are what an iPhone produces by default. The picker accepts
+  // `image/*` and let them through, and then this list rejected them with "Use
+  // a photo or PDF." - which is nonsense said to somebody who has just taken a
+  // photo.
+  const imageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif']
   const isPdf = file.type === 'application/pdf'
   if (!isPdf && !imageTypes.includes(file.type)) return NextResponse.json({ error: 'Use a photo or PDF.' }, { status: 400 })
 

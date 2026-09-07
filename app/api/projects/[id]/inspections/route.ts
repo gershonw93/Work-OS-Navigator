@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server'
 import { audienceFor } from '@/lib/notification-audience'
 import { withStructural } from '@/lib/notification-routing'
 import { notify } from '@/lib/notify'
+import { logActivity } from '@/lib/log-activity'
+import { scheduleProblem } from '@/lib/inspection-status'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,11 +19,16 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: inspections, error } = await db
+  // Voided rows come back only when asked for. They are kept for the record -
+  // nothing here is hard-deleted - but they are not the working list, and a
+  // notification linking to one needs a way to reveal it.
+  const showVoided = new URL(request.url).searchParams.get('voided') === '1'
+  let q = db
     .from('inspections')
     .select('*')
     .eq('project_id', params.id)
-    .order('created_at', { ascending: false })
+  if (!showVoided) q = q.neq('status', 'void')
+  const { data: inspections, error } = await q.order('created_at', { ascending: false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ inspections: inspections ?? [] })
@@ -48,6 +55,11 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const scheduler_name = formData.get('scheduler_name') as string | null
   const notes = formData.get('notes') as string | null
   const file = formData.get('file') as File | null
+
+  // #2 - refused at creation as well as on edit. An inspection cannot be born
+  // into the state the PATCH route now refuses to move it into.
+  const createProblem = scheduleProblem(status, scheduled_date)
+  if (createProblem) return NextResponse.json({ error: createProblem }, { status: 400 })
 
   const { data: me } = await db.from('profiles').select('full_name').eq('id', user.id).single()
 
@@ -111,6 +123,19 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
+  // #4 - a created inspection is an action on the project, and Job History
+  // recorded nothing until it passed or failed. The creation of a compliance
+  // record is most of what an audit trail is for.
+  const label = inspection_type
+    ? `${inspection_type}${trade ? ` (${trade})` : ''}`
+    : 'Inspection'
+  await logActivity(
+    db, params.id, (me as any)?.full_name ?? 'Someone', 'inspection_created',
+    `${label} requested${scheduled_date ? ` for ${scheduled_date}` : ''}`,
+    { inspection_id: (inspection as any)?.id, inspection_type, trade },
+    user.id,
+  )
+
   // Somebody has to hear that an inspection was asked for.
   //
   // THIS WHOLE BLOCK USED TO BE INSIDE `if (scheduler_profile_id)`. The assigned
@@ -137,7 +162,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
       db, userIds: bookers, type: 'inspection_to_schedule',
       title: 'Inspection to book',
       message: `Schedule an inspection: ${inspection_type} at ${proj?.name ?? 'a project'}${when}. Requested by ${(me as any)?.full_name ?? 'the field'}.${contact}`,
-      link: `/projects/${params.id}/inspections`,
+      link: `/projects/${params.id}/inspections?inspection=${(inspection as any)?.id ?? ''}`,
     })
   }
 

@@ -49,6 +49,62 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-07',
+    title: 'Inspections keep a record you can rely on',
+    items: [
+      {
+        kind: 'improved',
+        title: 'Deleting an inspection now voids it instead',
+        text: 'An inspection can no longer be permanently destroyed. Voiding keeps it on the record with who voided it and when, takes it out of the working list, and you can put it back with Restore. Tick "Show voided" to see them.',
+        help: 'inspections',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
+        title: 'Only people who work on inspections can void one',
+        text: 'Deleting an inspection previously required nothing more than being signed in. It now needs edit access to inspections, the same as changing one.',
+        href: '/projects',
+      },
+      {
+        kind: 'improved',
+        title: 'Job History records everything that happens to an inspection',
+        text: 'It used to record only passed and failed. It now records requests, edits, bookings, re-inspections, voids and restores — so the history of a compliance record is actually complete.',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
+        title: 'You cannot mark an inspection scheduled without a date',
+        text: 'It was possible to set an inspection to Scheduled with no date. That told the office it was booked, showed "No date yet" on the card, and never appeared in Booked inspections. It now asks for the date.',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
+        title: 'Failed inspections ask why',
+        text: 'Marking an inspection failed now asks what the inspector called out, and that reason shows on the card, in the notification and in Job History. A re-inspection also clears the old Completed date instead of showing both at once.',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
+        title: 'The inspection count includes the ones nobody is assigned to',
+        text: '"Inspections to book" only counted inspections that already had somebody assigned, so the ones most needing attention were missing from the total.',
+        href: '/projects',
+      },
+      {
+        kind: 'improved',
+        title: 'Fewer notifications about inspections',
+        text: 'Passed, failed and re-inspection still go to everyone you have chosen in "Who gets told". Booking a date now only tells the person who asked and the person booking it, rather than the whole office.',
+        help: 'who-gets-notified',
+        href: '/settings?tab=who-gets-told',
+      },
+      {
+        kind: 'fixed',
+        title: 'Uploading the wrong kind of file says so',
+        text: 'Uploading something that was not a photo or PDF as an inspector card did nothing at all — no error, no attachment. It now tells you. Photos straight off an iPhone (HEIC) are accepted too.',
+        href: '/projects',
+      },
+    ],
+  },
+  {
+    date: '2026-09-07',
     title: 'Dates now show the day they actually are',
     items: [
       {
