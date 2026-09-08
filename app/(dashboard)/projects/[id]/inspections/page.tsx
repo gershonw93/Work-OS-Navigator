@@ -495,7 +495,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
       {/* Void, described truthfully. It is reversible, and saying otherwise
           would be the same lie as a failed save that looks like a success. */}
       {voiding && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="overlay items-center justify-center bg-black/50" data-overlay>
           <div className="bg-panel rounded-xl shadow-xl w-full max-w-sm p-5 space-y-3">
             <h2 className="font-semibold text-ink flex items-center gap-2">
               <AlertCircle className="h-4 w-4 text-danger" /> Void this inspection?
@@ -515,7 +515,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
       {/* A failure with no reason is the least useful record in the app, and
           "what keeps failing" is a question a GC actually asks. */}
       {failing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="overlay items-center justify-center bg-black/50" data-overlay>
           <div className="bg-panel rounded-xl shadow-xl w-full max-w-sm p-5 space-y-3">
             <h2 className="font-semibold text-ink">Why did it fail?</h2>
             <p className="text-sm text-muted-fg">
@@ -541,8 +541,8 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
       )}
 
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-panel rounded-xl shadow-xl w-full min-w-0 max-w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="overlay items-center justify-center bg-black/50" data-overlay>
+          <div className="bg-panel rounded-xl shadow-xl w-full min-w-0 max-w-full sm:max-w-lg overflow-y-auto">
             <div className="px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between">
               <h2 className="font-semibold text-ink">{editingInsp ? 'Edit Inspection' : 'Request Inspection'}</h2>
               <button onClick={() => { setShowForm(false); setEditingInsp(null) }} className="text-faint hover:text-muted-fg"><X className="h-5 w-5" /></button>

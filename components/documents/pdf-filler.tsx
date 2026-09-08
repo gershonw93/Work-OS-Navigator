@@ -238,7 +238,7 @@ export function PdfFiller({
   }
 
   return (
-    <div className="fixed inset-0 z-[80] flex flex-col bg-black/85">
+    <div className="overlay-full z-[80] flex flex-col bg-black/85" data-overlay>
       <div className="flex flex-wrap items-center gap-2 px-3 py-2 bg-panel border-b border-line">
         <p className="text-sm font-semibold text-ink truncate flex-1 min-w-0">
           Fill in <span className="text-muted-fg font-normal">{fileName}</span>

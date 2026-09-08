@@ -76,7 +76,7 @@ export function CameraCapture({
   }
 
   return (
-    <div className="fixed inset-0 z-[80] bg-black/80 flex items-center justify-center p-4">
+    <div className="overlay-full z-[80] bg-black/80 flex items-center justify-center p-4" data-overlay>
       <div className="bg-panel rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-line-soft">
           <span className="text-sm font-semibold text-ink-soft flex items-center gap-2"><Camera className="h-4 w-4" /> Take a live photo</span>

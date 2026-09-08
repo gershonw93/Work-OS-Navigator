@@ -99,7 +99,7 @@ export function ActivityDrawer({ projectId, open, onClose }: ActivityDrawerProps
       {/* Backdrop */}
       {open && (
         <div
-          className="fixed inset-0 z-40 bg-black/20 backdrop-blur-[1px]"
+          className="overlay-full z-40 bg-black/20 backdrop-blur-[1px]" data-overlay
           onClick={onClose}
         />
       )}

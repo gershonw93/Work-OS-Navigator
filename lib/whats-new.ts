@@ -48,6 +48,34 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    date: '2026-09-09',
+    title: 'The phone app stays put',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'The top bar and the bottom tabs no longer scroll away',
+        text: 'Search, the bell and the tab bar are now pinned where they are. Only the page between them moves. Before, the whole thing scrolled as one long document, so the moment you scrolled down there was no way back to search or to another section without scrolling all the way up again.',
+        href: '/dashboard',
+      },
+      {
+        kind: 'fixed',
+        title: 'Dialogs no longer open taller than the screen',
+        text: 'Adding a milestone to the schedule — and about seventy other dialogs — could open taller than the phone, with the Save button off the bottom and no way to reach it. Every dialog now fits inside the screen, clears the notch and the home indicator, and scrolls inside itself when it has more to show.',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
+        title: 'The page behind a dialog or menu holds still',
+        text: 'Scrolling with a dialog, a drawer or a dropdown open used to move the page underneath it. It no longer does — which also means a dropdown stays attached to the field it belongs to instead of drifting off it.',
+      },
+      {
+        kind: 'fixed',
+        title: 'Wide tables can be scrolled to instead of being cut off',
+        text: 'A few tables were wider than a phone and simply had their last columns chopped off, with no scrollbar and nothing to say anything was missing. They now scroll sideways. Long pasted text — reference numbers, links, anything without spaces — also wraps everywhere now rather than stretching a card off the side of the screen.',
+      },
+    ],
+  },
+  {
     date: '2026-09-08',
     title: 'A clearer phone card, and long notes that wrap',
     items: [

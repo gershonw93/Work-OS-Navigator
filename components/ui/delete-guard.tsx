@@ -82,7 +82,7 @@ export function DeleteGuardProvider({ children }: { children: ReactNode }) {
     <DeleteGuardContext.Provider value={request}>
       {children}
       {open && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={() => !busy && setOpen(false)}>
+        <div className="overlay z-[60] items-center justify-center bg-black/50" data-overlay onClick={() => !busy && setOpen(false)}>
           <div className="w-full max-w-sm rounded-xl bg-panel border border-line shadow-xl" onClick={e => e.stopPropagation()}>
             <div className="px-5 py-4 border-b border-line-soft flex items-center justify-between">
               <h2 className="font-semibold text-ink flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-danger" /> Confirm delete</h2>

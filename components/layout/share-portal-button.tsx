@@ -130,9 +130,9 @@ export function SharePortalButton({ projectId }: SharePortalButtonProps) {
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setOpen(false)}>
+        <div className="overlay items-center justify-center bg-black/40 backdrop-blur-sm" data-overlay onClick={() => setOpen(false)}>
           <div
-            className="max-h-[88vh] w-full max-w-md space-y-4 overflow-y-auto rounded-2xl bg-panel p-6 shadow-xl"
+            className="w-full max-w-md space-y-4 overflow-y-auto rounded-2xl bg-panel p-6 shadow-xl"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">

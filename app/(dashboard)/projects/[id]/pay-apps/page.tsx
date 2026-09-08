@@ -125,7 +125,7 @@ function NewAppModal({ projectId, subOptions, onClose, onCreated, authHeaders }:
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+    <div className="overlay items-center justify-center bg-black/50" data-overlay onClick={onClose}>
       <div className="bg-panel rounded-xl shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
         <div className="px-5 py-4 border-b border-line-soft flex items-center justify-between">
           <h2 className="font-semibold text-ink">New Application for Payment</h2>

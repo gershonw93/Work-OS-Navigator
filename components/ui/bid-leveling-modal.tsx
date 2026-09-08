@@ -130,7 +130,7 @@ export function BidLevelingModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-2 sm:p-4 overflow-y-auto">
+    <div className="overlay items-start justify-center bg-black/60 overflow-y-auto" data-overlay>
       <div className="relative bg-panel rounded-xl shadow-2xl w-full max-w-6xl min-w-0 my-4">
 
         {/* Header */}

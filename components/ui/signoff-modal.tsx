@@ -21,7 +21,7 @@ export function SignoffModal({
   const [name, setName] = useState('')
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !saving && onClose()}>
+    <div className="overlay items-center justify-center bg-black/50" data-overlay onClick={() => !saving && onClose()}>
       <div className="w-full max-w-md rounded-xl bg-panel shadow-xl" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-line px-5 py-4">
           <h2 className="inline-flex items-center gap-2 text-lg font-bold text-ink"><PenLine className="h-5 w-5 text-accent-fg" /> Sign off</h2>

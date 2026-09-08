@@ -27,11 +27,19 @@ export default async function FieldLayout({ children }: { children: ReactNode })
   }
 
   return (
-    <div className="min-h-screen bg-surface text-ink flex flex-col">
+    // Same app shell as the office app: one screen tall, and the only scroller
+    // is <main>. `min-h-screen` let the document grow, which is what carried
+    // the chrome off the top of the screen.
+    <div className="h-app overflow-hidden bg-surface text-ink flex flex-col print:h-auto print:block print:overflow-visible">
       <IdleLogout />
       <NativeShell />
-      <FieldPreviewBanner />
-      <main className="flex-1 overflow-y-auto pb-field-nav px-safe">{children}</main>
+      <div className="shrink-0"><FieldPreviewBanner /></div>
+      <main
+        data-app-scroll
+        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain pb-field-nav px-safe"
+      >
+        {children}
+      </main>
       <FieldNav />
     </div>
   )

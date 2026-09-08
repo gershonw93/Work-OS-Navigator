@@ -297,8 +297,8 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
       )}
 
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-panel rounded-xl shadow-xl w-full min-w-0 max-w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="overlay items-center justify-center bg-black/50" data-overlay>
+          <div className="bg-panel rounded-xl shadow-xl w-full min-w-0 max-w-full sm:max-w-2xl overflow-y-auto">
             <div className="sticky top-0 bg-panel border-b border-line-soft px-4 sm:px-6 py-4 flex items-center justify-between">
               <h2 className="font-semibold text-ink">{editingPermit ? 'Edit Permit' : 'Add Permit'}</h2>
               <button onClick={() => { setShowForm(false); resetForm() }} className="text-faint hover:text-muted-fg"><X className="h-5 w-5" /></button>

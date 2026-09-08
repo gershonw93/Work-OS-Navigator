@@ -245,6 +245,9 @@ export function SearchableSelect({
             zIndex: 9999,
           }}
           className="rounded-lg border border-line bg-panel shadow-xl overflow-hidden"
+          // Its coordinates were measured when it opened. Let the page scroll
+          // underneath and the panel stays where the field used to be.
+          data-overlay
         >
           {searchable && (
             <div className="flex items-center gap-2 border-b border-line-soft px-2.5">

@@ -54,7 +54,7 @@ export default function AdminUsers() {
         />
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-line bg-panel">
+      <div className="overflow-x-auto rounded-xl border border-line bg-panel">
         <table className="w-full text-sm">
           <thead className="bg-surface text-left text-xs font-semibold uppercase text-muted-fg">
             <tr>

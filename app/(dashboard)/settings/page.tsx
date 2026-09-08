@@ -1335,7 +1335,7 @@ export default function SettingsPage() {
               {pendingInvites.length > 0 && (
                 <Card className="mt-4">
                   <CardHeader><CardTitle className="text-base">Pending Invites</CardTitle></CardHeader>
-                  <CardContent className="p-0">
+                  <CardContent className="p-0 overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-line-soft bg-surface">
@@ -1398,7 +1398,7 @@ export default function SettingsPage() {
 
               {/* Invite Modal */}
               {showInvite && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                <div className="overlay items-center justify-center bg-black/40" data-overlay>
                   <div className="bg-panel rounded-xl shadow-xl w-full max-w-md p-6">
                     <div className="flex items-center justify-between mb-5">
                       <h3 className="text-lg font-semibold text-ink">Invite Team Member</h3>

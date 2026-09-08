@@ -188,8 +188,8 @@ export function ShareFilesModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !saving && onClose()}>
-      <div className="w-full max-w-2xl rounded-xl bg-panel shadow-xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+    <div className="overlay items-center justify-center bg-black/50" data-overlay onClick={() => !saving && onClose()}>
+      <div className="w-full max-w-2xl rounded-xl bg-panel shadow-xl overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-line-soft px-5 py-4">
           <h2 className="text-base font-semibold text-ink">
             {addTo ? 'Add documents to this link' : step === 'compose' ? 'Share documents' : 'Link ready'}

@@ -130,8 +130,8 @@ function AddModal({ projects, lockedProjectId, onClose, onSaved }: { projects: P
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !saving && onClose()}>
-      <div className="w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-xl bg-panel shadow-xl" onClick={e => e.stopPropagation()}>
+    <div className="overlay items-center justify-center bg-black/50" data-overlay onClick={() => !saving && onClose()}>
+      <div className="w-full max-w-lg overflow-y-auto rounded-xl bg-panel shadow-xl" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-line px-5 py-4">
           <h2 className="text-lg font-bold text-ink">Add material receipt</h2>
           <button onClick={onClose} className="text-faint hover:text-ink"><X className="h-5 w-5" /></button>

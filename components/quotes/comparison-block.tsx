@@ -162,7 +162,7 @@ export function ComparisonBlock({ comp, projectId, onChanged }: { comp: Comparis
     <div className="rounded-lg border border-line-soft overflow-hidden">
       {/* Award modal */}
       {awardTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !awarding && setAwardTarget(null)}>
+        <div className="overlay items-center justify-center bg-black/50" data-overlay onClick={() => !awarding && setAwardTarget(null)}>
           <div className="bg-panel rounded-xl shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
             <div className="px-5 py-4 border-b border-line-soft"><h2 className="font-semibold text-ink">Award to project</h2></div>
             <div className="p-5 space-y-4">

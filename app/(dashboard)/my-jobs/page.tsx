@@ -85,7 +85,7 @@ export default function MyJobsPage() {
   return (
     <div className="p-4 sm:p-6 space-y-6">
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="overlay items-center justify-center bg-black/50" data-overlay>
           <div className="bg-panel rounded-xl shadow-xl w-full max-w-full sm:max-w-lg">
             <div className="px-6 py-4 border-b border-line-soft flex items-center justify-between">
               <div>

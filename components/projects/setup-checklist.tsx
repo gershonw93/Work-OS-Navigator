@@ -144,7 +144,7 @@ export function SetupChecklist({ projectId }: { projectId: string }) {
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 print:hidden" role="dialog" aria-label="Job setup checklist">
+        <div className="overlay-full print:hidden" data-overlay role="dialog" aria-label="Job setup checklist">
           <div
             onClick={close}
             className={cn('absolute inset-0 bg-black/40 transition-opacity duration-200',

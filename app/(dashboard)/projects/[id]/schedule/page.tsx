@@ -357,7 +357,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     <div className="space-y-6">
 
       {showAdd && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="overlay items-center justify-center bg-black/50" data-overlay>
           <div className="bg-panel rounded-xl shadow-xl w-full max-w-md min-w-0">
             <div className="px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between">
               <h2 className="text-lg font-semibold text-ink">Add Milestone</h2>
@@ -402,7 +402,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
       )}
 
       {editItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="overlay items-center justify-center bg-black/50" data-overlay>
           <div className="bg-panel rounded-xl shadow-xl w-full max-w-md min-w-0">
             <div className="px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between">
               <h2 className="text-lg font-semibold text-ink">Edit Item</h2>

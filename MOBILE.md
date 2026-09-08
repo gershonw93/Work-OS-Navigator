@@ -187,6 +187,81 @@ wraps a website. These are the mitigation, and they are all built:
   scroll view (`contentInset: 'always'`), so some of these resolve to zero. It
   cannot be judged from a desktop browser; look at it in TestFlight.
 
+### The app shell, and why nothing overflows (IMPORTANT)
+
+Read this before adding a dialog, a drawer, a sheet or a menu.
+
+**The shell is exactly one screen tall.** `.h-app` (100vh, then 100dvh) plus
+`overflow-hidden` on the outer div of `(dashboard)/layout.tsx` and
+`field/layout.tsx`. The header and the tab bar are laid out once and never
+move; the only thing that scrolls is `<main data-app-scroll>`. It used to be
+`min-h-screen`, which let the DOCUMENT grow and carried the top bar away with
+it - and meant `overflow-y-auto` on `<main>` never engaged, because there was
+nothing left for it to scroll.
+
+`100vh` is written first and `100dvh` second on purpose: `dvh` landed in Safari
+15.4 and the deployment target is iOS 15.0, so an older WebKit keeps the first
+declaration instead of dropping both and collapsing the shell.
+
+**Every overlay uses `.overlay`.** Not `fixed inset-0`. There were 78 of those,
+54 sharing one exact class string and the rest drifted; whether a dialog fitted
+on the screen depended on which file it lived in.
+
+```jsx
+<div className="overlay items-center justify-center bg-black/50" data-overlay>
+  <div className="w-full max-w-md rounded-xl bg-panel shadow-xl">…</div>
+</div>
+```
+
+- `.overlay` is `position: fixed; inset: 0; display: flex`, padded by
+  `max(1rem, env(safe-area-inset-*))` - so a dialog is never under the Dynamic
+  Island or the home indicator, and still has breathing room on a device with
+  neither.
+- `.overlay > *` caps the panel at `max-height: 100%` with `min-width: 0`,
+  `overflow-y: auto` and `overscroll-behavior: contain`. A panel **cannot** be
+  taller than the screen. Do not add `max-h-[90vh]` back: `vh` knows nothing
+  about the notch, and being a Tailwind utility it *beats* the rule above, so
+  the cap that wins is the wrong one.
+- Alignment (`items-center`, `items-end`), colour and `z-*` stay at the call
+  site, because those genuinely differ.
+- `.overlay-full` is the full-bleed variant - lightbox, camera, PDF filler,
+  drawers and bottom sheets that own the whole screen and position their own
+  children. No padding, no panel cap.
+- A dimming layer inside a `.overlay` must go **on the overlay itself**, not on
+  an `absolute inset-0` child: an absolute child is positioned against the
+  padding box, so it stops short of the edge and leaves undimmed strips.
+
+**`data-overlay` is what stops the background scrolling.** Put it on anything
+that floats over the app - dialogs, drawers, sheets, and menus whose position
+was measured when they opened (`searchable-select` is fixed at coordinates read
+off the trigger; let the page move and the panel stays where the field used to
+be). The lock is CSS:
+
+```css
+html:has([data-overlay]) { overflow: hidden; }
+html:has([data-overlay]) [data-app-scroll] { overflow: hidden !important; }
+```
+
+Deliberately not a JavaScript counter. One early return in one of 78 cleanup
+paths leaves the whole app frozen with nothing on screen to explain it; the
+selector is true for exactly as long as an overlay is in the DOM and cannot
+leak.
+
+**Wide content scrolls, it does not get clipped.** A `<table>` wider than a
+phone inside `overflow-hidden` is not contained, it is cut off - no scrollbar,
+no sign that columns are missing. Use `overflow-x-auto` on the wrapper and
+`min-w-[Npx]` on the table so the columns keep their shape
+(`projects/[id]/compliance` is the model).
+
+**Long text.** `overflow-wrap: anywhere` is the default for `p / li / dd / dt /
+td / th / h1-h6`. `break-words` is the trap: it wraps the text but does NOT
+reduce min-content width, so a grid or flex parent still refuses to shrink and
+the *container* blows out while the text wraps perfectly. Not applied to
+everything - on a button it breaks the label instead of the control keeping its
+shape - so a flex or grid cell holding pasted text still wants `min-w-0`.
+
+All of the above is pinned by `lib/__tests__/layout-overflow.ts`.
+
 ### Push: what to set, and where
 In **Vercel** (production env), after the Apple keys exist:
 

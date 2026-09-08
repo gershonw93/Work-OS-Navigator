@@ -32,19 +32,28 @@ export default async function DashboardLayout({ children }: { children: ReactNod
       <IdleLogout />
       <NativeShell />
       <FieldPreviewGate />
-      <div className="flex min-h-screen bg-surface">
+      {/* An app shell, not a document: exactly one screen tall, and the only
+          thing inside it that scrolls is <main>. It used to be `min-h-screen`,
+          which let the page itself grow and carried the top bar away with it.
+          Print undoes all of it - a paged document has no viewport height. */}
+      <div className="flex h-app overflow-hidden bg-surface print:h-auto print:block print:overflow-visible">
         {/* App chrome is hidden when printing so print/PDF pages (proposals,
             invoices, pay apps) render clean, without the sidebar/nav/tabs. */}
         <div className="print:hidden">
           <Sidebar />
         </div>
-        <div className="flex flex-1 flex-col min-w-0 lg:pl-60 print:pl-0">
-          <div className="print:hidden">
+        <div className="flex flex-1 flex-col min-w-0 min-h-0 lg:pl-60 print:pl-0">
+          {/* shrink-0: without it the header is a flex item that will happily
+              be squashed to nothing by a tall child. */}
+          <div className="shrink-0 print:hidden">
             <ImpersonationBanner />
             <ViewAsBanner />
             <TopNav />
           </div>
-          <main className="flex-1 overflow-y-auto overflow-x-hidden print:overflow-visible px-safe pb-tab-bar">
+          <main
+            data-app-scroll
+            className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain print:overflow-visible px-safe pb-tab-bar"
+          >
             {children}
           </main>
         </div>
