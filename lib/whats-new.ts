@@ -49,6 +49,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-08',
+    title: 'A very long note no longer breaks the card',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'A long note with no spaces in it stretched the inspection card sideways',
+        text: 'Pasting something long and unbroken — a reference string, a URL, a wall of characters with no spaces — into an inspection note pushed the card wider than the screen. Normal prose was always fine. Long notes and failure reasons now wrap wherever they need to.',
+        href: '/projects',
+      },
+    ],
+  },
+  {
+    date: '2026-09-08',
     title: 'QuickBooks tells you the truth, and bills can be corrected',
     items: [
       {

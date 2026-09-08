@@ -221,3 +221,25 @@
   .pb-tab-bar { padding-bottom: calc(4rem + env(safe-area-inset-bottom)); }
   @media (min-width: 1024px) { .pb-tab-bar { padding-bottom: env(safe-area-inset-bottom); } }
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Text somebody typed, which may be 2,033 characters with no spaces in it.
+
+   THE BUG. A note that long broke the inspection card sideways - on a card that
+   ALREADY had `break-words`. That is not a missing class, it is the wrong one:
+
+     break-words  =  overflow-wrap: break-word
+                     wraps the text, but does NOT reduce the element's
+                     min-content width
+     wrap-anywhere = overflow-wrap: anywhere
+                     wraps the text AND shrinks min-content
+
+   Grid and flex items default to `min-width: auto`, so they refuse to shrink
+   below their content's min-content size. With `break-word` that size is still
+   the full width of the unbroken string, so the container blows out while the
+   text inside it is technically wrapping correctly. `anywhere` is the property
+   that lets the container shrink in the first place.
+
+   Tailwind 3.4 has no class for it, hence this one.
+   ───────────────────────────────────────────────────────────────────────────── */
+.wrap-anywhere { overflow-wrap: anywhere; }
