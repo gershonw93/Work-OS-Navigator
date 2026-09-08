@@ -358,6 +358,26 @@ open TestFlight once processing finishes.** Submitting for external testing is a
 deliberate act with a human on the other end - do it in App Store Connect when
 you actually want it, not on every push.
 
+### Push: the key is rebuilt, not trusted
+
+Send test reported `error:1E08010C:DECODER routines::unsupported`. That is
+**OpenSSL, not Apple** - Node could not parse `APNS_PRIVATE_KEY`, so nothing was
+ever sent and Apple was never contacted. A PEM is only valid WITH its line
+breaks, and a dashboard field eats them.
+
+This repo already knew that: it is exactly why the Codemagic signing
+certificate is carried base64-encoded as `CERTIFICATE_PRIVATE_KEY_B64`. The
+other key was left to chance and failed the same way.
+
+`normalizePrivateKey` in `lib/push.ts` now throws away every character that is
+not base64, re-wraps at 64 columns and puts the header back - so escaped
+newlines, lost newlines, spaces, a PEM base64'd again to get through a one-line
+field, and a bare body with no header all work. The label is preserved: an EC
+key in SEC1 form is not PKCS#8 and relabelling it breaks it.
+
+**A failure here is reported as ours, not Apple's.** "Apple refused it:
+error:1E08010C" sent somebody to look at the wrong end of the problem.
+
 ### Push: the app delegate (IMPORTANT)
 
 `ios/App/App/AppDelegate.swift` MUST forward Apple's two remote-notification
@@ -394,7 +414,7 @@ In **Vercel** (production env), after the Apple keys exist:
 |---|---|
 | `APNS_KEY_ID` | The Key ID of the `.p8` push key |
 | `APNS_TEAM_ID` | Your Apple Team ID |
-| `APNS_PRIVATE_KEY` | The whole `.p8` file contents. Pasted newlines usually arrive as `\n` - that is handled |
+| `APNS_PRIVATE_KEY` | The whole `.p8` file, BEGIN and END lines included. Its line breaks do not survive a dashboard field, and a PEM without them is unparseable - `normalizePrivateKey` rebuilds it from whatever base64 is in there, so escaped, lost, spaced or base64'd-again all work |
 | `APNS_BUNDLE_ID` | Optional, defaults to `com.sytenav.app` |
 | `APNS_SANDBOX` | Leave unset. TestFlight and App Store builds use production |
 
