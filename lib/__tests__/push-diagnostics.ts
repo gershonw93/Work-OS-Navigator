@@ -18,7 +18,7 @@ import {
   PUSH_STAGES, pushStateNote, pushStateWhen, readPushState, writePushState,
   type PushStage, type PushState,
 } from '../push-state'
-import { ok, done, code } from './_helpers'
+import { ok, done, code, read } from './_helpers'
 
 const at = '2026-09-08T14:12:00.000Z'
 const state = (stage: PushStage, reason?: string): PushState => ({ stage, at, reason })
@@ -32,6 +32,11 @@ ok(notes.every(n => typeof n === 'string' && n.trim().length > 20),
 const distinct = notes.filter((n, i) => notes.indexOf(n) === i)
 ok(distinct.length === PUSH_STAGES.length,
   `${distinct.length} distinct sentences for ${PUSH_STAGES.length} stages`)
+// THE SECOND BUG, found on the phone. `not_native` used to return the same
+// sentence as "no record at all" - defensible in a browser, and fatal on the
+// screen that had to tell "the code never ran" from "the code ran and stopped".
+ok(!notes.includes(pushStateNote(null)),
+  'no stage shares the no-record default - that is how three facts became one line')
 
 // ── and each one is actionable ───────────────────────────────────────────────
 ok(/iPhone Settings/.test(pushStateNote(state('denied'))),
@@ -67,16 +72,31 @@ ok(/reinstall/i.test(pushStateNote(state('unavailable'))),
 const general = pushStateNote(null)
 ok(/Open SyteNav on your phone/.test(general),
   'no record: the general advice, which is right on a desktop browser')
-ok(pushStateNote(state('not_native')) === general,
-  'and a browser that HAS reported in says the same thing')
+ok(pushStateNote(state('not_native')) !== general,
+  'a browser that HAS reported in says so, rather than borrowing the default')
+ok(/web browser/.test(pushStateNote(state('not_native'))), '...in those words')
 // An old app writing a stage this build does not know about must not blank the
 // card. readPushState drops it; the note then falls back.
 ok(pushStateNote(readPushState()) === general,
   'an unreadable record degrades to advice, never to nothing')
 
+// ── positions, not just endings ──────────────────────────────────────────────
+// A phone whose permission was granted days ago takes NO exit: past `denied`,
+// listeners attached, register() called - and then Apple never answers, because
+// the app delegate has no method to receive the answer. Nothing was written, so
+// the card read exactly like a phone that had never run the code.
+ok(/Apple has not answered/.test(pushStateNote(state('registering'))),
+  'waiting on Apple is a state the card can name')
+ok(/new one is needed/.test(pushStateNote(state('registering'))),
+  '...and it says the truth: this one is not fixable from the phone')
+ok(/did not get as far/.test(pushStateNote(state('starting'))),
+  'starting and never reaching Apple is its own state')
+
 // ── the date, so a retry is distinguishable from no retry ────────────────────
 ok(!!pushStateWhen(state('save_failed'))?.startsWith('Last tried '),
   'a failure is dated')
+ok(/· save_failed$/.test(pushStateWhen(state('save_failed')) ?? ''),
+  '...and names its stage, so reporting it is one word rather than matching prose')
 ok(!!pushStateWhen(state('registered'))?.startsWith('Registered '),
   'a success reads as one')
 ok(pushStateWhen(state('not_native')) === null, 'a browser is not dated - there was no attempt')
@@ -120,6 +140,13 @@ ok(/writePushState\('not_native'\)/.test(hook), 'a browser is recorded')
 ok(/writePushState\('denied'\)/.test(hook), 'a refused permission is recorded')
 ok(/writePushState\('no_session'\)/.test(hook), 'a token with no session is recorded')
 ok(/writePushState\('unavailable'\)/.test(hook), 'the plugin failing to load is recorded')
+ok(/writePushState\('starting'\)/.test(hook),
+  'the hook records that it ran - no record now means it did not, and only that')
+ok(/register\(\)[\s\S]{0,120}writePushState\('registering'\)/.test(hook),
+  'asking Apple is recorded, which is the state the phone was actually stuck in')
+ok(/readPushState\(\)\?\.stage === 'starting'[\s\S]{0,60}writePushState\('registering'\)/.test(hook),
+  "...but only while nothing has answered - the listener can fire first, and a "
+  + 'position must never overwrite an outcome')
 ok(/writePushState\(res\.ok \? 'registered' : 'save_failed'/.test(hook),
   'the save records BOTH outcomes - a success that is never written reads as a failure forever')
 ok(/catch \{ writePushState\('save_failed'/.test(hook),
@@ -135,6 +162,26 @@ ok(!/addListener\('registrationError', \(\) => \{\}\)/.test(hook),
 // from an unmount.
 ok(hook.indexOf("if (cancelled) return") < hook.indexOf("writePushState('denied')"),
   'unmounting is checked separately from being denied')
+
+// ── the native half, which is where the token actually arrives ───────────────
+// THE REAL BUG. Permission granted, register() called, device_tokens empty, no
+// error on either side. Apple hands the token to the app delegate by calling
+// these two methods; they did not exist, so it was delivered to nobody - and
+// the failure case went the same way, which is why registrationError never
+// fired either. `npx cap sync` does not add them: the app delegate is our file.
+const appDelegate = read('ios/App/App/AppDelegate.swift')
+ok(/didRegisterForRemoteNotificationsWithDeviceToken/.test(appDelegate),
+  'the app delegate receives the device token from Apple')
+ok(/capacitorDidRegisterForRemoteNotifications/.test(appDelegate),
+  '...and forwards it, or the plugin never turns it into a `registration` event')
+ok(/didFailToRegisterForRemoteNotificationsWithError/.test(appDelegate),
+  'and it receives the failure')
+ok(/capacitorDidFailToRegisterForRemoteNotifications/.test(appDelegate),
+  '...and forwards that too - silence on both paths is what made this invisible')
+ok(/CapacitorPushNotifications/.test(read('ios/App/Podfile')),
+  'the native plugin is actually in the build')
+ok(/aps-environment/.test(read('ios/App/App/App.entitlements')),
+  'and the app is entitled to talk to Apple at all')
 
 // ── the card reads it ────────────────────────────────────────────────────────
 const card = code('components/settings/notification-settings.tsx')

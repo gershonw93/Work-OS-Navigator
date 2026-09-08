@@ -33,6 +33,32 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
     }
 
+    // ─────────────────────────────────────────────────────────────────────
+    // THE PUSH TOKEN ARRIVES HERE, AND NOWHERE ELSE.
+    //
+    // THE BUG. Permission granted, `PushNotifications.register()` called, and
+    // `device_tokens` empty - with no error anywhere, on either side. This is
+    // why: `register()` calls UIApplication.registerForRemoteNotifications(),
+    // Apple answers by calling the two methods below on the app delegate, and
+    // they did not exist. The token was delivered to nobody. The failure case
+    // went the same way, which is why `registrationError` never fired either
+    // and the JavaScript had nothing to report but silence.
+    //
+    // Capacitor cannot add these for you - `npx cap sync` writes the Podfile
+    // and the plugin, but the app delegate is YOUR file. Forwarding the result
+    // onto NotificationCenter is what lets the plugin turn it into the
+    // `registration` / `registrationError` events lib/use-push.ts listens for.
+    //
+    // Delete either one and push stops working with no error at all.
+    // ─────────────────────────────────────────────────────────────────────
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)
+    }
+
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
+    }
+
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
         // Called when the app was launched with a url. Feel free to add additional processing here,
         // but if you want the App API to support tracking app url opens, make sure to keep this call
