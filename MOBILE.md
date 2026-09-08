@@ -256,6 +256,18 @@ on the screen depended on which file it lived in.
   an `absolute inset-0` child: an absolute child is positioned against the
   padding box, so it stops short of the edge and leaves undimmed strips.
 
+**A bottom sheet is `.overlay-sheet`, not `.overlay-full`.** A sheet owns the
+bottom edge and every side except the top - the status bar and the Dynamic
+Island live up there, and a close button underneath them cannot be tapped. That
+is exactly what happened to the project sections sheet: `.overlay-full` around a
+`max-h-full` panel grew until it filled the screen, putting the X at 20px on a
+phone whose first 59 points belong to the Island, with no way to shut it.
+`.overlay-sheet` pads only the top, by `max(2.5rem, env(safe-area-inset-top) +
+1rem)`, and caps its panel against that.
+
+Put the dim on the overlay itself, never on an `absolute inset-0` child: an
+absolute child is positioned against the padding box and stops short of the edge.
+
 **`data-overlay` is what stops the background scrolling.** Put it on anything
 that floats over the app - dialogs, drawers, sheets, and menus whose position
 was measured when they opened (`searchable-select` is fixed at coordinates read

@@ -31,6 +31,18 @@ has happened here twice.
 
 Nothing renders React. There is no jsdom and no testing-library.
 
+**One exception: `overlay-geometry`.** It lays real markup out in headless
+Chromium at 390x844 and asks the browser for bounding rectangles. Five layout
+bugs in a row were diagnosed by squinting at screenshots from a phone, and every
+one of them was a number. It needs a Chromium binary (Playwright's, via
+`PLAYWRIGHT_BROWSERS_PATH`) and skips **loudly** without one.
+
+Two things it taught immediately, neither of which a source scan could see:
+`headless_shell`, not full Chrome, because Chrome enforces a ~500px minimum
+window width and silently measured a screen no phone has; and a fixture that
+fails to render passes every "it fits" check, so each one asserts the fixture
+came out the right size first.
+
 ## The convention that matters
 
 **Reintroduce the bug and confirm the test fails.** A test written after a fix,

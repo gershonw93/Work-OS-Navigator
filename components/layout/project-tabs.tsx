@@ -374,13 +374,15 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
       )}
 
       {/* Mobile bottom sheet */}
+      {/* The dim goes on the overlay itself, not on an `absolute inset-0` child:
+          an absolute child is positioned against the PADDING box, so it would
+          stop short of the top edge and leave an undimmed strip there. */}
       {open && (
-        <div className="overlay-full sm:hidden flex flex-col justify-end" data-overlay>
-          {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
-
-          {/* Sheet */}
-          <div className="relative flex max-h-full flex-col overflow-y-auto overscroll-contain rounded-t-2xl bg-panel shadow-2xl pb-safe">
+        <div className="overlay-sheet sm:hidden bg-black/40" data-overlay onClick={() => setOpen(false)}>
+          <div
+            onClick={e => e.stopPropagation()}
+            className="flex flex-col overflow-y-auto overscroll-contain rounded-t-2xl bg-panel shadow-2xl pb-safe"
+          >
             <div className="flex items-center justify-between px-5 pt-5 pb-3">
               <h2 className="text-base font-bold text-ink">Project Sections</h2>
               <button onClick={() => setOpen(false)} className="rounded-full p-1 text-faint hover:text-muted-fg">

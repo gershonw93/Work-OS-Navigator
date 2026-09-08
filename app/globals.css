@@ -332,6 +332,25 @@
      the whole screen on purpose, so no padding and no panel cap; they still
      lock the background, because they still carry data-overlay. */
   .overlay-full { position: fixed; inset: 0; z-index: 50; }
+
+  /* A bottom sheet: flush to the BOTTOM edge, and never reaching the top one.
+     THE BUG. The project sections sheet was `.overlay-full` with a `max-h-full`
+     panel, so it grew upward until it filled the screen - putting its title and
+     its close button underneath the status bar and the Dynamic Island, where
+     they cannot be tapped. There was no way to shut it.
+     The one edge a sheet does not own is the top, so that is the only one
+     padded. `max()` rather than the raw inset so a device with no notch still
+     leaves somewhere to aim for when dismissing it. */
+  .overlay-sheet {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding-top: max(2.5rem, calc(env(safe-area-inset-top) + 1rem));
+  }
+  .overlay-sheet > * { max-height: 100%; min-width: 0; }
 }
 
 /* Nothing behind an open overlay scrolls.
