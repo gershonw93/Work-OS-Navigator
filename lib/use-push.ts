@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useNativePlatform } from '@/lib/use-native'
-import { writePushState } from '@/lib/push-state'
+import { readPushState, writePushState } from '@/lib/push-state'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Registering this phone for notifications, and doing something sensible when
@@ -58,6 +58,9 @@ export function usePush() {
     const cleanups: (() => void)[] = []
 
     ;(async () => {
+      // Written first, so that NO record at all means this never ran, rather
+      // than meaning one of the three things it used to mean.
+      writePushState('starting')
       try {
         const { PushNotifications } = await import('@capacitor/push-notifications')
 
@@ -110,7 +113,17 @@ export function usePush() {
         })
         cleanups.push(() => { tapped.remove() })
 
+        // register() resolving means Apple was ASKED, not that it answered -
+        // the answer arrives on a listener, or on nothing at all if the app
+        // delegate has no method to receive it. Recording the question is what
+        // tells those two apart; without it, waiting forever and never having
+        // started looked identical on the settings screen.
         await PushNotifications.register()
+        // Only if nothing has answered yet. The registration listener can fire
+        // BEFORE register() resolves, and moving the record back to "waiting"
+        // would report a phone that had already registered as one that never
+        // heard back - a position must never overwrite an outcome.
+        if (!cancelled && readPushState()?.stage === 'starting') writePushState('registering')
       } catch {
         // The plugin did not load, or the permission call itself threw. The
         // bell still works; the card will say push never started.

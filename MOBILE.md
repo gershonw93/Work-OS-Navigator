@@ -262,6 +262,35 @@ shape - so a flex or grid cell holding pasted text still wants `min-w-0`.
 
 All of the above is pinned by `lib/__tests__/layout-overflow.ts`.
 
+### Push: the app delegate (IMPORTANT)
+
+`ios/App/App/AppDelegate.swift` MUST forward Apple's two remote-notification
+callbacks onto `NotificationCenter`:
+
+```swift
+func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+    NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)
+}
+func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+    NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
+}
+```
+
+**This is what was missing, and it cost a whole debugging round.** Permission
+granted, `register()` called, `device_tokens` empty, and no error anywhere on
+either side - because `register()` only calls
+`UIApplication.registerForRemoteNotifications()`, Apple answers by calling those
+two methods on the app delegate, and they did not exist. The token was delivered
+to nobody. The failure path went the same way, which is why `registrationError`
+never fired either and there was nothing at all to report.
+
+`npx cap sync` will not add them: it writes the Podfile and the plugin, but the
+app delegate is our file. Delete either one and push stops working with no error
+at all. `lib/__tests__/push-diagnostics.ts` checks both are present.
+
+Changing this file means a NEW native build - Codemagic, then TestFlight. The
+web half deploys on its own; the native half does not.
+
 ### Push: what to set, and where
 In **Vercel** (production env), after the Apple keys exist:
 

@@ -53,6 +53,13 @@ export const RELEASES: Release[] = [
     items: [
       {
         kind: 'fixed',
+        title: 'Notifications on the phone itself now actually register',
+        text: 'The app asked for permission, you allowed it, and then nothing — no phone was ever registered and nothing said why. The app build had no way to receive Apple\'s reply, so the answer was delivered to nobody, silently, in both the success and the failure case. That is fixed, and it needs the next TestFlight build to reach you. Settings → Notifications will also now name exactly which step failed if it ever happens again, instead of repeating advice you have already followed.',
+        help: 'notification-preferences',
+        href: '/settings',
+      },
+      {
+        kind: 'fixed',
         title: 'The top bar and the bottom tabs no longer scroll away',
         text: 'Search, the bell and the tab bar are now pinned where they are. Only the page between them moves. Before, the whole thing scrolled as one long document, so the moment you scrolled down there was no way back to search or to another section without scrolling all the way up again.',
         href: '/dashboard',

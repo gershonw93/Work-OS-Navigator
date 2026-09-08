@@ -33,13 +33,25 @@
 import { formatDate } from './dates'
 
 /**
- * Every way registration ends. One per real outcome - two failures that need
- * different things done about them are never the same stage.
+ * The trail, not only the endings.
+ *
+ * FIRST VERSION RECORDED ONLY THE EXITS, and that was not enough. On a phone
+ * whose permission had been granted days earlier, the code sailed past `denied`,
+ * attached its listeners, called `register()` - and Apple never answered,
+ * because the app delegate had no method to receive the answer. No exit was
+ * taken, so nothing was written, so the card showed the same sentence as a
+ * phone that had never run the code at all. Three different facts, one line of
+ * text: the exact fault this file exists to fix, reproduced inside the fix.
+ *
+ * `starting` and `registering` are positions rather than outcomes. They are the
+ * two that say "we got this far and stopped", which is what no ending can.
  */
 export const PUSH_STAGES = [
+  'starting',       // the hook ran. No record at all means it never did.
   'not_native',     // a browser. Push cannot work here and never could.
   'unavailable',    // the notification plugin did not start at all.
   'denied',         // permission refused. iOS will not ask twice.
+  'registering',    // asked Apple, waiting for the answer.
   'apple_refused',  // registrationError fired - carries Apple's own reason.
   'no_session',     // the token arrived before anyone was signed in.
   'save_failed',    // Apple gave us the token, SyteNav could not store it.
@@ -110,8 +122,27 @@ export function pushStateNote(state: PushState | null): string {
   if (!state) return GENERAL
 
   switch (state.stage) {
+    // Distinct from the no-record default ON PURPOSE. They used to share this
+    // sentence - "a browser, so the advice is right" - and that identical
+    // wording is what made "the code never ran" and "the code ran and said this
+    // is a browser" indistinguishable on the one screen that had to tell them
+    // apart.
     case 'not_native':
-      return GENERAL
+      return 'You are looking at SyteNav in a web browser. Notifications that pop up '
+        + 'on the phone itself only work in the SyteNav app - open it there, sign in, '
+        + 'and allow notifications when it asks.'
+
+    case 'starting':
+      return 'This phone began registering and did not get as far as asking Apple. '
+        + RETRY
+
+    // The one that names the real answer. Apple hands the token to the app
+    // delegate; if the app build has no method to receive it, register()
+    // succeeds and nothing else ever happens - no token, and no error either.
+    case 'registering':
+      return 'This phone asked Apple for an address and Apple has not answered. '
+        + RETRY + ' If it stays on this, the app build cannot receive the answer '
+        + 'and a new one is needed - nothing you can do on the phone will fix it.'
 
     case 'unavailable':
       return 'Notifications could not start on this phone. ' + RETRY
@@ -156,5 +187,8 @@ export function pushStateWhen(state: PushState | null): string | null {
   // nothing, so the test for it could never go red.
   const when = formatDate(state.at, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }, '')
   if (!when) return null
-  return `${state.stage === 'registered' ? 'Registered' : 'Last tried'} ${when}`
+  const verb = state.stage === 'registered' ? 'Registered' : 'Last tried'
+  // The raw stage alongside it. It reads as a code because it is one, and it
+  // turns "which of these sentences do you see" into "read me the word".
+  return `${verb} ${when} · ${state.stage}`
 }
