@@ -10,7 +10,20 @@ the cloud via Codemagic - no Mac needed).
 
 ---
 
-## YOU ARE HERE: Developer Program approved, no keys yet
+## YOU ARE HERE: build 1 is in App Store Connect
+
+Version 1.0, build 1 uploaded successfully on 8 Sep 2026 - eight builds, all of
+them signing. What is left is TestFlight, screenshots off a real device, the
+listing, and submission: step 6 below.
+
+The signing configuration is now pinned by `lib/__tests__/codemagic.ts`, which
+syntax-checks every build script and asserts the four settings that each cost a
+build to discover. Do not undo one without reading the comment attached to it.
+
+*(The walkthrough below is kept for the Android build and for the next person
+setting this up from nothing.)*
+
+## Getting here: Developer Program approved, no keys yet
 
 Everything in this repo is done. What is left is six steps, and five of them are
 on Apple's side. In this order, because each one unblocks the next:

@@ -1,6 +1,21 @@
 require_relative '../../node_modules/@capacitor/ios/scripts/pods_helpers'
 
-platform :ios, '13.0'
+# 15.0, not 13.0.
+#
+# Apple's ITMS-90068 on the first upload: "Starting in Spring 2027, all iOS apps
+# must have a MinimumOSVersion of 15.0 or later in order to be uploaded to App
+# Store Connect or submitted for distribution." A warning today and a wall
+# later, so it is not worth carrying.
+#
+# This costs no devices. iOS 15 runs on the iPhone 6s and newer - the same
+# hardware iOS 13 reached - so nobody who could have installed this app at 13.0
+# is excluded at 15.0.
+#
+# MUST MATCH IPHONEOS_DEPLOYMENT_TARGET in App.xcodeproj. The pods are built
+# against the platform declared here and the app against the project setting;
+# when they disagree, CocoaPods emits a warning nobody reads and the value that
+# ends up in the binary is the project's.
+platform :ios, '15.0'
 use_frameworks!
 
 # workaround to avoid Xcode caching of Pods that requires
