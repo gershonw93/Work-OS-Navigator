@@ -384,11 +384,19 @@ export function pushTestMessage(
     return { ok: false, text: 'No phone is registered to your account yet. Open SyteNav on your phone, sign in, and allow notifications when it asks.' }
   }
   if (r.sent > 0) {
+    // NAMES WHERE TO LOOK. It used to say "Look at your phone", which was
+    // written for somebody at a desk and read by somebody holding the phone,
+    // inside the app, on the exact screen it was pointing at. The reply was
+    // "where am I seeing what", and fairly.
+    //
+    // The same sentence is shown in both places and cannot know which, so it
+    // names the banner rather than the device - true whichever end you are on.
+    const where = 'as a banner at the top of the screen, or in Notification Centre if you miss it'
     return {
       ok: true,
       text: r.sent === 1
-        ? 'Sent. Look at your phone - it should be there within a second or two.'
-        : `Sent to ${r.sent} phones. They should arrive within a second or two.`,
+        ? `Sent. It should arrive within a second or two - ${where}.`
+        : `Sent to ${r.sent} phones. They should arrive within a second or two - ${where}.`,
     }
   }
   if (r.dead > 0) {

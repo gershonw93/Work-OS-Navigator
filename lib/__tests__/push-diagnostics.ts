@@ -238,8 +238,22 @@ ok(/Nothing is wrong with your phone/.test(notSetUp.text),
   'no keys on the server is not the phone owner\'s problem, and says so')
 ok(/No phone is registered/.test(pushTestMessage({ ...base, devices: 0 }).text),
   'no phone registered is its own answer')
-ok(pushTestMessage({ ...base, sent: 1 }).ok, 'a send that worked reads as a success')
+const worked = pushTestMessage({ ...base, sent: 1 })
+ok(worked.ok, 'a send that worked reads as a success')
 ok(/2 phones/.test(pushTestMessage({ ...base, sent: 2 }).text), '...and counts them')
+// THE BUG. It said "Look at your phone" - written for somebody at a desk, and
+// read by somebody holding the phone, in the app, on the exact screen it was
+// pointing at. The reply was "where am I seeing what".
+ok(!/look at your phone/i.test(worked.text),
+  'it does not tell somebody holding the phone to go and look at their phone')
+ok(/banner/i.test(worked.text) && /Notification Centre/i.test(worked.text),
+  'it names WHERE the notification turns up, which is the thing that was missing')
+ok(/banner/i.test(pushTestMessage({ ...base, sent: 2 }).text),
+  '...for several phones as well as one')
+// The branch above it says "on your phone" too, and there it is right: nothing
+// is registered, so going to the phone genuinely is the next step.
+ok(/on your phone/.test(pushTestMessage({ ...base, devices: 0 }).text),
+  'the no-phone-registered branch still sends you to the phone, because there it is the answer')
 ok(/removed or reinstalled/.test(pushTestMessage({ ...base, dead: 1 }).text),
   'a dead token is not a fault - the row has just been deleted, so "try again" is right')
 
