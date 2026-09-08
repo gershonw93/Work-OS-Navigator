@@ -53,6 +53,13 @@ export const RELEASES: Release[] = [
     items: [
       {
         kind: 'fixed',
+        title: 'Test notifications failed because of a pasted key, and blamed Apple for it',
+        text: 'Send test reported an error that looked like Apple turning us down. It was not — SyteNav could not read its own Apple key, because pasting it into a settings field strips the line breaks it needs, so nothing was ever sent. The key is now rebuilt on the way in, so it works however it was pasted, and a problem at our end says so instead of pointing at Apple.',
+        help: 'notification-preferences',
+        href: '/settings',
+      },
+      {
+        kind: 'fixed',
         title: 'The project sections menu no longer opens under the clock',
         text: 'Tapping the project name on a phone opened the sections list so tall that its title and its X button ended up behind the status bar, where they could not be tapped — the only way out was to pick a section. It now always stops short of the top of the screen, so the X is somewhere you can actually reach.',
         href: '/projects',

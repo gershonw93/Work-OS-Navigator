@@ -14,12 +14,14 @@
 // actionable sentence, that an unrecognised record degrades to advice rather
 // than to blank, and that the hook still writes one at every exit.
 
+import { generateKeyPairSync, createPrivateKey } from 'node:crypto'
 import {
   PUSH_STAGES, pushStateNote, pushStateWhen, readPushState, writePushState,
   type PushStage, type PushState,
 } from '../push-state'
 import {
   pushTestMessage, apnsReasonHelp, classifyApns, summariseRefusals,
+  normalizePrivateKey, apnsConfig, apnsJwt, KEY_UNREADABLE,
   type ApnsAttempt,
 } from '../push'
 import { ok, done, code, read } from './_helpers'
@@ -271,6 +273,82 @@ ok(/console\.error\(`\[push\]/.test(notify),
   'a REAL notification has no screen to report on, so a refusal goes to the log')
 const testRoute = code('app/api/me/push-test/route.ts')
 ok(/error: push\.error/.test(testRoute), 'and the test button passes it to the sentence builder')
+
+// ═════════════════════════════════════════════════════════════════════════════
+// THE KEY, which is where it actually stopped.
+//
+// Send test finally named the failure and it was not Apple's:
+//
+//     error:1E08010C:DECODER routines::unsupported
+//
+// That is OpenSSL, from our own signing step - Node could not parse the APNs
+// private key, so nothing was ever sent and Apple was never contacted. A PEM is
+// only valid WITH its line breaks and a dashboard field eats them. The codebase
+// already knew this: it is exactly why the Codemagic signing certificate is
+// carried base64-encoded. The other key was left to chance.
+//
+// Real keys, mangled the way a web form mangles them, and checked by actually
+// signing with them. No network, no Apple, no phone.
+// ═════════════════════════════════════════════════════════════════════════════
+const { privateKey } = generateKeyPairSync('ec', { namedCurve: 'P-256' })
+const pem = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString()
+
+const signsWith = (key: string): boolean => {
+  try {
+    apnsJwt({ keyId: 'K', teamId: 'T', privateKey: key, bundleId: 'b', host: 'h' })
+    return true
+  } catch { return false }
+}
+
+// The three manglings, each of which really does produce that exact error.
+ok(!signsWith(pem.replace(/\n/g, '')), 'a key with its line breaks stripped cannot sign - the reported bug')
+ok(!signsWith(pem.replace(/\n/g, ' ')), '...nor one whose line breaks became spaces')
+ok(!signsWith(pem.replace(/\n/g, '\\n')), '...nor one whose line breaks became the characters backslash-n')
+
+ok(signsWith(normalizePrivateKey(pem)), 'an intact key still signs after normalising')
+ok(signsWith(normalizePrivateKey(pem.replace(/\n/g, ''))), 'stripped line breaks are rebuilt')
+ok(signsWith(normalizePrivateKey(pem.replace(/\n/g, ' '))), 'so are spaces')
+ok(signsWith(normalizePrivateKey(pem.replace(/\n/g, '\\n'))), 'so is backslash-n')
+ok(signsWith(normalizePrivateKey(`  ${pem}  `)), 'so is one with stray whitespace around it')
+ok(signsWith(normalizePrivateKey(Buffer.from(pem).toString('base64'))),
+  'and a whole PEM base64ed to get through a one-line field')
+// A bare body with no BEGIN/END at all - somebody pasting "just the key part".
+ok(signsWith(normalizePrivateKey(pem.replace(/-----[A-Z ]+-----/g, '').replace(/\s/g, ''))),
+  'and a bare base64 body with the header lines missing')
+
+// The label is preserved. An EC key in SEC1 form is not PKCS#8, and relabelling
+// it would produce a key that decodes to the wrong thing.
+const sec1 = privateKey.export({ type: 'sec1', format: 'pem' }).toString()
+ok(/BEGIN EC PRIVATE KEY/.test(normalizePrivateKey(sec1.replace(/\n/g, ''))),
+  'an EC key keeps its own header rather than being relabelled PKCS#8')
+ok(signsWith(normalizePrivateKey(sec1.replace(/\n/g, ''))), '...and still signs')
+
+ok(normalizePrivateKey('') === '', 'nothing in, nothing out')
+ok(normalizePrivateKey(undefined) === '', '...and a missing variable is not a crash')
+ok(normalizePrivateKey('   ') === '', 'nor is whitespace')
+
+// apnsConfig reads it through the normaliser, so the whole app benefits.
+const cfg = apnsConfig({
+  APNS_KEY_ID: 'ABC123', APNS_TEAM_ID: 'TEAM01',
+  APNS_PRIVATE_KEY: pem.replace(/\n/g, ''),
+} as any)
+ok(!!cfg, 'a mangled key still configures push rather than reading as "not set up"')
+ok(!!cfg && signsWith(cfg.privateKey), '...and the key it hands out actually signs')
+ok(!!cfg && createPrivateKey(cfg.privateKey).asymmetricKeyType === 'ec', '...as the EC key it is')
+
+// ── and it is reported as OURS, not Apple's ──────────────────────────────────
+const keyFault = pushTestMessage({
+  ...base, error: `${KEY_UNREADABLE}: error:1E08010C:DECODER routines::unsupported`,
+})
+ok(!/Apple refused/.test(keyFault.text),
+  'a key we cannot read is NOT reported as Apple refusing - that sends somebody to the wrong end')
+ok(/SyteNav could not sign/.test(keyFault.text), '...it says whose fault it is')
+ok(/APNS_PRIVATE_KEY/.test(keyFault.text), '...and which setting to re-paste')
+ok(/BEGIN and END/.test(keyFault.text), '...and that the whole file is wanted, line breaks included')
+ok(/DECODER routines/.test(keyFault.text),
+  '...while still carrying the raw error, which is the searchable part')
+ok(/APNS_PRIVATE_KEY/.test(apnsReasonHelp('error:1E08010C:DECODER routines::unsupported') ?? ''),
+  'the raw OpenSSL error is recognised even without our own prefix')
 
 // ── the native half, which is where the token actually arrives ───────────────
 // THE REAL BUG. Permission granted, register() called, device_tokens empty, no

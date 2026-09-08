@@ -67,13 +67,53 @@ interface ApnsConfig {
  * missing key must read as "not configured", never as a failure somebody has
  * to investigate.
  */
+/** The error a local key problem is reported under. Not Apple's. */
+export const KEY_UNREADABLE = 'unreadable APNs key'
+
+/**
+ * A .p8 that survived being pasted into a web form.
+ *
+ * THE BUG. Send test answered `error:1E08010C:DECODER routines::unsupported`.
+ * That is OpenSSL, not Apple - Node could not parse the key, so nothing was
+ * ever sent. A PEM is only valid WITH its line breaks, and a dashboard field
+ * eats them: paste a .p8 into Vercel and the newlines come back as spaces, or
+ * as nothing at all, or as the two characters backslash-n. All three produce
+ * that same error, and the codebase already knew it - it is exactly why the
+ * Codemagic signing certificate is carried base64-encoded.
+ *
+ * So the key is rebuilt rather than trusted: take whatever base64 is in there,
+ * throw away every character that is not base64, and re-wrap it at 64 columns
+ * with its header. Handles escaped newlines, lost newlines, a PEM that has
+ * itself been base64'd to get through a form in one line, and a bare body with
+ * no header at all.
+ *
+ * The label is preserved when there is one. An EC key in SEC1 form says
+ * "BEGIN EC PRIVATE KEY" and relabelling it PKCS#8 would break it.
+ */
+export function normalizePrivateKey(raw: string | undefined | null): string {
+  let text = String(raw ?? '').trim()
+  if (!text) return ''
+  text = text.replace(/\\r\\n|\\n|\\r/g, '\n')
+
+  // A whole PEM, base64'd again to get it through a single-line field.
+  if (!/-----BEGIN/.test(text) && /^[A-Za-z0-9+/=\s]+$/.test(text)) {
+    try {
+      const decoded = Buffer.from(text.replace(/\s+/g, ''), 'base64').toString('utf8')
+      if (/-----BEGIN/.test(decoded)) text = decoded.replace(/\\n/g, '\n')
+    } catch { /* it was not that; carry on with the original */ }
+  }
+
+  const m = /-----BEGIN ([A-Z0-9 ]+)-----([\s\S]*?)-----END \1-----/.exec(text)
+  const label = m ? m[1] : 'PRIVATE KEY'
+  const body = (m ? m[2] : text).replace(/[^A-Za-z0-9+/=]/g, '')
+  if (!body) return ''
+  return `-----BEGIN ${label}-----\n${(body.match(/.{1,64}/g) ?? []).join('\n')}\n-----END ${label}-----\n`
+}
+
 export function apnsConfig(env: NodeJS.ProcessEnv = process.env): ApnsConfig | null {
   const keyId = env.APNS_KEY_ID?.trim()
   const teamId = env.APNS_TEAM_ID?.trim()
-  // Pasted through a dashboard, the newlines in a .p8 usually arrive as the
-  // two characters backslash-n. A key that looks right and is one character
-  // off produces "InvalidProviderToken", which names nothing.
-  const privateKey = env.APNS_PRIVATE_KEY?.replace(/\\n/g, '\n').trim()
+  const privateKey = normalizePrivateKey(env.APNS_PRIVATE_KEY)
   if (!keyId || !teamId || !privateKey) return null
   return {
     keyId, teamId, privateKey,
@@ -170,7 +210,7 @@ export interface ApnsAttempt {
 }
 
 function sendOne(
-  session: ClientHttp2Session, cfg: ApnsConfig, token: string, body: string,
+  session: ClientHttp2Session, cfg: ApnsConfig, jwt: string, token: string, body: string,
 ): Promise<ApnsAttempt> {
   return new Promise(resolve => {
     let status = 0
@@ -178,7 +218,7 @@ function sendOne(
     const req = session.request({
       [constants.HTTP2_HEADER_METHOD]: 'POST',
       [constants.HTTP2_HEADER_PATH]: `/3/device/${token}`,
-      authorization: `bearer ${bearer(cfg)}`,
+      authorization: `bearer ${jwt}`,
       'apns-topic': cfg.bundleId,
       'apns-push-type': 'alert',
       // 10 = deliver now. The alternative (5) lets Apple hold it to save
@@ -219,13 +259,28 @@ export async function sendPush(tokens: string[], message: PushMessage): Promise<
     return { sent: 0, dead: [], failed: 0, skipped: null, error: 'Notification too large for Apple' }
   }
 
+  // SIGNED ONCE, UP FRONT. It used to be signed inside sendOne, per phone, in a
+  // Promise executor - so an unparseable key surfaced as a rejected promise and
+  // came out of the generic catch below labelled "Apple refused it", when Apple
+  // had never been contacted at all. Failing here names the real fault, before a
+  // connection is even opened.
+  let jwt: string
+  try {
+    jwt = bearer(cfg)
+  } catch (e) {
+    return {
+      sent: 0, dead: [], failed: 0, skipped: null,
+      error: `${KEY_UNREADABLE}: ${e instanceof Error ? e.message : 'could not be parsed'}`,
+    }
+  }
+
   let session: ClientHttp2Session | null = null
   try {
     session = connect(`https://${cfg.host}`)
     session.on('error', () => { /* handled per request; must not crash the process */ })
 
     const results = await Promise.race([
-      Promise.all(unique.map(t => sendOne(session!, cfg, t, body))),
+      Promise.all(unique.map(t => sendOne(session!, cfg, jwt, t, body))),
       new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('Apple took too long')), SEND_BUDGET_MS)),
     ])
@@ -295,6 +350,14 @@ export function apnsReasonHelp(error: string | undefined): string | null {
   if (/InternalServerError|ServiceUnavailable|Shutdown|^5\d\d\b/.test(e)) {
     return 'Apple\'s notification service is having a problem. Nothing here is wrong - try again shortly.'
   }
+  // Not Apple's: OpenSSL's, from our own signing step. The exact string Node
+  // gives for a PEM whose line breaks were eaten by a web form.
+  if (e.includes(KEY_UNREADABLE) || /DECODER routines|unsupported|asn1|PEM routines/i.test(e)) {
+    return 'This is SyteNav\'s key, not Apple - the APNs private key in the deployment '
+      + 'settings cannot be read at all, so nothing was sent. Re-paste APNS_PRIVATE_KEY '
+      + 'as the WHOLE .p8 file including the BEGIN and END lines. Losing its line breaks '
+      + 'is what usually does this.'
+  }
   if (/^connection$|took too long/i.test(e)) {
     return 'SyteNav could not reach Apple. If it keeps happening it is a network problem at our end, not yours.'
   }
@@ -344,6 +407,14 @@ export function pushTestMessage(
   // sentence next to the others, without doubling a full stop if it has one.
   const reason = r.error.trim()
   const help = apnsReasonHelp(reason)
-  const refusal = `Apple refused it: ${reason}${/[.!?]$/.test(reason) ? '' : '.'}`
-  return { ok: false, text: help ? `${refusal} ${help}` : refusal }
+  // Only Apple's refusals get Apple's name on them. An unreadable key never
+  // left the building, and reporting it as "Apple refused it: error:1E08010C"
+  // sends somebody to look at the wrong end of the problem - which is exactly
+  // what it did.
+  const ours = reason.includes(KEY_UNREADABLE)
+  const lead = ours
+    ? `SyteNav could not sign the request: ${reason}`
+    : `Apple refused it: ${reason}`
+  const text = `${lead}${/[.!?]$/.test(reason) ? '' : '.'}`
+  return { ok: false, text: help ? `${text} ${help}` : text }
 }
