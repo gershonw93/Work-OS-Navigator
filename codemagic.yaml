@@ -188,7 +188,29 @@ workflows:
     publishing:
       app_store_connect:
         auth: integration
-        submit_to_testflight: true
+        # NO `submit_to_testflight`, deliberately.
+        #
+        # THE BUG. A build that compiled, signed, uploaded, and finished
+        # processing on App Store Connect was reported as FAILED, because its
+        # last step got a 422 from Apple:
+        #
+        #     Another build in the same train is already in beta review.
+        #     Please submit it again once it gets completed.
+        #
+        # Beta App Review is a human queue that takes one build per version
+        # train at a time, and build 1 was still sitting in it. Nothing was
+        # wrong with build 2 - the binary was already delivered - and a red
+        # build that actually succeeded is worse than no status at all.
+        #
+        # It was also doing nothing for us. Beta review gates EXTERNAL testers
+        # only. Internal testers get a build the moment processing finishes,
+        # which is how build 1 reached a phone while its own beta review was
+        # still pending. So this flag submitted us to a queue we do not use, and
+        # then failed the build over the queue being busy.
+        #
+        # Submitting for EXTERNAL testing is a deliberate, one-at-a-time,
+        # human-reviewed act. It belongs in App Store Connect when we actually
+        # want it, not on every push. See MOBILE.md.
 
   android-capacitor:
     name: SyteNav Android
