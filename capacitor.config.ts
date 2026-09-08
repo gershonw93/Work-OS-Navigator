@@ -33,7 +33,27 @@ const config = {
       presentationOptions: ['badge', 'sound', 'alert'],
     },
   },
-  ios: { contentInset: 'always' },
+  ios: {
+    // 'never', and this is not a harmless default.
+    //
+    // THE BUG. The top bar sat flush under the Dynamic Island, then jumped down
+    // by exactly 59pt when the menu was opened, then back. Nothing in SyteNav
+    // pads the top - iOS was, via 'always', which tells WKWebView to inset its
+    // OWN scroll view by the safe area.
+    //
+    // That held while the document scrolled. Then the shell became one screen
+    // tall with <main> as the only scroller (#388), and an inset applied to a
+    // scroll view with nothing to scroll started being recalculated on layout
+    // events - opening the drawer sets `html { overflow: hidden }`, which is
+    // enough to make iOS reapply it.
+    //
+    // One value, decided in two places, and which one is in force depends on
+    // what the webview did last. So it moves to one: 'never' takes iOS out of
+    // it, `viewportFit: 'cover'` (app/layout.tsx) makes env(safe-area-inset-*)
+    // report the real numbers instead of zero, and the CSS that has been
+    // written for those insets all along finally does the job.
+    contentInset: 'never',
+  },
 }
 
 export default config

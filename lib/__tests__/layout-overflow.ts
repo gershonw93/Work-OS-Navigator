@@ -44,8 +44,40 @@ for (const [name, src] of [['office', office], ['field', field]] as const) {
     `...with min-h-0, or a tall child pushes it past the shell instead of scrolling (${name})`)
   ok(/print:h-auto/.test(src), `printing undoes the fixed height (${name}) - a paged document has no viewport`)
 }
-ok(/shrink-0[\s\S]{0,120}<TopNav/.test(office),
+ok(/shrink-0[\s\S]{0,320}<TopNav/.test(office),
   'the top bar cannot be squashed by a tall child - a flex item shrinks by default')
+
+// ── 1b. the top inset has exactly ONE owner ─────────────────────────────────
+// THE BUG. The header sat flush under the Dynamic Island, then jumped down by
+// exactly 59pt when the drawer was opened, then back. Nothing in SyteNav padded
+// the top at all - iOS was, through `contentInset: 'always'`, which insets the
+// webview's own scroll view. That held while the DOCUMENT scrolled; once the
+// shell became one screen tall (#388) an inset on a scroll view with nothing to
+// scroll started being recalculated on layout events, and opening the drawer
+// sets `html { overflow: hidden }`.
+//
+// One value decided in two places, with the winner depending on what the
+// webview did last. These assertions exist to keep it at one.
+const capacitor = read('capacitor.config.ts')
+ok(/contentInset:\s*'never'/.test(capacitor),
+  "iOS does not inset the webview - 'always' is a second opinion nothing else can see")
+ok(!/contentInset:\s*'always'/.test(capacitor),
+  '...and the old value is gone, not merely overridden further down')
+ok(/viewportFit:\s*'cover'/.test(code('app/layout.tsx')),
+  'viewport-fit=cover, or env(safe-area-inset-*) reports zero and the CSS is inert')
+
+for (const [name, src] of [['office', office], ['field', field]] as const) {
+  const times = (src.match(/pt-safe/g) ?? []).length
+  // A COUNT, not a presence check. The failure being guarded is two elements
+  // padding one edge, and a presence check cannot see that at all. Comments are
+  // stripped by code(), so the one explaining this does not count itself.
+  ok(times === 1, `the ${name} shell pads the top exactly once (found ${times})`)
+  ok(/shrink-0[^"]*pt-safe|pt-safe[^"]*shrink-0/.test(src),
+    `...on an element that cannot be collapsed (${name})`)
+}
+ok(!/h-14[^"]*pt-safe|pt-safe[^"]*h-14/.test(code('components/layout/top-nav.tsx')),
+  'the inset is NOT on the h-14 header itself - border-box would take the padding '
+  + 'out of the 56px row and squash the search bar instead of moving it down')
 
 // ── 2. nothing behind an open overlay scrolls ────────────────────────────────
 ok(/html:has\(\[data-overlay\]\)\s*\{[^}]*overflow:\s*hidden/.test(css),

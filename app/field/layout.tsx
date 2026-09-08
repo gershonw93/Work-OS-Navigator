@@ -33,7 +33,10 @@ export default async function FieldLayout({ children }: { children: ReactNode })
     <div className="h-app overflow-hidden bg-surface text-ink flex flex-col print:h-auto print:block print:overflow-visible">
       <IdleLogout />
       <NativeShell />
-      <div className="shrink-0"><FieldPreviewBanner /></div>
+      {/* Field Mode has no header of its own, so the top inset goes on the
+          shell. Same rule as the office app: exactly one element pads this
+          edge, and it is this one. */}
+      <div className="shrink-0 pt-safe bg-surface"><FieldPreviewBanner /></div>
       <main
         data-app-scroll
         className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain pb-field-nav px-safe"

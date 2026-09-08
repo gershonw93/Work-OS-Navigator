@@ -136,6 +136,14 @@ production branch.** Do NOT ask the user to merge or deploy.
   panel positioned from `getBoundingClientRect()` detaches if the page moves.
 - Wide content gets `overflow-x-auto`, never `overflow-hidden`. Hidden does not
   contain a wide table, it cuts it off with nothing to say so.
+- SAFE AREAS ARE OURS, not iOS's. `capacitor.config.ts` sets
+  `contentInset: 'never'` so `env(safe-area-inset-*)` reports real numbers, and
+  EXACTLY ONE element pads each edge - the chrome wrapper at the top of each
+  shell, `pb-safe` on each bottom nav. When iOS was also insetting, the header
+  jumped 59pt whenever a layout event made it recalculate. A second `pt-safe`
+  is not belt-and-braces, it is a visible band of nothing.
+- `pt-safe` never goes on the `h-14` header: border-box takes the padding out of
+  the row and squashes the search bar rather than moving it down.
 - `overflow-wrap: anywhere` is the default for prose. `break-words` wraps the
   text but does not shrink min-content, so the CONTAINER still blows out.
 - Pinned by `lib/__tests__/layout-overflow.ts`. Full detail in MOBILE.md.
