@@ -143,3 +143,83 @@ export function reconciliationNote(r: Reconciliation): string | null {
   }
   return bits.join(' ') || null
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The same money counted twice.
+//
+// THE BUG. The scanner reads tax into `invoices.tax`, and its prompt tells the
+// model NOT to repeat tax as a line item "because repeating them makes the
+// breakdown add up to double". Nothing stopped a PERSON adding one. The result
+// was "the lines add up to $62 more than the total" on a bill that was correct
+// - the $62 was the tax, counted once in the field and once as a line.
+//
+// The deeper cause is that `tax` had no input at all: written once by the scan,
+// then invisible and uneditable. Somebody entering a bill by hand had nowhere
+// to put tax except a line, and somebody correcting a scan could not zero the
+// field to compensate. The warning was a symptom of a field with no door.
+//
+// This flags it AT ENTRY and never rewrites anything on its own. Silently
+// folding a line into a field changes somebody's numbers without telling them,
+// and a bill whose breakdown no longer matches the paper in the folder is hard
+// to argue with later.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Words that mean "this line is tax", not "this line is work". */
+const TAX_WORDS = /\b(sales\s*tax|use\s*tax|vat|gst|hst|pst|tax)\b/i
+
+/**
+ * Does this line describe tax?
+ *
+ * Deliberately narrow. "Tax preparation services" from an accountant is a real
+ * line of work, so a description that merely CONTAINS the word is not enough -
+ * it has to read as a tax line, which in practice means short and tax-led.
+ */
+export function looksLikeTaxLine(description: unknown): boolean {
+  const text = String(description ?? '').trim()
+  if (!text) return false
+  if (!TAX_WORDS.test(text)) return false
+  // Four words or fewer: "Sales tax", "NY sales tax 8.875%", "Tax". A longer
+  // sentence is describing work that happens to mention tax.
+  return text.split(/\s+/).length <= 4
+}
+
+export interface TaxConflict {
+  /** Index into the lines array. */
+  index: number
+  description: string
+  amount: number | null
+}
+
+/**
+ * Lines that look like tax while a tax amount is already recorded.
+ *
+ * Returns [] when there is no tax on the bill, because then a "Sales tax" line
+ * is simply where the tax lives - which is a perfectly good way to enter a
+ * bill, and not something to nag about.
+ */
+export function taxLineConflicts(input: {
+  lines: InvoiceLine[]
+  tax: unknown
+}): TaxConflict[] {
+  const tax = num(input.tax)
+  if (tax == null || Math.abs(tax) <= EPSILON) return []
+  const out: TaxConflict[] = []
+  input.lines.forEach((line, index) => {
+    if (looksLikeTaxLine(line?.description)) {
+      out.push({ index, description: String(line?.description ?? ''), amount: lineAmount(line) })
+    }
+  })
+  return out
+}
+
+/** What to say about it, in the words somebody can act on. */
+export function taxConflictNote(conflicts: TaxConflict[], tax: unknown): string | null {
+  if (!conflicts.length) return null
+  const t = num(tax) ?? 0
+  const money = (n: number) => `$${Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  const first = conflicts[0]
+  const amt = first.amount != null ? ` (${money(first.amount)})` : ''
+  return conflicts.length === 1
+    ? `"${first.description}"${amt} looks like tax, and this bill already records ${money(t)} of tax separately. Counting both would double it.`
+    : `${conflicts.length} lines look like tax, and this bill already records ${money(t)} of tax separately. Counting both would double it.`
+}

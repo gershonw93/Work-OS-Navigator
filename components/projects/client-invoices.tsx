@@ -51,6 +51,7 @@ interface Bill {
   view_count: number | null
   /** Set once it reaches QuickBooks - the same fact the payments list shows. */
   qbo_id: string | null
+  qbo_voided_at?: string | null
   /**
    * Whether the money settling this invoice reached QuickBooks too. The
    * invoice being over there and the payment being over there are different
@@ -275,9 +276,19 @@ export function ClientInvoices({
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
         body: JSON.stringify({ status }),
       })
+      const d = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setError((await res.json().catch(() => ({}))).error ?? `Could not mark it ${status}.`)
+        setError(d?.error ?? `Could not mark it ${status}.`)
         return
+      }
+      // The void succeeded HERE. Whether QuickBooks agreed is a second fact,
+      // and it used to be thrown away - which is how a failed void ended up
+      // wearing a green "Voided in QB" badge.
+      if (d?.quickbooks && d.quickbooks.voided === false) {
+        setError(
+          `Voided here, but QuickBooks did not confirm it${d.quickbooks.detail ? ` (${d.quickbooks.detail})` : ''}. `
+          + 'The invoice is still an open receivable there — retry from Settings → QuickBooks.',
+        )
       }
       await load()
     } catch {
@@ -335,7 +346,7 @@ export function ClientInvoices({
    */
   async function voidInvoice(bill: Bill) {
     if (!confirm(
-      `Void ${bill.invoice_number}?\n\nIt stays on the list for the record, its costs go back to being billable, and it is voided in QuickBooks too. This cannot be undone.`
+      `Void ${bill.invoice_number}?\n\nIt stays on the list for the record, its costs go back to being billable, and the void is sent to QuickBooks. This cannot be undone.`
     )) return
     await setStatus(bill, 'void')
   }

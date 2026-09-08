@@ -38,9 +38,6 @@ export async function GET(request: Request, { params }: { params: { id: string }
 // Manually add an off-platform subcontractor (GC enters everything; no invite/bid).
 // Accepts multipart form-data so a proposal file can be uploaded at the same time.
 export async function POST(request: Request, { params }: { params: { id: string } }) {
-  const gate = await requirePermission(admin(), request, 'team', 'edit')
-  if (denied(gate)) return gate.denied
-
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -58,6 +55,25 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const contactEmail = (form.get('contact_email') as string ?? '').trim()
   const phone = (form.get('phone') as string ?? '').trim()
   const file = form.get('proposal') as File | null
+
+  // THE PERMISSION DEPENDS ON WHAT IS BEING DONE, so it is checked after the
+  // form is read rather than before it.
+  //
+  // Putting a sub you already have in the Directory onto this project is part
+  // of entering their bill - a bookkeeper who can enter bills should not have
+  // to go and find somebody the moment a sub is not yet attached, which is
+  // exactly the wall the tester hit mid-bill. The subcontract is created with
+  // no agreed amount, which migration 082 made possible for this case.
+  //
+  // Creating a BRAND NEW company is a different act: it writes a company-wide
+  // Directory record that every project sees, and duplicate vendors are how a
+  // directory stops being worth reading. That stays `team: edit`.
+  const gate = await requirePermission(
+    admin(), request,
+    existingCompanyId ? 'invoices' : 'team',
+    'edit',
+  )
+  if (denied(gate)) return gate.denied
 
   // Scope line items: [{ description, amount }]
   let lineItems: { description: string; amount: number | null }[] = []
@@ -125,6 +141,18 @@ export async function POST(request: Request, { params }: { params: { id: string 
     if (companyErr || !created) return NextResponse.json({ error: companyErr?.message ?? 'Could not create company' }, { status: 500 })
     company = created
     createdCompanyId = created.id
+  }
+
+  // Nothing constrains (project_id, company_id), so attaching a sub who is
+  // already on this project would quietly create a SECOND subcontract - and
+  // then the bill form offers the same vendor twice with no way to tell which
+  // is which. Reuse the one that exists.
+  if (existingCompanyId) {
+    const { data: already } = await db.from('subcontracts')
+      .select('*, companies(id, name)')
+      .eq('project_id', params.id).eq('company_id', existingCompanyId)
+      .limit(1).maybeSingle()
+    if (already) return NextResponse.json({ subcontract: already, reused: true }, { status: 200 })
   }
 
   // Upload the proposal file if one was provided

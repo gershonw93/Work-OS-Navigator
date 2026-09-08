@@ -48,6 +48,48 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    date: '2026-09-08',
+    title: 'QuickBooks tells you the truth, and bills can be corrected',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'A void that did not reach QuickBooks now says so',
+        text: 'Voiding a client invoice showed a green "Voided in QB" badge whether or not QuickBooks accepted it — so an invoice could sit as an open receivable over there while SyteNav looked settled. The badge now reports what actually happened, and a void that did not get through can be retried from Settings → QuickBooks → Retry voids.',
+        href: '/settings',
+      },
+      {
+        kind: 'fixed',
+        title: 'Voiding a paid invoice works',
+        text: 'QuickBooks refuses to void an invoice while a payment is attached to it, so voiding a paid invoice quietly failed every time. The payment is now voided first, then the invoice — the same order already used for subcontractor bills.',
+        href: '/projects',
+      },
+      {
+        kind: 'new',
+        title: 'Bill lines can be edited after the bill is saved',
+        text: 'One wrong line used to mean deleting the whole bill and re-scanning the document. Edit now shows the same breakdown the create form does, so you can fix a description or an amount in place.',
+        href: '/projects',
+      },
+      {
+        kind: 'new',
+        title: 'Tax is a field you can type in',
+        text: 'Tax could only ever be set by the scanner, and could not be corrected. That is why a scanned bill plus a hand-typed tax line produced a "the lines add up to more than the total" warning on a bill that was right. There is now a tax field, and if a line looks like tax while tax is already recorded, the form says so while you type and offers both ways to fix it.',
+        href: '/projects',
+      },
+      {
+        kind: 'improved',
+        title: 'Add a sub to a job while entering their bill',
+        text: 'A subcontractor already in your Directory was not offered on the bill form unless they were already on that job. They now appear under "From your directory", and picking one adds them to the job without leaving the form.',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
+        title: 'The QuickBooks page describes what it actually syncs',
+        text: 'It listed customers, subs, bills and payments — leaving out client invoices and bill payments, both of which sync, and describing applied payments as sales receipts.',
+        href: '/settings',
+      },
+    ],
+  },
+  {
     date: '2026-09-07',
     title: 'Inspections keep a record you can rely on',
     items: [
