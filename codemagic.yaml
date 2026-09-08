@@ -20,13 +20,15 @@ workflows:
       xcode: latest
       cocoapods: default
       groups:
-        # Holds ONE secure variable: CERTIFICATE_PRIVATE_KEY, an RSA key.
+        # Holds ONE secure variable: CERTIFICATE_PRIVATE_KEY_B64, an RSA
+        # private key, base64 encoded onto a single line.
         #
         # Creating a signing certificate requires a private key to create it
         # against, and a brand-new account has no distribution certificate at
         # all - so one must be made. Without this the signing step dies on its
         # first line with "Cannot save Signing Certificates without certificate
-        # private key", then keychain and use-profiles run happily against
+        # private key" - or, if the PEM is pasted with its line breaks lost,
+        # "Provided value ... is not valid" - then keychain and use-profiles run against
         # nothing and the build fails three steps later complaining about a
         # provisioning profile. The real error is the first line.
         #
@@ -73,10 +75,31 @@ workflows:
       # already on the machine, and never goes to get one.
       - name: Set up signing
         script: |
+          # The key arrives BASE64 ENCODED, and is decoded to a file here.
+          #
+          # Passing the PEM directly in an environment variable failed with
+          # "Provided value in environment variable CERTIFICATE_PRIVATE_KEY is
+          # not valid" - the key itself was fine, but a PEM block is only valid
+          # WITH its line breaks, and pasting a multi-line secret through a web
+          # form loses them. Base64 is one unbroken line, so there is nothing
+          # left for a form to mangle.
+          printf '%s' "$CERTIFICATE_PRIVATE_KEY_B64" | openssl base64 -d -A > /tmp/cert_key.pem
+          # openssl rather than `base64 -d`: the flag is -d on GNU and -D on the
+          # BSD base64 that ships with macOS, and this runs on a Mac.
+
           app-store-connect fetch-signing-files "com.sytenav.app" \
             --type IOS_APP_STORE \
             --create \
-            --certificate-key=@env:CERTIFICATE_PRIVATE_KEY
+            --delete-stale-profiles \
+            --certificate-key=@file:/tmp/cert_key.pem
+          # --delete-stale-profiles removes a profile that no longer matches the
+          # App ID's capabilities before making a new one. Without it, enabling
+          # Push Notifications on the App ID did nothing for three builds in a
+          # row: the profile minted BEFORE the capability was added kept being
+          # reused, and a capability is never retrofitted onto an existing
+          # profile. That was a manual "go and delete it in the portal" step,
+          # and now it is not.
+
           keychain initialize
           keychain add-certificates
           xcode-project use-profiles
