@@ -18,7 +18,7 @@
 // syntactically shell, which is the class of error that actually happened.
 
 import { execFileSync } from 'child_process'
-import { ok, done, read } from './_helpers'
+import { ok, done, read, exists } from './_helpers'
 
 const raw = read('codemagic.yaml')
 
@@ -95,5 +95,18 @@ ok(signing.indexOf('CERTIFICATE_PRIVATE_KEY_B64') < signing.indexOf('fetch-signi
   'the key is decoded before it is used')
 ok(/is empty or not set/.test(signing),
   'a missing key says so, rather than decoding to an empty file and failing as "not valid"')
+
+// ── the pods only exist in the workspace ─────────────────────────────────────
+// `ios/App/Podfile` declares `pod 'Capacitor'` under `use_frameworks!`.
+// CocoaPods links its pods through the WORKSPACE; archiving the bare .xcodeproj
+// builds an app that has never heard of them, and fails with
+// "unable to resolve module dependency: 'Capacitor'" after a full compile.
+const build = all.find(s => s.name === 'Build ipa')?.body ?? ''
+ok(build.length > 0, 'the build step exists')
+ok(/--workspace/.test(build), 'the iOS build archives the workspace')
+ok(!/--project\s+"?ios\/App\/App\.xcodeproj/.test(build),
+  '...and not the bare project, which cannot see the pods')
+ok(/App\.xcworkspace/.test(build), '...naming the workspace CocoaPods generates')
+ok(exists('ios/App/Podfile'), 'there is a Podfile, which is why any of that matters')
 
 done()

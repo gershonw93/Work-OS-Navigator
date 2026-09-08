@@ -125,10 +125,21 @@ workflows:
           keychain initialize
           keychain add-certificates
           xcode-project use-profiles
+      # THE WORKSPACE, NOT THE PROJECT.
+      #
+      # ios/App/Podfile declares `pod 'Capacitor'` under `use_frameworks!`, and
+      # CocoaPods wires its pods in through the WORKSPACE. Archiving the bare
+      # .xcodeproj compiles an app that has never heard of them:
+      #
+      #     AppDelegate.swift:2:8: unable to resolve module dependency: 'Capacitor'
+      #     import Capacitor
+      #
+      # The pods were installed - `[CP] Check Pods Manifest.lock` ran in the
+      # failing log - the archive was simply not looking at them.
       - name: Build ipa
         script: |
           xcode-project build-ipa \
-            --project "ios/App/App.xcodeproj" \
+            --workspace "ios/App/App.xcworkspace" \
             --scheme "App"
     artifacts:
       - build/ios/ipa/*.ipa
