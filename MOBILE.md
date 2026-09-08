@@ -287,6 +287,29 @@ shape - so a flex or grid cell holding pasted text still wants `min-w-0`.
 
 All of the above is pinned by `lib/__tests__/layout-overflow.ts`.
 
+### The build number
+
+`CURRENT_PROJECT_VERSION` is hardcoded to `1` in the Xcode project and nothing
+in the repo moves it. Apple refuses any upload whose bundle version is not
+higher than the last one it accepted, so every build after the first collided:
+
+    The bundle version must be higher than the previously uploaded version: '1'.
+
+Twenty minutes in, at the very last step, having compiled and signed
+successfully. The `Set the build number` step in `codemagic.yaml` now rewrites
+that setting to `$BUILD_NUMBER` - Codemagic's own counter, which counts failed
+builds too and therefore only ever goes up.
+
+**Not `agvtool`.** It is the recipe in every guide and it does not work here: it
+needs `VERSIONING_SYSTEM = "apple-generic"` in the project, and this project
+does not set it, so it fails with "cannot find the Xcode project's versioning
+system". `Info.plist` already reads `CFBundleVersion` from
+`$(CURRENT_PROJECT_VERSION)`, so writing that build setting IS writing the
+bundle version.
+
+The step verifies its own `sed` and fails loudly if it matched nothing - a
+substitution that changed no lines looks exactly like one that worked.
+
 ### Push: the app delegate (IMPORTANT)
 
 `ios/App/App/AppDelegate.swift` MUST forward Apple's two remote-notification

@@ -109,6 +109,41 @@ ok(!/--project\s+"?ios\/App\/App\.xcodeproj/.test(build),
 ok(/App\.xcworkspace/.test(build), '...naming the workspace CocoaPods generates')
 ok(exists('ios/App/Podfile'), 'there is a Podfile, which is why any of that matters')
 
+// ── a build number Apple has not seen before ─────────────────────────────────
+// Build 2 compiled, signed and produced an ipa, then the upload was refused:
+// "The bundle version must be higher than the previously uploaded version: '1'."
+// `CURRENT_PROJECT_VERSION = 1` is hardcoded in the project and nothing moved
+// it, so every build after the first collides - twenty minutes in, at the last
+// step, having done all the work.
+const version = all.find(s => s.name === 'Set the build number')?.body ?? ''
+ok(version.length > 0, 'the build number is set before the ipa is built')
+ok(/CURRENT_PROJECT_VERSION/.test(version),
+  '...on the build setting Info.plist reads CFBundleVersion from')
+ok(!/agvtool/.test(version),
+  'NOT agvtool - the recipe everyone copies needs VERSIONING_SYSTEM = apple-generic, '
+  + 'which this project does not have, so it fails with "cannot find the versioning system"')
+ok(/BUILD_NUMBER/.test(version),
+  "Codemagic's own counter, which counts failed builds too and so only goes up")
+ok(/-lt 2/.test(version),
+  'a counter that cannot beat build 1 fails here in seconds, not at the upload')
+ok(/grep -c[\s\S]{0,400}exit 1/.test(version),
+  'the substitution is verified - a sed that matched nothing looks exactly like success')
+ok(/sed -i ''/.test(version),
+  "BSD sed's empty -i argument, because this runs on a Mac")
+
+const order = all.map(s => s.name)
+ok(order.indexOf('Set the build number') < order.indexOf('Build ipa'),
+  '...and it happens BEFORE the archive, or the ipa carries the old number')
+ok(order.indexOf('Add iOS platform if missing') < order.indexOf('Set the build number'),
+  '...but after cap sync, which rewrites the native project from capacitor.config.ts')
+
+// The config that reaches the app ONLY through cap sync. Without this step,
+// `contentInset: 'never'` sits in a TypeScript file the native build never
+// reads, and the safe-area fix silently does not ship.
+const sync = all.find(s => s.name === 'Add iOS platform if missing')?.body ?? ''
+ok(/cap sync ios/.test(sync),
+  'capacitor.config.ts is synced into the native project, or its settings never ship')
+
 // ── the deployment target Apple will start refusing ──────────────────────────
 // ITMS-90068 on the first upload: "Starting in Spring 2027, all iOS apps must
 // have a MinimumOSVersion of 15.0 or later." A warning now, a wall later.

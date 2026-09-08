@@ -125,6 +125,48 @@ workflows:
           keychain initialize
           keychain add-certificates
           xcode-project use-profiles
+      # A BUILD NUMBER APPLE HAS NOT SEEN BEFORE.
+      #
+      # THE BUG. Build 2 compiled, signed and produced an ipa, then the upload
+      # was refused:
+      #
+      #     The bundle version must be higher than the previously uploaded
+      #     version: '1'.
+      #
+      # `CURRENT_PROJECT_VERSION = 1` is hardcoded in the Xcode project and
+      # nothing ever moved it, so every build after the first one collides with
+      # build 1 - twenty minutes in, at the last step.
+      #
+      # $BUILD_NUMBER is Codemagic's own counter for this workflow. It counts
+      # EVERY build including the failed ones, so it only ever goes up, and
+      # there is no state to keep in the repo.
+      #
+      # NOT agvtool, which is the recipe everyone copies: it needs
+      # VERSIONING_SYSTEM = "apple-generic" in the project and this one does not
+      # have it, so it would fail with "Cannot find the Xcode project's
+      # versioning system". Info.plist already reads CFBundleVersion from
+      # $(CURRENT_PROJECT_VERSION), so setting that build setting IS setting the
+      # bundle version.
+      - name: Set the build number
+        script: |
+          if [ -z "${BUILD_NUMBER:-}" ] || [ "$BUILD_NUMBER" -lt 2 ]; then
+            echo "BUILD_NUMBER is '${BUILD_NUMBER:-unset}', which Apple will reject:"
+            echo "build 1 is already uploaded and the next one must be higher."
+            exit 1
+          fi
+          PBX=ios/App/App.xcodeproj/project.pbxproj
+          # BSD sed, because this runs on a Mac - the empty -i argument is required.
+          sed -i '' -e "s/CURRENT_PROJECT_VERSION = [0-9.]*;/CURRENT_PROJECT_VERSION = $BUILD_NUMBER;/g" "$PBX"
+          # Say so HERE if it did not take, rather than at the upload twenty
+          # minutes from now. A silent no-op looks exactly like success.
+          COUNT=$(grep -c "CURRENT_PROJECT_VERSION = $BUILD_NUMBER;" "$PBX")
+          if [ "$COUNT" -lt 2 ]; then
+            echo "Only $COUNT of the 2 build-configuration entries took the new version."
+            grep -n "CURRENT_PROJECT_VERSION" "$PBX"
+            exit 1
+          fi
+          echo "Build number set to $BUILD_NUMBER in $COUNT configurations."
+
       # THE WORKSPACE, NOT THE PROJECT.
       #
       # ios/App/Podfile declares `pod 'Capacitor'` under `use_frameworks!`, and
