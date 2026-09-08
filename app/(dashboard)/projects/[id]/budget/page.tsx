@@ -920,8 +920,8 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
 
       {/* Use Template modal */}
       {showTemplate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowTemplate(false)}>
-          <div className="bg-panel rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="overlay items-center justify-center bg-black/50" data-overlay onClick={() => setShowTemplate(false)}>
+          <div className="bg-panel rounded-xl shadow-xl w-full max-w-lg overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="px-5 py-4 border-b border-line-soft flex items-center justify-between">
               <h2 className="font-semibold text-ink">{importOnly ? 'Import estimate / budget sheet' : 'Start from a template'}</h2>
               <div className="flex items-center gap-3">
@@ -1085,8 +1085,8 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       {showSoft && (() => {
         const already = new Set(items.filter(i => i.cost_type === 'soft').map(i => normDesc(i.description)))
         return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowSoft(false)}>
-          <div className="bg-panel rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="overlay items-center justify-center bg-black/50" data-overlay onClick={() => setShowSoft(false)}>
+          <div className="bg-panel rounded-xl shadow-xl w-full max-w-md overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="px-5 py-4 border-b border-line-soft flex items-center justify-between">
               <h2 className="font-semibold text-ink">Add preconstruction &amp; soft costs</h2>
               <button onClick={() => setShowSoft(false)} className="text-faint hover:text-ink"><X className="h-5 w-5" /></button>
@@ -1127,7 +1127,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
 
       {/* Save as template modal */}
       {showSave && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowSave(false)}>
+        <div className="overlay items-center justify-center bg-black/50" data-overlay onClick={() => setShowSave(false)}>
           <div className="bg-panel rounded-xl shadow-xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
             <div className="px-5 py-4 border-b border-line-soft flex items-center justify-between">
               <h2 className="font-semibold text-ink">Save as template</h2>

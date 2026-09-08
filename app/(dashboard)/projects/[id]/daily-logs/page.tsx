@@ -588,8 +588,8 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
 
       {/* Edit log modal */}
       {showEditModal && editingLog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-panel rounded-xl shadow-xl w-full max-w-lg flex flex-col max-h-[90vh]">
+        <div className="overlay items-center justify-center bg-black/50" data-overlay>
+          <div className="bg-panel rounded-xl shadow-xl w-full max-w-lg flex flex-col">
             <div className="px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between shrink-0">
               <h2 className="font-semibold text-ink">Edit Daily Log</h2>
               <button onClick={() => { setShowEditModal(false); setEditingLog(null) }} className="text-faint hover:text-muted-fg"><X className="h-5 w-5" /></button>
@@ -743,7 +743,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
 
       {/* Create task modal */}
       {createTaskFromLog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="overlay items-center justify-center bg-black/50" data-overlay>
           <div className="bg-panel rounded-xl shadow-xl w-full max-w-md">
             <div className="px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between">
               <div>

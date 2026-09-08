@@ -419,7 +419,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
     <div className="p-4 sm:p-6 space-y-5">
       {/* Edit Project Modal */}
       {showEditProject && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="overlay items-center justify-center bg-black/50" data-overlay>
           <div className="bg-panel rounded-xl shadow-xl w-full max-w-md">
             <div className="px-6 py-4 border-b border-line-soft flex items-center justify-between">
               <h2 className="font-semibold text-ink">Edit Project</h2>
@@ -1011,8 +1011,8 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
 
           {/* RFI detail modal */}
           {selectedRfi && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-              <div className="bg-panel rounded-xl shadow-xl w-full max-w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="overlay items-center justify-center bg-black/50" data-overlay>
+              <div className="bg-panel rounded-xl shadow-xl w-full max-w-full sm:max-w-lg overflow-y-auto">
                 <div className="px-6 py-4 border-b border-line-soft flex items-center justify-between sticky top-0 bg-panel">
                   <div>
                     <p className="text-xs font-mono text-faint">RFI-{String(selectedRfi.rfi_number).padStart(3, '0')}</p>
@@ -1115,7 +1115,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
       {activeTab === 'inspections' && (
         <>
           {selectedInspection && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="overlay items-center justify-center bg-black/50" data-overlay>
               <div className="bg-panel rounded-xl shadow-xl w-full max-w-full sm:max-w-md">
                 <div className="px-6 py-4 border-b border-line-soft flex items-center justify-between">
                   <h3 className="font-semibold text-ink">{selectedInspection.inspection_type}</h3>
@@ -1274,7 +1274,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
             )}
 
             {selectedInvoice && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+              <div className="overlay items-center justify-center bg-black/50" data-overlay>
                 <div className="bg-panel rounded-xl shadow-xl w-full max-w-full sm:max-w-md">
                   <div className="px-6 py-4 border-b border-line-soft flex items-center justify-between">
                     <div>

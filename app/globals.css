@@ -128,6 +128,28 @@
     overflow-x: clip;
   }
 
+  /* ── Text somebody typed, wherever it lands ──────────────────────────────
+     A 2,033-character string with no spaces in it stretched an inspection card
+     off the side of the screen. That card already had `break-words`, which is
+     the trap: `overflow-wrap: break-word` wraps the text but does NOT reduce
+     the element's min-content width, so a grid or flex parent (min-width: auto
+     by default) still refuses to shrink and the CONTAINER blows out while the
+     text inside it wraps perfectly.
+
+     `anywhere` is the one that shrinks min-content, and it was applied to
+     exactly one card. Here it is the default for every element that carries a
+     run of prose, so the next place somebody pastes a reference number is
+     already covered. Renders identically to `break-word` for ordinary text -
+     the difference only shows up on a word too long for the space.
+
+     Deliberately not on `*`: on a button or a badge this makes the label break
+     mid-word instead of the control keeping its shape, and those hold labels we
+     wrote, not text somebody pasted. */
+  p, li, dd, dt, td, th, blockquote,
+  h1, h2, h3, h4, h5, h6 {
+    overflow-wrap: anywhere;
+  }
+
   body {
     background-color: rgb(var(--surface));
     color: rgb(var(--ink));
@@ -220,7 +242,81 @@
      to be the one you wanted, which is the trap the note above describes. */
   .pb-tab-bar { padding-bottom: calc(4rem + env(safe-area-inset-bottom)); }
   @media (min-width: 1024px) { .pb-tab-bar { padding-bottom: env(safe-area-inset-bottom); } }
+
+  /* ── The app shell is exactly one screen tall ────────────────────────────
+     THE BUG. The top bar and the bottom tab bar scrolled away. `min-h-screen`
+     on the shell means the DOCUMENT grows with the content, so the header went
+     up with it and `overflow-y-auto` on <main> never engaged - there was
+     nothing for it to scroll, because the page itself was scrolling.
+
+     A fixed height turns it into a real app shell: the header and tab bar are
+     laid out once and never move, and the only thing that scrolls is <main>.
+
+     100vh first, 100dvh second, deliberately. dvh landed in Safari 15.4 and
+     the app targets iOS 15.0; an older WebKit drops the second declaration and
+     keeps the first, rather than dropping both and collapsing the shell. */
+  .h-app { height: 100vh; height: 100dvh; }
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Overlays: one definition, not seventy-eight.
+
+   THE BUG. Adding something to the calendar opened a dialog TALLER THAN THE
+   PHONE, with the buttons off the bottom of the screen and no way to reach
+   them. Behind it, the page carried on scrolling under your finger.
+
+   There were 78 hand-rolled `fixed inset-0` overlays. 54 shared one exact
+   class string and the rest had drifted: some capped their height at 90vh,
+   most capped it at nothing at all, and none of them knew about the notch or
+   the home indicator. Whether a dialog fitted on the screen depended on which
+   file it happened to live in.
+
+   `.overlay` is the backdrop. It pads by the safe insets, so a dialog is never
+   under the Dynamic Island or the home indicator, and `max-height: 100%` on
+   whatever it contains means a panel physically CANNOT be taller than the
+   space left over. Alignment (items-center / items-end) and colour stay with
+   the call site, because those genuinely differ.
+   ───────────────────────────────────────────────────────────────────────── */
+@layer components {
+  .overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    /* max() rather than the raw inset: 1rem of breathing room on a device with
+       no notch at all, and the notch where there is one. */
+    padding:
+      max(1rem, env(safe-area-inset-top))
+      max(1rem, env(safe-area-inset-right))
+      max(1rem, env(safe-area-inset-bottom))
+      max(1rem, env(safe-area-inset-left));
+  }
+
+  /* The panel. `min-width: 0` because a flex item defaults to min-width:auto
+     and will refuse to shrink below its content - the same rule that let one
+     long unbroken note stretch a card off the screen. */
+  .overlay > * {
+    max-height: 100%;
+    min-width: 0;
+    overflow-y: auto;
+    /* A scroll that reaches the end of the panel stops there instead of
+       handing itself to the page underneath. */
+    overscroll-behavior: contain;
+  }
+
+  /* Full-bleed overlays - a photo lightbox, the camera, a PDF filler. They own
+     the whole screen on purpose, so no padding and no panel cap; they still
+     lock the background, because they still carry data-overlay. */
+  .overlay-full { position: fixed; inset: 0; z-index: 50; }
+}
+
+/* Nothing behind an open overlay scrolls.
+   `:has()` rather than a JavaScript counter: an effect that increments on open
+   and decrements on cleanup is one early return away from leaving the whole app
+   frozen, and there are 78 places to get it wrong. The selector is true for
+   exactly as long as an overlay is in the DOM, and it cannot leak. */
+html:has([data-overlay]) { overflow: hidden; }
+html:has([data-overlay]) [data-app-scroll] { overflow: hidden !important; }
 
 /* ─────────────────────────────────────────────────────────────────────────────
    Text somebody typed, which may be 2,033 characters with no spaces in it.

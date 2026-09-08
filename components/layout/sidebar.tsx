@@ -234,7 +234,7 @@ export function Sidebar() {
       {/* Mobile backdrop */}
       {mobileOpen && (
         <div
-          className="lg:hidden fixed inset-0 z-40 bg-black/60"
+          className="overlay-full lg:hidden z-40 bg-black/60" data-overlay
           onClick={() => setMobileOpen(false)}
         />
       )}

@@ -31,7 +31,7 @@ export default function AdminAudit() {
       {note && (
         <div className="mb-4 rounded-lg border border-warn/30 bg-warn-tint px-3 py-2 text-sm text-warn">{note}</div>
       )}
-      <div className="overflow-hidden rounded-xl border border-line bg-panel">
+      <div className="overflow-x-auto rounded-xl border border-line bg-panel">
         <table className="w-full text-sm">
           <thead className="bg-surface text-left text-xs font-semibold uppercase text-muted-fg">
             <tr>

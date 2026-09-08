@@ -159,7 +159,7 @@ function CheckOutModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div className="overlay items-center justify-center bg-black/50" data-overlay>
       <div className="w-full max-w-md rounded-xl bg-panel shadow-xl">
         <div className="flex items-center justify-between border-b border-line px-5 py-4">
           <div>
@@ -228,7 +228,7 @@ function AddModal({ onClose, onDone }: { onClose: () => void; onDone: (e: Equipm
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div className="overlay items-center justify-center bg-black/50" data-overlay>
       <div className="w-full max-w-md rounded-xl bg-panel shadow-xl">
         <div className="flex items-center justify-between border-b border-line px-5 py-4">
           <h2 className="text-lg font-bold text-ink">Add equipment</h2>

@@ -72,13 +72,11 @@ export function ImageLightbox({
       else if (e.key === 'ArrowRight') go(1)
     }
     window.addEventListener('keydown', onKey)
-    // Don't let the page scroll behind the overlay.
-    const prevOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      window.removeEventListener('keydown', onKey)
-      document.body.style.overflow = prevOverflow
-    }
+    // The page behind is held still by `html:has([data-overlay])` in
+    // globals.css, not by this effect. Restoring a saved body.overflow on
+    // cleanup is fine until the cleanup does not run, and then the whole app is
+    // frozen with nothing on screen to explain it.
+    return () => { window.removeEventListener('keydown', onKey) }
   }, [onClose, go])
 
   // Tell a touch user once that swiping works - the chevrons are small and easy
@@ -138,7 +136,7 @@ export function ImageLightbox({
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/85 p-4"
+      className="overlay-full z-[80] flex items-center justify-center bg-black/85 p-4" data-overlay
       onClick={onClose}
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}

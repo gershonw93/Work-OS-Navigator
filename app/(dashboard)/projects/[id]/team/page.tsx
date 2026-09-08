@@ -434,7 +434,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
 
       {/* Edit Member Modal */}
       {editMember && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="overlay items-center justify-center bg-black/50" data-overlay>
           <div className="bg-panel rounded-xl shadow-xl w-full max-w-md min-w-0">
             <div className="px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between">
               <h2 className="text-lg font-semibold text-ink">Edit Team Member</h2>
@@ -478,7 +478,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
 
       {/* Add Member Modal */}
       {showAdd && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="overlay items-center justify-center bg-black/50" data-overlay>
           <div className="bg-panel rounded-xl shadow-xl w-full max-w-md min-w-0">
             <div className="px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between">
               <h2 className="text-lg font-semibold text-ink">Add Team Member</h2>
@@ -554,7 +554,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
 
       {/* Add Company Member Modal */}
       {showAddCompanyMember && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="overlay items-center justify-center bg-black/50" data-overlay>
           <div className="bg-panel rounded-xl shadow-xl w-full max-w-md min-w-0">
             <div className="px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between">
               <h2 className="text-lg font-semibold text-ink">Add Company Member</h2>
@@ -601,8 +601,8 @@ export default function TeamPage({ params }: { params: { id: string } }) {
 
       {/* Add Subcontractor Manually Modal */}
       {showAddSub && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-panel rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto min-w-0">
+        <div className="overlay items-center justify-center bg-black/50" data-overlay>
+          <div className="bg-panel rounded-xl shadow-xl w-full max-w-lg overflow-y-auto min-w-0">
             <div className="px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-ink">{editingSubId ? 'Edit Subcontractor' : 'Add Subcontractor'}</h2>

@@ -88,10 +88,10 @@ export function AddProjectModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div className="overlay items-center justify-center bg-black/50" data-overlay>
       {/* Taller and scrollable: the real project form is about three times the
           height of the stub it replaced. */}
-      <div className="flex max-h-[88vh] w-full max-w-lg flex-col rounded-xl bg-panel shadow-xl">
+      <div className="flex w-full max-w-lg flex-col rounded-xl bg-panel shadow-xl">
         <div className="flex shrink-0 items-center justify-between border-b border-line px-6 py-4">
           <h2 className="text-base font-semibold text-ink">Add project for {customer.name}</h2>
           <button onClick={onClose} className="text-faint hover:text-muted-fg text-xl leading-none">&times;</button>

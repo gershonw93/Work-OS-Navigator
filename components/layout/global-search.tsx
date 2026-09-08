@@ -120,7 +120,7 @@ export function GlobalSearch() {
       </div>
 
       {showPanel && (
-        <div className="absolute left-0 right-0 top-full mt-2 max-h-[70vh] overflow-y-auto rounded-xl border border-line bg-panel shadow-2xl z-50">
+        <div data-overlay className="absolute left-0 right-0 top-full mt-2 max-h-[70vh] overflow-y-auto overscroll-contain rounded-xl border border-line bg-panel shadow-2xl z-50">
           {flat.length === 0 ? (
             <p className="px-4 py-6 text-center text-sm text-muted-fg">
               {loading ? 'Searching…' : `No results for “${q.trim()}”`}

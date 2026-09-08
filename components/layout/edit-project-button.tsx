@@ -151,8 +151,8 @@ export function EditProjectButton({ projectId, project }: Props) {
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !saving && setOpen(false)}>
-          <div className="w-full max-w-lg rounded-xl bg-panel shadow-xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="overlay items-center justify-center bg-black/50" data-overlay onClick={() => !saving && setOpen(false)}>
+          <div className="w-full max-w-lg rounded-xl bg-panel shadow-xl overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-line-soft px-5 py-4">
               <h2 className="text-base font-semibold text-ink">Project Settings</h2>
               <button onClick={() => setOpen(false)} className="text-faint hover:text-ink"><X className="h-5 w-5" /></button>

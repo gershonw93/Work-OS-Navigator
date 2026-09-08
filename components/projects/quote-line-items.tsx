@@ -385,7 +385,7 @@ export function QuoteLineItems({ projectId, mode }: { projectId: string; mode: '
 
       {/* Create task modal */}
       {taskFor && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !taskSaving && setTaskFor(null)}>
+        <div className="overlay items-center justify-center bg-black/50" data-overlay onClick={() => !taskSaving && setTaskFor(null)}>
           <div className="w-full max-w-md rounded-xl bg-panel border border-line shadow-xl" onClick={e => e.stopPropagation()}>
             <div className="px-5 py-4 border-b border-line-soft flex items-center justify-between">
               <h2 className="font-semibold text-ink">New task</h2>

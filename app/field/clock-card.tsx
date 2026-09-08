@@ -133,7 +133,7 @@ export function ClockCard({
       {error && <p className="mt-3 text-center text-sm text-danger">{error}</p>}
 
       {pickProject && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4" onClick={() => setPickProject(false)}>
+        <div className="overlay items-end justify-center bg-black/40" data-overlay onClick={() => setPickProject(false)}>
           <div className="w-full max-w-md rounded-2xl border border-line bg-panel p-4" onClick={e => e.stopPropagation()}>
             <h3 className="mb-3 text-base font-semibold text-ink">Which job?</h3>
             <div className="space-y-2">

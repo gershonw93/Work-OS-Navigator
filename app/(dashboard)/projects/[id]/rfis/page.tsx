@@ -189,8 +189,8 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
   return (
     <div className="p-4 sm:p-6 space-y-5">
       {respondingTo && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-panel rounded-xl shadow-xl w-full max-w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="overlay items-center justify-center bg-black/50" data-overlay>
+          <div className="bg-panel rounded-xl shadow-xl w-full max-w-full sm:max-w-lg overflow-y-auto">
             <div className="px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between sticky top-0 bg-panel">
               <div>
                 <h2 className="font-semibold text-ink">Respond to RFI-{String(respondingTo.rfi_number).padStart(3, '0')}</h2>
@@ -267,7 +267,7 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
 
       {/* Edit RFI modal */}
       {editingRfi && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="overlay items-center justify-center bg-black/50" data-overlay>
           <div className="bg-panel rounded-xl shadow-xl w-full max-w-md">
             <div className="px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between">
               <h2 className="font-semibold text-ink">Edit RFI-{String(editingRfi.rfi_number).padStart(3, '0')}</h2>

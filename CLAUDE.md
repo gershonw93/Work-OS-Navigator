@@ -120,6 +120,26 @@ production branch.** Do NOT ask the user to merge or deploy.
   `Promise.all` anything independent. #325 added three sequential trips for one
   line of header text and made the whole app feel slow.
 
+## Layout: the app shell and overlays (IMPORTANT)
+- The shell is ONE SCREEN TALL - `.h-app` + `overflow-hidden`, and the only
+  thing that scrolls is `<main data-app-scroll>`. `min-h-screen` lets the
+  DOCUMENT grow, which carries the top bar off the screen and means `<main>`'s
+  `overflow-y-auto` never engages.
+- Every dialog/drawer/sheet uses `.overlay` (or `.overlay-full`), NEVER a
+  hand-rolled `fixed inset-0`. There were 78 of those and whether a dialog fitted
+  on the phone depended on which file it lived in. `.overlay` pads by the safe
+  insets and caps its panel at `max-height: 100%`, so a panel cannot be taller
+  than the screen. Do NOT re-add `max-h-[90vh]`: vh knows nothing about the
+  notch, and as a utility it beats the rule and wins with the wrong answer.
+- Anything floating over the app carries `data-overlay`, which is what freezes
+  the background (`html:has([data-overlay])` in globals.css). Menus too - a
+  panel positioned from `getBoundingClientRect()` detaches if the page moves.
+- Wide content gets `overflow-x-auto`, never `overflow-hidden`. Hidden does not
+  contain a wide table, it cuts it off with nothing to say so.
+- `overflow-wrap: anywhere` is the default for prose. `break-words` wraps the
+  text but does not shrink min-content, so the CONTAINER still blows out.
+- Pinned by `lib/__tests__/layout-overflow.ts`. Full detail in MOBILE.md.
+
 ## Loading and failure states (IMPORTANT)
 - A loading state must have a WAY TO END. `setLoading(false)` as the last
   statement of an async function ends only on the happy path - use

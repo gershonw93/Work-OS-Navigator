@@ -126,8 +126,8 @@ export default function MasterCalendarPage() {
 
       {/* Day detail - everything happening that day; click one to open it */}
       {selectedDay && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setSelectedDay(null)}>
-          <div className="w-full max-w-md max-h-[85vh] overflow-y-auto rounded-xl bg-panel shadow-xl" onClick={e => e.stopPropagation()}>
+        <div className="overlay items-center justify-center bg-black/50" data-overlay onClick={() => setSelectedDay(null)}>
+          <div className="w-full max-w-md overflow-y-auto rounded-xl bg-panel shadow-xl" onClick={e => e.stopPropagation()}>
             <div className="sticky top-0 flex items-center justify-between border-b border-line bg-panel px-5 py-4">
               <h2 className="text-lg font-bold text-ink">
                 {formatDate(selectedDay, { weekday: 'long', month: 'long', day: 'numeric' })}

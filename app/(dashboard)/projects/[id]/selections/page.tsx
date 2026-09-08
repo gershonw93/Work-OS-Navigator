@@ -541,7 +541,7 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
           with an allowance aimed at it - but it is an offer, since the empty
           line might be deliberate. */}
       {fillPrompt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setFillPrompt(null)}>
+        <div className="overlay items-center justify-center bg-black/40" data-overlay onClick={() => setFillPrompt(null)}>
           <div className="w-full max-w-md rounded-xl bg-panel border border-line shadow-xl p-5 space-y-4" onClick={e => e.stopPropagation()}>
             <div>
               <h3 className="text-base font-semibold text-ink">That budget line is empty</h3>
@@ -566,8 +566,8 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
           guess with the reasoning visible - the category it matched on - and
           every one is changeable before anything saves. */}
       {showLink && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setShowLink(false)}>
-          <div className="w-full max-w-2xl max-h-[85vh] flex flex-col rounded-xl bg-panel border border-line shadow-xl" onClick={e => e.stopPropagation()}>
+        <div className="overlay items-center justify-center bg-black/40" data-overlay onClick={() => setShowLink(false)}>
+          <div className="w-full max-w-2xl flex flex-col rounded-xl bg-panel border border-line shadow-xl" onClick={e => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-2 p-5 pb-3">
               <div>
                 <h3 className="text-base font-semibold text-ink">Connect selections to the budget</h3>
@@ -625,7 +625,7 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
           the option went in front of the client - so this is about who it goes
           to and when it lands, not retyping a number. */}
       {orderFor && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setOrderFor(null)}>
+        <div className="overlay items-center justify-center bg-black/40" data-overlay onClick={() => setOrderFor(null)}>
           <div className="w-full max-w-md rounded-xl bg-panel border border-line shadow-xl p-5 space-y-4" onClick={e => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
@@ -688,8 +688,8 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
           bathtub, and a board that opens with 71 rows on it reads as homework
           rather than a list you'd keep current. */}
       {showSeed && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setShowSeed(false)}>
-          <div className="w-full max-w-lg max-h-[85vh] flex flex-col rounded-xl bg-panel border border-line shadow-xl" onClick={e => e.stopPropagation()}>
+        <div className="overlay items-center justify-center bg-black/40" data-overlay onClick={() => setShowSeed(false)}>
+          <div className="w-full max-w-lg flex flex-col rounded-xl bg-panel border border-line shadow-xl" onClick={e => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-2 p-5 pb-3">
               <div>
                 <h3 className="text-base font-semibold text-ink">What does this job include?</h3>

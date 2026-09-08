@@ -313,7 +313,7 @@ export default function PlansPage({ params }: { params: { id: string } }) {
 
       {/* New Folder Modal */}
       {showNewFolder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+        <div className="overlay items-center justify-center bg-black/50" data-overlay>
           <div className="bg-panel rounded-xl shadow-xl w-full max-w-sm mx-4 min-w-0 px-4 sm:px-6 py-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-ink">New Folder</h2>
@@ -406,7 +406,7 @@ export default function PlansPage({ params }: { params: { id: string } }) {
 
       {/* Move to Folder Modal */}
       {movingPlan && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+        <div className="overlay items-center justify-center bg-black/50" data-overlay>
           <div className="bg-panel rounded-xl shadow-xl w-full max-w-sm mx-4 px-6 py-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-ink">Move File</h2>

@@ -549,7 +549,7 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
 
       {/* Add invited sub to the directory */}
       {pendingContact && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setPendingContact(null)}>
+        <div className="overlay items-center justify-center bg-black/40" data-overlay onClick={() => setPendingContact(null)}>
           <div className="w-full max-w-md rounded-xl bg-panel border border-line shadow-xl p-5 space-y-4" onClick={e => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-2">
               <div>

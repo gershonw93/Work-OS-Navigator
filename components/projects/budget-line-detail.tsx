@@ -102,10 +102,14 @@ export function BudgetLineDetail({
   const pending = invoices.filter(i => !i.counts).reduce((s, i) => s + i.amount, 0)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 sm:p-6"
+    <div className="overlay items-start justify-center bg-black/50" data-overlay
       onClick={onClose}>
-      <div className="w-full max-w-2xl rounded-xl bg-panel shadow-xl" onClick={e => e.stopPropagation()}>
-        <div className="flex items-start justify-between gap-3 border-b border-line-soft px-5 py-4">
+      {/* A column, so the header stays put and only the body scrolls. The
+          overlay caps the whole thing at the screen; overflow-hidden here is
+          what makes the inner flex-1 the thing that gives. */}
+      <div className="flex w-full max-w-2xl flex-col overflow-hidden rounded-xl bg-panel shadow-xl"
+        onClick={e => e.stopPropagation()}>
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-line-soft px-5 py-4">
           <div className="min-w-0">
             <p className="text-xs font-medium text-faint">
               {[line?.cost_code, line?.category].filter(Boolean).join(' · ') || 'Budget line'}
@@ -126,7 +130,7 @@ export function BudgetLineDetail({
         {loading ? (
           <p className="px-5 py-8 text-sm text-faint">Loading…</p>
         ) : (
-          <div className="max-h-[75vh] space-y-5 overflow-y-auto px-5 py-4">
+          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-5 py-4">
             {/* The same four columns as the row on the sheet, in the same
                 order, from the same rollup - so they cannot disagree. */}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

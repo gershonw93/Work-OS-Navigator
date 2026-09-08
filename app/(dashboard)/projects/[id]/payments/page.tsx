@@ -386,7 +386,7 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
 
       {/* Add form - modal so it's front-and-center, not buried at the bottom */}
       {adding && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !saving && closePaymentForm()}>
+        <div className="overlay items-center justify-center bg-black/50" data-overlay onClick={() => !saving && closePaymentForm()}>
         <div className="bg-panel rounded-xl border border-accent/40 shadow-xl w-full max-w-lg p-4 sm:p-5 space-y-3" onClick={e => e.stopPropagation()}>
           <div className="flex items-center justify-between">
             <div>

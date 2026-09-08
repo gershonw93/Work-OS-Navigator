@@ -290,8 +290,8 @@ export default function PlanViewerPage({ params }: { params: { id: string; planI
 
       {/* All pins on this file */}
       {showList && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowList(false)}>
-          <div className="w-full max-w-md max-h-[85vh] overflow-y-auto rounded-xl bg-panel shadow-xl" onClick={e => e.stopPropagation()}>
+        <div className="overlay items-center justify-center bg-black/50" data-overlay onClick={() => setShowList(false)}>
+          <div className="w-full max-w-md overflow-y-auto rounded-xl bg-panel shadow-xl" onClick={e => e.stopPropagation()}>
             <div className="sticky top-0 flex items-center justify-between border-b border-line bg-panel px-5 py-4">
               <h2 className="text-lg font-bold text-ink">Pins on this plan ({pins.length})</h2>
               <button onClick={() => setShowList(false)} className="text-faint hover:text-ink"><X className="h-5 w-5" /></button>
@@ -322,7 +322,7 @@ export default function PlanViewerPage({ params }: { params: { id: string; planI
 
       {/* New-pin task form */}
       {draft && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !saving && setDraft(null)}>
+        <div className="overlay items-center justify-center bg-black/50" data-overlay onClick={() => !saving && setDraft(null)}>
           <div className="w-full max-w-md rounded-xl bg-panel shadow-xl" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-line px-5 py-4">
               <h2 className="text-lg font-bold text-ink">Task at this pin</h2>
@@ -354,7 +354,7 @@ export default function PlanViewerPage({ params }: { params: { id: string; planI
 
       {/* Pin detail */}
       {openPin && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setOpenPin(null)}>
+        <div className="overlay items-center justify-center bg-black/50" data-overlay onClick={() => setOpenPin(null)}>
           <div className="w-full max-w-sm rounded-xl bg-panel shadow-xl" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-line px-5 py-4">
               <span className="inline-flex items-center gap-2 min-w-0">

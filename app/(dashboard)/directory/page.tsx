@@ -327,8 +327,8 @@ export default function DirectoryPage() {
 
       {/* ── Add Contact Modal ── */}
       {showAdd && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-panel rounded-xl shadow-xl w-full max-w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="overlay items-center justify-center bg-black/50" data-overlay>
+          <div className="bg-panel rounded-xl shadow-xl w-full max-w-full sm:max-w-lg overflow-y-auto">
             <div className="sticky top-0 bg-panel border-b border-line-soft px-6 py-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-ink">Add Contact</h2>
               <button onClick={() => { setShowAdd(false); resetForm() }} className="text-faint hover:text-muted-fg">
@@ -524,7 +524,7 @@ export default function DirectoryPage() {
 
       {/* ── Invite Modal ── */}
       {inviteCompany && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="overlay items-center justify-center bg-black/50" data-overlay>
           <div className="bg-panel rounded-xl shadow-xl w-full max-w-sm">
             <div className="px-6 py-4 border-b border-line-soft flex items-center justify-between">
               <h2 className="text-base font-semibold text-ink">Invite to Platform</h2>
@@ -749,8 +749,8 @@ export default function DirectoryPage() {
 
       {/* Edit Modal */}
       {editingCompany && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setEditingCompany(null)} />
+        <div className="overlay z-[60] items-center justify-center bg-black/40 backdrop-blur-sm" data-overlay>
+          <div className="absolute inset-0" onClick={() => setEditingCompany(null)} />
           <div className="relative w-full max-w-md bg-panel rounded-2xl shadow-2xl overflow-hidden">
             <div className="px-6 py-5 border-b border-line-soft flex items-center justify-between">
               <h2 className="text-lg font-bold text-ink">Edit {editingCompany.name}</h2>
@@ -790,11 +790,11 @@ export default function DirectoryPage() {
 
       {/* Profile Modal */}
       {profileCompanyId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8">
+        <div className="overlay items-center justify-center bg-black/40 backdrop-blur-sm" data-overlay>
           {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setProfileCompanyId(null)} />
+          <div className="absolute inset-0" onClick={() => setProfileCompanyId(null)} />
           {/* Panel */}
-          <div className="relative w-full max-w-2xl bg-panel shadow-2xl rounded-2xl flex flex-col max-h-[85vh] overflow-hidden">
+          <div className="relative w-full max-w-2xl bg-panel shadow-2xl rounded-2xl flex flex-col overflow-hidden">
             {/* Header */}
             <div className="px-8 pt-8 pb-6 border-b border-line-soft flex items-start justify-between shrink-0">
               <div className="flex items-center gap-4">
@@ -901,7 +901,7 @@ export default function DirectoryPage() {
                           <p className="text-xs text-faint mt-1">Upload them from a project's Compliance tab.</p>
                         </div>
                       ) : (
-                        <div className="rounded-xl border border-line overflow-hidden">
+                        <div className="rounded-xl border border-line overflow-x-auto">
                           <table className="w-full text-sm">
                             <thead className="bg-surface border-b border-line-soft">
                               <tr>

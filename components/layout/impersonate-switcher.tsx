@@ -141,7 +141,7 @@ export function ImpersonateSwitcher() {
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 pt-24" onClick={() => setOpen(false)}>
+        <div className="overlay items-start justify-center bg-black/40 pt-24" data-overlay onClick={() => setOpen(false)}>
           <div className="w-full max-w-lg rounded-xl bg-panel shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-line-soft px-4 py-3">
               <h2 className="text-sm font-semibold text-ink-soft">Log in as another account</h2>
