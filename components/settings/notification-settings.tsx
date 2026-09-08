@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import type { Channel, NotificationType, Prefs } from '@/lib/notifications'
 
 import { formatDate } from '@/lib/dates'
+import { readPushState, pushStateNote, pushStateWhen, type PushState } from '@/lib/push-state'
 /**
  * What you want to be told about, and how.
  *
@@ -27,6 +28,7 @@ export function NotificationSettings() {
   const [saving, setSaving] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [push, setPush] = useState<{ configured: boolean; devices: number; lastSeen: string | null } | null>(null)
+  const [pushState, setPushState] = useState<PushState | null>(null)
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null)
 
@@ -39,7 +41,11 @@ export function NotificationSettings() {
   }, [supabase])
 
   useEffect(() => {
-    (async () => {
+    // What this device recorded the last time it tried to register. Read here
+    // rather than during render: localStorage does not exist on the server and
+    // reading it in the body is a hydration mismatch.
+    setPushState(readPushState())
+    ;(async () => {
       const headers = await authHeaders()
       const [res, pushRes] = await Promise.all([
         fetch('/api/settings/notifications', { headers }),
@@ -128,9 +134,12 @@ export function NotificationSettings() {
               <p className="text-sm font-medium text-ink">Your phone</p>
               <p className="mt-0.5 text-sm text-muted-fg">
                 {push.devices === 0
-                  ? 'No phone registered yet. Open SyteNav on your phone, sign in, and allow notifications when it asks.'
+                  ? pushStateNote(pushState)
                   : `${push.devices === 1 ? 'One phone is' : `${push.devices} phones are`} set up for notifications${push.lastSeen ? `, last seen ${formatDate(push.lastSeen)}` : ''}.`}
               </p>
+              {push.devices === 0 && pushStateWhen(pushState) && (
+                <p className="mt-0.5 text-xs text-faint">{pushStateWhen(pushState)}</p>
+              )}
               {testResult && (
                 <p className={cn('mt-2 rounded-lg px-3 py-2 text-sm',
                   testResult.ok ? 'bg-success-tint text-success' : 'bg-warn-tint text-warn')}>

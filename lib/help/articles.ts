@@ -1170,7 +1170,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'notification-preferences',
     title: 'Choose what you get told about',
     category: 'settings',
-    keywords: ['notification', 'notifications', 'email', 'alerts', 'bell', 'turn off', 'mute', 'unsubscribe', 'preferences', 'settings', 'stop emails'],
+    keywords: ['notification', 'notifications', 'email', 'alerts', 'bell', 'turn off', 'mute', 'unsubscribe', 'preferences', 'settings', 'stop emails', 'push', 'phone', 'iphone', 'no phone registered', 'not getting notifications', 'device', 'register', 'testflight'],
     summary: 'Pick which notifications reach you in the app, by email, or both.',
     blocks: [
       { type: 'steps', items: [
@@ -1183,8 +1183,10 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: 'text', text: 'Notifications marked COMING SOON are ones the app does not send yet. The switch is there so you can see what is planned; it will start working when the notification does.' },
       { type: 'text', text: 'BIDS. You are told when a sub sends a quote or declines to, when you are invited to quote, when somebody chases you for a price you have not sent, and when a package is awarded. A sub who does not have a SyteNav account still gets the award by email, since the address is on their quote.' },
       { type: 'tip', text: 'Turning off the bell and the email for something means you will not hear about it at all. If you want a quieter inbox but still want to catch up in your own time, turn off Email and leave App on.' },
+      { type: 'text', text: 'YOUR PHONE. Above the switches is a card saying whether a phone is set up for notifications that pop up on the phone itself. If none is, the card now tells you WHY rather than assuming you have not tried: that notifications are switched off for SyteNav in the iPhone\'s own Settings, that Apple would not register the phone (with Apple\'s reason), or that the address arrived but could not be saved. It also dates the last attempt, so you can tell a fresh failure from one you have already retried.' },
+      { type: 'text', text: 'Most of those say the same thing: close SyteNav completely - swipe up and flick it away - and open it again. The phone asks for an address on a cold start, so a relaunch is a real retry. The one exception is permission: iOS only ever asks once, so if you said no, the app cannot ask again and you have to turn it back on in iPhone Settings then Notifications then SyteNav.' },
     ],
-    related: ['invite-team-member', 'permissions'],
+    related: ['invite-team-member', 'permissions', 'sytenav-on-your-phone'],
   },
   {
     slug: 'invite-team-member',

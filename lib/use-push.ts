@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useNativePlatform } from '@/lib/use-native'
+import { writePushState } from '@/lib/push-state'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Registering this phone for notifications, and doing something sensible when
@@ -19,6 +20,14 @@ import { useNativePlatform } from '@/lib/use-native'
 // or is offline when the app opens, gets an app that works exactly as before.
 // Push is a convenience layered on top of the bell, not a thing to be signed
 // in through.
+//
+// It does, however, WRITE DOWN HOW IT WENT. Every exit below used to be silent,
+// and one of them was taken on a real phone: permission granted, register()
+// called, and `device_tokens` empty, with nothing anywhere saying why. The
+// Settings card meanwhile told the person - standing inside the app, on the
+// phone - to go and open the app. `writePushState` is that fix and the whole of
+// it: nothing here interrupts anybody, it only stops the screen guessing.
+// See lib/push-state.ts.
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function authToken(): Promise<string> {
@@ -43,7 +52,8 @@ export function usePush() {
   const router = useRouter()
 
   useEffect(() => {
-    if (!ready || !isNative) return
+    if (!ready) return
+    if (!isNative) { writePushState('not_native'); return }
     let cancelled = false
     const cleanups: (() => void)[] = []
 
@@ -58,30 +68,37 @@ export function usePush() {
         if (status.receive === 'prompt' || status.receive === 'prompt-with-rationale') {
           status = await PushNotifications.requestPermissions()
         }
-        if (status.receive !== 'granted' || cancelled) return
+        if (cancelled) return
+        if (status.receive !== 'granted') { writePushState('denied'); return }
 
         // Apple hands the token back on an event, not from the register()
         // call, so the listener has to be attached BEFORE registering or the
         // first token of a cold start is missed.
         const registered = await PushNotifications.addListener('registration', async ({ value }) => {
           try {
+            if (!value) return
             const jwt = await authToken()
-            if (!jwt || !value) return
+            if (!jwt) { writePushState('no_session'); return }
             remember(value)
-            await fetch('/api/me/device-token', {
+            const res = await fetch('/api/me/device-token', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
               body: JSON.stringify({ token: value, platform: 'ios' }),
             })
-          } catch { /* the next cold start registers again */ }
+            // The status, not just "it went wrong" - a 401 and a 500 are two
+            // different problems and only one of them is ours.
+            writePushState(res.ok ? 'registered' : 'save_failed', res.ok ? undefined : `error ${res.status}`)
+          } catch { writePushState('save_failed', 'no connection') }
         })
         cleanups.push(() => { registered.remove() })
 
         // Registration can fail for reasons nobody here can fix (no signal, a
-        // provisioning profile without the push entitlement). Swallowed: the
-        // app must not show an error about a feature the person did not ask
-        // for and is not using yet.
-        const failed = await PushNotifications.addListener('registrationError', () => {})
+        // provisioning profile without the push entitlement). Still swallowed -
+        // no popup - but Apple says WHICH, and throwing that sentence away was
+        // the difference between "notifications are broken" and a fix.
+        const failed = await PushNotifications.addListener('registrationError', err => {
+          writePushState('apple_refused', (err as any)?.error)
+        })
         cleanups.push(() => { failed.remove() })
 
         // Tapping a notification should open the THING, not just the app.
@@ -94,7 +111,11 @@ export function usePush() {
         cleanups.push(() => { tapped.remove() })
 
         await PushNotifications.register()
-      } catch { /* no push on this device; the bell still works */ }
+      } catch {
+        // The plugin did not load, or the permission call itself threw. The
+        // bell still works; the card will say push never started.
+        writePushState('unavailable')
+      }
     })()
 
     return () => {
