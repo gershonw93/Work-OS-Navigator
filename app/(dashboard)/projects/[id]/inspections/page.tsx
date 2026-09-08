@@ -364,7 +364,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
                 <span className="text-xs font-medium bg-success-tint border border-success/30 text-success rounded-full px-2 py-0.5">Ready ✓</span>
               )}
             </div>
-            <p className="text-xs text-faint mt-0.5">
+            <p className="text-xs text-faint mt-0.5 wrap-anywhere">
               {insp.scheduled_date ? `${formatDate(insp.scheduled_date)}${insp.scheduled_time ? ` ${insp.scheduled_time}` : ''}` : 'No date yet'}
               {insp.inspector_name && ` · ${insp.inspector_name}`}
               {insp.status === 'requested' && insp.scheduler_name && ` · ${insp.scheduler_name} to schedule`}
@@ -375,7 +375,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
 
         {isExpanded && (
           <div className="border-t border-line-soft px-5 py-5 space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm [&>div]:min-w-0 [&>div]:[overflow-wrap:anywhere]">
               {insp.scheduled_date && (
                 <div><p className="text-xs text-faint">Scheduled Date</p><p className="font-medium text-ink-soft">{formatDate(insp.scheduled_date)}</p></div>
               )}
@@ -383,7 +383,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
                 <div><p className="text-xs text-faint">Time</p><p className="font-medium text-ink-soft">{insp.scheduled_time}</p></div>
               )}
               {insp.failure_reason && (
-                <div className="col-span-2"><p className="text-xs text-faint">Why it failed</p><p className="font-medium text-danger break-words">{insp.failure_reason}</p></div>
+                <div className="col-span-2"><p className="text-xs text-faint">Why it failed</p><p className="font-medium text-danger break-words wrap-anywhere">{insp.failure_reason}</p></div>
               )}
               {insp.completed_date && (
                 <div><p className="text-xs text-faint">Completed</p><p className="font-medium text-ink-soft">{formatDate(insp.completed_date)}</p></div>
@@ -422,7 +422,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
               </div>
             )}
 
-            {insp.notes && <p className="text-sm text-muted-fg break-words">{insp.notes}</p>}
+            {insp.notes && <p className="text-sm text-muted-fg break-words wrap-anywhere">{insp.notes}</p>}
 
             {insp.card_image_url && (
               <a href={insp.card_image_url} target="_blank" rel="noopener noreferrer" className="block">
