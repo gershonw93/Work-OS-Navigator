@@ -19,9 +19,24 @@ workflows:
       node: 20
       xcode: latest
       cocoapods: default
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.sytenav.app
+      # NO `ios_signing:` BLOCK, DELIBERATELY.
+      #
+      # That block turns on Codemagic's AUTOMATIC code signing, which runs as a
+      # pre-build phase before any script in this file. It looks for an existing
+      # distribution profile and fails if there is none - it does not create
+      # one. On an account whose first build has never succeeded there is never
+      # one, so it failed in under two seconds with
+      #
+      #     No matching profiles found for bundle identifier "com.sytenav.app"
+      #     and distribution type "app_store"
+      #
+      # twice, the second time with the `--create` fix already in `scripts`
+      # below - which never got to run. The instant failure is the tell: `npm
+      # ci` alone takes minutes.
+      #
+      # The two mechanisms are mutually exclusive. Signing is scripted here
+      # instead, because scripted signing is the only one that can CREATE what
+      # is missing.
     scripts:
       - name: Install dependencies
         script: npm ci
@@ -29,19 +44,14 @@ workflows:
         script: |
           npx cap add ios || true
           npx cap sync ios
-      # THE FIRST BUILD DIED HERE: "No matching profiles found for bundle
-      # identifier com.sytenav.app and distribution type app_store". Accurate,
-      # and unhelpful - no distribution profile had ever existed, because the
-      # account was days old and there is no Mac here to make one on.
+      # Fetch the signing files, CREATING them when they do not exist yet - a
+      # new account has no distribution certificate and no provisioning profile,
+      # and there is no Mac here to make either on. Credentials come from the
+      # `SyteNav ASC` integration above, which Codemagic exposes to this CLI as
+      # environment variables.
       #
-      # `use-profiles` APPLIES profiles that are already on the machine. It does
-      # not go and get them, and it does not ask for one to be made. On a fresh
-      # account there was nothing to apply.
-      #
-      # `--create` is the whole fix: it mints the distribution certificate and
-      # the provisioning profile through the same App Store Connect key already
-      # configured as the `SyteNav ASC` integration above. `keychain` then
-      # installs the certificate so `use-profiles` has something to work with.
+      # `use-profiles` alone was what the first build tried: it APPLIES profiles
+      # already on the machine, and never goes to get one.
       - name: Set up signing
         script: |
           app-store-connect fetch-signing-files "com.sytenav.app" \
