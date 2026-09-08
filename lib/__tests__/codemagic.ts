@@ -109,4 +109,30 @@ ok(!/--project\s+"?ios\/App\/App\.xcodeproj/.test(build),
 ok(/App\.xcworkspace/.test(build), '...naming the workspace CocoaPods generates')
 ok(exists('ios/App/Podfile'), 'there is a Podfile, which is why any of that matters')
 
+// ── the deployment target Apple will start refusing ──────────────────────────
+// ITMS-90068 on the first upload: "Starting in Spring 2027, all iOS apps must
+// have a MinimumOSVersion of 15.0 or later." A warning now, a wall later.
+//
+// The Podfile and the Xcode project must AGREE: pods are built against the
+// platform in one and the app against the setting in the other, and when they
+// differ CocoaPods emits a warning nobody reads while the binary takes the
+// project's value.
+const podfile = read('ios/App/Podfile')
+const pbxproj = read('ios/App/App.xcodeproj/project.pbxproj')
+const podPlatform = /^platform :ios, '([\d.]+)'/m.exec(podfile)?.[1] ?? ''
+ok(parseFloat(podPlatform) >= 15, `the Podfile targets iOS ${podPlatform || '?'}, which Apple still accepts`)
+
+// Plain exec loop rather than matchAll spread: this file compiles under the
+// repo's ES5 target, where iterating an iterator needs downlevelIteration.
+const targets: string[] = []
+const targetPattern = /IPHONEOS_DEPLOYMENT_TARGET = ([\d.]+);/g
+let tm: RegExpExecArray | null
+while ((tm = targetPattern.exec(pbxproj))) targets.push(tm[1])
+
+ok(targets.length > 0, `the Xcode project declares a deployment target (${targets.length} places)`)
+const distinct = targets.filter((t, i) => targets.indexOf(t) === i)
+ok(targets.every(t => parseFloat(t) >= 15), `every one of them is 15.0 or later (${distinct.join(', ')})`)
+ok(distinct.length === 1 && distinct[0] === podPlatform,
+  'the Podfile and the Xcode project agree - a mismatch is a warning nobody reads')
+
 done()
