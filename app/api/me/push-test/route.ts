@@ -82,7 +82,7 @@ export async function POST(request: Request) {
   // The SAME function every real notification goes through, deliberately -
   // dead-token cleanup included. A test that took its own path could pass
   // while the real thing fails, which is worse than having no test.
-  const sent = await pushToPhones(db, [user.id], {
+  const push = await pushToPhones(db, [user.id], {
     title: 'SyteNav',
     body: 'Notifications are working. This is a test you sent yourself.',
     link: '/settings',
@@ -95,7 +95,10 @@ export async function POST(request: Request) {
   const dead = Math.max(0, before - after.count)
 
   return NextResponse.json({
-    ...pushTestMessage({ configured, devices: before, sent, dead }),
-    configured, devices: before, sent, dead,
+    // `error` is the whole point of the button. It carries Apple's own words -
+    // "403 InvalidProviderToken" - and used to be dropped two layers down, so
+    // every refusal reached this line as "no reason why".
+    ...pushTestMessage({ configured, devices: before, sent: push.sent, dead, error: push.error }),
+    configured, devices: before, sent: push.sent, dead,
   })
 }

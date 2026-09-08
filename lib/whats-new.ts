@@ -52,6 +52,13 @@ export const RELEASES: Release[] = [
     title: 'The phone app stays put',
     items: [
       {
+        kind: 'improved',
+        title: 'A failed test notification now says what Apple actually refused',
+        text: 'Settings → Notifications → Send test used to answer "Nothing was sent, and Apple gave no reason why" for every failure. Apple almost always gives a reason; SyteNav was computing it and then discarding it before anyone could read it. The answer now names it, and says which setting to change — or says plainly when it is Apple rate-limiting us, which fixes itself.',
+        help: 'notification-preferences',
+        href: '/settings',
+      },
+      {
         kind: 'fixed',
         title: 'The top bar no longer jumps down when you open the menu',
         text: 'On an iPhone the search bar sometimes sat jammed against the very top of the screen, under the clock, and then dropped into place the moment you opened the menu — and sometimes back again. Two different things were deciding where the top of the app should be, and which one won depended on what you had just tapped. Now one of them does, so it sits in the right place from the moment the app opens.',

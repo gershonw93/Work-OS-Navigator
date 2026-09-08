@@ -131,7 +131,7 @@ export async function notify(input: NotifyInput): Promise<NotifyResult> {
       { title: input.title || t?.label || 'SyteNav', body: input.message, link: input.link, type: canonicalType(input.type) },
     )
 
-    return { inApp, emailed: results.filter(Boolean).length, pushed, skipped: null }
+    return { inApp, emailed: results.filter(Boolean).length, pushed: pushed.sent, skipped: null }
   } catch (e) {
     // Deliberately swallowed. See the header: the caller's real work has
     // already succeeded by the time we get here.
@@ -153,27 +153,43 @@ export async function notify(input: NotifyInput): Promise<NotifyResult> {
  * notification that fails on every future send for the life of that row - and
  * quietly makes every batch look half-broken in the logs.
  */
+export interface PhonePushResult {
+  sent: number
+  failed: number
+  /** Apple's own words, e.g. "403 InvalidProviderToken". See PushResult.error. */
+  error?: string
+}
+
 export async function pushToPhones(
   db: any, userIds: string[], message: Parameters<typeof sendPush>[1],
-): Promise<number> {
+): Promise<PhonePushResult> {
+  const none: PhonePushResult = { sent: 0, failed: 0 }
   try {
-    if (!userIds.length) return 0
+    if (!userIds.length) return none
     // Before the lookup, not after. Until the Apple keys are set - every
     // preview deploy, and production until the enrolment finishes - this would
     // otherwise be a database round trip on every single notification, to
     // build a list nothing can be sent to.
-    if (!apnsConfig()) return 0
+    if (!apnsConfig()) return none
 
     const { data: devices } = await db.from('device_tokens').select('token').in('user_id', userIds)
     const tokens = (devices ?? []).map((d: any) => d.token).filter(Boolean)
-    if (!tokens.length) return 0
+    if (!tokens.length) return none
 
     const res = await sendPush(tokens, message)
     if (res.dead.length) {
       try { await db.from('device_tokens').delete().in('token', res.dead) } catch { /* next send will try again */ }
     }
-    return res.sent
+    // A REAL notification has no screen to report on. The Settings test button
+    // shows the reason to the person who pressed it; a bill approval that
+    // quietly reached nobody has nothing at all, so it goes to the log where it
+    // can be found afterwards. This used to return a bare count, and a send
+    // refused by Apple was indistinguishable from one with nothing to send to.
+    if (res.failed && res.error) {
+      console.error(`[push] ${res.failed} of ${tokens.length} refused by Apple: ${res.error}`)
+    }
+    return { sent: res.sent, failed: res.failed, error: res.error }
   } catch {
-    return 0
+    return none
   }
 }
