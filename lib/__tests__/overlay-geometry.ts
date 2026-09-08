@@ -23,7 +23,7 @@ import { execFileSync } from 'child_process'
 import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync, readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { ok, done, root } from './_helpers'
+import { ok, done, root, code } from './_helpers'
 
 const VIEWPORT = { w: 390, h: 844 }   // iPhone 14/15, the smallest we care about
 
@@ -82,7 +82,7 @@ function styles(html: string): string {
 }
 
 /** Lay `body` out at phone size and hand back what the browser measured. */
-function measure(body: string, probe: string): Record<string, number> {
+function measure(body: string, probe: string, height = VIEWPORT.h): any {
   const css = styles(body)
   const page = `<!doctype html><html><head>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -102,7 +102,7 @@ function measure(body: string, probe: string): Record<string, number> {
   const dom = execFileSync(browser!, [
     '--headless', '--disable-gpu', '--no-sandbox', '--virtual-time-budget=2000',
     `--user-data-dir=${mkdtempSync(join(tmpdir(), 'sytenav-profile-'))}`,
-    `--window-size=${VIEWPORT.w},${VIEWPORT.h}`, '--dump-dom', `file://${file}`,
+    `--window-size=${VIEWPORT.w},${height}`, '--dump-dom', `file://${file}`,
   ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
   const m = /<pre id="probe">([^<]*)<\/pre>/.exec(dom)
   if (!m) throw new Error('the page never reported its geometry')
@@ -212,6 +212,80 @@ ok(dialog.panelLeft >= 16 && dialog.panelRight <= VIEWPORT.w - 16,
 ok(dialog.docWidth <= VIEWPORT.w,
   `nothing makes the page wider than the phone (${dialog.docWidth} vs ${VIEWPORT.w}) - `
   + 'a page wider than the screen is what let a dialog be dragged sideways')
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 2b. AND ITS BUTTONS STAY ON SCREEN WHEN THERE IS ALMOST NO SCREEN.
+//
+// THE BUG. "Add Milestone" fits at 390x844 and is wrong on a phone, which is
+// what made it so hard to see from here. Tapping a date field opens iOS's wheel
+// over the bottom of the screen, and the web viewport does NOT shrink for it -
+// so the dialog stays where it is with its lower half underneath.
+//
+// 420 stands in for that. Measured with the panel as a plain block, the submit
+// button's top was at 438 on a 420-tall screen: 18px past the bottom edge, and
+// reachable only by knowing to scroll inside a dialog you cannot see the bottom
+// of. As a column with a pinned footer it is at 352.
+// ─────────────────────────────────────────────────────────────────────────────
+const SHORT = 420   // what is left of an iPhone with a date picker open
+
+const dialogBody = (panel: string, header: string, form: string, fields: string, footer: string) => `
+<div class="overlay items-center justify-center bg-black/50" data-overlay>
+  <div id="panel" class="${panel}">
+    <div class="${header}"><h2 id="title" class="text-lg font-semibold text-ink">Add Milestone</h2></div>
+    <form class="${form}">
+      <div class="${fields}">${
+        ('<div class="space-y-1.5"><label class="text-sm font-medium text-ink-soft">Field</label>'
+        + `<input class="flex h-9 w-full rounded-md border border-muted2 bg-panel px-3 py-1 text-sm"></div>`)
+      .repeat(4)}</div>
+      <div class="${footer}">
+        <button class="inline-flex items-center rounded-lg h-9 px-4 text-sm bg-muted">Cancel</button>
+        <button id="submit" class="inline-flex items-center rounded-lg h-9 px-4 text-sm bg-accent">Add Milestone</button>
+      </div>
+    </form>
+  </div>
+</div>`
+
+const edges = `(rect) => {
+  const p = rect('#panel'), t = rect('#title'), s = rect('#submit')
+  return { panelTop: Math.round(p.top), panelBottom: Math.round(p.bottom),
+           titleTop: Math.round(t.top), submitTop: Math.round(s.top),
+           submitBottom: Math.round(s.bottom), vh: window.innerHeight }
+}`
+
+const column = dialogBody(
+  'flex max-h-full w-full max-w-md min-w-0 flex-col overflow-hidden rounded-xl bg-panel shadow-xl',
+  'shrink-0 px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between',
+  'flex min-h-0 flex-1 flex-col',
+  'min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6 py-5 space-y-4',
+  'shrink-0 px-4 sm:px-6 py-4 border-t border-line-soft flex flex-wrap gap-2 justify-end',
+)
+const tight = measure(column, edges, SHORT)
+ok(tight.vh === SHORT, `the short screen really is ${SHORT} tall (${tight.vh})`)
+ok(tight.submitBottom <= SHORT,
+  `the submit button is ON SCREEN with a picker up (ends at ${tight.submitBottom} of ${SHORT})`)
+ok(tight.titleTop >= 0, `...and so is the title (${tight.titleTop})`)
+ok(tight.panelBottom <= SHORT, `...with the panel inside the screen too (${tight.panelBottom})`)
+
+// The plain block it used to be, measured beside it. Without this the check
+// above could be passing because the fixture happens to be short.
+const block = measure(dialogBody(
+  'bg-panel rounded-xl shadow-xl w-full max-w-md min-w-0',
+  'px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between',
+  '',
+  'px-4 sm:px-6 py-5 space-y-4',
+  'px-4 sm:px-6 py-4 border-t border-line-soft flex flex-wrap gap-2 justify-end',
+), edges, SHORT)
+ok(block.submitBottom > SHORT,
+  `and the old plain-block panel really did push it off the bottom (${block.submitBottom} of ${SHORT})`)
+
+// The dialogs this is actually about.
+const schedule = code('app/(dashboard)/projects/[id]/schedule/page.tsx')
+ok((schedule.match(/flex max-h-full w-full max-w-md min-w-0 flex-col overflow-hidden/g) ?? []).length === 2,
+  'both schedule dialogs are columns - Add Milestone and Edit Item')
+ok((schedule.match(/flex min-h-0 flex-1 flex-col/g) ?? []).length === 2,
+  '...with the form as the flexible middle, so the footer travels with it')
+ok((schedule.match(/shrink-0 px-4 sm:px-6 py-4 border-t/g) ?? []).length === 2,
+  '...and both footers pinned')
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 3. THE THING THAT ACTUALLY BLEW THE PAGE OUT: truncated text in a grid.

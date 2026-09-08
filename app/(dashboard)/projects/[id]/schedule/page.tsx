@@ -358,13 +358,20 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
 
       {showAdd && (
         <div className="overlay items-center justify-center bg-black/50" data-overlay>
-          <div className="bg-panel rounded-xl shadow-xl w-full max-w-md min-w-0">
-            <div className="px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between">
+          {/* A COLUMN, so the title and the buttons are pinned and only the
+              fields between them scroll.
+              MEASURED. As a plain block the whole panel scrolled, and at a
+              420pt viewport - which is what is left when iOS opens its date
+              wheel over the bottom of the screen - "Add Milestone" sat 54px
+              BELOW the bottom edge. Reachable only by knowing to scroll inside
+              a dialog while a picker covers it. */}
+          <div className="flex max-h-full w-full max-w-md min-w-0 flex-col overflow-hidden rounded-xl bg-panel shadow-xl">
+            <div className="shrink-0 px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between">
               <h2 className="text-lg font-semibold text-ink">Add Milestone</h2>
               <button onClick={() => setShowAdd(false)} className="text-faint hover:text-muted-fg"><X className="h-5 w-5" /></button>
             </div>
-            <form onSubmit={addItem}>
-              <div className="px-4 sm:px-6 py-5 space-y-4">
+            <form onSubmit={addItem} className="flex min-h-0 flex-1 flex-col">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6 py-5 space-y-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="alabel">Label <span className="text-danger">*</span></Label>
                   <Input id="alabel" placeholder="e.g. Permits Approved" value={addLabel} onChange={e => setAddLabel(e.target.value)} required autoFocus />
@@ -390,7 +397,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                 </div>
               </div>
               {addError && <ErrorNote message={addError} className="mx-4 sm:mx-6 mb-1" />}
-              <div className="px-4 sm:px-6 py-4 border-t border-line-soft flex flex-wrap gap-2 justify-end">
+              <div className="shrink-0 px-4 sm:px-6 py-4 border-t border-line-soft flex flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => { setShowAdd(false); setAddError(null) }}>Cancel</Button>
                 <Button type="submit" disabled={addSaving || !addLabel || !addStart || !addEnd}>
                   {addSaving ? 'Adding...' : 'Add Milestone'}
@@ -403,13 +410,20 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
 
       {editItem && (
         <div className="overlay items-center justify-center bg-black/50" data-overlay>
-          <div className="bg-panel rounded-xl shadow-xl w-full max-w-md min-w-0">
-            <div className="px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between">
+          {/* A COLUMN, so the title and the buttons are pinned and only the
+              fields between them scroll.
+              MEASURED. As a plain block the whole panel scrolled, and at a
+              420pt viewport - which is what is left when iOS opens its date
+              wheel over the bottom of the screen - "Add Milestone" sat 54px
+              BELOW the bottom edge. Reachable only by knowing to scroll inside
+              a dialog while a picker covers it. */}
+          <div className="flex max-h-full w-full max-w-md min-w-0 flex-col overflow-hidden rounded-xl bg-panel shadow-xl">
+            <div className="shrink-0 px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between">
               <h2 className="text-lg font-semibold text-ink">Edit Item</h2>
               <button onClick={() => setEditItem(null)} className="text-faint hover:text-muted-fg"><X className="h-5 w-5" /></button>
             </div>
-            <form onSubmit={saveEdit}>
-              <div className="px-4 sm:px-6 py-5 space-y-4">
+            <form onSubmit={saveEdit} className="flex min-h-0 flex-1 flex-col">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6 py-5 space-y-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="elabel">Label</Label>
                   <Input id="elabel" value={editLabel} onChange={e => setEditLabel(e.target.value)} required autoFocus />
@@ -436,7 +450,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                   </div>
                 )}
               </div>
-              <div className="px-4 sm:px-6 py-4 border-t border-line-soft flex flex-wrap items-center gap-2 justify-between">
+              <div className="shrink-0 px-4 sm:px-6 py-4 border-t border-line-soft flex flex-wrap items-center gap-2 justify-between">
                 <button type="button" onClick={() => { deleteItem(editItem.id); setEditItem(null) }}
                   className="flex items-center gap-1.5 text-sm text-danger hover:text-danger">
                   <Trash2 className="h-3.5 w-3.5" /> Delete

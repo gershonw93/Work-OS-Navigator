@@ -53,6 +53,12 @@ export const RELEASES: Release[] = [
     items: [
       {
         kind: 'fixed',
+        title: 'Save and Cancel stay put when the date picker covers the screen',
+        text: 'Adding or editing a milestone on the schedule, tapping a date field opens the phone\'s date wheel over the bottom half of the screen — and the Cancel and Add Milestone buttons went underneath it. The title and the buttons are now pinned to the dialog, and only the fields between them scroll, so you can always reach them.',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
         title: 'Test notifications failed because of a pasted key, and blamed Apple for it',
         text: 'Send test reported an error that looked like Apple turning us down. It was not — SyteNav could not read its own Apple key, because pasting it into a settings field strips the line breaks it needs, so nothing was ever sent. The key is now rebuilt on the way in, so it works however it was pasted, and a problem at our end says so instead of pointing at Apple.',
         help: 'notification-preferences',

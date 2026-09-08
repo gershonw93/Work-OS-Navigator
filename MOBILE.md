@@ -256,6 +256,26 @@ on the screen depended on which file it lived in.
   an `absolute inset-0` child: an absolute child is positioned against the
   padding box, so it stops short of the edge and leaves undimmed strips.
 
+**A dialog with a footer is a COLUMN.** `.overlay > *` caps the panel and gives
+it `overflow-y: auto`, so a plain block panel scrolls as a whole - header,
+fields and buttons together. That is fine until there is very little screen, and
+on a phone there often is: tapping a date field opens iOS's wheel over the
+bottom ~40% and **the web viewport does not shrink for it**. Measured at 420pt,
+Add Milestone's submit button sat 18px below the bottom edge, reachable only by
+knowing to scroll inside a dialog you cannot see the bottom of.
+
+```
+flex max-h-full flex-col overflow-hidden   panel
+  shrink-0                                 title
+  min-h-0 flex-1 overflow-y-auto           the fields
+  shrink-0                                 the buttons
+```
+
+When a `<form>` wraps both the fields and the footer, the FORM is the flexible
+middle (`flex min-h-0 flex-1 flex-col`) so the footer travels with it.
+`lib/__tests__/overlay-geometry.ts` measures this at 420pt and checks the plain
+block still fails it.
+
 **A bottom sheet is `.overlay-sheet`, not `.overlay-full`.** A sheet owns the
 bottom edge and every side except the top - the status bar and the Dynamic
 Island live up there, and a close button underneath them cannot be tapped. That
