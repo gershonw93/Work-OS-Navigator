@@ -129,6 +129,26 @@ ok(/html,\s*body\s*\{[^}]*overflow-x:\s*clip/.test(css),
 ok(/\.truncate\s*\{[^}]*min-width:\s*0/.test(css),
   'a truncating element is allowed to shrink - one rule rather than min-w-0 at 136 call sites')
 
+// ── 2d. a sheet has a top edge it cannot cross ──────────────────────────────
+// THE BUG. The project sections sheet was `.overlay-full` around a `max-h-full`
+// panel, so it grew upward until it filled the screen and put its close button
+// under the Dynamic Island. Measured in lib/__tests__/overlay-geometry.ts: the
+// button's top was at 20px, and the Island owns the first 59.
+ok(/\.overlay-sheet\s*\{[^}]*justify-content:\s*flex-end/.test(css),
+  'a sheet sits on the bottom edge')
+ok(/\.overlay-sheet\s*\{[^}]*padding-top:\s*max\([^)]*env\(safe-area-inset-top\)/.test(css),
+  '...and pads the ONE edge it does not own, so its close button is always reachable')
+ok(/\.overlay-sheet\s*>\s*\*\s*\{[^}]*max-height:\s*100%/.test(css),
+  '...capping the panel against that padded box, not the whole screen')
+const tabs = code('components/layout/project-tabs.tsx')
+ok(/className="overlay-sheet/.test(tabs), 'the project sections sheet uses it')
+ok(!/overlay-full/.test(tabs),
+  '...and not overlay-full, which has no top edge and is what put the X under the notch')
+// The dim has to be on the overlay itself: an `absolute inset-0` child is
+// positioned against the PADDING box and would leave an undimmed strip.
+ok(!/overlay-sheet[^"]*"[\s\S]{0,200}absolute inset-0 bg-/.test(tabs),
+  'the dim is on the sheet overlay, not an absolute child that stops at the padding')
+
 // ── 3. every overlay goes through one definition ─────────────────────────────
 ok(/\.overlay\s*\{[\s\S]*?position:\s*fixed[\s\S]*?inset:\s*0/.test(css), '.overlay is the backdrop')
 ok(/\.overlay\s*\{[\s\S]*?env\(safe-area-inset-top\)/.test(css),

@@ -52,6 +52,12 @@ export const RELEASES: Release[] = [
     title: 'The phone app stays put',
     items: [
       {
+        kind: 'fixed',
+        title: 'The project sections menu no longer opens under the clock',
+        text: 'Tapping the project name on a phone opened the sections list so tall that its title and its X button ended up behind the status bar, where they could not be tapped — the only way out was to pick a section. It now always stops short of the top of the screen, so the X is somewhere you can actually reach.',
+        href: '/projects',
+      },
+      {
         kind: 'improved',
         title: 'A failed test notification now says what Apple actually refused',
         text: 'Settings → Notifications → Send test used to answer "Nothing was sent, and Apple gave no reason why" for every failure. Apple almost always gives a reason; SyteNav was computing it and then discarding it before anyone could read it. The answer now names it, and says which setting to change — or says plainly when it is Apple rate-limiting us, which fixes itself.',
