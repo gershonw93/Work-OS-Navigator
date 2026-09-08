@@ -144,8 +144,16 @@ production branch.** Do NOT ask the user to merge or deploy.
   is not belt-and-braces, it is a visible band of nothing.
 - `pt-safe` never goes on the `h-14` header: border-box takes the padding out of
   the row and squashes the search bar rather than moving it down.
-- `overflow-wrap: anywhere` is the default for prose. `break-words` wraps the
-  text but does not shrink min-content, so the CONTAINER still blows out.
+- `overflow-wrap: anywhere` is the default for prose, and `.truncate` sets
+  `min-width: 0`. Both are the same rule: `break-words` and `white-space:
+  nowrap` do not shrink min-content, so a flex/grid child refuses to go below
+  the full unbroken line and the CONTAINER blows out while the text inside
+  behaves perfectly.
+- The overlay scroll lock is `overflow-y: hidden`, NEVER the `overflow`
+  shorthand. The shorthand also sets `overflow-x`, replacing the `clip` on
+  html/body with `hidden` - and clip cannot be scrolled while hidden can. That
+  turned latent sideways overflow into a pannable viewport, and `position:
+  fixed` is pinned to the LAYOUT viewport, so dialogs slid off the screen.
 - Pinned by `lib/__tests__/layout-overflow.ts`. Full detail in MOBILE.md.
 
 ## Loading and failure states (IMPORTANT)
