@@ -322,6 +322,30 @@ bundle version.
 The step verifies its own `sed` and fails loudly if it matched nothing - a
 substitution that changed no lines looks exactly like one that worked.
 
+### TestFlight: internal vs external (IMPORTANT)
+
+**Internal testers do not need Beta App Review.** A build is installable the
+moment App Store Connect finishes processing it. Beta App Review gates
+**external** testers only, it is a human queue, and Apple takes **one build per
+version train at a time**.
+
+The workflow used to set `submit_to_testflight: true`, and that failed a build
+which had compiled, signed, uploaded and finished processing:
+
+    422: Another build is in review. - Another build in the same train is
+    already in beta review. Please submit it again once it gets completed.
+
+Build 1 was still in that queue. Nothing was wrong with build 2 - the binary was
+already delivered - and a red build that actually succeeded is worse than no
+status at all. It was also pointless: build 1 reached a phone while its own beta
+review was still pending, which is exactly what "internal testers skip review"
+means.
+
+So the workflow uploads and stops there. **To get a build onto your own phone:
+open TestFlight once processing finishes.** Submitting for external testing is a
+deliberate act with a human on the other end - do it in App Store Connect when
+you actually want it, not on every push.
+
 ### Push: the app delegate (IMPORTANT)
 
 `ios/App/App/AppDelegate.swift` MUST forward Apple's two remote-notification

@@ -144,6 +144,22 @@ const sync = all.find(s => s.name === 'Add iOS platform if missing')?.body ?? ''
 ok(/cap sync ios/.test(sync),
   'capacitor.config.ts is synced into the native project, or its settings never ship')
 
+// ── a queue must not fail a build that already delivered ────────────────────
+// Build 2 compiled, signed, uploaded, and App Store Connect finished processing
+// it - and Codemagic reported the whole thing as FAILED, because the last step
+// got a 422 from Apple: "Another build in the same train is already in beta
+// review." Beta App Review is a human queue that takes one build per version
+// train, and build 1 was still in it.
+//
+// It gates EXTERNAL testers only. Internal testers get a build as soon as
+// processing finishes, which is how build 1 reached a phone while its own beta
+// review was still pending. So the flag submitted us to a queue we do not use
+// and then failed the build over that queue being busy.
+ok(!/submit_to_testflight:\s*true/.test(raw),
+  'the build does not auto-submit to beta review - a human queue being busy is not a build failure')
+ok(/app_store_connect:\s*\n\s*auth: integration/.test(raw),
+  '...but the binary is still uploaded, which is the part that was working all along')
+
 // ── the deployment target Apple will start refusing ──────────────────────────
 // ITMS-90068 on the first upload: "Starting in Spring 2027, all iOS apps must
 // have a MinimumOSVersion of 15.0 or later." A warning now, a wall later.
