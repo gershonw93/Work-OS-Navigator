@@ -35,8 +35,19 @@ export interface PushResult {
   sent: number
   /** Tokens Apple says are dead. The caller deletes these. */
   dead: string[]
+  /** Reached a phone and was refused - neither sent nor dead. */
+  failed: number
   /** Not an error: no keys configured, or nobody had a phone registered. */
   skipped: 'not_configured' | 'no_devices' | null
+  /**
+   * WHY it was refused, in Apple's own words, e.g. "403 InvalidProviderToken".
+   *
+   * THE BUG. sendOne parsed this out of Apple's response body and sendPush
+   * filtered the results for `sent` and `dead` and never looked at the rest, so
+   * a refusal arrived here as `{ sent: 0, dead: [], error: undefined }` and the
+   * settings card said "Nothing was sent, and Apple gave no reason why". Apple
+   * had given one. Three return values in a row dropped it.
+   */
   error?: string
 }
 
@@ -149,9 +160,18 @@ export function classifyApns(status: number, reason?: string): 'sent' | 'dead' |
   return 'failed'
 }
 
+export interface ApnsAttempt {
+  token: string
+  outcome: 'sent' | 'dead' | 'failed'
+  /** Apple's HTTP status, or 0 if the connection died before one arrived. */
+  status: number
+  /** Apple's `reason` field, when there was a body to read one from. */
+  reason?: string
+}
+
 function sendOne(
   session: ClientHttp2Session, cfg: ApnsConfig, token: string, body: string,
-): Promise<{ token: string; outcome: 'sent' | 'dead' | 'failed'; reason?: string }> {
+): Promise<ApnsAttempt> {
   return new Promise(resolve => {
     let status = 0
     let raw = ''
@@ -170,11 +190,11 @@ function sendOne(
     req.setEncoding('utf8')
     req.on('response', h => { status = Number(h[constants.HTTP2_HEADER_STATUS] ?? 0) })
     req.on('data', (c: string) => { raw += c })
-    req.on('error', () => resolve({ token, outcome: 'failed', reason: 'connection' }))
+    req.on('error', () => resolve({ token, outcome: 'failed', status: 0, reason: 'connection' }))
     req.on('end', () => {
       let reason: string | undefined
       try { reason = raw ? JSON.parse(raw)?.reason : undefined } catch { /* body is not always JSON */ }
-      resolve({ token, outcome: classifyApns(status, reason), reason })
+      resolve({ token, outcome: classifyApns(status, reason), status, reason })
     })
     req.end(body)
   })
@@ -189,14 +209,14 @@ function sendOne(
  */
 export async function sendPush(tokens: string[], message: PushMessage): Promise<PushResult> {
   const cfg = apnsConfig()
-  if (!cfg) return { sent: 0, dead: [], skipped: 'not_configured' }
+  if (!cfg) return { sent: 0, dead: [], failed: 0, skipped: 'not_configured' }
 
   const unique = Array.from(new Set(tokens.filter(Boolean)))
-  if (!unique.length) return { sent: 0, dead: [], skipped: 'no_devices' }
+  if (!unique.length) return { sent: 0, dead: [], failed: 0, skipped: 'no_devices' }
 
   const body = JSON.stringify(apnsPayload(message))
   if (Buffer.byteLength(body) > APNS_BODY_MAX) {
-    return { sent: 0, dead: [], skipped: null, error: 'Notification too large for Apple' }
+    return { sent: 0, dead: [], failed: 0, skipped: null, error: 'Notification too large for Apple' }
   }
 
   let session: ClientHttp2Session | null = null
@@ -210,16 +230,75 @@ export async function sendPush(tokens: string[], message: PushMessage): Promise<
         setTimeout(() => reject(new Error('Apple took too long')), SEND_BUDGET_MS)),
     ])
 
+    // The refusals, which this function used to filter past. Deduplicated,
+    // because ten phones refused for one bad key is one fact, not ten.
+    const failed = results.filter(r => r.outcome === 'failed')
     return {
       sent: results.filter(r => r.outcome === 'sent').length,
       dead: results.filter(r => r.outcome === 'dead').map(r => r.token),
+      failed: failed.length,
       skipped: null,
+      error: failed.length ? summariseRefusals(failed) : undefined,
     }
   } catch (e) {
-    return { sent: 0, dead: [], skipped: null, error: e instanceof Error ? e.message : 'push failed' }
+    return { sent: 0, dead: [], failed: 0, skipped: null, error: e instanceof Error ? e.message : 'push failed' }
   } finally {
     try { session?.close() } catch { /* closing a broken session is not news */ }
   }
+}
+
+/**
+ * "403 InvalidProviderToken", from however many refusals there were.
+ *
+ * The status as well as the reason: the status is diagnostic on its own (403 is
+ * authentication, 400 is the token or the payload, 429 is rate limiting, 5xx is
+ * Apple), and a connection that died before a response has a reason and no
+ * status at all.
+ */
+export function summariseRefusals(failed: ApnsAttempt[]): string {
+  const seen = new Set<string>()
+  for (const f of failed) {
+    const parts = [f.status ? String(f.status) : '', f.reason ?? ''].filter(Boolean)
+    // Never the empty string. A refusal we cannot describe still has to read as
+    // a refusal, or it lands back in "no reason why" - the thing being fixed.
+    seen.add(parts.length ? parts.join(' ') : 'no status and no reason from Apple')
+  }
+  return Array.from(seen).join(', ')
+}
+
+/**
+ * Apple's bare token, turned into the thing to go and change.
+ *
+ * Pure, and additive: anything not listed here still reaches the screen
+ * verbatim. `InvalidProviderToken` is searchable and is a better answer than
+ * "something went wrong" - this only adds the sentence for the handful where
+ * the word alone does not say what to do.
+ */
+export function apnsReasonHelp(error: string | undefined): string | null {
+  const e = String(error ?? '')
+  if (/InvalidProviderToken|ExpiredProviderToken|MissingProviderToken/.test(e)) {
+    // The one that has actually been likely here: two different .p8 files were
+    // in play - an App Store Connect API key and an APNs auth key - and only
+    // one of them can sign a push.
+    return 'Apple would not accept SyteNav\'s key. Check APNS_KEY_ID, APNS_TEAM_ID and '
+      + 'APNS_PRIVATE_KEY in the deployment settings - the private key must be the APNs '
+      + 'auth key, not the App Store Connect API key. They are both .p8 files and only '
+      + 'one of them signs a notification.'
+  }
+  if (/TopicDisallowed|BadTopic/.test(e)) {
+    return 'The Apple key is not allowed to send to this app. The bundle id must match '
+      + 'the key - com.sytenav.app unless APNS_BUNDLE_ID says otherwise.'
+  }
+  if (/TooManyRequests|TooManyProviderTokenUpdates/.test(e)) {
+    return 'Apple is rate-limiting us. Nothing is misconfigured - wait a minute and try again.'
+  }
+  if (/InternalServerError|ServiceUnavailable|Shutdown|^5\d\d\b/.test(e)) {
+    return 'Apple\'s notification service is having a problem. Nothing here is wrong - try again shortly.'
+  }
+  if (/^connection$|took too long/i.test(e)) {
+    return 'SyteNav could not reach Apple. If it keeps happening it is a network problem at our end, not yours.'
+  }
+  return null
 }
 
 /**
@@ -255,11 +334,16 @@ export function pushTestMessage(
     // removed, so saying "try again" is the correct advice rather than a shrug.
     return { ok: false, text: 'Your phone is no longer reachable - the app may have been removed or reinstalled. Open SyteNav on your phone again, then try this once more.' }
   }
+  // Reachable only when Apple refused and said nothing whatsoever - no status
+  // and no body. It used to be reached for EVERY refusal, because sendPush
+  // filtered the failures out before anyone could look at them.
   if (!r.error) return { ok: false, text: 'Nothing was sent, and Apple gave no reason why.' }
   // Apple's reasons are bare tokens like "InvalidProviderToken" - passed
   // through rather than softened into "something went wrong", because that
   // word IS the answer and it is searchable. Punctuated so it reads as a
   // sentence next to the others, without doubling a full stop if it has one.
   const reason = r.error.trim()
-  return { ok: false, text: `Apple refused it: ${reason}${/[.!?]$/.test(reason) ? '' : '.'}` }
+  const help = apnsReasonHelp(reason)
+  const refusal = `Apple refused it: ${reason}${/[.!?]$/.test(reason) ? '' : '.'}`
+  return { ok: false, text: help ? `${refusal} ${help}` : refusal }
 }
