@@ -1,8 +1,11 @@
 # Mac-free cloud builds for the SyteNav Capacitor app (Codemagic).
 # EAS Build is for Expo/React Native and does NOT apply to Capacitor — use this instead.
 #
-# Setup: connect this repo in Codemagic, add the referenced env var groups
-# (app_store_credentials / google_play_credentials + code signing), then run a workflow.
+# Setup: connect this repo in Codemagic, add an App Store Connect API key
+# integration named exactly `SyteNav ASC` (the name below is looked up by that
+# string), then run a workflow. There is no environment variable group to
+# create for iOS - the integration supplies the credentials, and the group this
+# file used to reference held nothing and cost an afternoon.
 # Docs: https://docs.codemagic.io/yaml-quick-start/building-a-capacitor-app/
 
 workflows:
@@ -16,8 +19,6 @@ workflows:
       node: 20
       xcode: latest
       cocoapods: default
-      groups:
-        - app_store_credentials
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.sytenav.app
@@ -28,8 +29,27 @@ workflows:
         script: |
           npx cap add ios || true
           npx cap sync ios
+      # THE FIRST BUILD DIED HERE: "No matching profiles found for bundle
+      # identifier com.sytenav.app and distribution type app_store". Accurate,
+      # and unhelpful - no distribution profile had ever existed, because the
+      # account was days old and there is no Mac here to make one on.
+      #
+      # `use-profiles` APPLIES profiles that are already on the machine. It does
+      # not go and get them, and it does not ask for one to be made. On a fresh
+      # account there was nothing to apply.
+      #
+      # `--create` is the whole fix: it mints the distribution certificate and
+      # the provisioning profile through the same App Store Connect key already
+      # configured as the `SyteNav ASC` integration above. `keychain` then
+      # installs the certificate so `use-profiles` has something to work with.
       - name: Set up signing
-        script: xcode-project use-profiles
+        script: |
+          app-store-connect fetch-signing-files "com.sytenav.app" \
+            --type IOS_APP_STORE \
+            --create
+          keychain initialize
+          keychain add-certificates
+          xcode-project use-profiles
       - name: Build ipa
         script: |
           xcode-project build-ipa \

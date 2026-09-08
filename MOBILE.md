@@ -21,7 +21,7 @@ on Apple's side. In this order, because each one unblocks the next:
 | 2 | Developer portal → Identifiers | Register the App ID `com.sytenav.app` if it does not exist, and tick **Push Notifications** and **Associated Domains**. Tick Associated Domains NOW even though the entitlement is added later - it is free to have and awkward to add mid-build. | Push, and Universal Links later | 5 min |
 | 3 | **Two different sites** | Create **two** `.p8` keys and download each one - Apple shows a `.p8` ONCE and never again; close the tab and you revoke and start over. (a) **APNs**, for push: developer.apple.com → Certificates, Identifiers & Profiles → **Keys**. (b) **App Store Connect API**, for Codemagic, with the *App Manager* role: appstoreconnect.apple.com → **Users and Access → Integrations → App Store Connect API** - NOT the developer portal, they are in different places. Note each Key ID, the ASC key's **Issuer ID**, and your **Team ID** (developer.apple.com/account → Membership details). | Steps 4 and 5 | 10 min |
 | 4 | Vercel → Settings → Environment Variables (Production) | `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_PRIVATE_KEY` (the whole `.p8` file, newlines and all - pasted `\n` is handled), and `APPLE_TEAM_ID`. Redeploy. | Push actually sends; `/.well-known/apple-app-site-association` stops 404ing | 5 min |
-| 5 | Codemagic | Connect the repo. Add the **App Store Connect API key** from 3(b) as an integration named exactly `SyteNav ASC` - `codemagic.yaml` refers to it by that name. Enable automatic code signing. Run the **`ios-capacitor`** workflow. | A TestFlight build | 20 min + build |
+| 5 | Codemagic | Connect the repo. Add the **App Store Connect API key** from 3(b) as an integration named exactly `SyteNav ASC` - `codemagic.yaml` refers to it by that name, character for character. Run the **`ios-capacitor`** workflow on `claude/admiring-bohr-DyFVR`. There is **no environment variable group to create**; the integration carries the credentials. Signing files are fetched with `--create`, so the first build mints the distribution certificate and profile itself - without that flag it fails with "No matching profiles found", which is true on a new account and reads like a misconfiguration. | A TestFlight build | 20 min + build |
 | 6 | After the build succeeds | Associated Domains entitlement (section 2), re-seed the demo account, and look at the safe areas on a real device. Then submit. | Submission | - |
 
 **Why the entitlement waits until after step 5.** An entitlement the App ID does
@@ -39,10 +39,19 @@ installed. **Both sets are required** - the target is universal
 and the reviewer will run it on an iPad. Decided deliberately: iPad support
 stays in v1. Dropping it later is a downgrade for anyone already using it.
 
-**What you can prove without a build:** once step 4 is done, push is live on the
-web app. Sign in on your phone's browser, then **Settings → Notifications → Send
-test**. It only ever reaches your own phones, and it says which of the three
-things is wrong when nothing arrives.
+**What step 4 proves, and what it does NOT.** Once the variables are in, load
+`https://app.sytenav.com/.well-known/apple-app-site-association` in any browser:
+JSON means `APPLE_TEAM_ID` landed, "Not configured" means it did not. That file
+is public because Apple has to fetch it unauthenticated.
+
+**Push cannot be tested before a build, and this runbook used to say it could.**
+`usePush()` opens with `if (!ready || !isNative) return` - it runs only inside
+the native shell, so a browser never registers a device token and "No phone is
+registered to your account yet" is the only possible answer until TestFlight is
+on the phone. That message IS however a useful signal: `pushTestMessage` checks
+`configured` first, so getting "no phone registered" rather than "not switched
+on for SyteNav yet" proves all three `APNS_*` variables are readable in
+production. Push itself is verified in step 6.
 
 ---
 
