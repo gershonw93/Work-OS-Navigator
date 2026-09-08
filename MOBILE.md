@@ -278,8 +278,20 @@ no sign that columns are missing. Use `overflow-x-auto` on the wrapper and
 `min-w-[Npx]` on the table so the columns keep their shape
 (`projects/[id]/compliance` is the model).
 
+**The scroll lock is `overflow-y: hidden`, never the `overflow` shorthand.**
+The shorthand also sets `overflow-x`, which replaces the `clip` on html/body
+with `hidden` - and `clip` cannot be scrolled while `hidden` can, it merely has
+no scrollbar. That turned latent sideways overflow into a viewport iOS could
+pan, and `position: fixed` is pinned to the LAYOUT viewport, so an open dialog
+slid off the left of the screen taking the header with it.
+
 **Long text.** `overflow-wrap: anywhere` is the default for `p / li / dd / dt /
-td / th / h1-h6`. `break-words` is the trap: it wraps the text but does NOT
+td / th / h1-h6`, and `.truncate` sets `min-width: 0`. `truncate` is
+`white-space: nowrap`, so its min-content width is the whole unbroken line, and
+a flex or grid child is `min-width: auto` and refuses to go below it - the text
+truncates perfectly while the container blows out, which is what makes it so
+hard to spot. One rule in `@layer base` rather than `min-w-0` at 136 call
+sites; base so an explicit `min-w-*` still wins. `break-words` is the trap: it wraps the text but does NOT
 reduce min-content width, so a grid or flex parent still refuses to shrink and
 the *container* blows out while the text wraps perfectly. Not applied to
 everything - on a button it breaks the label instead of the control keeping its

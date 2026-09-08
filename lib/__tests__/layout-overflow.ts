@@ -80,14 +80,54 @@ ok(!/h-14[^"]*pt-safe|pt-safe[^"]*h-14/.test(code('components/layout/top-nav.tsx
   + 'out of the 56px row and squash the search bar instead of moving it down')
 
 // ── 2. nothing behind an open overlay scrolls ────────────────────────────────
-ok(/html:has\(\[data-overlay\]\)\s*\{[^}]*overflow:\s*hidden/.test(css),
+ok(/html:has\(\[data-overlay\]\)\s*\{[^}]*overflow-y:\s*hidden/.test(css),
   'an open overlay stops the document scrolling')
-ok(/html:has\(\[data-overlay\]\)\s*\[data-app-scroll\]\s*\{[^}]*overflow:\s*hidden/.test(css),
+ok(/html:has\(\[data-overlay\]\)\s*\[data-app-scroll\]\s*\{[^}]*overflow-y:\s*hidden/.test(css),
   '...and stops <main> scrolling, which is the one that actually moves')
 // A JS counter is the obvious alternative and the wrong one: one early return
 // in one of 78 cleanup paths leaves the whole app frozen with no dialog open.
 ok(!/document\.body\.style\.overflow/.test(code('components/ui/image-lightbox.tsx')),
   'no component sets body overflow by hand any more')
+
+// ── 2b. the lock must not make the page pannable sideways ───────────────────
+// THE BUG. Half of "Add Milestone" was off the LEFT edge of the phone, and so
+// was the header behind it - a `position: fixed` dialog dragged sideways with
+// everything else.
+//
+// The lock above was written as `overflow: hidden`, the SHORTHAND, which also
+// sets overflow-x and so replaced `overflow-x: clip` with `hidden`. Those are
+// not the same: clip cannot be scrolled, hidden is scrollable and merely has no
+// scrollbar. So opening any dialog turned latent sideways overflow into a
+// viewport iOS could pan, and `fixed` is pinned to the LAYOUT viewport.
+//
+// The file already knew this - the comment on the html/body rule says exactly
+// why clip and hidden differ, two hundred lines above where I broke it.
+const lock = /html:has\(\[data-overlay\]\)[^{]*\{([^}]*)\}/g
+let lockRule: RegExpExecArray | null
+let lockCount = 0
+while ((lockRule = lock.exec(css))) {
+  lockCount++
+  const decls = lockRule[1]
+  ok(/overflow-y:\s*hidden/.test(decls),
+    'the scroll lock names the Y axis explicitly')
+  ok(!/overflow:\s*hidden/.test(decls),
+    '...and never the `overflow` shorthand, which silently downgrades overflow-x '
+    + 'from clip to hidden and makes the page pannable')
+  ok(!/overflow-x:/.test(decls), '...and does not touch overflow-x at all')
+}
+ok(lockCount === 2, `both lock rules checked (${lockCount})`)
+ok(/html,\s*body\s*\{[^}]*overflow-x:\s*clip/.test(css),
+  'the document still cannot be scrolled sideways - clip, not hidden')
+
+// ── 2c. and nothing should be wider than the screen to begin with ───────────
+// `truncate` is white-space: nowrap, so its MIN-CONTENT width is the whole
+// unbroken line - and a flex or grid child is min-width:auto and refuses to go
+// below it. The text truncates perfectly while the container blows out, which
+// is exactly what makes it invisible. The schedule month grid is grid-cols-7
+// (= repeat(7, minmax(0, 1fr))), so the TRACKS could shrink and the cells could
+// not, and overflowed them.
+ok(/\.truncate\s*\{[^}]*min-width:\s*0/.test(css),
+  'a truncating element is allowed to shrink - one rule rather than min-w-0 at 136 call sites')
 
 // ── 3. every overlay goes through one definition ─────────────────────────────
 ok(/\.overlay\s*\{[\s\S]*?position:\s*fixed[\s\S]*?inset:\s*0/.test(css), '.overlay is the backdrop')

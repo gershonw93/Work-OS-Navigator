@@ -150,6 +150,30 @@
     overflow-wrap: anywhere;
   }
 
+  /* ── A truncating element must be allowed to shrink ──────────────────────
+     `truncate` is `white-space: nowrap` plus `overflow: hidden` plus an
+     ellipsis. The nowrap part means its MIN-CONTENT width is the whole
+     unbroken line - and a flex or grid child is `min-width: auto` by default,
+     so it refuses to go below that and pushes its container past the edge of
+     the screen. The text truncates perfectly while the layout blows out, which
+     is what makes it so hard to see.
+
+     THE BUG. The schedule month grid is `grid-cols-7`, each cell holding a
+     chip with a truncated label. Tailwind's `grid-cols-7` is
+     `repeat(7, minmax(0, 1fr))` so the TRACKS could shrink - but the cells
+     could not, and overflowed them. The page ended up wider than the phone,
+     and once a dialog made the document pannable (above) everything slid
+     sideways together.
+
+     One rule rather than `min-w-0` at 136 call sites. It is also simply what
+     the class means: an element that says its text may be cut off has no
+     business demanding room for all of it. On a block element min-width is
+     already 0, so this changes nothing anywhere it was not already broken.
+
+     In @layer base ON PURPOSE, not utilities: an explicit `min-w-*` on the
+     element should still win, and from base it does. */
+  .truncate { min-width: 0; }
+
   body {
     background-color: rgb(var(--surface));
     color: rgb(var(--ink));
@@ -315,8 +339,17 @@
    and decrements on cleanup is one early return away from leaving the whole app
    frozen, and there are 78 places to get it wrong. The selector is true for
    exactly as long as an overlay is in the DOM, and it cannot leak. */
-html:has([data-overlay]) { overflow: hidden; }
-html:has([data-overlay]) [data-app-scroll] { overflow: hidden !important; }
+/* THE VERTICAL AXIS ONLY, and that is not a detail.
+   This was `overflow: hidden`, the shorthand - which also set `overflow-x` and
+   so replaced the `overflow-x: clip` above with `hidden`. Those are not the
+   same thing, and the comment on that rule says why: `clip` cannot be
+   scrolled, `hidden` is scrollable and merely has no scrollbar. So opening any
+   dialog quietly turned latent sideways overflow into a viewport iOS could pan
+   - and `position: fixed` is pinned to the LAYOUT viewport, so the dialog was
+   dragged off the side of the screen along with the header behind it. Half of
+   "Add Milestone" was off the left edge. */
+html:has([data-overlay]) { overflow-y: hidden; }
+html:has([data-overlay]) [data-app-scroll] { overflow-y: hidden !important; }
 
 /* ─────────────────────────────────────────────────────────────────────────────
    Text somebody typed, which may be 2,033 characters with no spaces in it.

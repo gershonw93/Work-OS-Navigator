@@ -60,6 +60,19 @@ export const RELEASES: Release[] = [
       },
       {
         kind: 'fixed',
+        title: 'Dialogs and the header no longer slide off the left of the screen',
+        text: 'Opening something like Add Milestone could shove the whole screen sideways — half the dialog title, the search bar and the project name all cut off the left edge, with no way to scroll back. Two things caused it: the schedule\'s month grid was quietly wider than a phone, and opening a dialog turned that into something the screen could be dragged across. Both are fixed, and long labels anywhere in the app now shrink to fit rather than pushing their row off the side.',
+        href: '/projects',
+      },
+      {
+        kind: 'improved',
+        title: 'A failed test notification now says what Apple actually refused',
+        text: 'Settings → Notifications → Send test used to answer "Nothing was sent, and Apple gave no reason why" for every failure. Apple almost always gives a reason; SyteNav was computing it and then discarding it before anyone could read it. The answer now names it, and says which setting to change — or says plainly when it is Apple rate-limiting us, which fixes itself.',
+        help: 'notification-preferences',
+        href: '/settings',
+      },
+      {
+        kind: 'fixed',
         title: 'The top bar no longer jumps down when you open the menu',
         text: 'On an iPhone the search bar sometimes sat jammed against the very top of the screen, under the clock, and then dropped into place the moment you opened the menu — and sometimes back again. Two different things were deciding where the top of the app should be, and which one won depended on what you had just tapped. Now one of them does, so it sits in the right place from the moment the app opens.',
         href: '/dashboard',
