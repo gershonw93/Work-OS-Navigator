@@ -97,6 +97,8 @@ workflows:
           fi
           echo "Key variable found: ${#CERTIFICATE_PRIVATE_KEY_B64} characters of base64."
 
+          # openssl rather than `base64 -d`: that flag is -d on GNU and -D on the
+          # BSD base64 that ships with macOS, and this runs on a Mac.
           printf '%s' "$CERTIFICATE_PRIVATE_KEY_B64" | openssl base64 -d -A > /tmp/cert_key.pem
 
           if ! head -n1 /tmp/cert_key.pem | grep -q "BEGIN RSA PRIVATE KEY"; then
@@ -105,9 +107,7 @@ workflows:
             echo "no BEGIN/END, no spaces. Re-copy it and try again."
             exit 1
           fi
-          echo "Decoded a valid PEM private key.
-          # openssl rather than `base64 -d`: the flag is -d on GNU and -D on the
-          # BSD base64 that ships with macOS, and this runs on a Mac.
+          echo "Decoded a valid PEM private key."
 
           app-store-connect fetch-signing-files "com.sytenav.app" \
             --type IOS_APP_STORE \
