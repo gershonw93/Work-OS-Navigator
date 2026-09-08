@@ -83,7 +83,29 @@ workflows:
           # WITH its line breaks, and pasting a multi-line secret through a web
           # form loses them. Base64 is one unbroken line, so there is nothing
           # left for a form to mangle.
+          # SAY WHAT IS WRONG. A missing variable decoded to an empty file, and
+          # the CLI then reported `Provided value "" is not valid` - which reads
+          # as a malformed key rather than an absent one, and cost a build to
+          # tell apart. These two checks name the actual fault.
+          if [ -z "${CERTIFICATE_PRIVATE_KEY_B64:-}" ]; then
+            echo "CERTIFICATE_PRIVATE_KEY_B64 is empty or not set in this build."
+            echo "In Codemagic: Applications > Work-OS-Navigator > Environment variables"
+            echo "  * name must be exactly  CERTIFICATE_PRIVATE_KEY_B64"
+            echo "  * group must be exactly app_store_credentials"
+            echo "A variable in a group this workflow does not reference is invisible here."
+            exit 1
+          fi
+          echo "Key variable found: ${#CERTIFICATE_PRIVATE_KEY_B64} characters of base64."
+
           printf '%s' "$CERTIFICATE_PRIVATE_KEY_B64" | openssl base64 -d -A > /tmp/cert_key.pem
+
+          if ! head -n1 /tmp/cert_key.pem | grep -q "BEGIN RSA PRIVATE KEY"; then
+            echo "Decoded to $(wc -c < /tmp/cert_key.pem) bytes, which is not a PEM key."
+            echo "The variable should hold BASE64 of the cert_key file - one long line,"
+            echo "no BEGIN/END, no spaces. Re-copy it and try again."
+            exit 1
+          fi
+          echo "Decoded a valid PEM private key.
           # openssl rather than `base64 -d`: the flag is -d on GNU and -D on the
           # BSD base64 that ships with macOS, and this runs on a Mac.
 
