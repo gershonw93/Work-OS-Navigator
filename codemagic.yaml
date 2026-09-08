@@ -19,6 +19,25 @@ workflows:
       node: 20
       xcode: latest
       cocoapods: default
+      groups:
+        # Holds ONE secure variable: CERTIFICATE_PRIVATE_KEY, an RSA key.
+        #
+        # Creating a signing certificate requires a private key to create it
+        # against, and a brand-new account has no distribution certificate at
+        # all - so one must be made. Without this the signing step dies on its
+        # first line with "Cannot save Signing Certificates without certificate
+        # private key", then keychain and use-profiles run happily against
+        # nothing and the build fails three steps later complaining about a
+        # provisioning profile. The real error is the first line.
+        #
+        # The key must be STABLE across builds. Generating a fresh one per build
+        # would mint a new certificate every time, and Apple caps how many
+        # distribution certificates an account may hold.
+        #
+        # I deleted this group earlier in the session on the grounds that it was
+        # empty and nothing read it. It was empty because nobody had filled it
+        # in yet, which is a different thing.
+        - app_store_credentials
       # NO `ios_signing:` BLOCK, DELIBERATELY.
       #
       # That block turns on Codemagic's AUTOMATIC code signing, which runs as a
@@ -56,7 +75,8 @@ workflows:
         script: |
           app-store-connect fetch-signing-files "com.sytenav.app" \
             --type IOS_APP_STORE \
-            --create
+            --create \
+            --certificate-key=@env:CERTIFICATE_PRIVATE_KEY
           keychain initialize
           keychain add-certificates
           xcode-project use-profiles
