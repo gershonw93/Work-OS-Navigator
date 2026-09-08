@@ -49,8 +49,15 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-08',
-    title: 'A very long note no longer breaks the card',
+    title: 'A clearer phone card, and long notes that wrap',
     items: [
+      {
+        kind: 'improved',
+        title: '"No phone registered yet" now tells you what actually went wrong',
+        text: 'The phone card under Settings → Notifications used to give the same advice no matter what — "open SyteNav on your phone and allow notifications" — including to somebody standing inside the app on their phone who had already done exactly that. It now says which step failed: notifications switched off in the iPhone\'s own Settings, Apple refusing to register the phone (with Apple\'s reason), or the address arriving but not saving. It dates the last attempt too, so you can tell a fresh failure from one you have already retried.',
+        help: 'notification-preferences',
+        href: '/settings',
+      },
       {
         kind: 'fixed',
         title: 'A long note with no spaces in it stretched the inspection card sideways',

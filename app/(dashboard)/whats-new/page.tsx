@@ -36,10 +36,13 @@ export default function WhatsNewPage() {
       </div>
 
       <div className="space-y-5">
-        {RELEASES.map(rel => {
+        {RELEASES.map((rel, i) => {
           const isNew = !seenOnArrival || rel.date > seenOnArrival
           return (
-            <div key={rel.date} className={cn('bg-panel rounded-xl border overflow-hidden',
+            // Keyed by position, not by date: two batches can ship on one day,
+            // and two of them already have. React silently keeps the first and
+            // drops the second when the keys collide.
+            <div key={`${rel.date}-${i}`} className={cn('bg-panel rounded-xl border overflow-hidden',
               isNew ? 'border-accent/40' : 'border-line')}>
               <div className="px-4 sm:px-5 py-3 border-b border-line-soft flex flex-wrap items-baseline justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
