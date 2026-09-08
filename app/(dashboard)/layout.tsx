@@ -43,9 +43,15 @@ export default async function DashboardLayout({ children }: { children: ReactNod
           <Sidebar />
         </div>
         <div className="flex flex-1 flex-col min-w-0 min-h-0 lg:pl-60 print:pl-0">
-          {/* shrink-0: without it the header is a flex item that will happily
-              be squashed to nothing by a tall child. */}
-          <div className="shrink-0 print:hidden">
+          {/* THE ONE PLACE THE TOP INSET IS APPLIED.
+              pt-safe here rather than on <header>: the header is h-14 and
+              Tailwind sizes with border-box, so padding there comes OUT of the
+              56px row and squashes the search bar instead of moving it down.
+              bg-panel so the strip above it matches the header rather than
+              showing the surface behind.
+              shrink-0: without it the whole chrome is a flex item that will
+              happily be squashed to nothing by a tall child. */}
+          <div className="shrink-0 pt-safe bg-panel print:hidden">
             <ImpersonationBanner />
             <ViewAsBanner />
             <TopNav />

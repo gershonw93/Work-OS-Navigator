@@ -181,11 +181,36 @@ wraps a website. These are the mitigation, and they are all built:
 - **Offline screen** - `public/offline.html`, wired to `server.errorPath`. A
   blank white webview on one bar of signal is a rejection and a bad app.
 - **Splash screen + status bar** that follow the theme.
-- **Safe areas** - `.pt-safe` / `.pb-safe` / `.px-safe` / `.pb-field-nav` in
-  `globals.css`, applied to the fixed sidebar and the field bottom nav.
-  ⚠️ **Needs one pass on a real device.** iOS also insets the webview's own
-  scroll view (`contentInset: 'always'`), so some of these resolve to zero. It
-  cannot be judged from a desktop browser; look at it in TestFlight.
+- **Safe areas — SyteNav owns them, iOS does not.** `.pt-safe` / `.pb-safe` /
+  `.px-safe` / `.pb-tab-bar` / `.pb-field-nav` in `globals.css`, plus
+  `.overlay`'s `max(1rem, env(safe-area-inset-*))`.
+
+  `capacitor.config.ts` sets `ios: { contentInset: 'never' }` and
+  `app/layout.tsx` sets `viewportFit: 'cover'`. Together those mean the webview
+  covers the whole screen and `env(safe-area-inset-*)` reports the real numbers,
+  so the CSS above is the only thing insetting anything.
+
+  ⚠️ **It used to be `'always'`, and that was the bug.** iOS inset its own
+  scroll view, nothing in the app padded the top, and the header sat flush under
+  the Dynamic Island — then jumped down by exactly 59pt when the drawer was
+  opened, then back. `'always'` held while the DOCUMENT scrolled; once the shell
+  became one screen tall an inset applied to a scroll view with nothing to
+  scroll started being recalculated on layout events, and opening the drawer
+  sets `html { overflow: hidden }`. One value decided in two places, with the
+  winner depending on what the webview did last.
+
+  **EXACTLY ONE ELEMENT PADS EACH EDGE.** Top: the chrome wrapper in
+  `(dashboard)/layout.tsx`, and the banner wrapper in `field/layout.tsx`. Bottom:
+  `pb-safe` on each bottom nav, and `pb-tab-bar` / `pb-field-nav` on `<main>` to
+  clear it. Adding a second is not belt-and-braces, it is 118pt of white space.
+
+  `pt-safe` goes on a wrapper, never on the `h-14` header itself: Tailwind sizes
+  with `border-box`, so padding there comes OUT of the 56px row and squashes the
+  search bar instead of moving it down.
+
+  Changing `contentInset` means a NEW native build. The CSS half deploys on its
+  own and is self-correcting in the meantime — where iOS is still insetting,
+  `env()` reports 0 and `pt-safe` adds nothing.
 
 ### The app shell, and why nothing overflows (IMPORTANT)
 

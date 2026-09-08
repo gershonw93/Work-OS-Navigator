@@ -53,6 +53,12 @@ export const RELEASES: Release[] = [
     items: [
       {
         kind: 'fixed',
+        title: 'The top bar no longer jumps down when you open the menu',
+        text: 'On an iPhone the search bar sometimes sat jammed against the very top of the screen, under the clock, and then dropped into place the moment you opened the menu — and sometimes back again. Two different things were deciding where the top of the app should be, and which one won depended on what you had just tapped. Now one of them does, so it sits in the right place from the moment the app opens.',
+        href: '/dashboard',
+      },
+      {
+        kind: 'fixed',
         title: 'Notifications on the phone itself now actually register',
         text: 'The app asked for permission, you allowed it, and then nothing — no phone was ever registered and nothing said why. The app build had no way to receive Apple\'s reply, so the answer was delivered to nobody, silently, in both the success and the failure case. That is fixed, and it needs the next TestFlight build to reach you. Settings → Notifications will also now name exactly which step failed if it ever happens again, instead of repeating advice you have already followed.',
         help: 'notification-preferences',
