@@ -24,6 +24,7 @@ import { contractAmount, contractAmountLabel, isUnpriced } from '@/lib/contract-
 import { parseDate, formatDate } from '@/lib/dates'
 import { toAmountInput } from '@/lib/validate'
 
+import { LineEditor } from '@/components/invoices/line-editor'
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   pending_approval: { label: 'Pending Approval', color: 'bg-warn-tint border-warn/30 text-warn' },
   approved: { label: 'Approved', color: 'bg-info-tint border-info/30 text-info' },
@@ -120,6 +121,57 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
   // The breakdown. Filled by a scan, or typed - an invoice entered by hand
   // deserves the same detail as one that was read off a PDF.
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([])
+  // Tax as an editable string, because it is now a field somebody types into
+  // rather than a value only the scanner could write.
+  const [taxInput, setTaxInput] = useState('')
+  const [editLines, setEditLines] = useState<InvoiceLineItem[]>([])
+  const [editTax, setEditTax] = useState('')
+
+  // Subs in the company Directory who are NOT yet on this project. The picker
+  // offered project subcontracts only, so a sub you already have on file was
+  // invisible mid-bill and the only way forward was to leave the form.
+  const [directorySubs, setDirectorySubs] = useState<{ id: string; name: string; trade: string | null }[]>([])
+  const [attaching, setAttaching] = useState(false)
+
+  /**
+   * Put a directory sub on this project and return the new subcontract id.
+   *
+   * The route already knew how to do this - it has taken `existing_company_id`
+   * since it was written. It was simply gated on `team: edit` while this form
+   * needs `invoices: edit`, so a bookkeeper entering a bill hit a wall the
+   * moment a sub was not yet attached. The gate now depends on which branch is
+   * being used: attaching someone you already have is part of entering a bill;
+   * creating a new company in the Directory is not.
+   *
+   * The subcontract is created with NO agreed amount, which migration 082 made
+   * possible on purpose - "not agreed yet, never write 0".
+   */
+  async function attachDirectorySub(companyId: string): Promise<string | null> {
+    const c = directorySubs.find(x => x.id === companyId)
+    setAttaching(true)
+    try {
+      const token = await getToken()
+      const fd = new FormData()
+      fd.append('existing_company_id', companyId)
+      fd.append('trade', c?.trade || 'General')
+      fd.append('scope', 'Added while entering a bill')
+      const res = await fetch(`/api/projects/${params.id}/subcontracts`, {
+        method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd,
+      })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setCreateError(d?.error ?? `Could not add ${c?.name ?? 'that sub'} to this job.`)
+        return null
+      }
+      await fetchData()
+      return d?.subcontract?.id ?? null
+    } catch {
+      setCreateError('Could not reach the server - the sub was not added.')
+      return null
+    } finally {
+      setAttaching(false)
+    }
+  }
 
   // Scanned invoice: the document is already stored, so it rides along with the
   // create and gets attached without a second upload.
@@ -137,6 +189,20 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
     return session?.access_token ?? ''
+  }
+
+  async function fetchDirectory() {
+    try {
+      const token = await getToken()
+      const res = await fetch('/api/directory', { headers: { Authorization: `Bearer ${token}` } })
+      if (!res.ok) return
+      const d = await res.json()
+      setDirectorySubs((d.companies ?? [])
+        .filter((c: any) => c.type === 'subcontractor')
+        .map((c: any) => ({ id: c.id, name: c.name, trade: c.trade ?? null })))
+    } catch {
+      // A directory we cannot read just means no extra options, not a broken form.
+    }
   }
 
   async function fetchData() {
@@ -182,6 +248,19 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
       if (item?.label) setDescription(item.label)
     }
   }, [scheduleItemId])
+
+  // Directory subs minus anyone already on this job, so the same company is
+  // never offered twice.
+  const onJob = new Set(subcontracts.map(s => String((s as any).company_id ?? '')))
+  const directoryOptions = directorySubs.filter(c => !onJob.has(c.id))
+
+  /** Choosing a directory sub attaches them first, then selects the real id. */
+  async function chooseSub(value: string) {
+    if (!value.startsWith('dir:')) { setSubId(value); setScheduleItemId(''); return }
+    setCreateError('')
+    const id = await attachDirectorySub(value.slice(4))
+    if (id) { setSubId(id); setScheduleItemId('') }
+  }
 
   // Amount actually billed, based on the chosen mode
   const billedAmount = (() => {
@@ -280,7 +359,8 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
       if (draft.due_date) setDueDate(draft.due_date)
       setLineItems(Array.isArray(draft.line_items) ? draft.line_items : [])
 
-      setScanned({
+      setTaxInput(draft.tax != null ? String(draft.tax) : '')
+    setScanned({
         document_url: d.document_url ?? null,
         document_name: d.document_name ?? file.name,
         confidence: draft.confidence ?? null,
@@ -338,7 +418,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
           // and thrown away.
           line_items: lineItems,
           subtotal: scanned?.subtotal ?? null,
-          tax: scanned?.tax ?? null,
+          tax: taxInput === '' ? null : Number(taxInput),
           retainage: scanned?.retainage ?? null,
           quote_check: scanned?.quoteCheck ?? null,
         }),
@@ -412,6 +492,8 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
     setEditNotes(invoice.description ?? '')
     setEditClientPaid(invoice.client_paid ? String(invoice.client_paid) : '')
     setEditEscrowPaid(invoice.escrow_paid ? String(invoice.escrow_paid) : '')
+    setEditLines(Array.isArray(invoice.line_items) ? invoice.line_items : [])
+    setEditTax(invoice.tax != null ? String(invoice.tax) : '')
   }
 
   async function handleEditInvoice(e: React.FormEvent) {
@@ -428,6 +510,11 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
         description: editNotes || null,
         client_paid: parseFloat(editClientPaid) || 0,
         escrow_paid: parseFloat(editEscrowPaid) || 0,
+        // The PATCH route has accepted these since migration 072; only the
+        // form never sent them, which is why fixing one wrong line meant
+        // deleting the bill and re-scanning the document.
+        line_items: editLines,
+        tax: editTax === '' ? null : Number(editTax),
       }),
     })
     const j = await res.json().catch(() => ({}))
@@ -933,6 +1020,14 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
                   <input value={editNotes} onChange={e => setEditNotes(e.target.value)} placeholder="Description or notes..."
                     className="w-full rounded-md border border-muted2 px-3 py-2 text-sm focus:border-accent focus:outline-none" />
                 </div>
+                <LineEditor
+                  lines={editLines}
+                  onLines={setEditLines}
+                  tax={editTax}
+                  onTax={setEditTax}
+                  retainage={editInvoice.retainage ?? null}
+                  amount={parseFloat(editAmount) || null}
+                />
                 <div className="rounded-lg border border-line-soft bg-surface/60 p-3 space-y-2.5">
                   <p className="text-xs font-semibold uppercase tracking-wide text-faint">How was it paid?</p>
                   <div className="grid grid-cols-2 gap-3">
@@ -1051,13 +1146,26 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
                 )}
                 <div className="space-y-1.5">
                   <Label>Subcontractor</Label>
-                  <SearchableSelect value={subId} onChange={e => { setSubId(e.target.value); setScheduleItemId('') }} required
+                  <SearchableSelect value={subId} onChange={e => { chooseSub(e.target.value) }} required
                     className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
                     <option value="">Select subcontractor...</option>
                     {subcontracts.map(s => (
                       <option key={s.id} value={s.id}>{(s.companies as any)?.name ?? s.trade} - {s.trade}</option>
                     ))}
+                    {/* Subs you already have on file who are not on this job
+                        yet. Choosing one attaches them, so entering a bill
+                        never dead-ends on "that sub exists, but not here". */}
+                    {directoryOptions.length > 0 && (
+                      <optgroup label="From your directory — not on this job yet">
+                        {directoryOptions.map(c => (
+                          <option key={c.id} value={`dir:${c.id}`}>
+                            {c.name}{c.trade ? ` - ${c.trade}` : ''}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
                   </SearchableSelect>
+                  {attaching && <p className="text-xs text-muted-fg">Adding them to this job…</p>}
                 </div>
 
                 {/* Where this money ends up. Shown before the amount is even
@@ -1146,71 +1254,14 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
                 {/* The breakdown. Scanned invoices arrive with it filled in;
                     typed ones can have it too, because "what am I paying for?"
                     is the same question either way. */}
-                {(() => {
-                  const rec = reconcile({
-                    lines: lineItems, tax: scanned?.tax, retainage: scanned?.retainage, amount: billedAmount,
-                  })
-                  const note = reconciliationNote(rec)
-                  return (
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <Label>What is being charged for</Label>
-                        <button type="button"
-                          onClick={() => setLineItems(l => [...l, { description: '', amount: null }])}
-                          className="text-xs font-medium text-accent-fg hover:underline">
-                          + Add a line
-                        </button>
-                      </div>
-                      {lineItems.length === 0 ? (
-                        <p className="text-xs text-faint">
-                          No breakdown. Add lines to record what the charges are - or leave it and the
-                          invoice keeps just its total.
-                        </p>
-                      ) : (
-                        <div className="rounded-lg border border-line divide-y divide-line-soft">
-                          {lineItems.map((li, idx) => (
-                            <div key={idx} className="flex items-center gap-2 px-2 py-1.5">
-                              <input
-                                value={li.description ?? ''}
-                                onChange={e => setLineItems(l => l.map((x, i) => i === idx ? { ...x, description: e.target.value } : x))}
-                                placeholder="What it is"
-                                className="flex-1 min-w-0 bg-transparent text-sm text-ink outline-none placeholder:text-faint"
-                              />
-                              {li.qty != null && li.unit_price != null && (
-                                <span className="text-[11px] text-faint shrink-0 tabular-nums">
-                                  {li.qty}{li.unit ? ` ${li.unit}` : ''} × ${li.unit_price}
-                                </span>
-                              )}
-                              <input
-                                type="number" step="0.01"
-                                value={li.amount ?? ''}
-                                onChange={e => setLineItems(l => l.map((x, i) => i === idx ? { ...x, amount: e.target.value === '' ? null : Number(e.target.value) } : x))}
-                                placeholder="0.00"
-                                className="w-24 shrink-0 bg-transparent text-sm text-ink text-right outline-none tabular-nums placeholder:text-faint"
-                              />
-                              <button type="button" onClick={() => setLineItems(l => l.filter((_, i) => i !== idx))}
-                                className="shrink-0 p-1 text-faint hover:text-danger" title="Remove this line">
-                                <X className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          ))}
-                          <div className="flex items-center justify-between px-2 py-1.5 bg-surface text-xs">
-                            <span className="text-muted-fg">
-                              {lineItems.length} line{lineItems.length !== 1 ? 's' : ''}
-                              {scanned?.tax ? ` + $${Number(scanned.tax).toLocaleString()} tax` : ''}
-                              {scanned?.retainage ? ` − $${Number(scanned.retainage).toLocaleString()} retainage` : ''}
-                            </span>
-                            <span className={cn('font-semibold tabular-nums', rec.balanced ? 'text-success' : 'text-ink')}>
-                              ${linesTotal(lineItems).toLocaleString()}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                      {note && <p className="text-xs text-warn">{note}</p>}
-                      {rec.balanced && <p className="text-xs text-success">The breakdown adds up to the total.</p>}
-                    </div>
-                  )
-                })()}
+                <LineEditor
+                  lines={lineItems}
+                  onLines={setLineItems}
+                  tax={taxInput}
+                  onTax={setTaxInput}
+                  retainage={scanned?.retainage ?? null}
+                  amount={billedAmount}
+                />
 
                 <div className="space-y-1.5">
                   <Label>Description</Label>

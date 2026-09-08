@@ -68,11 +68,21 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
   // Voiding has to reach QuickBooks or the receivable stays open over there,
   // counting money nobody is being asked for any more.
+  //
+  // THE RESULT USED TO BE DISCARDED. The local row is already `void` by this
+  // point and the route returned 200 either way, so a failed void was invisible
+  // - and the badge, reading only local state, printed "Voided in QB" over it.
+  // Reported rather than thrown: an outage must not stop somebody voiding their
+  // own invoice, but they should be told QuickBooks has not caught up.
+  let quickbooks: { voided: boolean; detail?: string } | undefined
   if (body.status === 'void') {
-    await voidClientInvoiceInQbo(db, params.billId)
+    const res = await voidClientInvoiceInQbo(db, params.billId)
+    quickbooks = res.pushed
+      ? { voided: true }
+      : { voided: false, detail: res.reason === 'not_connected' ? undefined : (res as any).detail ?? res.reason }
   }
 
-  return NextResponse.json({ invoice: data })
+  return NextResponse.json({ invoice: data, ...(quickbooks ? { quickbooks } : {}) })
 }
 
 export async function DELETE(request: Request, { params }: { params: { id: string; billId: string } }) {

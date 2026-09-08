@@ -1,0 +1,658 @@
+<title>SyteNav Field Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<style>
+  :root {
+    --ground:      #F4F4F1;
+    --panel:       #FFFFFF;
+    --line:        #E3E3DC;
+    --line-soft:   #EDEDE7;
+    --ink:         #16181B;
+    --ink-soft:    #3A3F46;
+    --muted:       #6A6E74;
+    --faint:       #93968F;
+    --accent:      #C9F24A;
+    --accent-ink:  #4E6610;
+    --accent-soft: #F0FAD2;
+    --warn-ink:    #8A5A00;
+    --warn-soft:   #FCF2DC;
+
+    --display: 'Archivo', 'Helvetica Neue', Arial, sans-serif;
+    --body: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:      #131518;
+      --panel:       #1B1E22;
+      --line:        #2C3036;
+      --line-soft:   #24272C;
+      --ink:         #F2F3F0;
+      --ink-soft:    #C9CCC7;
+      --muted:       #969A95;
+      --faint:       #6E726E;
+      --accent:      #D6F869;
+      --accent-ink:  #C0E64A;
+      --accent-soft: #262E14;
+      --warn-ink:    #E0B25C;
+      --warn-soft:   #2E2617;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:      #131518;
+    --panel:       #1B1E22;
+    --line:        #2C3036;
+    --line-soft:   #24272C;
+    --ink:         #F2F3F0;
+    --ink-soft:    #C9CCC7;
+    --muted:       #969A95;
+    --faint:       #6E726E;
+    --accent:      #D6F869;
+    --accent-ink:  #C0E64A;
+    --accent-soft: #262E14;
+    --warn-ink:    #E0B25C;
+    --warn-soft:   #2E2617;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink-soft);
+    font-family: var(--body);
+    font-size: 16.5px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 0 24px 96px;
+  }
+
+  /* ── Masthead ─────────────────────────────────────────────── */
+
+  .masthead {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding: 52px 0 28px;
+    border-bottom: 2px solid var(--ink);
+  }
+
+  .lockup {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+  }
+
+  .mark {
+    width: 30px; height: 30px;
+    border-radius: 7px;
+    background: var(--ink);
+    display: grid;
+    place-items: center;
+    flex: none;
+  }
+  .mark svg { display: block; }
+
+  .wordmark {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: 21px;
+    letter-spacing: -0.02em;
+    text-transform: uppercase;
+    color: var(--ink);
+  }
+  .wordmark em { font-style: normal; color: var(--accent-ink); }
+
+  .masthead h1 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: clamp(30px, 6vw, 40px);
+    line-height: 1.1;
+    letter-spacing: -0.025em;
+    color: var(--ink);
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  .standfirst {
+    font-size: 18px;
+    color: var(--muted);
+    margin: 0;
+    max-width: 60ch;
+  }
+
+  .stamp {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--faint);
+    letter-spacing: 0.01em;
+  }
+  .stamp b { color: var(--muted); font-weight: 500; }
+
+  /* ── Sections ─────────────────────────────────────────────── */
+
+  section { padding-top: 52px; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    font-weight: 500;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    margin: 0 0 10px;
+  }
+
+  h2 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 25px;
+    line-height: 1.2;
+    letter-spacing: -0.018em;
+    color: var(--ink);
+    margin: 0 0 16px;
+    text-wrap: balance;
+  }
+
+  h3 {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 17px;
+    letter-spacing: -0.008em;
+    color: var(--ink);
+    margin: 30px 0 8px;
+  }
+
+  p { margin: 0 0 15px; }
+  p:last-child { margin-bottom: 0; }
+
+  strong { color: var(--ink); font-weight: 600; }
+
+  .lead {
+    font-size: 18px;
+    color: var(--ink-soft);
+  }
+
+  /* ── The lifecycle: a real sequence, so it's numbered ─────── */
+
+  .stages {
+    list-style: none;
+    margin: 22px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 44px 1fr;
+    gap: 18px;
+    padding-bottom: 26px;
+    position: relative;
+  }
+  .stage:not(:last-child)::before {
+    content: "";
+    position: absolute;
+    left: 21px;
+    top: 34px;
+    bottom: 4px;
+    width: 2px;
+    background: var(--line);
+  }
+
+  .stage-n {
+    width: 44px; height: 30px;
+    border-radius: 6px;
+    background: var(--accent);
+    color: #16181B;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 500;
+    display: grid;
+    place-items: center;
+    position: relative;
+    z-index: 1;
+  }
+
+  .stage h3 { margin: 2px 0 5px; }
+  .stage p { margin: 0; font-size: 15.5px; }
+
+  .tabs {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--faint);
+    margin-top: 7px;
+  }
+
+  /* ── Comparison ───────────────────────────────────────────── */
+
+  .split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin: 20px 0 0;
+  }
+  @media (max-width: 620px) { .split { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 18px 20px;
+  }
+  .card h3 { margin: 0 0 6px; font-size: 15.5px; }
+  .card p { font-size: 15px; margin: 0; color: var(--muted); }
+
+  /* ── Q&A ──────────────────────────────────────────────────── */
+
+  .qa { border-top: 1px solid var(--line); margin-top: 24px; }
+  .qa > div {
+    padding: 18px 0;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .qa dt {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 16.5px;
+    color: var(--ink);
+    margin-bottom: 5px;
+  }
+  .qa dd { margin: 0; font-size: 15.5px; }
+
+  /* ── Limits: mono, set apart, deliberately plain ──────────── */
+
+  .limits {
+    background: var(--warn-soft);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 22px 24px;
+    margin-top: 20px;
+  }
+  .limits ul { margin: 0; padding: 0; list-style: none; }
+  .limits li {
+    padding: 11px 0;
+    border-bottom: 1px solid rgba(128,128,128,0.16);
+    font-size: 15.5px;
+  }
+  .limits li:last-child { border-bottom: 0; padding-bottom: 0; }
+  .limits li:first-child { padding-top: 0; }
+  .limits .tag {
+    display: block;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--warn-ink);
+    margin-bottom: 3px;
+  }
+
+  /* ── Table ────────────────────────────────────────────────── */
+
+  .scroll { overflow-x: auto; margin-top: 20px; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 15px;
+    min-width: 460px;
+  }
+  th, td {
+    text-align: left;
+    padding: 11px 14px 11px 0;
+    border-bottom: 1px solid var(--line-soft);
+    vertical-align: top;
+  }
+  th {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--faint);
+    border-bottom-color: var(--line);
+  }
+  td:first-child { color: var(--ink); font-weight: 500; }
+
+  /* ── Close ────────────────────────────────────────────────── */
+
+  .colophon {
+    margin-top: 60px;
+    padding-top: 22px;
+    border-top: 2px solid var(--ink);
+    font-size: 14.5px;
+    color: var(--muted);
+  }
+  .colophon p { margin-bottom: 10px; }
+
+  a { color: var(--accent-ink); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:focus-visible, [tabindex]:focus-visible {
+    outline: 2px solid var(--accent-ink);
+    outline-offset: 2px;
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="lockup">
+      <span class="mark" aria-hidden="true">
+        <svg width="17" height="17" viewBox="0 0 48 48"><path d="M14 13 L37 22 L26 26 L22 37 Z" fill="#C9F24A"/></svg>
+      </span>
+      <span class="wordmark">Syte<em>Nav</em></span>
+    </div>
+    <h1>What SyteNav does, in the words a builder would use</h1>
+    <p class="standfirst">
+      Construction management for general contractors — the estimate, the subs, the schedule,
+      and every dollar in and out of a job. Written to answer real questions, including the
+      ones where the answer is "not yet".
+    </p>
+    <div class="stamp">
+      <span><b>Updated</b> 8 Sep 2026</span>
+      <span><b>Audience</b> prospects &amp; customers</span>
+      <span><b>Status</b> live, in daily use</span>
+    </div>
+  </header>
+
+  <section>
+    <p class="eyebrow">The short version</p>
+    <h2>One place for the job, from the estimate to the last payment</h2>
+    <p class="lead">
+      A GC runs a job out of a dozen places at once — a spreadsheet for the budget, a text thread
+      with the plumber, an inbox full of certificates, and a bookkeeper asking what got billed.
+      SyteNav is one place for all of it, built for the person standing on the site rather than
+      the person reporting on it afterwards.
+    </p>
+    <p>
+      Every job opens on an <strong>Overview</strong>: what you have received from the client, what
+      you have committed to vendors, what is waiting on you, and what is waiting on somebody else.
+      Not a checklist — a GC knows how to run a job. What nobody can know without opening six tabs
+      is what has piled up since they last looked.
+    </p>
+  </section>
+
+  <section>
+    <p class="eyebrow">How a job moves</p>
+    <h2>Four stages, in the order they actually happen</h2>
+
+    <ol class="stages">
+      <li class="stage">
+        <span class="stage-n">01</span>
+        <div>
+          <h3>Price it</h3>
+          <p>
+            Build or upload an estimate and AI reads it into line items — including your payment
+            terms, so "50% deposit, 40% at rough-in" becomes figures you can actually request later.
+            Send it as a proposal; accept it and it becomes a live job.
+          </p>
+          <p class="tabs">Estimate · Budget</p>
+        </div>
+      </li>
+      <li class="stage">
+        <span class="stage-n">02</span>
+        <div>
+          <h3>Buy it out</h3>
+          <p>
+            Send a scope to subs and get priced quotes back. They need no account and no password —
+            a private link opens the scope, the plans and a form on a phone. Compare line by line,
+            award one, and the subcontract, its payment schedule and its budget line all exist.
+            Insurance and licences are chased from the same place.
+          </p>
+          <p class="tabs">Quotes &amp; Bids · Subs &amp; Team · Compliance</p>
+        </div>
+      </li>
+      <li class="stage">
+        <span class="stage-n">03</span>
+        <div>
+          <h3>Build it</h3>
+          <p>
+            Plans with pins, a schedule, tasks on a board, daily logs with photos, a time clock,
+            permits, inspections, RFIs and submittals. Field-first: everything here works on a
+            phone with one hand and a glove on the other.
+          </p>
+          <p class="tabs">Plans · Schedule · Tasks · Daily Logs · Permits · Inspections · RFIs</p>
+        </div>
+      </li>
+      <li class="stage">
+        <span class="stage-n">04</span>
+        <div>
+          <h3>Get paid</h3>
+          <p>
+            Approve the bills your subs send you, bill your client from costs already approved with
+            your markup applied, record what comes in, and watch the fee you have actually earned
+            rather than a flat percentage of a guess.
+          </p>
+          <p class="tabs">Bills from subs · Billing the client · Pay Apps · Change Orders</p>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <section>
+    <p class="eyebrow">The money</p>
+    <h2>Two billing styles, because residential and commercial are not the same job</h2>
+
+    <div class="split">
+      <div class="card">
+        <h3>Simple invoicing</h3>
+        <p>
+          For residential and cost-plus work. Invoices are built from costs you have already
+          approved — sub bills and material receipts — each carrying its own markup, so nothing is
+          retyped and the figures cannot drift.
+        </p>
+      </div>
+      <div class="card">
+        <h3>AIA progress billing</h3>
+        <p>
+          For commercial and bank-funded work. The G702/G703 application is the bill you send, with
+          schedule of values, retainage and stored materials handled properly.
+        </p>
+      </div>
+    </div>
+
+    <h3>Deposits and stage payments</h3>
+    <p>
+      A deposit is money taken before there are any costs to bill against, so it is not built like
+      an invoice. Your estimate's payment terms appear already priced — press once to request the
+      deposit, and it goes to the client by email and appears on their portal. Ask in dollars or as
+      a percentage; either way it shows what the figure comes to before you send it.
+    </p>
+
+    <h3>Your fee is earned, not assumed</h3>
+    <p>
+      On a cost-plus job the contractor's fee is calculated from the cost that has actually been
+      billed, line by line — including lines you agreed to pass through at cost, and lines
+      negotiated at a different rate. A flat "rate × spend" is close but wrong, and it is wrong in
+      the direction that costs you money.
+    </p>
+  </section>
+
+  <section>
+    <p class="eyebrow">The client's side</p>
+    <h2>One link, no account, nothing they can break</h2>
+    <p>
+      Every job has a private client link. It is read-only, works on a phone, and needs no sign-up.
+      They see progress, the schedule, permits, recent daily logs, any selections still waiting on
+      them, invoices you have sent, payments you have requested, and a record of what they have
+      already paid.
+    </p>
+    <p>
+      Nothing appears there until you have actually sent it — a draft invoice or an unsent payment
+      request stays yours. And the moment money is recorded, their page says so: the request
+      disappears and the payment is acknowledged. <em>"Did they even get my money?"</em> is the one
+      question a client page must never leave open.
+    </p>
+  </section>
+
+  <section>
+    <p class="eyebrow">Bookkeeping</p>
+    <h2>QuickBooks, answered the way a bookkeeper would ask</h2>
+
+    <dl class="qa">
+      <div>
+        <dt>Does it sync with QuickBooks Online?</dt>
+        <dd>
+          Yes. One-way, SyteNav into QuickBooks, so your bookkeeper is not re-entering anything.
+          Once connected it runs itself — there is no button to remember.
+        </dd>
+      </div>
+      <div>
+        <dt>What actually goes across?</dt>
+        <dd>
+          <div class="scroll">
+            <table>
+              <thead>
+                <tr><th>In SyteNav</th><th>In QuickBooks</th><th>When</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>Customers</td><td>Customer</td><td>As you add or edit them</td></tr>
+                <tr><td>Subs &amp; suppliers</td><td>Vendor</td><td>First time you approve their bill</td></tr>
+                <tr><td>Bills from subs</td><td>Bill</td><td>The moment you approve it</td></tr>
+                <tr><td>Paying a sub's bill</td><td>Bill Payment, applied to that bill</td><td>The moment you mark it paid</td></tr>
+                <tr><td>Invoices to your client</td><td>Invoice (A/R)</td><td>The moment you send it</td></tr>
+                <tr><td>Money received</td><td>Payment, applied to the invoice it settles</td><td>As you record it</td></tr>
+                <tr><td>Voiding a sent invoice</td><td>The invoice is voided there too</td><td>As you void it</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>Will an unpaid invoice show as money owed?</dt>
+        <dd>
+          Yes — that is the point. Send it and it lands in QuickBooks as a receivable with your own
+          invoice number, the due date and the job name on it, so you get proper aging rather than
+          only seeing cash when it arrives.
+        </dd>
+      </div>
+      <div>
+        <dt>Which invoice does a payment settle?</dt>
+        <dd>
+          The one you recorded it against — not "the oldest one still open". Two invoices raised on
+          the same day cannot be mixed up, because the payment carries the invoice you pressed Mark
+          paid on. Only money that settles nothing in particular — a deposit taken before there is
+          an invoice — books as a sales receipt instead.
+        </dd>
+      </div>
+      <div>
+        <dt>Does it record how the client paid?</dt>
+        <dd>
+          Yes. Check, ACH, wire, cash or card carries through to the QuickBooks record — the field
+          your bookkeeper reconciles a bank statement against. QuickBooks only knows a few of those
+          out of the box; the rest are created in your file the first time you use them.
+        </dd>
+      </div>
+      <div>
+        <dt>Can I tell which job a QuickBooks record belongs to?</dt>
+        <dd>
+          Every record carries the job name in its memo and a reference number you can search for,
+          so a customer with three jobs does not turn into three unidentifiable receipts.
+        </dd>
+      </div>
+      <div>
+        <dt>What if QuickBooks is down when I record something?</dt>
+        <dd>
+          Your record saves regardless — the payment is the work, QuickBooks is a side effect. The
+          miss is logged and swept up by the next sync, and the settings screen tells you plainly
+          how many records are waiting. That includes voids: if a void does not get through, the
+          invoice says so rather than showing a tick, because an invoice that is still an open
+          receivable over there is exactly the thing you need to know about.
+        </dd>
+      </div>
+      <div>
+        <dt>I have more than one company. Do they share books?</dt>
+        <dd>
+          No. Each company connects to its own QuickBooks file and only ever pushes there. That is
+          deliberate — separate businesses must never write into each other's books.
+        </dd>
+      </div>
+    </dl>
+  </section>
+
+  <section>
+    <p class="eyebrow">Straight answers</p>
+    <h2>What it does not do yet</h2>
+    <p>
+      Worth knowing before you ask it to do something it cannot. None of these lose data — the
+      information is still in SyteNav; they are places a person still does the last step.
+    </p>
+
+    <div class="limits">
+      <ul>
+        <li>
+          <span class="tag">QuickBooks · one direction</span>
+          Nothing recorded directly in QuickBooks comes back into SyteNav. Edit something over
+          there and the two will disagree until it is fixed here.
+        </li>
+        <li>
+          <span class="tag">Split payments</span>
+          A client payment applies whole, to the invoice you recorded it against. Splitting one
+          cheque across several invoices is not modelled.
+        </li>
+        <li>
+          <span class="tag">Editing a sent invoice</span>
+          Deliberately not possible — editing a document your client is holding leaves your copy
+          and theirs disagreeing. Void it and raise a corrected one instead; voiding sends the void
+          to QuickBooks and releases its costs to be billed again.
+        </li>
+        <li>
+          <span class="tag">Sub-side experience</span>
+          Subcontractors can quote, submit bills and see their own jobs, but their side is thinner
+          than the GC's. It is built for the contractor first.
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">Everything else</p>
+    <h2>The parts that are easy to miss</h2>
+
+    <h3>Email that actually sends</h3>
+    <p>
+      Quote requests, document requests, shared files, client invoices and payment requests all go
+      out from SyteNav — properly branded, from your domain, with the link the recipient needs. If
+      sending is not set up or fails, it says so and hands you the link to send yourself rather
+      than showing a green tick over an email that never left.
+    </p>
+
+    <h3>You choose what you are told about, and so does the company</h3>
+    <p>
+      Each person has their own switches for the bell and for email. Email is off by default for
+      most, on for the six where finding out at your next login is too late — somebody waiting on
+      your sign-off, a bill needing approval, an insurance certificate about to lapse, or a package
+      you bid on being decided. Separately, an admin sets <strong>who gets told at all</strong>:
+      which roles or people hear about an inspection, a change order, a bill waiting for approval.
+    </p>
+
+    <h3>Multi-unit work</h3>
+    <p>
+      A building or a street can be a site holding a job per unit, with budget and progress rolling
+      up across all of them — so twelve townhouses are twelve jobs you can actually run, not one
+      job with twelve of everything in it.
+    </p>
+  </section>
+
+  <footer class="colophon">
+    <p>
+      <strong>Using this page to answer questions.</strong> Everything here describes behaviour
+      that is live today, and the limits section is as carefully checked as the features — a brief
+      that only sells produces confident wrong answers.
+    </p>
+    <p>
+      If a question falls outside what is written here, the honest answer is that it needs
+      checking, not a guess. Updated whenever something a customer would notice ships.
+    </p>
+  </footer>
+
+</div>

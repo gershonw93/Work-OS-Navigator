@@ -15,6 +15,8 @@
 export interface QbInvoice {
   status: string
   qbo_id: string | null
+  /** When QuickBooks CONFIRMED the void. Null on a voided invoice means it did not. */
+  qbo_voided_at?: string | null
   settlement?: { recorded: boolean; in_qbo: boolean } | null
 }
 
@@ -34,10 +36,22 @@ export function invoiceQbChip(inv: QbInvoice, connected: boolean): QbChip {
   // nothing belongs over there yet.
   if (status === 'draft') return { show: false }
 
+  // A VOID IS ALSO TWO FACTS, and this branch used to collapse them exactly the
+  // way the header above condemns. It read `qbo_id != null` and drew a green
+  // "Voided in QB" - but qbo_id is stamped when the invoice is CREATED over
+  // there. So a void that failed (expired connection, the 8s budget, a payment
+  // QuickBooks refuses to void around) printed green over a receivable that was
+  // still open, and the badge was the reason nobody went and fixed it by hand.
   if (status === 'void') {
-    return inv.qbo_id
-      ? { show: true, tone: 'ok', label: 'Voided in QB', title: `Voided in QuickBooks (invoice ${inv.qbo_id})` }
-      : { show: false }
+    // Never reached QuickBooks, so there is nothing over there to void.
+    if (!inv.qbo_id) return { show: false }
+    if (inv.qbo_voided_at) {
+      return { show: true, tone: 'ok', label: 'Voided in QB', title: `Voided in QuickBooks (invoice ${inv.qbo_id})` }
+    }
+    return {
+      show: true, tone: 'warn', label: 'Void not sent to QuickBooks',
+      title: `Voided here, but invoice ${inv.qbo_id} is still open in QuickBooks and its receivable still counts. Settings > QuickBooks > Retry voids.`,
+    }
   }
 
   if (!inv.qbo_id) {

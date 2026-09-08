@@ -30,8 +30,9 @@ export async function GET(request: Request) {
   let unsyncedPayments = 0
   let unsyncedBills = 0
   let unsyncedClientInvoices = 0
+  let unsentVoids = 0
   if (projectIds.length) {
-    const [pay, bills, clientInv] = await Promise.all([
+    const [pay, bills, clientInv, voids] = await Promise.all([
       // Not "unsynced" if somebody entered it in QuickBooks themselves -
       // reporting those as waiting would nag forever about work already done.
       db.from('client_payments').select('id', { count: 'exact', head: true })
@@ -41,10 +42,16 @@ export async function GET(request: Request) {
         .in('project_id', projectIds).in('status', ['approved', 'paid']).is('qbo_id', null),
       db.from('client_invoices').select('id', { count: 'exact', head: true })
         .in('project_id', projectIds).in('status', ['sent', 'paid']).is('qbo_id', null),
+      // Voided here, still open over there. This backlog did not exist, so the
+      // card said "Everything is in QuickBooks" over an unfixed receivable.
+      db.from('client_invoices').select('id', { count: 'exact', head: true })
+        .in('project_id', projectIds).eq('status', 'void')
+        .not('qbo_id', 'is', null).is('qbo_voided_at', null),
     ])
     unsyncedPayments = pay.count ?? 0
     unsyncedBills = bills.count ?? 0
     unsyncedClientInvoices = clientInv.count ?? 0
+    unsentVoids = voids.count ?? 0
   }
 
   const { data: log } = await db.from('quickbooks_sync_log')
@@ -61,6 +68,7 @@ export async function GET(request: Request) {
     unsyncedPayments,
     unsyncedBills,
     unsyncedClientInvoices,
+    unsentVoids,
     lastSyncAt: (log ?? [])[0]?.created_at ?? null,
     log: log ?? [],
   })

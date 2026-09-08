@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Plug, Check, Loader2, RefreshCw, Users, Building2, AlertTriangle, FileText, Banknote } from 'lucide-react'
+import { Plug, Check, Loader2, RefreshCw, Users, Building2, AlertTriangle, FileText, Banknote, Ban } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 import { formatDate } from '@/lib/dates'
@@ -25,6 +25,7 @@ interface Status {
   unsyncedPayments: number
   unsyncedBills: number
   unsyncedClientInvoices: number
+  unsentVoids?: number
   lastSyncAt: string | null
   log: LogRow[]
 }
@@ -123,7 +124,7 @@ export function QuickBooksCard() {
     } catch (e: any) { setMsg({ ok: false, text: e.message }) } finally { setBusy('') }
   }
 
-  async function sync(entity: 'customers' | 'vendors' | 'bills' | 'bill-payments' | 'payments' | 'client-invoices') {
+  async function sync(entity: 'customers' | 'vendors' | 'bills' | 'bill-payments' | 'payments' | 'client-invoices' | 'voids') {
     setBusy(entity); setMsg(null)
     try {
       const res = await fetch('/api/quickbooks/sync', {
@@ -182,14 +183,23 @@ export function QuickBooksCard() {
                 before that, or pushes failing - both worth seeing without
                 digging through the log. */}
             {connected && status && (
-              (status.unsyncedPayments > 0 || status.unsyncedBills > 0 || status.unsyncedClientInvoices > 0) ? (
+              (status.unsyncedPayments > 0 || status.unsyncedBills > 0 || status.unsyncedClientInvoices > 0 || (status.unsentVoids ?? 0) > 0) ? (
                 <p className="mt-2 text-sm">
                   <span className="font-semibold text-warn">
                     {[
                       status.unsyncedPayments > 0 && `${status.unsyncedPayments} payment${status.unsyncedPayments === 1 ? '' : 's'}`,
                       status.unsyncedBills > 0 && `${status.unsyncedBills} bill${status.unsyncedBills === 1 ? '' : 's'}`,
                       status.unsyncedClientInvoices > 0 && `${status.unsyncedClientInvoices} client invoice${status.unsyncedClientInvoices === 1 ? '' : 's'}`,
-                    ].filter(Boolean).join(', ')} not in QuickBooks yet
+                    ].filter(Boolean).join(', ')}{(status.unsyncedPayments || status.unsyncedBills || status.unsyncedClientInvoices) ? ' not in QuickBooks yet' : ''}
+                    {/* A void that did not reach QuickBooks is a DIFFERENT
+                        problem from a record that never got there: the invoice
+                        exists over there and is still counting as owed. */}
+                    {(status.unsentVoids ?? 0) > 0 && (
+                      <>
+                        {(status.unsyncedPayments || status.unsyncedBills || status.unsyncedClientInvoices) ? '; ' : ''}
+                        {status.unsentVoids} void{status.unsentVoids === 1 ? '' : 's'} not sent, so those invoices are still open receivables in QuickBooks
+                      </>
+                    )}
                   </span>
                   <span className="text-muted-fg">
                     {' '}- use Sync below to push the backlog.
@@ -251,6 +261,12 @@ export function QuickBooksCard() {
                   {busy === 'client-invoices' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
                   Sync client invoices
                 </button>
+                <button onClick={() => sync('voids')} disabled={!!busy}
+                  title="Retry voids that did not reach QuickBooks. Safe to re-run - an invoice already voided over there is recognised, not voided twice."
+                  className="inline-flex items-center gap-2 rounded-lg border border-line bg-surface px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50">
+                  {busy === 'voids' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ban className="h-4 w-4" />}
+                  Retry voids
+                </button>
                 <button onClick={() => sync('payments')} disabled={!!busy}
                   className="inline-flex items-center gap-2 rounded-lg border border-line bg-surface px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50">
                   {busy === 'payments' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Banknote className="h-4 w-4" />}
@@ -272,7 +288,7 @@ export function QuickBooksCard() {
         )}
 
         <p className="mt-4 text-xs text-muted-fg">
-          Pushes one way into QuickBooks: customers, subs (vendors), sub bills (approved/paid invoices), and client payments (as sales receipts). Bills and payments auto-create their vendor/customer if needed. Re-running skips anything already synced.
+          Pushes one way into QuickBooks: customers, subs (vendors), the bills they send you and the payments settling them, the invoices you send your client, and the money that comes in - applied against the invoice it settles, or as a sales receipt when it settles nothing. Bills, invoices and payments auto-create their vendor/customer if needed. Voids and amount corrections follow through too. Re-running skips anything already synced.
         </p>
       </div>
 
