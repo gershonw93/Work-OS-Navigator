@@ -486,7 +486,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
   }
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="p-0 lg:p-6 space-y-5">
       {actionError && (
         <p role="alert" className="rounded-lg border border-danger/30 bg-danger-tint px-3 py-2 text-sm text-danger">
           {actionError}

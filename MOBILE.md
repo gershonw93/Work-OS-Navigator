@@ -304,6 +304,18 @@ Two ways to write it:
 has a twin, restored tables are gated) and `overlay-geometry.ts` measures it:
 the same card at 390 has no shadow and a 16px radius, at 1280 a shadow and 8px.
 
+**A menu anchored to a header control is a SHEET on a phone.** The job status
+dropdown and the team pop-over were `absolute left-0` under controls in the right
+half of a 390px header, so half of each ran off the screen. Below `lg` they are
+`.overlay-sheet` bottom sheets (`lg:hidden`); the desktop keeps its dropdown
+under `hidden lg:block`. Never size one from `vw` - the sheet is the width of
+the screen by construction.
+
+**A drawer inside `.overlay-full` pads its own top.** `.overlay-full` is
+`inset: 0` with no safe-area padding, so the setup checklist's title and X sat
+under the Dynamic Island. The panel carries `pt-safe pb-safe` - it is the one
+element in its tree that pads those edges.
+
 **A dialog with a footer is a COLUMN.** `.overlay > *` caps the panel and gives
 it `overflow-y: auto`, so a plain block panel scrolls as a whole - header,
 fields and buttons together. That is fine until there is very little screen, and

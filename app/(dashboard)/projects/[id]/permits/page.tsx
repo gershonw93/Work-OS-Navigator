@@ -264,7 +264,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
   }
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="p-0 lg:p-6 space-y-5">
       {/* Post-save: offer to save a newly-typed inspector to contacts */}
       {contactPrompt && (
         <div className="fixed bottom-4 right-4 z-[60] w-[calc(100%-2rem)] sm:w-96 rounded-xl border border-line bg-panel shadow-2xl p-4">

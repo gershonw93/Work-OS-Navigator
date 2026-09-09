@@ -247,7 +247,7 @@ export default function SubmittalsPage({ params }: { params: { id: string } }) {
   }
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="p-0 lg:p-6 space-y-5">
       {showForm && (
         <div className="overlay items-center justify-center bg-black/50" data-overlay>
           <div className="bg-panel rounded-xl shadow-xl w-full max-w-full sm:max-w-lg overflow-y-auto">
