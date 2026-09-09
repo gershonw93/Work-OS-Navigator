@@ -49,7 +49,12 @@ const PLAN_TYPE_TINT: Record<string, string> = {
 
 export default function PlansPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
-  const { can } = usePermissions()
+  // `can` alone is not enough. While the check is in flight it answers false,
+  // and it answers false for ever if the check FAILED - so loading, failed and
+  // genuinely-not-allowed all rendered as a page with no Upload button and
+  // nothing to explain it. "Where do I upload files" is what that looks like
+  // from the other side.
+  const { can, loading: permsLoading, error: permsError } = usePermissions()
   const canAdd = can('plans', 'create')
   const canDelete = can('plans', 'delete')
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -295,14 +300,19 @@ export default function PlansPage({ params }: { params: { id: string } }) {
             <h1 className="text-2xl font-bold text-ink">{activeFolder ? activeFolder.name : 'Plans'}</h1>
           </div>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {canAdd && !activeFolderId && (
+        <div className="row-even lg:flex lg:flex-wrap items-center gap-2">
+          {permsLoading && (
+            <Button variant="outline" disabled>
+              <Loader2 className="h-4 w-4 animate-spin" /> Checking access…
+            </Button>
+          )}
+          {!permsLoading && !permsError && canAdd && !activeFolderId && (
             <Button variant="outline" onClick={() => setShowNewFolder(true)}>
               <FolderPlus className="h-4 w-4" />
               New Folder
             </Button>
           )}
-          {canAdd && (
+          {!permsLoading && !permsError && canAdd && (
             <label className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent text-accent-ink text-sm font-medium cursor-pointer transition-colors">
               <Upload className="h-4 w-4" />
               Upload Plans

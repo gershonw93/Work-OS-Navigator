@@ -5,6 +5,7 @@ import { Sidebar } from '@/components/layout/sidebar'
 import { TopNav } from '@/components/layout/top-nav'
 import { MobileTabBar } from '@/components/layout/mobile-tab-bar'
 import { ViewAsBanner } from '@/components/layout/view-as-switcher'
+import { PermissionsBanner } from '@/components/layout/permissions-banner'
 import { ImpersonationBanner } from '@/components/layout/impersonate-switcher'
 import { DeleteGuardProvider } from '@/components/ui/delete-guard'
 import { IdleLogout } from '@/components/layout/idle-logout'
@@ -54,6 +55,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
           <div className="shrink-0 pt-safe bg-panel print:hidden">
             <ImpersonationBanner />
             <ViewAsBanner />
+            <PermissionsBanner />
             <TopNav />
           </div>
           <main

@@ -113,6 +113,13 @@ export default function PlanViewerPage({ params }: { params: { id: string; planI
     setTimeout(() => setHighlightId(null), 4000)
   }
 
+  // The bytes come from OUR origin, always. pdf.js reads them in the browser,
+  // so a file on another server is a cross-origin read - and the demo plans
+  // point at w3.org, which does not allow one, so every single plan failed.
+  // `plan.file_url` still backs the "Open the file" link, which should keep
+  // going to the original.
+  const fileSrc = `/api/projects/${params.id}/plans/${params.planId}/file`
+
   // Render PDF page to canvas (pdfjs). Images render as a plain <img>.
   useEffect(() => {
     if (!plan || !isPdf) return
@@ -123,7 +130,7 @@ export default function PlanViewerPage({ params }: { params: { id: string; planI
         const pdfjs = await import('pdfjs-dist')
         // Worker served from /public - bundling the .mjs worker trips Next's parser.
         pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
-        const doc = await pdfjs.getDocument({ url: plan.file_url }).promise
+        const doc = await pdfjs.getDocument({ url: fileSrc }).promise
         if (cancelled) return
         setNumPages(doc.numPages)
         const pg = await doc.getPage(Math.min(page, doc.numPages))
@@ -147,7 +154,7 @@ export default function PlanViewerPage({ params }: { params: { id: string; planI
       }
     })()
     return () => { cancelled = true }
-  }, [plan?.file_url, isPdf, page])
+  }, [plan?.file_url, isPdf, page, fileSrc])
 
   function handleSheetClick(e: React.MouseEvent<HTMLDivElement>) {
     if (!pinMode) return
@@ -283,7 +290,7 @@ export default function PlanViewerPage({ params }: { params: { id: string; planI
               <canvas ref={canvasRef} className="block w-full h-auto" />
             ) : (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={plan.file_url} alt={plan.name} className="block w-full h-auto select-none" draggable={false}
+              <img src={fileSrc} alt={plan.name} className="block w-full h-auto select-none" draggable={false}
                 onError={() => setError('Could not load this image.')} />
             )}
             {rendering && <div className="absolute inset-0 flex items-center justify-center bg-surface/60"><Loader2 className="h-6 w-6 animate-spin text-accent-fg" /></div>}
