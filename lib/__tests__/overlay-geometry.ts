@@ -407,5 +407,31 @@ ok(tbl.g <= 30, `a group label is one line, not one letter (${tbl.g}px tall)`)
 ok(tbl.table > tbl.wrap, `the table is wider than its box (${tbl.table} in ${tbl.wrap}) and scrolls there`)
 ok(tbl.doc <= VIEWPORT.w, `...and the page itself does not widen (${tbl.doc})`)
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 6. A FIELD UNDER 16px MAKES iOS ZOOM THE PAGE. Zoom shrinks the visual
+// viewport and pans it, while `position: fixed` is laid out against the layout
+// viewport - so the top bar goes under the status bar and the tab bar slides
+// sideways ("me" where it says "Home"). globals.css has carried a rule against
+// this from the start and it did NOTHING: Tailwind 3 emits @layer base as
+// plain CSS, so `.text-sm` beat `input` on specificity. Measured, because
+// specificity is exactly the thing you cannot check by reading.
+// ─────────────────────────────────────────────────────────────────────────────
+const FIELDS = `
+<input id="i" class="h-8 text-sm w-36" placeholder="Link to product">
+<textarea id="t" class="text-xs"></textarea>
+<select id="s" class="text-[13px]"><option>x</option></select>`
+const FIELD_PROBE = `(rect) => {
+  const px = s => parseFloat(getComputedStyle(document.querySelector(s)).fontSize)
+  return { input: px('#i'), textarea: px('#t'), select: px('#s'), vw: window.innerWidth }
+}`
+const fieldPhone = measure(FIELDS, FIELD_PROBE)
+ok(fieldPhone.input >= 16, `an input with text-sm is 16px on a phone (${fieldPhone.input}px) - under it, iOS zooms`)
+ok(fieldPhone.textarea >= 16, `...a textarea too (${fieldPhone.textarea}px)`)
+ok(fieldPhone.select >= 16, `...and a select, which opens its own picker (${fieldPhone.select}px)`)
+
+const fieldDesk = measure(FIELDS, FIELD_PROBE, 800, '', 1280)
+ok(fieldDesk.vw === 1280 && fieldDesk.input < 16,
+  `a mouse-driven desktop keeps its denser fields (${fieldDesk.input}px at ${fieldDesk.vw})`)
+
 rmSync(work, { recursive: true, force: true })
 done()
