@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { UserCog, Search, X, LogOut, Shield } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { isSuperAdmin } from '@/lib/super-admin'
@@ -153,7 +154,7 @@ export function ImpersonateSwitcher() {
               <div className="relative">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-faint" />
                 <input
-                  autoFocus
+                  autoFocus={autoFocusOnDesktop()}
                   value={q}
                   onChange={e => setQ(e.target.value)}
                   placeholder="Search by name or email…"

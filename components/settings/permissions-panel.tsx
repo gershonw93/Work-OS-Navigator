@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -232,7 +233,7 @@ function RoleDefaultsView({ onRolesChanged }: { onRolesChanged?: () => void }) {
         <form onSubmit={createClass} className="flex flex-wrap items-end gap-2 rounded-lg border border-accent/40 bg-accent-tint/30 p-3">
           <div className="flex-1 min-w-[180px]">
             <label className="mb-1 block text-xs font-medium text-muted-fg">Class name</label>
-            <input value={newLabel} onChange={e => setNewLabel(e.target.value)} placeholder="e.g. Estimator" autoFocus
+            <input value={newLabel} onChange={e => setNewLabel(e.target.value)} placeholder="e.g. Estimator" autoFocus={autoFocusOnDesktop()}
               className="w-full rounded-md border border-muted2 bg-panel px-3 py-1.5 text-sm focus:border-accent focus:outline-none" />
           </div>
           <button type="submit" disabled={creating || !newLabel.trim()}

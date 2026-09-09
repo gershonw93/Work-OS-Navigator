@@ -49,6 +49,23 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-09',
+    title: 'The keyboard stops jumping the screen around',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'Opening a dialog no longer throws the keyboard up and shoves the page',
+        text: 'On a phone, opening something like Add Milestone put the cursor in the first box straight away — so the keyboard appeared before you had chosen to type, and the whole dialog jumped as the phone scrolled to reach the field. It does not do that any more; tap the box when you want to type. On a computer the cursor still starts in the first box.',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
+        title: 'Dialogs stay above the keyboard instead of hiding behind it',
+        text: 'When the keyboard or a date wheel covered the bottom of the screen, dialogs carried on using the whole screen — so their buttons ended up underneath. Every dialog in the app now sits in the part of the screen you can actually see.',
+      },
+    ],
+  },
+  {
+    date: '2026-09-09',
     title: 'The phone app stays put',
     items: [
       {

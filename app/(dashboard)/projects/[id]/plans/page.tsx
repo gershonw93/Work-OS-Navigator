@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import Link from 'next/link'
 import { FileText, Folder, FolderPlus, Upload, X, ChevronRight, ArrowLeft, Trash2, FolderInput, Search, ExternalLink, UploadCloud, AlertTriangle, Check, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -322,7 +323,7 @@ export default function PlansPage({ params }: { params: { id: string } }) {
             <form onSubmit={createFolder} className="space-y-4">
               <div className="space-y-1.5">
                 <Label htmlFor="folderName">Folder Name</Label>
-                <Input id="folderName" placeholder="e.g. Architectural" value={folderName} onChange={e => setFolderName(e.target.value)} required autoFocus />
+                <Input id="folderName" placeholder="e.g. Architectural" value={folderName} onChange={e => setFolderName(e.target.value)} required autoFocus={autoFocusOnDesktop()} />
               </div>
               {folderError && <p className="text-sm text-danger">{folderError}</p>}
               <div className="flex flex-wrap gap-2 justify-end">

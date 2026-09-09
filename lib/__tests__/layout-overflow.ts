@@ -226,6 +226,28 @@ for (const f of tsx) {
 ok(clipped.length === 0,
   `no table is cut off by an overflow-hidden ancestor${clipped.length ? ` - ${clipped[0]}` : ''}`)
 
+// ── 2e. nothing steals the keyboard on a touch screen ───────────────────────
+// THE BUG. Pressing + on the schedule opened a dialog whose first field had
+// `autoFocus`. iOS opens the keyboard for that immediately - nobody asked - and
+// then SCROLLS THE LAYOUT VIEWPORT to reach the field, dragging the fixed
+// dialog with it. It happened the instant the button was pressed.
+//
+// A COUNT over every .tsx, because it was in 29 places across 24 files and the
+// thirtieth is the one that would be missed.
+const bare: string[] = []
+for (const f of tsx) {
+  read(f).split('\n').forEach((line, i) => {
+    if (/\bautoFocus\b(?!=\{autoFocusOnDesktop)/.test(line)) bare.push(`${f}:${i + 1}`)
+  })
+}
+ok(bare.length === 0,
+  `no autoFocus is left unguarded${bare.length ? ` - ${bare[0]}` : ''} - on a phone it opens the `
+  + 'keyboard before anybody has chosen to type, and drags the dialog off with it')
+const guarded = tsx.filter(f => /autoFocusOnDesktop\(\)/.test(read(f))).length
+ok(guarded >= 20, `${guarded} files go through autoFocusOnDesktop()`)
+ok(/pointer: coarse/.test(read('lib/auto-focus.ts')),
+  'the test is the POINTER, not the screen width - an iPad in landscape is wide and still touched')
+
 // ── long text, which is the same bug one level down ──────────────────────────
 ok(/p,\s*li,\s*dd,\s*dt,\s*td,\s*th[\s\S]{0,80}overflow-wrap:\s*anywhere/.test(css),
   'prose wraps anywhere by default - `break-word` wraps the text but not the container')

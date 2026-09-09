@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -239,7 +240,7 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
 
                 <div className="space-y-1.5">
                   <Label>Response <span className="text-faint font-normal">(optional)</span></Label>
-                  <textarea autoFocus={!respondingTo.is_change_order} rows={4} value={responseText} onChange={e => setResponseText(e.target.value)}
+                  <textarea autoFocus={autoFocusOnDesktop() && !respondingTo.is_change_order} rows={4} value={responseText} onChange={e => setResponseText(e.target.value)}
                     placeholder={respondingTo.is_change_order ? 'Add any notes about your decision...' : 'Answer the question...'}
                     className="w-full rounded-md border border-muted2 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent resize-none" />
                 </div>

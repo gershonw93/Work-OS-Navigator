@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -330,7 +331,7 @@ export default function PlanViewerPage({ params }: { params: { id: string; planI
             </div>
             <div className="space-y-4 px-5 py-4">
               <div><Label>What needs to happen here? <span className="text-danger">*</span></Label>
-                <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Move this outlet 6 inches left" autoFocus /></div>
+                <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Move this outlet 6 inches left" autoFocus={autoFocusOnDesktop()} /></div>
               <div className="grid grid-cols-2 gap-3">
                 <div><Label>Assign to</Label>
                   <Select value={assignee} onChange={e => setAssignee(e.target.value)}>

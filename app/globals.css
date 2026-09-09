@@ -304,7 +304,15 @@
 @layer components {
   .overlay {
     position: fixed;
-    inset: 0;
+    /* THE VISIBLE screen, not the whole one. `inset: 0` is the LAYOUT
+       viewport, which does not shrink for a keyboard or a date wheel - so a
+       centred dialog put its own buttons behind them. --vv-* track
+       window.visualViewport (lib/use-visual-viewport.ts) and fall back to the
+       full screen, which is what a desktop has anyway. */
+    left: 0;
+    right: 0;
+    top: var(--vv-t, 0px);
+    height: var(--vv-h, 100%);
     z-index: 50;
     display: flex;
     /* max() rather than the raw inset: 1rem of breathing room on a device with
@@ -343,7 +351,12 @@
      leaves somewhere to aim for when dismissing it. */
   .overlay-sheet {
     position: fixed;
-    inset: 0;
+    /* Same as .overlay: a sheet sits on the bottom of what you can SEE, which
+       is above the keyboard when there is one. */
+    left: 0;
+    right: 0;
+    top: var(--vv-t, 0px);
+    height: var(--vv-h, 100%);
     z-index: 50;
     display: flex;
     flex-direction: column;

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -248,7 +249,7 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
       {showNew && (
         <div className="bg-panel rounded-xl border border-accent/40 p-4 sm:p-5 space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1.5"><Label>Title <span className="text-danger">*</span></Label><Input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Electrical rough-in" autoFocus /></div>
+            <div className="space-y-1.5"><Label>Title <span className="text-danger">*</span></Label><Input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Electrical rough-in" autoFocus={autoFocusOnDesktop()} /></div>
             <div className="space-y-1.5"><Label>Trade</Label><Input value={trade} onChange={e => setTrade(e.target.value)} placeholder="e.g. Electrical" /></div>
           </div>
           <div className="space-y-1.5"><Label>Scope / instructions</Label>

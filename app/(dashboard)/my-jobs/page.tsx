@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -98,7 +99,7 @@ export default function MyJobsPage() {
               <div className="px-6 py-5 space-y-4">
                 <div className="space-y-1.5">
                   <Label>Project Name</Label>
-                  <Input autoFocus required value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Smith Residence Electrical" />
+                  <Input autoFocus={autoFocusOnDesktop()} required value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Smith Residence Electrical" />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Address <span className="text-faint font-normal">(optional)</span></Label>
