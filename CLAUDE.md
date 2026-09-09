@@ -183,7 +183,11 @@ production branch.** Do NOT ask the user to merge or deploy.
   touch targets.
 - Related numbers go in ONE card with hairline dividers - `StatStrip`
   (`components/ui/stat-strip.tsx`), not a coloured pill per metric. Colour only
-  when the colour MEANS something (overdue red; a total is just a number).
+  when the colour MEANS something (overdue red; a total is just a number). A
+  cell can be a link (`href`) or a filter (`onClick` + `active`, a quiet fill,
+  no ring). In use on the dashboard, Tasks, Compliance, a customer, a project's
+  overview, the Projects list and Master Money - always `lg:hidden`, always
+  with the desktop's tiles beside it.
 - A `<table>` is not a phone layout. Five columns in 390px gave headings
   running one letter per line down the page. Prefer a list of rows; keep a
   table only for genuinely tabular data, and then wrap it in `overflow-x-auto`.

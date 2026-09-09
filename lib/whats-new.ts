@@ -52,6 +52,12 @@ export const RELEASES: Release[] = [
     title: 'A cleaner look on a phone',
     items: [
       {
+        kind: 'improved',
+        title: 'Project overview, Projects and Master Money: one card of numbers on a phone',
+        text: 'The four coloured money tiles on a project\'s overview, the five count boxes on Projects and the four tiles on Master Money each become one card with fine dividers on a phone, numbers in black and colour only where it means something - an outstanding balance, a negative escrow. Tapping a count on Projects still filters the list. What is waiting on you is a plain list of rows with a chevron. On a desktop all three screens are unchanged.',
+        href: '/projects',
+      },
+      {
         kind: 'fixed',
         title: 'The phone look no longer changes the desktop',
         text: 'The cleaner cards, single overview strips and lists in this batch were showing on a laptop too, which nobody asked for. On a desktop every screen now looks exactly as it did before: the tiles, tables, shadows and the coloured task board are back. The new look applies only where the bottom tab bar shows - a phone or a narrow window.',

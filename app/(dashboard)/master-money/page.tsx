@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { usePermissions } from '@/lib/use-permissions'
 import { DollarSign, TrendingUp, CheckCircle2, Clock, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { StatStrip } from '@/components/ui/stat-strip'
 
 interface Row {
   project_id: string; project_name: string; status: string
@@ -63,7 +64,15 @@ export default function MasterMoneyPage() {
         <p className="text-sm text-muted-fg mt-0.5">Budget, commitments and billing rolled up across every project. Click a row to open its financials.</p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {/* PHONE: one card, the numbers ink, red only when escrow is negative.
+          DESKTOP (lg+): the four tiles it always had. */}
+      <StatStrip label="All projects" className="lg:hidden" items={[
+        { label: 'Client received', value: money(t.received) },
+        { label: 'Committed', value: money(t.committed) },
+        { label: 'Paid out', value: money(t.paid) },
+        { label: 'Escrow balance', value: money(t.escrow), tone: t.escrow < 0 ? 'danger' : undefined },
+      ]} />
+      <div className="hidden lg:grid lg:grid-cols-4 gap-4">
         {cards.map(c => { const Icon = c.icon; return (
           <div key={c.label} className={cn('rounded-xl border border-line p-4', c.bg)}>
             <div className="flex items-center gap-2 mb-2"><Icon className={cn('h-4 w-4', c.color)} /><p className="text-xs font-medium text-muted-fg">{c.label}</p></div>
@@ -75,7 +84,7 @@ export default function MasterMoneyPage() {
       {rows.length === 0 ? (
         <div className="bg-panel rounded-xl border border-line p-10 text-center text-sm text-muted-fg">No projects yet.</div>
       ) : (
-        <div className="bg-panel rounded-xl border border-line overflow-hidden">
+        <div className="bg-panel rounded-2xl border border-line overflow-hidden lg:rounded-xl">
           <div className="hidden md:grid grid-cols-[1fr_repeat(6,minmax(0,6.5rem))_2rem] gap-2 px-4 py-2.5 border-b border-line-soft text-xs font-semibold text-faint uppercase tracking-wide">
             <span>Project</span><span className="text-right">Received</span><span className="text-right">Budgeted</span><span className="text-right">Committed</span><span className="text-right">Paid Out</span><span className="text-right">Outstanding</span><span className="text-right">Escrow</span><span />
           </div>

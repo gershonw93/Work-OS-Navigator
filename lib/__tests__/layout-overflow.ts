@@ -356,6 +356,21 @@ for (const f of tsx) {
 ok(strips.length === 0,
   `every StatStrip is phone-only and has a desktop twin${strips.length ? ` - ${strips[0]}` : ''}`)
 ok(tsx.filter(f => /<StatStrip/.test(code(f))).length >= 4, '...and there are at least four of them')
+// The three screens a tester sent still had coloured tiles after pass 4:
+// a project's overview, the Projects list and Master Money. Each is a strip
+// on a phone now (the scan above proves it is gated and has its twin).
+for (const f of ['app/(dashboard)/projects/[id]/overview/page.tsx', 'app/(dashboard)/projects/page.tsx', 'app/(dashboard)/master-money/page.tsx']) {
+  ok(/<StatStrip/.test(code(f)), `${f.split('/').slice(-2, -1)[0]} puts its numbers in one StatStrip on a phone`)
+}
+const strip = code('components/ui/stat-strip.tsx')
+ok(/onClick\?: \(\) => void/.test(strip) && /active\?: boolean/.test(strip) && /\? 'button' :/.test(strip),
+  'a StatStrip cell can be a button - the Projects counts are filters, not links')
+ok(/onClick: \(\) => setStatusFilter/.test(code('app/(dashboard)/projects/page.tsx')),
+  '...and the Projects page uses it, so tapping a count still filters on a phone')
+const overview = code('app/(dashboard)/projects/[id]/overview/page.tsx')
+ok(/phoneRow\(/.test(overview) && (overview.match(/divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-panel lg:hidden/g) ?? []).length === 2,
+  'a project\'s waiting-on lists are one divided card each on a phone')
+ok(/hidden space-y-2\.5 lg:block/.test(overview), '...with the spined, tinted rows kept for the desktop')
 
 // ── 8. the Tasks board: one card per column, rows inside, no tints ──────────
 // Three columns in three colours, each holding a stack of bordered cards on a

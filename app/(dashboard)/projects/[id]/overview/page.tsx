@@ -5,10 +5,12 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
+import { StatStrip } from '@/components/ui/stat-strip'
 import {
   ArrowRight, Banknote, CalendarDays, CheckCircle2, ClipboardCheck,
   FileSignature, HardHat, Inbox, MessageSquare, Palette, Receipt, Send,
   ShieldAlert, TrendingDown, Clock, CheckSquare,
+  ChevronRight,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -119,6 +121,24 @@ export default function OverviewPage({ params }: { params: { id: string } }) {
     },
   ]
 
+  // PHONE: one divided card of rows, ink and a chevron, the icon carrying the
+  // tone. The desktop keeps `row()` below - spine, tinted chip, hover lift.
+  const phoneRow = (i: Item, projectId: string) => {
+    const Icon = ITEM_ICONS[i.key] ?? Inbox
+    const iconTone = i.tone === 'danger' ? 'text-danger' : i.tone === 'warn' ? 'text-warn' : i.tone === 'muted' ? 'text-faint' : 'text-info'
+    return (
+      <Link key={i.key} href={`/projects/${projectId}/${i.href}`}
+        className="flex min-h-[52px] items-center gap-3 px-4 py-3 transition-colors hover:bg-surface active:bg-surface">
+        <Icon className={cn('h-[18px] w-[18px] shrink-0', iconTone)} />
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-medium text-ink">{i.label}</span>
+          {i.detail && <span className="block truncate text-xs text-muted-fg">{i.detail}</span>}
+        </span>
+        <ChevronRight className="h-4 w-4 shrink-0 text-faint" />
+      </Link>
+    )
+  }
+
   const row = (i: Item, projectId: string) => {
     const Icon = ITEM_ICONS[i.key] ?? Inbox
     const tone = i.tone === 'danger'
@@ -150,8 +170,15 @@ export default function OverviewPage({ params }: { params: { id: string } }) {
 
   return (
     <div className="space-y-6">
-      {/* Money position */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      {/* Money position. PHONE: one card, the numbers ink, colour only on an
+          outstanding balance. DESKTOP (lg+): the four tiles it always had. */}
+      <StatStrip label="Money" className="lg:hidden" items={[
+        { label: 'Received from client', value: money(m.received) },
+        { label: 'Committed to vendors', value: money(m.committed), note: `${data.subcontracts} subcontract${data.subcontracts === 1 ? '' : 's'}` },
+        { label: 'Billed by vendors', value: money(m.vendorBilled), note: `${money(m.vendorPaid)} paid` },
+        { label: 'Outstanding to vendors', value: money(m.outstandingToVendors), tone: m.outstandingToVendors > 0 ? 'warn' : undefined },
+      ]} />
+      <div className="hidden lg:grid gap-3 lg:grid-cols-4">
         {tiles.map(t => {
           const Icon = t.icon
           return (
@@ -181,33 +208,43 @@ export default function OverviewPage({ params }: { params: { id: string } }) {
       {waitingOnYou.length > 0 && (
         <div className="space-y-2.5">
           <div className="flex items-center gap-2.5">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-info-tint">
+            <span className="hidden h-8 w-8 items-center justify-center rounded-lg bg-info-tint lg:flex">
               <Inbox className="h-4 w-4 text-info" />
             </span>
             <h2 className="text-sm font-bold uppercase tracking-wide text-ink">Waiting on you</h2>
-            <span className="whitespace-nowrap rounded-full bg-info-tint px-2 py-0.5 text-xs font-bold text-info">{youCount}</span>
+            <span className="whitespace-nowrap text-xs font-semibold tabular-nums text-faint lg:rounded-full lg:bg-info-tint lg:px-2 lg:py-0.5 lg:font-bold lg:text-info">{youCount}</span>
           </div>
-          {waitingOnYou.map(i => row(i, data.project.id))}
+          <div className="divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-panel lg:hidden">
+            {waitingOnYou.map(i => phoneRow(i, data.project.id))}
+          </div>
+          <div className="hidden space-y-2.5 lg:block">
+            {waitingOnYou.map(i => row(i, data.project.id))}
+          </div>
         </div>
       )}
 
       {waitingOnOthers.length > 0 && (
         <div className="space-y-2.5">
           <div className="flex items-center gap-2.5">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-warn-tint">
+            <span className="hidden h-8 w-8 items-center justify-center rounded-lg bg-warn-tint lg:flex">
               <Clock className="h-4 w-4 text-warn" />
             </span>
             <h2 className="text-sm font-bold uppercase tracking-wide text-ink">Waiting on someone else</h2>
           </div>
-          {waitingOnOthers.map(i => row(i, data.project.id))}
+          <div className="divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-panel lg:hidden">
+            {waitingOnOthers.map(i => phoneRow(i, data.project.id))}
+          </div>
+          <div className="hidden space-y-2.5 lg:block">
+            {waitingOnOthers.map(i => row(i, data.project.id))}
+          </div>
         </div>
       )}
 
       {/* What is happening next */}
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="rounded-xl border border-line bg-panel p-4">
+        <div className="rounded-2xl border border-line bg-panel p-4 lg:rounded-xl">
           <div className="mb-3 flex items-center gap-2.5">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-tint">
+            <span className="hidden h-8 w-8 items-center justify-center rounded-lg bg-accent-tint lg:flex">
               <CalendarDays className="h-4 w-4 text-accent-fg" />
             </span>
             <h2 className="text-sm font-bold text-ink">On site</h2>
@@ -237,9 +274,9 @@ export default function OverviewPage({ params }: { params: { id: string } }) {
           </Link>
         </div>
 
-        <div className="rounded-xl border border-line bg-panel p-4">
+        <div className="rounded-2xl border border-line bg-panel p-4 lg:rounded-xl">
           <div className="mb-3 flex items-center gap-2.5">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-success-tint">
+            <span className="hidden h-8 w-8 items-center justify-center rounded-lg bg-success-tint lg:flex">
               <ClipboardCheck className="h-4 w-4 text-success" />
             </span>
             <h2 className="text-sm font-bold text-ink">Booked inspections</h2>
@@ -264,7 +301,7 @@ export default function OverviewPage({ params }: { params: { id: string } }) {
 
       {tasks.open > 0 && (
         <Link href={`/projects/${data.project.id}/tasks`}
-          className="group flex items-center gap-3 rounded-xl border border-line bg-panel px-4 py-3 transition-all hover:-translate-y-px hover:border-accent hover:shadow-sm">
+          className="group flex items-center gap-3 rounded-2xl border border-line bg-panel px-4 py-3 transition-all hover:-translate-y-px hover:border-accent hover:shadow-sm lg:rounded-xl">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
             <CheckSquare className="h-4 w-4 text-muted-fg" />
           </span>
