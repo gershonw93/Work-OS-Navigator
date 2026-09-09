@@ -52,6 +52,12 @@ export const RELEASES: Release[] = [
     title: 'A cleaner look on a phone',
     items: [
       {
+        kind: 'improved',
+        title: 'A task opens where you tapped it',
+        text: 'On the task board on a phone, opening a task put its details underneath every other group - tap something in Open and the detail was below In Progress and Completed, so you had to scroll to find what you had just opened. It opens directly under the task now. On a laptop, where the three columns sit side by side, the panel stays under the board as before.',
+        href: '/projects',
+      },
+      {
         kind: 'fixed',
         title: 'Save Changes ran out of its own button, and dates sat in the middle of the box',
         text: 'On a phone, the buttons at the bottom of Edit Item were squeezed into a quarter of the width each and the words "Save Changes" spilled out past the edges of the button. Cancel and Save now share a row at equal width and Delete sits under them on its own, out of the way of a stray thumb. Dates in a form used to sit centred in their box while every other field started at the left; they line up now. Three other screens had the same squeeze and are fixed with it.',

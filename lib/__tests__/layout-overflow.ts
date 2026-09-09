@@ -419,8 +419,17 @@ ok(!/rounded-xl border/.test(listCard), 'a list row is a row, not its own border
 ok((tasksPage.match(/divide-y divide-line-soft/g) ?? []).length >= 4,
   'board columns and every list group put their rows in one divided card')
 ok(!/p-3 flex flex-col gap-2/.test(boardCard), 'a board row is padded once, not twice')
-ok(boardView.length > 0 && !/shadow-md|border-accent/.test(boardView),
-  'the task-detail drawer under the board is a plain card - no shadow, no accent frame')
+// The detail opens where you tapped. A desktop board is three columns side by
+// side, so a full-width drawer under all of them is right there; a phone stacks
+// those columns, so "under the board" is under every OTHER column as well - tap
+// something in Open and the detail lands below In Progress and Completed, off
+// the bottom of the screen.
+ok(/<BoardCard task=\{task\} \/>[\s\S]{0,200}expandedTask\?\.id === task\.id[\s\S]{0,120}lg:hidden"><TaskDetail/.test(tasksPage),
+  'on a phone the task detail opens under the card that was tapped')
+ok(/hidden overflow-hidden rounded-xl border border-accent\/40 bg-panel shadow-md lg:block/.test(tasksPage),
+  '...and the drawer under the whole board is what a desktop still gets')
+ok((tasksPage.match(/Task detail<\/span>/g) ?? []).length === 1,
+  '...from one definition, so the two places it appears cannot drift apart')
 
 // ── 9. a strip that scrolls sideways says so ────────────────────────────────
 // A hidden scrollbar leaves a phone with no sign that the filter row keeps

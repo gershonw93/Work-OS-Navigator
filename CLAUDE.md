@@ -249,6 +249,12 @@ production branch.** Do NOT ask the user to merge or deploy.
 - A badge or a button label NEVER wraps. `Badge` and `Button` set
   `whitespace-nowrap` centrally; a hand-rolled pill must too, and the test
   scans for it.
+- Something that opens INLINE opens where it was tapped. The task board is
+  three columns side by side on a desktop, so its detail panel sits under all
+  of them; a phone STACKS those columns, so "under the board" is under every
+  other column too - tapping a task in Open put its detail below In Progress
+  and Completed, off the screen. Below `lg` it renders inside the column, right
+  after the card. One definition feeds both places so they cannot drift.
 - A list of items is ONE card with `divide-y divide-line-soft` rows, never a
   bordered card per item, and never cards on a tinted column. The Tasks board
   was three coloured boxes each holding a stack of boxes. A selected/expanded
