@@ -265,6 +265,13 @@ production branch.** Do NOT ask the user to merge or deploy.
   uses for an odd number. The child width override uses `:is()` for
   SPECIFICITY, not tidiness: `.row-even > *` is (0,1,0) and loses to a `w-28`
   written for the desktop row, the same trap that left the 16px rule dead.
+  A `.row-even` NEVER contains another: a grid in a cell of a grid halves an
+  already-halved cell, so the Edit Item footer gave Cancel and Save a quarter
+  of the dialog each and "Save Changes", which may not wrap, ran out of both
+  sides of its own button. Where a wrapper only groups the actions for a
+  desktop, the wrapper is the layout and the group inside carries the rule -
+  and a footer of three is not one row on a phone: the two choices share a
+  row and the destructive one goes under them. Both pinned.
   Nothing restores `display` at `lg` - the row's own `lg:flex` does, because
   Tailwind emits utilities after components. Measured in `overlay-geometry.ts`
   and ratcheted in `layout-overflow.ts`: a flex row of two or more `<Button>`s

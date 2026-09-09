@@ -528,5 +528,38 @@ const [d1, d2,, , d5] = rowDesk.b
 ok(rowDesk.vw === 1280 && d1.w !== d2.w && d1.t === d5.t,
   `a desktop keeps the flex row it always had - one line, natural widths (${d1.w} vs ${d2.w})`)
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 10. A DIALOG FOOTER OF THREE. Edit Item has Delete, Cancel and Save Changes.
+// The two on the right sat in their own wrapper so a desktop could push them
+// there - and that wrapper had been given `.row-even` too, so it was a grid
+// inside one cell of the footer's grid: each button got a QUARTER of the
+// dialog, and `Save Changes` may not wrap, so it ran out of both sides of its
+// own button. Below lg the wrapper is `contents` and all three share the row.
+// ─────────────────────────────────────────────────────────────────────────────
+const FOOTER = `
+<div class="w-full max-w-md">
+  <div id="foot" class="flex flex-col-reverse gap-3 px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
+    <button id="del" class="flex items-center gap-1.5 self-start text-sm">Delete</button>
+    <div id="acts" class="row-even lg:flex lg:flex-wrap gap-2 justify-end">
+      <button id="cancel" class="whitespace-nowrap rounded-md px-4 py-2 text-sm">Cancel</button>
+      <button id="save" class="whitespace-nowrap rounded-md px-4 py-2 text-sm">Save Changes</button>
+    </div>
+  </div>
+</div>`
+const FOOTER_PROBE = `(rect) => {
+  const el = s => document.querySelector(s)
+  const box = s => { const r = rect(s); return { l: Math.round(r.left), r: Math.round(r.right), t: Math.round(r.top), w: Math.round(r.width) } }
+  const fits = s => el(s).scrollWidth <= el(s).clientWidth + 1
+  return { acts: box('#acts'), del: box('#del'), cancel: box('#cancel'), save: box('#save'),
+           saveFits: fits('#save'), cancelFits: fits('#cancel') }
+}`
+const foot = measure(FOOTER, FOOTER_PROBE)
+ok(foot.saveFits && foot.cancelFits, 'every label fits inside its own button')
+ok(foot.cancel.t === foot.save.t && foot.cancel.w === foot.save.w,
+  `Cancel and Save share a row at equal width (${foot.cancel.w} and ${foot.save.w})`)
+ok(foot.cancel.l === foot.acts.l && foot.save.r === foot.acts.r,
+  `...reaching both edges (${foot.cancel.l}-${foot.save.r} of ${foot.acts.l}-${foot.acts.r})`)
+ok(foot.del.t > foot.save.t, 'the destructive one is on its own row, under the two choices')
+
 rmSync(work, { recursive: true, force: true })
 done()

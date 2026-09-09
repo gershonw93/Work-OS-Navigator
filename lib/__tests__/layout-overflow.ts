@@ -500,11 +500,44 @@ for (const f of tsx) {
     // group is the row, and that is what carries the class.
     const withoutButtons = block.replace(/<Button\b[\s\S]*?(?:\/>|<\/Button>)/g, '')
     if (/<(h[1-6]|p|img|table)\b/.test(withoutButtons)) return
+    // Same idea one step along: the buttons are already inside a row that
+    // carries the rule, so this is the LAYOUT around it - a summary line, or
+    // filter pills, beside the actions. Giving it the rule as well nested one
+    // grid inside a cell of another.
+    if (/row-even/.test(block)) return
     ragged.push(`${f}:${i + 1}`)
   })
 }
 ok(ragged.length === 0,
   `every row of buttons reaches both edges on a phone${ragged.length ? ` - ${ragged[0]} (+${ragged.length - 1})` : ''}`)
+
+// ...and never one inside another. A `.row-even` in a cell of a `.row-even`
+// halves an already-halved cell: on the schedule's Edit Item footer, Cancel and
+// Save got a quarter of the dialog each and "Save Changes", which may not wrap,
+// ran out of both sides of its own button. Where a wrapper exists only to group
+// the actions on a desktop, it is `contents` below lg - it stops existing, and
+// the controls share the one row.
+const nested: string[] = []
+for (const f of tsx) {
+  const lines = code(f).split('\n')
+  lines.forEach((line, i) => {
+    if (!/row-even/.test(line)) return
+    let depth = 0
+    for (let j = i; j < Math.min(i + 40, lines.length); j++) {
+      depth += (lines[j].match(/<div\b/g) ?? []).length - (lines[j].match(/<\/div>/g) ?? []).length
+      if (j > i && /row-even/.test(lines[j])) { nested.push(`${f}:${i + 1} holds :${j + 1}`); break }
+      if (j > i && depth <= 0) break
+    }
+  })
+}
+ok(nested.length === 0,
+  `no row of controls is nested inside another${nested.length ? ` - ${nested[0]}` : ''}`)
+
+// A date field is left-aligned like every other field beside it. iOS centres
+// the value in one, so "Sep 17, 2026" sat in the middle of its box under a
+// left-aligned label, next to a Label field whose text started at the edge.
+ok(/input\[type='date'\][\s\S]{0,500}text-align:\s*left/.test(css),
+  'a date field reads from the left, like the fields around it')
 ok(/\.row-even\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/.test(css),
   '...two equal columns')
 ok(/\.row-even > :last-child:nth-child\(odd\) \{ grid-column: 1 \/ -1; \}/.test(css),
