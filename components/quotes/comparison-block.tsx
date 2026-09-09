@@ -9,6 +9,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 
 import { formatDate } from '@/lib/dates'
+import { useNotice } from '@/components/ui/notice'
 export interface Quote {
   id: string
   comparison_id: string
@@ -42,6 +43,7 @@ const money = (n: number | null) => n == null ? '-' : `$${Number(n).toLocaleStri
 // Renders the analysis + quote grid + award flow for a single comparison.
 // Used standalone and embedded inside a Request Quotes card.
 export function ComparisonBlock({ comp, projectId, onChanged }: { comp: Comparison; projectId: string; onChanged: () => void }) {
+  const notify = useNotice()
   const supabase = createClient()
   const guardDelete = useDeleteGuard()
   const [uploadingFor, setUploadingFor] = useState(false)
@@ -83,7 +85,7 @@ export function ComparisonBlock({ comp, projectId, onChanged }: { comp: Comparis
     try {
       const res = await fetch(`/api/projects/${projectId}/quotes/${comp.id}/analyze`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
       if (res.ok) onChanged()
-      else alert((await res.json().catch(() => ({}))).error ?? 'Analysis failed')
+      else notify((await res.json().catch(() => ({}))).error ?? 'Analysis failed')
     } finally { setAnalyzing(false) }
   }
 
@@ -116,7 +118,7 @@ export function ComparisonBlock({ comp, projectId, onChanged }: { comp: Comparis
   async function uploadQuotes(files: FileList | File[]) {
     setUploadingFor(true)
     try { for (const f of Array.from(files)) await uploadOne(f); onChanged() }
-    catch (e: any) { alert(e?.message ?? 'Upload failed'); onChanged() }
+    catch (e: any) { notify(e?.message ?? 'Upload failed'); onChanged() }
     finally { setUploadingFor(false) }
   }
 
@@ -132,7 +134,7 @@ export function ComparisonBlock({ comp, projectId, onChanged }: { comp: Comparis
     })
     setAwarding(false); setAwardTarget(null)
     if (res.ok) onChanged()
-    else alert((await res.json().catch(() => ({}))).error ?? 'Could not award')
+    else notify((await res.json().catch(() => ({}))).error ?? 'Could not award')
   }
 
   async function setWinner(quoteId: string | null) {

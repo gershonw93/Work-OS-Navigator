@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label'
 import { weightedProgress } from '@/lib/invoice-budget'
 
 import { formatDate } from '@/lib/dates'
+import { useNotice } from '@/components/ui/notice'
 interface LineTask { id: string; title: string; status: string }
 interface Line {
   id: string; description: string; budgeted_amount: number; progress_pct: number; progress_status: string
@@ -36,6 +37,7 @@ const STATUSES = [
 //  mode 'budget'   - what they quoted (amounts + earned-to-date)
 //  mode 'progress' - editable % complete per line + overall amount-weighted bar
 export function QuoteLineItems({ projectId, mode }: { projectId: string; mode: 'budget' | 'progress' }) {
+  const notify = useNotice()
   const supabase = createClient()
   const [project, setProject] = useState<QProject | null>(null)
   const [lines, setLines] = useState<Line[]>([])
@@ -61,7 +63,7 @@ export function QuoteLineItems({ projectId, mode }: { projectId: string; mode: '
       setLines(ls => ls.map(l => l.id === line.id ? { ...l, ...line } : l))
       setSignLine(null)
     } else {
-      alert((await res.json().catch(() => ({}))).error ?? 'Could not sign off')
+      notify((await res.json().catch(() => ({}))).error ?? 'Could not sign off')
     }
   }
 
@@ -128,7 +130,7 @@ export function QuoteLineItems({ projectId, mode }: { projectId: string; mode: '
   async function saveNote(id: string, note: string) {
     const res = await patchLine(id, { progress_note: note })
     if (res.ok) { setNoteSaved(id); setTimeout(() => setNoteSaved(s => s === id ? null : s), 1500) }
-    else alert((await res.json().catch(() => ({}))).error ?? "Couldn't save the note - run the latest DB migration (033).")
+    else notify((await res.json().catch(() => ({}))).error ?? "Couldn't save the note - run the latest DB migration (033).")
   }
 
   function openTask(l: Line) {
@@ -150,7 +152,7 @@ export function QuoteLineItems({ projectId, mode }: { projectId: string; mode: '
     })
     setTaskSaving(false)
     if (res.ok) { const d = await res.json(); const id = taskFor.id; setLines(ls => ls.map(l => l.id === id ? { ...l, task: d.task } : l)); setTaskFor(null) }
-    else alert((await res.json().catch(() => ({}))).error ?? 'Could not create task')
+    else notify((await res.json().catch(() => ({}))).error ?? 'Could not create task')
   }
 
   if (loading) return <div className="text-sm text-faint py-12 text-center">Loading…</div>

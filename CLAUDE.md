@@ -323,6 +323,28 @@ production branch.** Do NOT ask the user to merge or deploy.
   `storage_path` fresh per request (a stored signed URL is only as good as the
   key that signed it) and streams anything else from our origin. The URL comes
   off the ROW, never the request.
+- **NEVER `alert()` or `confirm()`.** In the native shell this app is a remote
+  WKWebView, so a JS dialog is a native UIAlertController presented by the
+  Capacitor bridge and WebKit BLOCKS THE JS THREAD until it is dismissed. One
+  that fails to present - fired from a `blur` handler while the keyboard is
+  dismissing, say - is a page that never runs another line, which from the
+  outside is a crash. Two reports in a row said "it killed the page"; both were
+  an ordinary 400 and 409 whose only output was `alert(...)`. Use
+  `useNotice()` (`components/ui/notice.tsx`), mounted at the ROOT layout so the
+  portal and share links are covered too. It is deliberately NOT an overlay: no
+  `data-overlay`, `pointer-events: none` on the dock, sized off `--vv-h` so it
+  is above the keyboard - a message about a field must leave you able to fix
+  the field. `confirm()` already had its answer in `useDeleteGuard`; the 18
+  handlers still calling the native one are in BACKLOG.md. Ratcheted at zero
+  `alert` in `layout-overflow.ts`, with no exemption for `notice.tsx` itself.
+- ONE REQUEST MUST NOT CARRY TWO THINGS THAT CAN BE REFUSED SEPARATELY. "What
+  they chose" sent the name and `status: 'chosen'` together; the route refuses
+  an accepted status on a row with no budget line, BEFORE the update runs, so
+  typing a choice threw the choice away with the status. Recording a fact is
+  not the same act as accepting it. And ask the refusable question at the FIELD
+  before sending (`missingFor` in the selections page uses the same
+  `ACCEPTED_STATUSES` the route does): a server's answer can only ever arrive
+  as a message about a whole request that did not happen.
 - A loading state must have a WAY TO END. `setLoading(false)` as the last
   statement of an async function ends only on the happy path - use
   try/catch/finally, always.

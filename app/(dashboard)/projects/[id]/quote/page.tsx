@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Upload, FileText, Loader2, Sparkles, CheckCircle2, ExternalLink, Rocket } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useNotice } from '@/components/ui/notice'
 
 interface Line { id: string; description: string; budgeted_amount: number; progress_pct: number; quantity: number | null; unit_price: number | null; section: string | null }
 interface Stage { label: string; percent: number | null; amount: number | null; trigger?: string | null }
@@ -13,6 +14,7 @@ interface QProject { status: string; quote_file_url: string | null; quote_file_n
 const money = (n: number | null) => n == null ? '-' : `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 
 export default function QuotePage({ params }: { params: { id: string } }) {
+  const notify = useNotice()
   const supabase = createClient()
   const [project, setProject] = useState<QProject | null>(null)
   const [lines, setLines] = useState<Line[]>([])
@@ -57,7 +59,7 @@ export default function QuotePage({ params }: { params: { id: string } }) {
     const res = await fetch(`/api/projects/${params.id}/quote`, { method: 'POST', headers: { Authorization: `Bearer ${t}` }, body: form })
     setUploading(false)
     if (res.ok) load()
-    else alert((await res.json().catch(() => ({}))).error ?? 'Could not read the quote')
+    else notify((await res.json().catch(() => ({}))).error ?? 'Could not read the quote')
   }
 
   async function convert() {
@@ -69,7 +71,7 @@ export default function QuotePage({ params }: { params: { id: string } }) {
     })
     setConverting(false)
     if (res.ok) load()
-    else alert('Could not convert')
+    else notify('Could not convert')
   }
 
   if (loading) return <div className="text-sm text-faint py-12 text-center">Loading…</div>

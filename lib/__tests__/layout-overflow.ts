@@ -606,4 +606,42 @@ ok(/\bth\s*\{[^}]*white-space:\s*nowrap/.test(css), '...and a column header neve
 ok(!/^\s*\*\s*\{[^}]*overflow-wrap:\s*anywhere/m.test(css),
   '...but not on everything: on a button that breaks the label instead of keeping the shape')
 
+// ─────────────────────────────────────────────────────────────────────────────
+// NO BLOCKING NATIVE DIALOGS.
+//
+// Two reports in a row said the app "crashed" or "killed the page". Both were
+// ordinary refusals - a 400 on a negative allowance, a 409 on a status - and
+// both ended in the same statement: `alert(...)`. In the native shell that is a
+// UIAlertController presented by the Capacitor bridge, and WebKit blocks the JS
+// thread until it is dismissed; one of them fired from a `blur` handler while
+// the keyboard was dismissing. A dialog that fails to present is a page that
+// never runs another line.
+//
+// DeleteGuardProvider built the in-page answer for `window.confirm` years ago
+// and 18 delete handlers still call the native one anyway (BACKLOG.md - each is
+// a rewrite into the guard, not a rename, so they are not swept here). `alert`
+// IS a rename, so it is at zero, and there is no exemption - not even for the
+// component that replaced it. Being the exception is how the plans viewer went
+// a whole sweep without learning about the notch.
+// ─────────────────────────────────────────────────────────────────────────────
+const dialogs: string[] = []
+for (const f of [...tsx, ...walk('lib')]) {
+  // code() strips comments, so the ones EXPLAINING this bug do not count as it.
+  code(f).split('\n').forEach((line, i) => {
+    if (/(?<![A-Za-z0-9_.$])alert\(/.test(line)) dialogs.push(`${f}:${i + 1}`)
+  })
+}
+ok(dialogs.length === 0,
+  `no screen opens a blocking alert${dialogs.length ? ` - ${dialogs[0]} (+${dialogs.length - 1})` : ''}`)
+
+const notice = code('components/ui/notice.tsx')
+ok(/<NoticeProvider>\{children\}<\/NoticeProvider>/.test(code('app/layout.tsx')),
+  'the notice provider is mounted at the ROOT - the portal and share links refuse saves too')
+ok(!/data-overlay/.test(notice),
+  'a notice does NOT freeze the app behind it - you have to be able to fix the field it is about')
+ok(!/inset-0/.test(notice) && !/'overlay'|"overlay"|overlay /.test(notice),
+  '...and it is not an overlay, so it needs no exemption from the rule above')
+ok(/\.notice-dock[\s\S]{0,400}var\(--vv-h/.test(css) && /\.notice-dock[\s\S]{0,400}pointer-events:\s*none/.test(css),
+  'the dock sits on the VISIBLE viewport, above the keyboard, and lets taps through')
+
 done()

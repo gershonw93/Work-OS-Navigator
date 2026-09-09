@@ -12,6 +12,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { cn } from '@/lib/utils'
 import { contractAmount, contractAmountLabel, isUnpriced } from '@/lib/contract-amount'
 import { money, percent } from '@/lib/validate'
+import { useNotice } from '@/components/ui/notice'
 
 const GC_ROLES = [
   'Project Manager', 'Site Manager', 'Superintendent', 'Foreman',
@@ -55,6 +56,7 @@ interface Subcontract {
 }
 
 export default function TeamPage({ params }: { params: { id: string } }) {
+  const notify = useNotice()
   const supabase = createClient()
   const [members, setMembers] = useState<TeamMember[]>([])
   const [subcontracts, setSubcontracts] = useState<Subcontract[]>([])
@@ -101,7 +103,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
   const [subPhone, setSubPhone] = useState('')
   const [subProposal, setSubProposal] = useState<File | null>(null)
   const [subSaving, setSubSaving] = useState(false)
-  // Shown INSIDE the modal, not in an alert(). A browser alert throws away the
+  // Shown INSIDE the modal, not in an notify(). A browser alert throws away the
   // form's context, cannot be styled, and on the failure that prompted this it
   // read "violates not-null constraint" - a sentence about a database, handed
   // to somebody trying to add a plumber.
@@ -159,7 +161,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
       method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
     })
     setDeletingSubId(null)
-    if (!res.ok) { alert('Could not remove subcontractor.'); return }
+    if (!res.ok) { notify('Could not remove subcontractor.'); return }
     load()
   }
 

@@ -21,6 +21,7 @@ import { SendLinkBox } from '@/components/ui/send-link-box'
 import { clientAppOrigin } from '@/lib/app-url'
 
 import { formatDate } from '@/lib/dates'
+import { useNotice } from '@/components/ui/notice'
 const money = (n: number | null) => n == null ? '-' : `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 const STATUS: Record<string, string> = {
   invited: 'bg-muted text-muted-fg', viewed: 'bg-info-tint text-info',
@@ -28,6 +29,7 @@ const STATUS: Record<string, string> = {
 }
 
 export default function RequestQuotesPage({ params }: { params: { id: string } }) {
+  const notify = useNotice()
   const supabase = createClient()
   const guardDelete = useDeleteGuard()
   const [requests, setRequests] = useState<any[]>([])
@@ -109,7 +111,7 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
     const res = await fetch(`/api/projects/${params.id}/bid-requests`, { method: 'POST', headers: { Authorization: `Bearer ${t}` }, body: form })
     setCreating(false)
     if (res.ok) { setTitle(''); setTrade(''); setDescription(''); setDueDate(''); setFiles([]); setSelectedPlans(new Set()); setScopeValue(EMPTY_SCOPE); setItemList([]); setShowNew(false); load() }
-    else alert((await res.json().catch(() => ({}))).error ?? 'Could not create')
+    else notify((await res.json().catch(() => ({}))).error ?? 'Could not create')
   }
 
   async function addInvite(reqId: string) {
@@ -132,7 +134,7 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
         setContactForm({ name: name || '', email: email || '', phone: '', trade: '', type: 'subcontractor' })
       }
     }
-    else alert((await res.json().catch(() => ({}))).error ?? 'Could not invite')
+    else notify((await res.json().catch(() => ({}))).error ?? 'Could not invite')
   }
 
   async function saveContact() {
@@ -151,7 +153,7 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
     })
     setContactSaving(false)
     if (res.ok) { setPendingContact(null); setContactForm({ name: '', email: '', phone: '', trade: '', type: 'subcontractor' }); load() }
-    else alert((await res.json().catch(() => ({}))).error ?? 'Could not add contact')
+    else notify((await res.json().catch(() => ({}))).error ?? 'Could not add contact')
   }
 
   /**
@@ -190,7 +192,7 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
     const res = await fetch(`/api/projects/${params.id}/bid-requests/${reqId}/to-comparison`, { method: 'POST', headers: { Authorization: `Bearer ${t}` } })
     setPulling(null)
     if (res.ok) load()
-    else alert((await res.json().catch(() => ({}))).error ?? 'Could not pull to comparison')
+    else notify((await res.json().catch(() => ({}))).error ?? 'Could not pull to comparison')
   }
 
   // Standalone comparison from manually-collected quote files (no RFQ)
@@ -211,7 +213,7 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
         await fetch(`/api/projects/${params.id}/quotes/${comparison.id}/upload`, { method: 'POST', headers: { Authorization: `Bearer ${t}` }, body: form })
       }
       load()
-    } catch (e: any) { alert(e?.message ?? 'Upload failed'); load() }
+    } catch (e: any) { notify(e?.message ?? 'Upload failed'); load() }
     finally { setNewUploading(false) }
   }
 

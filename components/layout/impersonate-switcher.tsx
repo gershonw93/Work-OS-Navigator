@@ -5,6 +5,7 @@ import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { UserCog, Search, X, LogOut, Shield } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { isSuperAdmin } from '@/lib/super-admin'
+import { useNotice } from '@/components/ui/notice'
 
 const ADMIN_SESSION_KEY = 'workos_admin_session'
 const IMPERSONATING_KEY = 'workos_impersonating'
@@ -70,6 +71,7 @@ export async function impersonateUser(userId: string): Promise<string | null> {
 }
 
 export function ImpersonateSwitcher() {
+  const notify = useNotice()
   const [isOwner, setIsOwner] = useState(false)
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
@@ -112,7 +114,7 @@ export function ImpersonateSwitcher() {
     setBusy(u.id)
     const err = await impersonateUser(u.id)
     if (err) {
-      alert(`Could not log in as this user: ${err}`)
+      notify(`Could not log in as this user: ${err}`)
       setBusy(null)
     }
     // On success the helper redirects, so no need to clear busy

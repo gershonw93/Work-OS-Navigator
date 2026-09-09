@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { Search, LogIn } from 'lucide-react'
 import { adminGet } from '@/lib/admin-fetch'
 import { impersonateUser } from '@/components/layout/impersonate-switcher'
+import { useNotice } from '@/components/ui/notice'
 
 interface AccountRow {
   id: string
@@ -14,6 +15,7 @@ interface AccountRow {
 }
 
 export default function AdminUsers() {
+  const notify = useNotice()
   const [q, setQ] = useState('')
   const [users, setUsers] = useState<AccountRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -38,7 +40,7 @@ export default function AdminUsers() {
   async function loginAs(u: AccountRow) {
     setBusy(u.id)
     const err = await impersonateUser(u.id)
-    if (err) { alert(`Could not log in as this user: ${err}`); setBusy(null) }
+    if (err) { notify(`Could not log in as this user: ${err}`); setBusy(null) }
   }
 
   return (

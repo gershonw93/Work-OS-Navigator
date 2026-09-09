@@ -48,6 +48,25 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    date: '2026-09-10',
+    title: 'Errors that stay in the page',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'What they chose saves on its own',
+        text: 'Typing a choice on a selection that was not yet linked to a budget line saved nothing - the name was sent together with the move to Chosen, and because an accepted selection needs a budget line the whole thing was refused and the name went with it. The name saves now whether or not the line is there, and the row tells you what is still needed for it to reach Chosen.',
+        help: 'selections',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
+        title: 'A bad number is a message under the field, not a system dialog',
+        text: 'Every refused save in the app used to come back as a browser alert box. On a phone that is a native dialog that stops the page dead, and twice it took the whole screen with it - typing -500 into an allowance, or a choice that could not be saved. Messages now appear in the page, above the keyboard, and you can carry on fixing the field while you read one. A negative allowance is caught at the box you typed it in, before anything is sent.',
+        help: 'selections',
+      },
+    ],
+  },
+  {
     date: '2026-09-09',
     title: 'Things that were quietly wrong',
     items: [
