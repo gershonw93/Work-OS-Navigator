@@ -11,6 +11,7 @@ import { Plus, X, FileCheck, FileText, ChevronDown, ChevronUp, Phone, Building, 
 import { ContactPicker } from '@/components/contact-picker'
 
 import { formatDate } from '@/lib/dates'
+import { expiryState, daysExpired } from '@/lib/expiry'
 const PERMIT_TYPES = [
   'Building', 'Electrical', 'Plumbing', 'Mechanical/HVAC',
   'Fire Protection', 'Fire Alarm', 'Sprinkler',
@@ -257,11 +258,6 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
     fetchPermits()
   }
 
-  const isExpiringSoon = (date: string | null) => {
-    if (!date) return false
-    const diff = (new Date(date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-    return diff > 0 && diff < 30
-  }
 
   return (
     <div className="p-0 lg:p-6 space-y-5">
@@ -437,7 +433,15 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
         <div className="space-y-2">
           {permits.map(permit => {
             const isExpanded = expanded === permit.id
-            const expiring = isExpiringSoon(permit.expiry_date)
+            // THE BUG: only "expiring soon" was ever asked, and that window sits
+            // BEFORE the date - so the morning a permit lapsed the warning went
+            // away and it went back to reading like an ordinary pending permit.
+            const state = expiryState(permit.expiry_date)
+            const expiring = state === 'soon'
+            const lapsed = state === 'expired'
+            const lapsedDays = lapsed ? daysExpired(permit.expiry_date) ?? 0 : 0
+            // The row can say 'pending' for ever; the date cannot be argued with.
+            const shownStatus = state === 'expired' ? 'expired' : permit.status
             return (
               <div key={permit.id} className="rounded-xl border border-line bg-panel overflow-hidden">
                 <button className="w-full flex items-center gap-4 px-5 py-4 hover:bg-surface transition-colors text-left"
@@ -447,10 +451,11 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-semibold text-ink">{permit.permit_type}</span>
                       {permit.permit_number && <span className="text-xs font-mono text-muted-fg">#{permit.permit_number}</span>}
-                      <span className={cn('whitespace-nowrap text-xs font-medium rounded-full border px-2 py-0.5', STATUS_COLORS[permit.status] ?? STATUS_COLORS.pending)}>
-                        {permit.status}
+                      <span className={cn('whitespace-nowrap text-xs font-medium rounded-full border px-2 py-0.5', STATUS_COLORS[shownStatus] ?? STATUS_COLORS.pending)}>
+                        {shownStatus}
                       </span>
-                      {expiring && <span className="whitespace-nowrap text-xs font-medium bg-danger-tint border border-danger/30 text-danger rounded-full px-2 py-0.5">Expiring soon</span>}
+                      {lapsed && <span className="whitespace-nowrap text-xs font-medium bg-danger-tint border border-danger/30 text-danger rounded-full px-2 py-0.5">{`Expired ${lapsedDays} day${lapsedDays !== 1 ? 's' : ''} ago`}</span>}
+                      {expiring && <span className="whitespace-nowrap text-xs font-medium bg-warn-tint border border-warn/30 text-warn rounded-full px-2 py-0.5">Expiring soon</span>}
                     </div>
                     <p className="text-xs text-muted-fg mt-0.5 truncate">
                       {permit.description
@@ -469,7 +474,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                   <div className="border-t border-line-soft px-5 py-5 space-y-4">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                       {permit.issued_date && <div><p className="text-xs text-faint">Issued</p><p className="font-medium text-ink-soft">{formatDate(permit.issued_date)}</p></div>}
-                      {permit.expiry_date && <div><p className="text-xs text-faint">Expires</p><p className={cn('font-medium', expiring ? 'text-danger' : 'text-ink-soft')}>{formatDate(permit.expiry_date)}</p></div>}
+                      {permit.expiry_date && <div><p className="text-xs text-faint">Expires</p><p className={cn('font-medium', lapsed ? 'text-danger' : expiring ? 'text-warn' : 'text-ink-soft')}>{formatDate(permit.expiry_date)}</p></div>}
                       {permit.issuing_authority && <div><p className="text-xs text-faint">Issued By</p><p className="font-medium text-ink-soft">{permit.issuing_authority}</p></div>}
                       {permit.inspector_name && (
                         <div>

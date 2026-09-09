@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { variance } from '@/lib/selections'
+import { ACCEPTED_STATUSES, variance } from '@/lib/selections'
 import { money } from '@/lib/validate'
 
 export const runtime = 'nodejs'
@@ -58,10 +58,25 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   //
   // The client picking on their own link is NOT blocked by this (that goes
   // through the portal route) - it is the GC accepting it that needs a home.
-  const ACCEPTED = new Set(['chosen', 'ordered', 'installed'])
-  if (typeof body.status === 'string' && ACCEPTED.has(body.status)) {
+  if (typeof body.status === 'string' && ACCEPTED_STATUSES.has(body.status as never)) {
     const { data: current } = await db.from('project_selections')
-      .select('budget_line_item_id').eq('id', params.selId).single()
+      .select('budget_line_item_id, selected_name').eq('id', params.selId).single()
+
+    // Chosen means a decision was made, so there has to be a decision. Reported
+    // as "setting Chosen with What they chose empty breaks the page and never
+    // saves" - and a status that claims a choice nobody can name is a lie the
+    // client's link repeats back to them ("You currently have ").
+    //
+    // The order route has said this since it was written; the status dropdown
+    // that puts a row into the same state did not. Same rule, both doors.
+    const name = 'selected_name' in patch ? patch.selected_name : current?.selected_name
+    if (!name || !String(name).trim()) {
+      return NextResponse.json({
+        error: 'Put what they chose in first - "Chosen" with nothing named is a decision nobody can look up.',
+        needs_selected_name: true,
+      }, { status: 409 })
+    }
+
     const lineId = 'budget_line_item_id' in patch ? patch.budget_line_item_id : current?.budget_line_item_id
     if (!lineId) {
       return NextResponse.json({

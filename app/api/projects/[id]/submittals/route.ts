@@ -53,6 +53,12 @@ export async function POST(request: Request, { params }: { params: { id: string 
     return NextResponse.json({ error: 'Title and type are required' }, { status: 400 })
   }
 
+  // The document is the submittal. Accepting one without it created a row a
+  // reviewer could only guess at, and the form gave no sign either way.
+  if (!file || file.size === 0) {
+    return NextResponse.json({ error: 'Attach the document - a submittal is the tech sheet or drawing being submitted.' }, { status: 400 })
+  }
+
   let file_url: string | null = null
 
   if (file && file.size > 0) {

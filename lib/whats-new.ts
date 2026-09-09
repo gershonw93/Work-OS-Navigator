@@ -49,6 +49,49 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-09',
+    title: 'Things that were quietly wrong',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'An expired document is now flagged as expired',
+        text: 'A certificate of insurance or a permit whose expiry date had passed showed no warning at all - the badge still said Approved or pending, and Expiring Soon stayed on zero. "Expiring soon" only ever looked at the 30 days BEFORE the date, so the morning a document lapsed the warning went away. Compliance now has its own Expired count and badge, and a lapsed permit reads "Expired 12 days ago". The date decides, not whatever the row was last set to.',
+        help: 'compliance-overview',
+      },
+      {
+        kind: 'fixed',
+        title: 'Chosen now needs something chosen',
+        text: 'Setting a selection to Chosen with "What they chose" empty misbehaved and never saved. It now opens the row and asks for the name, and typing one moves it to Chosen on its own. A status claiming a decision nobody can name is what the client\'s link reads back to them.',
+        help: 'selections',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
+        title: 'Recent Activity opens the thing that happened',
+        text: 'Every line on the dashboard feed linked to the project\'s Plans tab, whatever it said. An invoice event now opens Invoices, an RFI opens RFIs, a payment opens Payments, a clock-in opens Time - all 34 kinds go where they belong.',
+        href: '/dashboard',
+      },
+      {
+        kind: 'fixed',
+        title: 'Approved change orders can no longer go missing from the Budget',
+        text: 'A change order that named neither a budget line nor a subcontract was approved, counted nowhere, and shown nowhere - on one job that was $70,725 of approved money the Budget tab could not see. It is now in Total Budget and listed under "Not on a budget line" at the bottom of the Budget tab, with a picker to file it against a line.',
+        help: 'change-order-basics',
+      },
+      {
+        kind: 'fixed',
+        title: 'Add Submittal tells you what happened',
+        text: 'The form cleared itself and closed whether or not the submittal saved, so one that failed looked exactly like one that worked. Failures now say why, and the document is properly marked required - a submittal is the tech sheet or drawing being submitted.',
+        help: 'submittals',
+      },
+      {
+        kind: 'fixed',
+        title: 'No more "Budgeted at $-500" on a client link',
+        text: 'A negative allowance has been refused when saving for a while, but rows written before that still printed the nonsense figure to the client. A selection with one now reads as having no allowance set.',
+        help: 'selections',
+      },
+    ],
+  },
+  {
+    date: '2026-09-09',
     title: 'A cleaner look on a phone',
     items: [
       {

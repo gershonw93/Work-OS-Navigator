@@ -284,6 +284,30 @@ production branch.** Do NOT ask the user to merge or deploy.
   must carry it. A heading beside the buttons makes it a LAYOUT, not a control
   row - the button group inside is the row.
 
+## Derived facts, not stored ones (IMPORTANT)
+- A status that is really a DATE must be computed from the date. Compliance and
+  Permits each asked only "is it expiring soon", and soon was a window BEFORE
+  the date (`diff > 0 && diff <= 30 days`) - so the day a certificate lapsed the
+  warning went away and an expired COI read as Approved for ever. One answer,
+  four states, tested: `lib/expiry.ts` (`expiryState`, `daysExpired`), anchored
+  to LOCAL midnight so "expires today" is still good today.
+- MONEY IN A TOTAL HAS TO BE ON A ROW OR NAMED. An approved change order that
+  names neither a budget line nor a subcontract reached nothing and was silently
+  dropped by the Budget page - $70,725 on one job - while the pay-app SOV had
+  shown the same `unmapped` figure all along. `budgetTotals` takes it and reports
+  it as `changes_unlinked`, beside `committed_unlinked` and `materials_unassigned`,
+  and the "Not on a budget line" panel shows each with a way to file it. Any new
+  rollup that can drop a row owes the screen the same two things: the total, and
+  the list.
+- A rule that exists on one door has to exist on the others. The order route
+  refused a selection with no `selected_name` from the day it was written; the
+  status dropdown and its PATCH beside it did not, so a selection reached
+  "Chosen" with nothing chosen. `ACCEPTED_STATUSES` in `lib/selections.ts` is
+  the one set both ask.
+- An activity feed row links to the record it is ABOUT (`lib/activity-href.ts`).
+  All 34 event types linked to `/plans`; the tab is not derivable from the type
+  string, so it is a table pinned against the icon table it mirrors.
+
 ## Loading and failure states (IMPORTANT)
 - A permissions check that FAILED answers exactly like being denied - `can()`
   is `!!perms?.[r]?.[a]` and `perms` is null either way - so a bad minute of

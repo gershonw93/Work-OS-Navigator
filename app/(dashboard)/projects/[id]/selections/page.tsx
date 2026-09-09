@@ -14,7 +14,7 @@ import {
   ClipboardPaste, Truck, MessageSquareWarning, Wallet, ImagePlus,
 } from 'lucide-react'
 import {
-  SELECTION_CATEGORIES, SELECTION_STATUSES, STATUS_TINT, PROJECT_TYPE_LABEL,
+  SELECTION_CATEGORIES, SELECTION_STATUSES, STATUS_TINT, PROJECT_TYPE_LABEL, ACCEPTED_STATUSES,
   categoryDef, daysUntil, isOutstanding, urgency, variance,
   recommendedCategories, seedRowCount, itemsForType, isHomeType, matchBudgetLine,
   type SelectionStatus,
@@ -60,6 +60,9 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
   const [showSeed, setShowSeed] = useState(false)
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  // The row whose status was moved to Chosen with nothing chosen. Asking for
+  // the missing fact where the field is beats an alert about it.
+  const [needsChoice, setNeedsChoice] = useState<string | null>(null)
   const [filter, setFilter] = useState<'outstanding' | 'all'>('outstanding')
   const [needsMigration, setNeedsMigration] = useState(false)
 
@@ -843,7 +846,20 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
                                 {days! < 0 ? `${Math.abs(days!)}d late` : `${days}d left`}
                               </span>
                             )}
-                            <select value={sel.status} onChange={e => patch(sel.id, { status: e.target.value })}
+                            <select value={sel.status} onChange={e => {
+                              const next = e.target.value as SelectionStatus
+                              // Chosen with nothing chosen is a status that
+                              // cannot be looked up. Open the row and ask for
+                              // the name rather than saving a claim and letting
+                              // the server refuse it into an alert.
+                              if (ACCEPTED_STATUSES.has(next) && !sel.selected_name?.trim()) {
+                                setExpanded(p => new Set(p).add(sel.id))
+                                setNeedsChoice(sel.id)
+                                return
+                              }
+                              setNeedsChoice(null)
+                              patch(sel.id, { status: next })
+                            }}
                               className={cn('whitespace-nowrap rounded-full border-0 px-2.5 py-1 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-accent', STATUS_TINT[sel.status])}>
                               {SELECTION_STATUSES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
                             </select>
@@ -882,7 +898,14 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
                               <div className="space-y-1">
                                 <Label className="lg:text-xs">What they chose</Label>
                                 <Input defaultValue={sel.selected_name ?? ''} className="h-8 text-sm" placeholder="e.g. SW Alabaster"
-                                  onBlur={e => { if (e.target.value !== (sel.selected_name ?? '')) patch(sel.id, { selected_name: e.target.value || null, status: e.target.value ? 'chosen' : sel.status }) }} />
+                                  aria-invalid={needsChoice === sel.id}
+                                  onBlur={e => {
+                                    if (e.target.value.trim()) setNeedsChoice(null)
+                                    if (e.target.value !== (sel.selected_name ?? '')) patch(sel.id, { selected_name: e.target.value || null, status: e.target.value ? 'chosen' : sel.status })
+                                  }} />
+                                {needsChoice === sel.id && (
+                                  <p className="text-[11px] text-danger">Name what they chose and this moves to Chosen on its own.</p>
+                                )}
                               </div>
                             </div>
 

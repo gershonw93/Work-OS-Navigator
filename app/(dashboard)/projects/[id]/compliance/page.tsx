@@ -18,6 +18,7 @@ import { clientAppOrigin } from '@/lib/app-url'
 import { SendLinkBox } from '@/components/ui/send-link-box'
 
 import { formatDate } from '@/lib/dates'
+import { expiryState } from '@/lib/expiry'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type DocStatus = 'missing' | 'pending' | 'approved' | 'expired' | 'expiring_soon' | 'optional' | 'not_required'
@@ -80,10 +81,26 @@ function cardChip(status: DocStatus) {
   return { label: 'Action Required', classes: 'bg-danger-tint text-danger' }
 }
 
-function isExpiringSoon(expiry: string | null): boolean {
-  if (!expiry) return false
-  const diff = new Date(expiry).getTime() - Date.now()
-  return diff > 0 && diff <= 30 * 24 * 60 * 60 * 1000
+// What a document's DATE makes it, whatever the row says it is.
+//
+// THE BUG. This used to be `isExpiringSoon`, a window BEFORE the date, and
+// nothing anywhere asked whether the date had already passed - so a COI dated
+// last month saved as Approved, read as Approved for ever, and the sub counted
+// as compliant. `lib/expiry.ts` carries the reasoning and the tests.
+//
+// Both resolvers below go through this one, so a card and the roll-up above it
+// cannot disagree about the same certificate.
+function statusFromExpiry(doc: { status: DocStatus; expiry_date: string | null }): DocStatus {
+  const state = expiryState(doc.expiry_date)
+  // A date that has passed IS expired. It outranks the stored status entirely -
+  // including 'pending', because a document waiting to be approved that already
+  // ran out is not going to be approved.
+  if (state === 'expired') return 'expired'
+  // The other direction: a row still flagged Expired whose date is now ahead is
+  // a renewal that was re-uploaded, and should stop shouting.
+  if (doc.status === 'expired' && state !== 'none') return state === 'soon' ? 'expiring_soon' : 'approved'
+  if (doc.status === 'approved' && state === 'soon') return 'expiring_soon'
+  return doc.status
 }
 
 // ─── Upload Form ──────────────────────────────────────────────────────────────
@@ -696,9 +713,7 @@ function SubCard({ sub, docs, requests, requirements, projectId, token, onRefres
       return 'not_required'
     }
     if (!doc) return requiredDocs.includes(type) ? 'missing' : 'optional'
-    if (doc.status === 'expired' && doc.expiry_date && new Date(doc.expiry_date + 'T00:00:00') > new Date()) return isExpiringSoon(doc.expiry_date) ? 'expiring_soon' : 'approved'
-    if (doc.status === 'approved' && isExpiringSoon(doc.expiry_date)) return 'expiring_soon'
-    return doc.status
+    return statusFromExpiry(doc)
   }
 
   // Only required docs drive the card's overall status
@@ -1002,9 +1017,7 @@ export default function CompliancePage({ params }: { params: { id: string } }) {
   function resolveStatus(companyId: string, type: DocType): DocStatus {
     const doc = docs.find((d) => d.company_id === companyId && d.type === type)
     if (!doc) return 'missing'
-    if (doc.status === 'expired' && doc.expiry_date && new Date(doc.expiry_date + 'T00:00:00') > new Date()) return isExpiringSoon(doc.expiry_date) ? 'expiring_soon' : 'approved'
-    if (doc.status === 'approved' && isExpiringSoon(doc.expiry_date)) return 'expiring_soon'
-    return doc.status
+    return statusFromExpiry(doc)
   }
 
   const totalSubs = subs.length
@@ -1027,6 +1040,13 @@ export default function CompliancePage({ params }: { params: { id: string } }) {
   const missingDocs = subs.filter((s) => {
     const id = s.companies?.id ?? ''
     return reqFor(s).some((t) => resolveStatus(id, t) === 'missing')
+  }).length
+  // Expired is its own number. It used to have nowhere to land: the resolver
+  // could not produce it from a date, and even if it had, the only counter on
+  // the page was "expiring soon" - which a lapsed document is not.
+  const expiredDocs = subs.filter((s) => {
+    const id = s.companies?.id ?? ''
+    return reqFor(s).some((t) => resolveStatus(id, t) === 'expired')
   }).length
 
   return (
@@ -1052,10 +1072,11 @@ export default function CompliancePage({ params }: { params: { id: string } }) {
       ) : (
         <>
           {/* Desktop: the four tiles it always had. */}
-          <div className="hidden lg:grid lg:grid-cols-4 gap-4">
+          <div className="hidden lg:grid lg:grid-cols-5 gap-4">
             <StatCard label="Total Subs" value={totalSubs} icon={ShieldCheck} iconColor="text-muted-fg" />
             <StatCard label="All Compliant" value={allCompliant} icon={CheckCircle2} iconColor="text-success" />
             <StatCard label="Expiring Soon" value={expiringSoon} icon={AlertTriangle} iconColor="text-accent-fg" />
+            <StatCard label="Expired" value={expiredDocs} icon={FileWarning} iconColor="text-danger" />
             <StatCard label="Missing Docs" value={missingDocs} icon={FileWarning} iconColor="text-danger" />
           </div>
           {/* Phone: four numbers, one card. Red only for what is actually missing. */}
@@ -1063,6 +1084,7 @@ export default function CompliancePage({ params }: { params: { id: string } }) {
             { label: 'Subs', value: totalSubs },
             { label: 'All compliant', value: allCompliant },
             { label: 'Expiring soon', value: expiringSoon, tone: expiringSoon > 0 ? 'warn' : undefined },
+            { label: 'Expired', value: expiredDocs, tone: expiredDocs > 0 ? 'danger' : undefined },
             { label: 'Missing documents', value: missingDocs, tone: missingDocs > 0 ? 'danger' : undefined },
           ]} />
 

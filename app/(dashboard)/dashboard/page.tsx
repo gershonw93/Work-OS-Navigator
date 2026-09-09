@@ -13,6 +13,7 @@ import { Badge, getStatusVariant } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
 import Link from 'next/link'
 import { parseDate, formatDate } from '@/lib/dates'
+import { activityHref } from '@/lib/activity-href'
 
 interface Notification {
   id: string
@@ -595,8 +596,13 @@ export default function DashboardPage() {
                 <div className="divide-y divide-line-soft max-h-[440px] overflow-y-auto">
                   {activity.map(item => {
                     const Icon = getActivityIcon(item.type)
-                    return (
-                      <div key={item.id} className="flex items-start gap-3 px-4 py-3 hover:bg-surface transition-colors">
+                    // The row goes to the record it is ABOUT. Every line used to
+                    // link to /plans, so the feed answered "which project" and
+                    // never "which thing".
+                    const href = activityHref(item.type, item.project_id)
+                    const rowClass = 'flex items-start gap-3 px-4 py-3 hover:bg-surface transition-colors'
+                    const body = (
+                      <>
                         <div className="mt-0.5 h-7 w-7 rounded-full bg-accent-tint flex items-center justify-center shrink-0">
                           <Icon className="h-3.5 w-3.5 text-accent-fg" />
                         </div>
@@ -609,19 +615,19 @@ export default function DashboardPage() {
                             {item.projects?.name && (
                               <>
                                 {activityIsAdmin && <span className="text-xs text-faint">·</span>}
-                                <Link
-                                  href={`/projects/${item.project_id}/plans`}
-                                  className="text-xs text-accent-fg hover:underline truncate max-w-[130px]"
-                                >
+                                <span className="text-xs text-accent-fg truncate max-w-[130px]">
                                   {item.projects.name}
-                                </Link>
+                                </span>
                               </>
                             )}
                             <span className="text-xs text-faint ml-auto shrink-0">{timeAgo(item.created_at)}</span>
                           </div>
                         </div>
-                      </div>
+                      </>
                     )
+                    return href
+                      ? <Link key={item.id} href={href} className={rowClass}>{body}</Link>
+                      : <div key={item.id} className={rowClass}>{body}</div>
                   })}
                 </div>
               )}

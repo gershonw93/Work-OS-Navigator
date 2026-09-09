@@ -216,6 +216,9 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   // is to file it against a line, not to type over it.
   const [unlinkedSubs, setUnlinkedSubs] = useState<{ id: string; label: string; contract_amount: number }[]>([])
   const [unassignedReceipts, setUnassignedReceipts] = useState<{ id: string; label: string; amount: number; purchase_date: string | null }[]>([])
+  // Approved change orders that land on no line. Same category of money as the
+  // two above: inside the totals, on no row, and fixable from here.
+  const [unlinkedChangeOrders, setUnlinkedChangeOrders] = useState<{ id: string; label: string; amount: number }[]>([])
   const [filing, setFiling] = useState<string | null>(null)
   const [feeBasis, setFeeBasis] = useState<FeeBasis | null>(null)
   const [subOptions, setSubOptions] = useState<SubOption[]>([])
@@ -304,14 +307,20 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
    * receipt by setting `budget_line_id` on the receipt. Once filed, the money
    * stops being counted twice and stops sitting on a row of its own.
    */
-  async function fileAgainstLine(kind: 'sub' | 'receipt', id: string, lineId: string) {
+  async function fileAgainstLine(kind: 'sub' | 'receipt' | 'change_order', id: string, lineId: string) {
     if (!lineId) return
     setFiling(id)
     const token = await getToken()
     const url = kind === 'sub'
       ? `/api/projects/${params.id}/budget/${lineId}`
-      : `/api/materials/${id}`
-    const body = kind === 'sub' ? { subcontract_id: id } : { budget_line_id: lineId }
+      : kind === 'change_order'
+        ? `/api/projects/${params.id}/change-orders/${id}`
+        : `/api/materials/${id}`
+    const body = kind === 'sub'
+      ? { subcontract_id: id }
+      : kind === 'change_order'
+        ? { budget_line_item_id: lineId }
+        : { budget_line_id: lineId }
     const res = await fetch(url, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -335,6 +344,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       setTotals(d.totals ?? null)
       setUnlinkedSubs(d.unlinked_subcontracts ?? [])
       setUnassignedReceipts(d.unassigned_receipts ?? [])
+      setUnlinkedChangeOrders(d.unlinked_change_orders ?? [])
       setSubOptions(d.subcontracts ?? [])
       setMaterials(d.materials ?? [])
       setMaterialsTotal(d.materials_total ?? 0)
@@ -1869,7 +1879,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
           no row - and Left to spend quietly left it out again. A scanned receipt
           with no line did the same to Actual Spent. Both are now visible, both
           are counted, and both can be filed from here. */}
-      {(unlinkedSubs.length > 0 || unassignedReceipts.length > 0) && (
+      {(unlinkedSubs.length > 0 || unassignedReceipts.length > 0 || unlinkedChangeOrders.length > 0) && (
         <div className="mt-4 overflow-hidden rounded-xl border border-warn/40 bg-warn-tint/30">
           <div className="border-b border-warn/30 px-4 py-2.5">
             <p className="text-sm font-semibold text-warn">Not on a budget line</p>
@@ -1892,6 +1902,27 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                 disabled={filing === sc.id}
                 defaultValue=""
                 onChange={e => fileAgainstLine('sub', sc.id, e.target.value)}
+                className="shrink-0 rounded-md border border-line bg-panel px-2 py-1 text-xs text-ink-soft"
+              >
+                <option value="">File against a line…</option>
+                {items.map(l => (
+                  <option key={l.id} value={l.id}>{[l.cost_code, l.description].filter(Boolean).join(' · ')}</option>
+                ))}
+              </select>
+            </div>
+          ))}
+
+          {unlinkedChangeOrders.map(co => (
+            <div key={co.id} className="flex flex-wrap items-center gap-2 border-b border-warn/20 px-4 py-2.5 last:border-0">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-ink-soft">{co.label}</p>
+                <p className="text-xs text-muted-fg">Approved change order · counted in Total Budget</p>
+              </div>
+              <span className="shrink-0 text-sm font-semibold text-ink-soft">{money(co.amount)}</span>
+              <select
+                disabled={filing === co.id}
+                defaultValue=""
+                onChange={e => fileAgainstLine('change_order', co.id, e.target.value)}
                 className="shrink-0 rounded-md border border-line bg-panel px-2 py-1 text-xs text-ink-soft"
               >
                 <option value="">File against a line…</option>
