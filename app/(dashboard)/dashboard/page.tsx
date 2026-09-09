@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react'
 import { FolderKanban, AlertCircle, ShieldAlert, MessageSquare, Package, CheckSquare, DollarSign, Briefcase, FileText, Receipt, Activity, FileUp, ClipboardList, CalendarCheck, ScrollText, UploadCloud, UserPlus, UserMinus, Clock, ShoppingCart, Wallet, Wrench, LogIn, LogOut } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { usePermissions } from '@/lib/use-permissions'
-import { StatCard } from '@/components/ui/stat-card'
+import { StatStrip } from '@/components/ui/stat-strip'
+import { ChevronRight } from 'lucide-react'
 import { AdminOverview, type OverviewData } from '@/components/dashboard/admin-overview'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge, getStatusVariant } from '@/components/ui/badge'
@@ -348,55 +349,66 @@ export default function DashboardPage() {
 
       {/* Stat cards */}
       {stats?.isSub ? (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
-          <StatCard label="Active Jobs" value={v((stats as SubStats).activeJobs)} icon={Briefcase} iconColor="text-accent-fg" />
-          <StatCard label="Pending Invoices" value={v((stats as SubStats).pendingInvoices)} icon={FileText} iconColor="text-yellow-500" />
-          <StatCard label="Paid This Month" value={money((stats as SubStats).paidThisMonth)} icon={Receipt} iconColor="text-success" />
-          <StatCard label="Open RFIs" value={v((stats as SubStats).openRfis)} icon={MessageSquare} iconColor="text-info" />
-          <StatCard label="Expiring Docs" value={v((stats as SubStats).expiringCompliance)} icon={ShieldAlert} iconColor="text-danger" />
-          <StatCard label="Contract Value" value={money((stats as SubStats).totalContractValue)} icon={DollarSign} iconColor="text-muted-fg" />
-        </div>
+        /* Six boxes became one card. Colour only where it carries a warning. */
+        <StatStrip label="Overview" items={[
+          { label: 'Active jobs', value: v((stats as SubStats).activeJobs), href: '/my-jobs' },
+          { label: 'Contract value', value: money((stats as SubStats).totalContractValue) },
+          { label: 'Paid this month', value: money((stats as SubStats).paidThisMonth) },
+          { label: 'Pending invoices', value: v((stats as SubStats).pendingInvoices) },
+          { label: 'Open RFIs', value: v((stats as SubStats).openRfis) },
+          { label: 'Expiring documents', value: v((stats as SubStats).expiringCompliance),
+            tone: ((stats as SubStats).expiringCompliance ?? 0) > 0 ? 'danger' : undefined },
+        ]} />
       ) : ov ? (
         <>
-          {/* Admin tiles - each links to its page */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              { label: 'Active Projects', value: v((stats as GcStats | null)?.activeProjects), icon: FolderKanban, cls: 'text-accent-fg', href: '/projects' },
-              { label: 'Under Contract', value: money((stats as GcStats | null)?.totalContractValue), icon: DollarSign, cls: 'text-success', href: '/master-money' },
-              { label: 'Open Tasks', value: v((stats as GcStats | null)?.openTasks), icon: CheckSquare, cls: 'text-info', href: '/master-calendar' },
-              { label: 'Due This Week', value: loading ? '-' : String(ov.dueThisWeek), icon: Clock, cls: 'text-warn', href: '/master-calendar' },
-            ].map(t => (
-              <Link key={t.label} href={t.href}
-                className="rounded-xl border border-line bg-panel px-4 py-4 transition-colors hover:border-accent hover:bg-surface">
-                <div className="flex items-center gap-2 mb-2">
-                  <t.icon className={`h-4 w-4 ${t.cls}`} />
-                  <span className={`text-xs font-semibold ${t.cls}`}>{t.label}</span>
-                </div>
-                <p className={`text-2xl font-extrabold ${t.cls}`}>{t.value}</p>
-              </Link>
-            ))}
-          </div>
+          {/* One Overview card, not four coloured tiles. Each cell still links to
+              its page. The numbers are ink: a count of projects is not a
+              warning, and painting every tile a different colour was what made
+              the top of the home screen read as a control panel. */}
+          <StatStrip label="Overview" items={[
+            { label: 'Active projects', value: v((stats as GcStats | null)?.activeProjects), href: '/projects' },
+            { label: 'Under contract', value: money((stats as GcStats | null)?.totalContractValue), href: '/master-money' },
+            { label: 'Open tasks', value: v((stats as GcStats | null)?.openTasks), href: '/master-calendar' },
+            { label: 'Due this week', value: loading ? '-' : String(ov.dueThisWeek), href: '/master-calendar',
+              tone: !loading && ov.dueThisWeek > 0 ? 'warn' : undefined },
+          ]} />
 
-          {/* Needs-attention strip (only when something needs it) */}
-          {((stats as GcStats | null)?.pendingApprovals || (stats as GcStats | null)?.openRfis || (stats as GcStats | null)?.expiringCompliance) ? (
-            <div className="flex flex-wrap gap-2">
-              {((stats as GcStats)?.pendingApprovals ?? 0) > 0 && (
-                <Link href="/approvals" className="whitespace-nowrap inline-flex items-center gap-1.5 rounded-full bg-warn-tint text-warn text-xs font-medium px-3 py-1.5 hover:opacity-80">
-                  <AlertCircle className="h-3.5 w-3.5" /> {(stats as GcStats).pendingApprovals} pending approval{(stats as GcStats).pendingApprovals !== 1 ? 's' : ''}
-                </Link>
-              )}
-              {((stats as GcStats)?.openRfis ?? 0) > 0 && (
-                <span className="whitespace-nowrap inline-flex items-center gap-1.5 rounded-full bg-info-tint text-info text-xs font-medium px-3 py-1.5">
-                  <MessageSquare className="h-3.5 w-3.5" /> {(stats as GcStats).openRfis} open RFI{(stats as GcStats).openRfis !== 1 ? 's' : ''}
-                </span>
-              )}
-              {((stats as GcStats)?.expiringCompliance ?? 0) > 0 && (
-                <span className="whitespace-nowrap inline-flex items-center gap-1.5 rounded-full bg-danger-tint text-danger text-xs font-medium px-3 py-1.5">
-                  <ShieldAlert className="h-3.5 w-3.5" /> {(stats as GcStats).expiringCompliance} compliance doc{(stats as GcStats).expiringCompliance !== 1 ? 's' : ''} expiring
-                </span>
-              )}
+          {/* Needs attention: a list of rows in one card, each a tap away, and
+              only there when something needs it. It was three coloured pills. */}
+          {(((stats as GcStats | null)?.pendingApprovals ?? 0) > 0
+            || ((stats as GcStats | null)?.openRfis ?? 0) > 0
+            || ((stats as GcStats | null)?.expiringCompliance ?? 0) > 0) && (
+            <div className="overflow-hidden rounded-2xl border border-line bg-panel">
+              <p className="px-5 pt-4 pb-1 text-[11px] font-semibold uppercase tracking-wider text-faint">Needs attention</p>
+              <div className="divide-y divide-line-soft">
+                {((stats as GcStats).pendingApprovals ?? 0) > 0 && (
+                  <Link href="/approvals" className="flex min-h-[52px] items-center gap-3 px-5 py-3 hover:bg-surface">
+                    <AlertCircle className="h-4 w-4 shrink-0 text-warn" />
+                    <span className="min-w-0 flex-1 text-sm text-ink">
+                      {(stats as GcStats).pendingApprovals} approval{(stats as GcStats).pendingApprovals !== 1 ? 's' : ''} waiting
+                    </span>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-faint" />
+                  </Link>
+                )}
+                {((stats as GcStats).openRfis ?? 0) > 0 && (
+                  <div className="flex min-h-[52px] items-center gap-3 px-5 py-3">
+                    <MessageSquare className="h-4 w-4 shrink-0 text-info" />
+                    <span className="min-w-0 flex-1 text-sm text-ink">
+                      {(stats as GcStats).openRfis} open RFI{(stats as GcStats).openRfis !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                )}
+                {((stats as GcStats).expiringCompliance ?? 0) > 0 && (
+                  <div className="flex min-h-[52px] items-center gap-3 px-5 py-3">
+                    <ShieldAlert className="h-4 w-4 shrink-0 text-danger" />
+                    <span className="min-w-0 flex-1 text-sm text-ink">
+                      {(stats as GcStats).expiringCompliance} compliance doc{(stats as GcStats).expiringCompliance !== 1 ? 's' : ''} expiring
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
-          ) : null}
+          )}
 
           {/* Cash chart + this week + recent projects */}
           <AdminOverview data={ov} />
@@ -410,12 +422,15 @@ export default function DashboardPage() {
           const mine = !!g?.assignedOnly
           return (
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
-              <StatCard label={mine ? 'My Jobs' : 'Projects'} value={v(g?.activeProjects)} icon={FolderKanban} iconColor="text-accent-fg" />
-              <StatCard label={mine ? 'My Open Tasks' : 'Open Tasks'} value={v(mine ? g?.myOpenTasks : g?.openTasks)} icon={CheckSquare} iconColor="text-purple-500" />
-              {vis.rfis && <StatCard label="Open RFIs" value={v(g?.openRfis)} icon={MessageSquare} iconColor="text-info" />}
-              {vis.approvals && <StatCard label="Pending Approvals" value={v(g?.pendingApprovals)} icon={AlertCircle} iconColor="text-yellow-500" />}
-              {vis.compliance && <StatCard label="Expiring Compliance" value={v(g?.expiringCompliance)} icon={ShieldAlert} iconColor="text-danger" />}
-              {vis.money && <StatCard label="Total Under Contract" value={money(g?.totalContractValue)} icon={DollarSign} iconColor="text-success" />}
+              <StatStrip label="Overview" className="col-span-full" items={[
+                { label: mine ? 'My jobs' : 'Projects', value: v(g?.activeProjects) },
+                { label: mine ? 'My open tasks' : 'Open tasks', value: v(mine ? g?.myOpenTasks : g?.openTasks) },
+                ...(vis.rfis ? [{ label: 'Open RFIs', value: v(g?.openRfis) }] : []),
+                ...(vis.approvals ? [{ label: 'Pending approvals', value: v(g?.pendingApprovals) }] : []),
+                ...(vis.compliance ? [{ label: 'Expiring compliance', value: v(g?.expiringCompliance),
+                    tone: (g?.expiringCompliance ?? 0) > 0 ? 'danger' as const : undefined }] : []),
+                ...(vis.money ? [{ label: 'Under contract', value: money(g?.totalContractValue) }] : []),
+              ]} />
             </div>
           )
         })()
