@@ -52,6 +52,12 @@ export const RELEASES: Release[] = [
     title: 'A cleaner look on a phone',
     items: [
       {
+        kind: 'fixed',
+        title: 'The "?" explainers stay on the screen, and the budget line sheet stops sliding sideways',
+        text: 'Tapping a "?" on a Budget tile opened its note mostly off the left edge of the phone, and the sheet behind a budget line could be dragged sideways so its left side was cut off. Both came from the same hidden note taking up room where it should not have. It now floats from the "?" you tapped, always within the screen, and closes when you scroll. Tap the "?" to open it, tap again or scroll to close.',
+        href: '/projects',
+      },
+      {
         kind: 'improved',
         title: 'Add Line on Budget opens a pop-up',
         text: 'The new-line form used to appear below the totals, two screens down on a phone, so Add Line looked like it did nothing. It opens as a pop-up now, on the phone and on a laptop, with the Add Line button always in reach even with the keyboard up. Escape or the X closes it.',
