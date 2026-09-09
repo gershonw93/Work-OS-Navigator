@@ -203,7 +203,7 @@ export default function PlanViewerPage({ params }: { params: { id: string; planI
   if (!plan) return <div className="p-8 text-center text-sm text-danger">{error || 'Plan not found.'}</div>
 
   return (
-    <div className={cn('space-y-4', fullscreen ? 'fixed inset-0 z-40 overflow-y-auto bg-surface p-3 pb-6' : 'p-4 sm:p-6')}>
+    <div className={cn('space-y-4', fullscreen ? 'fixed inset-0 z-40 overflow-y-auto bg-surface p-3 pb-6' : 'p-6')}>
       {/* Toolbar - title on its own row, controls wrap underneath on phones so
           nothing overflows the viewport. */}
       <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center">

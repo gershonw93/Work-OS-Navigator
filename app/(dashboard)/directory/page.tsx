@@ -324,7 +324,7 @@ export default function DirectoryPage() {
   // ─── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="p-4 sm:p-6">
+    <div className="p-6">
 
       {/* ── Add Contact Modal ── */}
       {showAdd && (
@@ -902,56 +902,38 @@ export default function DirectoryPage() {
                           <p className="text-xs text-faint mt-1">Upload them from a project's Compliance tab.</p>
                         </div>
                       ) : (
-                        <div className="rounded-xl border border-line overflow-x-auto">
-                          <table className="w-full text-sm">
-                            <thead className="bg-surface border-b border-line-soft">
-                              <tr>
-                                <th className="text-left px-4 py-3 font-medium text-muted-fg">Document</th>
-                                <th className="text-left px-4 py-3 font-medium text-muted-fg">Status</th>
-                                <th className="text-left px-4 py-3 font-medium text-muted-fg">Expires</th>
-                                <th className="text-left px-4 py-3 font-medium text-muted-fg">Uploaded</th>
-                                <th className="px-4 py-3" />
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-line-soft">
-                              {profileData.complianceDocs.map((doc: any) => {
-                                const isExpired = doc.expiry_date && new Date(doc.expiry_date + 'T00:00:00') < new Date()
-                                const resolvedStatus = (doc.status === 'expired' && doc.expiry_date && !isExpired) ? 'approved' : doc.status
-                                const statusColors: Record<string, string> = {
-                                  approved: 'bg-success-tint text-success',
-                                  pending: 'bg-warn-tint text-warn',
-                                  expired: 'bg-danger-tint text-danger',
-                                  missing: 'bg-danger-tint text-danger',
-                                  expiring_soon: 'bg-accent-tint text-accent-fg',
-                                }
-                                const typeLabels: Record<string, string> = { coi: 'COI', license: 'License', w9: 'W-9', workers_comp: "Workers' Comp", other: 'Other' }
-                                return (
-                                  <tr key={doc.id} className="hover:bg-surface">
-                                    <td className="px-4 py-3 font-medium text-ink-soft">{typeLabels[doc.type] ?? doc.type}</td>
-                                    <td className="px-4 py-3">
-                                      <span className={cn('whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium', statusColors[resolvedStatus] ?? 'bg-muted text-muted-fg')}>
-                                        {resolvedStatus.replace('_', ' ')}
-                                      </span>
-                                    </td>
-                                    <td className="px-4 py-3 text-muted-fg text-xs">
-                                      {doc.expiry_date ? formatDate(doc.expiry_date, { month: 'short', day: 'numeric', year: 'numeric' }) : '-'}
-                                    </td>
-                                    <td className="px-4 py-3 text-faint text-xs">
-                                      {doc.created_at ? formatDate(doc.created_at, { month: 'short', day: 'numeric', year: 'numeric' }) : '-'}
-                                    </td>
-                                    <td className="px-4 py-3 text-right">
-                                      {doc.file_url ? (
-                                        <a href={doc.file_url} target="_blank" rel="noopener noreferrer"
-                                          className="inline-flex items-center gap-1 text-xs text-accent-fg hover:underline font-medium">
-                                          <ExternalLink className="h-3 w-3" /> View
-                                        </a>
-                                      ) : <span className="text-xs text-faint">No file</span>}
-                                    </td>
-                                  </tr>
-                                )
-                              })}
-                            </tbody>
-                          </table>
+                        /* A list: five columns did not fit a phone, and a document's
+                           status and dates read as a sentence better than as cells. */
+                        <div className="divide-y divide-line-soft rounded-xl border border-line">
+                          {profileData.complianceDocs.map((doc: any) => {
+                            const isExpired = doc.expiry_date && new Date(doc.expiry_date + 'T00:00:00') < new Date()
+                            const resolvedStatus = (doc.status === 'expired' && doc.expiry_date && !isExpired) ? 'approved' : doc.status
+                            const statusColors: Record<string, string> = {
+                              approved: 'bg-success-tint text-success',
+                              pending: 'bg-warn-tint text-warn',
+                              expired: 'bg-danger-tint text-danger',
+                              missing: 'bg-danger-tint text-danger',
+                              expiring_soon: 'bg-accent-tint text-accent-fg',
+                            }
+                            const typeLabels: Record<string, string> = { coi: 'COI', license: 'License', w9: 'W-9', workers_comp: "Workers' Comp", other: 'Other' }
+                            return (
+                              <div key={doc.id} className="flex items-start justify-between gap-3 px-4 py-3">
+                                <div className="min-w-0 flex-1">
+                                  <p className="font-medium text-ink">{typeLabels[doc.type] ?? doc.type}</p>
+                                  <p className="mt-0.5 flex flex-wrap items-center gap-x-3 text-xs text-muted-fg">
+                                    <span>{doc.expiry_date ? `Expires ${formatDate(doc.expiry_date, { month: 'short', day: 'numeric', year: 'numeric' })}` : 'No expiry'}</span>
+                                    {doc.created_at && <span className="text-faint">Uploaded {formatDate(doc.created_at, { month: 'short', day: 'numeric', year: 'numeric' })}</span>}
+                                    {doc.file_url
+                                      ? <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-medium text-accent-fg hover:underline"><ExternalLink className="h-3 w-3" /> View</a>
+                                      : <span className="text-faint">No file</span>}
+                                  </p>
+                                </div>
+                                <span className={cn('whitespace-nowrap shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium', statusColors[resolvedStatus] ?? 'bg-muted text-muted-fg')}>
+                                  {resolvedStatus.replace('_', ' ')}
+                                </span>
+                              </div>
+                            )
+                          })}
                         </div>
                       )}
                     </div>

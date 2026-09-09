@@ -227,7 +227,7 @@ export default function ReportsPage({ params }: { params: { id: string } }) {
           <div className="space-y-6">
 
             {/* Project Summary */}
-            <div className="print-card bg-panel rounded-xl border border-line p-4 sm:p-6">
+            <div className="print-card bg-panel rounded-xl border border-line p-6">
               <SectionHeader icon={FileText} title="Project Summary" />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                 <div>
@@ -282,7 +282,7 @@ export default function ReportsPage({ params }: { params: { id: string } }) {
             </div>
 
             {/* Payment Report */}
-            <div className="print-card bg-panel rounded-xl border border-line p-4 sm:p-6">
+            <div className="print-card bg-panel rounded-xl border border-line p-6">
               <SectionHeader icon={DollarSign} title="Payment Report" />
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
@@ -342,7 +342,7 @@ export default function ReportsPage({ params }: { params: { id: string } }) {
             </div>
 
             {/* Compliance Report */}
-            <div className="print-card bg-panel rounded-xl border border-line p-4 sm:p-6">
+            <div className="print-card bg-panel rounded-xl border border-line p-6">
               <SectionHeader icon={ShieldCheck} title="Compliance Report" />
 
               {Object.keys(complianceBySub).length === 0 ? (

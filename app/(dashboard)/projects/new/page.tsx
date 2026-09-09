@@ -15,7 +15,7 @@ export default function NewProjectPage() {
   const router = useRouter()
 
   return (
-    <div className="p-4 sm:p-6 max-w-2xl">
+    <div className="p-6 max-w-2xl">
       <PageHeader
         title="New Project"
         subtitle="Fill in the details to create your construction project."

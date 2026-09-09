@@ -585,7 +585,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-5">
+    <div className="p-6 space-y-5">
 
       {/* Edit log modal */}
       {showEditModal && editingLog && (

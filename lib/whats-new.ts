@@ -53,6 +53,16 @@ export const RELEASES: Release[] = [
     items: [
       {
         kind: 'improved',
+        title: 'Compliance documents read as a list, not a sideways table',
+        text: 'The document table needed more width than a phone has, so the expiry and file columns were off the edge and the status label broke in two. Each document is one row now: the name and status up top, expiry and file link underneath, and Upload or Update where a thumb can reach it. The same goes for a vendor\'s documents in the Directory.',
+      },
+      {
+        kind: 'improved',
+        title: 'Softer cards, more room',
+        text: 'Cards across the app have rounder corners, a single fine border and no drop shadow, and every screen keeps 24px of space at the sides on a phone instead of 16. Less boxed-in, easier to scan.',
+      },
+      {
+        kind: 'improved',
         title: 'Labels stopped breaking into single letters',
         text: 'In narrow columns a status like "Missing" was splitting across two lines, and "Admin" was reading vertically, one letter per line. Badges and buttons now keep their shape wherever they sit.',
       },

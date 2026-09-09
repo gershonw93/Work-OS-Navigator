@@ -66,7 +66,7 @@ export default function ClientInvoicePrintPage({ params }: { params: { id: strin
   const total = lines.reduce((s, l) => s + Number(l.amount || 0), 0)
 
   return (
-    <div className="p-4 sm:p-6 print:p-0">
+    <div className="p-6 print:p-0">
       <div className="no-print sticky top-0 z-10 -mx-4 -mt-4 mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-line bg-surface/90 px-4 py-3 backdrop-blur sm:-mx-6 sm:-mt-6 sm:px-6">
         <p className="text-sm text-muted-fg">
           {showMarkup

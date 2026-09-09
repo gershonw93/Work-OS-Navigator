@@ -4,7 +4,11 @@ import { HTMLAttributes } from 'react'
 export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn('rounded-lg border border-line bg-panel shadow-sm', className)}
+      // 2xl radius, a 1px border, and NO shadow. A border already separates a
+      // card from the page; a shadow on top of it is a second separator saying
+      // the same thing, and it is what made every screen read as a web
+      // dashboard rather than a native one. Changed here so all of them move.
+      className={cn('rounded-2xl border border-line bg-panel', className)}
       {...props}
     />
   )

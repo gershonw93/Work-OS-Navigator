@@ -397,8 +397,8 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
     load()
   }
 
-  if (loading) return <div className="p-4 sm:p-6 text-sm text-faint py-12 text-center">Loading...</div>
-  if (!data || data.error) return <div className="p-4 sm:p-6 text-sm text-danger">Error: {data?.error ?? 'Job not found or access denied.'}</div>
+  if (loading) return <div className="p-6 text-sm text-faint py-12 text-center">Loading...</div>
+  if (!data || data.error) return <div className="p-6 text-sm text-danger">Error: {data?.error ?? 'Job not found or access denied.'}</div>
 
   const { project, subcontracts, tasks, rfis, inspections, invoices, recentLogs } = data
   const totalContractValue = (subcontracts ?? []).reduce((sum: number, s: any) => sum + Number(s.contract_amount ?? 0), 0)
@@ -417,7 +417,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
   ]
 
   return (
-    <div className="p-4 sm:p-6 space-y-5">
+    <div className="p-6 space-y-5">
       {/* Edit Project Modal */}
       {showEditProject && (
         <div className="overlay items-center justify-center bg-black/50" data-overlay>

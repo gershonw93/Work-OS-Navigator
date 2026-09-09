@@ -69,7 +69,7 @@ export default function ProgressPage({ params }: { params: { id: string } }) {
 
   // Sub's own job → quote-line-item progress instead of the GC task rollup.
   if (!vc.loading && vc.companyType === 'subcontractor' && vc.owns) {
-    return <div className="p-4 sm:p-6"><QuoteLineItems projectId={params.id} mode="progress" /></div>
+    return <div className="p-6"><QuoteLineItems projectId={params.id} mode="progress" /></div>
   }
 
   return (
@@ -91,7 +91,7 @@ export default function ProgressPage({ params }: { params: { id: string } }) {
         <div className="space-y-6">
 
           {/* Overall */}
-          <div className="bg-panel rounded-xl border border-line p-4 sm:p-6">
+          <div className="bg-panel rounded-xl border border-line p-6">
             <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1 mb-3">
               <div>
                 <p className="text-sm font-medium text-muted-fg">Overall Progress</p>

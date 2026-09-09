@@ -252,7 +252,7 @@ export default function CustomerDetailPage() {
     : projects.filter((p) => p.status.toLowerCase() === statusFilter.toLowerCase())
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-5xl mx-auto">
+    <div className="p-6 space-y-6 max-w-5xl mx-auto">
       {/* Back */}
       <Link
         href="/customers"
