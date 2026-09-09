@@ -272,6 +272,20 @@ production branch.** Do NOT ask the user to merge or deploy.
   row - the button group inside is the row.
 
 ## Loading and failure states (IMPORTANT)
+- A permissions check that FAILED answers exactly like being denied - `can()`
+  is `!!perms?.[r]?.[a]` and `perms` is null either way - so a bad minute of
+  signal took the Upload button off the Plans tab with nothing to say why
+  ("where do I upload files"). Seven screens still destructure only `can`, so
+  the fact is announced ONCE for the session by `PermissionsBanner` in the
+  dashboard chrome, beside `ViewAsBanner`. A screen may add "Checking access…"
+  for the in-flight case, but the failure belongs to the session, not the page.
+- A plan's bytes are fetched through `/api/projects/[id]/plans/[planId]/file`,
+  never `plan.file_url` directly. pdf.js reads them in the BROWSER, so a file
+  on another server is a cross-origin read - the demo rows point at w3.org,
+  which allows none, and every plan failed on every device. The route signs
+  `storage_path` fresh per request (a stored signed URL is only as good as the
+  key that signed it) and streams anything else from our origin. The URL comes
+  off the ROW, never the request.
 - A loading state must have a WAY TO END. `setLoading(false)` as the last
   statement of an async function ends only on the happy path - use
   try/catch/finally, always.

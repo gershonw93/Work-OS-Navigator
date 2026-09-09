@@ -66,4 +66,44 @@ ok(/\{error && \(/.test(page),
   'a render that fails after the plan loads says so - the message used to be set and dropped')
 ok(/onError=\{\(\) => setError/.test(page), '...and a broken image says so too')
 
+// ─────────────────────────────────────────────────────────────────────────────
+// The bytes come from OUR origin. Every plan on the demo projects has no
+// storage_path and a file_url on w3.org; pdf.js reads the bytes in the BROWSER,
+// so that is a cross-origin read, w3.org allows none, and the render threw for
+// every one of them on every device. Whether a drawing opens must not depend on
+// which server its file sits on.
+// ─────────────────────────────────────────────────────────────────────────────
+ok(/const fileSrc = `\/api\/projects\/\$\{params\.id\}\/plans\/\$\{params\.planId\}\/file`/.test(page),
+  'the viewer has a same-origin route for the file')
+ok(/getDocument\(\{ url: fileSrc \}\)/.test(page), '...pdf.js reads through it')
+ok(/<img src=\{fileSrc\}/.test(page), '...and so does an image plan')
+ok(/href=\{plan\.file_url\}/.test(page), '...while "Open the file" still goes to the original')
+
+const route = code('app/api/projects/[id]/plans/[planId]/file/route.ts')
+ok(/cookieClient\(\)\.auth\.getUser\(\)/.test(route),
+  'the file route authenticates by cookie - an <img> cannot send a bearer token')
+ok(/createSignedUrl\(plan\.storage_path/.test(route),
+  'ours is signed FRESH each request, so a rotated key cannot orphan a library')
+ok(/\.eq\('id', params\.planId\)[\s\S]{0,80}\.eq\('project_id', params\.id\)/.test(route),
+  '...and the row must belong to the project in the path')
+ok(/fetch\(plan\.file_url/.test(route) && !/fetch\((?!plan\.file_url)[^)]*(?:searchParams|body|url\b)/.test(route),
+  'the URL it fetches comes off the ROW, never out of the request')
+
+// ─────────────────────────────────────────────────────────────────────────────
+// "Where do I upload files": a permissions check that FAILED answers the same
+// as being denied - false, for ever - so the button vanished with nothing to
+// say why. Seven screens take `can` and leave `error` behind, so the fact is
+// said once, about the session, beside the other banners of its kind.
+// ─────────────────────────────────────────────────────────────────────────────
+const banner = code('components/layout/permissions-banner.tsx')
+ok(/const \{ error, reload \} = usePermissions\(\)/.test(banner) && /if \(!error\) return null/.test(banner),
+  'a failed permissions check is announced, not swallowed')
+ok(/onClick=\{reload\}/.test(banner), '...with a way to ask again')
+ok(/<PermissionsBanner \/>/.test(code('app/(dashboard)/layout.tsx')),
+  '...from the app chrome, so it covers every screen rather than one')
+
+const plans = code('app/(dashboard)/projects/[id]/plans/page.tsx')
+ok(/loading: permsLoading/.test(plans) && /Checking access/.test(plans),
+  'and while the check is still running, Upload says so instead of being absent')
+
 done()
