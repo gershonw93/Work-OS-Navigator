@@ -255,7 +255,7 @@ function UploadForm({
       <form onSubmit={handleSubmit} className="space-y-3">
         {/* Status */}
         <div className="space-y-1">
-          <Label className="text-xs">Status</Label>
+          <Label className="lg:text-xs">Status</Label>
           <div className="flex flex-wrap gap-2">
             {(['pending', 'approved', 'expired'] as DocStatus[]).map((s) => (
               <button
@@ -277,7 +277,7 @@ function UploadForm({
 
         {/* Expiry date */}
         <div className="space-y-1">
-          <Label htmlFor="expiry" className="text-xs">Expiry Date <span className="text-faint font-normal">(optional)</span></Label>
+          <Label htmlFor="expiry" className="lg:text-xs">Expiry Date <span className="text-faint font-normal">(optional)</span></Label>
           <Input
             id="expiry"
             type="date"
@@ -293,52 +293,52 @@ function UploadForm({
             <p className="text-xs font-semibold text-ink-soft">Coverage Details</p>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
-                <Label className="text-xs">Insurer</Label>
+                <Label className="lg:text-xs">Insurer</Label>
                 <Input className="h-8 text-xs" placeholder="e.g. Liberty Mutual" value={insurer} onChange={e => setInsurer(e.target.value)} />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Policy Number</Label>
+                <Label className="lg:text-xs">Policy Number</Label>
                 <Input className="h-8 text-xs" placeholder="e.g. GL-123456" value={policyNumber} onChange={e => setPolicyNumber(e.target.value)} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
-                <Label className="text-xs">GL Per Occurrence</Label>
+                <Label className="lg:text-xs">GL Per Occurrence</Label>
                 <div className="relative">
                   <span className="absolute left-2.5 top-1.5 text-faint text-xs">$</span>
                   <Input className="h-8 text-xs pl-5" placeholder="1,000,000" value={glPerOccurrence} onChange={e => setGlPerOccurrence(e.target.value)} />
                 </div>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">GL Aggregate</Label>
+                <Label className="lg:text-xs">GL Aggregate</Label>
                 <div className="relative">
                   <span className="absolute left-2.5 top-1.5 text-faint text-xs">$</span>
                   <Input className="h-8 text-xs pl-5" placeholder="2,000,000" value={glAggregate} onChange={e => setGlAggregate(e.target.value)} />
                 </div>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Auto Liability</Label>
+                <Label className="lg:text-xs">Auto Liability</Label>
                 <div className="relative">
                   <span className="absolute left-2.5 top-1.5 text-faint text-xs">$</span>
                   <Input className="h-8 text-xs pl-5" placeholder="1,000,000" value={autoLimit} onChange={e => setAutoLimit(e.target.value)} />
                 </div>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Umbrella/Excess</Label>
+                <Label className="lg:text-xs">Umbrella/Excess</Label>
                 <div className="relative">
                   <span className="absolute left-2.5 top-1.5 text-faint text-xs">$</span>
                   <Input className="h-8 text-xs pl-5" placeholder="2,000,000" value={umbrellaLimit} onChange={e => setUmbrellaLimit(e.target.value)} />
                 </div>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">WC / EL Per Accident</Label>
+                <Label className="lg:text-xs">WC / EL Per Accident</Label>
                 <div className="relative">
                   <span className="absolute left-2.5 top-1.5 text-faint text-xs">$</span>
                   <Input className="h-8 text-xs pl-5" placeholder="1,000,000" value={wcElAccident} onChange={e => setWcElAccident(e.target.value)} />
                 </div>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Additional Insured</Label>
+                <Label className="lg:text-xs">Additional Insured</Label>
                 <div className="flex gap-2 pt-1">
                   {([true, false] as const).map(v => (
                     <button key={String(v)} type="button" onClick={() => setAdditionalInsured(v)}
@@ -358,16 +358,16 @@ function UploadForm({
             <p className="text-xs font-semibold text-ink-soft">License Details</p>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
-                <Label className="text-xs">License Number</Label>
+                <Label className="lg:text-xs">License Number</Label>
                 <Input className="h-8 text-xs" placeholder="e.g. LIC-123456" value={licenseNumber} onChange={e => setLicenseNumber(e.target.value)} />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Issuing State</Label>
+                <Label className="lg:text-xs">Issuing State</Label>
                 <Input className="h-8 text-xs" placeholder="e.g. NY" maxLength={2} value={issuingState} onChange={e => setIssuingState(e.target.value.toUpperCase())} />
               </div>
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">License Type</Label>
+              <Label className="lg:text-xs">License Type</Label>
               <Input className="h-8 text-xs" placeholder="e.g. General Contractor, Electrical" value={licenseType} onChange={e => setLicenseType(e.target.value)} />
             </div>
           </div>
@@ -378,7 +378,7 @@ function UploadForm({
             <p className="text-xs font-semibold text-ink-soft">W-9 Details</p>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
-                <Label className="text-xs">Entity Type</Label>
+                <Label className="lg:text-xs">Entity Type</Label>
                 <SearchableSelect className="h-8 w-full rounded-md border border-muted2 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-accent"
                   value={entityType} onChange={e => setEntityType(e.target.value)}>
                   <option value="">Select…</option>
@@ -390,7 +390,7 @@ function UploadForm({
                 </SearchableSelect>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">EIN (last 4)</Label>
+                <Label className="lg:text-xs">EIN (last 4)</Label>
                 <Input className="h-8 text-xs" placeholder="e.g. 1234" maxLength={4} value={einLast4} onChange={e => setEinLast4(e.target.value)} />
               </div>
             </div>
@@ -402,16 +402,16 @@ function UploadForm({
             <p className="text-xs font-semibold text-ink-soft">Workers' Comp Details</p>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
-                <Label className="text-xs">Carrier</Label>
+                <Label className="lg:text-xs">Carrier</Label>
                 <Input className="h-8 text-xs" placeholder="e.g. State Farm" value={wcCarrier} onChange={e => setWcCarrier(e.target.value)} />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Policy Number</Label>
+                <Label className="lg:text-xs">Policy Number</Label>
                 <Input className="h-8 text-xs" placeholder="e.g. WC-987654" value={wcPolicyNumber} onChange={e => setWcPolicyNumber(e.target.value)} />
               </div>
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">EL Per Accident</Label>
+              <Label className="lg:text-xs">EL Per Accident</Label>
               <div className="relative">
                 <span className="absolute left-2.5 top-1.5 text-faint text-xs">$</span>
                 <Input className="h-8 text-xs pl-5" placeholder="1,000,000" value={wcElAccident} onChange={e => setWcElAccident(e.target.value)} />
@@ -458,7 +458,7 @@ function UploadForm({
 
         {/* File URL */}
         <div className="space-y-1">
-          <Label htmlFor="file_url" className="text-xs">File URL <span className="text-faint font-normal">(optional - paste a link to the stored doc)</span></Label>
+          <Label htmlFor="file_url" className="lg:text-xs">File URL <span className="text-faint font-normal">(optional - paste a link to the stored doc)</span></Label>
           <Input
             id="file_url"
             type="url"
@@ -471,7 +471,7 @@ function UploadForm({
 
         {/* Notes */}
         <div className="space-y-1">
-          <Label htmlFor="notes" className="text-xs">Notes <span className="text-faint font-normal">(optional)</span></Label>
+          <Label htmlFor="notes" className="lg:text-xs">Notes <span className="text-faint font-normal">(optional)</span></Label>
           <textarea
             id="notes"
             rows={2}

@@ -313,7 +313,7 @@ function ChangeOrdersPageInner({ params }: { params: { id: string } }) {
             )}
 
             <div className="space-y-1.5">
-              <Label className="text-xs text-faint">Review Notes</Label>
+              <Label className="lg:text-xs text-faint">Review Notes</Label>
               <textarea
                 rows={2}
                 value={localNotes}

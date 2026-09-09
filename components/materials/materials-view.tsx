@@ -208,8 +208,8 @@ function AddModal({ projects, lockedProjectId, onClose, onSaved }: { projects: P
                 )}
                 {budgetLineId === '__new__' && (
                   <div className="grid grid-cols-2 gap-2 pt-1">
-                    <div><Label className="text-xs">Category</Label><Input value={newLineCategory} onChange={e => setNewLineCategory(e.target.value)} placeholder="e.g. Electrical" /></div>
-                    <div><Label className="text-xs">Description</Label><Input value={newLineDescription} onChange={e => setNewLineDescription(e.target.value)} placeholder="e.g. Materials" /></div>
+                    <div><Label className="lg:text-xs">Category</Label><Input value={newLineCategory} onChange={e => setNewLineCategory(e.target.value)} placeholder="e.g. Electrical" /></div>
+                    <div><Label className="lg:text-xs">Description</Label><Input value={newLineDescription} onChange={e => setNewLineDescription(e.target.value)} placeholder="e.g. Materials" /></div>
                     <p className="col-span-2 text-xs text-faint">Starts budgeted at the receipt total ({amount ? money(Number(amount)) : '$0'}) - adjust anytime on the Budget tab.</p>
                   </div>
                 )}

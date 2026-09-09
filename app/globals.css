@@ -130,6 +130,18 @@
     textarea {
       font-size: 16px !important;
     }
+
+    /* And the box around that 16px has to be worth 16px. These fields were
+       h-8 - 32px - so the forced text arrived crammed into a box built for
+       14px, next to a 12px label, and read as enormous. 44px is the touch
+       target this file already asks for everywhere else; 27 fields were under
+       it. Same exclusions as the colour rule above: a 44px checkbox is not a
+       touch target, it is a mistake. */
+    textarea,
+    select,
+    input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']):not([type='submit']):not([type='button']):not([type='image']):not([type='hidden']) {
+      min-height: 2.75rem;
+    }
   }
 
   /* Prevent sideways scroll without breaking position: sticky.
@@ -316,6 +328,35 @@
      the app targets iOS 15.0; an older WebKit drops the second declaration and
      keeps the first, rather than dropping both and collapsing the shell. */
   .h-app { height: 100vh; height: 100dvh; }
+
+  /* ── ...and "one screen" means the one you can SEE ────────────────────────
+     THE BUG. After the keyboard closed on Selections, the shell was drawn a
+     keyboard-height too high: no top bar, content stopping part-way up, and a
+     band of bare page background between it and the tab bar.
+
+     Nothing had scrolled the page - the WEBVIEW had scrolled. Capacitor's
+     default keyboard mode shrinks the WKWebView frame, and the document was
+     still a full screen tall inside a frame that was not, so the webview
+     scrolled by the height of the keyboard. Then the keyboard closed, the
+     frame came back, and the offset stayed: content and frame were the same
+     height again, so there was no scroll left to undo it. The tab bar looked
+     fine throughout because it is `fixed`, which is the LAYOUT viewport, and
+     the layout viewport was never the thing that moved.
+
+     A document that is never taller than the visible strip has no scroll to
+     strand. `--vv-h` is already that number and already sizes every overlay;
+     the shell was the last thing still measuring the whole screen.
+
+     The @supports is load-bearing. If `--vv-h` is unset, `var(--vv-h, 100dvh)`
+     falls back to `100dvh` - and on a browser that cannot parse `dvh` that is
+     invalid AT COMPUTED-VALUE TIME, which makes `height` behave as `unset`
+     rather than falling back to the declaration above it the way an ordinary
+     bad value does. The shell would collapse to `auto` on the exact old
+     WebKit the two declarations above exist to protect. Inside the @supports
+     the fallback is known good, and an old WebKit never gets here. */
+  @supports (height: 100dvh) {
+    .h-app { height: var(--vv-h, 100dvh); }
+  }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────

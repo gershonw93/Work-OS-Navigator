@@ -32,6 +32,11 @@ const field = code('app/field/layout.tsx')
 ok(/\.h-app\s*\{[^}]*height:\s*100vh[^}]*height:\s*100dvh/.test(css),
   '.h-app is 100vh THEN 100dvh - dvh landed in Safari 15.4 and the app targets iOS 15.0, '
   + 'so an older WebKit keeps the first rather than dropping both and collapsing the shell')
+// ...and "one screen" is the one you can SEE. The shell was the last thing
+// measuring the whole screen while every overlay already followed --vv-h, and
+// that gap is what let the webview strand a keyboard-height of scroll.
+ok(/@supports \(height: 100dvh\)[\s\S]{0,120}\.h-app \{ height: var\(--vv-h, 100dvh\); \}/.test(css),
+  'the shell follows --vv-h, inside an @supports so an unset var cannot collapse it to auto')
 
 for (const [name, src] of [['office', office], ['field', field]] as const) {
   ok(/h-app/.test(src), `the ${name} shell is exactly one screen tall`)
@@ -445,6 +450,18 @@ const bills = code('app/(dashboard)/projects/[id]/invoices/page.tsx')
 ok(/<Receipt className="hidden h-5 w-5 text-faint shrink-0 lg:block" \/>/.test(bills), 'a bill row has no icon column on a phone')
 ok(/const GROUP = 'divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-panel lg:divide-y-0/.test(bills)
   && (bills.match(/className=\{GROUP\}/g) ?? []).length === 3, 'each group of bills is one divided card on a phone')
+
+// A 12px label beside a field that must be 16px (iOS zooms below it) is what
+// made the placeholders read as enormous. The field cannot shrink, so on a
+// phone the label does not either - it shrinks at lg, where the field does too.
+const shrunkLabels: string[] = []
+for (const f of tsx) {
+  code(f).split('\n').forEach((line, i) => {
+    if (/<Label[^>]*\btext-xs\b/.test(line) && !/lg:text-xs/.test(line)) shrunkLabels.push(`${f}:${i + 1}`)
+  })
+}
+ok(shrunkLabels.length === 0,
+  `no label is smaller than its own field on a phone${shrunkLabels.length ? ` - ${shrunkLabels[0]} (+${shrunkLabels.length - 1})` : ''}`)
 
 // ── long text, which is the same bug one level down ──────────────────────────
 ok(/p,\s*li,\s*dd,\s*dt,\s*blockquote[\s\S]{0,80}overflow-wrap:\s*anywhere/.test(css),

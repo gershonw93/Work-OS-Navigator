@@ -80,7 +80,7 @@ function PointList({
 
   return (
     <div className="space-y-1.5">
-      <Label className="text-xs">{label}</Label>
+      <Label className="lg:text-xs">{label}</Label>
       {hint && <p className="text-[11px] text-faint -mt-1">{hint}</p>}
       <div className="space-y-1">
         {points.map((p, i) => (
@@ -247,7 +247,7 @@ export function ScopeBuilder({
       {/* The fork everything hangs off */}
       <div className="grid sm:grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <Label className="text-xs">Package</Label>
+          <Label className="lg:text-xs">Package</Label>
           <div className="grid gap-1.5">
             {PACKAGE_TYPES.map(p => (
               <button key={p.key} type="button" onClick={() => set({ package_type: p.key })}
@@ -263,7 +263,7 @@ export function ScopeBuilder({
         </div>
 
         <div className="space-y-1.5">
-          <Label className="text-xs">Who supplies the material?</Label>
+          <Label className="lg:text-xs">Who supplies the material?</Label>
           <div className="grid gap-1.5">
             {(['sub', 'gc', 'na'] as MaterialBy[]).map(m => (
               <button key={m} type="button" onClick={() => set({ material_by: m })}

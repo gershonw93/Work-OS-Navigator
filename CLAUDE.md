@@ -180,6 +180,22 @@ production branch.** Do NOT ask the user to merge or deploy.
 - Overlays are sized from `--vv-h` / `--vv-t` (`lib/use-visual-viewport.ts`),
   not `inset: 0`. The layout viewport does not shrink for a keyboard, so a
   centred dialog puts its own buttons behind one.
+- **The SHELL follows `--vv-h` too**, not just overlays: `.h-app` is
+  `var(--vv-h, 100dvh)` inside `@supports (height: 100dvh)`. A document taller
+  than the webview's frame is one the webview can scroll, and Capacitor shrinks
+  that frame for the keyboard - so it scrolled by a keyboard-height, the
+  keyboard closed, and the offset had nothing left to undo it: the app sat too
+  high with bare background below and no top bar. The `@supports` is
+  load-bearing. An unset `--vv-h` falls back to `100dvh`, and where `dvh` does
+  not parse that is invalid AT COMPUTED-VALUE TIME, which makes `height`
+  `unset` - it does NOT fall back to the `100vh` declaration above it the way a
+  plain bad value would, and the shell collapses to `auto` on exactly the old
+  WebKit those declarations exist for.
+- A form control is 44px tall on a phone as well as 16px (see above). 16px is
+  forced and cannot be lowered, so a `h-8` box put big text in a small frame
+  next to a 12px label and read as enormous. Fields grow; `<Label>` keeps its
+  `text-sm` on a phone and shrinks only at `lg` (`lg:text-xs`, never a bare
+  `text-xs` - pinned). Both measured in `overlay-geometry.ts`.
 - Pinned by `lib/__tests__/layout-overflow.ts` and, for anything that is a
   measurement rather than a pattern, `lib/__tests__/overlay-geometry.ts`, which
   lays real markup out in headless Chromium. Full detail in MOBILE.md.

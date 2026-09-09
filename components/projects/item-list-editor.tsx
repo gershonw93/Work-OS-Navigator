@@ -144,7 +144,7 @@ export function ItemListEditor({
 
           {showPaste && (
             <div className="space-y-1.5">
-              <Label className="text-xs">Paste straight from Excel or Sheets</Label>
+              <Label className="lg:text-xs">Paste straight from Excel or Sheets</Label>
               <textarea rows={5} value={pasteText} onChange={e => setPasteText(e.target.value)}
                 placeholder={'2x6 x 16′ SPF #2\t148\tea\n7/16 OSB sheathing\t210\tsheet\nLVL 1-3/4 x 11-7/8\t14\tlf'}
                 className="w-full rounded-md border border-muted2 bg-panel px-3 py-2 font-mono text-xs text-ink placeholder:text-faint focus:border-accent focus:outline-none resize-none" />

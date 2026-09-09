@@ -304,6 +304,28 @@ Two ways to write it:
 has a twin, restored tables are gated) and `overlay-geometry.ts` measures it:
 the same card at 390 has no shadow and a 16px radius, at 1280 a shadow and 8px.
 
+**The shell is the screen you can SEE.** `.h-app` is
+`var(--vv-h, 100dvh)` inside `@supports (height: 100dvh)`, the same variable the
+overlays use. A document taller than the webview's frame is one the webview can
+scroll, and Capacitor's default keyboard mode shrinks that frame: it scrolled by
+the height of the keyboard, the keyboard closed, the frame came back, and the
+offset stayed because content and frame were the same height again and there was
+no scroll left to undo it. The app was drawn a keyboard-height too high, with no
+top bar and bare background below - while the tab bar looked fine throughout,
+because it is `fixed`, and the layout viewport was never what moved.
+
+The `@supports` is not decoration. If `--vv-h` is unset, `var(--vv-h, 100dvh)`
+falls back to `100dvh`; where `dvh` does not parse that is invalid *at
+computed-value time*, which makes `height` behave as `unset` rather than falling
+back to the `100vh` declaration above it, and the shell collapses to `auto` on
+the exact old WebKit those two declarations exist to protect.
+
+**A field is 44px tall as well as 16px.** The anti-zoom size below is a floor
+that cannot be lowered, so a `h-8` field held 16px text in a 32px box beside a
+12px label and read as enormous. On touch/narrow, `input`/`select`/`textarea`
+get `min-height: 2.75rem` (checkboxes and radios excluded), and `<Label>` keeps
+its `text-sm` on a phone - `lg:text-xs`, never a bare `text-xs`.
+
 **A field under 16px zooms the whole page.** iOS Safari/WKWebView zoom when a
 focused form control has a font smaller than 16px. The zoom shrinks and pans the
 visual viewport, and `position: fixed` is laid out against the LAYOUT viewport,
