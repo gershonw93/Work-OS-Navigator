@@ -134,6 +134,11 @@ production branch.** Do NOT ask the user to merge or deploy.
 - Anything floating over the app carries `data-overlay`, which is what freezes
   the background (`html:has([data-overlay])` in globals.css). Menus too - a
   panel positioned from `getBoundingClientRect()` detaches if the page moves.
+  A tooltip is the exception: `InfoHint` measures, floats as a fixed portal
+  (`lib/hint-position.ts`, pure and tested) and CLOSES on scroll instead. It
+  used to be an `absolute` child hidden with `visibility` - hidden is not
+  gone: it still had a width, made a sheet's scroll body wider than the panel
+  (a thumb dragged the sheet sideways), and opened off the edge of a phone.
 - Wide content gets `overflow-x-auto`, never `overflow-hidden`. Hidden does not
   contain a wide table, it cuts it off with nothing to say so.
 - SAFE AREAS ARE OURS, not iOS's. `capacitor.config.ts` sets
