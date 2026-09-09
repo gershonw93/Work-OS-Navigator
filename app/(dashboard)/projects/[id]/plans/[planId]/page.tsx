@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
+import { canvasScale } from '@/lib/canvas-limits'
 import {
   ArrowLeft, MapPin, Plus, Minus, X, Loader2, ChevronLeft, ChevronRight, Trash2, ExternalLink,
   Maximize2, Minimize2, List,
@@ -126,16 +127,19 @@ export default function PlanViewerPage({ params }: { params: { id: string; planI
         if (cancelled) return
         setNumPages(doc.numPages)
         const pg = await doc.getPage(Math.min(page, doc.numPages))
-        // Cap the render size so huge sheets stay fast: crisp (2x) for normal
-        // pages, scaled down for monster architectural sheets (~35MP canvas max).
+        // Cap the render size to what the PHONE will draw. Past Safari's
+        // limits a canvas comes back the size you asked for and completely
+        // blank, without throwing - which is how a structural sheet opened as
+        // an empty grey box with nothing to say about it.
         const base = pg.getViewport({ scale: 1 })
-        const scale = Math.min(2, 5000 / Math.max(base.width, base.height))
+        const scale = canvasScale(base.width, base.height)
         const viewport = pg.getViewport({ scale })
         const canvas = canvasRef.current
         if (!canvas) return
         canvas.width = viewport.width
         canvas.height = viewport.height
         await pg.render({ canvasContext: canvas.getContext('2d')!, viewport } as any).promise
+        if (!cancelled) setError('')
       } catch {
         if (!cancelled) setError('Could not render this PDF - use View file to open it directly.')
       } finally {
@@ -203,7 +207,18 @@ export default function PlanViewerPage({ params }: { params: { id: string; planI
   if (!plan) return <div className="p-8 text-center text-sm text-danger">{error || 'Plan not found.'}</div>
 
   return (
-    <div className={cn('space-y-4', fullscreen ? 'fixed inset-0 z-40 overflow-y-auto bg-surface p-3 pb-6' : 'p-6')}>
+    // Full screen is an OVERLAY, not a hand-rolled `fixed inset-0`. It used to
+    // be the one exception in the app, and being the exception is exactly why
+    // it never learned about the notch: its title and its own exit button sat
+    // under the Dynamic Island with no way to reach them. `.overlay-full` plus
+    // the safe insets, as a column so the sheet takes the space that is left
+    // rather than measuring itself in `vh`, which knows nothing about a notch.
+    <div
+      className={cn(fullscreen
+        ? 'overlay-full flex flex-col gap-4 bg-surface p-3 pt-safe pb-safe'
+        : 'space-y-4 p-6')}
+      {...(fullscreen ? { 'data-overlay': true } : {})}
+    >
       {/* Toolbar - title on its own row, controls wrap underneath on phones so
           nothing overflows the viewport. */}
       <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center">
@@ -250,15 +265,26 @@ export default function PlanViewerPage({ params }: { params: { id: string; planI
         </div>
       )}
 
+      {/* A render that failed used to set `error` and stop there: it is only
+          rendered by the `if (!plan)` guard above, so once the plan had loaded
+          the message went nowhere and the sheet just sat there empty. */}
+      {error && (
+        <p role="alert" className="rounded-lg border border-danger/30 bg-danger-tint px-3 py-2 text-sm text-danger">
+          {error}{' '}
+          <a href={plan.file_url} target="_blank" rel="noreferrer" className="font-medium underline">Open the file</a>
+        </p>
+      )}
+
       {/* Sheet */}
-      <div className={cn('overflow-auto rounded-xl border border-line bg-muted/40', fullscreen ? 'max-h-[calc(100vh-7.5rem)]' : 'max-h-[75vh]')}>
+      <div className={cn('overflow-auto rounded-xl border border-line bg-muted/40', fullscreen ? 'min-h-0 flex-1' : 'max-h-[75vh]')}>
         <div className="relative inline-block min-w-full" style={{ width: `${zoom * 100}%` }}>
           <div className={cn('relative', pinMode && 'cursor-crosshair')} onClick={handleSheetClick}>
             {isPdf ? (
               <canvas ref={canvasRef} className="block w-full h-auto" />
             ) : (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={plan.file_url} alt={plan.name} className="block w-full h-auto select-none" draggable={false} />
+              <img src={plan.file_url} alt={plan.name} className="block w-full h-auto select-none" draggable={false}
+                onError={() => setError('Could not load this image.')} />
             )}
             {rendering && <div className="absolute inset-0 flex items-center justify-center bg-surface/60"><Loader2 className="h-6 w-6 animate-spin text-accent-fg" /></div>}
 

@@ -304,6 +304,15 @@ Two ways to write it:
 has a twin, restored tables are gated) and `overlay-geometry.ts` measures it:
 the same card at 390 has no shadow and a 16px radius, at 1280 a shadow and 8px.
 
+**A canvas has a size limit, and past it iOS draws NOTHING.** Safari refuses to
+rasterise a canvas beyond ~4096px a side or ~16.7M pixels, and it does not
+throw - it hands back a canvas of the size you asked for, blank. A structural
+sheet opened as an empty grey box and every error path in the viewer was
+correctly silent, because nothing had gone wrong as far as the code could tell.
+`lib/canvas-limits.ts` (pure, unit-tested) works out the scale; the old rule
+capped the long side at 5000px, which is past what a phone will draw, so the
+bigger the drawing the more certainly it came out blank.
+
 **A row of controls reaches both edges.** `flex flex-wrap` gives every control
 the width of its own label, so a five-button toolbar came out 2 + 2 + 1 at three
 different widths and not one of the rows met the right edge. `.row-even` makes

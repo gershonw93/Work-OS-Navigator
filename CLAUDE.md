@@ -126,7 +126,13 @@ production branch.** Do NOT ask the user to merge or deploy.
   DOCUMENT grow, which carries the top bar off the screen and means `<main>`'s
   `overflow-y-auto` never engages.
 - Every dialog/drawer/sheet uses `.overlay` (or `.overlay-full`), NEVER a
-  hand-rolled `fixed inset-0`. There were 78 of those and whether a dialog fitted
+  hand-rolled `fixed inset-0` - and there are NO exemptions. The plans viewer
+  had one ("a fullscreen toggle that IS the scroller, not a dialog over one")
+  and being the exception is exactly why it never learned about the notch: its
+  title and its own exit button sat under the Dynamic Island. It also hid from
+  the scan a second way, by writing the class string as a `cn()` argument on
+  its own line, so the pin now reads quoted class strings anywhere rather than
+  `className="…"` literals. There were 78 of those and whether a dialog fitted
   on the phone depended on which file it lived in. `.overlay` pads by the safe
   insets and caps its panel at `max-height: 100%`, so a panel cannot be taller
   than the screen. Do NOT re-add `max-h-[90vh]`: vh knows nothing about the
