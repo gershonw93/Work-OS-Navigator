@@ -284,7 +284,7 @@ export function QuoteLineItems({ projectId, mode }: { projectId: string; mode: '
               <p className="mb-3 text-sm font-semibold text-ink-soft">Crew rate</p>
               <div className="flex flex-wrap items-end gap-2">
                 <div>
-                  <Label className="text-xs">Rate ($/hr)</Label>
+                  <Label className="lg:text-xs">Rate ($/hr)</Label>
                   <Input type="number" min="0" step="1" value={rateInput} onChange={e => setRateInput(e.target.value)}
                     placeholder="0" className="mt-1 w-28" />
                 </div>

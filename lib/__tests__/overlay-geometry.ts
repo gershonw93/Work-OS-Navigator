@@ -433,5 +433,64 @@ const fieldDesk = measure(FIELDS, FIELD_PROBE, 800, '', 1280)
 ok(fieldDesk.vw === 1280 && fieldDesk.input < 16,
   `a mouse-driven desktop keeps its denser fields (${fieldDesk.input}px at ${fieldDesk.vw})`)
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 7. THE SHELL IS THE SCREEN YOU CAN SEE. After the keyboard closed, the app
+// was drawn a keyboard-height too high with bare background below it. The
+// webview had scrolled - its frame shrank for the keyboard while the document
+// was still a whole screen tall - and when the frame came back there was no
+// scroll left to undo it. The fix is that there is never anything to scroll:
+// the shell is `--vv-h`, so the document cannot be taller than the visible
+// strip. That is a height, so it is measured.
+// ─────────────────────────────────────────────────────────────────────────────
+const SHELL = `
+<div id="shell" class="h-app overflow-hidden flex flex-col">
+  <div class="h-14 shrink-0"></div>
+  <div class="flex-1 min-h-0 overflow-y-auto">${'<p>a line of the page</p>'.repeat(120)}</div>
+</div>`
+// `scrollHeight` alone says nothing here - it is floored at the viewport, so it
+// reads 844 whether the shell is 605 or 844. The scrollable OVERFLOW is the
+// number that matters: zero means there is no scroll for a webview to strand.
+const SHELL_PROBE = `(rect) => {
+  const d = document.documentElement
+  return {
+    shell: Math.round(rect('#shell').height),
+    bottom: Math.round(rect('#shell').bottom),
+    overflow: d.scrollHeight - d.clientHeight,
+    vh: window.innerHeight,
+  }
+}`
+const shellKeyboard = measure(SHELL, SHELL_PROBE, VIEWPORT.h, '--vv-h: 605px')
+ok(shellKeyboard.shell === 605, `the shell is the visible strip, not the whole screen (${shellKeyboard.shell} of ${shellKeyboard.vh})`)
+ok(shellKeyboard.bottom <= 605 && shellKeyboard.overflow === 0,
+  `...nothing hangs below it and there is no scroll to strand (ends ${shellKeyboard.bottom}, overflow ${shellKeyboard.overflow})`)
+
+const shellFull = measure(SHELL, SHELL_PROBE)
+ok(shellFull.shell === shellFull.vh, `with no keyboard it is the whole screen (${shellFull.shell} of ${shellFull.vh})`)
+ok(shellFull.overflow === 0, `...and still nothing to scroll (overflow ${shellFull.overflow})`)
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 8. A 16px FIELD NEEDS A BOX WORTH 16px. Forcing the anti-zoom size (§6) put
+// 16px text into h-8 boxes beside 12px labels, and it read as enormous. The
+// field cannot shrink - 16px is the floor - so the box grows to the 44px touch
+// target. Not the checkbox, which is not a touch target at 44px, it is absurd.
+// ─────────────────────────────────────────────────────────────────────────────
+const BOXES = `
+<input id="i" class="h-8 text-sm w-36" placeholder="Link to product">
+<textarea id="t" class="h-8 text-xs"></textarea>
+<select id="s" class="h-8 text-[13px]"><option>x</option></select>
+<input id="c" type="checkbox" class="h-4 w-4">`
+const BOX_PROBE = `(rect) => ({
+  input: Math.round(rect('#i').height), textarea: Math.round(rect('#t').height),
+  select: Math.round(rect('#s').height), check: Math.round(rect('#c').height),
+  vw: window.innerWidth,
+})`
+const boxPhone = measure(BOXES, BOX_PROBE)
+ok(boxPhone.input >= 44, `an h-8 field is a 44px box on a phone (${boxPhone.input}px)`)
+ok(boxPhone.textarea >= 44 && boxPhone.select >= 44,
+  `...so are a textarea and a select (${boxPhone.textarea}, ${boxPhone.select})`)
+ok(boxPhone.check < 44, `...and a checkbox is left alone (${boxPhone.check}px)`)
+const boxDesk = measure(BOXES, BOX_PROBE, 800, '', 1280)
+ok(boxDesk.input < 44, `a desktop keeps its compact fields (${boxDesk.input}px at ${boxDesk.vw})`)
+
 rmSync(work, { recursive: true, force: true })
 done()

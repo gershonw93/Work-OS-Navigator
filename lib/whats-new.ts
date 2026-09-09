@@ -53,6 +53,11 @@ export const RELEASES: Release[] = [
     items: [
       {
         kind: 'fixed',
+        title: 'The grey gap after the keyboard closes, and boxes that dwarfed their labels',
+        text: 'On a phone, closing the keyboard left the app sitting too high with a band of empty grey below it and the top bar out of sight. The page had not moved - the app was drawn against the whole screen while the keyboard had shrunk it - and it now always fits the part of the screen you can actually see. Separately, boxes have to hold 16px text or iPhone zooms the page, which left them looking oversized next to small labels; the labels and the boxes are now the same size as each other on a phone.',
+      },
+      {
+        kind: 'fixed',
         title: 'Tapping a box no longer zooms the screen and throws the app sideways',
         text: 'On a phone, tapping into any box - a selection option, a price, a search - made iPhone zoom the page in. The top bar disappeared under the clock and the bottom buttons slid off to the left, which looked like the app had jumped. Every box on a phone is now big enough that iPhone leaves the page alone. This was every screen, not just Selections.',
       },

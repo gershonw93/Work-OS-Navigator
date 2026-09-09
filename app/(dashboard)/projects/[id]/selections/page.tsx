@@ -640,7 +640,7 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
 
             <div className="space-y-3">
               <div className="space-y-1.5">
-                <Label className="text-xs">Supplier</Label>
+                <Label className="lg:text-xs">Supplier</Label>
                 <Select value={orderForm.supplier_company_id}
                   onChange={e => setOrderForm(p => ({ ...p, supplier_company_id: e.target.value }))}>
                   <option value="">Pick from your Directory…</option>
@@ -652,13 +652,13 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Amount</Label>
+                  <Label className="lg:text-xs">Amount</Label>
                   <Input type="number" value={orderForm.amount}
                     onChange={e => setOrderForm(p => ({ ...p, amount: e.target.value }))} />
                   <p className="text-[11px] text-faint">Already priced from what they chose.</p>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Expected delivery</Label>
+                  <Label className="lg:text-xs">Expected delivery</Label>
                   <Input type="date" value={orderForm.expected_delivery}
                     onChange={e => setOrderForm(p => ({ ...p, expected_delivery: e.target.value }))} />
                 </div>
@@ -855,7 +855,7 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
                           <div className="px-4 pb-4 pl-10 space-y-3 bg-surface/50">
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                               <div className="space-y-1">
-                                <Label className="text-xs">Allowance ($)</Label>
+                                <Label className="lg:text-xs">Allowance ($)</Label>
                                 <Input type="number" defaultValue={sel.allowance_amount ?? ''} className="h-8 text-sm"
                                   onBlur={e => { const val = e.target.value === '' ? null : Number(e.target.value); if (val !== sel.allowance_amount) patch(sel.id, { allowance_amount: val }) }} />
                                 {/* How much room is actually left on the line this
@@ -875,12 +875,12 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
                                 })()}
                               </div>
                               <div className="space-y-1">
-                                <Label className="text-xs">Decide by</Label>
+                                <Label className="lg:text-xs">Decide by</Label>
                                 <Input type="date" defaultValue={sel.needed_by ?? ''} className="h-8 text-sm"
                                   onBlur={e => { if (e.target.value !== (sel.needed_by ?? '')) patch(sel.id, { needed_by: e.target.value || null }) }} />
                               </div>
                               <div className="space-y-1">
-                                <Label className="text-xs">What they chose</Label>
+                                <Label className="lg:text-xs">What they chose</Label>
                                 <Input defaultValue={sel.selected_name ?? ''} className="h-8 text-sm" placeholder="e.g. SW Alabaster"
                                   onBlur={e => { if (e.target.value !== (sel.selected_name ?? '')) patch(sel.id, { selected_name: e.target.value || null, status: e.target.value ? 'chosen' : sel.status }) }} />
                               </div>
@@ -900,7 +900,7 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
                                   single fact about the category - repeating it on
                                   every row would be noise. */}
                               <div className="space-y-1">
-                                <Label className="text-xs">Where they can browse the range <span className="text-faint font-normal">- optional</span></Label>
+                                <Label className="lg:text-xs">Where they can browse the range <span className="text-faint font-normal">- optional</span></Label>
                                 <Input className="h-8 text-sm" defaultValue={sel.reference_url ?? ''}
                                   placeholder="e.g. the manufacturer's color chart or product page"
                                   onBlur={e => { if (e.target.value !== (sel.reference_url ?? '')) patch(sel.id, { reference_url: e.target.value || null }) }} />
@@ -911,7 +911,7 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
                               </div>
 
                               <div className="flex items-center justify-between gap-2">
-                                <Label className="text-xs">Options the client picks from</Label>
+                                <Label className="lg:text-xs">Options the client picks from</Label>
                                 <button type="button" onClick={() => { setPasteFor(pasteFor === sel.id ? null : sel.id); setPasteText('') }}
                                   className="inline-flex items-center gap-1 text-[11px] font-medium text-accent-fg hover:underline">
                                   <ClipboardPaste className="h-3 w-3" /> Paste a list
@@ -1051,7 +1051,7 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
                                 lands nowhere. */}
                             {budgetLines.length > 0 && (
                               <div className="space-y-1">
-                                <Label className="text-xs">Budget line</Label>
+                                <Label className="lg:text-xs">Budget line</Label>
                                 <Select value={sel.budget_line_item_id ?? ''} className="h-8 text-sm"
                                   onChange={e => linkToBudget(sel, e.target.value)}>
                                   <option value="">Not linked to the budget</option>

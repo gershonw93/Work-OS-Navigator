@@ -220,7 +220,7 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
                         </div>
                       )}
                     </div>
-                    <Label className="text-xs">Change Order Decision</Label>
+                    <Label className="lg:text-xs">Change Order Decision</Label>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       {([
                         { key: 'approved', label: 'Approve', icon: Check, color: 'border-green-400 bg-success-tint text-success' },

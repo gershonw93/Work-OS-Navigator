@@ -832,11 +832,11 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                   className="w-full rounded-md border border-muted2 px-3 py-2 text-sm focus:border-accent focus:outline-none resize-none" />
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <Label className="text-xs">Due Date</Label>
+                    <Label className="lg:text-xs">Due Date</Label>
                     <Input type="date" value={taskDue} onChange={e => setTaskDue(e.target.value)} className="h-8 text-sm" />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Priority</Label>
+                    <Label className="lg:text-xs">Priority</Label>
                     <SearchableSelect value={taskPriority} onChange={e => setTaskPriority(e.target.value)}
                       className="w-full h-8 rounded-md border border-muted2 px-2 text-sm bg-panel focus:border-accent focus:outline-none">
                       <option value="low">Low</option>
