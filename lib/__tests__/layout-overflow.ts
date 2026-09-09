@@ -331,6 +331,36 @@ for (const f of ['app/(dashboard)/projects/[id]/compliance/page.tsx', 'app/(dash
   ok(/<StatStrip/.test(code(f)) && !/StatCard/.test(code(f)), `${f.split('/').slice(-2, -1)[0]} uses StatStrip, not a grid of stat boxes`)
 }
 
+// ── 8. the Tasks board: one card per column, rows inside, no tints ──────────
+// Three columns in three colours, each holding a stack of bordered cards on a
+// tinted ground, is a card inside a card inside a card. A column is now one
+// neutral card whose tasks are rows divided by hairlines; the list view is
+// the same shape per group. Colour is left to the due date and the status
+// chip, where it says something - an overdue row was tinted red on top of
+// saying "Overdue" in red, and the expanded one wore a ring.
+const tasksPage = code('app/(dashboard)/projects/[id]/tasks/page.tsx')
+ok(!/colBg/.test(tasksPage), 'tasks board columns have no tinted ground')
+const boardCard = tasksPage.slice(tasksPage.indexOf('function BoardCard('), tasksPage.indexOf('function ListCard('))
+const listCard = tasksPage.slice(tasksPage.indexOf('function ListCard('), tasksPage.indexOf('function BoardView('))
+const boardView = tasksPage.slice(tasksPage.indexOf('function BoardView('), tasksPage.indexOf('function ListView('))
+ok(boardCard.length > 0 && listCard.length > 0, 'BoardCard and ListCard are declared in that order')
+ok(!/ring-2/.test(boardCard) && !/ring-2/.test(listCard), 'an expanded task is a quiet bg-surface row, not a ringed card')
+ok(!/bg-danger-tint/.test(listCard), 'an overdue row is not tinted - the red "Overdue" label already says it')
+ok(!/rounded-xl border/.test(listCard), 'a list row is a row, not its own bordered card')
+ok((tasksPage.match(/divide-y divide-line-soft/g) ?? []).length >= 4,
+  'board columns and every list group put their rows in one divided card')
+ok(!/p-3 flex flex-col gap-2/.test(boardCard), 'a board row is padded once, not twice')
+ok(boardView.length > 0 && !/shadow-md|border-accent/.test(boardView),
+  'the task-detail drawer under the board is a plain card - no shadow, no accent frame')
+
+// ── 9. a strip that scrolls sideways says so ────────────────────────────────
+// A hidden scrollbar leaves a phone with no sign that the filter row keeps
+// going. The mask fades the right edge; it is the one utility for that so
+// every strip fades the same way.
+ok(/\.scroll-fade\s*\{[^}]*mask-image:\s*linear-gradient\(to right/.test(css), '.scroll-fade fades the right edge')
+ok(/scroll-fade/.test(tasksPage), 'tasks filter strip fades at its right edge')
+ok(/scroll-fade/.test(code('app/(dashboard)/settings/page.tsx')), 'settings tab strip fades at its right edge')
+
 // ── long text, which is the same bug one level down ──────────────────────────
 ok(/p,\s*li,\s*dd,\s*dt,\s*td,\s*th[\s\S]{0,80}overflow-wrap:\s*anywhere/.test(css),
   'prose wraps anywhere by default - `break-word` wraps the text but not the container')

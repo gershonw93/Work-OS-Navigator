@@ -84,6 +84,12 @@ export const RELEASES: Release[] = [
         text: 'The numbers at the top of Tasks were five separate boxes in four colours, wrapping onto two lines. They are now one card with the numbers large and the labels quiet, and colour is kept for overdue, where it means something.',
         href: '/projects',
       },
+      {
+        kind: 'improved',
+        title: 'The task board is three plain columns, not three coloured boxes',
+        text: 'Each column on the Tasks board was a tinted box holding a stack of bordered cards. It is now one white card per column with the tasks as rows divided by fine lines, and the list view groups tasks the same way. An overdue task says Overdue in red rather than turning the whole row pink. The filter row fades at the right edge on a phone so you can see it keeps going.',
+        href: '/projects',
+      },
     ],
   },
   {

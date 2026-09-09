@@ -815,7 +815,7 @@ export default function SettingsPage() {
       <div className="flex flex-col gap-4 md:flex-row md:gap-6">
         {/* ── Tabs: strip on mobile, sidebar from md ───────────────────── */}
         <nav className="shrink-0 md:w-52">
-          <ul className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:block md:space-y-1 md:overflow-visible md:px-0 md:pb-0">
+          <ul className="scroll-fade md:[mask-image:none] -mx-4 flex gap-1 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:block md:space-y-1 md:overflow-visible md:px-0 md:pb-0">
             {TABS.filter(({ id }) => {
               // Gated by the SAME permission map as everything else.
               //
