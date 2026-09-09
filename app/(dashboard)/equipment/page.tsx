@@ -197,7 +197,7 @@ function CheckOutModal({
           </div>
           {err && <p className="text-sm text-danger">{err}</p>}
         </div>
-        <div className="flex justify-end gap-2 border-t border-line px-5 py-4">
+        <div className="row-even lg:flex justify-end gap-2 border-t border-line px-5 py-4">
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
           <Button onClick={submit} disabled={saving}>{saving ? 'Saving…' : 'Confirm check-out'}</Button>
         </div>
@@ -244,7 +244,7 @@ function AddModal({ onClose, onDone }: { onClose: () => void; onDone: (e: Equipm
           <div><Label>Notes (optional)</Label><Input value={notes} onChange={(e) => setNotes(e.target.value)} /></div>
           {err && <p className="text-sm text-danger">{err}</p>}
         </div>
-        <div className="flex justify-end gap-2 border-t border-line px-5 py-4">
+        <div className="row-even lg:flex justify-end gap-2 border-t border-line px-5 py-4">
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
           <Button onClick={submit} disabled={saving}>{saving ? 'Saving…' : 'Add'}</Button>
         </div>
@@ -386,7 +386,7 @@ export default function EquipmentPage() {
                 </div>
 
                 {/* Action */}
-                <div className="flex shrink-0 items-center gap-2">
+                <div className="row-even lg:flex shrink-0 items-center gap-2">
                   {out ? (
                     <Button variant="outline" size="sm" onClick={() => checkIn(e)}>
                       <LogIn className="mr-1.5 h-4 w-4" />Check in

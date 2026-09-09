@@ -326,7 +326,7 @@ export default function PlansPage({ params }: { params: { id: string } }) {
                 <Input id="folderName" placeholder="e.g. Architectural" value={folderName} onChange={e => setFolderName(e.target.value)} required autoFocus={autoFocusOnDesktop()} />
               </div>
               {folderError && <p className="text-sm text-danger">{folderError}</p>}
-              <div className="flex flex-wrap gap-2 justify-end">
+              <div className="row-even lg:flex lg:flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => { setShowNewFolder(false); setFolderName('') }}>Cancel</Button>
                 <Button type="submit" disabled={folderLoading}>{folderLoading ? 'Creating...' : 'Create Folder'}</Button>
               </div>
@@ -424,7 +424,7 @@ export default function PlansPage({ params }: { params: { id: string } }) {
                   ))}
                 </Select>
               </div>
-              <div className="flex gap-2 justify-end">
+              <div className="row-even lg:flex gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => setMovingPlan(null)}>Cancel</Button>
                 <Button type="submit" disabled={moveLoading}>{moveLoading ? 'Moving...' : 'Move'}</Button>
               </div>

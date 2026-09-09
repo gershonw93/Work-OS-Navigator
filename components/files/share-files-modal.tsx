@@ -307,7 +307,7 @@ export function ShareFilesModal({
 
             {error && <p className="text-sm text-danger">{error}</p>}
 
-            <div className="flex justify-end gap-2">
+            <div className="row-even lg:flex justify-end gap-2">
               <Button variant="secondary" onClick={onClose} disabled={saving}>Cancel</Button>
               <Button onClick={addTo ? addToExisting : share} disabled={saving || picked.size === 0} className="gap-1.5">
                 <Send className="h-4 w-4" />

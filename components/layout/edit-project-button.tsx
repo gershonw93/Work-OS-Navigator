@@ -307,7 +307,7 @@ export function EditProjectButton({ projectId, project }: Props) {
               </div>
 
               {error && <p className="text-sm text-danger">{error}</p>}
-              <div className="flex justify-end gap-2 pt-1">
+              <div className="row-even lg:flex justify-end gap-2 pt-1">
                 <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Cancel</Button>
                 <Button type="submit" disabled={saving || !name.trim()}>{saving ? 'Saving…' : 'Save Changes'}</Button>
               </div>

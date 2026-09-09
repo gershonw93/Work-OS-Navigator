@@ -505,7 +505,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
               <span className="font-medium text-ink-soft">{voiding.type}{voiding.trade ? ` (${voiding.trade})` : ''}</span> stays
               on the record and drops out of the working list. It shows under “Show voided”, and you can restore it.
             </p>
-            <div className="flex justify-end gap-2 pt-1">
+            <div className="row-even lg:flex justify-end gap-2 pt-1">
               <Button type="button" variant="secondary" onClick={() => setVoiding(null)}>Cancel</Button>
               <Button type="button" onClick={() => voidInsp(voiding)}>Void it</Button>
             </div>
@@ -527,7 +527,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
               placeholder="e.g. Missing fire blocking at the second-floor chase"
               className="w-full rounded-md border border-muted2 bg-panel px-3 py-2 text-sm focus:border-accent focus:outline-none"
             />
-            <div className="flex justify-end gap-2 pt-1">
+            <div className="row-even lg:flex justify-end gap-2 pt-1">
               <Button type="button" variant="secondary" onClick={() => setFailing(null)}>Cancel</Button>
               <Button
                 type="button"

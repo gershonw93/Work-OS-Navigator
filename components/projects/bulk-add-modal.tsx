@@ -289,7 +289,7 @@ export function BulkAddModal({
 
           {error && <p className="text-sm text-danger">{error}</p>}
 
-          <div className="flex justify-end gap-2">
+          <div className="row-even lg:flex justify-end gap-2">
             <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>Cancel</Button>
             <Button type="submit" disabled={saving || !canSubmit}>
               {saving ? 'Creating…' : `Create ${total || ''} project${total !== 1 ? 's' : ''}`}

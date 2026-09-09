@@ -365,7 +365,7 @@ function TaskDetailPanel({ task, notes, notesLoading, onAddNote, projectId, onCh
                         : 'Get a signature confirming this work is done and accepted.'}
                     </p>
                   </div>
-                  <div className="flex items-center gap-1.5">
+                  <div className="row-even lg:flex items-center gap-1.5">
                     {!task.signoff_requested_at && (
                       <Button size="sm" variant="outline" disabled={requesting} onClick={requestSignoff}>
                         {requesting ? 'Requesting…' : 'Request signoff'}
@@ -1213,7 +1213,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
               </div>
               <div className="px-4 sm:px-6 py-4 border-t border-line-soft space-y-2">
                 {saveError && <p className="text-sm text-danger">{saveError}</p>}
-                <div className="flex flex-wrap gap-2 justify-end">
+                <div className="row-even lg:flex lg:flex-wrap gap-2 justify-end">
                   <Button type="button" variant="secondary" onClick={() => { setShowAdd(false); resetForm() }}>Cancel</Button>
                   <Button type="submit" disabled={saving || !title.trim()}>{submitLabel}</Button>
                 </div>
@@ -1252,7 +1252,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
                   <Input type="date" value={invoiceDue} onChange={e => setInvoiceDue(e.target.value)} />
                 </div>
               </div>
-              <div className="px-4 sm:px-6 py-4 border-t border-line-soft flex flex-wrap gap-2 justify-end">
+              <div className="row-even px-4 sm:px-6 py-4 border-t border-line-soft lg:flex lg:flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => setInvoiceTask(null)}>Cancel</Button>
                 <Button type="submit" disabled={creatingInvoice || !invoiceAmount}>{creatingInvoice ? 'Creating…' : 'Create Invoice'}</Button>
               </div>

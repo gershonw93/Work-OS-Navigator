@@ -447,7 +447,7 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
             lead time - so nobody finds out the windows weren&apos;t ordered the week they were due on site.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="row-even lg:flex lg:flex-wrap items-center gap-2">
           <Button variant="outline" className="gap-1.5" onClick={copyClientLink} disabled={linking}>
             {linking ? <Loader2 className="h-4 w-4 animate-spin" />
               : copied ? <CheckCircle2 className="h-4 w-4 text-success" /> : <Link2 className="h-4 w-4" />}
@@ -529,7 +529,7 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
               </div>
             )}
           </div>
-          <div className="flex gap-2 justify-end">
+          <div className="row-even lg:flex gap-2 justify-end">
             <Button variant="secondary" onClick={() => setShowAdd(false)}>Cancel</Button>
             <Button onClick={add} disabled={saving || !form.item.trim()}>{saving ? 'Adding…' : 'Add'}</Button>
           </div>
@@ -552,7 +552,7 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
               </p>
               <p className="text-sm text-muted-fg mt-2">Set the line to that amount?</p>
             </div>
-            <div className="flex gap-2 justify-end">
+            <div className="row-even lg:flex gap-2 justify-end">
               <Button variant="secondary" onClick={() => setFillPrompt(null)}>Leave it</Button>
               <Button onClick={fillBudgetLine} disabled={filling}>
                 {filling ? <><Loader2 className="h-4 w-4 animate-spin" /> Setting…</> : `Set it to ${money(fillPrompt.amount)}`}
@@ -610,7 +610,7 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
                 Connecting <span className="font-semibold text-ink">{Object.values(linkChoice).filter(Boolean).length}</span> of{' '}
                 {rows.filter(r => !r.budget_line_item_id).length}.
               </p>
-              <div className="flex gap-2 ml-auto">
+              <div className="row-even lg:flex gap-2 ml-auto">
                 <Button variant="secondary" onClick={() => setShowLink(false)}>Cancel</Button>
                 <Button onClick={applyLinks} disabled={linkSaving}>
                   {linkSaving ? <><Loader2 className="h-4 w-4 animate-spin" /> Connecting…</> : 'Connect'}
@@ -673,7 +673,7 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
               , and the client&apos;s link will show it as Ordered.
             </p>
 
-            <div className="flex gap-2 justify-end">
+            <div className="row-even lg:flex gap-2 justify-end">
               <Button variant="secondary" onClick={() => setOrderFor(null)}>Cancel</Button>
               <Button onClick={placeOrder} disabled={ordering === orderFor.id}>
                 {ordering === orderFor.id ? <><Loader2 className="h-4 w-4 animate-spin" /> Ordering…</> : 'Mark ordered'}
@@ -747,7 +747,7 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
                   : <>Adds <span className="font-semibold text-ink">{seedRowCount(Array.from(picked), projectType)}</span> selections across {picked.size} categor{picked.size === 1 ? 'y' : 'ies'}.
                       {!!projectType && !isHomeType(projectType) && ' Home-only items like bathtubs and laundry cabinets are left out.'}</>}
               </p>
-              <div className="flex gap-2 ml-auto">
+              <div className="row-even lg:flex gap-2 ml-auto">
                 <Button variant="secondary" onClick={() => setShowSeed(false)}>Cancel</Button>
                 <Button onClick={seed} disabled={seeding || picked.size === 0}>
                   {seeding ? <><Loader2 className="h-4 w-4 animate-spin" /> Building…</> : 'Add these'}
@@ -965,13 +965,13 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
                                   <textarea rows={4} value={pasteText} onChange={e => setPasteText(e.target.value)}
                                     placeholder={'Sherwin Williams | Alabaster | #edeae3 | 62\nSherwin Williams | Repose Gray | #cbc7c0 | 62\nBenjamin Moore | Chantilly Lace | #f4f4ef | 78'}
                                     className="w-full rounded-md border border-muted2 bg-panel px-2.5 py-2 font-mono text-[11px] text-ink placeholder:text-faint focus:border-accent focus:outline-none resize-none" />
-                                  <div className="flex gap-1.5">
+                                  <div className="row-even lg:flex gap-1.5">
                                     <Button size="sm" onClick={() => pasteOptions(sel.id)} disabled={!pasteText.trim()}>Add them</Button>
                                     <Button size="sm" variant="secondary" onClick={() => { setPasteFor(null); setPasteText('') }}>Cancel</Button>
                                   </div>
                                 </div>
                               ) : (
-                                <div className="flex flex-wrap gap-1.5 items-center">
+                                <div className="row-even lg:flex lg:flex-wrap gap-1.5 items-center">
                                   <div className="relative">
                                     <Input className="h-8 text-sm w-28" placeholder="Brand"
                                       value={optDraft[sel.id]?.brand ?? ''}

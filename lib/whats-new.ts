@@ -52,6 +52,11 @@ export const RELEASES: Release[] = [
     title: 'A cleaner look on a phone',
     items: [
       {
+        kind: 'improved',
+        title: 'Buttons and boxes line up edge to edge on a phone',
+        text: 'A row of buttons used to be as wide as whatever was written on them, so Budget\'s toolbar came out as three ragged rows that all stopped short of the right edge, and the boxes in the Selections editor did the same. Now two share a row at the same width and reach both edges, and one left over takes the whole row instead of leaving a gap. It is the same everywhere - every toolbar, every Cancel and Save, every row of boxes. Laptops are unchanged.',
+      },
+      {
         kind: 'fixed',
         title: 'The grey gap after the keyboard closes, and boxes that dwarfed their labels',
         text: 'On a phone, closing the keyboard left the app sitting too high with a band of empty grey below it and the top bar out of sight. The page had not moved - the app was drawn against the whole screen while the keyboard had shrunk it - and it now always fits the part of the screen you can actually see. Separately, boxes have to hold 16px text or iPhone zooms the page, which left them looking oversized next to small labels; the labels and the boxes are now the same size as each other on a phone.',

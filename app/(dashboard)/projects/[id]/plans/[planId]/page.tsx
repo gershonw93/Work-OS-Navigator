@@ -345,7 +345,7 @@ export default function PlanViewerPage({ params }: { params: { id: string; planI
                   <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>
                 </Select></div>
             </div>
-            <div className="flex justify-end gap-2 border-t border-line px-5 py-4">
+            <div className="row-even lg:flex justify-end gap-2 border-t border-line px-5 py-4">
               <Button variant="ghost" onClick={() => setDraft(null)}>Cancel</Button>
               <Button onClick={savePin} disabled={saving || !title.trim()}>{saving ? 'Saving…' : 'Drop pin & create task'}</Button>
             </div>

@@ -100,7 +100,7 @@ export function DeleteGuardProvider({ children }: { children: ReactNode }) {
                   {error && <p className="text-xs text-danger">{error}</p>}
                 </div>
               )}
-              <div className="flex justify-end gap-2 pt-1">
+              <div className="row-even lg:flex justify-end gap-2 pt-1">
                 <Button variant="secondary" disabled={busy} onClick={() => setOpen(false)}>Cancel</Button>
                 <Button disabled={busy || (needsKey && !key)} onClick={confirm} className="bg-danger-solid text-white hover:bg-danger-solid/90">
                   {busy ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Deleting…</> : 'Delete'}

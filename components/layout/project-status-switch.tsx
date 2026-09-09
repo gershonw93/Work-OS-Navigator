@@ -285,7 +285,7 @@ export function ProjectStatusSwitch({
                 </>
               )}
 
-              <div className="flex justify-end gap-2 pt-1">
+              <div className="row-even lg:flex justify-end gap-2 pt-1">
                 <Button variant="secondary" onClick={() => setConfirming(false)} disabled={saving}>Cancel</Button>
                 <Button
                   onClick={() => setStatus('active', {

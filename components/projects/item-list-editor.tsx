@@ -126,7 +126,7 @@ export function ItemListEditor({
                 : 'The scope above says what work is in and out. This says what quantities to price. They don’t overlap - and this one is only needed when you’re buying the material.'}
           </p>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="row-even lg:flex lg:flex-wrap gap-2">
             <Button type="button" size="sm" variant="outline" onClick={() => fileRef.current?.click()} disabled={importing} className="gap-1.5">
               {importing ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Reading…</> : <><Upload className="h-3.5 w-3.5" /> Import takeoff</>}
             </Button>
@@ -148,7 +148,7 @@ export function ItemListEditor({
               <textarea rows={5} value={pasteText} onChange={e => setPasteText(e.target.value)}
                 placeholder={'2x6 x 16′ SPF #2\t148\tea\n7/16 OSB sheathing\t210\tsheet\nLVL 1-3/4 x 11-7/8\t14\tlf'}
                 className="w-full rounded-md border border-muted2 bg-panel px-3 py-2 font-mono text-xs text-ink placeholder:text-faint focus:border-accent focus:outline-none resize-none" />
-              <div className="flex gap-2">
+              <div className="row-even lg:flex gap-2">
                 <Button type="button" size="sm" onClick={applyPaste} disabled={!pasteText.trim()}>Add these lines</Button>
                 <Button type="button" size="sm" variant="secondary" onClick={() => { setShowPaste(false); setPasteText('') }}>Cancel</Button>
               </div>

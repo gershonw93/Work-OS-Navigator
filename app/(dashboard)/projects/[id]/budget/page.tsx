@@ -912,7 +912,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
           <h1 className="text-2xl font-bold text-ink">Budget</h1>
           <p className="text-sm text-muted-fg mt-0.5">Line-item cost breakdown - budgeted vs committed vs actual.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="row-even lg:flex lg:flex-wrap items-center gap-2">
           <Button variant="outline" onClick={() => importInputRef.current?.click()} className="gap-1.5">
             <FileSpreadsheet className="h-4 w-4" /> Import Estimate
           </Button>
@@ -1035,7 +1035,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                         )
                       })}
                     </div>
-                    <div className="flex flex-wrap gap-2 justify-end">
+                    <div className="row-even lg:flex lg:flex-wrap gap-2 justify-end">
                       <Button size="sm" variant="outline" onClick={() => setImportItems(null)}>Choose another</Button>
                       {matches > 0 && (
                         <Button size="sm" variant="outline" disabled={applying} onClick={() => applyImportMerge(true)}>
@@ -1124,7 +1124,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                   )
                 })}
               </div>
-              <div className="flex gap-2 justify-end">
+              <div className="row-even lg:flex gap-2 justify-end">
                 <Button variant="secondary" onClick={() => setShowSoft(false)}>Cancel</Button>
                 <Button onClick={addSoftCosts} disabled={addingSoft || SOFT_COST_CATEGORIES.filter(c => softPicks.has(c) && !already.has(normDesc(c))).length === 0}>
                   {addingSoft ? 'Adding…' : 'Add selected'}
@@ -1150,7 +1150,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                 <Input placeholder="e.g. New build - full custom" value={tplName} onChange={e => setTplName(e.target.value)} autoFocus={autoFocusOnDesktop()} />
               </div>
               <p className="text-xs text-faint">Saves these {items.length} line items (with amounts) as a reusable template for future jobs.</p>
-              <div className="flex gap-2 justify-end">
+              <div className="row-even lg:flex gap-2 justify-end">
                 <Button variant="secondary" onClick={() => setShowSave(false)}>Cancel</Button>
                 <Button onClick={saveCurrentAsTemplate} disabled={savingTpl || !tplName.trim()}>{savingTpl ? 'Saving…' : 'Save'}</Button>
               </div>
@@ -1542,7 +1542,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
             <p role="alert" className="text-xs text-danger">{lineError}</p>
           )}
           </div>
-          <div className="flex shrink-0 justify-end gap-2 border-t border-line-soft px-5 py-4">
+          <div className="row-even lg:flex shrink-0 justify-end gap-2 border-t border-line-soft px-5 py-4">
             <Button variant="outline" onClick={closeAdd}>Cancel</Button>
             <Button onClick={addLine} disabled={saving || !form.description.trim()}>{saving ? 'Saving…' : 'Add Line'}</Button>
           </div>
@@ -1552,7 +1552,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
 
       {/* Search + sort toolbar */}
       {items.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="row-even lg:flex lg:flex-wrap items-center gap-2">
           <div className="relative flex-1 min-w-[180px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-faint" />
             <Input className="pl-9" placeholder="Search line items…" value={search} onChange={e => setSearch(e.target.value)} />

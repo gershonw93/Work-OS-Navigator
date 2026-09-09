@@ -118,7 +118,7 @@ function NewCustomerModal({
             <Input id="nc-phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
           </div>
           {error && <p className="text-sm text-danger">{error}</p>}
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="row-even lg:flex justify-end gap-2 pt-2">
             <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
             <Button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Create Customer'}</Button>
           </div>
@@ -268,7 +268,7 @@ export default function CustomersPage() {
         title="Customers"
         subtitle="All clients and their projects"
         action={
-          <div className="flex items-center gap-2">
+          <div className="row-even lg:flex items-center gap-2">
             <Button variant="secondary" onClick={() => setBulkOpen(true)}>
               Bulk Add Projects
             </Button>

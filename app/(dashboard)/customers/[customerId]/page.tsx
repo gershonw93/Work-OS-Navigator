@@ -148,7 +148,7 @@ function EditCustomerModal({
             />
           </div>
           {error && <p className="text-sm text-danger">{error}</p>}
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="row-even lg:flex justify-end gap-2 pt-2">
             <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
             <Button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save Changes'}</Button>
           </div>
@@ -329,7 +329,7 @@ export default function CustomerDetailPage() {
       {/* Tab: Projects */}
       {activeTab === 'projects' && (
         <div className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="row-even lg:flex lg:flex-wrap items-center justify-between gap-3">
             {/* Status filter pills */}
             <div className="flex flex-wrap gap-2">
               {STATUS_FILTERS.map((f) => (
@@ -348,7 +348,7 @@ export default function CustomerDetailPage() {
               ))}
             </div>
             {/* Actions */}
-            <div className="flex gap-2">
+            <div className="row-even lg:flex gap-2">
               <Button variant="secondary" onClick={() => setBulkOpen(true)}>Bulk Add</Button>
               <Button onClick={() => setAddProjectOpen(true)}>
                 <Plus className="h-4 w-4 mr-1" />

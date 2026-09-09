@@ -38,7 +38,7 @@ export function SignoffModal({
             <Input value={name} onChange={e => setName(e.target.value)} placeholder="Full name" />
           </div>
         </div>
-        <div className="flex justify-end gap-2 border-t border-line px-5 py-4">
+        <div className="row-even lg:flex justify-end gap-2 border-t border-line px-5 py-4">
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
           <Button disabled={!blob || !name.trim() || saving} onClick={() => blob && onSign(blob, name.trim())}>
             {saving ? 'Saving…' : 'Sign off'}

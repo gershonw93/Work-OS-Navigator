@@ -465,7 +465,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                   </div>
                 </div>
               </div>
-              <div className="px-4 sm:px-6 py-4 border-t border-line-soft flex flex-wrap gap-2 justify-end">
+              <div className="row-even px-4 sm:px-6 py-4 border-t border-line-soft lg:flex lg:flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => setEditMember(null)}>Cancel</Button>
                 <Button type="submit" disabled={editSaving || !editName.trim()}>
                   {editSaving ? 'Saving...' : 'Save Changes'}
@@ -541,7 +541,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                   </div>
                 </div>
               </div>
-              <div className="px-4 sm:px-6 py-4 border-t border-line-soft flex flex-wrap gap-2 justify-end">
+              <div className="row-even px-4 sm:px-6 py-4 border-t border-line-soft lg:flex lg:flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => setShowAdd(false)}>Cancel</Button>
                 <Button type="submit" disabled={saving || !name.trim()}>
                   {saving ? 'Adding...' : 'Add Member'}
@@ -588,7 +588,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                   </Select>
                 </div>
               </div>
-              <div className="px-4 sm:px-6 py-4 border-t border-line-soft flex flex-wrap gap-2 justify-end">
+              <div className="row-even px-4 sm:px-6 py-4 border-t border-line-soft lg:flex lg:flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => setShowAddCompanyMember(false)}>Cancel</Button>
                 <Button type="submit" disabled={companyMemberSaving || !selectedProfileId}>
                   {companyMemberSaving ? 'Adding...' : 'Add to Project'}
@@ -764,7 +764,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                   </div>
                 </div>
               )}
-              <div className="px-4 sm:px-6 py-4 border-t border-line-soft flex flex-wrap gap-2 justify-end">
+              <div className="row-even px-4 sm:px-6 py-4 border-t border-line-soft lg:flex lg:flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => { setShowAddSub(false); setEditingSubId(null); setSubError(null) }}>Cancel</Button>
                 <Button type="submit" disabled={subSaving || (editingSubId ? !subCompany : (subMode === 'new' ? !subCompany : !subExistingId))}>{subSaving ? 'Saving...' : (editingSubId ? 'Save Changes' : 'Add Subcontractor')}</Button>
               </div>
@@ -779,7 +779,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
           <h1 className="text-2xl font-bold text-ink">Team</h1>
           <p className="text-sm text-muted-fg mt-0.5">Your crew and awarded subcontractors on this project.</p>
         </div>
-        <div className="flex gap-2 self-start sm:self-auto shrink-0">
+        <div className="row-even lg:flex gap-2 self-start sm:self-auto shrink-0">
           <Button variant="secondary" onClick={openAddCompanyMember}>
             <UserPlus className="h-4 w-4" />
             Add Company Member
