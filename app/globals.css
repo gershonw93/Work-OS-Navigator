@@ -225,6 +225,10 @@
     -webkit-mask-image: linear-gradient(to right, black 92%, transparent);
     mask-image: linear-gradient(to right, black 92%, transparent);
   }
+  /* Phone only - a desktop has a scrollbar and room, and did not ask. */
+  @media (min-width: 1024px) {
+    .scroll-fade { -webkit-mask-image: none; mask-image: none; }
+  }
 
   .scrollbar-hide {
     -ms-overflow-style: none;

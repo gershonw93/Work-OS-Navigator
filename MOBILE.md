@@ -278,6 +278,32 @@ height: var(--vv-h, 100%);
 
 The fallback is the full screen, which is what a desktop has anyway.
 
+### The phone LOOK stays on the phone (IMPORTANT)
+
+The design sweep (rounder cards with no shadow, one strip for related numbers,
+lists in place of tables, a plain task board) is for phones. The desktop was
+not asked to change and, after four passes shipped without a gate, a user found
+their laptop changed. So the rule is a breakpoint: **the phone look lives below
+`lg` (1024px)**, the same point where `mobile-tab-bar.tsx` gives way to
+`sidebar.tsx`. If you see the bottom tab bar you get the phone look; from `lg`
+up every screen is exactly what it was.
+
+Two ways to write it:
+
+- `lg:` variants where only classes changed - `Card` is
+  `rounded-2xl border border-line bg-panel lg:rounded-lg lg:shadow-sm`, the
+  Tasks board carries its old tints as `col.lg.*` classes, `.scroll-fade`
+  resets its mask at 1024px.
+- A **second markup** where the shape changed - the old desktop block under
+  `hidden lg:block` / `hidden lg:grid` / `hidden lg:contents`, the phone block
+  under `lg:hidden`. Settings, Compliance and the Directory keep their tables
+  this way; the dashboard, Tasks, Compliance and a customer page keep their
+  stat tiles beside a `<StatStrip className="lg:hidden">`.
+
+`lib/__tests__/layout-overflow.ts` pins the shape (every StatStrip is gated and
+has a twin, restored tables are gated) and `overlay-geometry.ts` measures it:
+the same card at 390 has no shadow and a 16px radius, at 1280 a shadow and 8px.
+
 **A dialog with a footer is a COLUMN.** `.overlay > *` caps the panel and gives
 it `overflow-y: auto`, so a plain block panel scrolls as a whole - header,
 fields and buttons together. That is fine until there is very little screen, and

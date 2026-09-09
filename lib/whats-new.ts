@@ -52,6 +52,11 @@ export const RELEASES: Release[] = [
     title: 'A cleaner look on a phone',
     items: [
       {
+        kind: 'fixed',
+        title: 'The phone look no longer changes the desktop',
+        text: 'The cleaner cards, single overview strips and lists in this batch were showing on a laptop too, which nobody asked for. On a desktop every screen now looks exactly as it did before: the tiles, tables, shadows and the coloured task board are back. The new look applies only where the bottom tab bar shows - a phone or a narrow window.',
+      },
+      {
         kind: 'improved',
         title: 'The home screen is one overview, not four tiles',
         text: 'Active projects, under contract, open tasks and due this week now sit together in a single card with fine dividers and large numbers, each still a tap away from its page. What needs attention is a short list of rows underneath instead of a row of coloured pills. Compliance and customer pages got the same treatment.',

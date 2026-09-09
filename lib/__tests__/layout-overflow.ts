@@ -293,18 +293,33 @@ for (const f of tsx) {
 // are tables because the DATA is a grid, and those scroll inside themselves.
 ok(phoneTables.length <= 10,
   `${phoneTables.length} tables still render on a phone (was 16, and this may only go down)`)
-ok(!/<table/.test(read('app/(dashboard)/projects/[id]/compliance/page.tsx')),
-  'Compliance is a list - it needed 560px and scrolled its Expires column off the phone')
-ok(!/<table/.test(read('app/(dashboard)/settings/page.tsx')),
-  'Settings has no tables at all - Team & Users was five columns in 390px')
+// Compliance, Settings and the Directory keep their tables FOR THE DESKTOP,
+// which was not asked to change, under `hidden lg:block`; the phone gets the
+// list. So each file has both, and none of its tables reaches a phone.
+for (const f of ['app/(dashboard)/projects/[id]/compliance/page.tsx', 'app/(dashboard)/settings/page.tsx', 'app/(dashboard)/directory/page.tsx']) {
+  const name = f.split('/').slice(-2, -1)[0]
+  ok(/<table/.test(read(f)) && !phoneTables.some(t => t.startsWith(f + ':')),
+    `${name} keeps its table for the desktop and none of it reaches a phone`)
+  ok(/divide-y divide-line-soft lg:hidden|lg:hidden[^"]*divide-y divide-line-soft|divide-y divide-line-soft[^"]*lg:hidden/.test(read(f)),
+    `...and the phone list is gated the other way (${name})`)
+}
 
 // ── 6. the look: one radius, a border, no shadow, 24px gutters ──────────────
 // A border already separates a card from the page. A shadow on top of it is a
 // second separator saying the same thing, and it is what made every screen
 // read as a web dashboard rather than a native one. Set on Card so all move.
+// THE RULE, after the desktop was found changed: the phone look lives BELOW
+// `lg` - the breakpoint where the tab bar gives way to the sidebar - and from
+// `lg` up every screen looks exactly as it did before the sweep. Two ways to
+// say it in code: `lg:` variants where only classes changed, and a second
+// markup under `hidden lg:...` where the shape changed. `phone()` strips the
+// `lg:` classes so the old assertions read the phone's half alone.
+const phone = (src: string) => src.replace(/\blg:[^\s'"`]+/g, '')
 const card = code('components/ui/card.tsx')
-ok(/rounded-2xl/.test(card), 'Card is ~20px radius')
-ok(!/shadow-/.test(card), '...with no shadow - the 1px border is the separation')
+ok(/rounded-2xl/.test(card), 'Card is ~20px radius on a phone')
+ok(!/shadow-/.test(phone(card)), '...with no shadow - the 1px border is the separation')
+ok(/lg:rounded-lg/.test(card) && /lg:shadow-sm/.test(card),
+  '...and from lg up it is the rounded-lg, shadow-sm card the desktop always had')
 const gutters: string[] = []
 for (const f of tsx) {
   if (!f.startsWith('app/(dashboard)/')) continue
@@ -320,16 +335,27 @@ ok(gutters.length === 0,
 // the old four-box StatCard is gone from the repo rather than merely unused.
 const home = code('app/(dashboard)/dashboard/page.tsx')
 ok((home.match(/<StatStrip/g) ?? []).length === 3,
-  'every dashboard variant (sub, admin, GC) puts its numbers in one StatStrip')
-ok(!/StatCard/.test(home), '...and the four-box StatCard is not used on it')
-ok(!exists('components/ui/stat-card.tsx'), '...or anywhere - the file is deleted, not orphaned')
-ok(/Needs attention/.test(home) && /divide-y divide-line-soft/.test(home),
-  'needs-attention is a list of rows in one card')
-ok(!/rounded-full bg-warn-tint text-warn text-xs font-medium px-3 py-1\.5/.test(home),
-  '...not three coloured pills')
-for (const f of ['app/(dashboard)/projects/[id]/compliance/page.tsx', 'app/(dashboard)/customers/[customerId]/page.tsx']) {
-  ok(/<StatStrip/.test(code(f)) && !/StatCard/.test(code(f)), `${f.split('/').slice(-2, -1)[0]} uses StatStrip, not a grid of stat boxes`)
+  'every dashboard variant (sub, admin, GC) puts its numbers in one StatStrip on a phone')
+ok(/StatCard/.test(home) && exists('components/ui/stat-card.tsx'),
+  '...and the desktop keeps its StatCard tiles - the file is back, not orphaned')
+ok(/Needs attention/.test(home) && /bg-panel lg:hidden/.test(home),
+  'needs-attention is a list of rows in one card on a phone')
+ok(/hidden lg:flex flex-wrap gap-2/.test(home),
+  '...and the three coloured pills on a desktop')
+
+// Every StatStrip in the app is the PHONE half: it carries `lg:hidden`, and
+// the same file has a `hidden lg:` block that is the desktop's numbers.
+const strips: string[] = []
+for (const f of tsx) {
+  const src = code(f)
+  const n = (src.match(/<StatStrip/g) ?? []).length
+  if (!n) continue
+  const gated = (src.match(/<StatStrip[\s\S]{0,160}?className="[^"]*lg:hidden/g) ?? []).length
+  if (gated !== n || !/hidden lg:(?:grid|flex|block|contents)/.test(src)) strips.push(`${f} (${gated}/${n} gated)`)
 }
+ok(strips.length === 0,
+  `every StatStrip is phone-only and has a desktop twin${strips.length ? ` - ${strips[0]}` : ''}`)
+ok(tsx.filter(f => /<StatStrip/.test(code(f))).length >= 4, '...and there are at least four of them')
 
 // ── 8. the Tasks board: one card per column, rows inside, no tints ──────────
 // Three columns in three colours, each holding a stack of bordered cards on a
@@ -339,10 +365,13 @@ for (const f of ['app/(dashboard)/projects/[id]/compliance/page.tsx', 'app/(dash
 // chip, where it says something - an overdue row was tinted red on top of
 // saying "Overdue" in red, and the expanded one wore a ring.
 const tasksPage = code('app/(dashboard)/projects/[id]/tasks/page.tsx')
-ok(!/colBg/.test(tasksPage), 'tasks board columns have no tinted ground')
-const boardCard = tasksPage.slice(tasksPage.indexOf('function BoardCard('), tasksPage.indexOf('function ListCard('))
-const listCard = tasksPage.slice(tasksPage.indexOf('function ListCard('), tasksPage.indexOf('function BoardView('))
-const boardView = tasksPage.slice(tasksPage.indexOf('function BoardView('), tasksPage.indexOf('function ListView('))
+const slice = (a: string, b: string) => phone(tasksPage.slice(tasksPage.indexOf(a), tasksPage.indexOf(b)))
+const boardCard = slice('function BoardCard(', 'function ListCard(')
+const listCard = slice('function ListCard(', 'function BoardView(')
+const boardView = slice('function BoardView(', 'function ListView(')
+ok(!/col\.(?:colBg|headerBg|headerText|colBorder)\b/.test(boardView), 'tasks board columns have no tinted ground on a phone')
+ok(/col\.lg\.(?:col|headerBg)/.test(tasksPage.slice(tasksPage.indexOf('function BoardView('))),
+  '...and the desktop keeps its tinted columns under lg:')
 ok(boardCard.length > 0 && listCard.length > 0, 'BoardCard and ListCard are declared in that order')
 ok(!/ring-2/.test(boardCard) && !/ring-2/.test(listCard), 'an expanded task is a quiet bg-surface row, not a ringed card')
 ok(!/bg-danger-tint/.test(listCard), 'an overdue row is not tinted - the red "Overdue" label already says it')

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { StatStrip } from '@/components/ui/stat-strip'
+import { StatCard } from '@/components/ui/stat-card'
 import { cn } from '@/lib/utils'
 import { ShieldCheck, Upload, RefreshCw, X, AlertTriangle, CheckCircle2, FileWarning, ExternalLink, ChevronDown, ChevronUp, Mail, Copy, Link2, Send, MinusCircle, PlusCircle } from 'lucide-react'
 import {
@@ -737,12 +738,125 @@ function SubCard({ sub, docs, requests, requirements, projectId, token, onRefres
         onRefresh={onRefresh}
       />
 
-      {/* A LIST, NOT A TABLE. Five columns needed 560px and scrolled sideways
+      {/* DESKTOP (lg+): the table it always had. */}
+      {/* Doc table.
+          Five columns with px-5 padding does not fit a phone, and without a
+          scroll container of its own the whole PAGE scrolls sideways instead -
+          dragging the header and every other section with it. The wrapper
+          keeps the overflow inside the table, where it belongs. min-w so the
+          columns keep their shape rather than each wrapping onto three lines,
+          which is the other way this reads badly. */}
+      <div className="hidden lg:block overflow-x-auto">
+      <table className="w-full min-w-[560px] text-sm">
+        <thead className="bg-surface border-b border-line-soft">
+          <tr>
+            <th className="text-left px-5 py-2.5 font-medium text-muted-fg text-xs">Document</th>
+            <th className="text-left px-5 py-2.5 font-medium text-muted-fg text-xs">Status</th>
+            <th className="text-left px-5 py-2.5 font-medium text-muted-fg text-xs">Expires</th>
+            <th className="text-left px-5 py-2.5 font-medium text-muted-fg text-xs">File</th>
+            <th className="px-5 py-2.5" />
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-line-soft">
+          {visibleDocs.map((type) => {
+            const doc = getDoc(type)
+            const status = resolveStatus(type)
+            const cfg = STATUS_CONFIG[status]
+            const canExpand = !!doc && !!(doc.notes || doc.file_url)
+            const isExpanded = expandedType === type
+            return (
+              <React.Fragment key={type}>
+              <tr className={canExpand ? 'cursor-pointer hover:bg-surface/60' : ''} onClick={canExpand ? () => setExpandedType(isExpanded ? null : type) : undefined}>
+                <td className="px-5 py-3 text-ink-soft font-medium">
+                  <span className="inline-flex items-center gap-1.5">
+                    {canExpand && (isExpanded ? <ChevronUp className="h-3.5 w-3.5 text-faint" /> : <ChevronDown className="h-3.5 w-3.5 text-faint" />)}
+                    {DOC_LABELS[type]}
+                  </span>
+                </td>
+                <td className="px-5 py-3">
+                  <span className={cn('whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium', cfg.classes)}>
+                    {status === 'expiring_soon' && <AlertTriangle className="inline h-3 w-3 mr-0.5 -mt-0.5" />}
+                    {cfg.label}
+                  </span>
+                </td>
+                <td className="px-5 py-3 text-xs text-faint">
+                  {doc?.expiry_date
+                    ? formatDate(doc.expiry_date, { month: 'short', day: 'numeric', year: 'numeric' })
+                    : '-'}
+                </td>
+                <td className="px-5 py-3">
+                  {doc?.file_url
+                    ? <a href={doc.file_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1 text-xs text-accent-fg hover:underline font-medium"><ExternalLink className="h-3 w-3" /> View</a>
+                    : <span className="text-xs text-faint">-</span>}
+                </td>
+                <td className="px-5 py-3">
+                  <div className="flex items-center justify-end gap-1">
+                    {/* Turn a document off for this vendor. A one-man sub has no
+                        workers' comp and a licence they cannot hold is never
+                        arriving - left required, both sit as Missing forever
+                        and turn the job red over nothing. */}
+                    {status !== 'not_required' ? (
+                      // Only worth offering while there is nothing on file -
+                      // hiding a document you already hold would just lose it.
+                      !doc && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setRequired(type, false) }}
+                          disabled={savingReq === type}
+                          title={`${companyName} does not have to provide this`}
+                          className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-faint hover:text-muted-fg hover:bg-surface disabled:opacity-50"
+                        >
+                          <MinusCircle className="h-3 w-3" /> Not needed
+                        </button>
+                      )
+                    ) : (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setRequired(type, true) }}
+                        disabled={savingReq === type}
+                        className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-accent-fg hover:bg-accent-tint disabled:opacity-50"
+                      >
+                        <PlusCircle className="h-3 w-3" /> Require it
+                      </button>
+                    )}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setOpenForm(openForm === type ? null : type) }}
+                      className={cn('flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors',
+                        openForm === type ? 'border-accent bg-accent-tint text-accent-fg' : 'border-line text-muted-fg hover:border-muted2')}
+                    >
+                      {doc ? <><RefreshCw className="h-3 w-3" /> Update</> : <><Upload className="h-3 w-3" /> Upload</>}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              {isExpanded && doc && (
+                <tr className="bg-surface/40">
+                  <td colSpan={5} className="px-5 py-3">
+                    <div className="rounded-lg border border-line-soft bg-panel p-3 space-y-1.5">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Details on file</p>
+                      {doc.notes
+                        ? <p className="text-xs text-ink-soft whitespace-pre-wrap">{doc.notes}</p>
+                        : <p className="text-xs text-faint">No extracted details - open the file to review, or hit Update to add them.</p>}
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-xs text-muted-fg">
+                        <span>Status: <span className="text-ink-soft font-medium">{STATUS_CONFIG[status].label}</span></span>
+                        {doc.expiry_date && <span>Expires: <span className="text-ink-soft font-medium">{formatDate(doc.expiry_date, { month: 'short', day: 'numeric', year: 'numeric' })}</span></span>}
+                        {doc.file_url && <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="text-accent-fg hover:underline inline-flex items-center gap-1"><ExternalLink className="h-3 w-3" /> Open document</a>}
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              )}
+              </React.Fragment>
+            )
+          })}
+        </tbody>
+      </table>
+      </div>
+
+      {/* PHONE: A LIST, NOT A TABLE. Five columns needed 560px and scrolled sideways
           on a phone, with the Expires and File columns off-screen and "Missing"
           breaking in two. One row per document: name and status on the first
           line, the quiet facts on the second, the actions on their own row
           where a thumb can reach them. */}
-      <div className="divide-y divide-line-soft">
+      <div className="divide-y divide-line-soft lg:hidden">
         {visibleDocs.map((type) => {
           const doc = getDoc(type)
           const status = resolveStatus(type)
@@ -937,8 +1051,15 @@ export default function CompliancePage({ params }: { params: { id: string } }) {
         </div>
       ) : (
         <>
-          {/* Four numbers, one card. Red only for what is actually missing. */}
-          <StatStrip label="Compliance" items={[
+          {/* Desktop: the four tiles it always had. */}
+          <div className="hidden lg:grid lg:grid-cols-4 gap-4">
+            <StatCard label="Total Subs" value={totalSubs} icon={ShieldCheck} iconColor="text-muted-fg" />
+            <StatCard label="All Compliant" value={allCompliant} icon={CheckCircle2} iconColor="text-success" />
+            <StatCard label="Expiring Soon" value={expiringSoon} icon={AlertTriangle} iconColor="text-accent-fg" />
+            <StatCard label="Missing Docs" value={missingDocs} icon={FileWarning} iconColor="text-danger" />
+          </div>
+          {/* Phone: four numbers, one card. Red only for what is actually missing. */}
+          <StatStrip label="Compliance" className="lg:hidden" items={[
             { label: 'Subs', value: totalSubs },
             { label: 'All compliant', value: allCompliant },
             { label: 'Expiring soon', value: expiringSoon, tone: expiringSoon > 0 ? 'warn' : undefined },

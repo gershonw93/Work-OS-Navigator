@@ -815,7 +815,7 @@ export default function SettingsPage() {
       <div className="flex flex-col gap-4 md:flex-row md:gap-6">
         {/* ── Tabs: strip on mobile, sidebar from md ───────────────────── */}
         <nav className="shrink-0 md:w-52">
-          <ul className="scroll-fade md:[mask-image:none] -mx-4 flex gap-1 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:block md:space-y-1 md:overflow-visible md:px-0 md:pb-0">
+          <ul className="scroll-fade -mx-4 flex gap-1 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:block md:space-y-1 md:overflow-visible md:px-0 md:pb-0">
             {TABS.filter(({ id }) => {
               // Gated by the SAME permission map as everything else.
               //
@@ -1220,14 +1220,123 @@ export default function SettingsPage() {
                   {teammates.length === 0 ? (
                     <p className="text-muted-fg text-sm p-6">No team members yet.</p>
                   ) : (
-                    <>{/* A LIST, NOT A TABLE.
+                    <>
+                    {/* DESKTOP (lg+): the table it always had. */}
+                    <div className="hidden lg:block overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-line-soft bg-surface">
+                            <th className="text-left px-4 py-3 font-medium text-muted-fg">Member</th>
+                            <th className="text-left px-4 py-3 font-medium text-muted-fg">Email</th>
+                            <th className="text-left px-4 py-3 font-medium text-muted-fg">Role</th>
+                            <th className="text-left px-4 py-3 font-medium text-muted-fg">Status</th>
+                            <th className="text-left px-4 py-3 font-medium text-muted-fg">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {teammates.map((t) => {
+                            const isSelf = t.id === profile?.id
+                            return (
+                            <tr key={t.id} className="border-b border-line-soft last:border-0 hover:bg-surface/50">
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-3">
+                                  <div className="whitespace-nowrap h-8 w-8 rounded-full bg-accent-tint text-accent-fg flex items-center justify-center text-xs font-bold shrink-0">
+                                    {initials(t.full_name ?? t.email ?? '?')}
+                                  </div>
+                                  <div>
+                                    <span className="font-medium text-ink-soft">{t.full_name || '-'}</span>
+                                    {isSelf && <span className="ml-2 text-xs text-faint">(you)</span>}
+                                    {t.id === ownerId && (
+                                      <span
+                                        title="The account owner. No admin can remove or demote them."
+                                        className="whitespace-nowrap ml-2 inline-flex items-center rounded-full bg-accent-tint px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent-fg"
+                                      >
+                                        Owner
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-muted-fg">{t.email}</td>
+                              <td className="px-4 py-3">
+                                {userRole === 'admin' && !isSelf && t.id !== ownerId ? (
+                                  <div className="flex items-center gap-2">
+                                    <SearchableSelect
+                                      value={pendingRoles[t.id] ?? t.role}
+                                      onChange={(e) => setPendingRoles(prev => ({ ...prev, [t.id]: e.target.value }))}
+                                      className="rounded border border-line px-2 py-1 text-xs bg-panel focus:outline-none focus:ring-1 focus:ring-accent"
+                                    >
+                                      {roleOptions.map((r) => (
+                                        <option key={r.value} value={r.value}>{r.label}</option>
+                                      ))}
+                                    </SearchableSelect>
+                                    {pendingRoles[t.id] && pendingRoles[t.id] !== t.role && (
+                                      <button
+                                        onClick={() => {
+                                          changeRole(t.id, pendingRoles[t.id])
+                                          setPendingRoles(prev => { const n = { ...prev }; delete n[t.id]; return n })
+                                        }}
+                                        className="rounded bg-accent px-2 py-1 text-xs font-medium text-accent-ink hover:bg-accent"
+                                      >
+                                        Save
+                                      </button>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <RoleBadge role={t.role} label={roleLabel(t.role)} />
+                                )}
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className={`whitespace-nowrap inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                                  ${t.status === 'pending'
+                                    ? 'bg-warn-tint text-warn'
+                                    : 'bg-success-tint text-success'
+                                  }`}>
+                                  {t.status === 'pending' ? 'Pending' : 'Active'}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3">
+                                {t.id === ownerId ? (
+                                  <span className="text-xs text-faint" title="Ownership has to be transferred first.">
+                                    Owner
+                                  </span>
+                                ) : (
+                                  <div className="flex items-center gap-3">
+                                    {/* Only the owner can hand it over, and only to an admin. */}
+                                    {ownerId && ownerId === profile?.id && t.role === 'admin' && (
+                                      <button
+                                        onClick={() => makeOwner(t.id, t.full_name ?? t.email)}
+                                        className="text-xs text-muted-fg hover:text-accent-fg hover:underline"
+                                      >
+                                        Make owner
+                                      </button>
+                                    )}
+                                    {userRole === 'admin' && !isSelf && (
+                                      <button
+                                        onClick={() => removeMember(t.id, t.full_name ?? t.email)}
+                                        className="text-xs text-danger hover:text-danger hover:underline"
+                                      >
+                                        Remove
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                            )
+                          })}
+
+                        </tbody>
+                      </table>
+                    </div>
+                    {/* PHONE: A LIST, NOT A TABLE.
                        Five columns in 390px gave "Rol / e", "Sta / tus" and an
                        "Actions" header running one letter per line down the
                        page, with the email breaking mid-word. A table needs
                        width it does not have on a phone, and this reads better
                        on a desktop too: one roomy row per person, left-aligned,
                        nothing to scroll sideways. */}
-                    <div className="divide-y divide-line-soft">
+                    <div className="divide-y divide-line-soft lg:hidden">
                       {teammates.map((t) => {
                         const isSelf = t.id === profile?.id
                         const isOwner = t.id === ownerId
@@ -1324,10 +1433,61 @@ export default function SettingsPage() {
                 <Card className="mt-4">
                   <CardHeader><CardTitle className="text-base">Pending Invites</CardTitle></CardHeader>
                   <CardContent className="p-0">
-                    {/* A list, for the same reason as the members above: four
+                    <div className="hidden lg:block overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-line-soft bg-surface">
+                          <th className="text-left px-4 py-3 font-medium text-muted-fg">Email</th>
+                          <th className="text-left px-4 py-3 font-medium text-muted-fg">Role</th>
+                          <th className="text-left px-4 py-3 font-medium text-muted-fg">Sent</th>
+                          <th className="text-left px-4 py-3 font-medium text-muted-fg">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pendingInvites.map((inv) => (
+                          <tr key={inv.id} className="border-b border-line-soft last:border-0 hover:bg-surface/50">
+                            <td className="px-4 py-3 text-ink-soft">{inv.email}</td>
+                            <td className="px-4 py-3"><RoleBadge role={inv.role} label={roleLabel(inv.role)} /></td>
+                            <td className="px-4 py-3 text-muted-fg text-xs">{formatDate(inv.created_at)}</td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-3">
+                                <span className="whitespace-nowrap inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-warn-tint text-warn">
+                                  Pending
+                                </span>
+                                <button
+                                  onClick={() => copyInviteLink(inv.id)}
+                                  disabled={linkFor === inv.id}
+                                  className="text-xs text-accent-fg hover:underline flex items-center gap-1 disabled:opacity-50"
+                                >
+                                  {copiedInvite === inv.id
+                                    ? <><Check className="h-3 w-3" /> Copied</>
+                                    : <><Copy className="h-3 w-3" /> Copy link</>}
+                                </button>
+                                <button
+                                  onClick={() => resendInvite(inv.email, inv.role)}
+                                  className="text-xs text-info hover:text-info hover:underline flex items-center gap-1"
+                                >
+                                  <RefreshCw className="h-3 w-3" />
+                                  Resend
+                                </button>
+                                <button
+                                  onClick={() => cancelInvite(inv.id)}
+                                  className="text-xs text-danger hover:text-danger hover:underline flex items-center gap-1"
+                                >
+                                  <Ban className="h-3 w-3" />
+                                  Cancel
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    </div>
+                    {/* Phone: a list, for the same reason as the members above: four
                         columns of which one holds three actions does not fit a
                         phone, and the actions were what got squeezed. */}
-                    <div className="divide-y divide-line-soft">
+                    <div className="divide-y divide-line-soft lg:hidden">
                       {pendingInvites.map((inv) => (
                         <div key={inv.id} className="px-5 py-4">
                           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">

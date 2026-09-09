@@ -278,8 +278,29 @@ export default function CustomerDetailPage() {
         </Button>
       </div>
 
-      {/* One card, not four. */}
-      <StatStrip items={[
+      {/* Desktop: the four tiles it always had. */}
+      <div className="hidden lg:grid lg:grid-cols-4 gap-4">
+        {[
+          { label: 'Total Projects', value: totalProjects },
+          { label: 'Active Projects', value: activeProjects },
+          { label: 'Completed', value: completedProjects },
+        ].map(s => (
+          <Card key={s.label}>
+            <CardContent className="pt-5 pb-4 px-5">
+              <p className="text-2xl font-bold text-ink">{s.value}</p>
+              <p className="text-xs text-muted-fg mt-0.5">{s.label}</p>
+            </CardContent>
+          </Card>
+        ))}
+        <Card>
+          <CardContent className="pt-5 pb-4 px-5">
+            <p className="text-2xl font-bold text-faint">-</p>
+            <p className="text-xs text-muted-fg mt-0.5">View Financials</p>
+          </CardContent>
+        </Card>
+      </div>
+      {/* Phone: one card, not four. */}
+      <StatStrip className="lg:hidden" items={[
         { label: 'Total projects', value: totalProjects },
         { label: 'Active projects', value: activeProjects },
         { label: 'Completed', value: completedProjects },
