@@ -23,6 +23,10 @@ export interface Stat {
   note?: string
   /** Where tapping the number goes. The whole cell is the target. */
   href?: string
+  /** Or what tapping it does - the Projects counts are filters, not links. */
+  onClick?: () => void
+  /** The filter that is on. A quiet fill, not a ring: it is a state, not an alert. */
+  active?: boolean
 }
 
 const TONE: Record<NonNullable<Stat['tone']>, string> = {
@@ -55,14 +59,15 @@ export function StatStrip({
           the outside, at any number of items. */}
       <div className="grid grid-cols-2">
         {shown.map((s, i) => {
-          const Cell: any = s.href ? Link : 'div'
+          const Cell: any = s.href ? Link : s.onClick ? 'button' : 'div'
           return (
           <Cell
             key={s.label}
-            {...(s.href ? { href: s.href } : {})}
+            {...(s.href ? { href: s.href } : s.onClick ? { type: 'button', onClick: s.onClick, 'aria-pressed': !!s.active } : {})}
             className={cn(
-              'block min-w-0 px-5 py-4',
-              s.href && 'transition-colors hover:bg-surface active:bg-surface',
+              'block min-w-0 px-5 py-4 text-left',
+              (s.href || s.onClick) && 'transition-colors hover:bg-surface active:bg-surface',
+              s.active && 'bg-surface',
               // a line above every row after the first
               i >= 2 && 'border-t border-line-soft',
               // and one between the two columns
@@ -75,7 +80,7 @@ export function StatStrip({
               s.tone ? TONE[s.tone] : 'text-ink')}>
               {s.value}
             </p>
-            <p className="mt-0.5 truncate text-[13px] text-muted-fg">{s.label}</p>
+            <p className={cn('mt-0.5 truncate text-[13px]', s.active ? 'font-medium text-ink' : 'text-muted-fg')}>{s.label}</p>
             {s.note && <p className="mt-0.5 truncate text-xs text-faint">{s.note}</p>}
           </Cell>
           )

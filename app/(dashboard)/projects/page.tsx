@@ -10,6 +10,7 @@ import {
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { StatStrip } from '@/components/ui/stat-strip'
 import { Badge, getStatusVariant } from '@/components/ui/badge'
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -436,9 +437,20 @@ export default function ProjectsPage() {
         />
       )}
 
-      {/* Stats bar */}
+      {/* Stats bar. PHONE: one card of counts, each a filter, the one that is
+          on shown with a quiet fill - a count of jobs is not a warning, so no
+          colour. DESKTOP (lg+): the five boxes it always had. */}
       {items.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-5">
+        <StatStrip className="mb-5 lg:hidden" items={[
+          { label: 'Total', value: stats.total, onClick: () => setStatusFilter('all'), active: statusFilter === 'all' },
+          { label: 'Active', value: stats.active, onClick: () => setStatusFilter('active'), active: statusFilter === 'active' },
+          { label: 'Planning', value: stats.planning, onClick: () => setStatusFilter('planning'), active: statusFilter === 'planning' },
+          { label: 'On hold', value: stats.on_hold, onClick: () => setStatusFilter('on_hold'), active: statusFilter === 'on_hold' },
+          { label: 'Completed', value: stats.completed, onClick: () => setStatusFilter('completed'), active: statusFilter === 'completed' },
+        ]} />
+      )}
+      {items.length > 0 && (
+        <div className="hidden lg:grid lg:grid-cols-5 gap-3 mb-5">
           {[
             { label: 'Total', value: stats.total, accent: 'text-ink', filter: 'all' },
             { label: 'Active', value: stats.active, accent: 'text-success', filter: 'active' },
