@@ -53,6 +53,11 @@ export const RELEASES: Release[] = [
     items: [
       {
         kind: 'fixed',
+        title: 'Tapping a box no longer zooms the screen and throws the app sideways',
+        text: 'On a phone, tapping into any box - a selection option, a price, a search - made iPhone zoom the page in. The top bar disappeared under the clock and the bottom buttons slid off to the left, which looked like the app had jumped. Every box on a phone is now big enough that iPhone leaves the page alone. This was every screen, not just Selections.',
+      },
+      {
+        kind: 'fixed',
         title: 'Four phone fixes: bills, the status menu, the team list and the setup checklist',
         text: 'Bills from subs (and eight other project tabs) sat twice as far from the left edge as everything else; they line up now, and each group of bills is one card of rows. The job status menu and the team list opened half off the right of the screen - both slide up from the bottom on a phone instead. The setup checklist no longer puts its title under the notch. Nothing changes on a desktop.',
         href: '/projects',

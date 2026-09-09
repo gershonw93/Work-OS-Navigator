@@ -304,6 +304,21 @@ Two ways to write it:
 has a twin, restored tables are gated) and `overlay-geometry.ts` measures it:
 the same card at 390 has no shadow and a 16px radius, at 1280 a shadow and 8px.
 
+**A field under 16px zooms the whole page.** iOS Safari/WKWebView zoom when a
+focused form control has a font smaller than 16px. The zoom shrinks and pans the
+visual viewport, and `position: fixed` is laid out against the LAYOUT viewport,
+so the top bar goes under the status bar and the tab bar slides sideways - it
+reads as the app jumping, not as a zoom. `globals.css` forces 16px on
+`(max-width: 1023px), (pointer: coarse)`.
+
+It needs `!important`, and the reason is worth knowing: **`@layer base` does not
+beat a utility class.** Tailwind 3 does not emit base as a real cascade layer -
+it is plain CSS - so `.text-sm` (specificity 0,1,0) outranks `input` (0,0,1)
+regardless of source order. The rule had been in the file from the beginning and
+never once applied; 42 controls carry an explicit small font, `components/ui/input.tsx`
+among them, so every screen zoomed. `overlay-geometry.ts` measures a `text-sm`
+input at 390 (16px) and at 1280 (14px, density kept).
+
 **A menu anchored to a header control is a SHEET on a phone.** The job status
 dropdown and the team pop-over were `absolute left-0` under controls in the right
 half of a 390px header, so half of each ran off the screen. Below `lg` they are

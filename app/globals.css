@@ -106,15 +106,29 @@
     color: rgb(var(--faint));
   }
 
-  /* iOS Safari zooms the whole page when a focused form control has a font
-     smaller than 16px. Force 16px on phones so tapping any field (or a
-     dropdown's search box) never triggers that jarring zoom. Desktop keeps
-     its denser sizing. */
-  @media (max-width: 640px) {
+  /* ── iOS ZOOMS THE PAGE for a field under 16px, and this rule did nothing ──
+     Safari/WKWebView zoom the whole page when a focused form control has a
+     font smaller than 16px. Zoom shrinks the VISUAL viewport and pans it,
+     while `position: fixed` is laid out against the LAYOUT viewport - so the
+     top bar slid under the status bar and the tab bar slid off to the left,
+     reading "me" where it says "Home". That is the "screen goes crazy"; the
+     page was never scrolled, it was zoomed.
+
+     This rule existed and was dead. Tailwind 3 does not emit @layer base as a
+     real cascade layer - it is plain CSS - so `.text-sm` (0,1,0) beat
+     `input` (0,0,1) on specificity no matter which came first. 42 controls
+     carry an explicit small font, `components/ui/input.tsx` among them, so in
+     practice EVERY field in the app zoomed.
+
+     `!important` because on a touch screen there is no such thing as a
+     legitimate 14px form control: the platform will zoom the page for it.
+     Scoped so a mouse-driven desktop keeps its denser sizing.
+     Measured in `lib/__tests__/overlay-geometry.ts`. */
+  @media (max-width: 1023px), (pointer: coarse) {
     input,
     select,
     textarea {
-      font-size: 16px;
+      font-size: 16px !important;
     }
   }
 

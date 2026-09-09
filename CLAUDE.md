@@ -167,6 +167,16 @@ production branch.** Do NOT ask the user to merge or deploy.
 - NEVER `autoFocus` on a touch screen - `autoFocus={autoFocusOnDesktop()}`
   (`lib/auto-focus.ts`). iOS opens the keyboard for it unasked and scrolls the
   LAYOUT viewport to reach the field, dragging the fixed dialog off with it.
+- A form control under 16px makes iOS ZOOM THE PAGE on focus. Zoom shrinks and
+  pans the visual viewport while `position: fixed` stays on the LAYOUT one, so
+  the top bar hides under the status bar and the tab bar slides off the left -
+  the "screen goes crazy" that is not a scroll at all. globals.css forces 16px
+  on touch/narrow, with `!important`: **a `@layer base` rule does NOT beat a
+  utility class.** Tailwind 3 emits base as plain CSS, so `.text-sm` (0,1,0)
+  outranks `input` (0,0,1) whatever the order - the rule sat there dead while
+  42 controls, `components/ui/input.tsx` included, zoomed every screen.
+  Measured in `overlay-geometry.ts`; never write a bare element rule in base
+  and assume it wins.
 - Overlays are sized from `--vv-h` / `--vv-t` (`lib/use-visual-viewport.ts`),
   not `inset: 0`. The layout viewport does not shrink for a keyboard, so a
   centred dialog puts its own buttons behind one.
