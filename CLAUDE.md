@@ -180,6 +180,15 @@ production branch.** Do NOT ask the user to merge or deploy.
 - Overlays are sized from `--vv-h` / `--vv-t` (`lib/use-visual-viewport.ts`),
   not `inset: 0`. The layout viewport does not shrink for a keyboard, so a
   centred dialog puts its own buttons behind one.
+- **`--vv-h` is NOT `visualViewport.height`.** It is the visible strip measured
+  against the layout viewport the CSS resolves in, and `lib/visible-viewport.ts`
+  (pure, unit-tested) decides which of the two knows. Capacitor's default
+  keyboard mode shrinks the WKWebView frame, so the layout viewport is ALREADY
+  the strip and `visualViewport` subtracts the keyboard a SECOND time - the app
+  came out ~121pt tall in a ~516pt space. When `innerHeight` has dropped below
+  the tallest frame seen, trust `innerHeight` and set the offset to 0; only an
+  unshrunk frame (mobile Safari) defers to `visualViewport`. Rotation resets
+  the baseline, or landscape reads as a keyboard forever.
 - **The SHELL follows `--vv-h` too**, not just overlays: `.h-app` is
   `var(--vv-h, 100dvh)` inside `@supports (height: 100dvh)`. A document taller
   than the webview's frame is one the webview can scroll, and Capacitor shrinks
