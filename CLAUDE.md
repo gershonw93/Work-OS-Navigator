@@ -176,6 +176,8 @@ production branch.** Do NOT ask the user to merge or deploy.
   table only for genuinely tabular data, and then wrap it in `overflow-x-auto`.
   `layout-overflow.ts` ratchets the count of tables a phone renders - it may
   only go DOWN.
+- `Card` is `rounded-2xl border border-line bg-panel` with NO shadow, and the
+  page wrapper is `p-6` on every width - not `p-4 sm:p-6`. Both are pinned.
 - A badge or a button label NEVER wraps. `Badge` and `Button` set
   `whitespace-nowrap` centrally; a hand-rolled pill must too, and the test
   scans for it.

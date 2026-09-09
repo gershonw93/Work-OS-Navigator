@@ -57,7 +57,7 @@ export default function MasterMoneyPage() {
   ]
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-6xl mx-auto">
+    <div className="p-6 space-y-6 max-w-6xl mx-auto">
       <div>
         <h1 className="text-2xl font-bold text-ink">Master Money</h1>
         <p className="text-sm text-muted-fg mt-0.5">Budget, commitments and billing rolled up across every project. Click a row to open its financials.</p>

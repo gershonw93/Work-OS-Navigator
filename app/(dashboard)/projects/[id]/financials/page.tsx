@@ -67,8 +67,8 @@ export default function FinancialsPage({ params }: { params: { id: string } }) {
     load()
   }
 
-  if (loading) return <div className="p-4 sm:p-6 text-sm text-faint py-12 text-center">Loading...</div>
-  if (!data) return <div className="p-4 sm:p-6 text-sm text-danger">Failed to load financials.</div>
+  if (loading) return <div className="p-6 text-sm text-faint py-12 text-center">Loading...</div>
+  if (!data) return <div className="p-6 text-sm text-danger">Failed to load financials.</div>
 
   // Revised contract = subcontracts + approved change orders. All progress is
   // measured against it so approved COs immediately widen the "whole".
@@ -90,7 +90,7 @@ export default function FinancialsPage({ params }: { params: { id: string } }) {
   ]
 
   return (
-    <div className="p-4 sm:p-6 space-y-6">
+    <div className="p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-ink">Financials</h1>
         <p className="text-sm text-muted-fg mt-0.5">Project cost breakdown and payment status.</p>

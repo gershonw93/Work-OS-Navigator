@@ -247,7 +247,7 @@ export default function DashboardPage() {
   // both the data and the role are known.
   if (loadError && !loading) {
     return (
-      <div className="p-4 sm:p-6">
+      <div className="p-6">
         <EmptyState
           icon={AlertCircle}
           title="Couldn't load your dashboard"
@@ -270,7 +270,7 @@ export default function DashboardPage() {
   if (!loading && !roleLoading && !loadError && stats && !stats.isSub
       && !g0?.assignedOnly && g0?.activeProjects === 0) {
     return (
-      <div className="p-4 sm:p-6">
+      <div className="p-6">
         <EmptyState
           icon={FolderKanban}
           title="Let's set up your first job"
@@ -283,7 +283,7 @@ export default function DashboardPage() {
 
   if (loading || roleLoading) {
     return (
-      <div className="p-4 sm:p-6 space-y-5 animate-pulse">
+      <div className="p-6 space-y-5 animate-pulse">
         <div className="space-y-2">
           <div className="h-7 w-56 rounded-md bg-muted" />
           <div className="h-4 w-72 rounded bg-muted/70" />
@@ -305,7 +305,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-5">
+    <div className="p-6 space-y-5">
 
       {/* New Bid Banner */}
       {newBidNotifications.length > 0 && (

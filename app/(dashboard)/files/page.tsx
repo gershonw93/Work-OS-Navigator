@@ -348,7 +348,7 @@ export default function FilesPage() {
   const visibleFiles = categoryFilter === 'All' ? files : files.filter(f => f.category === categoryFilter)
 
   return (
-    <div className="p-4 sm:p-6 space-y-5">
+    <div className="p-6 space-y-5">
       {/* Upload modal */}
       {showUpload && (
         <div className="overlay items-center justify-center bg-black/50" data-overlay>

@@ -291,10 +291,10 @@ export default function ProjectsPage() {
   const hasFilters = query.trim() !== '' || statusFilter !== 'all' || typeFilter !== 'all'
   function clearFilters() { setQuery(''); setStatusFilter('all'); setTypeFilter('all') }
 
-  if (loading) return <div className="p-4 sm:p-6 text-sm text-faint py-12 text-center">Loading...</div>
+  if (loading) return <div className="p-6 text-sm text-faint py-12 text-center">Loading...</div>
 
   return (
-    <div className="p-4 sm:p-6">
+    <div className="p-6">
       {/* Edit Modal */}
       {editProject && (
         <div className="overlay items-center justify-center bg-black/50" data-overlay>

@@ -276,16 +276,38 @@ ok(wrapping.length === 0,
 const phoneTables: string[] = []
 for (const f of tsx) {
   if (f.includes('/print/')) continue                   // paged output, no phone
-  read(f).split('\n').forEach((line, i) => {
+  const lines = read(f).split('\n')
+  lines.forEach((line, i) => {
     if (!/<table/.test(line)) return
-    if (/hidden (?:sm|md):table/.test(line)) return      // a phone never sees it
+    // Hidden on the <table> itself, OR on a wrapper a few lines up - Approvals
+    // has a `hidden md:block` wrapper and a separate phone layout, and the
+    // first version of this scan counted it as a phone table anyway.
+    const above = lines.slice(Math.max(0, i - 4), i + 1).join(' ')
+    if (/hidden (?:sm|md|lg):(?:table|block)/.test(above)) return
     phoneTables.push(`${f}:${i + 1}`)
   })
 }
-ok(phoneTables.length <= 15,
+ok(phoneTables.length <= 12,
   `${phoneTables.length} tables still render on a phone (was 16, and this may only go down)`)
+ok(!/<table/.test(read('app/(dashboard)/projects/[id]/compliance/page.tsx')),
+  'Compliance is a list - it needed 560px and scrolled its Expires column off the phone')
 ok(!/<table/.test(read('app/(dashboard)/settings/page.tsx')),
   'Settings has no tables at all - Team & Users was five columns in 390px')
+
+// ── 6. the look: one radius, a border, no shadow, 24px gutters ──────────────
+// A border already separates a card from the page. A shadow on top of it is a
+// second separator saying the same thing, and it is what made every screen
+// read as a web dashboard rather than a native one. Set on Card so all move.
+const card = code('components/ui/card.tsx')
+ok(/rounded-2xl/.test(card), 'Card is ~20px radius')
+ok(!/shadow-/.test(card), '...with no shadow - the 1px border is the separation')
+const gutters: string[] = []
+for (const f of tsx) {
+  if (!f.startsWith('app/(dashboard)/')) continue
+  code(f).split('\n').forEach((line, i) => { if (/\bp-4 sm:p-6\b/.test(line)) gutters.push(`${f}:${i + 1}`) })
+}
+ok(gutters.length === 0,
+  `no screen squeezes to 16px gutters on a phone${gutters.length ? ` - ${gutters[0]}` : ''} - 24px everywhere`)
 
 // ── long text, which is the same bug one level down ──────────────────────────
 ok(/p,\s*li,\s*dd,\s*dt,\s*td,\s*th[\s\S]{0,80}overflow-wrap:\s*anywhere/.test(css),

@@ -110,7 +110,7 @@ export default async function ProjectLayout({ children, params }: ProjectLayoutP
 
       {/* Content. Wrapped so a tab this person may not see says so, rather
           than rendering an empty version of it - see ProjectTabGuard. */}
-      <div className="flex-1 p-4 sm:p-6 print:p-0">
+      <div className="flex-1 p-6 print:p-0">
         <ProjectTabGuard>{children}</ProjectTabGuard>
       </div>
     </div>

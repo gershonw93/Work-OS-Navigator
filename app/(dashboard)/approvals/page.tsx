@@ -88,7 +88,7 @@ export default function ApprovalsPage() {
 
   if (loading) {
     return (
-      <div className="p-4 sm:p-6">
+      <div className="p-6">
         <PageHeader title="Approvals" subtitle="" />
         <div className="py-16 text-center text-sm text-faint">Loading...</div>
       </div>
@@ -96,7 +96,7 @@ export default function ApprovalsPage() {
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-5">
+    <div className="p-6 space-y-5">
       <PageHeader
         title={isSub ? 'My Submissions' : 'Approvals'}
         subtitle={isSub
