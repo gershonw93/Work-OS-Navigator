@@ -28,9 +28,9 @@ const PRIORITIES = [
 ]
 
 const STATUSES = [
-  { value: 'open',        label: 'Open',        icon: Circle,       color: 'text-faint',  colBg: 'bg-surface',   colBorder: 'border-line', headerBg: 'bg-muted',  headerText: 'text-muted-fg'  },
-  { value: 'in_progress', label: 'In Progress', icon: Clock,        color: 'text-info',   colBg: 'bg-info-tint/40', colBorder: 'border-info/30',  headerBg: 'bg-info-tint',   headerText: 'text-info'   },
-  { value: 'completed',   label: 'Completed',   icon: CheckSquare,  color: 'text-success',  colBg: 'bg-success-tint/40',colBorder: 'border-success/30', headerBg: 'bg-success-tint',  headerText: 'text-success'  },
+  { value: 'open',        label: 'Open',        icon: Circle,       color: 'text-faint',  colBorder: 'border-line', headerBg: 'bg-muted',  headerText: 'text-muted-fg'  },
+  { value: 'in_progress', label: 'In Progress', icon: Clock,        color: 'text-info',   colBorder: 'border-info/30',  headerBg: 'bg-info-tint',   headerText: 'text-info'   },
+  { value: 'completed',   label: 'Completed',   icon: CheckSquare,  color: 'text-success',  colBorder: 'border-success/30', headerBg: 'bg-success-tint',  headerText: 'text-success'  },
 ]
 
 type ViewMode = 'board' | 'list' | 'assignee'
@@ -278,7 +278,7 @@ function TaskDetailPanel({ task, notes, notesLoading, onAddNote, projectId, onCh
   }
 
   return (
-    <div className="border-t border-line-soft bg-surface/60 rounded-b-xl px-4 py-4">
+    <div className="border-t border-line-soft bg-surface/60 px-4 py-4">
       <div className="flex flex-col md:flex-row gap-6">
         {/* ── Left: task details ─────────────────────────────────────────── */}
         <div className="flex-1 min-w-0 space-y-3">
@@ -748,13 +748,12 @@ export default function TasksPage({ params }: { params: { id: string } }) {
     return (
       <div
         className={cn(
-          'group relative bg-panel rounded-lg border flex flex-col transition-all cursor-pointer',
-          isOverdue(task) ? 'border-danger/30 bg-danger-tint/30' : 'border-line hover:border-muted2 hover:shadow-sm',
-          expanded && 'ring-2 ring-accent/40',
+          'group cursor-pointer px-4 py-3 transition-colors hover:bg-surface',
+          expanded && 'bg-surface',
         )}
         onClick={() => toggleExpand(task.id)}
       >
-        <div className="p-3 flex flex-col gap-2">
+        <div className="flex flex-col gap-2">
           {/* title row */}
           <div className="flex items-start gap-1.5">
             <PriorityDot priority={task.priority} />
@@ -819,11 +818,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
   function ListCard({ task }: { task: Task }) {
     const expanded = expandedTaskId === task.id
     return (
-      <div className={cn(
-        'bg-panel rounded-xl border transition-all',
-        isOverdue(task) ? 'border-danger/30 bg-danger-tint/30' : 'border-line hover:border-muted2',
-        expanded && 'ring-2 ring-accent/40',
-      )}>
+      <div className={cn('transition-colors', expanded && 'bg-surface')}>
         <div
           className="group px-4 py-3 flex items-start gap-3 cursor-pointer"
           onClick={() => toggleExpand(task.id)}
@@ -927,27 +922,28 @@ export default function TasksPage({ params }: { params: { id: string } }) {
               // Keyed on the status. Without it React reuses column DOM across
               // renders by position, so a card dragged between columns can land
               // in the wrong one - caught the first time rules-of-hooks lint ran.
-              <div key={col.value} className={cn('rounded-xl border flex flex-col overflow-hidden', col.colBorder)}>
-                {/* column header */}
-                <div className={cn('flex items-center justify-between px-3 py-2.5', col.headerBg)}>
-                  <div className="flex items-center gap-2">
-                    <col.icon className={cn('h-4 w-4', col.color)} />
-                    <span className={cn('text-sm font-semibold', col.headerText)}>{col.label}</span>
-                    <span className={cn('whitespace-nowrap text-xs font-bold rounded-full px-1.5 py-0.5 min-w-[1.25rem] text-center', col.headerBg, col.headerText, 'border', col.colBorder)}>
-                      {colTasks.length}
-                    </span>
+              // NO TINT. Each column was a coloured box - tinted header, tinted
+              // background, tinted count pill, tinted border - holding cards
+              // that were boxes of their own. Three columns, three colours, a
+              // box in a box. The status icon is the one thing in colour; the
+              // rest is ink on panel, and the tasks are rows in a list.
+              <div key={col.value} className="flex flex-col overflow-hidden rounded-2xl border border-line bg-panel">
+                <div className="flex items-center justify-between border-b border-line-soft px-4 py-3">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <col.icon className={cn('h-4 w-4 shrink-0', col.color)} />
+                    <span className="truncate text-sm font-semibold text-ink">{col.label}</span>
+                    <span className="text-sm tabular-nums text-faint">{colTasks.length}</span>
                   </div>
                   <button
                     onClick={() => openAddForm(col.value)}
                     title={`Add ${col.label} task`}
-                    className={cn('p-1 rounded hover:bg-black/5 transition-colors', col.headerText)}
+                    className="-mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-fg hover:bg-surface hover:text-ink"
                   >
-                    <Plus className="h-3.5 w-3.5" />
+                    <Plus className="h-4 w-4" />
                   </button>
                 </div>
 
-                {/* cards */}
-                <div className={cn('flex-1 p-2 space-y-2 min-h-[120px]', col.colBg)}>
+                <div className="flex-1 divide-y divide-line-soft min-h-[120px]">
                   {colTasks.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-8 gap-1">
                       <p className="text-xs text-faint">No tasks</p>
@@ -969,12 +965,13 @@ export default function TasksPage({ params }: { params: { id: string } }) {
 
         {/* Board expanded panel - drawer below the board */}
         {expandedTask && (
-          <div className="rounded-xl border border-accent/40 bg-panel shadow-md overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-2.5 bg-accent-tint border-b border-accent/20">
-              <span className="text-sm font-semibold text-accent-fg">Task Detail</span>
+          <div className="overflow-hidden rounded-2xl border border-line bg-panel">
+            <div className="flex items-center justify-between border-b border-line-soft py-1 pl-4 pr-1">
+              <span className="text-sm font-semibold text-ink">Task detail</span>
               <button
                 onClick={() => setExpandedTaskId(null)}
-                className="text-accent-fg hover:text-accent-fg transition-colors"
+                aria-label="Close"
+                className="flex h-11 w-11 items-center justify-center rounded-lg text-muted-fg hover:bg-surface hover:text-ink"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -1000,24 +997,28 @@ export default function TasksPage({ params }: { params: { id: string } }) {
     return (
       <div className="space-y-6">
         {generalTasks.length > 0 && (
-          <div className="space-y-2">
+          <div className="space-y-3">
             <div className="flex items-center gap-3 px-1">
               <p className="text-xs font-semibold text-faint uppercase tracking-wide">General Tasks</p>
               <span className="whitespace-nowrap text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{generalTasks.length}</span>
               <GroupProgressBar tasks={generalTasks} />
             </div>
-            {generalTasks.map(task => <ListCard key={task.id} task={task} />)}
+            <div className="divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-panel">
+              {generalTasks.map(task => <ListCard key={task.id} task={task} />)}
+            </div>
           </div>
         )}
         {Object.entries(subGroups).map(([companyId, group]) => (
-          <div key={companyId} className="space-y-2">
+          <div key={companyId} className="space-y-3">
             <div className="flex items-center gap-2 px-1 flex-wrap">
               <Building2 className="h-3.5 w-3.5 text-faint" />
               <p className="text-xs font-semibold text-faint uppercase tracking-wide">{group.name}</p>
               <span className="whitespace-nowrap text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{group.tasks.length}</span>
               <GroupProgressBar tasks={group.tasks} />
             </div>
-            {group.tasks.map(task => <ListCard key={task.id} task={task} />)}
+            <div className="divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-panel">
+              {group.tasks.map(task => <ListCard key={task.id} task={task} />)}
+            </div>
           </div>
         ))}
         {filteredTasks.length === 0 && <EmptyState />}
@@ -1045,7 +1046,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
       <div className="space-y-6">
         {Object.entries(groups).length === 0 && <EmptyState />}
         {Object.entries(groups).map(([key, group]) => (
-          <div key={key} className="space-y-2">
+          <div key={key} className="space-y-3">
             <div className="flex items-center gap-2 px-1 flex-wrap">
               {group.isCompany
                 ? <Building2 className="h-3.5 w-3.5 text-faint" />
@@ -1054,7 +1055,9 @@ export default function TasksPage({ params }: { params: { id: string } }) {
               <span className="whitespace-nowrap text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{group.tasks.length}</span>
               <GroupProgressBar tasks={group.tasks} />
             </div>
-            {group.tasks.map(task => <ListCard key={task.id} task={task} />)}
+            <div className="divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-panel">
+              {group.tasks.map(task => <ListCard key={task.id} task={task} />)}
+            </div>
           </div>
         ))}
       </div>
@@ -1282,7 +1285,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
       </div>
 
       {/* ── Filter pills ──────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mb-1 scrollbar-hide">
+      <div className="scroll-fade flex items-center gap-1.5 overflow-x-auto pb-1 -mb-1 scrollbar-hide">
         {([
           { key: 'all',         label: 'All' },
           { key: 'open',        label: 'Open' },

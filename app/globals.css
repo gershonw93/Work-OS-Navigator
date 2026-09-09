@@ -218,6 +218,14 @@
     .animate-marquee { animation: none; }
   }
 
+  /* A horizontal strip fades out at its right edge, which is the only signal a
+     phone gives that there is more to the right - a hidden scrollbar hides
+     the other one. Ends at 92% so the last visible item is still legible. */
+  .scroll-fade {
+    -webkit-mask-image: linear-gradient(to right, black 92%, transparent);
+    mask-image: linear-gradient(to right, black 92%, transparent);
+  }
+
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;

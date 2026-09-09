@@ -181,6 +181,14 @@ production branch.** Do NOT ask the user to merge or deploy.
 - A badge or a button label NEVER wraps. `Badge` and `Button` set
   `whitespace-nowrap` centrally; a hand-rolled pill must too, and the test
   scans for it.
+- A list of items is ONE card with `divide-y divide-line-soft` rows, never a
+  bordered card per item, and never cards on a tinted column. The Tasks board
+  was three coloured boxes each holding a stack of boxes. A selected/expanded
+  row is `bg-surface`, not `ring-2`; an overdue row says "Overdue" in red and is
+  NOT tinted on top of it.
+- A strip that scrolls sideways carries `.scroll-fade` (globals.css) so its
+  right edge fades - with the scrollbar hidden that is the only sign there is
+  more. Pinned for the Tasks filter row and the Settings tab strip.
 
 ## Loading and failure states (IMPORTANT)
 - A loading state must have a WAY TO END. `setLoading(false)` as the last
