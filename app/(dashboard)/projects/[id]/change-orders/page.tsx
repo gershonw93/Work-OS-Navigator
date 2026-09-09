@@ -242,15 +242,15 @@ function ChangeOrdersPageInner({ params }: { params: { id: string } }) {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-semibold text-ink">{co.title}</span>
-              <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5', cfg.pillClass)}>
+              <span className={cn('whitespace-nowrap text-xs font-medium rounded-full border px-2 py-0.5', cfg.pillClass)}>
                 {cfg.label}
               </span>
               <span className={cn('text-sm font-semibold', amountColor)}>{fmt(co.amount)}</span>
               {co.requested_by_type === 'sub' && (
-                <span className="text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">Sub</span>
+                <span className="whitespace-nowrap text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">Sub</span>
               )}
               {co.requested_by_type === 'gc' && (
-                <span className="text-xs bg-accent-tint text-accent-fg rounded-full px-2 py-0.5">GC</span>
+                <span className="whitespace-nowrap text-xs bg-accent-tint text-accent-fg rounded-full px-2 py-0.5">GC</span>
               )}
             </div>
             <p className="text-xs text-faint mt-0.5">
@@ -279,7 +279,7 @@ function ChangeOrdersPageInner({ params }: { params: { id: string } }) {
               </div>
               <div>
                 <p className="text-xs text-faint">Status</p>
-                <span className={cn('inline-block text-xs font-medium rounded-full border px-2 py-0.5 mt-0.5', cfg.pillClass)}>
+                <span className={cn('whitespace-nowrap inline-block text-xs font-medium rounded-full border px-2 py-0.5 mt-0.5', cfg.pillClass)}>
                   {cfg.label}
                 </span>
               </div>

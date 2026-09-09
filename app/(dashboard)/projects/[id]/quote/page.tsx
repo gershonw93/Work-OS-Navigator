@@ -97,7 +97,7 @@ export default function QuotePage({ params }: { params: { id: string } }) {
           <h1 className="text-2xl font-bold text-ink">Estimate</h1>
           <p className="text-sm text-muted-fg mt-0.5">Build or upload your estimate. AI reads it into line items - send it as your proposal, then convert it to an active job once it's accepted.</p>
         </div>
-        <span className={cn('text-xs font-semibold rounded-full px-2.5 py-1', isPending ? 'bg-warn-tint text-warn' : 'bg-success-tint text-success')}>
+        <span className={cn('whitespace-nowrap text-xs font-semibold rounded-full px-2.5 py-1', isPending ? 'bg-warn-tint text-warn' : 'bg-success-tint text-success')}>
           {isPending ? 'Estimate · Pending' : 'Active job'}
         </span>
       </div>

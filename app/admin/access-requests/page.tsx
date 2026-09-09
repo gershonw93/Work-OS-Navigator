@@ -92,13 +92,13 @@ export default function AccessRequestsPage() {
   function AccountNote({ r }: { r: AccessRequest }) {
     const a = r.account
     if (!a?.exists) {
-      return <span className="rounded-full bg-warn-tint px-2 py-0.5 text-xs font-medium text-warn">No account yet</span>
+      return <span className="whitespace-nowrap rounded-full bg-warn-tint px-2 py-0.5 text-xs font-medium text-warn">No account yet</span>
     }
     if (!a.last_sign_in_at) {
-      return <span className="rounded-full bg-surface px-2 py-0.5 text-xs text-muted-fg">Signed up, never logged in</span>
+      return <span className="whitespace-nowrap rounded-full bg-surface px-2 py-0.5 text-xs text-muted-fg">Signed up, never logged in</span>
     }
     return (
-      <span className="rounded-full bg-surface px-2 py-0.5 text-xs text-muted-fg" title={new Date(a.last_sign_in_at).toLocaleString()}>
+      <span className="whitespace-nowrap rounded-full bg-surface px-2 py-0.5 text-xs text-muted-fg" title={new Date(a.last_sign_in_at).toLocaleString()}>
         Last login {timeAgo(a.last_sign_in_at)}
       </span>
     )
@@ -162,8 +162,8 @@ export default function AccessRequestsPage() {
                 <span className="text-sm text-faint">{r.email}</span>
                 {r.company_name && <span className="text-sm text-faint">· {r.company_name}</span>}
                 <AccountNote r={r} />
-                {r.company_type && <span className="rounded-full bg-surface px-2 py-0.5 text-xs text-muted-fg uppercase">{r.company_type === 'gc' ? 'GC' : 'Sub'}</span>}
-                <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium capitalize', STATUS_CLS[r.status] ?? '')}>{r.status}</span>
+                {r.company_type && <span className="whitespace-nowrap rounded-full bg-surface px-2 py-0.5 text-xs text-muted-fg uppercase">{r.company_type === 'gc' ? 'GC' : 'Sub'}</span>}
+                <span className={cn('whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium capitalize', STATUS_CLS[r.status] ?? '')}>{r.status}</span>
                 <span className="ml-auto text-xs text-faint">{formatDate(r.created_at)}</span>
               </div>
               {(r.message || r.phone) && (

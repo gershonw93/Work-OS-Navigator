@@ -115,7 +115,7 @@ export default function MyBidsPage() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-semibold text-ink">{pkg.scope}</span>
-            {pkg.trade && <span className="text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{pkg.trade}</span>}
+            {pkg.trade && <span className="whitespace-nowrap text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{pkg.trade}</span>}
           </div>
           {pkg.due_date && (
             <p className="text-xs text-faint mt-0.5">Bid due {formatDate(pkg.due_date)}</p>
@@ -161,7 +161,7 @@ export default function MyBidsPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-ink">{req?.title ?? 'Quote request'}</span>
-                    {req?.trade && <span className="text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{req.trade}</span>}
+                    {req?.trade && <span className="whitespace-nowrap text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{req.trade}</span>}
                   </div>
                   <p className="text-xs text-muted-fg mt-0.5">
                     {req?.projects?.name ?? 'A project'}
@@ -209,7 +209,7 @@ export default function MyBidsPage() {
                 {t.label}
                 {t.count > 0 && (
                   <span className={cn(
-                    'text-xs rounded-full px-1.5 py-0.5 font-semibold min-w-[20px] text-center',
+                    'whitespace-nowrap text-xs rounded-full px-1.5 py-0.5 font-semibold min-w-[20px] text-center',
                     activeTab === t.key ? 'bg-accent-tint text-accent-fg' : 'bg-muted text-muted-fg'
                   )}>
                     {t.count}
@@ -247,7 +247,7 @@ export default function MyBidsPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-semibold text-ink">{pkg.scope}</span>
-                          {pkg.trade && <span className="text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{pkg.trade}</span>}
+                          {pkg.trade && <span className="whitespace-nowrap text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{pkg.trade}</span>}
                         </div>
                         <p className="text-sm text-muted-fg mt-0.5">{group.projectName} · {group.projectAddress}</p>
                         {pkg.due_date && (
@@ -285,7 +285,7 @@ export default function MyBidsPage() {
                         <p className="text-sm text-muted-fg mt-0.5">{group.projectAddress}</p>
                       </div>
                       <div className="shrink-0 flex items-center gap-3 text-sm text-muted-fg">
-                        <span className="text-xs bg-accent-tint text-accent-fg border border-accent/40 rounded-full px-2.5 py-0.5 font-medium">
+                        <span className="whitespace-nowrap text-xs bg-accent-tint text-accent-fg border border-accent/40 rounded-full px-2.5 py-0.5 font-medium">
                           {group.items.length} proposals
                         </span>
                         {totalValue > 0 && (
@@ -307,7 +307,7 @@ export default function MyBidsPage() {
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
                                   <span className="font-medium text-ink-soft text-sm">{pkg.scope}</span>
-                                  {pkg.trade && <span className="text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{pkg.trade}</span>}
+                                  {pkg.trade && <span className="whitespace-nowrap text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{pkg.trade}</span>}
                                 </div>
                                 {pkg.due_date && (
                                   <p className="text-xs text-faint mt-0.5">Bid due {formatDate(pkg.due_date)}</p>

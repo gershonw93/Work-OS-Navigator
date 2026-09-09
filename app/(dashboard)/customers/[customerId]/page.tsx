@@ -334,7 +334,7 @@ export default function CustomerDetailPage() {
                   key={f}
                   onClick={() => setStatusFilter(f)}
                   className={[
-                    'px-3 py-1 rounded-full text-xs font-medium transition-colors',
+                    'whitespace-nowrap px-3 py-1 rounded-full text-xs font-medium transition-colors',
                     statusFilter === f
                       ? 'bg-accent text-accent-ink'
                       : 'bg-muted text-muted-fg hover:bg-muted2',
@@ -373,7 +373,7 @@ export default function CustomerDetailPage() {
                       {p.address && <p className="text-xs text-muted-fg truncate">{p.address}</p>}
                       {p.start_date && <p className="text-xs text-faint">{p.start_date}</p>}
                       {p.type && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-fg capitalize">
+                        <span className="whitespace-nowrap inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-fg capitalize">
                           {p.type.replace('_', ' ')}
                         </span>
                       )}

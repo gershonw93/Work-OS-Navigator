@@ -223,7 +223,7 @@ export default function DirectoryPage() {
   function TypeBadge({ type }: { type: ContactType }) {
     return (
       <span className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+        'whitespace-nowrap inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
         TYPE_BADGE_CLASSES[type] ?? 'bg-muted text-muted-fg'
       )}>
         {TYPE_LABELS[type] ?? type}
@@ -594,7 +594,7 @@ export default function DirectoryPage() {
               {tab.label}
               {count > 0 && (
                 <span className={cn(
-                  'inline-flex items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-medium min-w-[1.25rem]',
+                  'whitespace-nowrap inline-flex items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-medium min-w-[1.25rem]',
                   active ? 'bg-accent-tint text-accent-fg' : 'bg-muted text-muted-fg'
                 )}>
                   {count}
@@ -654,7 +654,7 @@ export default function DirectoryPage() {
 
                 {/* Inspector specialty badge */}
                 {type === 'inspector' && extra.specialty && (
-                  <span className="inline-flex items-center gap-1 self-start rounded-full px-2.5 py-0.5 text-xs font-medium bg-special-tint text-special border border-special/30">
+                  <span className="whitespace-nowrap inline-flex items-center gap-1 self-start rounded-full px-2.5 py-0.5 text-xs font-medium bg-special-tint text-special border border-special/30">
                     <BadgeCheck className="h-3 w-3" />
                     {extra.specialty}
                   </span>
@@ -929,7 +929,7 @@ export default function DirectoryPage() {
                                   <tr key={doc.id} className="hover:bg-surface">
                                     <td className="px-4 py-3 font-medium text-ink-soft">{typeLabels[doc.type] ?? doc.type}</td>
                                     <td className="px-4 py-3">
-                                      <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-medium', statusColors[resolvedStatus] ?? 'bg-muted text-muted-fg')}>
+                                      <span className={cn('whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium', statusColors[resolvedStatus] ?? 'bg-muted text-muted-fg')}>
                                         {resolvedStatus.replace('_', ' ')}
                                       </span>
                                     </td>
@@ -973,7 +973,7 @@ export default function DirectoryPage() {
                                 </div>
                                 <div className="text-right shrink-0">
                                   <p className="text-sm font-semibold text-ink">${Number(inv.amount).toLocaleString()}</p>
-                                  <span className={cn('text-xs font-medium px-2 py-0.5 rounded-full',
+                                  <span className={cn('whitespace-nowrap text-xs font-medium px-2 py-0.5 rounded-full',
                                     inv.status === 'paid' ? 'bg-success-tint text-success' :
                                     inv.status === 'overdue' ? 'bg-danger-tint text-danger' :
                                     'bg-warn-tint text-warn')}>
@@ -999,7 +999,7 @@ export default function DirectoryPage() {
                                 <div className="text-right shrink-0">
                                   {p.amount && <p className="text-sm font-semibold text-ink">${Number(p.amount).toLocaleString()}</p>}
                                   {p.percentage && <p className="text-xs text-faint">{p.percentage}%</p>}
-                                  <span className={cn('text-xs font-medium px-2 py-0.5 rounded-full',
+                                  <span className={cn('whitespace-nowrap text-xs font-medium px-2 py-0.5 rounded-full',
                                     p.status === 'paid' ? 'bg-success-tint text-success' :
                                     p.status === 'invoiced' ? 'bg-info-tint text-info' :
                                     'bg-muted text-muted-fg')}>
@@ -1033,7 +1033,7 @@ export default function DirectoryPage() {
                             <>
                               <div className="flex items-center justify-between gap-2">
                                 <p className="font-medium text-ink-soft">{sub.projects?.name ?? 'Unknown Project'}</p>
-                                <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium',
+                                <span className={cn('whitespace-nowrap text-xs px-2 py-0.5 rounded-full font-medium',
                                   sub.projects?.status === 'active' ? 'bg-success-tint text-success' : 'bg-muted text-muted-fg')}>
                                   {sub.projects?.status ?? ''}
                                 </span>

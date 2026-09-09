@@ -166,9 +166,9 @@ export default function SubmittalsPage({ params }: { params: { id: string } }) {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-semibold text-ink">{sub.title}</span>
-              <span className="text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{sub.type}</span>
-              {sub.trade && <span className="text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{sub.trade}</span>}
-              <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5', cfg.color)}>{cfg.label}</span>
+              <span className="whitespace-nowrap text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{sub.type}</span>
+              {sub.trade && <span className="whitespace-nowrap text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{sub.trade}</span>}
+              <span className={cn('whitespace-nowrap text-xs font-medium rounded-full border px-2 py-0.5', cfg.color)}>{cfg.label}</span>
               {sub.file_url && <Paperclip className="h-3.5 w-3.5 text-faint" />}
             </div>
             <p className="text-xs text-faint mt-0.5">
@@ -212,7 +212,7 @@ export default function SubmittalsPage({ params }: { params: { id: string } }) {
                 <span className="text-xs text-faint">Review:</span>
                 {['pending', 'approved', 'rejected', 'revise'].map(s => (
                   <button key={s} type="button" onClick={() => handleStatusClick(sub, s)}
-                    className={cn('text-xs rounded-full border px-2 py-0.5 font-medium transition-colors',
+                    className={cn('whitespace-nowrap text-xs rounded-full border px-2 py-0.5 font-medium transition-colors',
                       sub.status === s ? STATUS_CONFIG[s].color : 'border-line text-muted-fg hover:border-muted2')}>
                     {STATUS_CONFIG[s].label}
                   </button>

@@ -130,7 +130,7 @@ export default function ProgressPage({ params }: { params: { id: string } }) {
                   <div key={group.name} className="px-4 sm:px-5 py-4">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2 min-w-0">
-                        <div className={cn('h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0',
+                        <div className={cn('whitespace-nowrap h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0',
                           group.isSub ? 'bg-muted text-muted-fg' : 'bg-accent-tint text-accent-fg')}>
                           {group.isSub
                             ? <Building2 className="h-3.5 w-3.5" />

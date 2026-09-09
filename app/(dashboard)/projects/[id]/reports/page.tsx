@@ -94,7 +94,7 @@ function StatusBadge({ status }: { status: string }) {
   }
   const cls = map[status] ?? 'bg-muted text-muted-fg'
   return (
-    <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize', cls)}>
+    <span className={cn('whitespace-nowrap inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize', cls)}>
       {status.replace(/_/g, ' ')}
     </span>
   )
@@ -356,7 +356,7 @@ export default function ReportsPage({ params }: { params: { id: string } }) {
                         <div className={cn('px-4 py-2.5 flex flex-wrap items-center justify-between gap-2', hasIssue ? 'bg-danger-tint' : 'bg-surface')}>
                           <span className="text-sm font-semibold text-ink-soft">{sub}</span>
                           {hasIssue && (
-                            <span className="text-xs font-medium text-danger bg-danger-tint px-2 py-0.5 rounded-full">Action required</span>
+                            <span className="whitespace-nowrap text-xs font-medium text-danger bg-danger-tint px-2 py-0.5 rounded-full">Action required</span>
                           )}
                         </div>
                         <div className="divide-y divide-line-soft">

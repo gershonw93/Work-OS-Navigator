@@ -610,7 +610,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-mono text-muted-fg">{invoice.invoice_number}</span>
               <span className="font-semibold text-ink break-words">{invoice.company_name}</span>
-              <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5', cfg.color)}>{cfg.label}</span>
+              <span className={cn('whitespace-nowrap text-xs font-medium rounded-full border px-2 py-0.5', cfg.color)}>{cfg.label}</span>
               {/* Which line it hits, readable without expanding the card. */}
               {invoice.budget_line ? (
                 <span className="inline-flex items-center gap-1 text-xs text-faint min-w-0">
@@ -618,7 +618,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
                   <span className="truncate">{invoice.budget_line.category}</span>
                 </span>
               ) : invoice.subcontract_id ? (
-                <span className="inline-flex items-center gap-1 text-xs font-medium rounded-full border border-warn/30 bg-warn-tint text-warn px-2 py-0.5">
+                <span className="whitespace-nowrap inline-flex items-center gap-1 text-xs font-medium rounded-full border border-warn/30 bg-warn-tint text-warn px-2 py-0.5">
                   <AlertTriangle className="h-3 w-3 shrink-0" /> Not on the budget
                 </span>
               ) : null}
@@ -876,7 +876,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
 
               {invoice.lien_waiver_url ? (
                 <div className="flex items-center gap-3 flex-wrap">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-success-tint border border-success/30 text-success text-xs font-medium px-3 py-1">
+                  <span className="whitespace-nowrap inline-flex items-center gap-1.5 rounded-full bg-success-tint border border-success/30 text-success text-xs font-medium px-3 py-1">
                     <CheckCircle2 className="h-3.5 w-3.5" />
                     {invoice.lien_waiver_type === 'conditional' ? 'Conditional' : 'Unconditional'} Lien Waiver
                   </span>

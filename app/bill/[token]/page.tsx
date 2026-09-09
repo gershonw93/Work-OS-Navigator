@@ -80,7 +80,7 @@ export default function ClientBillPage({ params }: { params: { token: string } }
               <h1 className="text-2xl font-bold text-ink">Invoice</h1>
               <p className="mt-1 text-sm text-muted-fg">{data.invoice_number}</p>
               {data.status === 'paid' && (
-                <span className="mt-2 inline-block rounded-full border border-success/30 bg-success-tint px-2.5 py-0.5 text-xs font-semibold text-success">
+                <span className="whitespace-nowrap mt-2 inline-block rounded-full border border-success/30 bg-success-tint px-2.5 py-0.5 text-xs font-semibold text-success">
                   Paid - thank you
                 </span>
               )}

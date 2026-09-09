@@ -153,7 +153,7 @@ export default function PortalSelectionsPage({ params }: { params: { token: stri
                       </h2>
                     </div>
                     {days != null && isOutstanding(sel.status) && (
-                      <span className={cn('inline-flex items-center gap-1 shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold',
+                      <span className={cn('whitespace-nowrap inline-flex items-center gap-1 shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold',
                         late ? 'bg-danger-tint text-danger' : soon ? 'bg-warn-tint text-warn' : 'bg-muted text-muted-fg')}>
                         {late ? <AlertTriangle className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
                         {late ? `Needed ${Math.abs(days)} days ago` : `${days} days to decide`}

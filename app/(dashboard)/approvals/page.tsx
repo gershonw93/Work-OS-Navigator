@@ -120,7 +120,7 @@ export default function ApprovalsPage() {
             {t.label}
             {t.count !== undefined && t.count > 0 && (
               <span className={cn(
-                'text-xs rounded-full px-1.5 py-0.5 font-semibold min-w-[18px] text-center',
+                'whitespace-nowrap text-xs rounded-full px-1.5 py-0.5 font-semibold min-w-[18px] text-center',
                 filter === t.key ? 'bg-accent-tint text-accent-fg' : 'bg-muted text-muted-fg',
               )}>
                 {t.count}
@@ -157,7 +157,7 @@ export default function ApprovalsPage() {
                           : <MessageSquare className="h-4 w-4 text-accent-fg" />}
                         <span className="text-xs font-semibold text-ink-soft">{item.label}</span>
                       </div>
-                      <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5', STATUS_COLORS[item.status] ?? STATUS_COLORS.pending)}>
+                      <span className={cn('whitespace-nowrap text-xs font-medium rounded-full border px-2 py-0.5', STATUS_COLORS[item.status] ?? STATUS_COLORS.pending)}>
                         {formatStatus(item.status)}
                       </span>
                     </div>
@@ -260,7 +260,7 @@ export default function ApprovalsPage() {
                           {item.amount != null ? `$${Number(item.amount).toLocaleString()}` : '-'}
                         </td>
                         <td className="px-4 py-3">
-                          <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5', STATUS_COLORS[item.status] ?? STATUS_COLORS.pending)}>
+                          <span className={cn('whitespace-nowrap text-xs font-medium rounded-full border px-2 py-0.5', STATUS_COLORS[item.status] ?? STATUS_COLORS.pending)}>
                             {formatStatus(item.status)}
                           </span>
                         </td>

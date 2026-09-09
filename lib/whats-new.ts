@@ -49,6 +49,29 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-09',
+    title: 'A cleaner look on a phone',
+    items: [
+      {
+        kind: 'improved',
+        title: 'Labels stopped breaking into single letters',
+        text: 'In narrow columns a status like "Missing" was splitting across two lines, and "Admin" was reading vertically, one letter per line. Badges and buttons now keep their shape wherever they sit.',
+      },
+      {
+        kind: 'improved',
+        title: 'Team & Users reads as a list instead of a squashed table',
+        text: 'Five columns crammed into a phone gave column headings running sideways and email addresses breaking mid-word. Team members and pending invites are now one roomy row each, with everything on screen and nothing to scroll sideways.',
+        href: '/settings',
+      },
+      {
+        kind: 'improved',
+        title: 'Task counts live in one card instead of five coloured pills',
+        text: 'The numbers at the top of Tasks were five separate boxes in four colours, wrapping onto two lines. They are now one card with the numbers large and the labels quiet, and colour is kept for overdue, where it means something.',
+        href: '/projects',
+      },
+    ],
+  },
+  {
+    date: '2026-09-09',
     title: 'The keyboard stops jumping the screen around',
     items: [
       {

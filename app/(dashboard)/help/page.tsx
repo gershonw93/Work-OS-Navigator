@@ -26,7 +26,7 @@ function Block({ block }: { block: HelpBlock }) {
         <ol className="space-y-2">
           {block.items.map((item, i) => (
             <li key={i} className="flex gap-3 text-sm text-ink-soft">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent text-accent-ink text-xs font-bold">{i + 1}</span>
+              <span className="whitespace-nowrap flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent text-accent-ink text-xs font-bold">{i + 1}</span>
               <span className="leading-relaxed pt-0.5">{item}</span>
             </li>
           ))}

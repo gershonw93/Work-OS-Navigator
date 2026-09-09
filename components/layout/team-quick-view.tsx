@@ -111,7 +111,7 @@ export function TeamQuickView({ projectId }: { projectId: string }) {
                 {members.map((m) => (
                   <li key={m.id} className="rounded-lg px-2 py-2 hover:bg-surface">
                     <div className="flex items-center gap-2">
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-tint text-xs font-semibold text-accent-fg">
+                      <span className="whitespace-nowrap flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-tint text-xs font-semibold text-accent-fg">
                         {initials(m.name)}
                       </span>
                       <div className="min-w-0 flex-1">
@@ -151,7 +151,7 @@ export function TeamQuickView({ projectId }: { projectId: string }) {
                   return (
                     <li key={s.id} className="rounded-lg px-2 py-2 hover:bg-surface">
                       <div className="flex items-center gap-2">
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted2 text-xs font-semibold text-muted-fg">
+                        <span className="whitespace-nowrap flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted2 text-xs font-semibold text-muted-fg">
                           {initials(name)}
                         </span>
                         <div className="min-w-0 flex-1">

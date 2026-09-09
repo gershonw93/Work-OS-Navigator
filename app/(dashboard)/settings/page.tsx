@@ -171,7 +171,7 @@ function RoleBadge({ role, label }: { role: string; label?: string }) {
   const colors = ROLE_COLORS[role] ?? 'bg-muted text-ink-soft'
   const text = label ?? ROLES.find((r) => r.value === role)?.label ?? role
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colors}`}>
+    <span className={`whitespace-nowrap inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colors}`}>
       {text}
     </span>
   )
@@ -1220,49 +1220,49 @@ export default function SettingsPage() {
                   {teammates.length === 0 ? (
                     <p className="text-muted-fg text-sm p-6">No team members yet.</p>
                   ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b border-line-soft bg-surface">
-                            <th className="text-left px-4 py-3 font-medium text-muted-fg">Member</th>
-                            <th className="text-left px-4 py-3 font-medium text-muted-fg">Email</th>
-                            <th className="text-left px-4 py-3 font-medium text-muted-fg">Role</th>
-                            <th className="text-left px-4 py-3 font-medium text-muted-fg">Status</th>
-                            <th className="text-left px-4 py-3 font-medium text-muted-fg">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {teammates.map((t) => {
-                            const isSelf = t.id === profile?.id
-                            return (
-                            <tr key={t.id} className="border-b border-line-soft last:border-0 hover:bg-surface/50">
-                              <td className="px-4 py-3">
-                                <div className="flex items-center gap-3">
-                                  <div className="h-8 w-8 rounded-full bg-accent-tint text-accent-fg flex items-center justify-center text-xs font-bold shrink-0">
-                                    {initials(t.full_name ?? t.email ?? '?')}
-                                  </div>
-                                  <div>
-                                    <span className="font-medium text-ink-soft">{t.full_name || '-'}</span>
-                                    {isSelf && <span className="ml-2 text-xs text-faint">(you)</span>}
-                                    {t.id === ownerId && (
-                                      <span
-                                        title="The account owner. No admin can remove or demote them."
-                                        className="ml-2 inline-flex items-center rounded-full bg-accent-tint px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent-fg"
-                                      >
-                                        Owner
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="px-4 py-3 text-muted-fg">{t.email}</td>
-                              <td className="px-4 py-3">
-                                {userRole === 'admin' && !isSelf && t.id !== ownerId ? (
-                                  <div className="flex items-center gap-2">
+                    <>{/* A LIST, NOT A TABLE.
+                       Five columns in 390px gave "Rol / e", "Sta / tus" and an
+                       "Actions" header running one letter per line down the
+                       page, with the email breaking mid-word. A table needs
+                       width it does not have on a phone, and this reads better
+                       on a desktop too: one roomy row per person, left-aligned,
+                       nothing to scroll sideways. */}
+                    <div className="divide-y divide-line-soft">
+                      {teammates.map((t) => {
+                        const isSelf = t.id === profile?.id
+                        const isOwner = t.id === ownerId
+                        return (
+                          <div key={t.id} className="flex items-start gap-3 px-5 py-4">
+                            <div className="whitespace-nowrap mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-tint text-xs font-bold text-accent-fg">
+                              {initials(t.full_name ?? t.email ?? '?')}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                <span className="font-medium text-ink">{t.full_name || '-'}</span>
+                                {isSelf && <span className="text-xs text-faint">(you)</span>}
+                                {isOwner && (
+                                  <span
+                                    title="The account owner. No admin can remove or demote them."
+                                    className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-accent-tint px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent-fg"
+                                  >
+                                    Owner
+                                  </span>
+                                )}
+                                <span className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${
+                                  t.status === 'pending' ? 'bg-warn-tint text-warn' : 'bg-success-tint text-success'
+                                }`}>
+                                  {t.status === 'pending' ? 'Pending' : 'Active'}
+                                </span>
+                              </div>
+                              <p className="mt-0.5 truncate text-sm text-muted-fg">{t.email}</p>
+
+                              <div className="mt-3 flex flex-wrap items-center gap-2">
+                                {userRole === 'admin' && !isSelf && !isOwner ? (
+                                  <>
                                     <SearchableSelect
                                       value={pendingRoles[t.id] ?? t.role}
                                       onChange={(e) => setPendingRoles(prev => ({ ...prev, [t.id]: e.target.value }))}
-                                      className="rounded border border-line px-2 py-1 text-xs bg-panel focus:outline-none focus:ring-1 focus:ring-accent"
+                                      className="rounded-lg border border-line bg-panel px-2.5 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-accent"
                                     >
                                       {roleOptions.map((r) => (
                                         <option key={r.value} value={r.value}>{r.label}</option>
@@ -1274,37 +1274,27 @@ export default function SettingsPage() {
                                           changeRole(t.id, pendingRoles[t.id])
                                           setPendingRoles(prev => { const n = { ...prev }; delete n[t.id]; return n })
                                         }}
-                                        className="rounded bg-accent px-2 py-1 text-xs font-medium text-accent-ink hover:bg-accent"
+                                        className="inline-flex min-h-[44px] items-center rounded-lg bg-accent px-3 text-xs font-semibold text-accent-ink"
                                       >
                                         Save
                                       </button>
                                     )}
-                                  </div>
+                                  </>
                                 ) : (
                                   <RoleBadge role={t.role} label={roleLabel(t.role)} />
                                 )}
-                              </td>
-                              <td className="px-4 py-3">
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
-                                  ${t.status === 'pending'
-                                    ? 'bg-warn-tint text-warn'
-                                    : 'bg-success-tint text-success'
-                                  }`}>
-                                  {t.status === 'pending' ? 'Pending' : 'Active'}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3">
-                                {t.id === ownerId ? (
+
+                                {isOwner ? (
                                   <span className="text-xs text-faint" title="Ownership has to be transferred first.">
-                                    Owner
+                                    Account owner
                                   </span>
                                 ) : (
-                                  <div className="flex items-center gap-3">
+                                  <>
                                     {/* Only the owner can hand it over, and only to an admin. */}
                                     {ownerId && ownerId === profile?.id && t.role === 'admin' && (
                                       <button
                                         onClick={() => makeOwner(t.id, t.full_name ?? t.email)}
-                                        className="text-xs text-muted-fg hover:text-accent-fg hover:underline"
+                                        className="inline-flex min-h-[44px] items-center rounded-lg px-3 text-xs font-medium text-muted-fg hover:bg-surface hover:text-accent-fg"
                                       >
                                         Make owner
                                       </button>
@@ -1312,21 +1302,19 @@ export default function SettingsPage() {
                                     {userRole === 'admin' && !isSelf && (
                                       <button
                                         onClick={() => removeMember(t.id, t.full_name ?? t.email)}
-                                        className="text-xs text-danger hover:text-danger hover:underline"
+                                        className="inline-flex min-h-[44px] items-center rounded-lg px-3 text-xs font-medium text-danger hover:bg-danger-tint"
                                       >
                                         Remove
                                       </button>
                                     )}
-                                  </div>
+                                  </>
                                 )}
-                              </td>
-                            </tr>
-                            )
-                          })}
-
-                        </tbody>
-                      </table>
-                    </div>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div></>
                   )}
                 </CardContent>
               </Card>
@@ -1335,56 +1323,49 @@ export default function SettingsPage() {
               {pendingInvites.length > 0 && (
                 <Card className="mt-4">
                   <CardHeader><CardTitle className="text-base">Pending Invites</CardTitle></CardHeader>
-                  <CardContent className="p-0 overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-line-soft bg-surface">
-                          <th className="text-left px-4 py-3 font-medium text-muted-fg">Email</th>
-                          <th className="text-left px-4 py-3 font-medium text-muted-fg">Role</th>
-                          <th className="text-left px-4 py-3 font-medium text-muted-fg">Sent</th>
-                          <th className="text-left px-4 py-3 font-medium text-muted-fg">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {pendingInvites.map((inv) => (
-                          <tr key={inv.id} className="border-b border-line-soft last:border-0 hover:bg-surface/50">
-                            <td className="px-4 py-3 text-ink-soft">{inv.email}</td>
-                            <td className="px-4 py-3"><RoleBadge role={inv.role} label={roleLabel(inv.role)} /></td>
-                            <td className="px-4 py-3 text-muted-fg text-xs">{formatDate(inv.created_at)}</td>
-                            <td className="px-4 py-3">
-                              <div className="flex items-center gap-3">
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-warn-tint text-warn">
-                                  Pending
-                                </span>
-                                <button
-                                  onClick={() => copyInviteLink(inv.id)}
-                                  disabled={linkFor === inv.id}
-                                  className="text-xs text-accent-fg hover:underline flex items-center gap-1 disabled:opacity-50"
-                                >
-                                  {copiedInvite === inv.id
-                                    ? <><Check className="h-3 w-3" /> Copied</>
-                                    : <><Copy className="h-3 w-3" /> Copy link</>}
-                                </button>
-                                <button
-                                  onClick={() => resendInvite(inv.email, inv.role)}
-                                  className="text-xs text-info hover:text-info hover:underline flex items-center gap-1"
-                                >
-                                  <RefreshCw className="h-3 w-3" />
-                                  Resend
-                                </button>
-                                <button
-                                  onClick={() => cancelInvite(inv.id)}
-                                  className="text-xs text-danger hover:text-danger hover:underline flex items-center gap-1"
-                                >
-                                  <Ban className="h-3 w-3" />
-                                  Cancel
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <CardContent className="p-0">
+                    {/* A list, for the same reason as the members above: four
+                        columns of which one holds three actions does not fit a
+                        phone, and the actions were what got squeezed. */}
+                    <div className="divide-y divide-line-soft">
+                      {pendingInvites.map((inv) => (
+                        <div key={inv.id} className="px-5 py-4">
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <span className="min-w-0 truncate font-medium text-ink">{inv.email}</span>
+                            <span className="whitespace-nowrap inline-flex shrink-0 items-center rounded-full bg-warn-tint px-2 py-0.5 text-xs font-medium text-warn">
+                              Pending
+                            </span>
+                          </div>
+                          <div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-muted-fg">
+                            <RoleBadge role={inv.role} label={roleLabel(inv.role)} />
+                            <span>Sent {formatDate(inv.created_at)}</span>
+                          </div>
+                          <div className="mt-2 flex flex-wrap items-center gap-1">
+                            <button
+                              onClick={() => copyInviteLink(inv.id)}
+                              disabled={linkFor === inv.id}
+                              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 text-xs font-medium text-accent-fg hover:bg-surface disabled:opacity-50"
+                            >
+                              {copiedInvite === inv.id
+                                ? <><Check className="h-3.5 w-3.5" /> Copied</>
+                                : <><Copy className="h-3.5 w-3.5" /> Copy link</>}
+                            </button>
+                            <button
+                              onClick={() => resendInvite(inv.email, inv.role)}
+                              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 text-xs font-medium text-info hover:bg-info-tint"
+                            >
+                              <RefreshCw className="h-3.5 w-3.5" /> Resend
+                            </button>
+                            <button
+                              onClick={() => cancelInvite(inv.id)}
+                              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 text-xs font-medium text-danger hover:bg-danger-tint"
+                            >
+                              <Ban className="h-3.5 w-3.5" /> Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </CardContent>
                 </Card>
               )}
@@ -1825,7 +1806,7 @@ export default function SettingsPage() {
                       <div className="mb-1 flex items-center justify-between">
                         <p className="font-semibold text-ink">{plan.name}</p>
                         {plan.featured && (
-                          <span className="rounded-full bg-accent-tint px-2 py-0.5 text-xs font-medium text-accent-fg">
+                          <span className="whitespace-nowrap rounded-full bg-accent-tint px-2 py-0.5 text-xs font-medium text-accent-fg">
                             Most popular
                           </span>
                         )}

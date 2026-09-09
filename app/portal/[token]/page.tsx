@@ -42,7 +42,7 @@ function StatusBadge({ status }: { status: string }) {
   }
   const cls = map[status] ?? 'bg-muted text-muted-fg'
   return (
-    <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize', cls)}>
+    <span className={cn('whitespace-nowrap inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize', cls)}>
       {status.replace(/_/g, ' ')}
     </span>
   )
@@ -325,7 +325,7 @@ export default async function PortalPage({ params }: { params: { token: string }
                     <span className="text-sm font-bold text-ink">
                       ${b.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                     </span>
-                    <span className={cn('rounded-full px-2 py-0.5 text-xs font-semibold',
+                    <span className={cn('whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold',
                       b.status === 'paid' ? 'bg-success-tint text-success'
                         : b.overdue ? 'bg-danger-tint text-danger'
                         : 'bg-warn-tint text-warn')}>

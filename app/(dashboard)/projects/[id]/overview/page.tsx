@@ -185,7 +185,7 @@ export default function OverviewPage({ params }: { params: { id: string } }) {
               <Inbox className="h-4 w-4 text-info" />
             </span>
             <h2 className="text-sm font-bold uppercase tracking-wide text-ink">Waiting on you</h2>
-            <span className="rounded-full bg-info-tint px-2 py-0.5 text-xs font-bold text-info">{youCount}</span>
+            <span className="whitespace-nowrap rounded-full bg-info-tint px-2 py-0.5 text-xs font-bold text-info">{youCount}</span>
           </div>
           {waitingOnYou.map(i => row(i, data.project.id))}
         </div>
@@ -249,7 +249,7 @@ export default function OverviewPage({ params }: { params: { id: string } }) {
               {inspections.map(i => (
                 <div key={i.id} className="flex items-center justify-between gap-2 rounded-lg bg-surface px-3 py-2">
                   <span className="min-w-0 truncate text-sm font-medium text-ink-soft">{i.label}</span>
-                  <span className="shrink-0 rounded-full bg-panel px-2 py-0.5 text-xs font-semibold text-muted-fg">{when(i.inDays)}</span>
+                  <span className="whitespace-nowrap shrink-0 rounded-full bg-panel px-2 py-0.5 text-xs font-semibold text-muted-fg">{when(i.inDays)}</span>
                 </div>
               ))}
             </div>

@@ -142,7 +142,7 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
         <div className="flex items-start justify-between gap-2 mb-2">
           <span className="text-xs font-mono text-faint">RFI-{String(rfi.rfi_number).padStart(3, '0')}</span>
           <div className="flex items-center gap-1.5 shrink-0">
-            <span className={cn('text-xs font-medium rounded-full border px-1.5 py-0.5',
+            <span className={cn('whitespace-nowrap text-xs font-medium rounded-full border px-1.5 py-0.5',
               rfi.status === 'open' ? 'bg-accent-tint border-accent/40 text-accent-fg' :
               rfi.status === 'closed' ? 'bg-surface border-line text-muted-fg' :
               'bg-success-tint border-success/30 text-success')}>
@@ -167,7 +167,7 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
           <p className="text-xs text-faint mt-1 truncate">{rfi.company_name ?? rfi.submitted_by_name}</p>
           <div className="mt-2 flex flex-wrap gap-1">
             {rfi.is_change_order && (
-              <span className={cn('text-xs rounded-full border px-1.5 py-0.5 flex items-center gap-0.5', coConfig.color)}>
+              <span className={cn('whitespace-nowrap text-xs rounded-full border px-1.5 py-0.5 flex items-center gap-0.5', coConfig.color)}>
                 <DollarSign className="h-2.5 w-2.5" />
                 {rfi.change_order_amount ? `$${Number(rfi.change_order_amount).toLocaleString()}` : 'CO'} · {coConfig.label}
               </span>

@@ -359,10 +359,10 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-semibold text-ink">{insp.type}</span>
-              {insp.trade && <span className="text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{insp.trade}</span>}
-              <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5', cfg.color)}>{cfg.label}</span>
+              {insp.trade && <span className="whitespace-nowrap text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{insp.trade}</span>}
+              <span className={cn('whitespace-nowrap text-xs font-medium rounded-full border px-2 py-0.5', cfg.color)}>{cfg.label}</span>
               {insp.ready_marked_by && insp.status === 'scheduled' && (
-                <span className="text-xs font-medium bg-success-tint border border-success/30 text-success rounded-full px-2 py-0.5">Ready ✓</span>
+                <span className="whitespace-nowrap text-xs font-medium bg-success-tint border border-success/30 text-success rounded-full px-2 py-0.5">Ready ✓</span>
               )}
             </div>
             <p className="text-xs text-faint mt-0.5 wrap-anywhere">
@@ -460,7 +460,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
                 <span className="text-xs text-faint">Update status:</span>
                 {['requested', 'scheduled', 'passed', 'failed', 'pending_reinspection'].map(s => (
                   <button key={s} type="button" onClick={() => updateStatus(insp, s)}
-                    className={cn('text-xs rounded-full border px-2 py-0.5 font-medium transition-colors',
+                    className={cn('whitespace-nowrap text-xs rounded-full border px-2 py-0.5 font-medium transition-colors',
                       insp.status === s ? STATUS_CONFIG[s].color : 'border-line text-muted-fg hover:border-muted2')}>
                     {STATUS_CONFIG[s].label}
                   </button>
