@@ -181,10 +181,17 @@ const vhCapped: string[] = []
 for (const f of tsx) {
   const src = read(f)
   for (const line of src.split('\n')) {
-    if (!/className="[^"]*\bfixed\b[^"]*\binset-0\b/.test(line)) continue
-    // The plans page has a fullscreen toggle that IS the scroller, not a
-    // dialog over one. It is the only legitimate hand-rolled full-screen.
-    if (f.includes('plans/[planId]')) continue
+    // ANY quoted class string, not just a bare `className="..."`. The plans
+    // viewer wrote its full-screen branch as a `cn()` argument on its own
+    // line, with `className` two lines above - so the old scan could not see
+    // it even with the exemption below removed. Two ways to hide from one
+    // rule, and the exemption was only the one anybody knew about.
+    if (!(line.match(/'[^']*'|"[^"]*"/g) ?? []).some(q => /\bfixed\b/.test(q) && /\binset-0\b/.test(q))) continue
+    // No exemptions. The plans viewer used to have one - "a fullscreen toggle
+    // that IS the scroller, not a dialog over one" - and being the exception
+    // is precisely why it never learned about the notch: its title and its own
+    // exit button sat under the Dynamic Island. `.overlay-full` scrolls just
+    // as well and knows where the screen starts.
     raw.push(`${f}: ${line.trim().slice(0, 70)}`)
   }
   for (const line of src.split('\n')) {
@@ -504,6 +511,44 @@ ok(/\.row-even > :last-child:nth-child\(odd\) \{ grid-column: 1 \/ -1; \}/.test(
   '...and an odd last control takes the whole row')
 ok(/\.row-even > :is\([^)]*\) \{[\s\S]{0,60}width: 100%/.test(css),
   '...with :is() so the cell beats a `w-28` written for the desktop row')
+
+// ── 12. a gutter is the same on both sides of a phone ───────────────────────
+// The selections editor was `px-4 pb-4 pl-10`: 40px of gutter on the left
+// against 16 on the right. It is a hanging indent that lines the body up with
+// the row's title past its chevron - right on a desktop, and on a phone just
+// off-centre, and 24px off a 342px line.
+// Two things are not this: a printed page, which has no phone; and a form
+// control, where the extra padding on one side makes room for a `$` or an icon
+// sitting inside the field.
+const lopsided: string[] = []
+for (const f of tsx) {
+  if (f.includes('/print/')) continue
+  const lines = code(f).split('\n')
+  lines.forEach((line, i) => {
+    const tag = lines.slice(Math.max(0, i - 8), i + 1).join(' ').lastIndexOf('<')
+    const opensAControl = /<(input|textarea|select|Input|Textarea)\b/.test(
+      lines.slice(Math.max(0, i - 8), i + 1).join(' ').slice(tag))
+    if (opensAControl) return
+    for (const cls of line.match(/className="[^"]*"/g) ?? []) {
+      const px = /(?:^|[\s"])px-(\d+)/.exec(cls)
+      const pl = /(?:^|[\s"])pl-(\d+)/.exec(cls)     // a bare pl-, not lg:pl-
+      if (px && pl && Number(pl[1]) > Number(px[1])) lopsided.push(`${f}:${i + 1}`)
+    }
+  })
+}
+ok(lopsided.length === 0,
+  `no phone gutter is wider on one side than the other${lopsided.length ? ` - ${lopsided[0]} (+${lopsided.length - 1})` : ''}`)
+
+// ── 13. the status note explains the status you are looking at ──────────────
+// One sentence was printed under both the menu and the sheet whatever was
+// selected, so picking On Hold explained Active.
+const statusSwitch = code('components/layout/project-status-switch.tsx')
+const statuses = /const STATUSES = \[([^\]]*)\]/.exec(statusSwitch)?.[1] ?? ''
+const meanings = statusSwitch.slice(statusSwitch.indexOf('const STATUS_MEANING'))
+const missing = (statuses.match(/'([a-z_]+)'/g) ?? []).filter(q => !meanings.includes(`${q.slice(1, -1)}:`))
+ok(missing.length === 0, `every job status says what it means${missing.length ? ` - ${missing[0]} does not` : ''}`)
+ok((statusSwitch.match(/\{STATUS_MEANING\[current\]\}/g) ?? []).length === 2,
+  '...and both the desktop menu and the phone sheet read the selected one')
 
 // ── long text, which is the same bug one level down ──────────────────────────
 ok(/p,\s*li,\s*dd,\s*dt,\s*blockquote[\s\S]{0,80}overflow-wrap:\s*anywhere/.test(css),

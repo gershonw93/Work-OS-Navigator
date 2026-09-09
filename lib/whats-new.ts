@@ -53,6 +53,11 @@ export const RELEASES: Release[] = [
     items: [
       {
         kind: 'fixed',
+        title: 'Plans open grey, full screen hid its own X, and the status list explained the wrong status',
+        text: 'Three from the phone. A big drawing opened as an empty grey box: the app was asking the phone to draw it larger than a phone will, and iPhone answers that with a blank picture and no complaint, so nothing was there to report. Drawings are now sized to what the phone will actually draw, and if one still cannot be shown it says so with a link to open the file. Full screen no longer puts the title and the X up under the notch. The boxes in a selection had more space on the left than the right and now sit even. And the note under the job status list described Active whichever status you picked - each status now explains itself, including that On Hold, Completed and Cancelled change nothing in the app.',
+      },
+      {
+        kind: 'fixed',
         title: 'The app is squeezed into a strip when the keyboard opens',
         text: 'On a phone, opening the keyboard shrank the app into a band across the top of the screen with nothing but background under it. The keyboard was being taken off the height twice - once by the phone and once by the app - so the app sized itself to a screen about a keyboard shorter than the one it had. It now fits the space above the keyboard exactly. Dialogs were doing the same thing and are fixed with it.',
       },

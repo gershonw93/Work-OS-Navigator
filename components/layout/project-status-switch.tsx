@@ -13,6 +13,37 @@ import { Check, ChevronDown, CircleAlert, CircleCheck, X, ArrowRight } from 'luc
 
 const STATUSES = ['planning', 'active', 'on_hold', 'completed', 'cancelled']
 
+/**
+ * What each status MEANS, under whichever one is selected.
+ *
+ * There was one sentence here - "Active means under contract…" - printed
+ * whatever was selected, so picking On Hold explained Active.
+ *
+ * Only the first two change anything in the app, and these say so rather than
+ * implying the others do: planning hides ten tabs and keeps the markup
+ * editable (`project-tabs.tsx`, `budget/page.tsx`), and going active runs the
+ * readiness check and locks the markup (`api/projects/[id]/route.ts`). On
+ * hold, completed and cancelled are labels - for the record, and for filtering
+ * the Projects list.
+ */
+const STATUS_MEANING: Record<string, string> = {
+  planning:
+    'Not won yet. The tabs for running the job - time, logs, bills, change orders - stay hidden, '
+    + 'the budget leads with soft costs, and the markup is still yours to change.',
+  active:
+    'Under contract - won and billable, whether or not anyone is on site yet. '
+    + 'Moving here checks the job over first, and the markup locks once it does.',
+  on_hold:
+    'Paused, and nothing in the app changes: every tab, figure and total stays exactly as it is. '
+    + 'It marks the job for you and your team, and filters the Projects list.',
+  completed:
+    'Finished. Nothing in the app changes and nothing is locked - it marks the job as done '
+    + 'and filters the Projects list.',
+  cancelled:
+    'Not going ahead. Nothing is deleted and nothing is locked - the job stays on file '
+    + 'with everything on it, out of the way of the ones you are working on.',
+}
+
 interface Check {
   key: string
   label: string
@@ -153,7 +184,7 @@ export function ProjectStatusSwitch({
               </button>
             ))}
             <p className="border-t border-line-soft px-3 py-2 text-[11px] leading-snug text-faint">
-              Active means under contract - won and billable, whether or not anyone is on site yet.
+              {STATUS_MEANING[current]}
             </p>
           </div>
         )}
@@ -178,7 +209,7 @@ export function ProjectStatusSwitch({
                 ))}
               </div>
               <p className="px-5 py-3 text-xs leading-snug text-faint">
-                Active means under contract - won and billable, whether or not anyone is on site yet.
+                {STATUS_MEANING[current]}
               </p>
             </div>
           </div>

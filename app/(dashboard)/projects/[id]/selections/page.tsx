@@ -852,7 +852,7 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
                         </div>
 
                         {isOpen && (
-                          <div className="px-4 pb-4 pl-10 space-y-3 bg-surface/50">
+                          <div className="px-4 pb-4 space-y-3 bg-surface/50 lg:pl-10">
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                               <div className="space-y-1">
                                 <Label className="lg:text-xs">Allowance ($)</Label>
