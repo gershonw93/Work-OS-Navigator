@@ -52,6 +52,11 @@ export const RELEASES: Release[] = [
     title: 'A cleaner look on a phone',
     items: [
       {
+        kind: 'fixed',
+        title: 'The app is squeezed into a strip when the keyboard opens',
+        text: 'On a phone, opening the keyboard shrank the app into a band across the top of the screen with nothing but background under it. The keyboard was being taken off the height twice - once by the phone and once by the app - so the app sized itself to a screen about a keyboard shorter than the one it had. It now fits the space above the keyboard exactly. Dialogs were doing the same thing and are fixed with it.',
+      },
+      {
         kind: 'improved',
         title: 'Buttons and boxes line up edge to edge on a phone',
         text: 'A row of buttons used to be as wide as whatever was written on them, so Budget\'s toolbar came out as three ragged rows that all stopped short of the right edge, and the boxes in the Selections editor did the same. Now two share a row at the same width and reach both edges, and one left over takes the whole row instead of leaving a gap. It is the same everywhere - every toolbar, every Cancel and Save, every row of boxes. Laptops are unchanged.',

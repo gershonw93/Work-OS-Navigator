@@ -89,6 +89,17 @@ the biggest build yet while the books are half-wired ends with both half-done.
     the first dispute; check the Supabase realtime connection ceiling on the
     current plan; and this is the largest thing SyteNav has built.
 
+## 📱 Native shell
+
+- **`Keyboard: { resize: 'none' }` in `capacitor.config.ts`.** Capacitor's
+  default shrinks the WKWebView frame for the keyboard, which is what made
+  `visualViewport` subtract it a second time and squeeze the app into a strip
+  (#413). Turning native resizing off would leave `--vv-h` the single source of
+  truth and delete a whole branch from `lib/visible-viewport.ts`. Parked
+  because it only takes effect in a new TestFlight build, and the web has to be
+  right under `resize: native` either way - so it is a simplification, not a
+  fix.
+
 ## 🔌 Integrations
 - **QuickBooks Online sync** - *phase 1 shipped (PR #185, #187):* per-company OAuth connect + one-way push from Settings > Integrations of customers, subs (vendors), sub bills (approved/paid invoices -> QBO Bill), and client payments (-> QBO Sales Receipt). Entity id mapping (no dupes), auto-creates the referenced vendor/customer, sync log. Bills post to a default expense/COGS account, payments to a default service item. **Next:** account/item mapping UI, GC->owner invoices (pay apps -> QBO Invoice), pull-back and two-way. Desktop is a separate, larger track. Live against the Intuit sandbox; production needs Intuit app review.
 - **Budget/proposal -> QuickBooks** *(requested)* - push a proposal/estimate straight into QBO as an **Estimate**, so accepting it can convert to a QBO Invoice on their side. Same for a sub's quote line items. Needs the item/account mapping UI first (each line needs an Item), which is why it sits behind the mapping work above.

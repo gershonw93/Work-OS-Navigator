@@ -317,6 +317,20 @@ is there for specificity: `.row-even > *` is (0,1,0) and loses to a `w-28`
 written for the desktop row - the same trap that left the 16px anti-zoom rule
 dead for months.
 
+**`--vv-h` is not `visualViewport.height`.** It is the visible strip measured
+against the layout viewport the CSS is resolved in, and which of the two knows
+depends on whether the webview frame moved. Capacitor's default keyboard mode
+shrinks that frame, so the layout viewport is already the strip and
+`visualViewport` takes the keyboard off a second time: the app was ~121pt tall
+in a ~516pt space, a squeezed band with bare background beneath it. Every
+`.overlay` reads the same variable, so dialogs were doing it too.
+
+`lib/visible-viewport.ts` is the decision, pure so the arithmetic can be tested
+at the sizes that broke: if `innerHeight` has dropped below the tallest frame
+seen with no keyboard up, the frame shrank - height is `innerHeight` and the
+offset is 0. Otherwise `visualViewport` is the authority. Rotation resets the
+baseline, or a landscape frame reads as a keyboard for the rest of the session.
+
 **The shell is the screen you can SEE.** `.h-app` is
 `var(--vv-h, 100dvh)` inside `@supports (height: 100dvh)`, the same variable the
 overlays use. A document taller than the webview's frame is one the webview can
