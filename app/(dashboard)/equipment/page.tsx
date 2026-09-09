@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { StatStrip } from '@/components/ui/stat-strip'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -307,8 +308,13 @@ export default function EquipmentPage() {
         action={<Button onClick={() => setShowAdd(true)}><Plus className="mr-1.5 h-4 w-4" />Add equipment</Button>}
       />
 
-      {/* Snapshot */}
-      <div className="mb-5 grid grid-cols-3 gap-3">
+      {/* Snapshot. Phone: one card. Desktop (lg+): the three tiles it had. */}
+      <StatStrip className="mb-5 lg:hidden" items={[
+        { label: 'Total', value: counts.total },
+        { label: 'Available', value: counts.available },
+        { label: 'Out now', value: counts.out },
+      ]} />
+      <div className="mb-5 hidden lg:grid lg:grid-cols-3 gap-3">
         {[
           { label: 'Total', value: counts.total, icon: Package },
           { label: 'Available', value: counts.available, icon: Wrench },

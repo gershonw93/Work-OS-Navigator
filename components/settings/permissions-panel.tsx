@@ -71,7 +71,56 @@ function PermGrid({
   onToggle?: (resource: string, action: Action, value: boolean) => void
 }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-line">
+    <>
+    {/* PHONE: a list. Five columns in a card in a 390px screen gave "Cr/ea/te"
+        and a group name reduced to its first letter. One row per resource,
+        the four actions as labelled toggles a thumb can hit, groups as quiet
+        headings. DESKTOP (lg+): the matrix it always had, below. */}
+    <div className="overflow-hidden rounded-2xl border border-line lg:hidden">
+      {RESOURCE_GROUPS.map(group => {
+        const rows = RESOURCES.filter(r => r.group === group)
+        if (rows.length === 0) return null
+        return (
+          <div key={group} className="border-b border-line last:border-b-0">
+            <p className="border-b border-line-soft bg-surface px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-faint">{group}</p>
+            <div className="divide-y divide-line-soft">
+              {rows.map(r => (
+                <div key={r.key} className="px-4 py-3">
+                  <p className="text-sm font-medium text-ink">{r.label}</p>
+                  <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
+                    {ACTIONS.map(a => {
+                      const on = !!effective[r.key]?.[a]
+                      const def = !!defaults[r.key]?.[a]
+                      const overridden = on !== def
+                      return editable ? (
+                        <label key={a} className="inline-flex min-h-[36px] items-center gap-2 text-xs text-muted-fg">
+                          <input
+                            type="checkbox"
+                            checked={on}
+                            onChange={e => onToggle?.(r.key, a, e.target.checked)}
+                            className={cn('h-5 w-5 rounded border-muted2 accent-[#C9F24A]',
+                              overridden && 'ring-2 ring-amber-400 ring-offset-1')}
+                            title={overridden ? `Overridden (default: ${def ? 'on' : 'off'})` : undefined}
+                          />
+                          {ACTION_LABELS[a]}
+                        </label>
+                      ) : (
+                        <span key={a} className={cn('inline-flex min-h-[28px] items-center gap-1.5 text-xs', on ? 'text-ink' : 'text-faint')}>
+                          {on ? <Check className="h-4 w-4 text-success" /> : <span className="w-4 text-center">·</span>}
+                          {ACTION_LABELS[a]}
+                        </span>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+
+    <div className="hidden lg:block overflow-x-auto rounded-lg border border-line">
       <table className="w-full text-sm">
         <thead>
           <tr className="bg-surface border-b border-line">
@@ -121,6 +170,7 @@ function PermGrid({
         </tbody>
       </table>
     </div>
+    </>
   )
 }
 

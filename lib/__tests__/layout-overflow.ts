@@ -291,7 +291,7 @@ for (const f of tsx) {
 // The floor is not zero and the test should not pretend it is: a vendor-by-
 // vendor quote comparison, the permissions matrix and an AIA schedule of values
 // are tables because the DATA is a grid, and those scroll inside themselves.
-ok(phoneTables.length <= 10,
+ok(phoneTables.length <= 9,
   `${phoneTables.length} tables still render on a phone (was 16, and this may only go down)`)
 // Compliance, Settings and the Directory keep their tables FOR THE DESKTOP,
 // which was not asked to change, under `hidden lg:block`; the phone gets the
@@ -372,6 +372,19 @@ ok(/phoneRow\(/.test(overview) && (overview.match(/divide-y divide-line-soft ove
   'a project\'s waiting-on lists are one divided card each on a phone')
 ok(/hidden space-y-2\.5 lg:block/.test(overview), '...with the spined, tinted rows kept for the desktop')
 
+// The Permissions matrix: five columns in a card on a phone. A list of
+// resources with four labelled toggles each below lg, the matrix above it.
+const perms = code('components/settings/permissions-panel.tsx')
+ok(/rounded-2xl border border-line lg:hidden/.test(perms) && /hidden lg:block overflow-x-auto rounded-lg border border-line/.test(perms),
+  'the Permissions grid is a list of toggles on a phone and the matrix on a desktop')
+ok((perms.match(/ACTION_LABELS\[a\]/g) ?? []).length >= 3, '...and the phone toggles are labelled, not bare boxes')
+// A seven-column editor scrolls in its own box rather than crushing.
+const scope = code('components/ui/scope-builder.tsx')
+ok(/overflow-x-auto/.test(scope) && (scope.match(/min-w-\[520px\] grid-cols-\[28px/g) ?? []).length === 2,
+  'the scope builder grid keeps its width and scrolls inside the category card')
+ok(/min-w-\[640px\]/.test(code('app/(dashboard)/projects/[id]/pay-apps/page.tsx')),
+  'the G703 sheet keeps its seven columns readable and scrolls')
+
 // ── 8. the Tasks board: one card per column, rows inside, no tints ──────────
 // Three columns in three colours, each holding a stack of bordered cards on a
 // tinted ground, is a card inside a card inside a card. A column is now one
@@ -406,8 +419,16 @@ ok(/scroll-fade/.test(tasksPage), 'tasks filter strip fades at its right edge')
 ok(/scroll-fade/.test(code('app/(dashboard)/settings/page.tsx')), 'settings tab strip fades at its right edge')
 
 // ── long text, which is the same bug one level down ──────────────────────────
-ok(/p,\s*li,\s*dd,\s*dt,\s*td,\s*th[\s\S]{0,80}overflow-wrap:\s*anywhere/.test(css),
+ok(/p,\s*li,\s*dd,\s*dt,\s*blockquote[\s\S]{0,80}overflow-wrap:\s*anywhere/.test(css),
   'prose wraps anywhere by default - `break-word` wraps the text but not the container')
+// ...but NOT a table cell. `anywhere` let the table layout squeeze a column to
+// one character: "Create" was Cr / ea / te on the Permissions grid and a
+// group name was its first letter. A cell keeps its words, a header never
+// wraps, and a table too wide for the screen scrolls in its wrapper.
+ok(!/p,[^{]*\btd\b[^{]*\{[^}]*overflow-wrap:\s*anywhere/.test(css) && !/p,[^{]*\bth\b[^{]*\{[^}]*overflow-wrap:\s*anywhere/.test(css),
+  'a table cell is not prose - td/th are not in the anywhere list')
+ok(/th,\s*td\s*\{[^}]*overflow-wrap:\s*break-word/.test(css), '...cells keep their words')
+ok(/\bth\s*\{[^}]*white-space:\s*nowrap/.test(css), '...and a column header never wraps')
 ok(!/^\s*\*\s*\{[^}]*overflow-wrap:\s*anywhere/m.test(css),
   '...but not on everything: on a button that breaks the label instead of keeping the shape')
 

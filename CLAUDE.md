@@ -144,8 +144,13 @@ production branch.** Do NOT ask the user to merge or deploy.
   is not belt-and-braces, it is a visible band of nothing.
 - `pt-safe` never goes on the `h-14` header: border-box takes the padding out of
   the row and squashes the search bar rather than moving it down.
-- `overflow-wrap: anywhere` is the default for prose, and `.truncate` sets
-  `min-width: 0`. Both are the same rule: `break-words` and `white-space:
+- `overflow-wrap: anywhere` is the default for prose - NOT for `td`/`th`. In a
+  table it tells the layout a cell can be one character wide, so a `w-full`
+  table on a phone crushed "Create" to Cr/ea/te and a group name to its first
+  letter. Cells are `break-word`, `th` is `white-space: nowrap`, and a table
+  too wide for the screen scrolls in its `overflow-x-auto` wrapper (give it a
+  `min-w-[…]` when the columns matter). Measured in `overlay-geometry.ts`.
+  `.truncate` sets `min-width: 0`. Both are the same rule: `break-words` and `white-space:
   nowrap` do not shrink min-content, so a flex/grid child refuses to go below
   the full unbroken line and the CONTAINER blows out while the text inside
   behaves perfectly.

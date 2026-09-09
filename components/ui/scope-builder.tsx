@@ -104,9 +104,12 @@ export function ScopeBuilder({ value, onChange }: ScopeBuildProps) {
               </div>
             </div>
 
+            {/* Seven columns need ~520px. On a phone they scroll inside this
+                box rather than crushing every cell to a letter. */}
+            <div className="overflow-x-auto">
             {/* Column headers */}
             {!collapsed[cat.id] && cat.items.length > 0 && (
-              <div className="grid grid-cols-[28px_1fr_80px_100px_90px_60px_20px] gap-2 px-3 py-1.5 bg-surface/50 border-b border-line-soft">
+              <div className="grid min-w-[520px] grid-cols-[28px_1fr_80px_100px_90px_60px_20px] gap-2 px-3 py-1.5 bg-surface/50 border-b border-line-soft">
                 <div />
                 <p className="text-xs font-medium text-faint">Description</p>
                 <p className="text-xs font-medium text-faint">Qty</p>
@@ -123,7 +126,7 @@ export function ScopeBuilder({ value, onChange }: ScopeBuildProps) {
                 {cat.items.map(item => {
                   const lineTotal = item.qty && item.unit_price ? item.qty * item.unit_price : null
                   return (
-                    <div key={item.id} className={cn('grid grid-cols-[28px_1fr_80px_100px_90px_60px_20px] gap-2 items-center px-3 py-2',
+                    <div key={item.id} className={cn('grid min-w-[520px] grid-cols-[28px_1fr_80px_100px_90px_60px_20px] gap-2 items-center px-3 py-2',
                       !item.included && 'bg-danger-tint/30')}>
 
                       {/* Included/excluded toggle */}
@@ -201,6 +204,7 @@ export function ScopeBuilder({ value, onChange }: ScopeBuildProps) {
                 </div>
               </div>
             )}
+            </div>
           </div>
         )
       })}
