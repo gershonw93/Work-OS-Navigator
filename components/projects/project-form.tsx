@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -254,7 +255,7 @@ export function ProjectForm({
             value={client}
             error={!!fieldErrors.client}
             onChange={(e) => { setClient(e.target.value); clearField('client') }}
-            autoFocus
+            autoFocus={autoFocusOnDesktop()}
           />
         )}
       </Field>

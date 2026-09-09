@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -228,7 +229,7 @@ export default function SubmittalsPage({ params }: { params: { id: string } }) {
                 <Label>
                   {reviewStatus === 'rejected' ? 'Rejection reason' : 'What needs revision?'}
                 </Label>
-                <textarea rows={2} autoFocus value={reviewNotes} onChange={e => setReviewNotes(e.target.value)}
+                <textarea rows={2} autoFocus={autoFocusOnDesktop()} value={reviewNotes} onChange={e => setReviewNotes(e.target.value)}
                   placeholder="Add review notes for the submitter..."
                   className="w-full rounded-md border border-muted2 px-3 py-2 text-sm focus:border-accent focus:outline-none resize-none" />
                 <div className="flex flex-wrap gap-2 justify-end">

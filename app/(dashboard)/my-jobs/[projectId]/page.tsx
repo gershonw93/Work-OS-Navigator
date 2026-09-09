@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -826,7 +827,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                   <p className="text-sm font-semibold text-ink-soft">New Task</p>
                   <button type="button" onClick={() => setShowTaskForm(false)} className="text-faint hover:text-muted-fg"><X className="h-4 w-4" /></button>
                 </div>
-                <Input required autoFocus placeholder="Task title..." value={taskTitle} onChange={e => setTaskTitle(e.target.value)} />
+                <Input required autoFocus={autoFocusOnDesktop()} placeholder="Task title..." value={taskTitle} onChange={e => setTaskTitle(e.target.value)} />
                 <textarea rows={2} placeholder="Details (optional)..." value={taskDesc} onChange={e => setTaskDesc(e.target.value)}
                   className="w-full rounded-md border border-muted2 px-3 py-2 text-sm focus:border-accent focus:outline-none resize-none" />
                 <div className="grid grid-cols-2 gap-3">

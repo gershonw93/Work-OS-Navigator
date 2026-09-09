@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
 import { Wallet, DollarSign, CheckCircle2, TrendingDown, TrendingUp, Plus, Trash2, Pencil, X, Check, Link as LinkIcon, AlertTriangle, LayoutTemplate, Save, FileSpreadsheet, FolderInput, Search, ShoppingCart, FileText } from 'lucide-react'
@@ -165,7 +166,7 @@ function CategoryPicker({
   return (
     <div className="space-y-1">
       {custom ? (
-        <input autoFocus className={cls} placeholder="Name your category, e.g. Craning"
+        <input autoFocus={autoFocusOnDesktop()} className={cls} placeholder="Name your category, e.g. Craning"
           value={value} onChange={e => onChange(e.target.value)} />
       ) : (
         <SearchableSelect className={cls} value={value} onChange={e => onChange(e.target.value)}>
@@ -1136,7 +1137,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
             <div className="p-5 space-y-3">
               <div className="space-y-1.5">
                 <Label>Template name</Label>
-                <Input placeholder="e.g. New build - full custom" value={tplName} onChange={e => setTplName(e.target.value)} autoFocus />
+                <Input placeholder="e.g. New build - full custom" value={tplName} onChange={e => setTplName(e.target.value)} autoFocus={autoFocusOnDesktop()} />
               </div>
               <p className="text-xs text-faint">Saves these {items.length} line items (with amounts) as a reusable template for future jobs.</p>
               <div className="flex gap-2 justify-end">

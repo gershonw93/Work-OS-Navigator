@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -522,7 +523,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
               {failing.type}{failing.trade ? ` (${failing.trade})` : ''} — what did the inspector call out?
             </p>
             <textarea
-              value={failReason} onChange={e => setFailReason(e.target.value)} rows={3} autoFocus
+              value={failReason} onChange={e => setFailReason(e.target.value)} rows={3} autoFocus={autoFocusOnDesktop()}
               placeholder="e.g. Missing fire blocking at the second-floor chase"
               className="w-full rounded-md border border-muted2 bg-panel px-3 py-2 text-sm focus:border-accent focus:outline-none"
             />

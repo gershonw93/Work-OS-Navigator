@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { usePush } from '@/lib/use-push'
+import { useVisualViewport } from '@/lib/use-visual-viewport'
 import { useNativePlatform } from '@/lib/use-native'
 
 /**
@@ -19,6 +20,11 @@ export function NativeShell() {
   usePush()
   useStatusBar()
   useDeepLinks()
+  // The one hook here that is NOT about being the native app: mobile Safari has
+  // the same keyboard, and an overlay laid out against the layout viewport ends
+  // up behind it either way. This is the only component mounted in both shells,
+  // which is why it lives here.
+  useVisualViewport()
   return null
 }
 

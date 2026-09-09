@@ -1,6 +1,7 @@
 'use client'
 
 import { Suspense, useEffect, useMemo, useState } from 'react'
+import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { useSearchParams } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
@@ -142,7 +143,7 @@ function HelpPageInner() {
             onChange={(e) => { setQuery(e.target.value); if (openSlug) setOpenSlug(null) }}
             placeholder="Search help articles… e.g. how do I award a quote"
             className="w-full rounded-xl border border-line bg-panel py-3 pl-10 pr-3 text-base text-ink placeholder:text-faint focus:border-accent focus:outline-none"
-            autoFocus
+            autoFocus={autoFocusOnDesktop()}
           />
         </div>
         {query.trim() && (

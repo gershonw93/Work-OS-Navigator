@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, useCallback, useRef, ReactNode } from 'react'
+import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { createClient } from '@/lib/supabase/client'
 import { AlertTriangle, Loader2, X, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -93,7 +94,7 @@ export function DeleteGuardProvider({ children }: { children: ReactNode }) {
               {needsKey && (
                 <div className="space-y-1.5">
                   <label className="text-sm text-ink-soft flex items-center gap-1.5"><Lock className="h-3.5 w-3.5 text-faint" /> Enter the secret delete key</label>
-                  <input type="password" autoFocus value={key} onChange={e => setKey(e.target.value)}
+                  <input type="password" autoFocus={autoFocusOnDesktop()} value={key} onChange={e => setKey(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter' && key) confirm() }}
                     className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none" />
                   {error && <p className="text-xs text-danger">{error}</p>}

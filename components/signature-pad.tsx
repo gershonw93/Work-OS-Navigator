@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState, useEffect, useCallback } from 'react'
+import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -150,7 +151,7 @@ export function SignaturePad({ onSign, onCancel }: SignaturePadProps) {
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-ink-soft">Your full name</label>
             <input
-              autoFocus
+              autoFocus={autoFocusOnDesktop()}
               type="text"
               placeholder="e.g. Jane Smith"
               value={typedName}

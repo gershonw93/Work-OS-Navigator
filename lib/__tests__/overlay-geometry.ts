@@ -23,7 +23,7 @@ import { execFileSync } from 'child_process'
 import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync, readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { ok, done, root, code } from './_helpers'
+import { ok, done, root, code, read } from './_helpers'
 
 const VIEWPORT = { w: 390, h: 844 }   // iPhone 14/15, the smallest we care about
 
@@ -82,9 +82,9 @@ function styles(html: string): string {
 }
 
 /** Lay `body` out at phone size and hand back what the browser measured. */
-function measure(body: string, probe: string, height = VIEWPORT.h): any {
+function measure(body: string, probe: string, height = VIEWPORT.h, rootStyle = ''): any {
   const css = styles(body)
-  const page = `<!doctype html><html><head>
+  const page = `<!doctype html><html${rootStyle ? ` style="${rootStyle}"` : ''}><head>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <style>${css}</style><style>html,body{margin:0}</style></head>
 <body class="bg-surface font-sans">${body}
@@ -286,6 +286,47 @@ ok((schedule.match(/flex min-h-0 flex-1 flex-col/g) ?? []).length === 2,
   '...with the form as the flexible middle, so the footer travels with it')
 ok((schedule.match(/shrink-0 px-4 sm:px-6 py-4 border-t/g) ?? []).length === 2,
   '...and both footers pinned')
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 2c. AND WITH A KEYBOARD UP, IT USES THE PART OF THE SCREEN THAT IS LEFT.
+//
+// THE BUG. `position: fixed` is laid out against the LAYOUT viewport, which
+// does not shrink when a keyboard covers the bottom of the phone. A centred
+// dialog therefore centres in the WHOLE screen and puts its own buttons behind
+// the keyboard. With `autoFocus` on the first field it happened the instant the
+// dialog opened - "it happens when I press this button".
+//
+// --vv-h / --vv-t come from window.visualViewport, which is the one thing that
+// knows. Set here by hand to stand in for a 380px keyboard on an 844px screen.
+// ─────────────────────────────────────────────────────────────────────────────
+const KEYBOARD = { visible: 464, style: '--vv-h:464px;--vv-t:0px' }
+
+const withKeyboard = measure(column, edges, VIEWPORT.h, KEYBOARD.style)
+ok(withKeyboard.panelBottom <= KEYBOARD.visible,
+  `with a keyboard up the dialog stays above it (ends at ${withKeyboard.panelBottom} `
+  + `of ${KEYBOARD.visible} visible)`)
+ok(withKeyboard.submitBottom <= KEYBOARD.visible,
+  `...buttons included (${withKeyboard.submitBottom})`)
+ok(withKeyboard.titleTop >= 0, `...and the title is still on screen (${withKeyboard.titleTop})`)
+
+// Without the variables it must behave exactly as before - a desktop has no
+// visualViewport worth tracking, and a fallback that changed the layout would
+// be a regression for everyone who never had this problem.
+const noVars = measure(column, edges, VIEWPORT.h)
+ok(noVars.panelBottom > KEYBOARD.visible,
+  `and with no keyboard it uses the whole screen again (${noVars.panelBottom})`)
+
+// COMMENTS STRIPPED. The rule's own comment explains what `inset: 0` did
+// wrong, so the absence check below matched the explanation and failed against
+// correct CSS. Exactly what `code()` exists for on the .ts side; there is no
+// equivalent for stylesheets, so it is done here.
+const globals = read('app/globals.css').replace(/\/\*[\s\S]*?\*\//g, '')
+ok(/\.overlay\s*\{[^}]*height:\s*var\(--vv-h,\s*100%\)/.test(globals),
+  'the overlay is as tall as the VISIBLE screen, falling back to all of it')
+ok(/\.overlay\s*\{[^}]*top:\s*var\(--vv-t,\s*0px\)/.test(globals),
+  '...and starts where the visible screen starts')
+ok(!/\.overlay\s*\{[^}]*inset:\s*0/.test(globals),
+  '...not `inset: 0`, which is the layout viewport and ignores the keyboard entirely')
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 3. THE THING THAT ACTUALLY BLEW THE PAGE OUT: truncated text in a grid.

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import {
   Plus, X, CheckSquare, Circle, Clock, AlertCircle, Trash2,
@@ -1112,7 +1113,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
               <div className="px-4 sm:px-6 py-5 space-y-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="title">Task <span className="text-danger">*</span></Label>
-                  <Input id="title" placeholder="e.g. Inspect concrete pour on level 2" value={title} onChange={e => setTitle(e.target.value)} required autoFocus />
+                  <Input id="title" placeholder="e.g. Inspect concrete pour on level 2" value={title} onChange={e => setTitle(e.target.value)} required autoFocus={autoFocusOnDesktop()} />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="desc">Details <span className="text-faint font-normal">(optional)</span></Label>
@@ -1223,7 +1224,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
                   <Label>Amount <span className="text-danger">*</span></Label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-faint text-sm">$</span>
-                    <Input type="number" step="0.01" min="0" required value={invoiceAmount} onChange={e => setInvoiceAmount(e.target.value)} className="pl-7" placeholder="0.00" autoFocus />
+                    <Input type="number" step="0.01" min="0" required value={invoiceAmount} onChange={e => setInvoiceAmount(e.target.value)} className="pl-7" placeholder="0.00" autoFocus={autoFocusOnDesktop()} />
                   </div>
                 </div>
                 <div className="space-y-1.5">

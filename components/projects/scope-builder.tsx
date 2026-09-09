@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { createClient } from '@/lib/supabase/client'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -90,7 +91,7 @@ function PointList({
               </span>
 
               {editing === i ? (
-                <Input autoFocus value={editText} onChange={e => setEditText(e.target.value)}
+                <Input autoFocus={autoFocusOnDesktop()} value={editText} onChange={e => setEditText(e.target.value)}
                   onBlur={commitEdit}
                   onKeyDown={e => {
                     if (e.key === 'Enter') { e.preventDefault(); commitEdit() }

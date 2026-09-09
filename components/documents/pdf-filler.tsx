@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { X, Plus, Trash2, Loader2, ChevronLeft, ChevronRight, Type, AlertTriangle, Move } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
@@ -325,7 +326,7 @@ export function PdfFiller({
                 <textarea
                   // A new block is ready to type into. Making the user click
                   // the thing they just created is a tax on every field.
-                  autoFocus={box.id === activeId && !box.text}
+                  autoFocus={autoFocusOnDesktop() && box.id === activeId && !box.text}
                   value={box.text}
                   onChange={e => update(box.id, { text: e.target.value })}
                   onFocus={() => setActiveId(box.id)}
@@ -401,7 +402,7 @@ export function PdfFiller({
               <label htmlFor="filled-name" className="text-sm font-medium text-ink-soft">File name</label>
               <input
                 id="filled-name"
-                autoFocus
+                autoFocus={autoFocusOnDesktop()}
                 value={saveName}
                 onChange={e => setSaveName(e.target.value)}
                 onFocus={e => {

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { ChevronDown, Plus, Check, Search, UserPlus } from 'lucide-react'
@@ -168,7 +169,7 @@ export function ContactPicker({
             <div className="border-t border-line-soft px-3 py-3 space-y-2">
               <p className="text-xs font-semibold text-muted-fg uppercase tracking-wide">Quick Add</p>
               <input
-                autoFocus
+                autoFocus={autoFocusOnDesktop()}
                 type="text"
                 placeholder="Full name *"
                 value={quickName}

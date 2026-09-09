@@ -154,7 +154,15 @@ production branch.** Do NOT ask the user to merge or deploy.
   html/body with `hidden` - and clip cannot be scrolled while hidden can. That
   turned latent sideways overflow into a pannable viewport, and `position:
   fixed` is pinned to the LAYOUT viewport, so dialogs slid off the screen.
-- Pinned by `lib/__tests__/layout-overflow.ts`. Full detail in MOBILE.md.
+- NEVER `autoFocus` on a touch screen - `autoFocus={autoFocusOnDesktop()}`
+  (`lib/auto-focus.ts`). iOS opens the keyboard for it unasked and scrolls the
+  LAYOUT viewport to reach the field, dragging the fixed dialog off with it.
+- Overlays are sized from `--vv-h` / `--vv-t` (`lib/use-visual-viewport.ts`),
+  not `inset: 0`. The layout viewport does not shrink for a keyboard, so a
+  centred dialog puts its own buttons behind one.
+- Pinned by `lib/__tests__/layout-overflow.ts` and, for anything that is a
+  measurement rather than a pattern, `lib/__tests__/overlay-geometry.ts`, which
+  lays real markup out in headless Chromium. Full detail in MOBILE.md.
 
 ## Loading and failure states (IMPORTANT)
 - A loading state must have a WAY TO END. `setLoading(false)` as the last

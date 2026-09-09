@@ -1,6 +1,7 @@
 'use client'
 
 import { cn } from '@/lib/utils'
+import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { Check, ChevronsUpDown, Search } from 'lucide-react'
 import {
   Children,
@@ -253,7 +254,7 @@ export function SearchableSelect({
             <div className="flex items-center gap-2 border-b border-line-soft px-2.5">
               <Search className="h-3.5 w-3.5 text-faint shrink-0" />
               <input
-                autoFocus
+                autoFocus={autoFocusOnDesktop()}
                 value={query}
                 onChange={e => { setQuery(e.target.value); setActiveIdx(0) }}
                 onKeyDown={onKeyDown}

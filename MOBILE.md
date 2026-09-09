@@ -256,6 +256,28 @@ on the screen depended on which file it lived in.
   an `absolute inset-0` child: an absolute child is positioned against the
   padding box, so it stops short of the edge and leaves undimmed strips.
 
+**Never `autoFocus` on a touch screen.** Use `autoFocusOnDesktop()` from
+`lib/auto-focus.ts` — `autoFocus={autoFocusOnDesktop()}`, or
+`autoFocus={autoFocusOnDesktop() && yourCondition}`. iOS opens the keyboard for
+an autofocused field the moment it mounts, nobody having asked, and then scrolls
+the LAYOUT viewport to reach it — dragging a `position: fixed` dialog off with
+it. It was in 29 places across 24 files. The test is the POINTER, not the screen
+width: an iPad in landscape is wide and still touched.
+
+**Overlays are sized from the VISIBLE screen.** `position: fixed` is laid out
+against the layout viewport, which does not shrink for a keyboard, so
+`inset: 0` puts the bottom of a dialog behind one. `lib/use-visual-viewport.ts`
+(mounted in `NativeShell`, and NOT gated on being the native app — mobile Safari
+has the same keyboard) keeps `--vv-h` and `--vv-t` tracking
+`window.visualViewport`, and `.overlay` / `.overlay-sheet` use them:
+
+```css
+top: var(--vv-t, 0px);
+height: var(--vv-h, 100%);
+```
+
+The fallback is the full screen, which is what a desktop has anyway.
+
 **A dialog with a footer is a COLUMN.** `.overlay > *` caps the panel and gives
 it `overflow-y: auto`, so a plain block panel scrolls as a whole - header,
 fields and buttons together. That is fine until there is very little screen, and

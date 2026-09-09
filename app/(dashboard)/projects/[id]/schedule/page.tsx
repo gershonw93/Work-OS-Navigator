@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { Plus, X, CalendarDays, Pencil, Trash2, Building2, Flag, ChevronLeft, ChevronRight, GanttChartSquare, List, CalendarRange, AlertCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { usePermissions } from '@/lib/use-permissions'
@@ -374,7 +375,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6 py-5 space-y-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="alabel">Label <span className="text-danger">*</span></Label>
-                  <Input id="alabel" placeholder="e.g. Permits Approved" value={addLabel} onChange={e => setAddLabel(e.target.value)} required autoFocus />
+                  <Input id="alabel" placeholder="e.g. Permits Approved" value={addLabel} onChange={e => setAddLabel(e.target.value)} required autoFocus={autoFocusOnDesktop()} />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
@@ -426,7 +427,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6 py-5 space-y-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="elabel">Label</Label>
-                  <Input id="elabel" value={editLabel} onChange={e => setEditLabel(e.target.value)} required autoFocus />
+                  <Input id="elabel" value={editLabel} onChange={e => setEditLabel(e.target.value)} required autoFocus={autoFocusOnDesktop()} />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">

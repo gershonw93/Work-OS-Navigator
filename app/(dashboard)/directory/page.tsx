@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import Link from 'next/link'
 import { Building2, Plus, X, Search, Phone, Mail, MapPin, Globe, BadgeCheck, Send, ExternalLink, Pencil, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -367,7 +368,7 @@ export default function DirectoryPage() {
                       value={formName}
                       onChange={e => setFormName(e.target.value)}
                       required
-                      autoFocus
+                      autoFocus={autoFocusOnDesktop()}
                     />
                   </div>
 
@@ -545,7 +546,7 @@ export default function DirectoryPage() {
                     value={inviteEmail}
                     onChange={e => setInviteEmail(e.target.value)}
                     required
-                    autoFocus
+                    autoFocus={autoFocusOnDesktop()}
                   />
                 </div>
                 {inviteError && <p className="text-sm text-danger">{inviteError}</p>}

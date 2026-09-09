@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
 import { usePermissions } from '@/lib/use-permissions'
@@ -762,7 +763,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                 )}
                 <div className="space-y-1.5">
                   <Label>Task Title</Label>
-                  <Input autoFocus value={taskTitle} onChange={e => setTaskTitle(e.target.value)} placeholder="e.g. Fix water intrusion on north wall" required />
+                  <Input autoFocus={autoFocusOnDesktop()} value={taskTitle} onChange={e => setTaskTitle(e.target.value)} placeholder="e.g. Fix water intrusion on north wall" required />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Description <span className="text-faint font-normal">(optional)</span></Label>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { Lock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
@@ -46,7 +47,7 @@ export function AdminPinGate() {
         <input
           type="password"
           inputMode="numeric"
-          autoFocus
+          autoFocus={autoFocusOnDesktop()}
           value={pin}
           onChange={e => setPin(e.target.value)}
           placeholder="••••••"
