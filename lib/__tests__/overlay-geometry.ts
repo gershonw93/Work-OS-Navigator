@@ -286,6 +286,16 @@ ok((schedule.match(/flex min-h-0 flex-1 flex-col/g) ?? []).length === 2,
   '...with the form as the flexible middle, so the footer travels with it')
 ok((schedule.match(/shrink-0 px-4 sm:px-6 py-4 border-t/g) ?? []).length === 2,
   '...and both footers pinned')
+// Budget's Add Line was an inline card two screens down a phone; it is a
+// dialog of the same shape now, on the desktop too.
+const budget = code('app/(dashboard)/projects/[id]/budget/page.tsx')
+const addIdx = budget.indexOf('New Budget Line')
+const addBlock = budget.slice(Math.max(0, addIdx - 600), addIdx + 200)
+ok(/overlay items-center justify-center[^"]*" data-overlay/.test(addBlock), 'Budget\'s New Budget Line is a dialog, not a card down the page')
+ok(/flex max-h-full w-full max-w-2xl min-w-0 flex-col overflow-hidden/.test(addBlock), '...a column')
+ok(/flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto/.test(budget.slice(addIdx, addIdx + 800)), '...with the form as the scrolling middle')
+ok(/flex shrink-0 justify-end gap-2 border-t border-line-soft px-5 py-4/.test(budget), '...and Add Line pinned in the footer')
+ok(!/rounded-xl border border-accent\/40 p-4 sm:p-5 space-y-3/.test(budget), '...and the inline card is gone')
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 2c. AND WITH A KEYBOARD UP, IT USES THE PART OF THE SCREEN THAT IS LEFT.

@@ -573,6 +573,16 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
     else alert((await res.json().catch(() => ({}))).error ?? 'Could not add soft costs')
   }
 
+  // One way out for the X, the backdrop, Cancel and Escape - three copies of
+  // the same three lines is how one of them stops clearing the error.
+  function closeAdd() { setAdding(false); setForm({ ...blankForm }); setLineError(null) }
+  useEffect(() => {
+    if (!adding) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeAdd() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [adding]) // eslint-disable-line react-hooks/exhaustive-deps
+
   async function addLine() {
     if (!form.description.trim()) return
     setSaving(true)
@@ -1449,10 +1459,19 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
         </div>
       )}
 
-      {/* Add form */}
+      {/* Add form - a DIALOG, on the phone and the desktop alike. It used to be
+          a card below the header, the four tiles and the markup row: two
+          screens down on a phone, so "Add Line" looked like it did nothing.
+          A column (header / scrolling form / pinned footer) so Add Line stays
+          reachable with the keyboard up - the shape the harness measures. */}
       {adding && (
-        <div className="bg-panel rounded-xl border border-accent/40 p-4 sm:p-5 space-y-3">
-          <p className="text-sm font-semibold text-ink-soft">New Budget Line</p>
+        <div className="overlay items-center justify-center bg-black/50" data-overlay onClick={closeAdd}>
+        <div className="flex max-h-full w-full max-w-2xl min-w-0 flex-col overflow-hidden rounded-xl bg-panel shadow-xl" onClick={e => e.stopPropagation()}>
+          <div className="flex shrink-0 items-center justify-between border-b border-line-soft py-1 pl-5 pr-1">
+            <h2 className="font-semibold text-ink">New Budget Line</h2>
+            <button type="button" onClick={closeAdd} aria-label="Close" className="flex h-11 w-11 items-center justify-center rounded-lg text-faint hover:bg-surface hover:text-ink"><X className="h-5 w-5" /></button>
+          </div>
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <SearchableSelect className="rounded-lg border border-line px-3 py-2 text-sm bg-panel"
               value={form.cost_type} onChange={e => {
@@ -1470,6 +1489,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
             <input className="rounded-lg border border-line px-3 py-2 text-sm" placeholder="Cost code (optional)"
               value={form.cost_code} onChange={e => setForm({ ...form, cost_code: e.target.value })} />
             <input className="rounded-lg border border-line px-3 py-2 text-sm sm:col-span-2 lg:col-span-1" placeholder="Description *"
+              autoFocus={autoFocusOnDesktop()}
               value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
             <input type="number" className="rounded-lg border border-line px-3 py-2 text-sm" placeholder="Budgeted $"
               value={form.budgeted_amount} onChange={e => setForm({ ...form, budgeted_amount: e.target.value })} />
@@ -1521,10 +1541,12 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
           {lineError && (
             <p role="alert" className="text-xs text-danger">{lineError}</p>
           )}
-          <div className="flex gap-2 justify-end">
-            <Button variant="outline" onClick={() => { setAdding(false); setForm({ ...blankForm }); setLineError(null) }}>Cancel</Button>
+          </div>
+          <div className="flex shrink-0 justify-end gap-2 border-t border-line-soft px-5 py-4">
+            <Button variant="outline" onClick={closeAdd}>Cancel</Button>
             <Button onClick={addLine} disabled={saving || !form.description.trim()}>{saving ? 'Saving…' : 'Add Line'}</Button>
           </div>
+        </div>
         </div>
       )}
 

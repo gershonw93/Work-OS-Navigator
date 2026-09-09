@@ -52,6 +52,12 @@ export const RELEASES: Release[] = [
     title: 'A cleaner look on a phone',
     items: [
       {
+        kind: 'improved',
+        title: 'Add Line on Budget opens a pop-up',
+        text: 'The new-line form used to appear below the totals, two screens down on a phone, so Add Line looked like it did nothing. It opens as a pop-up now, on the phone and on a laptop, with the Add Line button always in reach even with the keyboard up. Escape or the X closes it.',
+        help: 'add-project-budget',
+      },
+      {
         kind: 'fixed',
         title: 'Permissions reads as a list on a phone, and table headings stop breaking into letters',
         text: 'The permissions grid was squeezed until "Create" read as Cr-ea-te and a group name was down to one letter. On a phone each resource is now a row with four labelled switches under it; on a desktop the grid is unchanged. The same squeeze could hit any table, so column headings across the app now stay on one line and a table wider than the screen scrolls inside its own box instead of crushing. Equipment and a vendor\'s quick numbers in the Directory sit in one card on a phone too.',
