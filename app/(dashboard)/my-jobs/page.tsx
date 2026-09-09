@@ -12,6 +12,7 @@ import { Briefcase, Plus, X, MapPin, ChevronRight, Award, FolderOpen, Calendar, 
 import Link from 'next/link'
 import { contractAmountLabel } from '@/lib/contract-amount'
 import { parseDate, formatDate } from '@/lib/dates'
+import { useNotice } from '@/components/ui/notice'
 
 const PROJECT_TYPES = ['residential', 'commercial', 'industrial', 'renovation', 'other']
 
@@ -27,6 +28,7 @@ interface OwnProject {
 interface Customer { id: string; name: string }
 
 export default function MyJobsPage() {
+  const notify = useNotice()
   const supabase = createClient()
   const [awarded, setAwarded] = useState<AwardedJob[]>([])
   const [own, setOwn] = useState<OwnProject[]>([])
@@ -77,7 +79,7 @@ export default function MyJobsPage() {
       body: JSON.stringify({ name, address: address || null, type, start_date: startDate || null, description: description || null, customer_id: customerId || null }),
     })
     setCreating(false)
-    if (!res.ok) { alert((await res.json().catch(() => ({}))).error ?? 'Could not create project'); return }
+    if (!res.ok) { notify((await res.json().catch(() => ({}))).error ?? 'Could not create project'); return }
     setName(''); setAddress(''); setType('residential'); setStartDate(''); setDescription(''); setCustomerId('')
     setShowForm(false)
     load()

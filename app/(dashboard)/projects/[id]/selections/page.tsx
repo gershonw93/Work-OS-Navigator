@@ -22,6 +22,11 @@ import {
 import { clientAppOrigin } from '@/lib/app-url'
 
 import { formatDate } from '@/lib/dates'
+import { useNotice } from '@/components/ui/notice'
+import { Field } from '@/components/ui/field'
+// The SAME rule the route applies, run at the field. Aliased because `money`
+// below is this page's formatter - two different jobs, one obvious name.
+import { money as checkMoney } from '@/lib/validate'
 const money = (n: number | null | undefined) =>
   n == null ? '-' : `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 
@@ -45,6 +50,7 @@ interface Selection {
 }
 
 export default function SelectionsPage({ params }: { params: { id: string } }) {
+  const notify = useNotice()
   const supabase = createClient()
   const guardDelete = useDeleteGuard()
   const [rows, setRows] = useState<Selection[]>([])
@@ -60,9 +66,13 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
   const [showSeed, setShowSeed] = useState(false)
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
-  // The row whose status was moved to Chosen with nothing chosen. Asking for
-  // the missing fact where the field is beats an alert about it.
-  const [needsChoice, setNeedsChoice] = useState<string | null>(null)
+  // The row that was asked to move to an accepted status before it could take
+  // one, and WHICH of the two things it is missing. Asking for the missing fact
+  // where the field is beats a dialog about it.
+  const [blocked, setBlocked] = useState<{ id: string; why: 'choice' | 'line' } | null>(null)
+  // A bad allowance, said at the field that holds it. `add` is the new-selection
+  // form; anything else is the id of the row whose inline Allowance is wrong.
+  const [allowanceError, setAllowanceError] = useState<{ id: string; msg: string } | null>(null)
   const [filter, setFilter] = useState<'outstanding' | 'all'>('outstanding')
   const [needsMigration, setNeedsMigration] = useState(false)
 
@@ -126,7 +136,23 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
       body: JSON.stringify(body),
     })
     if (res.ok) load()
-    else alert((await res.json().catch(() => ({}))).error ?? 'Could not save')
+    else notify((await res.json().catch(() => ({}))).error ?? 'Could not save')
+  }
+
+  // What an accepted status still needs, or null when it can be set.
+  //
+  // ONE question, asked by the dropdown AND by the name field, so the two
+  // cannot disagree about whether a row is ready - and asked BEFORE the
+  // request, because the server's answer to either can only arrive as a
+  // message about a whole request that did not happen.
+  function missingFor(
+    sel: { selected_name: string | null; budget_line_item_id: string | null },
+    next: SelectionStatus,
+  ): 'choice' | 'line' | null {
+    if (!ACCEPTED_STATUSES.has(next)) return null
+    if (!sel.selected_name?.trim()) return 'choice'
+    if (!sel.budget_line_item_id) return 'line'
+    return null
   }
 
   // What the app thinks each unlinked selection belongs to. A suggestion, shown
@@ -183,6 +209,15 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
 
   async function add() {
     if (!form.item.trim()) return
+    // -500 was reaching the route, coming back a 400, and being announced in a
+    // blocking dialog that took the page with it. The rule is pure and shared
+    // (lib/validate.ts), so it can be asked here - at the field, before
+    // anything is sent. Blank is a real answer: no allowance set.
+    if (form.allowance_amount.trim() !== '') {
+      const checked = checkMoney(form.allowance_amount, { allowZero: true, label: 'allowance' })
+      if (!checked.ok) { setAllowanceError({ id: 'add', msg: checked.error! }); return }
+    }
+    setAllowanceError(null)
     setSaving(true)
     const t = await token()
     const res = await fetch(`/api/projects/${params.id}/selections`, {
@@ -198,7 +233,7 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
     if (res.ok) {
       setForm({ category: form.category, item: '', location: '', allowance_amount: '', needed_by: '', budget_line_item_id: '' })
       setShowAdd(false); load()
-    } else alert((await res.json().catch(() => ({}))).error ?? 'Could not add')
+    } else notify((await res.json().catch(() => ({}))).error ?? 'Could not add')
   }
 
   async function addOption(selId: string) {
@@ -219,7 +254,7 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
     // small tax that stops people adding options at all. Change it when it changes.
     setSavingOpt(null)
     if (res.ok) { setOptDraft(p => ({ ...p, [selId]: { ...BLANK_OPT, brand: d.brand } })); load() }
-    else alert((await res.json().catch(() => ({}))).error ?? 'Could not add that option')
+    else notify((await res.json().catch(() => ({}))).error ?? 'Could not add that option')
   }
 
   /**
@@ -229,7 +264,7 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
    * comes back as a URL for the row being drafted.
    */
   async function uploadPhoto(selId: string, file: File, optionId?: string): Promise<string | null> {
-    if (!file.type.startsWith('image/')) { alert('That needs to be an image.'); return null }
+    if (!file.type.startsWith('image/')) { notify('That needs to be an image.'); return null }
     setUploading(optionId ?? selId)
     const t = await token()
     const form = new FormData()
@@ -240,7 +275,7 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
     })
     setUploading(null)
     const body = await res.json().catch(() => ({}))
-    if (!res.ok) { alert(body.error ?? 'Could not upload that image'); return null }
+    if (!res.ok) { notify(body.error ?? 'Could not upload that image'); return null }
     if (optionId) load()
     return body.image_url ?? null
   }
@@ -254,7 +289,7 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
       body: JSON.stringify({ paste: pasteText }),
     })
     if (res.ok) { setPasteText(''); setPasteFor(null); load() }
-    else alert((await res.json().catch(() => ({}))).error ?? 'Could not read those')
+    else notify((await res.json().catch(() => ({}))).error ?? 'Could not read those')
   }
 
   function openOrder(sel: Selection) {
@@ -281,7 +316,7 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
     })
     setOrdering(null)
     if (res.ok) { setOrderFor(null); load() }
-    else alert((await res.json().catch(() => ({}))).error ?? 'Could not place the order')
+    else notify((await res.json().catch(() => ({}))).error ?? 'Could not place the order')
   }
 
   async function removeOption(selId: string, optionId: string) {
@@ -315,7 +350,7 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
         method: 'POST', headers: { Authorization: `Bearer ${t}` },
       })
       setLinking(false)
-      if (!res.ok) { alert('Could not create a client link for this project.'); return }
+      if (!res.ok) { notify('Could not create a client link for this project.'); return }
       tok = (await res.json()).token
       setPortalToken(tok ?? null)
     }
@@ -390,7 +425,7 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
         cost_type: 'hard',
       }),
     })
-    if (!res.ok) { alert((await res.json().catch(() => ({}))).error ?? 'Could not add a budget line'); return }
+    if (!res.ok) { notify((await res.json().catch(() => ({}))).error ?? 'Could not add a budget line'); return }
     const newId = (await res.json().catch(() => ({}))).item?.id
     if (newId) await patch(sel.id, { budget_line_item_id: newId })
     else load()
@@ -509,10 +544,11 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
               <Label>Room / location</Label>
               <Input value={form.location} onChange={e => setForm(p => ({ ...p, location: e.target.value }))} placeholder="optional" />
             </div>
-            <div className="space-y-1.5">
-              <Label>Allowance ($)</Label>
-              <Input type="number" value={form.allowance_amount} onChange={e => setForm(p => ({ ...p, allowance_amount: e.target.value }))} placeholder="what the budget carries" />
-            </div>
+            <Field label="Allowance ($)" error={allowanceError?.id === 'add' ? allowanceError.msg : null}>
+              <Input type="number" value={form.allowance_amount}
+                onChange={e => { setForm(p => ({ ...p, allowance_amount: e.target.value })); if (allowanceError?.id === 'add') setAllowanceError(null) }}
+                placeholder="what the budget carries" />
+            </Field>
             <div className="space-y-1.5">
               <Label>Decide by</Label>
               <Input type="date" value={form.needed_by} onChange={e => setForm(p => ({ ...p, needed_by: e.target.value }))} />
@@ -848,16 +884,18 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
                             )}
                             <select value={sel.status} onChange={e => {
                               const next = e.target.value as SelectionStatus
-                              // Chosen with nothing chosen is a status that
-                              // cannot be looked up. Open the row and ask for
-                              // the name rather than saving a claim and letting
-                              // the server refuse it into an alert.
-                              if (ACCEPTED_STATUSES.has(next) && !sel.selected_name?.trim()) {
+                              // An accepted status needs TWO things, and the
+                              // route refuses on either. Both are asked for
+                              // here, at the field that is missing, rather than
+                              // sent and refused into a dialog - which is what
+                              // the server's own message could only ever be.
+                              const why = missingFor(sel, next)
+                              if (why) {
                                 setExpanded(p => new Set(p).add(sel.id))
-                                setNeedsChoice(sel.id)
+                                setBlocked({ id: sel.id, why })
                                 return
                               }
-                              setNeedsChoice(null)
+                              setBlocked(null)
                               patch(sel.id, { status: next })
                             }}
                               className={cn('whitespace-nowrap rounded-full border-0 px-2.5 py-1 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-accent', STATUS_TINT[sel.status])}>
@@ -873,7 +911,22 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
                               <div className="space-y-1">
                                 <Label className="lg:text-xs">Allowance ($)</Label>
                                 <Input type="number" defaultValue={sel.allowance_amount ?? ''} className="h-8 text-sm"
-                                  onBlur={e => { const val = e.target.value === '' ? null : Number(e.target.value); if (val !== sel.allowance_amount) patch(sel.id, { allowance_amount: val }) }} />
+                                  aria-invalid={allowanceError?.id === sel.id}
+                                  onBlur={e => {
+                                    // Same rule as the Add form and as the
+                                    // route. A negative here used to make the
+                                    // round trip and come back as a dialog.
+                                    if (e.target.value.trim() !== '') {
+                                      const checked = checkMoney(e.target.value, { allowZero: true, label: 'allowance' })
+                                      if (!checked.ok) { setAllowanceError({ id: sel.id, msg: checked.error! }); return }
+                                    }
+                                    setAllowanceError(null)
+                                    const val = e.target.value === '' ? null : Number(e.target.value)
+                                    if (val !== sel.allowance_amount) patch(sel.id, { allowance_amount: val })
+                                  }} />
+                                {allowanceError?.id === sel.id && (
+                                  <p className="text-[11px] text-danger">{allowanceError.msg}</p>
+                                )}
                                 {/* How much room is actually left on the line this
                                     hangs off, once its other selections are counted. */}
                                 {(() => {
@@ -897,14 +950,35 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
                               </div>
                               <div className="space-y-1">
                                 <Label className="lg:text-xs">What they chose</Label>
+                                {/* THE NAME SAVES ON ITS OWN.
+                                    It used to travel with `status: 'chosen'` in
+                                    ONE request, and the route refuses an
+                                    accepted status on a row with no budget line
+                                    - before the update runs. So on every such
+                                    row, typing a choice threw the choice away
+                                    with the status, three tries running, and
+                                    said so only in a blocking dialog.
+                                    Recording what they picked is information;
+                                    the budget line is a condition on the
+                                    STATUS. The status rides along only when the
+                                    row can actually take it. */}
                                 <Input defaultValue={sel.selected_name ?? ''} className="h-8 text-sm" placeholder="e.g. SW Alabaster"
-                                  aria-invalid={needsChoice === sel.id}
+                                  aria-invalid={blocked?.id === sel.id}
                                   onBlur={e => {
-                                    if (e.target.value.trim()) setNeedsChoice(null)
-                                    if (e.target.value !== (sel.selected_name ?? '')) patch(sel.id, { selected_name: e.target.value || null, status: e.target.value ? 'chosen' : sel.status })
+                                    const name = e.target.value.trim()
+                                    if (name && blocked?.id === sel.id && blocked.why === 'choice') setBlocked(null)
+                                    if (e.target.value === (sel.selected_name ?? '')) return
+                                    const body: Record<string, unknown> = { selected_name: name || null }
+                                    if (name && !missingFor({ ...sel, selected_name: name }, 'chosen')) body.status = 'chosen'
+                                    else if (name && !sel.budget_line_item_id) setBlocked({ id: sel.id, why: 'line' })
+                                    patch(sel.id, body)
                                   }} />
-                                {needsChoice === sel.id && (
-                                  <p className="text-[11px] text-danger">Name what they chose and this moves to Chosen on its own.</p>
+                                {blocked?.id === sel.id && (
+                                  <p className="text-[11px] text-danger">
+                                    {blocked.why === 'choice'
+                                      ? 'Name what they chose and this moves to Chosen on its own.'
+                                      : 'Saved. Link this to a budget line below and it moves to Chosen - an accepted selection is money, and it needs somewhere on the budget to land.'}
+                                  </p>
                                 )}
                               </div>
                             </div>

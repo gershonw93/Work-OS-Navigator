@@ -13,6 +13,7 @@
 import { ACCEPTED_STATUSES, SELECTION_STATUSES } from '../selections'
 import { activityHref, ACTIVITY_TAB } from '../activity-href'
 import { approvedChangesByLine, budgetTotals, rollupBudgetLines } from '../invoice-budget'
+import { money as checkMoney } from '../validate'
 import { ok, done, code, read } from './_helpers'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -39,10 +40,38 @@ ok(/'selected_name' in patch \? patch\.selected_name : current\?\.selected_name/
 ok(/needs_budget_line: true/.test(selRoute), '...and the budget-line rule it already had still stands')
 
 const selPage = code('app/(dashboard)/projects/[id]/selections/page.tsx')
-ok(/ACCEPTED_STATUSES\.has\(next\) && !sel\.selected_name\?\.trim\(\)/.test(selPage),
-  'the dropdown asks the same question before it saves anything')
-ok(/setNeedsChoice\(sel\.id\)/.test(selPage) && /Name what they chose/.test(selPage),
-  '...and says what is missing where the field is, rather than throwing an alert')
+ok(/ACCEPTED_STATUSES\.has\(next\)/.test(selPage),
+  'the page asks the same question the route does, from the shared set')
+ok(/Name what they chose/.test(selPage),
+  '...and says what is missing where the field is, rather than in a dialog')
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 1b. THE FOLLOW-UP: the name that never saved.
+//
+// The guard above was right and the field beside it was not. "What they chose"
+// sent the name and `status: 'chosen'` in ONE request, and the route refuses an
+// accepted status on a row with no budget line - BEFORE the update runs. So on
+// every such row, typing a choice threw the choice away with the status.
+// Confirmed in the database: the row they tested had budget_line_item_id NULL.
+//
+// Recording what somebody picked is information. The budget line is a condition
+// on the STATUS. One request must not carry both when either can be refused.
+// ─────────────────────────────────────────────────────────────────────────────
+ok(/function missingFor\(/.test(selPage),
+  'one function says what an accepted status is still missing')
+ok(/if \(!sel\.selected_name\?\.trim\(\)\) return 'choice'/.test(selPage)
+  && /if \(!sel\.budget_line_item_id\) return 'line'/.test(selPage),
+  '...both reasons the route would refuse, asked BEFORE the request')
+ok(/const why = missingFor\(sel, next\)/.test(selPage),
+  'the status dropdown asks it')
+ok(/if \(name && !missingFor\(\{ \.\.\.sel, selected_name: name \}, 'chosen'\)\) body\.status = 'chosen'/.test(selPage),
+  '...and the name field asks it too, so the status only rides along when it can be taken')
+ok(/const body: Record<string, unknown> = \{ selected_name: name \|\| null \}/.test(selPage),
+  'the name is its own request - it saves whether or not the row can be Chosen yet')
+ok(!/patch\(sel\.id, \{ selected_name: [^)]*status: e\.target\.value \? 'chosen'/.test(selPage),
+  '...not coupled to a status change that takes it down with it')
+ok(/Saved\. Link this to a budget line below/.test(selPage),
+  'and the row says why it is not Chosen yet, where the field is')
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 4. "Budgeted at $-500"
@@ -58,6 +87,22 @@ ok(/sel\.allowance_amount != null && Number\(sel\.allowance_amount\) > 0 && \(/.
   'and a nonsense allowance already in the data is not printed to the client')
 ok(/Number\(sel\.allowance_amount\) > 0 && o\.price != null/.test(portal),
   '...nor used to work out what an option is "over" by')
+
+// THE FOLLOW-UP: refusing it server-side was correct and the way it was
+// REPORTED was a blocking native dialog, which took the page with it. The rule
+// is pure, so the field can ask it before anything is sent.
+ok(checkMoney('-500', { allowZero: true, label: 'allowance' }).ok === false,
+  'the shared rule refuses a negative allowance')
+ok(checkMoney('250', { allowZero: true }).ok === true && checkMoney('', { allowZero: true }).ok === false,
+  '...accepts a positive one, and blank is handled by the caller as "not set"')
+ok(/import \{ money as checkMoney \} from '@\/lib\/validate'/.test(selPage),
+  'the Selections page runs the SAME rule as the route, not a second copy')
+ok(/if \(!checked\.ok\) \{ setAllowanceError\(\{ id: 'add', msg: checked\.error! \}\); return \}/.test(selPage),
+  'the Add form checks before it posts')
+ok(/<Field label="Allowance \(\$\)" error=/.test(selPage),
+  '...and the message lands in the field, through the component that exists for it')
+ok(/setAllowanceError\(\{ id: sel\.id, msg: checked\.error! \}\); return/.test(selPage),
+  'the inline Allowance on an expanded row does the same')
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 6. Recent Activity: thirty links to the same page

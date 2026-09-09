@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
+import { useNotice } from '@/components/ui/notice'
 import { Check, ChevronDown, CircleAlert, CircleCheck, X, ArrowRight } from 'lucide-react'
 
 const STATUSES = ['planning', 'active', 'on_hold', 'completed', 'cancelled']
@@ -72,6 +73,7 @@ export function ProjectStatusSwitch({
   status: string | null
   isSite?: boolean
 }) {
+  const notify = useNotice()
   const { can } = usePermissions()
   // A site is a container - its status means nothing, the jobs underneath it
   // carry their own.
@@ -114,7 +116,7 @@ export function ProjectStatusSwitch({
     })
     setSaving(false)
     if (!res.ok) {
-      alert((await res.json().catch(() => ({}))).error ?? 'Could not change the status')
+      notify((await res.json().catch(() => ({}))).error ?? 'Could not change the status')
       return
     }
     setConfirming(false)

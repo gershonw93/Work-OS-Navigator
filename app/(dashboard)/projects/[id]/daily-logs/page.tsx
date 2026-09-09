@@ -20,6 +20,7 @@ import {
 import { ACCEPT_DOCS } from '@/lib/file-accept'
 import { usePreviewUrls } from '@/lib/use-preview-urls'
 import { parseDate, formatDate } from '@/lib/dates'
+import { useNotice } from '@/components/ui/notice'
 
 const SURVEY_QUESTIONS = [
   { key: 'accidents', label: 'Safety incidents or injuries today?' },
@@ -82,6 +83,7 @@ interface TeamMember { id: string; name: string; role: string }
 interface SubContract { id: string; company_id: string; trade: string; companies?: { name: string } }
 
 export default function DailyLogsPage({ params }: { params: { id: string } }) {
+  const notify = useNotice()
   const { can } = usePermissions()
   const canCreateLog = can('daily-logs', 'create')
   const canEditLog = can('daily-logs', 'edit')
@@ -287,7 +289,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
     })
     setReviewing(null)
     if (!res.ok) {
-      alert((await res.json().catch(() => ({}))).error ?? 'Could not update review status.')
+      notify((await res.json().catch(() => ({}))).error ?? 'Could not update review status.')
       return
     }
     fetchLogs()

@@ -23,6 +23,7 @@ import { BulkAddModal } from '@/components/projects/bulk-add-modal'
 import { cn } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
 import { formatDate } from '@/lib/dates'
+import { useNotice } from '@/components/ui/notice'
 
 interface Project {
   id: string
@@ -104,6 +105,7 @@ function projectHref(p: { id: string; is_site?: boolean | null }) {
 }
 
 export default function ProjectsPage() {
+  const notify = useNotice()
   const { can } = usePermissions()
   const canCreate = can('projects', 'create')
   // Edit/delete on a project row. Gates the same thing the API now enforces.
@@ -222,7 +224,7 @@ export default function ProjectsPage() {
     setSaving(false)
     if (!res.ok) {
       const d = await res.json().catch(() => ({}))
-      alert(`Could not save: ${d.error ?? res.statusText}`)
+      notify(`Could not save: ${d.error ?? res.statusText}`)
       return
     }
     setEditProject(null)
@@ -430,7 +432,7 @@ export default function ProjectsPage() {
             setBulkOpen(false)
             fetchProjects()
             if (located < count) {
-              alert(`Created ${count} projects. ${count - located} could not be placed on the map - open one and fix its address.`)
+              notify(`Created ${count} projects. ${count - located} could not be placed on the map - open one and fix its address.`, { tone: 'info' })
             }
             if (siteId) router.push(`/projects/${siteId}/units`)
           }}

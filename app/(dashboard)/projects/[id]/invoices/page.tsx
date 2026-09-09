@@ -25,6 +25,7 @@ import { parseDate, formatDate } from '@/lib/dates'
 import { toAmountInput } from '@/lib/validate'
 
 import { LineEditor } from '@/components/invoices/line-editor'
+import { useNotice } from '@/components/ui/notice'
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   pending_approval: { label: 'Pending Approval', color: 'bg-warn-tint border-warn/30 text-warn' },
   approved: { label: 'Approved', color: 'bg-info-tint border-info/30 text-info' },
@@ -68,6 +69,7 @@ interface Invoice {
 }
 
 export default function InvoicesPage({ params }: { params: { id: string } }) {
+  const notify = useNotice()
   const supabase = createClient()
   const guardDelete = useDeleteGuard()
   const [invoices, setInvoices] = useState<Invoice[]>([])
@@ -453,7 +455,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
         body: JSON.stringify({ allocations: rows }),
       })
       if (!res.ok) {
-        alert((await res.json().catch(() => ({}))).error ?? 'Could not save the split.')
+        notify((await res.json().catch(() => ({}))).error ?? 'Could not save the split.')
         return
       }
       await fetchData()
@@ -525,7 +527,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
     // it - the edit still saved here, and the two now disagree. That is exactly
     // the thing worth saying out loud rather than leaving to be found later.
     if (j.quickbooks && !j.quickbooks.updated && j.quickbooks.detail) {
-      alert(`Saved here, but QuickBooks still shows the old amount. ${j.quickbooks.detail}`)
+      notify(`Saved here, but QuickBooks still shows the old amount. ${j.quickbooks.detail}`)
     }
     fetchData()
   }
@@ -555,11 +557,11 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
       })
       const j = await res.json().catch(() => ({}))
       if (!res.ok) {
-        alert(j.error ?? 'Could not delete that invoice')
+        notify(j.error ?? 'Could not delete that invoice')
       } else if (j.quickbooks && !j.quickbooks.voided) {
         // The bill is gone here either way. If QuickBooks did not follow, the
         // payable is still standing over there and only a person can clear it.
-        alert(`Deleted here, but QuickBooks could not be updated${j.quickbooks.detail ? `: ${j.quickbooks.detail}` : ''}. The bill is still open in QuickBooks and has to be voided there.`)
+        notify(`Deleted here, but QuickBooks could not be updated${j.quickbooks.detail ? `: ${j.quickbooks.detail}` : ''}. The bill is still open in QuickBooks and has to be voided there.`)
       }
       fetchData()
     }, { label, protected: true })

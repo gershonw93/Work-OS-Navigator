@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Archivo, Saira_Condensed, Space_Mono } from 'next/font/google'
 import { CANONICAL_ORIGIN } from '@/lib/canonical'
+import { NoticeProvider } from '@/components/ui/notice'
 import './globals.css'
 
 const archivo = Archivo({
@@ -118,7 +119,12 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="min-h-screen bg-surface font-sans antialiased">
-        {children}
+        {/* THE ROOT, not (dashboard). `window.alert` was the last blocking
+            native dialog in the app and it is not a dashboard-only problem -
+            the client portal, share links, field mode and admin all refused
+            saves through it too. One mount, every screen, so `useNotice` never
+            has to fall back to anything. */}
+        <NoticeProvider>{children}</NoticeProvider>
       </body>
     </html>
   )

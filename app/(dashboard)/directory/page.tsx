@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
 import { cn } from '@/lib/utils'
 import { parseDate, formatDate } from '@/lib/dates'
+import { useNotice } from '@/components/ui/notice'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -91,6 +92,7 @@ interface Company {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function DirectoryPage() {
+  const notify = useNotice()
   const supabase = createClient()
   const [companies, setCompanies] = useState<Company[]>([])
   const [loading, setLoading] = useState(true)
@@ -266,7 +268,7 @@ export default function DirectoryPage() {
       body: JSON.stringify({ name: editName, contact_email: editEmail, phone: editPhone, address: editAddress, trade: editTrade }),
     })
     setEditSaving(false)
-    if (!res.ok) { alert('Could not save changes.'); return }
+    if (!res.ok) { notify('Could not save changes.'); return }
     setEditingCompany(null)
     fetchData()
     if (profileCompanyId) openProfile(profileCompanyId)
@@ -279,7 +281,7 @@ export default function DirectoryPage() {
     const res = await fetch(`/api/directory/${company.id}`, {
       method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
     })
-    if (!res.ok) { alert('Could not delete.'); return }
+    if (!res.ok) { notify('Could not delete.'); return }
     setProfileCompanyId(null)
     fetchData()
   }

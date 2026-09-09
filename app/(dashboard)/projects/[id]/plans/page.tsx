@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils'
 import { uploadPlan, guessPlanType, baseName } from '@/lib/upload-plan'
 
 import { formatDate } from '@/lib/dates'
+import { useNotice } from '@/components/ui/notice'
 interface PlanFolder { id: string; name: string; project_id: string; created_at: string }
 interface Plan { id: string; name: string; plan_type: string; file_url: string; folder_id: string | null; created_at: string }
 
@@ -48,6 +49,7 @@ const PLAN_TYPE_TINT: Record<string, string> = {
 }
 
 export default function PlansPage({ params }: { params: { id: string } }) {
+  const notify = useNotice()
   const supabase = createClient()
   // `can` alone is not enough. While the check is in flight it answers false,
   // and it answers false for ever if the check FAILED - so loading, failed and
@@ -139,7 +141,7 @@ export default function PlansPage({ params }: { params: { id: string } }) {
   async function handleDeleteFolder(folderId: string) {
     const filesInFolder = plans.filter(p => p.folder_id === folderId)
     if (filesInFolder.length > 0) {
-      alert('Remove files first before deleting this folder.')
+      notify('Remove files first before deleting this folder.')
       return
     }
     if (!window.confirm('Delete this folder?')) return

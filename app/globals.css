@@ -446,6 +446,44 @@
     overscroll-behavior: contain;
   }
 
+  /* ── Where a notice sits ──────────────────────────────────────────────────
+     NOT an overlay. `.overlay` is a modal layer and its markup carries
+     `data-overlay`, which freezes everything behind it; a message about a
+     field must leave you able to fix the field while you read it. So: no
+     backdrop, no lock, and `pointer-events: none` on the dock so only the
+     cards inside it take taps.
+
+     Sized off --vv-* for the same reason every overlay is: the reports that
+     produced this component were both typing into a field with the keyboard
+     up, and a message that appears underneath the keyboard has not appeared.
+
+     The bottom padding clears the phone tab bar AND the home indicator in one
+     value, exactly as .pb-tab-bar does - two classes setting padding-bottom on
+     one element only works while the later one happens to be the one wanted. */
+  .notice-dock {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: var(--vv-t, 0px);
+    height: var(--vv-h, 100%);
+    /* Above .overlay (50): a dialog that refuses a save has to be able to say
+       so, and saying it behind the dialog is saying nothing. */
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    pointer-events: none;
+    padding:
+      0
+      max(1rem, env(safe-area-inset-right))
+      calc(4.5rem + env(safe-area-inset-bottom))
+      max(1rem, env(safe-area-inset-left));
+  }
+  @media (min-width: 1024px) {
+    .notice-dock { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+  }
+
   /* Full-bleed overlays - a photo lightbox, the camera, a PDF filler. They own
      the whole screen on purpose, so no padding and no panel cap; they still
      lock the background, because they still carry data-overlay. */

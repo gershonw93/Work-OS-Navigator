@@ -7,6 +7,28 @@ move it to **In progress**, and when it ships, move it to **Done** with the PR #
 
 ---
 
+## 🗣 The other blocking native dialog: `confirm()`
+
+`alert()` is gone from the app (#419) - every refusal now appears in the page
+through `useNotice`, ratcheted at zero. **`confirm()` is the same bug and is
+still in 18 delete handlers**, e.g. `plans/page.tsx`, `files/page.tsx`,
+`settings/page.tsx`, `change-orders/page.tsx`, `permits/page.tsx`. In the native
+shell each is a native dialog that blocks the JS thread, which is what made the
+`alert` ones read as a crash.
+
+The in-page answer already exists - `useDeleteGuard`
+(`components/ui/delete-guard.tsx`), which most delete buttons already use, and
+which additionally asks for the secret key on protected deletes. This was NOT
+swept with `alert` because it is not a rename: each site is
+`if (!confirm(...)) return; …rest` and has to become
+`guard(() => { …rest }, { label })`, which is a real edit per handler.
+
+When it is done, widen the ratchet in `lib/__tests__/layout-overflow.ts` from
+`alert\(` to `(?:alert|confirm)\(` - the regex is already written that way in
+the commit history.
+
+---
+
 ## 📱 On the shelf - the app, then chats (decided 29 Aug 2026, IN THIS ORDER)
 
 **Order agreed: finish QuickBooks → App Store → project chats.** Each needs the

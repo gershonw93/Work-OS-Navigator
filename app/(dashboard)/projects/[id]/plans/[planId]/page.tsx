@@ -15,6 +15,7 @@ import {
   Maximize2, Minimize2, List,
 } from 'lucide-react'
 import { parseDate, formatDate } from '@/lib/dates'
+import { useNotice } from '@/components/ui/notice'
 
 interface Plan { id: string; name: string; plan_type: string; file_url: string }
 interface Pin {
@@ -33,6 +34,7 @@ function colorFor(name: string | null | undefined) {
 }
 
 export default function PlanViewerPage({ params }: { params: { id: string; planId: string } }) {
+  const notify = useNotice()
   const supabase = createClient()
   const [plan, setPlan] = useState<Plan | null>(null)
   const [pins, setPins] = useState<Pin[]>([])
@@ -187,7 +189,7 @@ export default function PlanViewerPage({ params }: { params: { id: string; planI
       setPins(prev => [...prev, pin])
       setDraft(null); setPinMode(false)
     } else {
-      alert((await res.json().catch(() => ({}))).error ?? 'Could not save pin')
+      notify((await res.json().catch(() => ({}))).error ?? 'Could not save pin')
     }
   }
 

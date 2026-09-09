@@ -561,5 +561,43 @@ ok(foot.cancel.l === foot.acts.l && foot.save.r === foot.acts.r,
   `...reaching both edges (${foot.cancel.l}-${foot.save.r} of ${foot.acts.l}-${foot.acts.r})`)
 ok(foot.del.t > foot.save.t, 'the destructive one is on its own row, under the two choices')
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 9. A NOTICE IS ABOVE THE KEYBOARD, AND DOES NOT BLOCK THE FIELD IT IS ABOUT.
+//
+// Both reports that produced this component were typing into a field with the
+// keyboard up. A message that lands under the keyboard has not been shown, and
+// a message that swallows taps stops you fixing what it is complaining about -
+// which is why it is a dock and not an overlay.
+// ─────────────────────────────────────────────────────────────────────────────
+const DOCK = `
+<div class="notice-dock" id="dock">
+  <div id="card" class="pointer-events-auto mt-2 flex w-full max-w-md items-start gap-2.5 rounded-2xl border border-danger/40 bg-danger-tint px-4 py-3 shadow-lg lg:rounded-xl">
+    <p class="break-words text-sm text-ink-soft">That is a negative allowance. Enter a positive number.</p>
+  </div>
+</div>`
+const DOCK_PROBE = `(rect) => {
+  const card = rect('#card')
+  const dock = document.querySelector('#dock')
+  return {
+    bottom: Math.round(card.bottom), top: Math.round(card.top), width: Math.round(card.width),
+    dockEvents: getComputedStyle(dock).pointerEvents,
+    cardEvents: getComputedStyle(document.querySelector('#card')).pointerEvents,
+    dockHeight: Math.round(dock.getBoundingClientRect().height),
+  }
+}`
+const dock = measure(DOCK, DOCK_PROBE, VIEWPORT.h, KEYBOARD.style)
+ok(dock.bottom <= KEYBOARD.visible,
+  `with a keyboard up the notice stays above it (ends at ${dock.bottom} of ${KEYBOARD.visible} visible)`)
+ok(dock.dockHeight === KEYBOARD.visible,
+  `...because the dock is the VISIBLE strip, not the layout viewport (${dock.dockHeight})`)
+ok(dock.dockEvents === 'none' && dock.cardEvents === 'auto',
+  'the dock lets taps through to the field underneath; only the card itself takes them')
+ok(dock.top < dock.bottom && dock.width > 0 && dock.width <= VIEWPORT.w - 32,
+  `...and the card keeps a gutter on a phone (${dock.width} of ${VIEWPORT.w})`)
+
+const dockFull = measure(DOCK, DOCK_PROBE)
+ok(dockFull.bottom < VIEWPORT.h - 64,
+  `with no keyboard it still clears the tab bar (ends at ${dockFull.bottom} of ${VIEWPORT.h})`)
+
 rmSync(work, { recursive: true, force: true })
 done()

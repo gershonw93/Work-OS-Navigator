@@ -19,6 +19,7 @@ import { SendLinkBox } from '@/components/ui/send-link-box'
 
 import { formatDate } from '@/lib/dates'
 import { expiryState } from '@/lib/expiry'
+import { useNotice } from '@/components/ui/notice'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type DocStatus = 'missing' | 'pending' | 'approved' | 'expired' | 'expiring_soon' | 'optional' | 'not_required'
@@ -531,6 +532,7 @@ interface RequestDocsBarProps {
 }
 
 function RequestDocsBar({ projectId, companyId, companyName, contactEmail, missingTypes, allTypes, requiredTypes, pendingRequest, token, onRefresh }: RequestDocsBarProps) {
+  const notify = useNotice()
   const [open, setOpen] = useState(false)
   // Only what this vendor owes and has not already produced. It used to fall
   // back to EVERY document type when nothing was outstanding, so opening the
@@ -576,7 +578,7 @@ function RequestDocsBar({ projectId, companyId, companyName, contactEmail, missi
       setEmail(d.contact_email ?? contactEmail ?? null)
       onRefresh()
     } else {
-      alert((await res.json().catch(() => ({}))).error ?? 'Could not create link')
+      notify((await res.json().catch(() => ({}))).error ?? 'Could not create link')
     }
   }
 

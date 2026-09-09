@@ -15,6 +15,7 @@ import { toAmountInput } from '@/lib/validate'
 import { usePermissions } from '@/lib/use-permissions'
 
 import { formatDate } from '@/lib/dates'
+import { useNotice } from '@/components/ui/notice'
 interface Payment {
   id: string; paid_date: string | null; amount: number; method: string | null
   memo: string | null; retainer: boolean; qb_entered: boolean
@@ -34,6 +35,7 @@ const blank = { paid_date: '', amount: '', method: 'Check', memo: '', reference:
 const METHODS = ['Check', 'QuickPay', 'Wire', 'ACH', 'Cash', 'CC', 'Other']
 
 export default function PaymentsPage({ params }: { params: { id: string } }) {
+  const notify = useNotice()
   const supabase = createClient()
   const { can: canDo, loading: permLoading } = usePermissions()
   const canSeeMargin = !permLoading && canDo('margin', 'view')
@@ -161,7 +163,7 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
     })
     if (!res.ok) {
       setSaving(false)
-      alert((await res.json().catch(() => ({}))).error ?? 'Could not add')
+      notify((await res.json().catch(() => ({}))).error ?? 'Could not add')
       return
     }
 

@@ -10,6 +10,7 @@ import { X, ChevronDown, ChevronUp, MessageSquare, DollarSign, CheckCircle2, Clo
 import { clientAppOrigin } from '@/lib/app-url'
 
 import { formatDate } from '@/lib/dates'
+import { useNotice } from '@/components/ui/notice'
 interface RFI {
   id: string; rfi_number: number; submitted_by_name: string; company_name: string | null
   subject: string; description: string; is_change_order: boolean
@@ -27,6 +28,7 @@ const CO_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
 }
 
 export default function RFIsPage({ params }: { params: { id: string } }) {
+  const notify = useNotice()
   const supabase = createClient()
   const [rfis, setRfis] = useState<RFI[]>([])
   const [loading, setLoading] = useState(true)
@@ -96,7 +98,7 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
       body: JSON.stringify({}),
     })
-    if (!res.ok) { alert((await res.json().catch(() => ({}))).error ?? 'Could not create the link.'); return }
+    if (!res.ok) { notify((await res.json().catch(() => ({}))).error ?? 'Could not create the link.'); return }
     const { token } = await res.json()
     // clientAppOrigin(), not window.location.origin - see #288.
     const url = `${clientAppOrigin()}/rfi/${token}`

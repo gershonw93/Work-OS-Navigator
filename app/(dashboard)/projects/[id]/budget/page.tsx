@@ -25,6 +25,7 @@ import { contractAmountLabel } from '@/lib/contract-amount'
 import { usePermissions } from '@/lib/use-permissions'
 
 import { formatDate } from '@/lib/dates'
+import { useNotice } from '@/components/ui/notice'
 const money = (n: number) => `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 
 /**
@@ -196,6 +197,7 @@ const blankForm = {
 const SPACE_LABELS: Record<string, string> = { interior: 'Interior', exterior: 'Exterior' }
 
 export default function BudgetPage({ params }: { params: { id: string } }) {
+  const notify = useNotice()
   const supabase = createClient()
   const guardDelete = useDeleteGuard()
   const vc = useViewerContext(params.id)
@@ -329,7 +331,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
     setFiling(null)
     if (!res.ok) {
       const d = await res.json().catch(() => ({} as any))
-      alert(d?.error ?? 'Could not file that against the line.')
+      notify(d?.error ?? 'Could not file that against the line.')
       return
     }
     load()
@@ -461,7 +463,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
     })
     setAssigningSubId(null)
     if (res.ok) load()
-    else alert((await res.json().catch(() => ({}))).error ?? 'Could not assign')
+    else notify((await res.json().catch(() => ({}))).error ?? 'Could not assign')
   }
 
   async function openTemplatePicker() {
@@ -492,10 +494,10 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
     setApplying(false)
     if (res.ok) {
       const d = await res.json().catch(() => ({}))
-      if (d.skipped > 0) alert(`${d.skipped} line${d.skipped !== 1 ? 's' : ''} skipped - already on this budget.`)
+      if (d.skipped > 0) notify(`${d.skipped} line${d.skipped !== 1 ? 's' : ''} skipped - already on this budget.`, { tone: 'info' })
       setShowTemplate(false); load()
     }
-    else alert((await res.json().catch(() => ({}))).error ?? 'Could not apply')
+    else notify((await res.json().catch(() => ({}))).error ?? 'Could not apply')
   }
 
   async function importExcel(file: File) {
@@ -505,7 +507,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
     const res = await fetch('/api/budget-templates/import', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form })
     setImporting(false)
     if (res.ok) { const d = await res.json(); setImportItems(d.items ?? []); setImportName(d.suggested_name ?? 'Imported template') }
-    else alert((await res.json().catch(() => ({}))).error ?? 'Could not read file')
+    else notify((await res.json().catch(() => ({}))).error ?? 'Could not read file')
   }
 
   const normDesc = (t: string) => (t || '').toLowerCase().replace(/\s+/g, ' ').trim()
@@ -531,10 +533,10 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
     setApplying(false)
     if (res.ok) {
       const d = await res.json().catch(() => ({}))
-      if (d.skipped > 0) alert(`${d.skipped} duplicate line${d.skipped !== 1 ? 's' : ''} skipped.`)
+      if (d.skipped > 0) notify(`${d.skipped} duplicate line${d.skipped !== 1 ? 's' : ''} skipped.`, { tone: 'info' })
       setShowTemplate(false); setImportItems(null); load()
     }
-    else alert((await res.json().catch(() => ({}))).error ?? 'Could not apply')
+    else notify((await res.json().catch(() => ({}))).error ?? 'Could not apply')
   }
 
   async function saveImportedAsTemplateAndApply() {
@@ -549,7 +551,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
     if (createRes.ok) {
       const { template } = await createRes.json()
       await applyTemplate({ template_id: template.id, copy_amounts: importAmounts })
-    } else { setApplying(false); alert('Could not save template') }
+    } else { setApplying(false); notify('Could not save template') }
   }
 
   async function saveCurrentAsTemplate() {
@@ -564,7 +566,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       }),
     })
     setSavingTpl(false)
-    if (res.ok) { setShowSave(false); setTplName(''); alert('Saved as template') }
+    if (res.ok) { setShowSave(false); setTplName(''); notify('Saved as template', { tone: 'success' }) }
   }
 
   // Seed the standard soft costs as blank lines. Goes through the same apply
@@ -580,7 +582,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
     })
     setAddingSoft(false)
     if (res.ok) { setShowSoft(false); load() }
-    else alert((await res.json().catch(() => ({}))).error ?? 'Could not add soft costs')
+    else notify((await res.json().catch(() => ({}))).error ?? 'Could not add soft costs')
   }
 
   // One way out for the X, the backdrop, Cancel and Escape - three copies of

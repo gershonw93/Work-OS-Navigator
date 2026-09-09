@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { LayoutTemplate, FileSpreadsheet, Trash2, ChevronDown, ChevronRight, Loader2, Check, ArrowLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useNotice } from '@/components/ui/notice'
 import Link from 'next/link'
 
 interface TemplateItem { id?: string; description: string; default_amount: number | null; category?: string }
@@ -14,6 +15,7 @@ interface Template { id: string; name: string; source: string; created_at: strin
 const money = (n: number | null) => n == null ? '-' : `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 
 export default function BudgetTemplatesPage() {
+  const notify = useNotice()
   const supabase = createClient()
   const [templates, setTemplates] = useState<Template[]>([])
   const [loading, setLoading] = useState(true)
@@ -43,7 +45,7 @@ export default function BudgetTemplatesPage() {
     const res = await fetch('/api/budget-templates/import', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form })
     setImporting(false)
     if (res.ok) { const d = await res.json(); setStaged({ name: d.suggested_name ?? 'New template', items: d.items ?? [] }) }
-    else alert((await res.json().catch(() => ({}))).error ?? 'Could not read file')
+    else notify((await res.json().catch(() => ({}))).error ?? 'Could not read file')
   }
 
   async function saveStaged() {

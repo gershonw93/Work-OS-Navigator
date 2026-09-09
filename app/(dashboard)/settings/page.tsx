@@ -30,6 +30,7 @@ import { ThemeToggle, useTheme } from '@/components/ui/theme-toggle'
 import { useCanSignUp } from '@/lib/use-native'
 
 import { formatDate } from '@/lib/dates'
+import { useNotice } from '@/components/ui/notice'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Profile {
@@ -180,6 +181,7 @@ function RoleBadge({ role, label }: { role: string; label?: string }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
+  const notify = useNotice()
   const { theme } = useTheme()
   const { can: canDo, loading: permsLoading } = usePermissions()
   /**
@@ -648,12 +650,12 @@ export default function SettingsPage() {
           prev.map((t) => (t.id === memberId ? { ...t, role: data.role ?? newRole } : t))
         )
       } else {
-        alert(`Failed to update role: ${data.error ?? res.statusText}`)
+        notify(`Failed to update role: ${data.error ?? res.statusText}`)
         // Reload to show actual DB state
         loadTeammates()
       }
     } catch {
-      alert('Network error - role not saved.')
+      notify('Network error - role not saved.')
       loadTeammates()
     }
   }
