@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { StatStrip } from '@/components/ui/stat-strip'
 import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { SearchableSelect } from '@/components/ui/searchable-select'
@@ -920,6 +920,41 @@ export default function TasksPage({ params }: { params: { id: string } }) {
     )
   }
 
+  /**
+   * The open task's detail, wherever it is being shown.
+   *
+   * On a desktop the board is three columns side by side and this sits under
+   * all of them, full width - there is nowhere better for it. On a PHONE the
+   * columns stack, so "under the board" is under every other column too: tap
+   * something in Open and the detail opens below In Progress and Completed,
+   * off the bottom of the screen. It goes under the card you tapped instead.
+   */
+  function TaskDetail({ task }: { task: Task }) {
+    return (
+      <>
+        <div className="flex items-center justify-between border-b border-line-soft py-1 pl-4 pr-1 lg:border-accent/20 lg:bg-accent-tint lg:px-4 lg:py-2.5">
+          <span className="text-sm font-semibold text-ink lg:text-accent-fg">Task detail</span>
+          <button
+            onClick={() => setExpandedTaskId(null)}
+            aria-label="Close"
+            className="flex h-11 w-11 items-center justify-center rounded-lg text-muted-fg hover:bg-surface hover:text-ink lg:h-auto lg:w-auto lg:text-accent-fg lg:hover:bg-transparent"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <TaskDetailPanel
+          projectId={params.id}
+          onChanged={load}
+          task={task}
+          notes={notesCache[task.id] ?? []}
+          notesLoading={!!notesLoading[task.id]}
+          currentUser={currentUser}
+          onAddNote={handleAddNote}
+        />
+      </>
+    )
+  }
+
   // ── board view ─────────────────────────────────────────────────────────────
 
   function BoardView() {
@@ -967,7 +1002,14 @@ export default function TasksPage({ params }: { params: { id: string } }) {
                       </button>
                     </div>
                   ) : (
-                    colTasks.map(task => <BoardCard key={task.id} task={task} />)
+                    colTasks.map(task => (
+                      <Fragment key={task.id}>
+                        <BoardCard task={task} />
+                        {expandedTask?.id === task.id && (
+                          <div className="bg-surface/40 lg:hidden"><TaskDetail task={task} /></div>
+                        )}
+                      </Fragment>
+                    ))
                   )}
                 </div>
               </div>
@@ -975,28 +1017,11 @@ export default function TasksPage({ params }: { params: { id: string } }) {
           })}
         </div>
 
-        {/* Board expanded panel - drawer below the board */}
+        {/* Under the whole board, where a desktop's three columns leave room
+            for it. A phone gets it under the card instead - see TaskDetail. */}
         {expandedTask && (
-          <div className="overflow-hidden rounded-2xl border border-line bg-panel lg:rounded-xl lg:border-accent/40 lg:shadow-md">
-            <div className="flex items-center justify-between border-b border-line-soft py-1 pl-4 pr-1 lg:border-accent/20 lg:bg-accent-tint lg:px-4 lg:py-2.5">
-              <span className="text-sm font-semibold text-ink lg:text-accent-fg">Task detail</span>
-              <button
-                onClick={() => setExpandedTaskId(null)}
-                aria-label="Close"
-                className="flex h-11 w-11 items-center justify-center rounded-lg text-muted-fg hover:bg-surface hover:text-ink lg:h-auto lg:w-auto lg:text-accent-fg lg:hover:bg-transparent"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <TaskDetailPanel
-            projectId={params.id}
-            onChanged={load}
-              task={expandedTask}
-              notes={notesCache[expandedTask.id] ?? []}
-              notesLoading={!!notesLoading[expandedTask.id]}
-              currentUser={currentUser}
-              onAddNote={handleAddNote}
-            />
+          <div className="hidden overflow-hidden rounded-xl border border-accent/40 bg-panel shadow-md lg:block">
+            <TaskDetail task={expandedTask} />
           </div>
         )}
       </div>
