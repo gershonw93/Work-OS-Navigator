@@ -238,7 +238,7 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
           <h1 className="text-2xl font-bold text-ink">Quotes</h1>
           <p className="text-sm text-muted-fg mt-0.5">Send plans to subs, track responses, then compare &amp; award - all in one place. Each sub gets a private link, no account needed.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="row-even lg:flex lg:flex-wrap items-center gap-2">
           <Button variant="outline" onClick={() => newRef.current?.click()} disabled={newUploading} className="gap-1.5">
             {newUploading ? <><Loader2 className="h-4 w-4 animate-spin" /> Reading…</> : <><Upload className="h-4 w-4" /> Upload Quotes</>}
           </Button>
@@ -505,7 +505,7 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
               </div>
 
               {/* Add invitee */}
-              <div className="flex flex-wrap items-end gap-2">
+              <div className="row-even lg:flex lg:flex-wrap items-end gap-2">
                 <div className="flex-1 min-w-[160px]">
                   <SearchableSelect value={inviteSub[req.id] ?? ''} onChange={e => setInviteSub(p => ({ ...p, [req.id]: e.target.value }))}>
                     <option value="">Pick from directory…</option>
@@ -572,7 +572,7 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
                 </select>
               </div>
             </div>
-            <div className="flex gap-2 justify-end pt-1">
+            <div className="row-even lg:flex gap-2 justify-end pt-1">
               <Button variant="secondary" onClick={() => setPendingContact(null)}>Not now</Button>
               <Button onClick={saveContact} disabled={contactSaving || !contactForm.name.trim()}>{contactSaving ? 'Saving…' : 'Add to directory'}</Button>
             </div>

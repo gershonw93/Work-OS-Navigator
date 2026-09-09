@@ -471,7 +471,7 @@ export function ClientInvoices({
           </div>
 
           {error && <p className="text-sm text-danger">{error}</p>}
-          <div className="flex justify-end gap-2">
+          <div className="row-even lg:flex justify-end gap-2">
             <Button size="sm" variant="secondary" onClick={() => { setBuilding(false); setPicked(new Set()); setError('') }}>
               Cancel
             </Button>

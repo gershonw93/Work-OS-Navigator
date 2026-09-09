@@ -998,7 +998,7 @@ export default function SettingsPage() {
                           className="mt-1"
                         />
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="row-even lg:flex items-center gap-3">
                         <Button onClick={changePassword} disabled={pwSaving}>
                           {pwSaving ? 'Updating…' : 'Update Password'}
                         </Button>
@@ -1598,7 +1598,7 @@ export default function SettingsPage() {
                         </p>
                       )}
 
-                      <div className="flex gap-3 pt-1">
+                      <div className="row-even lg:flex gap-3 pt-1">
                         <Button
                           onClick={sendInvite}
                           disabled={inviteSending || !inviteEmail}

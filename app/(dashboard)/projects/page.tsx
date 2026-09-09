@@ -397,7 +397,7 @@ export default function ProjectsPage() {
                   <p className="text-xs text-faint">Switching hides the other money tabs; existing data is kept.</p>
                 </div>
               </div>
-              <div className="px-6 py-4 border-t border-line-soft flex gap-2 justify-end">
+              <div className="row-even px-6 py-4 border-t border-line-soft lg:flex gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => setEditProject(null)}>Cancel</Button>
                 <Button type="submit" disabled={saving}>{saving ? 'Saving...' : 'Save Changes'}</Button>
               </div>
@@ -410,7 +410,7 @@ export default function ProjectsPage() {
         title="Projects"
         subtitle="Manage all your construction projects."
         action={canCreate ? (
-          <div className="flex items-center gap-2">
+          <div className="row-even lg:flex items-center gap-2">
             <Button variant="secondary" onClick={() => setBulkOpen(true)}>Bulk Add</Button>
             <Link href="/projects/new">
               <Button>
@@ -487,7 +487,7 @@ export default function ProjectsPage() {
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="row-even lg:flex lg:flex-wrap items-center gap-2">
             {/* Type filter */}
             <div className="relative">
               <Building2 className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-faint pointer-events-none" />

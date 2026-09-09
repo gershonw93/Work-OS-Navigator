@@ -232,7 +232,7 @@ export default function SubmittalsPage({ params }: { params: { id: string } }) {
                 <textarea rows={2} autoFocus={autoFocusOnDesktop()} value={reviewNotes} onChange={e => setReviewNotes(e.target.value)}
                   placeholder="Add review notes for the submitter..."
                   className="w-full rounded-md border border-muted2 px-3 py-2 text-sm focus:border-accent focus:outline-none resize-none" />
-                <div className="flex flex-wrap gap-2 justify-end">
+                <div className="row-even lg:flex lg:flex-wrap gap-2 justify-end">
                   <Button type="button" size="sm" variant="secondary" onClick={() => { setReviewingId(null); setReviewNotes('') }}>Cancel</Button>
                   <Button type="button" size="sm" onClick={() => updateStatus(sub, reviewStatus, reviewNotes || undefined)}>
                     {reviewStatus === 'rejected' ? 'Reject Submittal' : 'Request Revision'}
@@ -310,7 +310,7 @@ export default function SubmittalsPage({ params }: { params: { id: string } }) {
                     className="w-full rounded-md border border-muted2 px-3 py-2 text-sm focus:border-accent focus:outline-none resize-none" />
                 </div>
               </div>
-              <div className="px-4 sm:px-6 py-4 border-t border-line-soft flex flex-wrap gap-2 justify-end">
+              <div className="row-even px-4 sm:px-6 py-4 border-t border-line-soft lg:flex lg:flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>Cancel</Button>
                 <Button type="submit" disabled={submitting}>{submitting ? 'Submitting...' : 'Add Submittal'}</Button>
               </div>

@@ -947,7 +947,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
               )}
             </div>
 
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="row-even lg:flex items-center gap-2 lg:flex-wrap">
               <Link href={`/projects/${params.id}/invoices/${invoice.id}/print`} target="_blank">
                 <Button size="sm" variant="outline"><Printer className="h-3.5 w-3.5" /> View / Print</Button>
               </Link>
@@ -1281,7 +1281,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
               </div>
               <div className="px-4 sm:px-6 py-4 border-t border-line-soft space-y-2">
                 {createError && <p className="text-sm text-danger">{createError}</p>}
-                <div className="flex flex-wrap gap-2 justify-end">
+                <div className="row-even lg:flex lg:flex-wrap gap-2 justify-end">
                   <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>Cancel</Button>
                   <Button type="submit" disabled={submitting || overBilled}>{submitting ? 'Creating...' : 'Create Invoice'}</Button>
                 </div>

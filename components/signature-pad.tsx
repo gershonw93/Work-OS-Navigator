@@ -204,7 +204,7 @@ export function SignaturePad({ onSign, onCancel }: SignaturePadProps) {
       )}
 
       {/* Footer */}
-      <div className="flex justify-end gap-2 pt-1">
+      <div className="row-even lg:flex justify-end gap-2 pt-1">
         <Button type="button" variant="secondary" onClick={onCancel}>
           Cancel
         </Button>

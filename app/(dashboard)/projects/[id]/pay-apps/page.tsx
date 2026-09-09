@@ -179,7 +179,7 @@ function NewAppModal({ projectId, subOptions, onClose, onCreated, authHeaders }:
           </div>
           <p className="text-xs text-faint">The schedule of values and "previously billed" amounts fill in automatically from your budget and past applications.</p>
           {err && <p className="text-sm text-danger">{err}</p>}
-          <div className="flex gap-2 justify-end">
+          <div className="row-even lg:flex gap-2 justify-end">
             <Button variant="secondary" onClick={onClose}>Cancel</Button>
             <Button onClick={create} disabled={saving}>{saving ? 'Creating…' : 'Create'}</Button>
           </div>
@@ -380,13 +380,13 @@ function PayAppDetail({ projectId, appId, onBack, authHeaders }: { projectId: st
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="row-even lg:flex lg:flex-wrap items-center justify-between gap-3">
         <div className="text-sm text-muted-fg">
           Earned less retainage <span className="font-semibold text-ink-soft">{money(summary.earned_less_retainage)}</span>
           <span className="mx-2 text-faint">·</span>
           Less previous certificates <span className="font-semibold text-ink-soft">{money(summary.less_previous)}</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="row-even lg:flex items-center gap-2">
           {!locked && <Button variant={dirty ? 'default' : 'outline'} onClick={() => save()} disabled={saving}>{saving ? 'Saving…' : 'Save'}</Button>}
           {next && (
             <Button

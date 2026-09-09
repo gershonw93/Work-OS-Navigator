@@ -379,6 +379,35 @@
    the call site, because those genuinely differ.
    ───────────────────────────────────────────────────────────────────────── */
 @layer components {
+  /* ── A row of controls reaches BOTH edges on a phone ──────────────────────
+     Every row of buttons or fields was `flex flex-wrap`, so each control was
+     as wide as its own label and the row stopped wherever it stopped. Budget's
+     toolbar came out "Import Estimate | Use Template" / "Save as Template |
+     Select" / "Add Line" - three rows, three widths, not one of them reaching
+     the right edge. It read as ragged rather than as a form.
+
+     Two share the row at equal width; one that is left over takes the whole
+     row rather than leaving a hole - the same trick StatStrip uses for an odd
+     last number. Nothing here restores `display` at lg: the row keeps its own
+     `lg:flex` and Tailwind emits utilities after components, so the desktop is
+     what it always was. */
+  .row-even {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .row-even > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+
+  @media (max-width: 1023px) {
+    /* The children carry widths written for the desktop row - `w-28`, `w-36`,
+       `min-w-[9rem]` - and in a cell the CELL is the width. `:is()` is here
+       for specificity, not tidiness: `.row-even > *` is (0,1,0) and loses to
+       `.w-28`, the same trap that left the 16px rule dead for months. */
+    .row-even > :is(a, button, div, label, input, select, textarea) {
+      width: 100%;
+      min-width: 0;
+    }
+  }
+
   .overlay {
     position: fixed;
     /* THE VISIBLE screen, not the whole one. `inset: 0` is the LAYOUT

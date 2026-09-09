@@ -101,7 +101,7 @@ export default function BudgetTemplatesPage() {
             ))}
           </div>
           <p className="text-xs text-faint">Amounts are kept as suggested defaults - when you apply the template, amounts come in blank unless you choose to copy them.</p>
-          <div className="flex gap-2 justify-end">
+          <div className="row-even lg:flex gap-2 justify-end">
             <Button variant="secondary" onClick={() => setStaged(null)}>Discard</Button>
             <Button onClick={saveStaged} disabled={saving || !staged.name.trim()}>{saving ? 'Saving…' : 'Save Template'}</Button>
           </div>

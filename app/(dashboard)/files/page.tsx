@@ -388,7 +388,7 @@ export default function FilesPage() {
               </div>
               <div className="border-t border-line-soft px-6 py-4 space-y-2">
                 {uploadError && <p className="text-xs text-danger flex items-center gap-1"><AlertCircle className="h-3 w-3 shrink-0" />{uploadError}</p>}
-                <div className="flex gap-2 justify-end">
+                <div className="row-even lg:flex gap-2 justify-end">
                   <Button type="button" variant="secondary" onClick={() => { setShowUpload(false); resetUpload() }}>Cancel</Button>
                   <Button type="submit" disabled={uploading}>
                     {uploading
@@ -430,7 +430,7 @@ export default function FilesPage() {
               </div>
               <div className="border-t border-line-soft px-6 py-4 space-y-2">
                 {editFileError && <p className="text-xs text-danger flex items-center gap-1"><AlertCircle className="h-3 w-3 shrink-0" />{editFileError}</p>}
-                <div className="flex gap-2 justify-end">
+                <div className="row-even lg:flex gap-2 justify-end">
                   <Button type="button" variant="secondary" onClick={() => setEditingFile(null)}>Cancel</Button>
                   <Button type="submit" disabled={savingFile}>{savingFile ? 'Saving...' : 'Save'}</Button>
                 </div>
@@ -491,7 +491,7 @@ export default function FilesPage() {
               </div>
               <div className="sticky bottom-0 bg-panel border-t border-line-soft px-6 py-4 space-y-2">
                 {packetError && <p className="text-xs text-danger flex items-center gap-1"><AlertCircle className="h-3 w-3 shrink-0" />{packetError}</p>}
-                <div className="flex gap-2 justify-end">
+                <div className="row-even lg:flex gap-2 justify-end">
                   <Button type="button" variant="secondary" onClick={() => setShowPacketForm(false)}>Cancel</Button>
                   <Button type="submit" disabled={savingPacket}>{savingPacket ? 'Saving...' : editingPacket ? 'Save Changes' : 'Create Packet'}</Button>
                 </div>
@@ -507,7 +507,7 @@ export default function FilesPage() {
           <h1 className="text-2xl font-bold text-ink">Files</h1>
           <p className="text-sm text-muted-fg mt-0.5">Company documents and ready-to-go submission packets.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+        <div className="row-even lg:flex lg:flex-wrap items-center gap-2 self-start sm:self-auto">
           {files.length > 0 && (
             <Button variant="outline" onClick={() => { setSharePreselect([]); setShareOpen(true) }} className="gap-1.5">
               <Share2 className="h-4 w-4" /> Share documents
@@ -726,7 +726,7 @@ export default function FilesPage() {
                     ) : (
                       <p className="text-xs text-faint">No files in this packet yet.</p>
                     )}
-                    <div className="flex gap-2">
+                    <div className="row-even lg:flex gap-2">
                       <Button size="sm" variant="outline" onClick={() => openEditPacket(packet)} className="flex-1">
                         <Plus className="h-3.5 w-3.5" /> Add / Manage Files
                       </Button>

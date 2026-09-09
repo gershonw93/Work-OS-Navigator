@@ -412,7 +412,7 @@ export function QuoteLineItems({ projectId, mode }: { projectId: string; mode: '
                 </div>
                 <div className="space-y-1.5"><Label>Due date</Label><Input type="date" value={taskForm.due_date} onChange={e => setTaskForm(f => ({ ...f, due_date: e.target.value }))} /></div>
               </div>
-              <div className="flex justify-end gap-2 pt-1">
+              <div className="row-even lg:flex justify-end gap-2 pt-1">
                 <Button variant="secondary" disabled={taskSaving} onClick={() => setTaskFor(null)}>Cancel</Button>
                 <Button disabled={taskSaving || !taskForm.title.trim()} onClick={submitTask}>{taskSaving ? 'Creating…' : 'Create task'}</Button>
               </div>

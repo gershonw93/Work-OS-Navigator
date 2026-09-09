@@ -816,7 +816,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                   )}
                 </div>
               </div>
-              <div className="px-4 sm:px-6 py-4 border-t border-line-soft flex flex-wrap gap-2 justify-end">
+              <div className="row-even px-4 sm:px-6 py-4 border-t border-line-soft lg:flex lg:flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => setCreateTaskFromLog(null)}>Cancel</Button>
                 <Button type="submit" disabled={creatingTask || !taskTitle.trim()}>
                   <CheckSquare className="h-3.5 w-3.5" />
@@ -1090,7 +1090,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
 
             {error && <p className="text-sm text-danger">{error}</p>}
 
-            <div className="flex flex-wrap gap-2 justify-end">
+            <div className="row-even lg:flex lg:flex-wrap gap-2 justify-end">
               <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>Cancel</Button>
               <Button type="submit" disabled={submitting}>{submitting ? 'Saving...' : 'Submit Log'}</Button>
             </div>
@@ -1271,7 +1271,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                           ? `Reviewed by ${log.reviewed_by_name}`
                           : ''}
                       </p>
-                      <div className="flex gap-2">
+                      <div className="row-even lg:flex gap-2">
                         {log.source === 'field' && log.review_status !== 'pending' && (
                           <Button size="sm" variant="outline" disabled={reviewing === log.id}
                             onClick={() => setReviewed(log.id, false)}>

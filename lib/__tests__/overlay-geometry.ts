@@ -492,5 +492,41 @@ ok(boxPhone.check < 44, `...and a checkbox is left alone (${boxPhone.check}px)`)
 const boxDesk = measure(BOXES, BOX_PROBE, 800, '', 1280)
 ok(boxDesk.input < 44, `a desktop keeps its compact fields (${boxDesk.input}px at ${boxDesk.vw})`)
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 9. A ROW OF CONTROLS REACHES BOTH EDGES. Rows of buttons and fields were
+// `flex flex-wrap`, so each control was as wide as its own label: Budget's
+// toolbar came out "Import Estimate | Use Template" / "Save as Template |
+// Select" / "Add Line" - three rows, three widths, none of them meeting the
+// right edge. `.row-even` makes two share the row and an odd last one take it
+// whole. Widths and edges, so it is measured rather than read.
+// ─────────────────────────────────────────────────────────────────────────────
+const ROW = `
+<div class="p-6"><div id="row" class="row-even lg:flex lg:flex-wrap items-center gap-2">
+  <button id="b1" class="px-3 py-2 border">Import Estimate</button>
+  <button id="b2" class="px-3 py-2 border">Use Template</button>
+  <button id="b3" class="px-3 py-2 border">Save as Template</button>
+  <button id="b4" class="px-3 py-2 border">Select</button>
+  <button id="b5" class="px-3 py-2 border">Add Line</button>
+</div></div>`
+const ROW_PROBE = `(rect) => {
+  const b = n => { const r = rect('#b' + n); return { l: Math.round(r.left), r: Math.round(r.right), t: Math.round(r.top), w: Math.round(r.width) } }
+  const row = rect('#row')
+  return { row: { l: Math.round(row.left), r: Math.round(row.right), w: Math.round(row.width) },
+           b: [1, 2, 3, 4, 5].map(b), vw: window.innerWidth }
+}`
+const rowPhone = measure(ROW, ROW_PROBE)
+const [p1, p2, p3, p4, p5] = rowPhone.b
+ok(p1.w === p2.w && p3.w === p4.w, `two controls share the row at equal width (${p1.w} and ${p2.w})`)
+ok(p1.l === rowPhone.row.l && p2.r === rowPhone.row.r,
+  `...and between them they reach both edges (${p1.l}-${p2.r} of ${rowPhone.row.l}-${rowPhone.row.r})`)
+ok(p1.t === p2.t && p3.t === p4.t && p5.t > p3.t && p3.t > p1.t,
+  'five controls sit on three rows, two and two and one')
+ok(p5.w === rowPhone.row.w, `the odd one takes the whole row rather than leaving a hole (${p5.w} of ${rowPhone.row.w})`)
+
+const rowDesk = measure(ROW, ROW_PROBE, 800, '', 1280)
+const [d1, d2,, , d5] = rowDesk.b
+ok(rowDesk.vw === 1280 && d1.w !== d2.w && d1.t === d5.t,
+  `a desktop keeps the flex row it always had - one line, natural widths (${d1.w} vs ${d2.w})`)
+
 rmSync(work, { recursive: true, force: true })
 done()

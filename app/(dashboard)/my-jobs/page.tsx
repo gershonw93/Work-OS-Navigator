@@ -134,7 +134,7 @@ export default function MyJobsPage() {
                     className="w-full rounded-md border border-muted2 px-3 py-2 text-sm focus:border-accent focus:outline-none resize-none" />
                 </div>
               </div>
-              <div className="px-6 py-4 border-t border-line-soft flex gap-2 justify-end">
+              <div className="row-even px-6 py-4 border-t border-line-soft lg:flex gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>Cancel</Button>
                 <Button type="submit" disabled={creating}>{creating ? 'Creating...' : 'Create Project'}</Button>
               </div>

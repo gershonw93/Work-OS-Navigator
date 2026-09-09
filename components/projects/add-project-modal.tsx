@@ -119,7 +119,7 @@ export function AddProjectModal({
                 {existing.length === 0 && <p className="text-xs text-faint">No unassigned projects - every project is already linked to a customer.</p>}
               </div>
               {error && <p className="text-sm text-danger">{error}</p>}
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="row-even lg:flex justify-end gap-2 pt-2">
                 <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
                 <Button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Link Project'}</Button>
               </div>

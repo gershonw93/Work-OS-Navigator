@@ -511,7 +511,7 @@ export default function DirectoryPage() {
                 {addError && <p className="text-sm text-danger">{addError}</p>}
               </div>
 
-              <div className="sticky bottom-0 bg-panel border-t border-line-soft px-6 py-4 flex gap-2 justify-end">
+              <div className="row-even sticky bottom-0 bg-panel border-t border-line-soft px-6 py-4 lg:flex gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => { setShowAdd(false); resetForm() }}>
                   Cancel
                 </Button>
@@ -552,7 +552,7 @@ export default function DirectoryPage() {
                 </div>
                 {inviteError && <p className="text-sm text-danger">{inviteError}</p>}
               </div>
-              <div className="px-6 py-4 border-t border-line-soft flex gap-2 justify-end">
+              <div className="row-even px-6 py-4 border-t border-line-soft lg:flex gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => setInviteCompany(null)}>Cancel</Button>
                 <Button type="submit" disabled={inviteLoading}>
                   <Send className="h-3.5 w-3.5" />

@@ -207,7 +207,7 @@ export function ComparisonBlock({ comp, projectId, onChanged }: { comp: Comparis
                   </label>
                 </div>
               </div>
-              <div className="flex justify-end gap-2 pt-1">
+              <div className="row-even lg:flex justify-end gap-2 pt-1">
                 <Button variant="secondary" disabled={awarding} onClick={() => setAwardTarget(null)}>Cancel</Button>
                 <Button disabled={awarding} onClick={award}>{awarding ? 'Awarding…' : 'Award'}</Button>
               </div>

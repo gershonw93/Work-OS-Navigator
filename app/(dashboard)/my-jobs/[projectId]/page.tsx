@@ -845,7 +845,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                     </SearchableSelect>
                   </div>
                 </div>
-                <div className="flex gap-2 justify-end">
+                <div className="row-even lg:flex gap-2 justify-end">
                   <Button type="button" variant="secondary" size="sm" onClick={() => setShowTaskForm(false)}>Cancel</Button>
                   <Button type="submit" size="sm" disabled={taskSaving || !taskTitle.trim()}>{taskSaving ? 'Saving...' : 'Create'}</Button>
                 </div>
@@ -1003,7 +1003,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
 
               {rfiError && <p className="text-sm text-danger">{rfiError}</p>}
 
-              <div className="flex gap-2 justify-end">
+              <div className="row-even lg:flex gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => setShowRfiForm(false)}>Cancel</Button>
                 <Button type="submit" disabled={rfiSubmitting}>{rfiSubmitting ? 'Submitting...' : 'Submit RFI'}</Button>
               </div>

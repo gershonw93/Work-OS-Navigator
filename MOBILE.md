@@ -304,6 +304,19 @@ Two ways to write it:
 has a twin, restored tables are gated) and `overlay-geometry.ts` measures it:
 the same card at 390 has no shadow and a 16px radius, at 1280 a shadow and 8px.
 
+**A row of controls reaches both edges.** `flex flex-wrap` gives every control
+the width of its own label, so a five-button toolbar came out 2 + 2 + 1 at three
+different widths and not one of the rows met the right edge. `.row-even` makes
+it a two-column grid on a phone - equal cells, both edges met - with an odd last
+control spanning the full width rather than leaving a hole. Write it
+`row-even lg:flex lg:flex-wrap gap-2 …`: the row's own `lg:flex` restores the
+desktop, because Tailwind emits utilities after components.
+
+The child width override is `.row-even > :is(a, button, div, …)`, and `:is()`
+is there for specificity: `.row-even > *` is (0,1,0) and loses to a `w-28`
+written for the desktop row - the same trap that left the 16px anti-zoom rule
+dead for months.
+
 **The shell is the screen you can SEE.** `.h-app` is
 `var(--vv-h, 100dvh)` inside `@supports (height: 100dvh)`, the same variable the
 overlays use. A document taller than the webview's frame is one the webview can

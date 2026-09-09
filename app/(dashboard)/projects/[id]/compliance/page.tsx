@@ -484,7 +484,7 @@ function UploadForm({
 
         {error && <p className="text-xs text-danger">{error}</p>}
 
-        <div className="flex gap-2 justify-end pt-1">
+        <div className="row-even lg:flex gap-2 justify-end pt-1">
           <Button type="button" variant="secondary" onClick={onClose} className="h-7 text-xs px-3">
             Cancel
           </Button>

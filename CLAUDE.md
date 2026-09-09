@@ -242,6 +242,19 @@ production branch.** Do NOT ask the user to merge or deploy.
 - A strip that scrolls sideways carries `.scroll-fade` (globals.css) so its
   right edge fades - with the scrollbar hidden that is the only sign there is
   more. Pinned for the Tasks filter row and the Settings tab strip.
+- A row of controls REACHES BOTH EDGES: `.row-even` (globals.css), written
+  `row-even lg:flex lg:flex-wrap gap-2 …`. `flex flex-wrap` makes each control
+  as wide as its own label, so Budget's toolbar came out 2 + 2 + 1 at three
+  different widths with none of them meeting the right edge. Two share the row
+  at equal width and an odd last one takes it whole - the trick `StatStrip`
+  uses for an odd number. The child width override uses `:is()` for
+  SPECIFICITY, not tidiness: `.row-even > *` is (0,1,0) and loses to a `w-28`
+  written for the desktop row, the same trap that left the 16px rule dead.
+  Nothing restores `display` at `lg` - the row's own `lg:flex` does, because
+  Tailwind emits utilities after components. Measured in `overlay-geometry.ts`
+  and ratcheted in `layout-overflow.ts`: a flex row of two or more `<Button>`s
+  must carry it. A heading beside the buttons makes it a LAYOUT, not a control
+  row - the button group inside is the row.
 
 ## Loading and failure states (IMPORTANT)
 - A loading state must have a WAY TO END. `setLoading(false)` as the last

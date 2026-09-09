@@ -398,7 +398,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                 </div>
               </div>
               {addError && <ErrorNote message={addError} className="mx-4 sm:mx-6 mb-1" />}
-              <div className="shrink-0 px-4 sm:px-6 py-4 border-t border-line-soft flex flex-wrap gap-2 justify-end">
+              <div className="row-even shrink-0 px-4 sm:px-6 py-4 border-t border-line-soft lg:flex lg:flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => { setShowAdd(false); setAddError(null) }}>Cancel</Button>
                 <Button type="submit" disabled={addSaving || !addLabel || !addStart || !addEnd}>
                   {addSaving ? 'Adding...' : 'Add Milestone'}
@@ -451,12 +451,12 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                   </div>
                 )}
               </div>
-              <div className="shrink-0 px-4 sm:px-6 py-4 border-t border-line-soft flex flex-wrap items-center gap-2 justify-between">
+              <div className="row-even shrink-0 px-4 sm:px-6 py-4 border-t border-line-soft lg:flex lg:flex-wrap items-center gap-2 justify-between">
                 <button type="button" onClick={() => { deleteItem(editItem.id); setEditItem(null) }}
                   className="flex items-center gap-1.5 text-sm text-danger hover:text-danger">
                   <Trash2 className="h-3.5 w-3.5" /> Delete
                 </button>
-                <div className="flex flex-wrap gap-2 justify-end">
+                <div className="row-even lg:flex lg:flex-wrap gap-2 justify-end">
                   <Button type="button" variant="secondary" onClick={() => { setEditItem(null); setEditError(null) }}>Cancel</Button>
                   <Button type="submit" disabled={editSaving}>{editSaving ? 'Saving...' : 'Save Changes'}</Button>
                 </div>

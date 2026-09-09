@@ -285,7 +285,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                   </p>
                 </div>
               </div>
-              <div className="flex gap-2 justify-end mt-3">
+              <div className="row-even lg:flex gap-2 justify-end mt-3">
                 <Button variant="outline" size="sm" onClick={() => setContactPrompt(null)}>Not now</Button>
                 <Button size="sm" onClick={saveInspectorContact} disabled={contactSaving}>
                   {contactSaving ? 'Saving…' : 'Add contact'}
@@ -399,7 +399,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
               </div>
               <div className="sticky bottom-0 bg-panel border-t border-line-soft px-4 sm:px-6 py-4 space-y-2">
                 {submitError && <p className="text-xs text-danger flex items-center gap-1"><AlertCircle className="h-3 w-3 shrink-0" />{submitError}</p>}
-                <div className="flex flex-wrap gap-2 justify-end">
+                <div className="row-even lg:flex lg:flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => { setShowForm(false); resetForm() }}>Cancel</Button>
                 <Button type="submit" disabled={submitting || analyzing}>
                   {analyzing ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Analyzing...</> : submitting ? 'Saving...' : editingPermit ? 'Save Changes' : 'Add Permit'}

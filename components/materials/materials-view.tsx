@@ -255,7 +255,7 @@ function AddModal({ projects, lockedProjectId, onClose, onSaved }: { projects: P
           </div>
         )}
 
-        <div className="flex justify-end gap-2 border-t border-line px-5 py-4">
+        <div className="row-even lg:flex justify-end gap-2 border-t border-line px-5 py-4">
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
           {stage === 'form' && <Button onClick={save} disabled={saving || scanning}>{saving ? 'Saving…' : 'Save receipt'}</Button>}
         </div>

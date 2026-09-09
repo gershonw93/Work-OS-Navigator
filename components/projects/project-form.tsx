@@ -377,7 +377,7 @@ export function ProjectForm({
         </div>
       )}
 
-      <div className="flex items-center gap-3 pt-2">
+      <div className="row-even lg:flex items-center gap-3 pt-2">
         <Button type="submit" disabled={loading}>
           {loading ? 'Creating...' : submitLabel}
         </Button>

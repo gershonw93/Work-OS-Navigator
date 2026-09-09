@@ -463,6 +463,48 @@ for (const f of tsx) {
 ok(shrunkLabels.length === 0,
   `no label is smaller than its own field on a phone${shrunkLabels.length ? ` - ${shrunkLabels[0]} (+${shrunkLabels.length - 1})` : ''}`)
 
+// ── 11. a row of controls is never ragged ───────────────────────────────────
+// `flex flex-wrap` makes every control as wide as its own label, so a toolbar
+// of five buttons came out 2 + 2 + 1 at three different widths and none of the
+// rows met the right edge. `.row-even` (globals.css) is the answer and this is
+// the ratchet: a flex row holding two or more Buttons carries it, so the next
+// one written follows the rule rather than adding to the pile.
+const ragged: string[] = []
+for (const f of tsx) {
+  const lines = code(f).split('\n')
+  lines.forEach((line, i) => {
+    const m = /<div className="([^"]*)"\s*>\s*$/.exec(line)
+    if (!m) return
+    const cls = m[1]
+    if (!/(^|\s)flex(\s|$)/.test(cls)) return
+    if (/flex-col|row-even|hidden|grid/.test(cls)) return
+    // The block this div opens, to the line that closes it.
+    let depth = 0
+    let end = -1
+    for (let j = i; j < Math.min(i + 40, lines.length); j++) {
+      depth += (lines[j].match(/<div\b/g) ?? []).length - (lines[j].match(/<\/div>/g) ?? []).length
+      if (j > i && depth <= 0) { end = j; break }
+    }
+    if (end < 0) return
+    const block = lines.slice(i + 1, end).join('\n')
+    if ((block.match(/<Button\b/g) ?? []).length < 2) return
+    // A heading or a paragraph beside the buttons makes it a LAYOUT - "title
+    // on the left, toolbar on the right" - not a row of controls. Its button
+    // group is the row, and that is what carries the class.
+    const withoutButtons = block.replace(/<Button\b[\s\S]*?(?:\/>|<\/Button>)/g, '')
+    if (/<(h[1-6]|p|img|table)\b/.test(withoutButtons)) return
+    ragged.push(`${f}:${i + 1}`)
+  })
+}
+ok(ragged.length === 0,
+  `every row of buttons reaches both edges on a phone${ragged.length ? ` - ${ragged[0]} (+${ragged.length - 1})` : ''}`)
+ok(/\.row-even\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/.test(css),
+  '...two equal columns')
+ok(/\.row-even > :last-child:nth-child\(odd\) \{ grid-column: 1 \/ -1; \}/.test(css),
+  '...and an odd last control takes the whole row')
+ok(/\.row-even > :is\([^)]*\) \{[\s\S]{0,60}width: 100%/.test(css),
+  '...with :is() so the cell beats a `w-28` written for the desktop row')
+
 // ── long text, which is the same bug one level down ──────────────────────────
 ok(/p,\s*li,\s*dd,\s*dt,\s*blockquote[\s\S]{0,80}overflow-wrap:\s*anywhere/.test(css),
   'prose wraps anywhere by default - `break-word` wraps the text but not the container')

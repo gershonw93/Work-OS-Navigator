@@ -332,7 +332,7 @@ function ChangeOrdersPageInner({ params }: { params: { id: string } }) {
               )}
             </div>
 
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="row-even lg:flex items-center gap-2 lg:flex-wrap">
               {co.status !== 'approved' && (
                 <Button size="sm" onClick={() => updateStatus(co, 'approved')}
                   className="bg-success-solid hover:bg-green-700 text-white">
@@ -512,7 +512,7 @@ function ChangeOrdersPageInner({ params }: { params: { id: string } }) {
                 </div>
               </div>
 
-              <div className="px-4 sm:px-6 py-4 border-t border-line-soft flex flex-wrap gap-2 justify-end">
+              <div className="row-even px-4 sm:px-6 py-4 border-t border-line-soft lg:flex lg:flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => { setShowForm(false); resetForm() }}>
                   Cancel
                 </Button>
