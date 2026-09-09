@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { StatCard } from '@/components/ui/stat-card'
+import { StatStrip } from '@/components/ui/stat-strip'
 import { cn } from '@/lib/utils'
 import { ShieldCheck, Upload, RefreshCw, X, AlertTriangle, CheckCircle2, FileWarning, ExternalLink, ChevronDown, ChevronUp, Mail, Copy, Link2, Send, MinusCircle, PlusCircle } from 'lucide-react'
 import {
@@ -937,33 +937,13 @@ export default function CompliancePage({ params }: { params: { id: string } }) {
         </div>
       ) : (
         <>
-          {/* Summary row */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatCard
-              label="Total Subs"
-              value={totalSubs}
-              icon={ShieldCheck}
-              iconColor="text-muted-fg"
-            />
-            <StatCard
-              label="All Compliant"
-              value={allCompliant}
-              icon={CheckCircle2}
-              iconColor="text-success"
-            />
-            <StatCard
-              label="Expiring Soon"
-              value={expiringSoon}
-              icon={AlertTriangle}
-              iconColor="text-accent-fg"
-            />
-            <StatCard
-              label="Missing Docs"
-              value={missingDocs}
-              icon={FileWarning}
-              iconColor="text-danger"
-            />
-          </div>
+          {/* Four numbers, one card. Red only for what is actually missing. */}
+          <StatStrip label="Compliance" items={[
+            { label: 'Subs', value: totalSubs },
+            { label: 'All compliant', value: allCompliant },
+            { label: 'Expiring soon', value: expiringSoon, tone: expiringSoon > 0 ? 'warn' : undefined },
+            { label: 'Missing documents', value: missingDocs, tone: missingDocs > 0 ? 'danger' : undefined },
+          ]} />
 
           {/* Expiring / expired alerts */}
           {(() => {

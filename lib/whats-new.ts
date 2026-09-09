@@ -53,6 +53,12 @@ export const RELEASES: Release[] = [
     items: [
       {
         kind: 'improved',
+        title: 'The home screen is one overview, not four tiles',
+        text: 'Active projects, under contract, open tasks and due this week now sit together in a single card with fine dividers and large numbers, each still a tap away from its page. What needs attention is a short list of rows underneath instead of a row of coloured pills. Compliance and customer pages got the same treatment.',
+        href: '/dashboard',
+      },
+      {
+        kind: 'improved',
         title: 'Compliance documents read as a list, not a sideways table',
         text: 'The document table needed more width than a phone has, so the expiry and file columns were off the edge and the status label broke in two. Each document is one row now: the name and status up top, expiry and file link underneath, and Upload or Update where a thumb can reach it. The same goes for a vendor\'s documents in the Directory.',
       },

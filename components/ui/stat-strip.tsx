@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { cn } from '@/lib/utils'
 
 /**
@@ -20,6 +21,8 @@ export interface Stat {
   tone?: 'danger' | 'warn' | 'success' | 'info'
   /** A quieter second line - "of 8", "3 days late". */
   note?: string
+  /** Where tapping the number goes. The whole cell is the target. */
+  href?: string
 }
 
 const TONE: Record<NonNullable<Stat['tone']>, string> = {
@@ -51,11 +54,15 @@ export function StatStrip({
           borders so the grid keeps one hairline between cells and none around
           the outside, at any number of items. */}
       <div className="grid grid-cols-2">
-        {shown.map((s, i) => (
-          <div
+        {shown.map((s, i) => {
+          const Cell: any = s.href ? Link : 'div'
+          return (
+          <Cell
             key={s.label}
+            {...(s.href ? { href: s.href } : {})}
             className={cn(
-              'min-w-0 px-5 py-4',
+              'block min-w-0 px-5 py-4',
+              s.href && 'transition-colors hover:bg-surface active:bg-surface',
               // a line above every row after the first
               i >= 2 && 'border-t border-line-soft',
               // and one between the two columns
@@ -70,8 +77,9 @@ export function StatStrip({
             </p>
             <p className="mt-0.5 truncate text-[13px] text-muted-fg">{s.label}</p>
             {s.note && <p className="mt-0.5 truncate text-xs text-faint">{s.note}</p>}
-          </div>
-        ))}
+          </Cell>
+          )
+        })}
       </div>
     </div>
   )

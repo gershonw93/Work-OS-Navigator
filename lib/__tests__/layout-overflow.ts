@@ -22,7 +22,7 @@
 //
 // What is checkable from here is source shape, which is what all four are.
 
-import { ok, done, code, read, walk } from './_helpers'
+import { ok, done, code, read, walk, exists } from './_helpers'
 
 const css = read('app/globals.css')
 const office = code('app/(dashboard)/layout.tsx')
@@ -276,6 +276,7 @@ ok(wrapping.length === 0,
 const phoneTables: string[] = []
 for (const f of tsx) {
   if (f.includes('/print/')) continue                   // paged output, no phone
+  if (f === 'components/ui/table.tsx') continue           // the primitive, not a screen
   const lines = read(f).split('\n')
   lines.forEach((line, i) => {
     if (!/<table/.test(line)) return
@@ -287,7 +288,10 @@ for (const f of tsx) {
     phoneTables.push(`${f}:${i + 1}`)
   })
 }
-ok(phoneTables.length <= 12,
+// The floor is not zero and the test should not pretend it is: a vendor-by-
+// vendor quote comparison, the permissions matrix and an AIA schedule of values
+// are tables because the DATA is a grid, and those scroll inside themselves.
+ok(phoneTables.length <= 10,
   `${phoneTables.length} tables still render on a phone (was 16, and this may only go down)`)
 ok(!/<table/.test(read('app/(dashboard)/projects/[id]/compliance/page.tsx')),
   'Compliance is a list - it needed 560px and scrolled its Expires column off the phone')
@@ -308,6 +312,24 @@ for (const f of tsx) {
 }
 ok(gutters.length === 0,
   `no screen squeezes to 16px gutters on a phone${gutters.length ? ` - ${gutters[0]}` : ''} - 24px everywhere`)
+
+// ── 7. numbers that belong together share one card ──────────────────────────
+// The home screen had four coloured tiles and then three coloured pills. The
+// reference it was measured against has ONE overview card with hairline
+// dividers and a "needs attention" list of rows. That is what it is now, and
+// the old four-box StatCard is gone from the repo rather than merely unused.
+const home = code('app/(dashboard)/dashboard/page.tsx')
+ok((home.match(/<StatStrip/g) ?? []).length === 3,
+  'every dashboard variant (sub, admin, GC) puts its numbers in one StatStrip')
+ok(!/StatCard/.test(home), '...and the four-box StatCard is not used on it')
+ok(!exists('components/ui/stat-card.tsx'), '...or anywhere - the file is deleted, not orphaned')
+ok(/Needs attention/.test(home) && /divide-y divide-line-soft/.test(home),
+  'needs-attention is a list of rows in one card')
+ok(!/rounded-full bg-warn-tint text-warn text-xs font-medium px-3 py-1\.5/.test(home),
+  '...not three coloured pills')
+for (const f of ['app/(dashboard)/projects/[id]/compliance/page.tsx', 'app/(dashboard)/customers/[customerId]/page.tsx']) {
+  ok(/<StatStrip/.test(code(f)) && !/StatCard/.test(code(f)), `${f.split('/').slice(-2, -1)[0]} uses StatStrip, not a grid of stat boxes`)
+}
 
 // ── long text, which is the same bug one level down ──────────────────────────
 ok(/p,\s*li,\s*dd,\s*dt,\s*td,\s*th[\s\S]{0,80}overflow-wrap:\s*anywhere/.test(css),

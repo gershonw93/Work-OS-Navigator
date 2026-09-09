@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { StatStrip } from '@/components/ui/stat-strip'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -159,19 +160,6 @@ function EditCustomerModal({
 
 // ─── Add Project Modal ────────────────────────────────────────────────────────
 
-// ─── Stat Card ────────────────────────────────────────────────────────────────
-
-function StatCard({ label, value }: { label: string; value: string | number }) {
-  return (
-    <Card>
-      <CardContent className="pt-5 pb-4 px-5">
-        <p className="text-2xl font-bold text-ink">{value}</p>
-        <p className="text-xs text-muted-fg mt-0.5">{label}</p>
-      </CardContent>
-    </Card>
-  )
-}
-
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 const STATUS_FILTERS = ['All', 'Planning', 'Active', 'Completed']
@@ -290,18 +278,12 @@ export default function CustomerDetailPage() {
         </Button>
       </div>
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <StatCard label="Total Projects" value={totalProjects} />
-        <StatCard label="Active Projects" value={activeProjects} />
-        <StatCard label="Completed" value={completedProjects} />
-        <Card>
-          <CardContent className="pt-5 pb-4 px-5">
-            <p className="text-2xl font-bold text-faint">-</p>
-            <p className="text-xs text-muted-fg mt-0.5">View Financials</p>
-          </CardContent>
-        </Card>
-      </div>
+      {/* One card, not four. */}
+      <StatStrip items={[
+        { label: 'Total projects', value: totalProjects },
+        { label: 'Active projects', value: activeProjects },
+        { label: 'Completed', value: completedProjects },
+      ]} />
 
       {/* Tabs */}
       <div className="border-b border-line">
