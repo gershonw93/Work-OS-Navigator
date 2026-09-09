@@ -90,7 +90,7 @@ export default function FinancialsPage({ params }: { params: { id: string } }) {
   ]
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-0 lg:p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-ink">Financials</h1>
         <p className="text-sm text-muted-fg mt-0.5">Project cost breakdown and payment status.</p>

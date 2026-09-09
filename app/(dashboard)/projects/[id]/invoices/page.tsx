@@ -598,14 +598,20 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
   const active = invoices.filter(i => i.status === 'approved' || i.status === 'sent')
   const paid = invoices.filter(i => i.status === 'paid')
 
+  // A group of bills is ONE card of divided rows on the phone; on a desktop
+  // the wrapper vanishes and each bill keeps its own card.
+  const GROUP = 'divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-panel lg:divide-y-0 lg:space-y-2 lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent'
+
   function InvoiceCard({ invoice }: { invoice: Invoice }) {
     const isExpanded = expanded === invoice.id
     const cfg = STATUS_CONFIG[invoice.status] ?? STATUS_CONFIG.pending_approval
     return (
-      <div className={cn('rounded-xl border bg-panel overflow-hidden', invoice.status === 'pending_approval' ? 'border-warn/30' : 'border-line')}>
-        <button className="w-full flex items-center gap-4 px-5 py-4 hover:bg-surface transition-colors text-left"
+      // PHONE: a row in the group's one card - no icon column, no tint, the
+      // card border lives on the group. DESKTOP (lg+): the bordered card it was.
+      <div className={cn('lg:rounded-xl lg:border lg:bg-panel lg:overflow-hidden', invoice.status === 'pending_approval' ? 'lg:border-warn/30' : 'lg:border-line')}>
+        <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-surface transition-colors text-left lg:gap-4 lg:px-5 lg:py-4"
           onClick={() => setExpanded(isExpanded ? null : invoice.id)}>
-          <Receipt className="h-5 w-5 text-faint shrink-0" />
+          <Receipt className="hidden h-5 w-5 text-faint shrink-0 lg:block" />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-mono text-muted-fg">{invoice.invoice_number}</span>
@@ -634,7 +640,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
         </button>
 
         {isExpanded && (
-          <div className="border-t border-line-soft px-5 py-5 space-y-4">
+          <div className="border-t border-line-soft px-4 py-4 space-y-4 lg:px-5 lg:py-5">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div><p className="text-xs text-faint">Invoice #</p><p className="font-mono font-medium text-ink-soft">{invoice.invoice_number}</p></div>
               <div><p className="text-xs text-faint">Amount</p><p className="font-bold text-ink">${Number(invoice.amount).toLocaleString()}</p></div>
@@ -992,7 +998,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
   }
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="p-0 lg:p-6 space-y-5">
       {editInvoice && (
         <div className="overlay items-center justify-center bg-black/50" data-overlay>
           <div className="bg-panel rounded-xl shadow-xl w-full max-w-lg overflow-y-auto">
@@ -1400,19 +1406,19 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
           {pending.length > 0 && (
             <div className="space-y-2">
               <p className="text-xs font-semibold text-faint uppercase tracking-wide">Pending Approval ({pending.length})</p>
-              {pending.map(i => <InvoiceCard key={i.id} invoice={i} />)}
+              <div className={GROUP}>{pending.map(i => <InvoiceCard key={i.id} invoice={i} />)}</div>
             </div>
           )}
           {active.length > 0 && (
             <div className="space-y-2">
               <p className="text-xs font-semibold text-faint uppercase tracking-wide">Active ({active.length})</p>
-              {active.map(i => <InvoiceCard key={i.id} invoice={i} />)}
+              <div className={GROUP}>{active.map(i => <InvoiceCard key={i.id} invoice={i} />)}</div>
             </div>
           )}
           {paid.length > 0 && (
             <div className="space-y-2">
               <p className="text-xs font-semibold text-faint uppercase tracking-wide">Paid ({paid.length})</p>
-              {paid.map(i => <InvoiceCard key={i.id} invoice={i} />)}
+              <div className={GROUP}>{paid.map(i => <InvoiceCard key={i.id} invoice={i} />)}</div>
             </div>
           )}
         </div>

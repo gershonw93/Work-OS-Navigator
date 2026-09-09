@@ -253,7 +253,7 @@ export default function PlansPage({ params }: { params: { id: string } }) {
   const filedCount = plans.length - plans.filter(p => !p.folder_id).length
 
   return (
-    <div className="relative p-6"
+    <div className="relative p-0 lg:p-6"
       onDragEnter={e => {
         if (!canAdd || !e.dataTransfer?.types?.includes('Files')) return
         dragDepth.current += 1

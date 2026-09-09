@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Users, Phone, Mail, HardHat, Building2, ChevronDown } from 'lucide-react'
+import { Users, Phone, Mail, HardHat, Building2, ChevronDown, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface Member {
@@ -100,8 +100,10 @@ export function TeamQuickView({ projectId }: { projectId: string }) {
         </span>
       </button>
 
+      {/* DESKTOP: a pop-over under the avatars. PHONE: a bottom sheet - the
+          pop-over ran off the right edge and past the tab bar. */}
       {open && (
-        <div data-overlay className="absolute left-0 lg:left-auto lg:right-0 z-50 mt-2 w-[calc(100vw-2rem)] sm:w-80 max-h-[70vh] overflow-y-auto overscroll-contain rounded-xl border border-line bg-panel shadow-xl">
+        <div data-overlay className="hidden lg:block absolute right-0 z-50 mt-2 w-80 max-h-[70vh] overflow-y-auto overscroll-contain rounded-xl border border-line bg-panel shadow-xl">
           {members.length > 0 && (
             <div className="p-3">
               <p className="px-1 pb-2 text-xs font-semibold uppercase tracking-wide text-faint flex items-center gap-1.5">
@@ -178,6 +180,95 @@ export function TeamQuickView({ projectId }: { projectId: string }) {
               </ul>
             </div>
           )}
+        </div>
+      )}
+      {open && (
+        <div className="overlay-sheet lg:hidden bg-black/40" data-overlay onClick={() => setOpen(false)}>
+          <div onClick={e => e.stopPropagation()}
+            className="flex flex-col overflow-y-auto overscroll-contain rounded-t-2xl bg-panel shadow-2xl pb-safe">
+            <div className="flex items-center justify-between py-2 pl-5 pr-2">
+              <h2 className="text-base font-bold text-ink">Team</h2>
+              <button onClick={() => setOpen(false)} aria-label="Close" className="flex h-11 w-11 items-center justify-center rounded-lg text-faint hover:text-ink">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          {members.length > 0 && (
+            <div className="p-3">
+              <p className="px-1 pb-2 text-xs font-semibold uppercase tracking-wide text-faint flex items-center gap-1.5">
+                <HardHat className="h-3.5 w-3.5" /> My Team
+              </p>
+              <ul className="space-y-1">
+                {members.map((m) => (
+                  <li key={m.id} className="rounded-lg px-2 py-2 hover:bg-surface">
+                    <div className="flex items-center gap-2">
+                      <span className="whitespace-nowrap flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-tint text-xs font-semibold text-accent-fg">
+                        {initials(m.name)}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-ink">{m.name}</p>
+                        {m.role && <p className="truncate text-xs text-muted-fg">{m.role}</p>}
+                      </div>
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap gap-2 pl-10">
+                      {m.phone && (
+                        <a href={`tel:${m.phone}`} className="inline-flex items-center gap-1 rounded-md bg-success-tint px-2 py-1 text-xs font-medium text-success hover:bg-success-tint">
+                          <Phone className="h-3 w-3" /> {m.phone}
+                        </a>
+                      )}
+                      {m.email && (
+                        <a href={`mailto:${m.email}`} className="inline-flex items-center gap-1 rounded-md bg-info-tint px-2 py-1 text-xs font-medium text-info hover:bg-info-tint">
+                          <Mail className="h-3 w-3" /> Email
+                        </a>
+                      )}
+                      {!m.phone && !m.email && <span className="text-xs text-faint">No contact info</span>}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {subs.length > 0 && (
+            <div className="border-t border-line-soft p-3">
+              <p className="px-1 pb-2 text-xs font-semibold uppercase tracking-wide text-faint flex items-center gap-1.5">
+                <Building2 className="h-3.5 w-3.5" /> Subcontractors
+              </p>
+              <ul className="space-y-1">
+                {subs.map((s) => {
+                  const name = s.companies?.name ?? s.scope
+                  const phone = s.companies?.phone
+                  const email = s.companies?.contact_email
+                  return (
+                    <li key={s.id} className="rounded-lg px-2 py-2 hover:bg-surface">
+                      <div className="flex items-center gap-2">
+                        <span className="whitespace-nowrap flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted2 text-xs font-semibold text-muted-fg">
+                          {initials(name)}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-ink">{name}</p>
+                          <p className="truncate text-xs text-muted-fg">{s.trade ?? s.scope}</p>
+                        </div>
+                      </div>
+                      <div className="mt-1.5 flex flex-wrap gap-2 pl-10">
+                        {phone && (
+                          <a href={`tel:${phone}`} className="inline-flex items-center gap-1 rounded-md bg-success-tint px-2 py-1 text-xs font-medium text-success hover:bg-success-tint">
+                            <Phone className="h-3 w-3" /> {phone}
+                          </a>
+                        )}
+                        {email && !email.includes('placeholder.com') && (
+                          <a href={`mailto:${email}`} className="inline-flex items-center gap-1 rounded-md bg-info-tint px-2 py-1 text-xs font-medium text-info hover:bg-info-tint">
+                            <Mail className="h-3 w-3" /> Email
+                          </a>
+                        )}
+                        {!phone && (!email || email.includes('placeholder.com')) && <span className="text-xs text-faint">No contact info</span>}
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          )}
+          </div>
         </div>
       )}
     </div>

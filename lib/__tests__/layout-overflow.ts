@@ -418,6 +418,34 @@ ok(/\.scroll-fade\s*\{[^}]*mask-image:\s*linear-gradient\(to right/.test(css), '
 ok(/scroll-fade/.test(tasksPage), 'tasks filter strip fades at its right edge')
 ok(/scroll-fade/.test(code('app/(dashboard)/settings/page.tsx')), 'settings tab strip fades at its right edge')
 
+// ── 10. four spots from one phone ───────────────────────────────────────────
+// The project layout pads p-6; nine project pages padded p-6 again and sat
+// 48px from the edge on a phone. A page root under projects/[id] never pads
+// without an lg: prefix.
+const doubled: string[] = []
+for (const f of tsx) {
+  if (!f.startsWith('app/(dashboard)/projects/[id]/') || !f.endsWith('/page.tsx') || f.includes('/print/')) continue
+  const m = /\n  return \(\n\s*<div className="([^"]*)"/.exec(code(f))
+  if (m && /(^|\s)p-6(\s|$)/.test(m[1])) doubled.push(f)
+}
+ok(doubled.length === 0, `no project page doubles the layout's gutter${doubled.length ? ` - ${doubled[0]}` : ''}`)
+// A menu anchored to a control in the project header is a bottom sheet on a
+// phone - anchored to its left edge it ran off the right of the screen.
+for (const f of ['components/layout/project-status-switch.tsx', 'components/layout/team-quick-view.tsx']) {
+  const src = code(f)
+  ok(/overlay-sheet lg:hidden/.test(src) && /hidden lg:block absolute/.test(src),
+    `${f.split('/').pop()} is a sheet on a phone and the dropdown it was on a desktop`)
+  ok(!/w-\[calc\(100vw/.test(src), `...and does not size itself from vw (${f.split('/').pop()})`)
+}
+// A drawer inside .overlay-full (inset 0, no safe padding) pads its own top.
+const checklist = code('components/projects/setup-checklist.tsx')
+ok(/flex-col bg-panel shadow-2xl pt-safe pb-safe/.test(checklist), 'the setup checklist drawer pads the notch and the home bar itself')
+// Bills: rows in one card per group on a phone, no icon column.
+const bills = code('app/(dashboard)/projects/[id]/invoices/page.tsx')
+ok(/<Receipt className="hidden h-5 w-5 text-faint shrink-0 lg:block" \/>/.test(bills), 'a bill row has no icon column on a phone')
+ok(/const GROUP = 'divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-panel lg:divide-y-0/.test(bills)
+  && (bills.match(/className=\{GROUP\}/g) ?? []).length === 3, 'each group of bills is one divided card on a phone')
+
 // ── long text, which is the same bug one level down ──────────────────────────
 ok(/p,\s*li,\s*dd,\s*dt,\s*blockquote[\s\S]{0,80}overflow-wrap:\s*anywhere/.test(css),
   'prose wraps anywhere by default - `break-word` wraps the text but not the container')

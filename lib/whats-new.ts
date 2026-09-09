@@ -53,6 +53,12 @@ export const RELEASES: Release[] = [
     items: [
       {
         kind: 'fixed',
+        title: 'Four phone fixes: bills, the status menu, the team list and the setup checklist',
+        text: 'Bills from subs (and eight other project tabs) sat twice as far from the left edge as everything else; they line up now, and each group of bills is one card of rows. The job status menu and the team list opened half off the right of the screen - both slide up from the bottom on a phone instead. The setup checklist no longer puts its title under the notch. Nothing changes on a desktop.',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
         title: 'The "?" explainers stay on the screen, and the budget line sheet stops sliding sideways',
         text: 'Tapping a "?" on a Budget tile opened its note mostly off the left edge of the phone, and the sheet behind a budget line could be dragged sideways so its left side was cut off. Both came from the same hidden note taking up room where it should not have. It now floats from the "?" you tapped, always within the screen, and closes when you scroll. Tap the "?" to open it, tap again or scroll to close.',
         href: '/projects',

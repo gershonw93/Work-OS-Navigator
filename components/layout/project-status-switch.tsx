@@ -139,8 +139,11 @@ export function ProjectStatusSwitch({
           </Badge>
           <ChevronDown className="h-3.5 w-3.5 text-faint" />
         </button>
+        {/* DESKTOP: the dropdown under the badge. PHONE: a bottom sheet - the
+            badge sits in the right half of a 390px header, so a menu anchored
+            to its left edge ran off the right of the screen. */}
         {open && (
-          <div className="absolute left-0 top-full z-40 mt-1 w-56 overflow-hidden rounded-lg border border-line bg-panel shadow-xl">
+          <div className="hidden lg:block absolute left-0 top-full z-40 mt-1 w-56 overflow-hidden rounded-lg border border-line bg-panel shadow-xl">
             {STATUSES.map(s => (
               <button key={s} onClick={() => choose(s)}
                 className={cn('flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm capitalize transition-colors',
@@ -152,6 +155,32 @@ export function ProjectStatusSwitch({
             <p className="border-t border-line-soft px-3 py-2 text-[11px] leading-snug text-faint">
               Active means under contract - won and billable, whether or not anyone is on site yet.
             </p>
+          </div>
+        )}
+        {open && (
+          <div className="overlay-sheet lg:hidden bg-black/40" data-overlay onClick={() => setOpen(false)}>
+            <div onClick={e => e.stopPropagation()}
+              className="flex flex-col overflow-y-auto overscroll-contain rounded-t-2xl bg-panel shadow-2xl pb-safe">
+              <div className="flex items-center justify-between py-2 pl-5 pr-2">
+                <h2 className="text-base font-bold text-ink">Job status</h2>
+                <button onClick={() => setOpen(false)} aria-label="Close" className="flex h-11 w-11 items-center justify-center rounded-lg text-faint hover:text-ink">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="divide-y divide-line-soft">
+                {STATUSES.map(s => (
+                  <button key={s} onClick={() => choose(s)}
+                    className={cn('flex min-h-[48px] w-full items-center justify-between gap-2 px-5 text-left text-base capitalize',
+                      s === current ? 'bg-surface font-medium text-ink' : 'text-ink-soft')}>
+                    {s.replace('_', ' ')}
+                    {s === current && <Check className="h-5 w-5 text-accent-fg" />}
+                  </button>
+                ))}
+              </div>
+              <p className="px-5 py-3 text-xs leading-snug text-faint">
+                Active means under contract - won and billable, whether or not anyone is on site yet.
+              </p>
+            </div>
           </div>
         )}
       </div>

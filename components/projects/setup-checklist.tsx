@@ -152,7 +152,10 @@ export function SetupChecklist({ projectId }: { projectId: string }) {
           />
 
           <div className={cn(
-            'absolute right-0 top-0 flex h-full w-full max-w-md flex-col bg-panel shadow-2xl',
+            // .overlay-full is inset 0 with no safe-area padding, so this
+            // panel is the one element that pads the top - without it the
+            // title and the X sat under the Dynamic Island.
+            'absolute right-0 top-0 flex h-full w-full max-w-md flex-col bg-panel shadow-2xl pt-safe pb-safe',
             'transition-transform duration-200 ease-out',
             shown ? 'translate-x-0' : 'translate-x-full',
           )}>
@@ -164,7 +167,7 @@ export function SetupChecklist({ projectId }: { projectId: string }) {
                   {data.essentialsLeft > 0 && ` · ${data.essentialsLeft} still needed`}
                 </p>
               </div>
-              <button onClick={close} aria-label="Close" className="text-faint hover:text-ink">
+              <button onClick={close} aria-label="Close" className="-mr-2 -mt-2 flex h-11 w-11 items-center justify-center rounded-lg text-faint hover:text-ink">
                 <X className="h-5 w-5" />
               </button>
             </div>
