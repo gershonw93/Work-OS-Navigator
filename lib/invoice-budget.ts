@@ -299,6 +299,18 @@ export interface BudgetTotals {
    */
   committed_unlinked: number
   /**
+   * Approved change orders that land on NO budget line - they name neither a
+   * line nor a subcontract a line points at.
+   *
+   * Inside `approved_changes` and `revised_budget`, not extra. Reported as
+   * "approving a change order never moves the Budget page": for most it did,
+   * but one that had nowhere to land was dropped on the floor by this screen
+   * while the pay-app schedule of values had been showing it as its own row all
+   * along. Approved money the budget cannot see is the exact failure a budget
+   * exists to prevent.
+   */
+  changes_unlinked: number
+  /**
    * Receipts on this job with no budget line. Inside `actual` and `materials`,
    * not extra - but named so the screen can show them as their own row and
    * offer to file them, rather than leaving somebody to wonder why Actual Spent
@@ -350,11 +362,17 @@ export function budgetTotals(
    * into project costs.
    */
   unassignedMaterials: { amount?: unknown }[] = [],
+  /**
+   * The `unmapped` half of `approvedChangesByLine` - approved change orders
+   * that reach no line. Optional, and zero is the old (wrong) behaviour, so a
+   * caller that has not been updated is no worse off than it was.
+   */
+  unmappedChanges = 0,
 ): BudgetTotals {
   const t: BudgetTotals = {
     original_budget: 0, approved_changes: 0, revised_budget: 0,
     committed: 0, actual: 0, committed_not_billed: 0, committed_unlinked: 0,
-    materials_unassigned: 0,
+    changes_unlinked: 0, materials_unassigned: 0,
     billed: 0, materials: 0, entered: 0,
     projected_cost: 0, remaining: 0,
   }
@@ -414,6 +432,12 @@ export function budgetTotals(
   t.actual += t.materials_unassigned
   t.materials += t.materials_unassigned
   t.projected_cost += t.materials_unassigned
+
+  // Approved and landing nowhere. Counted in the revised budget the same as
+  // any other approved change - a line to hang it on is bookkeeping, and its
+  // absence must not make the money disappear.
+  t.changes_unlinked = n(unmappedChanges)
+  t.approved_changes += t.changes_unlinked
 
   t.revised_budget = t.original_budget + t.approved_changes
   t.remaining = t.revised_budget - t.projected_cost

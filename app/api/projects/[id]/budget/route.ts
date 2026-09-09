@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
-import { ACTUAL_STATUSES, budgetTotals, rollupBudgetLines } from '@/lib/invoice-budget'
+import { ACTUAL_STATUSES, approvedChangesByLine, budgetTotals, rollupBudgetLines } from '@/lib/invoice-budget'
 import { feeForInvoice } from '@/lib/allocations'
 import { markUp } from '@/lib/markup'
 import { requirePermission, denied } from '@/lib/api-guard'
@@ -71,7 +71,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .single(),
     db
       .from('change_orders')
-      .select('amount, status, budget_line_item_id, subcontract_id')
+      .select('id, title, amount, status, budget_line_item_id, subcontract_id')
       .eq('project_id', params.id),
     // Invoice splits. Filtered to this project through the invoices that own
     // them - allocations have no project_id of their own, deliberately: the
@@ -109,7 +109,15 @@ export async function GET(request: Request, { params }: { params: { id: string }
   // Budget, billing and Master Money while the Materials page said they flowed
   // into project costs.
   const unassignedMaterials = (materials ?? []).filter((m: any) => !m.budget_line_id)
-  const totals = budgetTotals(items, (subcontracts ?? []) as any, unassignedMaterials as any)
+  // Approved change orders that reach no budget line - neither named one nor
+  // tied to a subcontract that a line points at. The rollup above cannot see
+  // them for the same reason it cannot see an unlinked receipt: nothing points
+  // at them. They were simply dropped, which is "approving a change order does
+  // not move the Budget page" for the ones it happened to.
+  const changeRollup = approvedChangesByLine((data ?? []) as any, (changeOrders ?? []) as any)
+  const totals = budgetTotals(
+    items, (subcontracts ?? []) as any, unassignedMaterials as any, changeRollup.unmapped,
+  )
 
   // The two kinds of money that are in a total and on no row, so the screen can
   // show each as its own line with a way to file it.
@@ -120,6 +128,17 @@ export async function GET(request: Request, { params }: { params: { id: string }
       id: sc.id,
       label: sc.companies?.name ? `${sc.companies.name}${sc.trade ? ` · ${sc.trade}` : ''}` : (sc.trade ?? 'Subcontract'),
       contract_amount: Number(sc.contract_amount ?? 0),
+    }))
+  const linkedLineIds = new Set((data ?? []).map((l: any) => l.id))
+  const subLineIds = new Set((data ?? []).map((l: any) => l.subcontract_id).filter(Boolean))
+  const unlinkedChangeOrders = (changeOrders ?? [])
+    .filter((co: any) => co.status === 'approved')
+    .filter((co: any) => !(co.budget_line_item_id && linkedLineIds.has(co.budget_line_item_id)))
+    .filter((co: any) => !(co.subcontract_id && subLineIds.has(co.subcontract_id)))
+    .map((co: any) => ({
+      id: co.id,
+      label: co.title || 'Change order',
+      amount: Number(co.amount ?? 0),
     }))
   const unassignedReceipts = unassignedMaterials.map((m: any) => ({
     id: m.id,
@@ -215,6 +234,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     // show each as its own row with a way to file it, rather than leaving the
     // headline bigger than the list adds up to with nothing to click.
     unlinked_subcontracts: unlinkedSubcontracts,
+    unlinked_change_orders: unlinkedChangeOrders,
     unassigned_receipts: unassignedReceipts,
     subcontracts: subOptions,
     materials: materials ?? [],

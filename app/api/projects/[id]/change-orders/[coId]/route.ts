@@ -25,7 +25,7 @@ export async function PATCH(
   const { data: profile } = await db.from('profiles').select('full_name').eq('id', user.id).single()
 
   const body = await request.json()
-  const { status, review_notes } = body
+  const { status, review_notes, budget_line_item_id } = body
 
   // Load the current CO so we can fold/unfold its amount into the linked sub.
   const { data: existing } = await db
@@ -35,6 +35,10 @@ export async function PATCH(
   const updates: Record<string, any> = {}
   if (status !== undefined) updates.status = status
   if (review_notes !== undefined) updates.review_notes = review_notes
+  // Filing an approved change order against a budget line, from the Budget
+  // page's "Not on a budget line" panel. An approved change with no line is
+  // real money the rows below cannot show, and this is how it gets a home.
+  if (budget_line_item_id !== undefined) updates.budget_line_item_id = budget_line_item_id || null
 
   // When a change order is tied to a subcontract, approving it adds its amount
   // to that subcontract's contract_amount; un-approving removes it. The

@@ -469,6 +469,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       ] },
 
       { type: 'text', text: 'ALLOWANCES AND THE BUDGET. Link a selection to a line and the allowance fills in with whatever is left on that line, after the other selections already pointing at it, and tells you when you have gone over. Link one to a line with nothing budgeted and it offers to set the LINE to the allowance instead - usually the line is the thing nobody got round to filling in.' },
+      { type: 'warn', text: 'Chosen means a decision was made, so it needs one written down. Setting the status to Chosen, Ordered or Installed with "What they chose" empty opens the row and asks for it rather than saving - a status claiming a choice nobody can name is what the client\'s link then reads back to them. Typing the name moves it to Chosen on its own.' },
       { type: 'warn', text: 'You cannot mark a selection chosen, ordered or installed until it has a budget line. An accepted selection is money, and money with nowhere to land is exactly what this board exists to prevent. (The client is never blocked by this on their own link - that would be holding up a homeowner over your bookkeeping.)' },
       { type: 'tip', text: 'When a pick lands over the allowance, the board shows the difference and offers to raise a change order for exactly that amount, against the same budget line. That is the whole reason allowances are tracked here rather than in someone\'s head - the difference is real money and it needs a paper trail, not a conversation.' },
 
@@ -792,6 +793,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: 'tip', text: 'The quickest way to get this right is to start from the problem. When a pay application refuses a line for being over its scheduled value, the words "change order" in that message are a link - it opens this form with the exact overage and the right line already attached. The form shows "Raises <line name>" so you can see what it is going to do before you approve it.' },
       { type: 'text', text: 'They also raise the budget. An approved change order adds its amount to the budget line it belongs to - the line you picked, or the line its subcontract sits on. Without that, approving a change order raised the sub\'s contract while leaving the budget alone, and the line went red at the exact moment the extra was approved and funded. The Budget tab shows the increase as "incl. $X CO" on the line, and your original estimate is kept intact underneath.' },
       { type: 'tip', text: 'This is derived, not written in - un-approving, rejecting or deleting a change order takes the amount straight back out of the budget. There is nothing to undo by hand and no way to count it twice.' },
+      { type: 'warn', text: 'An approved change order that names NEITHER a budget line nor a subcontract still counts in Total Budget, but it cannot show on any row - so the Budget tab lists it under "Not on a budget line" at the bottom, with a picker to file it against one. Until you do, the rows above will not add up to the headline, and that panel is the explanation.' },
     ],
     related: ['change-order-subcontract', 'money-overview', 'add-project-budget'],
   },
@@ -818,7 +820,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'compliance-overview',
     title: 'Track compliance documents for your subs',
     category: 'compliance',
-    keywords: ['compliance', 'coi', 'insurance', 'license', 'w9', 'workers comp', 'documents', 'not required', 'not needed', 'waive', 'remove document', 'no employees', 'request documents'],
+    keywords: ['compliance', 'coi', 'insurance', 'license', 'w9', 'workers comp', 'documents', 'not required', 'not needed', 'waive', 'remove document', 'no employees', 'request documents', 'expired', 'expiry', 'expiring soon', 'lapsed', 'out of date', 'renewal'],
     summary: 'Keep COI, license, W-9, and workers\' comp current for every sub.',
     blocks: [
       { type: 'text', text: 'Each subcontractor on a project gets a compliance card showing which documents are on file, missing, or expiring.' },
@@ -827,7 +829,9 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'For each sub, upload a document with the Upload/Update button, or scan it with AI to auto-fill expiry and coverage.',
         'Click a document row to expand and see the extracted details on file.',
       ] },
-      { type: 'tip', text: 'The summary at the top shows how many subs are fully compliant, expiring soon, or missing documents.' },
+      { type: 'tip', text: 'The summary at the top shows how many subs are fully compliant, expiring soon, expired, or missing documents.' },
+      { type: 'text', text: 'THE EXPIRY DATE DECIDES, NOT THE STATUS ON THE ROW. A document whose expiry date has passed reads Expired and counts as expired, whatever it was marked when it was uploaded - a COI approved in March with a June expiry is not compliant in September. The reverse holds too: a row still flagged Expired whose date is now in the future is treated as current, because somebody renewed it and re-uploaded.' },
+      { type: 'warn', text: 'Expiring Soon means the next 30 days. Expired is its own count and its own badge - a lapsed certificate of insurance is the one you most need to see, and it used to stop being flagged the day it ran out.' },
       { type: 'text', text: 'NOT EVERY SUB OWES EVERY DOCUMENT. A one-man sub has no workers\' comp to give you, and a trade that cannot hold a licence in your state has no licence. Click "Not needed" on that row and it stops counting against them - the row reads "Not required" instead of "Missing", and the sub stops dragging the job\'s compliance status red over paperwork that was never coming. "Require it" puts it back.' },
       { type: 'text', text: 'It applies to that vendor everywhere, because "they have no employees" is a fact about the vendor rather than about one job. The button only shows while there is nothing on file - once you hold a document, hiding it would just lose it.' },
       { type: 'tip', text: 'This also drives what a document request asks for. The request pre-ticks only what that vendor actually owes and has not already sent - it will never ask for something you waived, or for a COI that is current. Anything they do not owe is still listed with a dashed outline if you want to ask anyway.' },
@@ -1433,7 +1437,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'permits',
     title: 'Track permits',
     category: 'docs',
-    keywords: ['permit', 'building', 'number', 'status', 'jurisdiction', 'add'],
+    keywords: ['permit', 'building', 'number', 'status', 'jurisdiction', 'add', 'expiry', 'expired', 'expiring', 'expiration date', 'lapsed', 'renew'],
     summary: 'Log permits and keep their status and documents in one place.',
     blocks: [
       { type: 'steps', items: [
@@ -1442,6 +1446,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'Enter the permit number, type, status, and any contact.',
         'Attach the permit document if you have it, then save.',
       ] },
+      { type: 'text', text: 'EXPIRY IS WATCHED FOR YOU. Put the expiry date on a permit and the list flags it: amber "Expiring soon" inside 30 days, and a red "Expired N days ago" once the date has passed, with the status badge reading Expired whatever the row was last set to. Permits lapse quietly and the paperwork does not tell you.' },
     ],
     related: ['inspections', 'submittals'],
   },
@@ -1475,14 +1480,15 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'submittals',
     title: 'Manage submittals',
     category: 'docs',
-    keywords: ['submittal', 'shop drawing', 'review', 'approve', 'reject', 'spec'],
+    keywords: ['submittal', 'shop drawing', 'review', 'approve', 'reject', 'spec', 'file required', 'attach', 'tech sheet', 'cut sheet', 'will not save', 'nothing happens'],
     summary: 'Route submittals for review and track approvals.',
     blocks: [
       { type: 'steps', items: [
         'Open the project and go to the Submittals tab.',
-        'Click Add Submittal and upload the document.',
+        'Click Add Submittal and attach the document - a tech sheet, cut sheet, drawing or product data. The file is required: a submittal IS the document, and one with nothing attached asks a reviewer to approve a product they cannot look at.',
         'Route it for review; reviewers add notes and approve or reject.',
       ] },
+      { type: 'tip', text: 'Drop the tech sheet on "Scan Submittal" at the top of the form and it reads the document, fills in the title, manufacturer, model and spec section, and attaches the same file - so scanning covers the required file too.' },
       { type: 'tip', text: 'Add review notes for the submitter so revisions are clear.' },
     ],
     related: ['permits', 'inspections'],

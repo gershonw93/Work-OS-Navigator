@@ -160,7 +160,12 @@ export default function PortalSelectionsPage({ params }: { params: { token: stri
                       </span>
                     )}
                   </div>
-                  {sel.allowance_amount != null && (
+                  {/* A NEGATIVE allowance is not an allowance. Both save paths
+                      have refused one for a while, but rows written before they
+                      did are still here, and this is the page the CLIENT reads -
+                      "Budgeted at $-500" is not a number to put in front of one.
+                      Nothing budgeted reads better than something impossible. */}
+                  {sel.allowance_amount != null && Number(sel.allowance_amount) > 0 && (
                     <p className="text-sm text-muted-fg mt-1.5">
                       Budgeted at <span className="font-semibold text-ink">{money(sel.allowance_amount)}</span>. Anything
                       above that is an extra we&apos;ll write up before we order.
@@ -186,7 +191,7 @@ export default function PortalSelectionsPage({ params }: { params: { token: stri
                 <div className="p-4 space-y-2">
                   {sel.selection_options.length > 0 ? (
                     sel.selection_options.map(o => {
-                      const over = sel.allowance_amount != null && o.price != null
+                      const over = sel.allowance_amount != null && Number(sel.allowance_amount) > 0 && o.price != null
                         ? Number(o.price) - Number(sel.allowance_amount) : null
                       const isCurrent = sel.selected_option_id === o.id
                       return (

@@ -54,6 +54,10 @@ export default function SubmittalsPage({ params }: { params: { id: string } }) {
   const [analyzing, setAnalyzing] = useState(false)
   const [analyzeError, setAnalyzeError] = useState('')
   const [scanned, setScanned] = useState(false)
+  // Add Submittal used to throw the response away: a refused POST cleared the
+  // form and closed the dialog exactly like a successful one, so a submittal
+  // that never saved looked saved. Every failure now has somewhere to appear.
+  const [formError, setFormError] = useState('')
 
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -96,6 +100,13 @@ export default function SubmittalsPage({ params }: { params: { id: string } }) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    // A submittal IS the document. One with nothing attached is a row that
+    // asks somebody to approve a product they cannot look at.
+    if (!file) {
+      setFormError('Attach the document - a submittal is the tech sheet or drawing being submitted.')
+      return
+    }
+    setFormError('')
     setSubmitting(true)
     const token = await getToken()
     const fd = new FormData()
@@ -106,16 +117,29 @@ export default function SubmittalsPage({ params }: { params: { id: string } }) {
     fd.append('manufacturer', manufacturer)
     fd.append('model_number', modelNumber)
     fd.append('notes', notes)
-    if (file) fd.append('file', file)
-    await fetch(`/api/projects/${params.id}/submittals`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-      body: fd,
-    })
+    fd.append('file', file)
+    try {
+      const res = await fetch(`/api/projects/${params.id}/submittals`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
+      })
+      if (!res.ok) {
+        setFormError((await res.json().catch(() => ({}))).error ?? 'Could not add the submittal.')
+        return
+      }
+    } catch {
+      setFormError('Could not reach the server. Check your connection and try again.')
+      return
+    } finally {
+      // Always: a loading state whose only exit is the happy path is a spinner
+      // that never stops.
+      setSubmitting(false)
+    }
     setTitle(''); setType('Tech Sheet'); setTrade(''); setManufacturer('')
     setModelNumber(''); setSpecSection(''); setNotes(''); setFile(null)
-    setScanned(false); setAnalyzeError('')
-    setShowForm(false); setSubmitting(false); fetchSubmittals()
+    setScanned(false); setAnalyzeError(''); setFormError('')
+    setShowForm(false); fetchSubmittals()
   }
 
   async function updateStatus(sub: Submittal, newStatus: string, review_notes?: string) {
@@ -301,8 +325,17 @@ export default function SubmittalsPage({ params }: { params: { id: string } }) {
                   <Input placeholder="e.g. 07 54 23" value={specSection} onChange={e => setSpecSection(e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label><Paperclip className="inline h-3.5 w-3.5 mr-1 text-faint" />File <span className="text-faint font-normal">(tech sheet, drawing, product data)</span></Label>
-                  <Input type="file" accept={ACCEPT_DOCS} onChange={e => setFile(e.target.files?.[0] ?? null)} />
+                  <Label>
+                    <Paperclip className="inline h-3.5 w-3.5 mr-1 text-faint" />File <span className="text-danger">*</span>
+                    <span className="text-faint font-normal"> (tech sheet, drawing, product data)</span>
+                  </Label>
+                  {/* `required` only while nothing is attached: a file picked by
+                      the AI scan above lives in state, and this input is still
+                      empty, so a bare `required` would refuse a form that has
+                      its document. */}
+                  <Input type="file" accept={ACCEPT_DOCS} required={!file}
+                    onChange={e => { setFile(e.target.files?.[0] ?? null); if (e.target.files?.[0]) setFormError('') }} />
+                  {file && <p className="text-xs text-muted-fg">Attached: <span className="font-medium text-ink-soft">{file.name}</span></p>}
                 </div>
                 <div className="space-y-1.5">
                   <Label>Notes</Label>
@@ -310,6 +343,9 @@ export default function SubmittalsPage({ params }: { params: { id: string } }) {
                     className="w-full rounded-md border border-muted2 px-3 py-2 text-sm focus:border-accent focus:outline-none resize-none" />
                 </div>
               </div>
+              {formError && (
+                <p className="px-4 sm:px-6 pb-2 text-sm text-danger">{formError}</p>
+              )}
               <div className="row-even px-4 sm:px-6 py-4 border-t border-line-soft lg:flex lg:flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>Cancel</Button>
                 <Button type="submit" disabled={submitting}>{submitting ? 'Submitting...' : 'Add Submittal'}</Button>

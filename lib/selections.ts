@@ -27,6 +27,18 @@ export const STATUS_TINT: Record<SelectionStatus, string> = {
   installed: 'bg-success-tint text-success',
 }
 
+/**
+ * The statuses that ASSERT a decision has been made.
+ *
+ * Each of these tells the client's link, the budget and the schedule that this
+ * one is settled, so each of them needs the two facts that make it settled: a
+ * choice with a name, and a budget line for the money to land on. Both the
+ * status dropdown and the PATCH route ask this same set - the order route had
+ * the rule from the day it was written and the dropdown beside it did not,
+ * which is how a selection reached "Chosen" with nothing chosen.
+ */
+export const ACCEPTED_STATUSES = new Set<SelectionStatus>(['chosen', 'ordered', 'installed'])
+
 /** Everything before "chosen" is a decision you are still chasing. */
 export function isOutstanding(status: string): boolean {
   return status === 'pending' || status === 'waiting'
