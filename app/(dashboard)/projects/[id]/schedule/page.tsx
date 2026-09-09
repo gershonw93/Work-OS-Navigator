@@ -451,16 +451,28 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                   </div>
                 )}
               </div>
-              <div className="row-even shrink-0 px-4 sm:px-6 py-4 border-t border-line-soft lg:flex lg:flex-wrap items-center gap-2 justify-between">
+              {editError && (
+                <div className="shrink-0 px-4 sm:px-6 pb-2"><ErrorNote message={editError} /></div>
+              )}
+              {/* Three controls, and on a phone they do NOT all belong on one
+                  row. Cancel and Save are the two choices and share a row; the
+                  destructive one sits under them, on its own, where it cannot
+                  be hit by accident. `col-reverse` so the choices stay nearest
+                  the form. A desktop keeps Delete left, actions right. */}
+              <div className="shrink-0 px-4 sm:px-6 py-4 border-t border-line-soft flex flex-col-reverse gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between lg:gap-2">
                 <button type="button" onClick={() => { deleteItem(editItem.id); setEditItem(null) }}
-                  className="flex items-center gap-1.5 text-sm text-danger hover:text-danger">
+                  className="flex items-center gap-1.5 self-start text-sm text-danger hover:text-danger">
                   <Trash2 className="h-3.5 w-3.5" /> Delete
                 </button>
+                {/* THIS is the row of controls - the footer around it is a
+                    layout. It used to carry the rule as well, so this grid sat
+                    inside one cell of that grid: Cancel and Save got a quarter
+                    of the dialog each and "Save Changes", which may not wrap,
+                    ran out of both sides of its own button. */}
                 <div className="row-even lg:flex lg:flex-wrap gap-2 justify-end">
                   <Button type="button" variant="secondary" onClick={() => { setEditItem(null); setEditError(null) }}>Cancel</Button>
                   <Button type="submit" disabled={editSaving}>{editSaving ? 'Saving...' : 'Save Changes'}</Button>
                 </div>
-                {editError && <ErrorNote message={editError} className="w-full" />}
               </div>
             </form>
           </div>

@@ -329,7 +329,7 @@ export default function CustomerDetailPage() {
       {/* Tab: Projects */}
       {activeTab === 'projects' && (
         <div className="space-y-4">
-          <div className="row-even lg:flex lg:flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             {/* Status filter pills */}
             <div className="flex flex-wrap gap-2">
               {STATUS_FILTERS.map((f) => (

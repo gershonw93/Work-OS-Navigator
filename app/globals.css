@@ -87,6 +87,10 @@
     -webkit-appearance: none;
     appearance: none;
     min-height: 2.25rem;
+    /* iOS centres the value in a date field while every other field in the
+       same form is left-aligned, so "Sep 17, 2026" sat in the middle of its
+       box under a left-aligned label and read as a mistake. */
+    text-align: left;
   }
 
   /* Theme-aware defaults so bare text inputs, textareas, and selects (ones

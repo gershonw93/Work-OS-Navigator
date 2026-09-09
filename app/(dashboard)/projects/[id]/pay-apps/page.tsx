@@ -380,7 +380,7 @@ function PayAppDetail({ projectId, appId, onBack, authHeaders }: { projectId: st
         </div>
       </div>
 
-      <div className="row-even lg:flex lg:flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="text-sm text-muted-fg">
           Earned less retainage <span className="font-semibold text-ink-soft">{money(summary.earned_less_retainage)}</span>
           <span className="mx-2 text-faint">·</span>

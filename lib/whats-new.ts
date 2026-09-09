@@ -53,6 +53,11 @@ export const RELEASES: Release[] = [
     items: [
       {
         kind: 'fixed',
+        title: 'Save Changes ran out of its own button, and dates sat in the middle of the box',
+        text: 'On a phone, the buttons at the bottom of Edit Item were squeezed into a quarter of the width each and the words "Save Changes" spilled out past the edges of the button. Cancel and Save now share a row at equal width and Delete sits under them on its own, out of the way of a stray thumb. Dates in a form used to sit centred in their box while every other field started at the left; they line up now. Three other screens had the same squeeze and are fixed with it.',
+      },
+      {
+        kind: 'fixed',
         title: 'Plans open wherever the file is stored, and a missing Upload button says why',
         text: 'Every plan on the sample projects failed to open. Those samples point at a file on another website, and a browser is not allowed to read a drawing from someone else\'s site unless that site says it may - so it never loaded, on any device. Plans are now fetched through SyteNav itself, so it no longer matters where the file lives. Separately, if SyteNav cannot check what you are allowed to do - a bad minute of signal is enough - buttons like Upload used to just disappear. You now get a message across the top saying so, with a Try again, and Upload says "Checking access" instead of vanishing.',
         href: '/projects',
