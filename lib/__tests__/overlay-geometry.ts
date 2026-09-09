@@ -82,7 +82,7 @@ function styles(html: string): string {
 }
 
 /** Lay `body` out at phone size and hand back what the browser measured. */
-function measure(body: string, probe: string, height = VIEWPORT.h, rootStyle = ''): any {
+function measure(body: string, probe: string, height = VIEWPORT.h, rootStyle = '', width = VIEWPORT.w): any {
   const css = styles(body)
   const page = `<!doctype html><html${rootStyle ? ` style="${rootStyle}"` : ''}><head>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -102,7 +102,7 @@ function measure(body: string, probe: string, height = VIEWPORT.h, rootStyle = '
   const dom = execFileSync(browser!, [
     '--headless', '--disable-gpu', '--no-sandbox', '--virtual-time-budget=2000',
     `--user-data-dir=${mkdtempSync(join(tmpdir(), 'sytenav-profile-'))}`,
-    `--window-size=${VIEWPORT.w},${height}`, '--dump-dom', `file://${file}`,
+    `--window-size=${width},${height}`, '--dump-dom', `file://${file}`,
   ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
   const m = /<pre id="probe">([^<]*)<\/pre>/.exec(dom)
   if (!m) throw new Error('the page never reported its geometry')
@@ -349,6 +349,31 @@ ok(grid.gridWidth <= VIEWPORT.w,
   `a 7-column calendar of truncated labels fits the phone (${grid.gridWidth} of ${VIEWPORT.w})`)
 ok(grid.docWidth <= VIEWPORT.w,
   `...and does not widen the document (${grid.docWidth})`)
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. THE PHONE LOOK STAYS ON THE PHONE. The sweep took the shadow off every
+// card and it showed on the desktop, which nobody asked for. The rule is a
+// breakpoint - `lg`, where the tab bar becomes a sidebar - and a breakpoint is
+// a measurement: the same markup at 390 and at 1280 must come out different.
+// ─────────────────────────────────────────────────────────────────────────────
+const LOOK = `
+<div id="card" class="rounded-2xl border border-line bg-panel lg:rounded-lg lg:shadow-sm">card</div>
+<div id="strip" class="scroll-fade flex gap-1 overflow-x-auto">${'<span class="whitespace-nowrap px-3">tab</span>'.repeat(12)}</div>`
+const LOOK_PROBE = `(rect) => {
+  const cs = s => getComputedStyle(document.querySelector(s))
+  const mask = cs('#strip')
+  return { shadow: cs('#card').boxShadow, radius: cs('#card').borderRadius,
+           mask: mask.maskImage || mask.webkitMaskImage, vw: window.innerWidth }
+}`
+const onPhone = measure(LOOK, LOOK_PROBE)
+const onDesk = measure(LOOK, LOOK_PROBE, 800, '', 1280)
+ok(onPhone.vw === 390 && onDesk.vw === 1280, `the two viewports are 390 and 1280 (${onPhone.vw}, ${onDesk.vw})`)
+ok(onPhone.shadow === 'none', `a card has no shadow on a phone (${onPhone.shadow})`)
+ok(onDesk.shadow !== 'none', `...and its old shadow on a desktop (${onDesk.shadow})`)
+ok(parseFloat(onPhone.radius) > parseFloat(onDesk.radius),
+  `a card is rounder on a phone than a desktop (${onPhone.radius} vs ${onDesk.radius})`)
+ok(/gradient/.test(onPhone.mask), 'a sideways strip fades at its right edge on a phone')
+ok(onDesk.mask === 'none', `...and not on a desktop (${onDesk.mask})`)
 
 rmSync(work, { recursive: true, force: true })
 done()

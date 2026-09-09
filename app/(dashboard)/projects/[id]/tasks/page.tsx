@@ -28,10 +28,16 @@ const PRIORITIES = [
 ]
 
 const STATUSES = [
-  { value: 'open',        label: 'Open',        icon: Circle,       color: 'text-faint',  colBorder: 'border-line', headerBg: 'bg-muted',  headerText: 'text-muted-fg'  },
-  { value: 'in_progress', label: 'In Progress', icon: Clock,        color: 'text-info',   colBorder: 'border-info/30',  headerBg: 'bg-info-tint',   headerText: 'text-info'   },
-  { value: 'completed',   label: 'Completed',   icon: CheckSquare,  color: 'text-success',  colBorder: 'border-success/30', headerBg: 'bg-success-tint',  headerText: 'text-success'  },
+  { value: 'open',        label: 'Open',        icon: Circle,       color: 'text-faint',  colBorder: 'border-line', headerBg: 'bg-muted',  headerText: 'text-muted-fg',
+    lg: { col: 'lg:bg-surface', border: 'lg:border-line', headerBg: 'lg:bg-muted', headerText: 'lg:text-muted-fg' } },
+  { value: 'in_progress', label: 'In Progress', icon: Clock,        color: 'text-info',   colBorder: 'border-info/30',  headerBg: 'bg-info-tint',   headerText: 'text-info',
+    lg: { col: 'lg:bg-info-tint/40', border: 'lg:border-info/30', headerBg: 'lg:bg-info-tint', headerText: 'lg:text-info' } },
+  { value: 'completed',   label: 'Completed',   icon: CheckSquare,  color: 'text-success',  colBorder: 'border-success/30', headerBg: 'bg-success-tint',  headerText: 'text-success',
+    lg: { col: 'lg:bg-success-tint/40', border: 'lg:border-success/30', headerBg: 'lg:bg-success-tint', headerText: 'lg:text-success' } },
 ]
+// `lg` is the DESKTOP look - the tinted columns the board always had. The
+// phone gets none of it (see the board below); the desktop was not asked to
+// change, so under `lg:` it does not.
 
 type ViewMode = 'board' | 'list' | 'assignee'
 type FilterMode = 'all' | 'open' | 'in_progress' | 'completed' | 'overdue'
@@ -278,7 +284,7 @@ function TaskDetailPanel({ task, notes, notesLoading, onAddNote, projectId, onCh
   }
 
   return (
-    <div className="border-t border-line-soft bg-surface/60 px-4 py-4">
+    <div className="border-t border-line-soft bg-surface/60 px-4 py-4 lg:rounded-b-xl">
       <div className="flex flex-col md:flex-row gap-6">
         {/* ── Left: task details ─────────────────────────────────────────── */}
         <div className="flex-1 min-w-0 space-y-3">
@@ -748,8 +754,10 @@ export default function TasksPage({ params }: { params: { id: string } }) {
     return (
       <div
         className={cn(
-          'group cursor-pointer px-4 py-3 transition-colors hover:bg-surface',
-          expanded && 'bg-surface',
+          // Phone: a row. Desktop (lg+): the bordered card it always was.
+          'group cursor-pointer px-4 py-3 transition-colors hover:bg-surface lg:relative lg:flex lg:flex-col lg:rounded-lg lg:border lg:p-3 lg:transition-all',
+          isOverdue(task) ? 'lg:border-danger/30 lg:bg-danger-tint/30' : 'lg:border-line lg:bg-panel lg:hover:border-muted2 lg:hover:shadow-sm',
+          expanded && 'bg-surface lg:ring-2 lg:ring-accent/40',
         )}
         onClick={() => toggleExpand(task.id)}
       >
@@ -818,7 +826,11 @@ export default function TasksPage({ params }: { params: { id: string } }) {
   function ListCard({ task }: { task: Task }) {
     const expanded = expandedTaskId === task.id
     return (
-      <div className={cn('transition-colors', expanded && 'bg-surface')}>
+      <div className={cn(
+        'transition-colors lg:rounded-xl lg:border lg:transition-all',
+        isOverdue(task) ? 'lg:border-danger/30 lg:bg-danger-tint/30' : 'lg:border-line lg:bg-panel lg:hover:border-muted2',
+        expanded && 'bg-surface lg:ring-2 lg:ring-accent/40',
+      )}>
         <div
           className="group px-4 py-3 flex items-start gap-3 cursor-pointer"
           onClick={() => toggleExpand(task.id)}
@@ -927,23 +939,23 @@ export default function TasksPage({ params }: { params: { id: string } }) {
               // that were boxes of their own. Three columns, three colours, a
               // box in a box. The status icon is the one thing in colour; the
               // rest is ink on panel, and the tasks are rows in a list.
-              <div key={col.value} className="flex flex-col overflow-hidden rounded-2xl border border-line bg-panel">
-                <div className="flex items-center justify-between border-b border-line-soft px-4 py-3">
+              <div key={col.value} className={cn('flex flex-col overflow-hidden rounded-2xl border border-line bg-panel lg:rounded-xl', col.lg.border)}>
+                <div className={cn('flex items-center justify-between border-b border-line-soft px-4 py-3 lg:border-b-0 lg:px-3 lg:py-2.5', col.lg.headerBg)}>
                   <div className="flex min-w-0 items-center gap-2">
                     <col.icon className={cn('h-4 w-4 shrink-0', col.color)} />
-                    <span className="truncate text-sm font-semibold text-ink">{col.label}</span>
-                    <span className="text-sm tabular-nums text-faint">{colTasks.length}</span>
+                    <span className={cn('truncate text-sm font-semibold text-ink', col.lg.headerText)}>{col.label}</span>
+                    <span className={cn('whitespace-nowrap text-sm tabular-nums text-faint lg:min-w-[1.25rem] lg:rounded-full lg:border lg:px-1.5 lg:py-0.5 lg:text-center lg:text-xs lg:font-bold', col.lg.headerBg, col.lg.headerText, col.lg.border)}>{colTasks.length}</span>
                   </div>
                   <button
                     onClick={() => openAddForm(col.value)}
                     title={`Add ${col.label} task`}
-                    className="-mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-fg hover:bg-surface hover:text-ink"
+                    className={cn('-mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-fg hover:bg-surface hover:text-ink lg:mr-0 lg:h-auto lg:w-auto lg:rounded lg:p-1 lg:hover:bg-black/5', col.lg.headerText)}
                   >
-                    <Plus className="h-4 w-4" />
+                    <Plus className="h-4 w-4 lg:h-3.5 lg:w-3.5" />
                   </button>
                 </div>
 
-                <div className="flex-1 divide-y divide-line-soft min-h-[120px]">
+                <div className={cn('flex-1 divide-y divide-line-soft min-h-[120px] lg:divide-y-0 lg:space-y-2 lg:p-2', col.lg.col)}>
                   {colTasks.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-8 gap-1">
                       <p className="text-xs text-faint">No tasks</p>
@@ -965,13 +977,13 @@ export default function TasksPage({ params }: { params: { id: string } }) {
 
         {/* Board expanded panel - drawer below the board */}
         {expandedTask && (
-          <div className="overflow-hidden rounded-2xl border border-line bg-panel">
-            <div className="flex items-center justify-between border-b border-line-soft py-1 pl-4 pr-1">
-              <span className="text-sm font-semibold text-ink">Task detail</span>
+          <div className="overflow-hidden rounded-2xl border border-line bg-panel lg:rounded-xl lg:border-accent/40 lg:shadow-md">
+            <div className="flex items-center justify-between border-b border-line-soft py-1 pl-4 pr-1 lg:border-accent/20 lg:bg-accent-tint lg:px-4 lg:py-2.5">
+              <span className="text-sm font-semibold text-ink lg:text-accent-fg">Task detail</span>
               <button
                 onClick={() => setExpandedTaskId(null)}
                 aria-label="Close"
-                className="flex h-11 w-11 items-center justify-center rounded-lg text-muted-fg hover:bg-surface hover:text-ink"
+                className="flex h-11 w-11 items-center justify-center rounded-lg text-muted-fg hover:bg-surface hover:text-ink lg:h-auto lg:w-auto lg:text-accent-fg lg:hover:bg-transparent"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -997,26 +1009,26 @@ export default function TasksPage({ params }: { params: { id: string } }) {
     return (
       <div className="space-y-6">
         {generalTasks.length > 0 && (
-          <div className="space-y-3">
+          <div className="space-y-3 lg:space-y-2">
             <div className="flex items-center gap-3 px-1">
               <p className="text-xs font-semibold text-faint uppercase tracking-wide">General Tasks</p>
               <span className="whitespace-nowrap text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{generalTasks.length}</span>
               <GroupProgressBar tasks={generalTasks} />
             </div>
-            <div className="divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-panel">
+            <div className="divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-panel lg:divide-y-0 lg:space-y-2 lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent">
               {generalTasks.map(task => <ListCard key={task.id} task={task} />)}
             </div>
           </div>
         )}
         {Object.entries(subGroups).map(([companyId, group]) => (
-          <div key={companyId} className="space-y-3">
+          <div key={companyId} className="space-y-3 lg:space-y-2">
             <div className="flex items-center gap-2 px-1 flex-wrap">
               <Building2 className="h-3.5 w-3.5 text-faint" />
               <p className="text-xs font-semibold text-faint uppercase tracking-wide">{group.name}</p>
               <span className="whitespace-nowrap text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{group.tasks.length}</span>
               <GroupProgressBar tasks={group.tasks} />
             </div>
-            <div className="divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-panel">
+            <div className="divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-panel lg:divide-y-0 lg:space-y-2 lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent">
               {group.tasks.map(task => <ListCard key={task.id} task={task} />)}
             </div>
           </div>
@@ -1046,7 +1058,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
       <div className="space-y-6">
         {Object.entries(groups).length === 0 && <EmptyState />}
         {Object.entries(groups).map(([key, group]) => (
-          <div key={key} className="space-y-3">
+          <div key={key} className="space-y-3 lg:space-y-2">
             <div className="flex items-center gap-2 px-1 flex-wrap">
               {group.isCompany
                 ? <Building2 className="h-3.5 w-3.5 text-faint" />
@@ -1055,7 +1067,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
               <span className="whitespace-nowrap text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{group.tasks.length}</span>
               <GroupProgressBar tasks={group.tasks} />
             </div>
-            <div className="divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-panel">
+            <div className="divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-panel lg:divide-y-0 lg:space-y-2 lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent">
               {group.tasks.map(task => <ListCard key={task.id} task={task} />)}
             </div>
           </div>
@@ -1323,7 +1335,28 @@ export default function TasksPage({ params }: { params: { id: string } }) {
           two lines on a phone. Every one of them was a box saying a number.
           Colour is kept for overdue, where it means something. */}
       {!loading && totalCount > 0 && (
+        <>
+        <div className="hidden lg:flex items-center gap-2 flex-wrap">
+          <span className="whitespace-nowrap text-xs bg-muted text-muted-fg rounded-full px-2.5 py-1 font-medium border border-line">
+            {totalCount} total
+          </span>
+          <span className="whitespace-nowrap text-xs bg-surface text-muted-fg rounded-full px-2.5 py-1 font-medium border border-line">
+            {openCount} open
+          </span>
+          <span className="whitespace-nowrap text-xs bg-info-tint text-info rounded-full px-2.5 py-1 font-medium border border-info/30">
+            {inProgCount} in progress
+          </span>
+          {overdueCount > 0 && (
+            <span className="whitespace-nowrap text-xs bg-danger-tint text-danger rounded-full px-2.5 py-1 font-medium border border-danger/30">
+              {overdueCount} overdue
+            </span>
+          )}
+          <span className="whitespace-nowrap text-xs bg-success-tint text-success rounded-full px-2.5 py-1 font-medium border border-success/30">
+            {completedCount} completed · {pctDone}%
+          </span>
+        </div>
         <StatStrip
+          className="lg:hidden"
           items={[
             { label: 'Total', value: totalCount },
             { label: 'Open', value: openCount },
@@ -1332,6 +1365,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
             { label: 'Completed', value: completedCount, note: `${pctDone}% of the job` },
           ]}
         />
+        </>
       )}
 
       {/* ── Main content ─────────────────────────────────────────────────── */}

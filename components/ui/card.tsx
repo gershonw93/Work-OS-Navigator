@@ -4,11 +4,12 @@ import { HTMLAttributes } from 'react'
 export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      // 2xl radius, a 1px border, and NO shadow. A border already separates a
-      // card from the page; a shadow on top of it is a second separator saying
-      // the same thing, and it is what made every screen read as a web
-      // dashboard rather than a native one. Changed here so all of them move.
-      className={cn('rounded-2xl border border-line bg-panel', className)}
+      // On a PHONE: 2xl radius, a 1px border, and NO shadow - the border already
+      // separates a card from the page, and a shadow on top of it is what made
+      // every screen read as a web dashboard rather than a native one. From
+      // `lg` up (where the sidebar replaces the tab bar) the desktop keeps the
+      // look it always had - that is a decision, not an oversight.
+      className={cn('rounded-2xl border border-line bg-panel lg:rounded-lg lg:shadow-sm', className)}
       {...props}
     />
   )

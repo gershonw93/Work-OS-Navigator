@@ -165,9 +165,22 @@ production branch.** Do NOT ask the user to merge or deploy.
   lays real markup out in headless Chromium. Full detail in MOBILE.md.
 
 ## Mobile look and feel (IN PROGRESS)
-- Target: clean, quiet, native-feeling. FEWER boxes, fewer colours, more
-  whitespace, stronger type. 8px spacing, ~24px screen gutters, cards at
-  ~18-22px radius with a 1px `border-line` and no shadow, 44px+ touch targets.
+- **PHONE ONLY. The desktop does not change - that is a decision, not an
+  oversight.** The phone look lives BELOW `lg` (1024px), the breakpoint where
+  the tab bar becomes the sidebar: if you see the bottom tab bar you get the
+  phone look, and from `lg` up every screen looks exactly as it did before the
+  sweep. Passes 1-4 shipped without this gate and a user found their laptop
+  changed. Two ways to write it: `lg:` variants where only classes changed
+  (`Card` is `rounded-2xl … lg:rounded-lg lg:shadow-sm`), and a SECOND MARKUP
+  where the shape changed - the old desktop block under `hidden lg:block` /
+  `hidden lg:grid` / `hidden lg:contents`, the phone block under `lg:hidden`.
+  Pinned: every `<StatStrip>` is `lg:hidden` with a `hidden lg:` twin in the
+  same file; restored tables sit under `hidden lg:block` within 4 lines of
+  `<table`; and `overlay-geometry.ts` MEASURES a card at 390 and 1280.
+- Target on the phone: clean, quiet, native-feeling. FEWER boxes, fewer
+  colours, more whitespace, stronger type. 8px spacing, ~24px screen gutters,
+  cards at ~18-22px radius with a 1px `border-line` and no shadow, 44px+
+  touch targets.
 - Related numbers go in ONE card with hairline dividers - `StatStrip`
   (`components/ui/stat-strip.tsx`), not a coloured pill per metric. Colour only
   when the colour MEANS something (overdue red; a total is just a number).
