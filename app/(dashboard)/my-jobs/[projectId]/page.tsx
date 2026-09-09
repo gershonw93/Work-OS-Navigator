@@ -516,7 +516,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
               activeTab === t.key ? 'border-b-2 border-accent text-accent-fg -mb-px' : 'text-muted-fg hover:text-ink-soft')}>
             {t.label}
             {t.badge !== undefined && t.badge > 0 && (
-              <span className={cn('text-xs rounded-full px-1.5 py-0.5 font-semibold min-w-[18px] text-center',
+              <span className={cn('whitespace-nowrap text-xs rounded-full px-1.5 py-0.5 font-semibold min-w-[18px] text-center',
                 activeTab === t.key ? 'bg-accent-tint text-accent-fg' : 'bg-muted text-muted-fg')}>
                 {t.badge}
               </span>
@@ -540,7 +540,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                   <div>
                     <h2 className="text-sm font-semibold text-ink-soft">{sub.trade}</h2>
                     <div className="flex flex-wrap items-center gap-2 mt-0.5">
-                      <span className={cn('text-xs rounded-full border px-1.5 py-0.5 font-medium',
+                      <span className={cn('whitespace-nowrap text-xs rounded-full border px-1.5 py-0.5 font-medium',
                         billingType === 'weekly' ? 'bg-info-tint border-info/30 text-info' :
                         billingType === 'percent' ? 'bg-special-tint border-special/30 text-special' :
                         billingType === 'task' ? 'bg-accent-tint border-accent/40 text-accent-fg' :
@@ -627,7 +627,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                           <p className="text-sm font-semibold text-ink">
                             {item.amount ? `$${Number(item.amount).toLocaleString()}` : item.percentage ? `${item.percentage}%` : '-'}
                           </p>
-                          <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5',
+                          <span className={cn('whitespace-nowrap text-xs font-medium rounded-full border px-2 py-0.5',
                             STATUS_COLORS[item.status] ?? STATUS_COLORS.pending)}>
                             {item.status}
                           </span>
@@ -763,7 +763,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                       {formatDate(task.due_date, { month: 'short', day: 'numeric' })}
                     </span>
                   )}
-                  <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5',
+                  <span className={cn('whitespace-nowrap text-xs font-medium rounded-full border px-2 py-0.5',
                     task.priority === 'high' || task.priority === 'urgent' ? 'bg-danger-tint border-danger/30 text-danger' :
                     task.priority === 'medium' ? 'bg-warn-tint border-warn/30 text-warn' :
                     'bg-surface border-line text-faint')}>
@@ -1027,7 +1027,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                     <div className="rounded-lg bg-special-tint border border-special/30 px-4 py-3 space-y-2">
                       <div className="flex items-center justify-between">
                         <p className="text-xs font-semibold text-special uppercase tracking-wide">Change Order</p>
-                        <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5',
+                        <span className={cn('whitespace-nowrap text-xs font-medium rounded-full border px-2 py-0.5',
                           selectedRfi.change_order_status === 'approved' ? 'bg-success-tint border-success/30 text-success' :
                           selectedRfi.change_order_status === 'denied' ? 'bg-danger-tint border-danger/30 text-danger' :
                           selectedRfi.change_order_status === 'revision_requested' ? 'bg-warn-tint border-warn/30 text-warn' :
@@ -1086,7 +1086,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                     rfi.response ? 'ring-1 ring-green-200' : '')}>
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <span className="text-xs font-mono text-faint">RFI-{String(rfi.rfi_number).padStart(3, '0')}</span>
-                    <span className={cn('text-xs font-medium rounded-full border px-1.5 py-0.5 shrink-0',
+                    <span className={cn('whitespace-nowrap text-xs font-medium rounded-full border px-1.5 py-0.5 shrink-0',
                       rfi.status === 'open' ? 'bg-accent-tint border-accent/40 text-accent-fg' : 'bg-surface border-line text-muted-fg')}>
                       {rfi.status}
                     </span>
@@ -1094,7 +1094,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                   <p className="text-sm font-semibold text-ink line-clamp-2 leading-snug">{rfi.subject}</p>
                   <div className="mt-2 flex flex-wrap gap-1">
                     {rfi.is_change_order && (
-                      <span className={cn('text-xs rounded-full border px-1.5 py-0.5 flex items-center gap-0.5',
+                      <span className={cn('whitespace-nowrap text-xs rounded-full border px-1.5 py-0.5 flex items-center gap-0.5',
                         rfi.change_order_status === 'approved' ? 'bg-success-tint border-success/30 text-success' :
                         rfi.change_order_status === 'denied' ? 'bg-danger-tint border-danger/30 text-danger' :
                         'bg-special-tint border-special/30 text-special')}>
@@ -1124,8 +1124,8 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                 </div>
                 <div className="px-6 py-5 space-y-3">
                   <div className="flex items-center gap-2 flex-wrap">
-                    {selectedInspection.trade && <span className="text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{selectedInspection.trade}</span>}
-                    <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5', STATUS_COLORS[selectedInspection.status] ?? STATUS_COLORS.not_scheduled)}>
+                    {selectedInspection.trade && <span className="whitespace-nowrap text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{selectedInspection.trade}</span>}
+                    <span className={cn('whitespace-nowrap text-xs font-medium rounded-full border px-2 py-0.5', STATUS_COLORS[selectedInspection.status] ?? STATUS_COLORS.not_scheduled)}>
                       {selectedInspection.status.replace(/_/g, ' ')}
                     </span>
                     {selectedInspection.ready_marked_by && <span className="text-xs text-success font-medium">Ready ✓</span>}
@@ -1167,7 +1167,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                      insp.status === 'failed' ? <XCircle className="h-5 w-5 text-danger" /> :
                      insp.status === 'scheduled' ? <Calendar className="h-5 w-5 text-info" /> :
                      <Clock className="h-5 w-5 text-faint" />}
-                    <span className={cn('text-xs font-medium rounded-full border px-1.5 py-0.5', STATUS_COLORS[insp.status] ?? STATUS_COLORS.not_scheduled)}>
+                    <span className={cn('whitespace-nowrap text-xs font-medium rounded-full border px-1.5 py-0.5', STATUS_COLORS[insp.status] ?? STATUS_COLORS.not_scheduled)}>
                       {insp.status.replace(/_/g, ' ')}
                     </span>
                   </div>
@@ -1285,7 +1285,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                     <button onClick={() => setSelectedInvoice(null)} className="text-faint hover:text-muted-fg"><X className="h-5 w-5" /></button>
                   </div>
                   <div className="px-6 py-5 space-y-3">
-                    <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5', STATUS_COLORS[selectedInvoice.status] ?? STATUS_COLORS.pending_approval)}>
+                    <span className={cn('whitespace-nowrap text-xs font-medium rounded-full border px-2 py-0.5', STATUS_COLORS[selectedInvoice.status] ?? STATUS_COLORS.pending_approval)}>
                       {selectedInvoice.status.replace(/_/g, ' ')}
                     </span>
                     {selectedInvoice.description && <p className="text-sm text-ink-soft">{selectedInvoice.description}</p>}
@@ -1312,7 +1312,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                     className="bg-panel rounded-xl border border-line p-4 text-left hover:shadow-md transition-all hover:-translate-y-0.5">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-mono text-faint">{inv.invoice_number}</span>
-                      <span className={cn('text-xs font-medium rounded-full border px-1.5 py-0.5', STATUS_COLORS[inv.status] ?? STATUS_COLORS.pending_approval)}>
+                      <span className={cn('whitespace-nowrap text-xs font-medium rounded-full border px-1.5 py-0.5', STATUS_COLORS[inv.status] ?? STATUS_COLORS.pending_approval)}>
                         {inv.status.replace(/_/g, ' ')}
                       </span>
                     </div>
@@ -1562,7 +1562,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                       <div key={type}>
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 sm:px-5 py-3">
                           <span className="w-24 sm:w-28 text-sm text-muted-fg shrink-0">{DOC_LABELS[type]}</span>
-                          <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium', cfg.classes)}>
+                          <span className={cn('whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium', cfg.classes)}>
                             {cfg.label}
                           </span>
                           {doc?.expiry_date && (
@@ -1612,7 +1612,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                                     <button key={s} type="button"
                                       onClick={() => setComplianceFormState(prev => ({ ...prev, [type]: { ...prev[type], status: s } }))}
                                       className={cn(
-                                        'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                                        'whitespace-nowrap rounded-full border px-3 py-1 text-xs font-medium transition-colors',
                                         fs.status === s
                                           ? STATUS_CONFIG[s].classes + ' border-transparent'
                                           : 'border-line text-muted-fg hover:border-muted2',

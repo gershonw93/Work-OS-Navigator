@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { StatStrip } from '@/components/ui/stat-strip'
 import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import {
@@ -164,7 +165,7 @@ function timeAgo(dateStr: string) {
 function PriorityBadge({ priority }: { priority: string }) {
   const p = PRIORITIES.find(x => x.value === priority) ?? PRIORITIES[1]
   return (
-    <span className={cn('text-xs font-medium px-2 py-0.5 rounded-full border', p.bg)}>
+    <span className={cn('whitespace-nowrap text-xs font-medium px-2 py-0.5 rounded-full border', p.bg)}>
       {p.label}
     </span>
   )
@@ -285,7 +286,7 @@ function TaskDetailPanel({ task, notes, notesLoading, onAddNote, projectId, onCh
 
           <div className="flex items-center gap-2 flex-wrap">
             <span className={cn(
-              'inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border',
+              'whitespace-nowrap inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border',
               statusObj.headerBg, statusObj.headerText, statusObj.colBorder,
             )}>
               <statusObj.icon className="h-3 w-3" />
@@ -932,7 +933,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
                   <div className="flex items-center gap-2">
                     <col.icon className={cn('h-4 w-4', col.color)} />
                     <span className={cn('text-sm font-semibold', col.headerText)}>{col.label}</span>
-                    <span className={cn('text-xs font-bold rounded-full px-1.5 py-0.5 min-w-[1.25rem] text-center', col.headerBg, col.headerText, 'border', col.colBorder)}>
+                    <span className={cn('whitespace-nowrap text-xs font-bold rounded-full px-1.5 py-0.5 min-w-[1.25rem] text-center', col.headerBg, col.headerText, 'border', col.colBorder)}>
                       {colTasks.length}
                     </span>
                   </div>
@@ -1002,7 +1003,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
           <div className="space-y-2">
             <div className="flex items-center gap-3 px-1">
               <p className="text-xs font-semibold text-faint uppercase tracking-wide">General Tasks</p>
-              <span className="text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{generalTasks.length}</span>
+              <span className="whitespace-nowrap text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{generalTasks.length}</span>
               <GroupProgressBar tasks={generalTasks} />
             </div>
             {generalTasks.map(task => <ListCard key={task.id} task={task} />)}
@@ -1013,7 +1014,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
             <div className="flex items-center gap-2 px-1 flex-wrap">
               <Building2 className="h-3.5 w-3.5 text-faint" />
               <p className="text-xs font-semibold text-faint uppercase tracking-wide">{group.name}</p>
-              <span className="text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{group.tasks.length}</span>
+              <span className="whitespace-nowrap text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{group.tasks.length}</span>
               <GroupProgressBar tasks={group.tasks} />
             </div>
             {group.tasks.map(task => <ListCard key={task.id} task={task} />)}
@@ -1050,7 +1051,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
                 ? <Building2 className="h-3.5 w-3.5 text-faint" />
                 : <UserCircle2 className="h-3.5 w-3.5 text-faint" />}
               <p className="text-xs font-semibold text-faint uppercase tracking-wide">{group.name}</p>
-              <span className="text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{group.tasks.length}</span>
+              <span className="whitespace-nowrap text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{group.tasks.length}</span>
               <GroupProgressBar tasks={group.tasks} />
             </div>
             {group.tasks.map(task => <ListCard key={task.id} task={task} />)}
@@ -1304,7 +1305,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
             {f.label}
             {f.count !== undefined && f.count > 0 && (
               <span className={cn(
-                'text-xs font-bold rounded-full px-1.5 py-0.5 leading-none',
+                'whitespace-nowrap text-xs font-bold rounded-full px-1.5 py-0.5 leading-none',
                 filterMode === f.key ? 'bg-panel/20 text-white' : 'bg-danger-tint text-danger',
               )}>
                 {f.count}
@@ -1314,27 +1315,20 @@ export default function TasksPage({ params }: { params: { id: string } }) {
         ))}
       </div>
 
-      {/* ── Stat chips ────────────────────────────────────────────────────── */}
+      {/* ── The numbers, in ONE card ───────────────────────────────────────
+          Five coloured pills with five borders and four colours, wrapping onto
+          two lines on a phone. Every one of them was a box saying a number.
+          Colour is kept for overdue, where it means something. */}
       {!loading && totalCount > 0 && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs bg-muted text-muted-fg rounded-full px-2.5 py-1 font-medium border border-line">
-            {totalCount} total
-          </span>
-          <span className="text-xs bg-surface text-muted-fg rounded-full px-2.5 py-1 font-medium border border-line">
-            {openCount} open
-          </span>
-          <span className="text-xs bg-info-tint text-info rounded-full px-2.5 py-1 font-medium border border-info/30">
-            {inProgCount} in progress
-          </span>
-          {overdueCount > 0 && (
-            <span className="text-xs bg-danger-tint text-danger rounded-full px-2.5 py-1 font-medium border border-danger/30">
-              {overdueCount} overdue
-            </span>
-          )}
-          <span className="text-xs bg-success-tint text-success rounded-full px-2.5 py-1 font-medium border border-success/30">
-            {completedCount} completed · {pctDone}%
-          </span>
-        </div>
+        <StatStrip
+          items={[
+            { label: 'Total', value: totalCount },
+            { label: 'Open', value: openCount },
+            { label: 'In progress', value: inProgCount },
+            ...(overdueCount > 0 ? [{ label: 'Overdue', value: overdueCount, tone: 'danger' as const }] : []),
+            { label: 'Completed', value: completedCount, note: `${pctDone}% of the job` },
+          ]}
+        />
       )}
 
       {/* ── Main content ─────────────────────────────────────────────────── */}

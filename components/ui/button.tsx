@@ -37,7 +37,10 @@ export function buttonClasses(
   className?: string,
 ): string {
   return cn(
-    'inline-flex items-center justify-center gap-2 rounded-md font-medium transition-colors',
+    // whitespace-nowrap: a button label that wraps stops looking like a
+    // button. "Request via email" broke across two lines inside a fixed-height
+    // control and spilled out of it.
+    'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-colors',
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
     'disabled:pointer-events-none disabled:opacity-50',
     variantClasses[variant],

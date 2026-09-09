@@ -632,7 +632,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                         const active = editCrewOnSite.find(w => w.name === m.name)
                         return (
                           <button key={m.id} type="button" onClick={() => toggleEditCrew(m)}
-                            className={cn('flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                            className={cn('whitespace-nowrap flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors',
                               active ? 'border-accent bg-accent-tint text-accent-fg' : 'border-line text-muted-fg hover:border-muted2')}>
                             <span className={cn('h-1.5 w-1.5 rounded-full', active ? 'bg-accent' : 'bg-muted2')} />
                             {m.name}
@@ -657,7 +657,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                         const active = editSubsOnSite.find(s => s.id === sub.id)
                         return (
                           <button key={sub.id} type="button" onClick={() => toggleEditSub(sub)}
-                            className={cn('flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                            className={cn('whitespace-nowrap flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors',
                               active ? 'border-accent bg-accent-tint text-accent-fg' : 'border-line text-muted-fg hover:border-muted2')}>
                             <span className={cn('h-1.5 w-1.5 rounded-full', active ? 'bg-accent' : 'bg-muted2')} />
                             {name} <span className="text-faint">({sub.trade})</span>
@@ -861,7 +861,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                   <Label>Weather</Label>
                   <div className="flex items-center gap-2">
                     {weatherChip && (
-                      <span className="text-xs font-medium bg-accent-tint text-accent-fg border border-accent/40 rounded-full px-2 py-0.5">
+                      <span className="whitespace-nowrap text-xs font-medium bg-accent-tint text-accent-fg border border-accent/40 rounded-full px-2 py-0.5">
                         {weatherChip}
                       </span>
                     )}
@@ -907,7 +907,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                     const active = workersOnSite.find(w => w.name === m.name)
                     return (
                       <button key={m.id} type="button" onClick={() => toggleWorkerOnSite(m)}
-                        className={cn('flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                        className={cn('whitespace-nowrap flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors',
                           active ? 'border-blue-400 bg-info-tint text-info' : 'border-line text-muted-fg hover:border-muted2')}>
                         <span className={cn('h-1.5 w-1.5 rounded-full', active ? 'bg-info-solid' : 'bg-muted2')} />
                         {m.name}
@@ -928,7 +928,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                     const active = subsOnSite.find(s => s.id === sub.id)
                     return (
                       <button key={sub.id} type="button" onClick={() => toggleSubOnSite(sub)}
-                        className={cn('flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                        className={cn('whitespace-nowrap flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors',
                           active ? 'border-accent bg-accent-tint text-accent-fg' : 'border-line text-muted-fg hover:border-muted2')}>
                         <span className={cn('h-1.5 w-1.5 rounded-full', active ? 'bg-accent' : 'bg-muted2')} />
                         {name}
@@ -970,7 +970,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
               {attachments.length > 0 && (
                 <div className="flex flex-wrap gap-2 pt-1">
                   {attachments.map((f, i) => (
-                    <span key={i} className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs text-ink-soft">
+                    <span key={i} className="whitespace-nowrap inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs text-ink-soft">
                       <FileText className="h-3 w-3 text-faint" /> {f.name}
                       <button type="button" onClick={() => setAttachments(prev => prev.filter((_, j) => j !== i))} className="text-faint hover:text-danger"><X className="h-3 w-3" /></button>
                     </span>
@@ -1173,20 +1173,20 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                         </span>
                       )}
                       {log.review_status === 'pending' && (
-                        <span className="text-xs font-medium text-warn bg-warn-tint border border-warn/30 rounded-full px-2 py-0.5">
+                        <span className="whitespace-nowrap text-xs font-medium text-warn bg-warn-tint border border-warn/30 rounded-full px-2 py-0.5">
                           Needs review
                         </span>
                       )}
                       {log.source === 'field' && log.review_status !== 'pending' && (
-                        <span className="text-xs font-medium text-muted-fg bg-muted border border-line rounded-full px-2 py-0.5">
+                        <span className="whitespace-nowrap text-xs font-medium text-muted-fg bg-muted border border-line rounded-full px-2 py-0.5">
                           From the field
                         </span>
                       )}
                       {log.has_issues && (
-                        <span className="text-xs font-medium text-danger bg-danger-tint border border-danger/30 rounded-full px-2 py-0.5">Issue</span>
+                        <span className="whitespace-nowrap text-xs font-medium text-danger bg-danger-tint border border-danger/30 rounded-full px-2 py-0.5">Issue</span>
                       )}
                       {log.delays?.length > 0 && (
-                        <span className="text-xs font-medium text-warn bg-warn-tint border border-warn/30 rounded-full px-2 py-0.5">
+                        <span className="whitespace-nowrap text-xs font-medium text-warn bg-warn-tint border border-warn/30 rounded-full px-2 py-0.5">
                           {log.delays.length} delay{log.delays.length !== 1 ? 's' : ''}
                         </span>
                       )}
@@ -1199,7 +1199,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                       {(() => {
                         const photoCount = (log.daily_log_photos?.length ?? 0) || (log.photos?.length ?? 0)
                         return photoCount > 0 ? (
-                          <span className="inline-flex items-center gap-1 bg-muted border border-line text-muted-fg rounded-full px-2 py-0.5 text-xs font-medium">
+                          <span className="whitespace-nowrap inline-flex items-center gap-1 bg-muted border border-line text-muted-fg rounded-full px-2 py-0.5 text-xs font-medium">
                             <Camera className="h-3 w-3" />
                             {photoCount} photo{photoCount !== 1 ? 's' : ''}
                           </span>
@@ -1328,7 +1328,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                                   <span className="text-ink-soft">{q.label}</span>
                                   {a.description && <p className="text-xs text-faint mt-0.5">{a.description}</p>}
                                 </div>
-                                <span className={cn('shrink-0 text-xs font-semibold rounded-full px-2 py-0.5',
+                                <span className={cn('whitespace-nowrap shrink-0 text-xs font-semibold rounded-full px-2 py-0.5',
                                   a.answer === 'yes' ? 'bg-accent-tint text-accent-fg' : a.answer === 'no' ? 'bg-muted text-muted-fg' : 'bg-muted text-faint')}>
                                   {a.answer === 'na' ? 'N/A' : a.answer.toUpperCase()}
                                 </span>
@@ -1355,7 +1355,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                             <p className="text-xs font-semibold text-faint uppercase tracking-wide mb-1.5">GC Crew on Site</p>
                             <div className="flex flex-wrap gap-1.5">
                               {log.workers_on_site.map((w, i) => (
-                                <span key={i} className="text-xs bg-info-tint border border-blue-100 text-info rounded-full px-2.5 py-0.5">
+                                <span key={i} className="whitespace-nowrap text-xs bg-info-tint border border-blue-100 text-info rounded-full px-2.5 py-0.5">
                                   {w.name}{w.role && <span className="text-info ml-1">({w.role})</span>}
                                 </span>
                               ))}
@@ -1367,7 +1367,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                             <p className="text-xs font-semibold text-faint uppercase tracking-wide mb-1.5">Subs on Site</p>
                             <div className="flex flex-wrap gap-1.5">
                               {log.subs_on_site.map((s, i) => (
-                                <span key={i} className="text-xs bg-accent-tint border border-accent/20 text-accent-fg rounded-full px-2.5 py-0.5">
+                                <span key={i} className="whitespace-nowrap text-xs bg-accent-tint border border-accent/20 text-accent-fg rounded-full px-2.5 py-0.5">
                                   {s.name}{s.workers ? ` · ${s.workers} worker${s.workers !== 1 ? 's' : ''}` : ''}
                                 </span>
                               ))}

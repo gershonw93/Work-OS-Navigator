@@ -447,10 +447,10 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-semibold text-ink">{permit.permit_type}</span>
                       {permit.permit_number && <span className="text-xs font-mono text-muted-fg">#{permit.permit_number}</span>}
-                      <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5', STATUS_COLORS[permit.status] ?? STATUS_COLORS.pending)}>
+                      <span className={cn('whitespace-nowrap text-xs font-medium rounded-full border px-2 py-0.5', STATUS_COLORS[permit.status] ?? STATUS_COLORS.pending)}>
                         {permit.status}
                       </span>
-                      {expiring && <span className="text-xs font-medium bg-danger-tint border border-danger/30 text-danger rounded-full px-2 py-0.5">Expiring soon</span>}
+                      {expiring && <span className="whitespace-nowrap text-xs font-medium bg-danger-tint border border-danger/30 text-danger rounded-full px-2 py-0.5">Expiring soon</span>}
                     </div>
                     <p className="text-xs text-muted-fg mt-0.5 truncate">
                       {permit.description

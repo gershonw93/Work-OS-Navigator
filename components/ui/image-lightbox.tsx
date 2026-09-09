@@ -176,7 +176,7 @@ export function ImageLightbox({
       )}
 
       {!hintSeen && (
-        <div className="pointer-events-none absolute top-4 left-1/2 -translate-x-1/2 z-10 rounded-full bg-white/15 px-3 py-1.5 text-xs font-medium text-white backdrop-blur">
+        <div className="whitespace-nowrap pointer-events-none absolute top-4 left-1/2 -translate-x-1/2 z-10 rounded-full bg-white/15 px-3 py-1.5 text-xs font-medium text-white backdrop-blur">
           Swipe to move between documents
         </div>
       )}

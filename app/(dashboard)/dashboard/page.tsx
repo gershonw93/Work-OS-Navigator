@@ -381,17 +381,17 @@ export default function DashboardPage() {
           {((stats as GcStats | null)?.pendingApprovals || (stats as GcStats | null)?.openRfis || (stats as GcStats | null)?.expiringCompliance) ? (
             <div className="flex flex-wrap gap-2">
               {((stats as GcStats)?.pendingApprovals ?? 0) > 0 && (
-                <Link href="/approvals" className="inline-flex items-center gap-1.5 rounded-full bg-warn-tint text-warn text-xs font-medium px-3 py-1.5 hover:opacity-80">
+                <Link href="/approvals" className="whitespace-nowrap inline-flex items-center gap-1.5 rounded-full bg-warn-tint text-warn text-xs font-medium px-3 py-1.5 hover:opacity-80">
                   <AlertCircle className="h-3.5 w-3.5" /> {(stats as GcStats).pendingApprovals} pending approval{(stats as GcStats).pendingApprovals !== 1 ? 's' : ''}
                 </Link>
               )}
               {((stats as GcStats)?.openRfis ?? 0) > 0 && (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-info-tint text-info text-xs font-medium px-3 py-1.5">
+                <span className="whitespace-nowrap inline-flex items-center gap-1.5 rounded-full bg-info-tint text-info text-xs font-medium px-3 py-1.5">
                   <MessageSquare className="h-3.5 w-3.5" /> {(stats as GcStats).openRfis} open RFI{(stats as GcStats).openRfis !== 1 ? 's' : ''}
                 </span>
               )}
               {((stats as GcStats)?.expiringCompliance ?? 0) > 0 && (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-danger-tint text-danger text-xs font-medium px-3 py-1.5">
+                <span className="whitespace-nowrap inline-flex items-center gap-1.5 rounded-full bg-danger-tint text-danger text-xs font-medium px-3 py-1.5">
                   <ShieldAlert className="h-3.5 w-3.5" /> {(stats as GcStats).expiringCompliance} compliance doc{(stats as GcStats).expiringCompliance !== 1 ? 's' : ''} expiring
                 </span>
               )}
@@ -511,7 +511,7 @@ export default function DashboardPage() {
             <CardHeader className="flex flex-row items-center justify-between pb-3">
               <CardTitle>Recent Activity</CardTitle>
               {activityIsAdmin && (
-                <span className="text-xs bg-accent-tint text-accent-fg font-medium px-2 py-0.5 rounded-full">All users</span>
+                <span className="whitespace-nowrap text-xs bg-accent-tint text-accent-fg font-medium px-2 py-0.5 rounded-full">All users</span>
               )}
             </CardHeader>
             <CardContent className="p-0">

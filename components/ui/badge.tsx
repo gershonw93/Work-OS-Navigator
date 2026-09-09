@@ -20,7 +20,12 @@ export function Badge({ className, variant = 'default', ...props }: BadgeProps) 
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
+        // whitespace-nowrap, and it is not cosmetic. Without it a badge is an
+        // ordinary inline box that wraps: in a narrow table cell on a phone
+        // "Missing" came out as "Missin / g" and "Admin" broke one letter per
+        // line, reading vertically. A badge is a label, and a label that wraps
+        // is not one.
+        'inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium',
         variantClasses[variant],
         className
       )}

@@ -165,7 +165,7 @@ export default function MyJobsPage() {
               <Icon className="h-4 w-4" />
               {t.label}
               {t.count > 0 && (
-                <span className={cn('text-xs rounded-full px-1.5 py-0.5 font-semibold min-w-[20px] text-center',
+                <span className={cn('whitespace-nowrap text-xs rounded-full px-1.5 py-0.5 font-semibold min-w-[20px] text-center',
                   activeTab === t.key ? 'bg-accent-tint text-accent-fg' : 'bg-muted text-muted-fg')}>
                   {t.count}
                 </span>
@@ -197,8 +197,8 @@ export default function MyJobsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-semibold text-ink">{proj.name}</span>
-                      <span className="text-xs bg-accent-tint border border-accent/40 text-accent-fg rounded-full px-2 py-0.5 font-medium">{sub.trade}</span>
-                      <span className={cn('text-xs rounded-full px-2 py-0.5 font-medium border',
+                      <span className="whitespace-nowrap text-xs bg-accent-tint border border-accent/40 text-accent-fg rounded-full px-2 py-0.5 font-medium">{sub.trade}</span>
+                      <span className={cn('whitespace-nowrap text-xs rounded-full px-2 py-0.5 font-medium border',
                         sub.status === 'active' ? 'bg-success-tint border-success/30 text-success' :
                         sub.status === 'completed' ? 'bg-surface border-line text-muted-fg' :
                         'bg-warn-tint border-warn/30 text-warn')}>
@@ -241,7 +241,7 @@ export default function MyJobsPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-ink">{proj.name}</span>
-                    <span className={cn('text-xs rounded-full px-2 py-0.5 font-medium border',
+                    <span className={cn('whitespace-nowrap text-xs rounded-full px-2 py-0.5 font-medium border',
                       proj.status === 'active' ? 'bg-success-tint border-success/30 text-success' :
                       proj.status === 'completed' ? 'bg-surface border-line text-muted-fg' :
                       'bg-warn-tint border-warn/30 text-warn')}>

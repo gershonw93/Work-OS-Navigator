@@ -159,7 +159,7 @@ export default function FinancialsPage({ params }: { params: { id: string } }) {
                         <span className="font-medium text-ink-soft">{sub.companies?.name ?? 'Unknown'}</span>
                         <span className="text-xs text-faint">{sub.trade}</span>
                         {readyToInvoice.length > 0 && (
-                          <span className="text-xs rounded-full bg-accent-tint text-accent-fg px-1.5 py-0.5 font-medium">
+                          <span className="whitespace-nowrap text-xs rounded-full bg-accent-tint text-accent-fg px-1.5 py-0.5 font-medium">
                             {readyToInvoice.length} ready to invoice
                           </span>
                         )}
@@ -213,7 +213,7 @@ export default function FinancialsPage({ params }: { params: { id: string } }) {
                                   <div className="flex items-center gap-2 mt-0.5">
                                     {item.percentage && <span className="text-xs text-faint">{item.percentage}% of contract</span>}
                                     {hasInvoice && existingInvoice && (
-                                      <span className={cn('text-xs rounded-full px-1.5 py-0.5 border font-medium',
+                                      <span className={cn('whitespace-nowrap text-xs rounded-full px-1.5 py-0.5 border font-medium',
                                         existingInvoice.status === 'paid' ? 'bg-success-tint border-success/30 text-success' :
                                         existingInvoice.status === 'approved' ? 'bg-info-tint border-info/30 text-info' :
                                         'bg-warn-tint border-warn/30 text-warn')}>
@@ -252,7 +252,7 @@ export default function FinancialsPage({ params }: { params: { id: string } }) {
                                 <span className="text-ink-soft truncate min-w-0">{inv.description ?? '-'}</span>
                               </div>
                               <div className="flex flex-wrap items-center gap-2">
-                                <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5',
+                                <span className={cn('whitespace-nowrap text-xs font-medium rounded-full border px-2 py-0.5',
                                   inv.status === 'paid' ? 'bg-success-tint border-success/30 text-success' :
                                   inv.status === 'approved' ? 'bg-info-tint border-info/30 text-info' :
                                   'bg-warn-tint border-warn/30 text-warn')}>
@@ -309,7 +309,7 @@ export default function FinancialsPage({ params }: { params: { id: string } }) {
                   <p className="font-medium text-ink-soft truncate">{co.title}</p>
                   {co.reason && <p className="text-xs text-faint truncate">{co.reason}</p>}
                 </div>
-                <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5',
+                <span className={cn('whitespace-nowrap text-xs font-medium rounded-full border px-2 py-0.5',
                   co.status === 'approved' ? 'bg-success-tint border-success/30 text-success' :
                   co.status === 'rejected' ? 'bg-danger-tint border-danger/30 text-danger' :
                   'bg-warn-tint border-warn/30 text-warn')}>

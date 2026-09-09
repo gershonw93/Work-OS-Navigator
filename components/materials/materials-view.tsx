@@ -481,7 +481,7 @@ export function MaterialsView({ lockedProjectId }: { lockedProjectId?: string })
                         <p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Your fee</p>
                         <div className="mt-1 flex flex-wrap items-center gap-2">
                           <button type="button" onClick={() => setReceiptMarkup(m, { markup_excluded: !m.markup_excluded })}
-                            className={cn('rounded-full px-2.5 py-1 text-xs font-medium border',
+                            className={cn('whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium border',
                               m.markup_excluded ? 'border-warn/40 bg-warn-tint text-warn' : 'border-line text-muted-fg hover:bg-surface')}>
                             {m.markup_excluded ? 'At cost - no fee' : 'Bill at cost'}
                           </button>

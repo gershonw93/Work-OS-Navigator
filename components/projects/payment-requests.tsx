@@ -191,7 +191,7 @@ export function PaymentRequests({
           </p>
         </div>
         {outstanding > 0 && (
-          <span className="rounded-full bg-warn-tint px-2.5 py-1 text-xs font-semibold text-warn">
+          <span className="whitespace-nowrap rounded-full bg-warn-tint px-2.5 py-1 text-xs font-semibold text-warn">
             {money(outstanding)} outstanding
           </span>
         )}

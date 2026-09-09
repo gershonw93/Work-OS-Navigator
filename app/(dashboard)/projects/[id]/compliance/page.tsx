@@ -262,7 +262,7 @@ function UploadForm({
                 type="button"
                 onClick={() => setStatus(s)}
                 className={cn(
-                  'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                  'whitespace-nowrap rounded-full border px-3 py-1 text-xs font-medium transition-colors',
                   status === s
                     ? STATUS_CONFIG[s].classes + ' border-transparent'
                     : 'border-line text-muted-fg hover:border-muted2',
@@ -341,7 +341,7 @@ function UploadForm({
                 <div className="flex gap-2 pt-1">
                   {([true, false] as const).map(v => (
                     <button key={String(v)} type="button" onClick={() => setAdditionalInsured(v)}
-                      className={cn('rounded-full border px-3 py-0.5 text-xs font-medium transition-colors',
+                      className={cn('whitespace-nowrap rounded-full border px-3 py-0.5 text-xs font-medium transition-colors',
                         additionalInsured === v ? 'bg-slate-800 text-white border-slate-800' : 'border-line text-muted-fg')}>
                       {v ? 'Yes' : 'No'}
                     </button>
@@ -600,7 +600,7 @@ function RequestDocsBar({ projectId, companyId, companyName, contactEmail, missi
                 return (
                   <button key={t} type="button" onClick={() => toggle(t)}
                     title={owed ? undefined : 'Not required for this vendor - tick it to ask anyway'}
-                    className={cn('rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
+                    className={cn('whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
                       selected.includes(t) ? 'border-accent bg-accent-tint text-accent-fg'
                         : owed ? 'border-line text-muted-fg hover:border-muted2'
                           : 'border-dashed border-line text-faint hover:border-muted2')}>
@@ -718,7 +718,7 @@ function SubCard({ sub, docs, requests, requirements, projectId, token, onRefres
       {/* Card header */}
       <div className="flex flex-wrap items-center justify-between gap-2 px-4 sm:px-5 py-4 border-b border-line-soft">
         <h3 className="font-semibold text-ink">{companyName}</h3>
-        <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-medium', chip.classes)}>
+        <span className={cn('whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium', chip.classes)}>
           {chip.label}
         </span>
       </div>
@@ -772,7 +772,7 @@ function SubCard({ sub, docs, requests, requirements, projectId, token, onRefres
                   </span>
                 </td>
                 <td className="px-5 py-3">
-                  <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-medium', cfg.classes)}>
+                  <span className={cn('whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium', cfg.classes)}>
                     {status === 'expiring_soon' && <AlertTriangle className="inline h-3 w-3 mr-0.5 -mt-0.5" />}
                     {cfg.label}
                   </span>

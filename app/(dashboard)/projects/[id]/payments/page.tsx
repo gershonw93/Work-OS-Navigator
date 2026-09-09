@@ -469,12 +469,12 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
                     themselves, and stays a toggle because it is their claim. */}
                 {p.qbo_id ? (
                   <span title={`In QuickBooks - search for ${p.reference || 'SN-' + p.id.slice(0, 8)} or the memo`}
-                    className="text-xs inline-flex items-center gap-1 rounded-full border border-success/40 bg-success-tint px-2 py-0.5 text-success">
+                    className="whitespace-nowrap text-xs inline-flex items-center gap-1 rounded-full border border-success/40 bg-success-tint px-2 py-0.5 text-success">
                     <Check className="h-3 w-3" /> QB ✓
                   </span>
                 ) : (
                   <button onClick={() => toggleQb(p)} title="Mark as entered in QuickBooks by hand"
-                    className={cn('text-xs inline-flex items-center gap-1 rounded-full border px-2 py-0.5 transition-colors',
+                    className={cn('whitespace-nowrap text-xs inline-flex items-center gap-1 rounded-full border px-2 py-0.5 transition-colors',
                       p.qb_entered ? 'border-success/40 bg-success-tint text-success' : 'border-line text-faint hover:border-muted2 hover:text-muted-fg')}>
                     {p.qb_entered ? <><Check className="h-3 w-3" /> QB</> : 'QB?'}
                   </button>

@@ -583,7 +583,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                       <div key={idx}
                         className={cn('min-h-[84px] sm:min-h-[104px] border-b border-r border-line-soft p-1.5 align-top',
                           idx % 7 === 0 && 'border-l', !inMonth && 'bg-surface/60')}>
-                        <div className={cn('flex items-center justify-center h-6 w-6 rounded-full text-xs mb-1',
+                        <div className={cn('whitespace-nowrap flex items-center justify-center h-6 w-6 rounded-full text-xs mb-1',
                           isToday ? 'bg-accent text-accent-ink font-bold' : inMonth ? 'text-ink-soft' : 'text-faint')}>
                           {day.getDate()}
                         </div>
@@ -687,7 +687,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                       </button>
                     </div>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-fg">
-                      <span className={cn('text-xs font-medium px-2 py-0.5 rounded-full border', lightColor(item))}>
+                      <span className={cn('whitespace-nowrap text-xs font-medium px-2 py-0.5 rounded-full border', lightColor(item))}>
                         {item.subcontract_id ? 'Sub Work' : 'Milestone'}
                       </span>
                       <span>{formatDateShort(item.start_date)} – {formatDateShort(item.end_date)}</span>
@@ -723,7 +723,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                         {getSubLabel(item) && <p className="text-xs text-faint ml-4 mt-0.5">{getSubLabel(item)}</p>}
                       </td>
                       <td className="px-5 py-3">
-                        <span className={cn('text-xs font-medium px-2 py-0.5 rounded-full border', lightColor(item))}>
+                        <span className={cn('whitespace-nowrap text-xs font-medium px-2 py-0.5 rounded-full border', lightColor(item))}>
                           {item.subcontract_id ? 'Sub Work' : 'Milestone'}
                         </span>
                       </td>

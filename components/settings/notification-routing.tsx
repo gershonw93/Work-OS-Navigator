@@ -228,7 +228,7 @@ function Editor({
           {rolesPresent.map(r => (
             <button
               key={r} type="button" onClick={() => toggle(roles, setRoles, r)}
-              className={cn('rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
+              className={cn('whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
                 roles.includes(r)
                   ? 'border-accent bg-accent-tint text-accent-fg'
                   : 'border-line bg-panel text-muted-fg hover:text-ink')}
@@ -245,7 +245,7 @@ function Editor({
           {members.map(m => (
             <button
               key={m.id} type="button" onClick={() => toggle(ids, setIds, m.id)}
-              className={cn('rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
+              className={cn('whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
                 ids.includes(m.id)
                   ? 'border-accent bg-accent-tint text-accent-fg'
                   : 'border-line bg-panel text-muted-fg hover:text-ink')}

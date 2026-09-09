@@ -164,6 +164,22 @@ production branch.** Do NOT ask the user to merge or deploy.
   measurement rather than a pattern, `lib/__tests__/overlay-geometry.ts`, which
   lays real markup out in headless Chromium. Full detail in MOBILE.md.
 
+## Mobile look and feel (IN PROGRESS)
+- Target: clean, quiet, native-feeling. FEWER boxes, fewer colours, more
+  whitespace, stronger type. 8px spacing, ~24px screen gutters, cards at
+  ~18-22px radius with a 1px `border-line` and no shadow, 44px+ touch targets.
+- Related numbers go in ONE card with hairline dividers - `StatStrip`
+  (`components/ui/stat-strip.tsx`), not a coloured pill per metric. Colour only
+  when the colour MEANS something (overdue red; a total is just a number).
+- A `<table>` is not a phone layout. Five columns in 390px gave headings
+  running one letter per line down the page. Prefer a list of rows; keep a
+  table only for genuinely tabular data, and then wrap it in `overflow-x-auto`.
+  `layout-overflow.ts` ratchets the count of tables a phone renders - it may
+  only go DOWN.
+- A badge or a button label NEVER wraps. `Badge` and `Button` set
+  `whitespace-nowrap` centrally; a hand-rolled pill must too, and the test
+  scans for it.
+
 ## Loading and failure states (IMPORTANT)
 - A loading state must have a WAY TO END. `setLoading(false)` as the last
   statement of an async function ends only on the happy path - use

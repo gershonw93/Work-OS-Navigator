@@ -831,20 +831,20 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
 
                           <div className="flex flex-wrap items-center gap-2 shrink-0">
                             {v != null && v !== 0 && (
-                              <span className={cn('text-xs font-semibold rounded-full px-2 py-0.5',
+                              <span className={cn('whitespace-nowrap text-xs font-semibold rounded-full px-2 py-0.5',
                                 v > 0 ? 'bg-danger-tint text-danger' : 'bg-success-tint text-success')}>
                                 {v > 0 ? `+${money(v)} over` : `${money(Math.abs(v))} under`}
                               </span>
                             )}
                             {sel.needed_by && u !== 'none' && (
-                              <span className={cn('inline-flex items-center gap-1 text-xs font-medium rounded-full px-2 py-0.5',
+                              <span className={cn('whitespace-nowrap inline-flex items-center gap-1 text-xs font-medium rounded-full px-2 py-0.5',
                                 u === 'late' ? 'bg-danger-tint text-danger' : u === 'soon' ? 'bg-warn-tint text-warn' : 'text-muted-fg')}>
                                 {u === 'late' ? <AlertTriangle className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
                                 {days! < 0 ? `${Math.abs(days!)}d late` : `${days}d left`}
                               </span>
                             )}
                             <select value={sel.status} onChange={e => patch(sel.id, { status: e.target.value })}
-                              className={cn('rounded-full border-0 px-2.5 py-1 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-accent', STATUS_TINT[sel.status])}>
+                              className={cn('whitespace-nowrap rounded-full border-0 px-2.5 py-1 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-accent', STATUS_TINT[sel.status])}>
                               {SELECTION_STATUSES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
                             </select>
                             <button onClick={() => remove(sel)} className="text-faint hover:text-danger"><Trash2 className="h-3.5 w-3.5" /></button>

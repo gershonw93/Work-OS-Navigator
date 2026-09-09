@@ -274,7 +274,7 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
                 <activeTab.icon className={cn('h-4 w-4 shrink-0', activeGroup?.color ?? 'text-muted-fg')} />
                 <span className="flex-1 min-w-0 text-sm font-semibold text-ink-soft truncate">{activeTab.label}</span>
                 {activeGroup && (
-                  <span className={cn('text-xs font-medium px-1.5 py-0.5 rounded-full shrink-0', activeGroup.bg, activeGroup.color)}>
+                  <span className={cn('whitespace-nowrap text-xs font-medium px-1.5 py-0.5 rounded-full shrink-0', activeGroup.bg, activeGroup.color)}>
                     {activeGroup.label}
                   </span>
                 )}

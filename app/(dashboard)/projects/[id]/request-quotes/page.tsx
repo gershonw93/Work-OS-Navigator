@@ -288,7 +288,7 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
             )}
           </div>
 
-          {files.length > 0 && <div className="flex flex-wrap gap-2">{files.map((f, i) => <span key={i} className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs text-ink-soft"><FileText className="h-3 w-3" />{f.name}<button onClick={() => setFiles(p => p.filter((_, j) => j !== i))}><X className="h-3 w-3 text-faint" /></button></span>)}</div>}
+          {files.length > 0 && <div className="flex flex-wrap gap-2">{files.map((f, i) => <span key={i} className="whitespace-nowrap inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs text-ink-soft"><FileText className="h-3 w-3" />{f.name}<button onClick={() => setFiles(p => p.filter((_, j) => j !== i))}><X className="h-3 w-3 text-faint" /></button></span>)}</div>}
           <div className="flex gap-2 justify-end"><Button variant="secondary" onClick={() => setShowNew(false)}>Cancel</Button><Button onClick={createRequest} disabled={creating || !title.trim()}>{creating ? 'Creating…' : 'Create Request'}</Button></div>
         </div>
       )}

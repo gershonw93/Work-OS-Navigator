@@ -546,7 +546,7 @@ export default function FilesPage() {
           <div className="flex flex-wrap gap-2">
             {['All', ...CATEGORIES].map(c => (
               <button key={c} onClick={() => setCategoryFilter(c)}
-                className={cn('rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                className={cn('whitespace-nowrap rounded-full border px-3 py-1 text-xs font-medium transition-colors',
                   categoryFilter === c
                     ? 'bg-accent border-accent text-accent-ink'
                     : 'bg-panel border-line text-muted-fg hover:border-accent')}>
@@ -593,7 +593,7 @@ export default function FilesPage() {
                       </div>
                     </div>
                     <div className="flex items-center justify-between gap-2">
-                      <span className={cn('text-xs font-medium rounded-full border px-2 py-0.5', CATEGORY_COLORS[file.category] ?? CATEGORY_COLORS.Other)}>
+                      <span className={cn('whitespace-nowrap text-xs font-medium rounded-full border px-2 py-0.5', CATEGORY_COLORS[file.category] ?? CATEGORY_COLORS.Other)}>
                         {file.category}
                       </span>
                       <div className="flex items-center gap-1">

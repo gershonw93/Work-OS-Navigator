@@ -248,6 +248,45 @@ ok(guarded >= 20, `${guarded} files go through autoFocusOnDesktop()`)
 ok(/pointer: coarse/.test(read('lib/auto-focus.ts')),
   'the test is the POINTER, not the screen width - an iPad in landscape is wide and still touched')
 
+// ── 5. a label must not wrap, and a table is not a phone layout ─────────────
+// THE BUG, from three screenshots. In a narrow table cell "Missing" came out as
+// "Missin / g", "Admin" broke one letter per line and read VERTICALLY, and the
+// "Actions" column header did the same. A badge is a label; a label that wraps
+// is not one. Same for a button: "Request via email" broke across two lines
+// inside a fixed-height control and spilled out of it.
+ok(/whitespace-nowrap/.test(code('components/ui/badge.tsx')), 'a Badge never wraps')
+ok(/whitespace-nowrap/.test(code('components/ui/button.tsx')), 'nor does a button label')
+
+const wrapping: string[] = []
+for (const f of tsx) {
+  if (f.startsWith('components/marketing/')) continue   // wide by design
+  code(f).split('\n').forEach((line, i) => {
+    if (!/rounded-full/.test(line)) return
+    if (!/\btext-(?:xs|\[10px\]|\[11px\])\b/.test(line)) return
+    if (/whitespace-nowrap/.test(line)) return
+    wrapping.push(`${f}:${i + 1}`)
+  })
+}
+ok(wrapping.length === 0,
+  `no hand-rolled badge can wrap${wrapping.length ? ` - ${wrapping[0]} (+${wrapping.length - 1})` : ''}`)
+
+// A RATCHET, not a clean sweep. Sixteen tables were rendered to phones; each
+// one that becomes a list is one fewer, and this number may only go DOWN.
+// Team & Users was the worst of them and is a list now.
+const phoneTables: string[] = []
+for (const f of tsx) {
+  if (f.includes('/print/')) continue                   // paged output, no phone
+  read(f).split('\n').forEach((line, i) => {
+    if (!/<table/.test(line)) return
+    if (/hidden (?:sm|md):table/.test(line)) return      // a phone never sees it
+    phoneTables.push(`${f}:${i + 1}`)
+  })
+}
+ok(phoneTables.length <= 15,
+  `${phoneTables.length} tables still render on a phone (was 16, and this may only go down)`)
+ok(!/<table/.test(read('app/(dashboard)/settings/page.tsx')),
+  'Settings has no tables at all - Team & Users was five columns in 390px')
+
 // ── long text, which is the same bug one level down ──────────────────────────
 ok(/p,\s*li,\s*dd,\s*dt,\s*td,\s*th[\s\S]{0,80}overflow-wrap:\s*anywhere/.test(css),
   'prose wraps anywhere by default - `break-word` wraps the text but not the container')

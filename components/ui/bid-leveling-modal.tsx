@@ -139,7 +139,7 @@ export function BidLevelingModal({
             <div className="flex items-center gap-2.5 flex-wrap">
               <h2 className="text-lg font-bold text-ink">Bid Leveling Sheet</h2>
               {packageTrade && (
-                <span className="text-xs bg-muted text-muted-fg rounded-full px-2.5 py-0.5">{packageTrade}</span>
+                <span className="whitespace-nowrap text-xs bg-muted text-muted-fg rounded-full px-2.5 py-0.5">{packageTrade}</span>
               )}
             </div>
             <p className="text-sm text-muted-fg mt-0.5">{packageName}</p>
@@ -177,7 +177,7 @@ export function BidLevelingModal({
                       <div className="flex flex-col items-center gap-1.5">
                         {/* Recommended badge on lowest */}
                         {isLowest && sorted.length > 1 && (
-                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-success bg-success-tint rounded-full px-2.5 py-0.5">
+                          <span className="whitespace-nowrap inline-flex items-center gap-1 text-xs font-semibold text-success bg-success-tint rounded-full px-2.5 py-0.5">
                             ★ Recommended
                           </span>
                         )}
@@ -199,7 +199,7 @@ export function BidLevelingModal({
                           </Button>
                         )}
                         {bid.status === 'awarded' && (
-                          <span className="text-xs font-medium text-success bg-success-tint rounded-full px-2.5 py-0.5 border border-success/30">
+                          <span className="whitespace-nowrap text-xs font-medium text-success bg-success-tint rounded-full px-2.5 py-0.5 border border-success/30">
                             Awarded ✓
                           </span>
                         )}

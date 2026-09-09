@@ -895,8 +895,8 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-semibold text-ink text-sm">{sub.companies?.name ?? 'Unknown'}</span>
-                            {sub.trade && <span className="text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{sub.trade}</span>}
-                            {sub.added_manually && <span className="text-xs bg-warn-tint text-warn border border-warn/30 rounded-full px-2 py-0.5">Not on platform</span>}
+                            {sub.trade && <span className="whitespace-nowrap text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{sub.trade}</span>}
+                            {sub.added_manually && <span className="whitespace-nowrap text-xs bg-warn-tint text-warn border border-warn/30 rounded-full px-2 py-0.5">Not on platform</span>}
                           </div>
                           {sub.scope && <p className="text-xs text-faint truncate mt-0.5">{sub.scope}</p>}
                         </div>

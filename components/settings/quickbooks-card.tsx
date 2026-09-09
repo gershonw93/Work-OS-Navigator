@@ -153,10 +153,10 @@ export function QuickBooksCard() {
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-lg font-semibold text-ink">QuickBooks Online</h3>
               {status?.environment === 'sandbox' && (
-                <span className="rounded-full bg-warn-tint px-2 py-0.5 text-xs font-semibold text-warn">Sandbox</span>
+                <span className="whitespace-nowrap rounded-full bg-warn-tint px-2 py-0.5 text-xs font-semibold text-warn">Sandbox</span>
               )}
               {connected && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-success-tint px-2 py-0.5 text-xs font-semibold text-success">
+                <span className="whitespace-nowrap inline-flex items-center gap-1 rounded-full bg-success-tint px-2 py-0.5 text-xs font-semibold text-success">
                   <Check className="h-3 w-3" /> Connected
                 </span>
               )}
