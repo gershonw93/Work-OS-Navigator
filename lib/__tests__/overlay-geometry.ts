@@ -375,5 +375,27 @@ ok(parseFloat(onPhone.radius) > parseFloat(onDesk.radius),
 ok(/gradient/.test(onPhone.mask), 'a sideways strip fades at its right edge on a phone')
 ok(onDesk.mask === 'none', `...and not on a desktop (${onDesk.mask})`)
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 5. A TABLE CELL KEEPS ITS WORDS. The Permissions grid on a phone: a w-full
+// table of five columns inside a card. With `overflow-wrap: anywhere` on th
+// the layout crushed "Create" to Cr / ea / te. Now a header is one line and
+// the table scrolls inside its wrapper instead of squeezing.
+// ─────────────────────────────────────────────────────────────────────────────
+const TABLE = `
+<div class="p-6"><div class="p-6"><div id="wrap" class="overflow-x-auto rounded-lg border border-line">
+<table id="t" class="w-full text-sm"><thead><tr>
+<th class="text-left px-4 py-2.5 min-w-[200px]">Resource</th>
+<th id="h" class="text-center px-3 py-2.5">Create</th><th class="px-3 py-2.5">Edit</th><th class="px-3 py-2.5">Delete</th><th class="px-3 py-2.5">View</th>
+</tr></thead><tbody><tr><td colspan="5" id="g" class="px-4 py-1.5 text-xs uppercase">Field</td></tr>
+<tr><td class="px-4 py-2">Daily Logs</td><td>x</td><td>x</td><td>x</td><td>x</td></tr></tbody></table></div></div></div>`
+const tbl = measure(TABLE, `(rect) => ({
+  th: Math.round(rect('#h').height), g: Math.round(rect('#g').height),
+  table: Math.round(rect('#t').width), wrap: Math.round(rect('#wrap').width),
+  doc: document.documentElement.scrollWidth })`)
+ok(tbl.th <= 40, `a column header is one line on a phone (${tbl.th}px tall)`)
+ok(tbl.g <= 30, `a group label is one line, not one letter (${tbl.g}px tall)`)
+ok(tbl.table > tbl.wrap, `the table is wider than its box (${tbl.table} in ${tbl.wrap}) and scrolls there`)
+ok(tbl.doc <= VIEWPORT.w, `...and the page itself does not widen (${tbl.doc})`)
+
 rmSync(work, { recursive: true, force: true })
 done()

@@ -145,10 +145,20 @@
      Deliberately not on `*`: on a button or a badge this makes the label break
      mid-word instead of the control keeping its shape, and those hold labels we
      wrote, not text somebody pasted. */
-  p, li, dd, dt, td, th, blockquote,
+  p, li, dd, dt, blockquote,
   h1, h2, h3, h4, h5, h6 {
     overflow-wrap: anywhere;
   }
+
+  /* A TABLE CELL IS NOT PROSE. `anywhere` tells the table layout a cell can be
+     one character wide, so a `w-full` table squeezed into a phone crushed its
+     columns to a letter each - "Create" came out as Cr / ea / te and the
+     Permissions grid read vertically. Cells keep their words, and a header
+     never wraps at all; a table wider than the screen grows into its
+     `overflow-x-auto` wrapper and scrolls, which for a grid of data is the
+     only honest answer. */
+  th, td { overflow-wrap: break-word; }
+  th { white-space: nowrap; }
 
   /* ── A truncating element must be allowed to shrink ──────────────────────
      `truncate` is `white-space: nowrap` plus `overflow: hidden` plus an

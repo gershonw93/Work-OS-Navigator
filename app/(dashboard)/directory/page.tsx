@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { StatStrip } from '@/components/ui/stat-strip'
 import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import Link from 'next/link'
 import { Building2, Plus, X, Search, Phone, Mail, MapPin, Globe, BadgeCheck, Send, ExternalLink, Pencil, Trash2 } from 'lucide-react'
@@ -871,8 +872,16 @@ export default function DirectoryPage() {
                           </div>
                         )}
                       </div>
-                      {/* Quick stats */}
-                      <div className="grid grid-cols-3 gap-3">
+                      {/* Quick stats. Phone: one card. Desktop (lg+): three tiles. */}
+                      <StatStrip className="lg:hidden" items={[
+                        { label: 'Projects', value: profileData.subcontracts?.length ?? 0 },
+                        { label: 'Contracted', value: (() => {
+                          const t = profileData.subcontracts?.reduce((s: number, sub: any) => s + (Number(sub.contract_amount) || 0), 0) ?? 0
+                          return t > 0 ? '$' + (t / 1000).toFixed(0) + 'k' : '-'
+                        })() },
+                        { label: 'Invoices', value: profileData.invoices?.length ?? 0 },
+                      ]} />
+                      <div className="hidden lg:grid lg:grid-cols-3 gap-3">
                         <div className="rounded-lg border border-line p-3 text-center">
                           <p className="text-xl font-bold text-ink">{profileData.subcontracts?.length ?? 0}</p>
                           <p className="text-xs text-faint mt-0.5">Projects</p>

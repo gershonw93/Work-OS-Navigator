@@ -330,7 +330,7 @@ function PayAppDetail({ projectId, appId, onBack, authHeaders }: { projectId: st
       {/* G703 continuation sheet */}
       <div className="bg-panel rounded-xl border border-line overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr className="border-b border-line-soft text-[11px] uppercase tracking-wide text-faint">
                 <th className="text-left px-3 py-2 font-semibold">Description of work</th>

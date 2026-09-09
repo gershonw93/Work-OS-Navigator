@@ -52,6 +52,12 @@ export const RELEASES: Release[] = [
     title: 'A cleaner look on a phone',
     items: [
       {
+        kind: 'fixed',
+        title: 'Permissions reads as a list on a phone, and table headings stop breaking into letters',
+        text: 'The permissions grid was squeezed until "Create" read as Cr-ea-te and a group name was down to one letter. On a phone each resource is now a row with four labelled switches under it; on a desktop the grid is unchanged. The same squeeze could hit any table, so column headings across the app now stay on one line and a table wider than the screen scrolls inside its own box instead of crushing. Equipment and a vendor\'s quick numbers in the Directory sit in one card on a phone too.',
+        href: '/settings',
+      },
+      {
         kind: 'improved',
         title: 'Project overview, Projects and Master Money: one card of numbers on a phone',
         text: 'The four coloured money tiles on a project\'s overview, the five count boxes on Projects and the four tiles on Master Money each become one card with fine dividers on a phone, numbers in black and colour only where it means something - an outstanding balance, a negative escrow. Tapping a count on Projects still filters the list. What is waiting on you is a plain list of rows with a chevron. On a desktop all three screens are unchanged.',
