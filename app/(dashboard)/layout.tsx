@@ -36,13 +36,21 @@ export default async function DashboardLayout({ children }: { children: ReactNod
           thing inside it that scrolls is <main>. It used to be `min-h-screen`,
           which let the page itself grow and carried the top bar away with it.
           Print undoes all of it - a paged document has no viewport height. */}
-      <div className="flex h-app overflow-hidden bg-surface print:h-auto print:block print:overflow-visible">
+      <div className="app-shell flex h-app overflow-hidden bg-surface print:h-auto print:block print:overflow-visible">
         {/* App chrome is hidden when printing so print/PDF pages (proposals,
             invoices, pay apps) render clean, without the sidebar/nav/tabs. */}
         <div className="print:hidden">
           <Sidebar />
         </div>
-        <div className="flex flex-1 flex-col min-w-0 min-h-0 lg:pl-60 print:pl-0">
+        {/* THE RAIL'S WIDTH IS NOT WRITTEN HERE. It used to be - `lg:pl-60`
+            beside a `w-60` on the aside - two halves of one number in two
+            files, which is exactly the arrangement that cannot survive the
+            sidebar being able to collapse. `.app-content` and `.app-sidebar`
+            both read `--sidebar-w` off `.app-shell` above, so there is one
+            measurement and the content is always flush against the rail.
+            This layout is a Server Component, so a React state could not
+            reach it in any case. See app/globals.css. */}
+        <div className="app-content flex flex-1 flex-col min-w-0 min-h-0 print:pl-0">
           {/* THE ONE PLACE THE TOP INSET IS APPLIED.
               pt-safe here rather than on <header>: the header is h-14 and
               Tailwind sizes with border-box, so padding there comes OUT of the

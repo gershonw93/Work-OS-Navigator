@@ -3,6 +3,7 @@ import { Archivo, Saira_Condensed, Space_Mono } from 'next/font/google'
 import { CANONICAL_ORIGIN } from '@/lib/canonical'
 import { NoticeProvider } from '@/components/ui/notice'
 import { DeleteGuardProvider } from '@/components/ui/delete-guard'
+import { sidebarCollapseScript } from '@/lib/sidebar-collapse'
 import './globals.css'
 
 const archivo = Archivo({
@@ -118,6 +119,13 @@ export default function RootLayout({
     <html lang="en" className={`${archivo.variable} ${saira.variable} ${spaceMono.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        {/* Same reason, one preference over: the desktop sidebar's width is
+            read from localStorage BEFORE the first paint. Read it during
+            hydration instead and a collapsed rail is drawn 240px wide and
+            then snaps to 72, which reads as a glitch rather than as the
+            setting it is. lib/sidebar-collapse.ts holds the key, the class
+            and this script, so the toggle cannot drift from it. */}
+        <script dangerouslySetInnerHTML={{ __html: sidebarCollapseScript }} />
       </head>
       <body className="min-h-screen bg-surface font-sans antialiased">
         {/* THE ROOT, not (dashboard). `window.alert` was the last blocking

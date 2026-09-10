@@ -11,6 +11,11 @@ const config: Config = {
     './pages/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
     './app/**/*.{js,ts,jsx,tsx,mdx}',
+    // `lib` holds class strings too - the What's New tints, and the class the
+    // sidebar's pre-paint script stamps on <html>. A components-layer rule
+    // keyed on a name that appears nowhere Tailwind looks is a rule that is
+    // quietly deleted from the build, which is not a failure anything catches.
+    './lib/**/*.{js,ts,jsx,tsx}',
   ],
   theme: {
     extend: {

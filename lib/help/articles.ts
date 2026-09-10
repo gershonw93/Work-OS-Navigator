@@ -241,6 +241,30 @@ export const HELP_ARTICLES: HelpArticle[] = [
     related: ['create-first-project', 'project-tabs-explained', 'preconstruction-soft-costs', 'pay-applications'],
   },
   {
+    slug: 'collapse-sidebar',
+    title: 'Fold the side menu away on a computer',
+    category: 'getting-started',
+    keywords: [
+      'collapse', 'collapsed', 'expand', 'sidebar', 'side menu', 'left menu',
+      'navigation', 'nav', 'icons', 'icon only', 'narrow', 'hide menu',
+      'more room', 'more space', 'screen space', 'wider', 'small screen',
+      'laptop', 'desktop', 'fold', 'shrink menu',
+    ],
+    summary: 'Shrink the left-hand menu to a strip of icons and give the page the space back.',
+    blocks: [
+      { type: 'text', text: 'On a computer the menu sits down the left of every screen. On a smaller laptop that is a fair slice of the width, and once you know where things are you do not need to read the words every time. You can fold it down to a narrow strip of icons.' },
+      { type: 'steps', items: [
+        'Click the double arrow at the top of the menu, next to the SyteNav logo.',
+        'The menu shrinks to a column of icons and the page grows into the space it leaves.',
+        'Hover over an icon to see what it is. Clicking works exactly as before.',
+        'Click the double arrow again to bring the labels back.',
+      ] },
+      { type: 'tip', text: 'SyteNav remembers how you left it, per computer, so it opens the same way next time. Sign in on a different machine and that one starts with the menu open.' },
+      { type: 'text', text: 'Nothing changes on a phone or a tablet. There the menu already lives behind the button in the top left corner, with the main sections along the bottom of the screen.' },
+    ],
+    related: ['global-search', 'sytenav-on-your-phone', 'project-tabs-explained'],
+  },
+  {
     slug: 'global-search',
     title: 'Search across everything at once',
     category: 'projects',

@@ -599,5 +599,87 @@ const dockFull = measure(DOCK, DOCK_PROBE)
 ok(dockFull.bottom < VIEWPORT.h - 64,
   `with no keyboard it still clears the tab bar (ends at ${dockFull.bottom} of ${VIEWPORT.h})`)
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 11. THE RAIL AND THE CONTENT ARE ONE NUMBER.
+//
+// The sidebar's width was `w-60` and the content column's left padding was
+// `lg:pl-60` - the same measurement in two files, and (dashboard)/layout.tsx is
+// a Server Component, so no React state could ever have kept them together.
+// They now both read `--sidebar-w`, which is exactly the kind of claim that is
+// worth nothing until a browser has laid it out: what is being asserted is that
+// the content's left edge lands ON the rail's right edge, at both widths, with
+// no gap and no overlap.
+// ─────────────────────────────────────────────────────────────────────────────
+const RAIL = `
+<div id="shell" class="app-shell flex h-app overflow-hidden bg-surface">
+  <aside id="rail" class="app-sidebar hidden lg:flex fixed inset-y-0 left-0 z-30 flex-col bg-panel border-r border-line">
+    <div class="sidebar-head flex h-16 items-center justify-between gap-2 px-5 border-b border-line shrink-0">
+      <span class="nav-label">SYTENAV</span>
+      <button id="toggle" class="hidden lg:flex h-8 w-8 shrink-0 items-center justify-center rounded-md">
+        <span class="sidebar-toggle-icon h-4 w-4 block">&lt;</span>
+      </button>
+    </div>
+    <nav class="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+      <a id="row" class="nav-row flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium" title="Dashboard">
+        <span id="icon" class="h-4 w-4 shrink-0 block">D</span>
+        <span id="label" class="nav-label">Dashboard</span>
+      </a>
+    </nav>
+  </aside>
+  <aside id="drawer" class="lg:hidden fixed inset-y-0 left-0 z-50 w-72 flex flex-col bg-panel">
+    <a class="nav-row flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium">
+      <span class="h-4 w-4 shrink-0 block">D</span>
+      <span id="dlabel" class="nav-label">Dashboard</span>
+    </a>
+  </aside>
+  <div id="content" class="app-content flex flex-1 flex-col min-w-0 min-h-0">
+    <main id="main" class="flex-1 min-h-0 overflow-y-auto"><div class="p-6">Content</div></main>
+  </div>
+</div>`
+
+const RAIL_PROBE = `(rect) => {
+  const b = s => { const r = rect(s); return r ? { l: Math.round(r.left), r: Math.round(r.right),
+    w: Math.round(r.width), h: Math.round(r.height), t: Math.round(r.top) } : null }
+  const label = document.querySelector('#label')
+  return { rail: b('#rail'), content: b('#main'), drawer: b('#drawer'), row: b('#row'), icon: b('#icon'),
+           labelWidth: Math.round(label.getBoundingClientRect().width),
+           drawerLabel: Math.round(document.querySelector('#dlabel').getBoundingClientRect().width),
+           labelDisplay: getComputedStyle(label).display,
+           vw: window.innerWidth }
+}`
+
+const open = measure(RAIL, RAIL_PROBE, 800, '', 1280)
+ok(open.vw === 1280, `laid out on a desktop (${open.vw})`)
+ok(open.rail.w === 240, `the rail is its full width when open (${open.rail.w})`)
+ok(open.content.l === open.rail.r,
+  `the content starts exactly where the rail ends (${open.content.l} vs ${open.rail.r})`)
+
+const shut = measure(`<div class="sidebar-collapsed">${RAIL}</div>`, RAIL_PROBE, 800, '', 1280)
+ok(shut.rail.w === 72, `collapsed, the rail is a 72px column of icons (${shut.rail.w})`)
+ok(shut.content.l === shut.rail.r,
+  `...and the content follows it in, still flush (${shut.content.l} vs ${shut.rail.r})`)
+ok(shut.content.w - open.content.w === 168,
+  `...which is 168px of screen handed back (${open.content.w} to ${shut.content.w})`)
+
+// The label is CLIPPED, not removed. `display: none` would take the link's
+// accessible name with it and a screen reader would read out the href instead.
+ok(shut.labelDisplay !== 'none' && shut.labelWidth <= 1,
+  `the label is clipped rather than dropped (display ${shut.labelDisplay}, ${shut.labelWidth}px wide)`)
+
+// An icon alone in a 72px column has to be in the middle of it.
+const iconMid = shut.icon.l + shut.icon.w / 2
+ok(Math.abs(iconMid - (shut.rail.l + shut.rail.w / 2)) <= 1,
+  `the icon is centred in the rail (${Math.round(iconMid)} of ${shut.rail.w / 2})`)
+ok(shut.row.h >= 40, `and the row is still a real target (${shut.row.h}px)`)
+
+// The phone knows nothing about any of this - the rules are `screen and
+// (min-width: 1024px)`, so a flag set on a desktop cannot follow somebody onto
+// their phone and give them a 72px drawer.
+const phone = measure(`<div class="sidebar-collapsed">${RAIL}</div>`, RAIL_PROBE)
+ok(phone.drawer.w === 288, `on a phone the drawer is untouched (${phone.drawer.w})`)
+ok(phone.content.l === 0, `...and the content has no rail to clear (${phone.content.l})`)
+ok(phone.drawerLabel > 1,
+  `...and the drawer's labels are words, not icons (${phone.drawerLabel}px)`)
+
 rmSync(work, { recursive: true, force: true })
 done()

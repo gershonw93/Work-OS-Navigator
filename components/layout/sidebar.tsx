@@ -6,6 +6,7 @@ import {
   LayoutDashboard, FolderKanban, Building2, CheckSquare,
   Settings, LogOut, ClipboardList, Briefcase, FolderOpen, X, UsersRound,
   CalendarDays, DollarSign, Wrench, HelpCircle, ShoppingCart, Sparkles,
+  ChevronsLeft,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -13,6 +14,7 @@ import { usePermissions } from '@/lib/use-permissions'
 import { unregisterThisDevice } from '@/lib/use-push'
 import { SEEN_KEY, unreadCount } from '@/lib/whats-new'
 import { SyteNavLogo } from '@/components/ui/logo'
+import { SIDEBAR_COLLAPSED_CLASS, SIDEBAR_COLLAPSED_KEY, SIDEBAR_COLLAPSED_ON } from '@/lib/sidebar-collapse'
 import { useEffect, useState } from 'react'
 
 // GC nav items mapped to permission resource keys. Settings has no resource -
@@ -44,6 +46,17 @@ const SUB_NAV = [
   { label: 'Approvals', href: '/approvals', icon: CheckSquare },
 ]
 
+// Every clickable row in the sidebar, in one string.
+//
+// `nav-row` is what globals.css centres when the rail is collapsed, and it is
+// on this constant rather than typed per row so a row added later cannot be the
+// one that stays left-aligned in a 72px column. The label beside the icon is
+// always wrapped in `.nav-label`, which is CLIPPED - not removed - when
+// collapsed, so the link keeps its accessible name.
+const ROW = 'nav-row flex items-center gap-3 rounded-lg text-sm font-medium transition-colors'
+const ROW_ON = 'bg-accent text-accent-ink'
+const ROW_OFF = 'text-muted-fg hover:bg-muted hover:text-ink'
+
 // TopNav dispatches this event to open the drawer on mobile
 export const OPEN_SIDEBAR_EVENT = 'workos:open-sidebar'
 
@@ -56,6 +69,29 @@ export function Sidebar() {
   // permissions rather than from a second query the browser makes itself.
   const isSubcontractor = companyType === 'subcontractor'
   const [mobileOpen, setMobileOpen] = useState(false)
+
+  // COLLAPSED IS A CLASS ON <html>, NOT REACT STATE, and this mirror exists for
+  // exactly two attributes: the toggle's label and its aria-expanded. Nothing
+  // VISUAL reads it - the width, the labels and the chevron are all CSS off
+  // that class, which a script in <head> has already set before the first
+  // paint. So the one frame where this is still `false` is a frame nobody can
+  // see, and there is nothing to flash. Read after mount for the same reason
+  // `newCount` below is: the server and the first client render must agree.
+  const [collapsed, setCollapsed] = useState(false)
+  useEffect(() => {
+    setCollapsed(document.documentElement.classList.contains(SIDEBAR_COLLAPSED_CLASS))
+  }, [])
+
+  function toggleCollapsed() {
+    const el = document.documentElement
+    const next = !el.classList.contains(SIDEBAR_COLLAPSED_CLASS)
+    el.classList.toggle(SIDEBAR_COLLAPSED_CLASS, next)
+    // A preference that does not survive a reload is not a preference. Wrapped
+    // because localStorage throws outright in some privacy modes, and losing
+    // the memory is not a reason to lose the toggle.
+    try { localStorage.setItem(SIDEBAR_COLLAPSED_KEY, next ? SIDEBAR_COLLAPSED_ON : '0') } catch { /* fine */ }
+    setCollapsed(next)
+  }
 
   // Releases they haven't looked at yet. Read from localStorage after mount so
   // the server and first client render agree.
@@ -110,12 +146,25 @@ export function Sidebar() {
   const navContent = (
     <>
       {/* Logo */}
-      <div className="flex h-16 items-center justify-between gap-2 px-5 border-b border-line shrink-0">
-        <SyteNavLogo size={26} />
+      <div className="sidebar-head flex h-16 items-center justify-between gap-2 px-5 border-b border-line shrink-0">
+        <span className="nav-label"><SyteNavLogo size={26} /></span>
+        {/* Collapse to a rail of icons - desktop only. The drawer has no width
+            to give back and gets the close button in this slot instead. */}
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          aria-label={collapsed ? 'Expand menu' : 'Collapse menu'}
+          aria-expanded={!collapsed}
+          title={collapsed ? 'Expand menu' : 'Collapse menu'}
+          className="hidden lg:flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-faint hover:bg-muted hover:text-ink transition-colors"
+        >
+          <ChevronsLeft className="sidebar-toggle-icon h-4 w-4 transition-transform" />
+        </button>
         {/* Close button - mobile only */}
         <button
           className="lg:hidden text-faint hover:text-ink p-1"
           onClick={() => setMobileOpen(false)}
+          aria-label="Close menu"
         >
           <X className="h-5 w-5" />
         </button>
@@ -135,8 +184,12 @@ export function Sidebar() {
             ))}
           </div>
         )}
+        {/* `nav-label`, so it is clipped in the rail: three lines of prose and a
+            Try again button do not fit in 72px. The fact is not lost - a failed
+            permissions call is announced once for the session by
+            PermissionsBanner in the chrome, which carries its own retry. */}
         {permsError && (
-          <div className="rounded-lg border border-warn/30 bg-warn-tint px-3 py-2.5 text-xs text-warn space-y-2">
+          <div className="nav-label rounded-lg border border-warn/30 bg-warn-tint px-3 py-2.5 text-xs text-warn space-y-2">
             <p className="font-medium">Couldn&apos;t load your menu.</p>
             <p className="text-[11px] opacity-90">{permsError}</p>
             <button onClick={reloadPerms}
@@ -151,13 +204,10 @@ export function Sidebar() {
             ? pathname === '/dashboard'
             : pathname.startsWith(item.href)
           return (
-            <Link key={item.href} href={item.href}
-              className={cn(
-                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                isActive ? 'bg-accent text-accent-ink' : 'text-muted-fg hover:bg-muted hover:text-ink'
-              )}>
+            <Link key={item.href} href={item.href} title={item.label}
+              className={cn(ROW, 'px-3 py-2.5', isActive ? ROW_ON : ROW_OFF)}>
               <Icon className="h-4 w-4 shrink-0" />
-              {item.label}
+              <span className="nav-label">{item.label}</span>
             </Link>
           )
         })}
@@ -165,18 +215,15 @@ export function Sidebar() {
         {/* Master (admin-only, cross-project - works for GC and sub on their own jobs) */}
         {isAdmin && (
           <div className="pt-3 mt-2 border-t border-line">
-            <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-faint">Master</p>
+            <p className="nav-label px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-faint">Master</p>
             {MASTER_NAV_ITEMS.map(item => {
               const Icon = item.icon
               const isActive = pathname.startsWith(item.href)
               return (
-                <Link key={item.href} href={item.href}
-                  className={cn(
-                    'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                    isActive ? 'bg-accent text-accent-ink' : 'text-muted-fg hover:bg-muted hover:text-ink'
-                  )}>
+                <Link key={item.href} href={item.href} title={item.label}
+                  className={cn(ROW, 'px-3 py-2.5', isActive ? ROW_ON : ROW_OFF)}>
                   <Icon className="h-4 w-4 shrink-0" />
-                  {item.label}
+                  <span className="nav-label">{item.label}</span>
                 </Link>
               )
             })}
@@ -186,39 +233,31 @@ export function Sidebar() {
 
       {/* Bottom */}
       <div className="border-t border-line p-3 shrink-0 space-y-1">
-        <Link href="/whats-new"
-          className={cn(
-            'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-            pathname.startsWith('/whats-new') ? 'bg-accent text-accent-ink' : 'text-muted-fg hover:bg-muted hover:text-ink'
-          )}>
+        <Link href="/whats-new" title="What's new"
+          className={cn(ROW, 'px-3 py-2',
+            pathname.startsWith('/whats-new') ? ROW_ON : ROW_OFF)}>
           <Sparkles className="h-4 w-4 shrink-0" />
-          <span className="flex-1">What&apos;s new</span>
+          <span className="nav-label flex-1">What&apos;s new</span>
           {newCount > 0 && !pathname.startsWith('/whats-new') && (
-            <span className="shrink-0 rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-bold text-accent-ink">
+            <span className="nav-badge shrink-0 rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-bold text-accent-ink">
               {newCount}
             </span>
           )}
         </Link>
-        <Link href="/help"
-          className={cn(
-            'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-            pathname.startsWith('/help') ? 'bg-accent text-accent-ink' : 'text-muted-fg hover:bg-muted hover:text-ink'
-          )}>
+        <Link href="/help" title="Help & Support"
+          className={cn(ROW, 'px-3 py-2', pathname.startsWith('/help') ? ROW_ON : ROW_OFF)}>
           <HelpCircle className="h-4 w-4 shrink-0" />
-          Help &amp; Support
+          <span className="nav-label">Help &amp; Support</span>
         </Link>
-        <Link href="/settings"
-          className={cn(
-            'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-            pathname.startsWith('/settings') ? 'bg-accent text-accent-ink' : 'text-muted-fg hover:bg-muted hover:text-ink'
-          )}>
+        <Link href="/settings" title="Settings"
+          className={cn(ROW, 'px-3 py-2', pathname.startsWith('/settings') ? ROW_ON : ROW_OFF)}>
           <Settings className="h-4 w-4 shrink-0" />
-          Settings
+          <span className="nav-label">Settings</span>
         </Link>
-        <button onClick={handleLogout}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-fg hover:bg-muted hover:text-ink transition-colors">
+        <button onClick={handleLogout} title="Sign Out"
+          className={cn(ROW, 'w-full px-3 py-2', ROW_OFF)}>
           <LogOut className="h-4 w-4 shrink-0" />
-          Sign Out
+          <span className="nav-label">Sign Out</span>
         </button>
       </div>
     </>
@@ -227,7 +266,9 @@ export function Sidebar() {
   return (
     <>
       {/* Desktop sidebar - hidden on mobile */}
-      <aside className="hidden lg:flex fixed inset-y-0 left-0 z-30 w-60 flex-col bg-panel text-ink border-r border-line pt-safe pb-safe">
+      {/* No `w-60`. The width is `--sidebar-w` in globals.css, which the content
+          column beside it reads too - see app/(dashboard)/layout.tsx. */}
+      <aside className="app-sidebar hidden lg:flex fixed inset-y-0 left-0 z-30 flex-col bg-panel text-ink border-r border-line pt-safe pb-safe">
         {navContent}
       </aside>
 

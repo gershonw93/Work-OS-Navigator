@@ -145,6 +145,20 @@ production branch.** Do NOT ask the user to merge or deploy.
   used to be an `absolute` child hidden with `visibility` - hidden is not
   gone: it still had a width, made a sheet's scroll body wider than the panel
   (a thumb dragged the sheet sideways), and opened off the edge of a phone.
+- THE DESKTOP SIDEBAR'S WIDTH IS ONE VARIABLE, NOT TWO CLASSES. It was `w-60`
+  on the aside and `lg:pl-60` on the content column - the same measurement in
+  two files, with nothing connecting them, and `(dashboard)/layout.tsx` is a
+  Server Component so no React state ever could. Both now read `--sidebar-w`
+  off `.app-shell` (globals.css), which is how the rail can collapse to a 72px
+  strip of icons without the content overlapping it or leaving a hole. The
+  collapsed state is a class on `<html>`, set by a pre-paint script in
+  `lib/sidebar-collapse.ts` - the same door the theme uses, because anything
+  read from localStorage AFTER mount is drawn wrong first and then snaps.
+  Every rule is `@media screen and (min-width: 1024px)`: `screen` because a
+  print stylesheet is not a narrow one, and 1024 because the phone drawer is
+  untouched. Collapsed labels are CLIPPED, never `display: none` - the label is
+  the link's accessible name, and dropping it leaves a screen reader announcing
+  the href. Pinned in `sidebar-collapse.ts` and measured in `overlay-geometry.ts`.
 - Wide content gets `overflow-x-auto`, never `overflow-hidden`. Hidden does not
   contain a wide table, it cuts it off with nothing to say so.
 - SAFE AREAS ARE OURS, not iOS's. `capacitor.config.ts` sets
