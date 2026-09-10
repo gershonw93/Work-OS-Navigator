@@ -241,7 +241,34 @@ export function firstName(fullName: string | null | undefined): string {
   return n || 'there'
 }
 
-/** "You're approved, here's your link." */
+// ── Three invites, because there are three people ────────────────────────────
+//
+// THE BUG. Inviting a subcontractor from the Directory sent them this:
+// "YOU'RE APPROVED · Welcome to the SyteNav beta · your access request is
+// approved · start putting jobs in straight away."
+//
+// Not one clause of that is true for a sub. They never asked for access, they
+// are not in a beta they applied to, and they do not put jobs in - they answer
+// somebody else's. `inviteEmail` was written for exactly one audience and then
+// used for all three, so two of the three were told they had come through a
+// door they had never seen.
+//
+// There are two doors into SyteNav and they mean different things:
+//
+//   WAITLIST  a stranger asks, a super admin approves. "You're approved" is
+//             true here and nowhere else.
+//   INVITE    somebody already inside vouches for a person. There is no second
+//             approval because the invite IS the approval.
+//
+// So: one template per audience, and each says which door you came through.
+
+/**
+ * The waitlist approval - and ONLY the waitlist approval.
+ *
+ * `app/api/admin/access-requests/route.ts` is the sole caller. It is the one
+ * place "you're approved" describes something that happened, because somebody
+ * really did apply and an admin really did approve it.
+ */
 export function inviteEmail({ name, inviteUrl }: { name: string | null | undefined; inviteUrl: string }) {
   const hi = firstName(name)
 
@@ -274,6 +301,110 @@ export function inviteEmail({ name, inviteUrl }: { name: string | null | undefin
   })
 
   return { subject: 'Your SyteNav invite', text, html }
+}
+
+/**
+ * A teammate an admin added to their own company.
+ *
+ * They made no request, so nothing here is approved. What they need to know is
+ * who added them and to what - a bare "create your account" from a product you
+ * have never signed up to reads as spam.
+ */
+export function teamInviteEmail({
+  name, companyName, inviterName, inviteUrl,
+}: {
+  name: string | null | undefined
+  companyName: string | null | undefined
+  inviterName: string | null | undefined
+  inviteUrl: string
+}) {
+  const hi = firstName(name)
+  const company = (companyName ?? '').trim() || 'your company'
+  const who = (inviterName ?? '').trim()
+  const added = who ? `${who} added you to ${company}` : `You have been added to ${company}`
+
+  const text = [
+    `Hi ${hi},`,
+    '',
+    `${added} on SyteNav.`,
+    '',
+    'Set up your account here:',
+    inviteUrl,
+    '',
+    'The link is personal to you and only works once.',
+    '',
+    'If you were not expecting this, just reply to this email.',
+    '',
+    'SyteNav',
+  ].join('\n')
+
+  const html = emailLayout({
+    preheader: `${added} on SyteNav.`,
+    eyebrow: 'You have been added',
+    heading: `${added}`,
+    paragraphs: [
+      `Hi ${hi}, you now have an account on ${company}'s jobs.`,
+      'Set a password and you are in - what you can see depends on the role you were given.',
+    ],
+    cta: { label: 'Set up your account', url: inviteUrl },
+    footNote: 'This link is personal to you and only works once. If you were not expecting this, just reply to this email.',
+  })
+
+  return { subject: `${added} on SyteNav`, text, html }
+}
+
+/**
+ * A subcontractor or supplier a GC invited out of their Directory.
+ *
+ * The audience the reported bug was actually sent to. They are not joining the
+ * GC's staff and they are not putting jobs in, so the mail says what the login
+ * is FOR - which is the only reason an outside company would bother creating
+ * one. No "beta", no "approved": they applied for nothing.
+ */
+export function vendorInviteEmail({
+  name, gcName, inviteUrl,
+}: {
+  name: string | null | undefined
+  gcName: string | null | undefined
+  inviteUrl: string
+}) {
+  const hi = firstName(name)
+  const gc = (gcName ?? '').trim() || 'A contractor you work with'
+
+  const text = [
+    `Hi ${hi},`,
+    '',
+    `${gc} works with you on SyteNav and has set you up with an account.`,
+    '',
+    'With it you can:',
+    '- see the jobs you are on',
+    '- price the work they send you and quote it back',
+    '- send in your bills and see what has been paid',
+    '- keep your insurance and licence current so nothing holds up a payment',
+    '',
+    'Create your account here:',
+    inviteUrl,
+    '',
+    'It is free, it is personal to you, and the link only works once.',
+    '',
+    'If you were not expecting this, just reply to this email.',
+    '',
+    'SyteNav',
+  ].join('\n')
+
+  const html = emailLayout({
+    preheader: `${gc} has set you up with a SyteNav account.`,
+    eyebrow: 'An invitation',
+    heading: `${gc} works with you on SyteNav`,
+    paragraphs: [
+      `Hi ${hi}, they have set you up with an account - it is free and it is yours.`,
+      'Use it to see the jobs you are on, quote the work they send you, send in your bills and see what has been paid, and keep your insurance and licence current so nothing holds up a payment.',
+    ],
+    cta: { label: 'Create your account', url: inviteUrl },
+    footNote: 'This link is personal to you and only works once. If you were not expecting this, just reply to this email.',
+  })
+
+  return { subject: `${gc} invited you to SyteNav`, text, html }
 }
 
 /**

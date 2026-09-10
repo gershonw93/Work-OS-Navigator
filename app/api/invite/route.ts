@@ -1,47 +1,97 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { appOrigin } from '@/lib/app-url'
-import { emailConfig, inviteEmail, sendEmail } from '@/lib/email'
+import { emailConfig, sendEmail, teamInviteEmail, vendorInviteEmail } from '@/lib/email'
+import { requirePermission, denied } from '@/lib/api-guard'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
-async function getUser(request: Request) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return null
-  const { data: { user } } = await admin().auth.getUser(token)
-  return user
-}
-
 export async function POST(request: Request) {
-  const user = await getUser(request)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const body = await request.json().catch(() => ({} as any))
+  const { email } = body
 
-  const body = await request.json()
-  const { email, company_name, role } = body
-  let { company_id } = body
+  // WHO IS THIS FOR. Two doors into SyteNav mean two different emails, and
+  // sending the wrong one told a subcontractor he had been approved for a beta
+  // he never applied to. Defaults to 'team' so a caller that has not been
+  // updated cannot silently pick the more surprising of the two.
+  const audience: 'team' | 'vendor' = body.audience === 'vendor' ? 'vendor' : 'team'
+
+  // ── THE GATE ────────────────────────────────────────────────────────────
+  //
+  // This route used to check only that you were SIGNED IN. It then took `role`
+  // and `company_id` out of the request body, and /api/invite/accept writes
+  // that role onto the new profile - so any account at all, including a
+  // read-only teammate or a sub who accepted an invite, could mint an admin of
+  // any company whose id it had. middleware.ts returns early for /api/, so
+  // nothing else was gating it either.
+  //
+  // Adding a teammate is the Settings > Team & Users screen, which is what
+  // `settings_team` already names. Inviting somebody out of your Directory is a
+  // directory action. Same two lines as every other write route.
+  const db = admin()
+  const gate = await requirePermission(db, request, audience === 'vendor' ? 'directory' : 'settings_team', 'edit')
+  if (denied(gate)) return gate.denied
+  const actor = gate.actor
 
   if (!email) {
     return NextResponse.json({ error: 'email is required' }, { status: 400 })
   }
-
-  const db = admin()
-
-  // If company_id wasn't sent (or is null), look it up from the inviter's profile
-  if (!company_id) {
-    const { data: inviterProfile } = await db
-      .from('profiles')
-      .select('company_id')
-      .eq('id', user.id)
-      .single()
-    company_id = inviterProfile?.company_id
-  }
-
-  if (!company_id) {
+  if (!actor.companyId) {
     return NextResponse.json({ error: 'No company linked to your account. Please set up your company first.' }, { status: 400 })
   }
+
+  // ── WHICH COMPANY, decided here rather than by the caller ───────────────
+  //
+  // A teammate always lands on the inviter's own company; there is no legitimate
+  // reason for a client to name a different one. A vendor lands on their OWN
+  // company row, which must be one this company put in its directory -
+  // `added_by_company_id` is what makes the Directory yours.
+  let company_id: string
+  if (audience === 'vendor') {
+    const named = String(body.company_id ?? '')
+    if (!named) {
+      return NextResponse.json({ error: 'Which company are you inviting?' }, { status: 400 })
+    }
+    const { data: vendor } = await db
+      .from('companies')
+      .select('id, name, added_by_company_id')
+      .eq('id', named)
+      .maybeSingle()
+    if (!vendor || (vendor.added_by_company_id !== actor.companyId && vendor.id !== actor.companyId)) {
+      return NextResponse.json({ error: 'That company is not in your directory.' }, { status: 403 })
+    }
+    company_id = vendor.id
+  } else {
+    company_id = actor.companyId
+  }
+
+  // ── WHICH ROLE, clamped ─────────────────────────────────────────────────
+  //
+  // A vendor is an outside company reading their own jobs - never anything
+  // else, whatever the body says. And nobody mints an admin who is not one
+  // already: that is the escalation this route was wide open to.
+  let role: string
+  if (audience === 'vendor') {
+    role = 'read_only'
+  } else {
+    role = body.role ?? 'read_only'
+    if (role === 'admin' && actor.role !== 'admin') {
+      return NextResponse.json({ error: 'Only an admin can invite another admin.' }, { status: 403 })
+    }
+  }
+
+  // Who is doing the inviting - for the email, and looked up rather than taken
+  // from the body. The Directory page sends the SUB's name as `company_name`,
+  // which is the wrong answer to "who is inviting you".
+  const [{ data: inviterProfile }, { data: inviterCompany }] = await Promise.all([
+    db.from('profiles').select('full_name').eq('id', actor.userId).maybeSingle(),
+    db.from('companies').select('name').eq('id', actor.companyId).maybeSingle(),
+  ])
+  const inviterName = (inviterProfile as any)?.full_name ?? null
+  const inviterCompanyName = (inviterCompany as any)?.name ?? null
 
   // Send Supabase auth invite. Prefer configured site/app URL; fall back to the
   // request's own host so the callback always lands on the domain the app is
@@ -70,7 +120,7 @@ export async function POST(request: Request) {
   // Supabase's own send stays as the fallback for an environment where
   // SENDGRID_API_KEY is unset, which is exactly what it was before.
   const redirectTo = `${siteUrl}/auth/callback`
-  const userData = { company_id, role: role ?? 'read_only', full_name: body.full_name ?? '' }
+  const userData = { company_id, role, full_name: body.full_name ?? '' }
 
   let emailSent = true
   let sendDetail: string | undefined
@@ -84,7 +134,14 @@ export async function POST(request: Request) {
   const actionLink = (linkData as any)?.properties?.action_link
 
   if (!linkError && actionLink && emailConfig().configured) {
-    const { subject, text, html } = inviteEmail({ name: body.full_name ?? null, inviteUrl: actionLink })
+    const { subject, text, html } = audience === 'vendor'
+      ? vendorInviteEmail({ name: body.full_name ?? null, gcName: inviterCompanyName, inviteUrl: actionLink })
+      : teamInviteEmail({
+          name: body.full_name ?? null,
+          companyName: inviterCompanyName,
+          inviterName,
+          inviteUrl: actionLink,
+        })
     const result = await sendEmail({ to: email, subject, text, html })
     emailSent = result.sent
     // SendGrid's own words, kept. "Failed" tells whoever is debugging nothing;
@@ -121,8 +178,8 @@ export async function POST(request: Request) {
     .insert({
       company_id,
       email,
-      invited_by: user.id,
-      role: role ?? 'read_only',
+      invited_by: actor.userId,
+      role,
       status: 'pending',
     })
   if (insertError) {

@@ -605,10 +605,13 @@ export default function SettingsPage() {
         method: 'POST',
         headers,
         body: JSON.stringify({
+          // A teammate on this company. `company_id` is not sent any more:
+          // the route resolves it from the inviter, because a client naming
+          // the company is exactly how somebody minted an admin elsewhere.
+          audience: 'team',
           email: inviteEmail,
           full_name: inviteFullName,
           role: inviteRole,
-          company_id: profile?.company_id,
         }),
       })
       if (res.ok) {
@@ -705,7 +708,7 @@ export default function SettingsPage() {
       const res = await fetch('/api/invite', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ email, role }),
+        body: JSON.stringify({ audience: 'team', email, role }),
       })
       // Look at the answer. This used to report "Invite resent" the moment the
       // request came back, whatever it said - it did not check res.ok and did
