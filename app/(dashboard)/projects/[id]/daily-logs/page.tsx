@@ -17,6 +17,9 @@ import {
   Users, Building2, Camera, Clock, CheckSquare, Trash2, Flag, Pencil,
   ShieldAlert, BadgeCheck, Paperclip, FileText, Download, Send, PenLine, Check,
 } from 'lucide-react'
+// The table lives in lib now: the client portal shows the same field and was
+// printing a hardcoded sun beside every log, whatever the weather actually was.
+import { WEATHER_OPTIONS, weatherIcon as weatherIconFor } from '@/lib/weather'
 import { ACCEPT_DOCS } from '@/lib/file-accept'
 import { usePreviewUrls } from '@/lib/use-preview-urls'
 import { parseDate, formatDate } from '@/lib/dates'
@@ -38,14 +41,6 @@ type SurveyAnswer = { answer: 'na' | 'yes' | 'no'; description: string }
 function blankSurvey(): Record<string, SurveyAnswer> {
   return Object.fromEntries(SURVEY_QUESTIONS.map(q => [q.key, { answer: 'na', description: '' }]))
 }
-
-const WEATHER_OPTIONS = [
-  { value: 'sunny', label: 'Sunny', icon: Sun },
-  { value: 'cloudy', label: 'Cloudy', icon: Cloud },
-  { value: 'rainy', label: 'Rainy', icon: CloudRain },
-  { value: 'snowy', label: 'Snowy', icon: CloudSnow },
-  { value: 'windy', label: 'Windy', icon: Wind },
-]
 
 const DELAY_TYPES = ['Weather', 'Material Delivery', 'Equipment', 'Labor Shortage', 'Inspection', 'Design Change', 'Other']
 
@@ -596,10 +591,8 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
   }
 
   const weatherIcon = (condition: string | null) => {
-    const w = WEATHER_OPTIONS.find(o => o.value === condition)
-    if (!w) return null
-    const Icon = w.icon
-    return <Icon className="h-4 w-4" />
+    const Icon = weatherIconFor(condition)
+    return Icon ? <Icon className="h-4 w-4" /> : null
   }
 
   return (

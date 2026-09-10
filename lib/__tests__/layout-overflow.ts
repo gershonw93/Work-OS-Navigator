@@ -600,6 +600,65 @@ ok(missing.length === 0, `every job status says what it means${missing.length ? 
 ok((statusSwitch.match(/\{STATUS_MEANING\[current\]\}/g) ?? []).length === 2,
   '...and both the desktop menu and the phone sheet read the selected one')
 
+// ── 14. AN ICON IS A COMPONENT, NOT A CHARACTER ─────────────────────────────
+//
+// Reported as "wtf is that emoji" against a robot on the Compliance upload
+// form: `🤖 Scan with AI`, beside two other AI-scan blocks that both use the
+// lucide Sparkles icon. An emoji renders in the PLATFORM's emoji font rather
+// than the app's - full colour, at a size and weight nothing in this codebase
+// controls, and drawn differently on an iPhone, a Mac and a Windows laptop.
+// Next to 14px semibold ink text it reads as a sticker somebody left behind.
+//
+// Six of them: the robot, a paperclip on the Add Subcontractor form, a star on
+// bid leveling, a warning triangle on My Jobs, and - on the CLIENT PORTAL, the
+// page a customer reads - a sun and a hard hat on the daily log. The sun was
+// printed beside EVERY log whatever the weather said, which made it a bug and
+// not a style problem; see lib/weather.ts.
+//
+// ARROWS AND CHECK MARKS ARE NOT THIS. `→ ← ↑ ↓ ✓` render in the text font, at
+// the text's size and colour, and the app uses them deliberately in fifty
+// places. The arrow block is outside the scan entirely and `✓` is allowed by
+// name, so this cannot be "satisfied" by banning everything non-ASCII.
+//
+// Ratcheted at ZERO, like `alert(` and `confirm(`: there is no reason for a new
+// one, and the next person reaching for an emoji should hear it from here
+// rather than from a screenshot.
+// By CODEPOINT rather than by regex: the `u` flag needs an ES6 target this
+// project does not set, and reading the numbers makes the two ranges - the
+// pictographs and the misc-symbols/dingbats block - obvious.
+const PICTOGRAPH = (cp: number) =>
+  (cp >= 0x1F300 && cp <= 0x1FAFF) || (cp >= 0x2600 && cp <= 0x27BF)
+const ALLOWED_GLYPHS = ['✓', '✗', '✕']
+const emoji: string[] = []
+for (const f of tsx) {
+  // `code()` strips comments, so the ones quoted in a note explaining this bug
+  // are not themselves the bug.
+  code(f).split('\n').forEach((line, i) => {
+    for (const ch of Array.from(line)) {
+      const cp = ch.codePointAt(0) ?? 0
+      if (!PICTOGRAPH(cp) || ALLOWED_GLYPHS.indexOf(ch) !== -1) continue
+      emoji.push(`${f}:${i + 1} ${ch}`)
+    }
+  })
+}
+ok(emoji.length === 0,
+  `no character stands in for an icon${emoji.length ? ` - ${emoji[0]} (+${emoji.length - 1})` : ''}`)
+
+// ...and the typography it deliberately keeps is still there, so the scan above
+// cannot have been passed by deleting everything.
+const arrows = tsx.filter(f => /[→←↑↓]/.test(code(f)))
+ok(arrows.length >= 5, `arrows are typography and stay (${arrows.length} files)`)
+ok(tsx.some(f => /✓/.test(code(f))), '...and so is the check mark')
+
+// The one the report was about, and the two it should have matched all along.
+for (const f of [
+  'app/(dashboard)/projects/[id]/compliance/page.tsx',
+  'app/(dashboard)/projects/[id]/team/page.tsx',
+  'app/(dashboard)/projects/[id]/submittals/page.tsx',
+]) {
+  ok(/<Sparkles /.test(code(f)), `${f.split('/').slice(-2, -1)[0]}'s AI scan uses the same icon as the others`)
+}
+
 // ── long text, which is the same bug one level down ──────────────────────────
 ok(/p,\s*li,\s*dd,\s*dt,\s*blockquote[\s\S]{0,80}overflow-wrap:\s*anywhere/.test(css),
   'prose wraps anywhere by default - `break-word` wraps the text but not the container')

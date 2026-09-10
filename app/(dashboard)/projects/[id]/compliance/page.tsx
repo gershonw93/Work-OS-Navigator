@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { StatStrip } from '@/components/ui/stat-strip'
 import { StatCard } from '@/components/ui/stat-card'
 import { cn } from '@/lib/utils'
-import { ShieldCheck, Upload, RefreshCw, X, AlertTriangle, CheckCircle2, FileWarning, ExternalLink, ChevronDown, ChevronUp, Mail, Copy, Link2, Send, MinusCircle, PlusCircle } from 'lucide-react'
+import { ShieldCheck, Upload, RefreshCw, X, AlertTriangle, CheckCircle2, FileWarning, ExternalLink, ChevronDown, ChevronUp, Mail, Copy, Link2, Send, MinusCircle, PlusCircle, Sparkles } from 'lucide-react'
 import {
   DOC_LABELS, docTypesFor, requiredDocsFor, overrideFor, typesToRequest,
   type DocType, type RequirementOverride,
@@ -421,7 +421,9 @@ function UploadForm({
         {/* AI Scan */}
         <div className={cn('rounded-lg border p-3 space-y-2', scanned ? 'border-success/30 bg-success-tint' : 'border-accent/40 bg-accent-tint')}>
           <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-ink-soft">🤖 Scan with AI</span>
+            <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink-soft">
+              <Sparkles className="h-4 w-4 shrink-0 text-accent-fg" /> Scan with AI
+            </span>
             <span className="text-xs text-muted-fg">- upload the document and Claude extracts expiry, status &amp; coverage</span>
           </div>
           <label className={cn(

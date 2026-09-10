@@ -725,7 +725,12 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                 <div className="space-y-1.5">
                   <Label><Paperclip className="inline h-3.5 w-3.5 mr-1 text-faint" />Attach proposal / contract <span className="text-faint font-normal">(optional)</span></Label>
                   <Input type="file" accept="image/*,application/pdf" onChange={e => setSubProposal(e.target.files?.[0] ?? null)} />
-                  {subProposal && <p className="text-xs text-faint truncate">📎 {subProposal.name}</p>}
+                  {subProposal && (
+                    <p className="flex items-center gap-1.5 text-xs text-faint">
+                      <Paperclip className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{subProposal.name}</span>
+                    </p>
+                  )}
                   <label className="inline-flex items-center gap-1.5 text-xs font-medium text-accent-fg cursor-pointer hover:underline">
                     {subAnalyzing
                       ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Reading…</>

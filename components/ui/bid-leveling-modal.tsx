@@ -1,6 +1,6 @@
 'use client'
 
-import { X, Award } from 'lucide-react'
+import { X, Award, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
@@ -178,7 +178,7 @@ export function BidLevelingModal({
                         {/* Recommended badge on lowest */}
                         {isLowest && sorted.length > 1 && (
                           <span className="whitespace-nowrap inline-flex items-center gap-1 text-xs font-semibold text-success bg-success-tint rounded-full px-2.5 py-0.5">
-                            ★ Recommended
+                            <Star className="h-3 w-3 shrink-0 fill-current" /> Recommended
                           </span>
                         )}
                         <span className="font-semibold text-ink text-sm leading-tight">
