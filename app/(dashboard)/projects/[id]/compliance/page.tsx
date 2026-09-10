@@ -18,7 +18,9 @@ import { clientAppOrigin } from '@/lib/app-url'
 import { SendLinkBox } from '@/components/ui/send-link-box'
 
 import { formatDate } from '@/lib/dates'
-import { expiryState } from '@/lib/expiry'
+// THE DATE DECIDES, and it decides the same way on the printed report - which
+// is why this lives in lib now rather than here. See lib/compliance-report.ts.
+import { statusFromExpiry } from '@/lib/compliance-report'
 import { useNotice } from '@/components/ui/notice'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -80,31 +82,6 @@ function cardChip(status: DocStatus) {
   if (status === 'approved') return { label: 'All Good', classes: 'bg-success-tint text-success' }
   if (status === 'expiring_soon') return { label: 'Expiring Soon', classes: 'bg-accent-tint text-accent-fg' }
   return { label: 'Action Required', classes: 'bg-danger-tint text-danger' }
-}
-
-// What a document's DATE makes it, whatever the row says it is.
-//
-// THE BUG. This used to be `isExpiringSoon`, a window BEFORE the date, and
-// nothing anywhere asked whether the date had already passed - so a COI dated
-// last month saved as Approved, read as Approved for ever, and the sub counted
-// as compliant. `lib/expiry.ts` carries the reasoning and the tests.
-//
-// Both resolvers below go through this one, so a card and the roll-up above it
-// cannot disagree about the same certificate.
-function statusFromExpiry(doc: { status: DocStatus; expiry_date: string | null }): DocStatus {
-  const state = expiryState(doc.expiry_date)
-  // THE DATE DECIDES. A certificate carrying a date that has not run out is
-  // current, whatever the row was set to when it was filed - a live COI sitting
-  // at "pending" because nobody clicked Approve is a sub who is covered and
-  // reads as a problem, and it is the same fact in both directions: an expired
-  // one reads as covered no matter what the row says.
-  //
-  // The stored status only speaks for a document with NO date on it - a W-9, a
-  // signed agreement - where there is nothing to derive from.
-  if (state === 'expired') return 'expired'
-  if (state === 'soon') return 'expiring_soon'
-  if (state === 'ok') return 'approved'
-  return doc.status
 }
 
 // ─── Upload Form ──────────────────────────────────────────────────────────────

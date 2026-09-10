@@ -48,6 +48,28 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    date: '2026-09-15',
+    title: 'The Compliance Report was blank on every job',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'Reports now print the compliance documents you actually have',
+        text: 'The Compliance Report said "No compliance documents on record" on every project, whether or not there were any - it was asking the server for something under the wrong name and getting nothing back. It now lists each sub with the documents on file, the date each one expires, and anything they owe you that has not arrived, marked Missing. If you have printed one of these for an owner or a lender, print it again: the old one claimed nobody had sent anything in.',
+        help: 'compliance-overview',
+      },
+      {
+        kind: 'fixed',
+        title: 'A certificate expiring today is not expired',
+        text: 'The printed report called a document expired from midnight on the day it runs out, which is still a good day. It uses the same rule as the Compliance tab now, so the two never disagree about the same certificate.',
+      },
+      {
+        kind: 'fixed',
+        title: 'Add selection opens a form',
+        text: 'The button toggled a panel that appeared partway down the page, so pressing it a second time closed it again and it read as doing nothing at all. It opens a proper form now, every press. And if a save fails you get a sentence naming the field rather than a line of raw database output.',
+      },
+    ],
+  },
+  {
     date: '2026-09-14',
     title: 'Adding a subcontractor takes two things',
     items: [

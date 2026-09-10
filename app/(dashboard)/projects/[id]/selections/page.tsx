@@ -78,6 +78,7 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
 
   // add form
   const [showAdd, setShowAdd] = useState(false)
+  const [addError, setAddError] = useState<string | null>(null)
   const [form, setForm] = useState({ category: SELECTION_CATEGORIES[0].category, item: '', location: '', allowance_amount: '', needed_by: '', budget_line_item_id: '' })
   const [saving, setSaving] = useState(false)
 
@@ -207,8 +208,22 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
     load()
   }
 
+  /**
+   * What a selection is still missing, in words, or null when it is enough.
+   *
+   * Same shape as `missingMilestone` and `missingSub`. The Add button used to
+   * be disabled while this was empty, so pressing it did literally nothing and
+   * the form never named the field.
+   */
+  function missingSelection(f: { item: string }): string | null {
+    if (!f.item.trim()) return 'Say what is being chosen - it is the line the client reads.'
+    return null
+  }
+
   async function add() {
-    if (!form.item.trim()) return
+    setAddError(null)
+    const missing = missingSelection(form)
+    if (missing) { setAddError(missing); return }
     // -500 was reaching the route, coming back a 400, and being announced in a
     // blocking dialog that took the page with it. The rule is pure and shared
     // (lib/validate.ts), so it can be asked here - at the field, before
@@ -233,7 +248,7 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
     if (res.ok) {
       setForm({ category: form.category, item: '', location: '', allowance_amount: '', needed_by: '', budget_line_item_id: '' })
       setShowAdd(false); load()
-    } else notify((await res.json().catch(() => ({}))).error ?? 'Could not add')
+    } else setAddError((await res.json().catch(() => ({}))).error ?? 'Could not add that selection.')
   }
 
   async function addOption(selId: string) {
@@ -491,7 +506,13 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
               : copied ? <CheckCircle2 className="h-4 w-4 text-success" /> : <Link2 className="h-4 w-4" />}
             {linking ? 'Creating link…' : copied ? 'Copied' : 'Copy client link'}
           </Button>
-          <Button onClick={() => setShowAdd(v => !v)} className="gap-1.5"><Plus className="h-4 w-4" /> Add selection</Button>
+          {/* OPEN, NEVER TOGGLE. This was `v => !v` over an inline panel that
+              rendered below the stats, so pressing it while the panel was already
+              open CLOSED it - and after a failed save the panel stays open, which
+              is exactly when somebody presses this again. A button whose effect is
+              immediately reversed by the next press is indistinguishable from a
+              dead one, which is how it was reported. */}
+          <Button onClick={() => { setAddError(null); setShowAdd(true) }} className="gap-1.5"><Plus className="h-4 w-4" /> Add selection</Button>
         </div>
       </div>
 
@@ -526,8 +547,16 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
         </div>
       )}
 
+      {/* A DIALOG, like the seed one below it. It was an inline block dropped
+          between the stats and the list, so "it opened" and "nothing happened"
+          looked the same from anywhere but the top of the page. */}
       {showAdd && (
-        <div className="bg-panel rounded-xl border border-accent/40 p-4 space-y-3">
+        <div className="overlay items-center justify-center bg-black/40" data-overlay onClick={() => setShowAdd(false)}>
+        <div className="w-full max-w-lg overflow-y-auto rounded-xl bg-panel border border-line shadow-xl p-5 space-y-3" onClick={e => e.stopPropagation()}>
+          <h3 className="text-base font-semibold text-ink">Add a selection</h3>
+          {addError && (
+            <p className="rounded-lg border border-danger/30 bg-danger-tint px-3 py-2 text-sm text-danger">{addError}</p>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Category</Label>
@@ -570,8 +599,11 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
           </div>
           <div className="row-even lg:flex gap-2 justify-end">
             <Button variant="secondary" onClick={() => setShowAdd(false)}>Cancel</Button>
-            <Button onClick={add} disabled={saving || !form.item.trim()}>{saving ? 'Adding…' : 'Add'}</Button>
+            {/* IN FLIGHT ONLY. Disabled on an empty title, pressing Add did
+                nothing and never said which field it was waiting on. */}
+            <Button onClick={add} disabled={saving}>{saving ? 'Adding…' : 'Add'}</Button>
           </div>
+        </div>
         </div>
       )}
 

@@ -67,12 +67,20 @@ ok(daysExpired('2026-07-01', TODAY) === null, 'a date still ahead has not expire
 
 // ── the two screens ask through it ───────────────────────────────────────────
 const compliance = code('app/(dashboard)/projects/[id]/compliance/page.tsx')
-ok(/from '@\/lib\/expiry'/.test(compliance), 'Compliance asks the shared question')
-ok(!/diff > 0/.test(compliance), '...not its own copy of the check that goes quiet on expiry')
-ok(/function statusFromExpiry/.test(compliance),
+// `statusFromExpiry` used to be declared HERE. It moved to
+// lib/compliance-report.ts when the printed report needed the same answer -
+// two screens deriving a certificate's state separately is how they end up
+// disagreeing about one certificate. The rule is unchanged; its address is not.
+const report = code('lib/compliance-report.ts')
+ok(/from '\.\/expiry'/.test(report), 'the resolver asks the shared question')
+ok(!/diff > 0/.test(compliance) && !/diff > 0/.test(report),
+  '...not its own copy of the check that goes quiet on expiry')
+ok(/export function statusFromExpiry/.test(report),
   'one resolver decides what a document\'s date makes it')
+ok(/import \{ statusFromExpiry \} from '@\/lib\/compliance-report'/.test(compliance),
+  '...and Compliance imports it rather than keeping a second')
 ok((compliance.match(/statusFromExpiry\(doc\)/g) ?? []).length >= 2,
-  '...and BOTH resolveStatus copies - the cards and the roll-up - go through it')
+  '...for BOTH resolveStatus copies - the cards and the roll-up')
 ok(/expiredDocs/.test(compliance),
   'expired subs are COUNTED, not just resolved - a number nobody shows is a number nobody sees')
 ok(/label: 'Expired'/.test(compliance) && /StatCard label="Expired"/.test(compliance),

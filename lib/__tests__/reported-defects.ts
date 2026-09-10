@@ -332,9 +332,12 @@ ok(/material_by: materialByFor\(tpl\.package_type\) \?\? tpl\.material_by/.test(
 
 // Compliance: the date decides, and Update is a dialog.
 const compliance = code('app/(dashboard)/projects/[id]/compliance/page.tsx')
-ok(/if \(state === 'ok'\) return 'approved'/.test(compliance),
+// The resolver moved to lib/compliance-report.ts so the printed report shares
+// it; the assertions below follow it there.
+const complianceResolver = code('lib/compliance-report.ts')
+ok(/if \(state === 'ok'\) return 'approved'/.test(complianceResolver),
   "a live date IS active - a covered sub sitting at 'pending' because nobody clicked Approve reads as a problem")
-ok(/The stored status only speaks for a document with NO date/.test(read('app/(dashboard)/projects/[id]/compliance/page.tsx')),
+ok(/The stored status only speaks for a document with NO date/.test(read('lib/compliance-report.ts')),
   '...and the stored status only speaks where there is no date to derive from')
 ok(/\{openForm && \(\s*<div className="overlay items-center justify-center bg-black\/50" data-overlay/.test(compliance),
   'Update opens a dialog, not a panel below the whole list')
