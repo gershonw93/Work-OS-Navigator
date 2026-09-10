@@ -48,6 +48,29 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    date: '2026-09-14',
+    title: 'Adding a subcontractor takes two things',
+    items: [
+      {
+        kind: 'improved',
+        title: 'The scan sits next to what it fills',
+        text: 'The "scan a file and let AI fill the form" button was at the very bottom of the Add Subcontractor form and the scope it fills was at the very top, with everything else in between. They are one block now, right under Trade, so you scan and see what it wrote without scrolling anywhere.',
+        help: 'add-subcontractor-no-price',
+      },
+      {
+        kind: 'improved',
+        title: 'Every field says whether you need it',
+        text: 'Payment terms and start and end dates looked required because nothing said otherwise. All of it is marked optional now. A sub needs a company name and a trade, and that is all - and if you miss one, the form says which, instead of the Add button quietly doing nothing.',
+        help: 'add-subcontractor-no-price',
+      },
+      {
+        kind: 'fixed',
+        title: 'The sub\u2019s scope line can finally be edited',
+        text: 'There is one line of text shown wherever a sub appears - on the Schedule, in your Directory, in the Tasks assignee list, on a pay application. The AI scan wrote it and there was no box for it anywhere, so if the scan got it wrong there was no way to fix it short of deleting the sub. It is a field on the form now, under the scan.',
+      },
+    ],
+  },
+  {
     date: '2026-09-13',
     title: 'A quieter Tasks board',
     items: [

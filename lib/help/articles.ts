@@ -1608,9 +1608,11 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'add-subcontractor-no-price',
     title: 'Add a sub before you know their price',
     category: 'workspace',
-    keywords: ['subcontractor', 'sub', 'add sub', 'contract amount', 'no price', 'price later', 'tbd', 'not set', 'optional', 'team tab', 'not-null', 'error adding sub', 'could not add subcontractor'],
+    keywords: ['subcontractor', 'sub', 'add sub', 'contract amount', 'no price', 'price later', 'tbd', 'not set', 'optional', 'required', 'team tab', 'not-null', 'error adding sub', 'could not add subcontractor', 'scan proposal', 'ai scan', 'scope of work', 'scope summary', 'trade', 'payment schedule', 'line items'],
     summary: 'Put a sub on the job now and fill in the contract amount once it is agreed.',
     blocks: [
+      { type: 'text', text: 'WHAT A SUB ACTUALLY NEEDS: a company name and a trade. Everything else on the form is marked optional, and you can fill it in later. The trade is not optional because a sub with no trade is left out of the compliance requirements for their trade - the insurance and licences you would then never be asked for.' },
+      { type: 'text', text: 'SCAN THEIR PROPOSAL AND LET IT FILL THE FORM. Under Trade there is "Or scan a file and let AI fill the form". Point it at their PDF or a photo of it and it fills in the scope, the line items, the payment schedule and the contract amount, straight into the fields directly beneath it. Everything it writes is editable - check it before you save.' },
       { type: 'text', text: 'There are two ways a sub ends up on a job, and they suit different moments.' },
       { type: 'steps', items: [
         'You already agreed a price: Team tab, Add Subcontractor, fill in the Contract Amount. Done.',
@@ -1620,6 +1622,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: 'text', text: 'An unpriced subcontract reads as "Not set" everywhere, never as $0. That distinction matters: $0 would sit in your budget as a real commitment of nothing, and would look identical to a sub who genuinely costs nothing.' },
       { type: 'text', text: 'Two things need an agreed amount and will say so until you set one: billing a percentage of the contract, and checking an invoice against what is still owed. Flat-amount invoices work either way.' },
       { type: 'tip', text: 'To fill it in later, open the Team tab, click the pencil on the subcontractor, and set the Contract Amount.' },
+      { type: 'text', text: 'SCOPE SUMMARY is the one line shown wherever this sub appears - on the Schedule, in your Directory, in the Tasks assignee list and on a pay application. Leave it blank and the line items below fill it in. You can edit it any time from the pencil, which was not previously possible: the scan wrote that line and there was nowhere to correct it.' },
       { type: 'text', text: 'If a save fails for any other reason, the error now appears inside the form and names the field it is about. Nothing is left behind - the company is not added to your Directory unless the whole save succeeds.' },
     ],
     related: ['directory', 'request-quotes', 'award-quote', 'create-invoice'],
