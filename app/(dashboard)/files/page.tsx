@@ -20,6 +20,7 @@ import { ShareFilesModal } from '@/components/files/share-files-modal'
 import { ACCEPT_DOCS } from '@/lib/file-accept'
 
 import { formatDate } from '@/lib/dates'
+import { useDeleteGuard } from '@/components/ui/delete-guard'
 const CATEGORIES = ['Insurance', 'License', 'W-9', 'Site Plans', 'ID/Legal', 'Permits', 'Other'] as const
 
 const CATEGORY_ICONS: Record<string, any> = {
@@ -81,6 +82,7 @@ function fileTypeIcon(fileType: string | null) {
 }
 
 export default function FilesPage() {
+  const guardDelete = useDeleteGuard()
   const supabase = createClient()
   const fileRef = useRef<HTMLInputElement>(null)
   const packetFileRef = useRef<HTMLInputElement>(null)
@@ -211,16 +213,17 @@ export default function FilesPage() {
     fetchAll()
   }
 
-  async function deleteFile(file: CompanyFile) {
-    if (!confirm(`Delete "${file.name}"? It will also be removed from any packets.`)) return
-    const token = await getToken()
-    const res = await fetch(`/api/files/${file.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
-    if (!res.ok) {
-      const json = await res.json().catch(() => ({}))
-      setFetchError(json.error ?? `Delete failed (${res.status})`)
-      return
-    }
-    fetchAll()
+  function deleteFile(file: CompanyFile) {
+    guardDelete(async () => {
+      const token = await getToken()
+      const res = await fetch(`/api/files/${file.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}))
+        setFetchError(json.error ?? `Delete failed (${res.status})`)
+        return
+      }
+      fetchAll()
+    }, { label: `"${file.name}" - it comes out of any packets too`, protected: true })
   }
 
   function openEditFile(file: CompanyFile) {
@@ -324,16 +327,17 @@ export default function FilesPage() {
     fetchAll()
   }
 
-  async function deletePacket(packet: Packet) {
-    if (!confirm(`Delete packet "${packet.name}"? Files themselves will not be deleted.`)) return
-    const token = await getToken()
-    const res = await fetch(`/api/files/packets/${packet.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
-    if (!res.ok) {
-      const json = await res.json().catch(() => ({}))
-      setFetchError(json.error ?? `Delete failed (${res.status})`)
-      return
-    }
-    fetchAll()
+  function deletePacket(packet: Packet) {
+    guardDelete(async () => {
+      const token = await getToken()
+      const res = await fetch(`/api/files/packets/${packet.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}))
+        setFetchError(json.error ?? `Delete failed (${res.status})`)
+        return
+      }
+      fetchAll()
+    }, { label: `the packet "${packet.name}" - the files themselves are kept` })
   }
 
   function packetFiles(packet: Packet): CompanyFile[] {

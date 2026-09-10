@@ -60,6 +60,21 @@ export function walk(rel: string, out: string[] = []): string[] {
   return out
 }
 
+/**
+ * The combined idempotent migration, whatever it is called this week.
+ *
+ * Its name carries the highest migration number (`_combined_008-099.sql`), so
+ * every test that named it directly broke on the next migration - which is a
+ * test failing for a reason nobody would act on, the exact thing the lint
+ * config is kept narrow to avoid.
+ */
+export const readCombined = (): string => {
+  const dir = join(root(), 'supabase/migrations')
+  const name = readdirSync(dir).find(f => f.startsWith('_combined_') && f.endsWith('.sql'))
+  if (!name) throw new Error('no _combined_*.sql in supabase/migrations')
+  return readFileSync(join(dir, name), 'utf8')
+}
+
 export const exists = (rel: string): boolean => {
   try { statSync(join(root(), rel)); return true } catch { return false }
 }

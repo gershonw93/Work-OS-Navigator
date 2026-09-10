@@ -17,6 +17,7 @@ import { uploadPlan, guessPlanType, baseName } from '@/lib/upload-plan'
 
 import { formatDate } from '@/lib/dates'
 import { useNotice } from '@/components/ui/notice'
+import { useDeleteGuard } from '@/components/ui/delete-guard'
 interface PlanFolder { id: string; name: string; project_id: string; created_at: string }
 interface Plan { id: string; name: string; plan_type: string; file_url: string; folder_id: string | null; created_at: string }
 
@@ -49,6 +50,7 @@ const PLAN_TYPE_TINT: Record<string, string> = {
 }
 
 export default function PlansPage({ params }: { params: { id: string } }) {
+  const guardDelete = useDeleteGuard()
   const notify = useNotice()
   const supabase = createClient()
   // `can` alone is not enough. While the check is in flight it answers false,
@@ -128,29 +130,26 @@ export default function PlansPage({ params }: { params: { id: string } }) {
     fetchData()
   }
 
-  async function handleDeletePlan(planId: string) {
-    if (!window.confirm('Delete this plan file? This cannot be undone.')) return
-    const token = await getToken()
-    await fetch(`/api/projects/${params.id}/plans/${planId}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    fetchData()
+  function handleDeletePlan(planId: string) {
+    guardDelete(async () => {
+      const token = await getToken()
+      await fetch(`/api/projects/${params.id}/plans/${planId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      fetchData()
+    }, { label: 'this plan file', protected: true })
   }
 
-  async function handleDeleteFolder(folderId: string) {
-    const filesInFolder = plans.filter(p => p.folder_id === folderId)
-    if (filesInFolder.length > 0) {
-      notify('Remove files first before deleting this folder.')
-      return
-    }
-    if (!window.confirm('Delete this folder?')) return
-    const token = await getToken()
-    await fetch(`/api/projects/${params.id}/plans/folders/${folderId}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    fetchData()
+  function handleDeleteFolder(folderId: string) {
+    guardDelete(async () => {
+      const token = await getToken()
+      await fetch(`/api/projects/${params.id}/plans/folders/${folderId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      fetchData()
+    }, { label: 'this folder' })
   }
 
   function openMove(plan: Plan) {

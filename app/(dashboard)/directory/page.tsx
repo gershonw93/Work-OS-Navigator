@@ -15,6 +15,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { cn } from '@/lib/utils'
 import { parseDate, formatDate } from '@/lib/dates'
 import { useNotice } from '@/components/ui/notice'
+import { useDeleteGuard } from '@/components/ui/delete-guard'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -92,6 +93,7 @@ interface Company {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function DirectoryPage() {
+  const guardDelete = useDeleteGuard()
   const notify = useNotice()
   const supabase = createClient()
   const [companies, setCompanies] = useState<Company[]>([])
@@ -274,16 +276,30 @@ export default function DirectoryPage() {
     if (profileCompanyId) openProfile(profileCompanyId)
   }
 
-  async function deleteCompany(company: any) {
+  /**
+   * Delete a contact.
+   *
+   * THE BUG THAT BROUGHT ME HERE. This used to open with `window.confirm`, and
+   * in the native shell that is a blocking dialog: when it fails to present,
+   * the page never runs another line. Three hours of production logs after
+   * three attempts showed the DELETE endpoint had never been called ONCE - the
+   * handler died before the fetch, which from the outside is a dead, blank tab.
+   */
+  function deleteCompany(company: any) {
     if (!company) return
-    if (!confirm(`Delete ${company.name}? This cannot be undone.`)) return
-    const token = await getToken()
-    const res = await fetch(`/api/directory/${company.id}`, {
-      method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
-    })
-    if (!res.ok) { notify('Could not delete.'); return }
-    setProfileCompanyId(null)
-    fetchData()
+    guardDelete(async () => {
+      const token = await getToken()
+      const res = await fetch(`/api/directory/${company.id}`, {
+        method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({} as any))
+        notify(d.error ?? 'Could not delete that contact.')
+        return
+      }
+      setProfileCompanyId(null)
+      fetchData()
+    }, { label: company.name })
   }
 
   function openInvite(company: Company) {
@@ -310,15 +326,27 @@ export default function DirectoryPage() {
         email: inviteEmail,
       }),
     })
+    const body = await res.json().catch(() => ({} as any))
+    setInviteLoading(false)
     if (!res.ok) {
-      const body = await res.json()
-      setInviteError(body.error)
-      setInviteLoading(false)
+      setInviteError(body.error ?? 'Could not send that invite.')
       return
     }
+
+    // READ THE ANSWER. This used to tick "Invited" on `res.ok` alone - and the
+    // route answers 200 with `emailSent: false` when the record was written and
+    // the email did not go, precisely so somebody can say which. An invite went
+    // out reading Invited with nothing arriving, and the reason was in this
+    // response the whole time. Settings has read it for months; this screen
+    // never did.
+    if (body.emailSent === false) {
+      setInviteError(body.note ?? 'The invite was recorded, but the email did not send. Use the invite again once email is working.')
+      return
+    }
+
     setInvitedIds(prev => [...prev, inviteCompany.id])
     setInviteCompany(null)
-    setInviteLoading(false)
+    notify(`Invite sent to ${inviteEmail}.`, { tone: 'success' })
   }
 
   // ─── Add Modal ──────────────────────────────────────────────────────────────

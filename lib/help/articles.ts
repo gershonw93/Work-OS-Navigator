@@ -1219,6 +1219,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'In the Team section, invite a member by email and choose their role.',
         'They receive an invite; once they log in they join your company automatically.',
       ] },
+      { type: 'tip', text: 'The screen tells you whether the email actually left. If it could not be sent you get the reason instead of a tick, and the contact is not marked invited - so "Invited" always means somebody was really told.' },
       { type: 'text', text: 'IF THE INVITE EMAIL DOES NOT ARRIVE. Every pending invite has a "Copy link" button next to it. Copy that and send it however you like - your own email, a text, a chat. It does the same thing the emailed link does: takes them to set a password and join your company.' },
       { type: 'warn', text: 'That link signs the person in, so treat it like a password - send it to the person it is for and nobody else.' },
       { type: 'tip', text: 'Roles set sensible defaults, and you can fine-tune each person\'s permissions per screen.' },
@@ -1516,6 +1517,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     keywords: ['directory', 'contact', 'sub', 'vendor', 'supplier', 'add', 'company'],
     summary: 'Keep your subs, suppliers, and contacts in one address book.',
     blocks: [
+      { type: 'text', text: 'DELETING A CONTACT. Open them and use Delete. If they are still attached to something on a job - a subcontract, a bill, a submittal - it will say so rather than deleting the history along with them; take them off those first. A pending platform invite is not a blocker: that goes with the contact.' },
       { type: 'steps', items: [
         'Click Directory in the sidebar.',
         'Click Add Contact.',

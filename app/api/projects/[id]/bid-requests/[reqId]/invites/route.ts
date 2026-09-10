@@ -132,22 +132,40 @@ export async function POST(request: Request, { params }: { params: { id: string;
     }
   }))
 
-  // Invitees who already have an account get the bell too, not just the emailed
-  // link - same as the older Bids tab path does.
-  const companyIds = Array.from(new Set(rows.map(r => r.vendor_company_id).filter(Boolean) as string[]))
-  if (companyIds.length) {
-    const { data: profiles } = await db.from('profiles').select('id').in('company_id', companyIds)
-    if (profiles?.length) {
-      const projectName = (req as any)?.projects?.name
-      await notify({
-        db,
-        userIds: profiles.map(p => p.id),
-        type: 'bid_invited',
-        title: 'Invited to quote',
-        message: `You have been invited to quote ${scope}${projectName ? ` for ${projectName}` : ''}.`,
-        link: `/my-bids`,
-      })
+  // ── The bell, for invitees who already have an account ──────────────────
+  //
+  // ONE EMAIL PER PERSON. `notify` emails as well as ringing the bell, so a sub
+  // with a login was getting two letters for one act: the quote request above,
+  // carrying the link to the scope, and a generic "Invited to quote" pointing
+  // at /my-bids. The RFQ is the better of the two, so where it landed this is
+  // the bell only - and where it did NOT land, the notification email is the
+  // fallback rather than a duplicate.
+  const emailedCompanies = new Set(
+    (data ?? [])
+      .filter((inv: any) => results.find(r => r.id === inv.id)?.sent)
+      .map((inv: any) => inv.vendor_company_id)
+      .filter(Boolean) as string[],
+  )
+  const allCompanyIds = Array.from(new Set(rows.map(r => r.vendor_company_id).filter(Boolean) as string[]))
+
+  if (allCompanyIds.length) {
+    const { data: profiles } = await db.from('profiles').select('id, company_id').in('company_id', allCompanyIds)
+    const projectName = (req as any)?.projects?.name
+    const message = `You have been invited to quote ${scope}${projectName ? ` for ${projectName}` : ''}.`
+    const bell = {
+      db,
+      type: 'bid_invited',
+      title: 'Invited to quote',
+      message,
+      link: `/my-bids`,
     }
+    const alreadyEmailed = (profiles ?? []).filter((p: any) => emailedCompanies.has(p.company_id)).map((p: any) => p.id)
+    const notEmailed = (profiles ?? []).filter((p: any) => !emailedCompanies.has(p.company_id)).map((p: any) => p.id)
+
+    await Promise.all([
+      alreadyEmailed.length ? notify({ ...bell, userIds: alreadyEmailed, inAppOnly: true }) : null,
+      notEmailed.length ? notify({ ...bell, userIds: notEmailed }) : null,
+    ])
   }
 
   return NextResponse.json({ invites: data, results, skipped })

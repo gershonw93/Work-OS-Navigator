@@ -17,7 +17,7 @@
 //      minute"; the next email, whenever it was sent, for ever.
 
 import { bidInviteEmail, bidScopeLine } from '../bid-invite-email'
-import { ok, done, code, read } from './_helpers'
+import { ok, done, code, read, readCombined } from './_helpers'
 
 const URL_ = 'https://app.sytenav.com/bid/abc123'
 const base = { scope: 'Electrical rough-in - Electrical', gcName: 'Gershon Construction', fromName: 'Ilan Katz', vendorName: 'Dana Reed', url: URL_ }
@@ -77,7 +77,7 @@ ok(/uq_bid_invites_req_email/.test(migration) && /uq_bid_invites_req_company/.te
 ok(/lower\(vendor_email\)/.test(migration), '...and Sub@x.com is the same inbox as sub@x.com')
 ok(/WHERE vendor_email IS NOT NULL/.test(migration),
   '...while a name with no email may legitimately repeat')
-ok(read('supabase/migrations/_combined_008-098.sql').includes('uq_bid_invites_req_company'),
+ok(readCombined().includes('uq_bid_invites_req_company'),
   'the combined fallback carries it too')
 
 const bidRoute = code('app/api/bid/[token]/route.ts')

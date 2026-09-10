@@ -16,7 +16,7 @@ production branch.** Do NOT ask the user to merge or deploy.
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-098.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-099.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - IMPORTANT: verify every column you `.select()` actually exists - Supabase
   returns `data: null` for an unknown column, so a typo reads as "not found"
@@ -425,6 +425,27 @@ production branch.** Do NOT ask the user to merge or deploy.
   `storage_path` fresh per request (a stored signed URL is only as good as the
   key that signed it) and streams anything else from our origin. The URL comes
   off the ROW, never the request.
+- **NEVER `alert()` or `confirm()` - and `confirm()` is the one that got proved.**
+  Delete on a Directory contact did nothing three times and took the tab blank.
+  Three hours of production logs after those three attempts: the DELETE endpoint
+  had never been called ONCE, and there was no 5xx in the window - so the
+  handler died before the fetch, on `window.confirm`. The evidence for this
+  class of bug is an ABSENT request, which is why it reads as "the page died"
+  rather than as an error. Both are now ratcheted at zero in
+  `layout-overflow.ts`, with no exemption: `delete-guard.tsx` renamed its own
+  local `confirm()` rather than being excused, and its `window.confirm` fallback
+  is gone because the provider is mounted at the ROOT layout beside
+  `NoticeProvider`. `useDeleteGuard` takes `title`/`body`/`confirmLabel`, so a
+  confirmation that is NOT a delete - voiding an invoice, disconnecting
+  QuickBooks, handing over ownership - has somewhere to go other than the
+  native dialog.
+- A FOREIGN KEY WITH NO `ON DELETE` RULE IS A DELETE THAT FAILS ON EXACTLY ONE
+  ROW. `company_invites.company_id` had none, so a contact could be deleted
+  right up until somebody invited them to the platform - which is why it looked
+  contact-specific rather than broken. When adding a table that points at
+  `companies`, decide CASCADE (the row is a fact about that company alone) or
+  SET NULL (a record of work that outlives the attribution), and never leave it
+  at the default.
 - **NEVER `alert()` or `confirm()`.** In the native shell this app is a remote
   WKWebView, so a JS dialog is a native UIAlertController presented by the
   Capacitor bridge and WebKit BLOCKS THE JS THREAD until it is dismissed. One
@@ -439,6 +460,17 @@ production branch.** Do NOT ask the user to merge or deploy.
   the field. `confirm()` already had its answer in `useDeleteGuard`; the 18
   handlers still calling the native one are in BACKLOG.md. Ratcheted at zero
   `alert` in `layout-overflow.ts`, with no exemption for `notice.tsx` itself.
+- ONE EVENT, ONE EMAIL. `notify()` sends email as well as ringing the bell, so a
+  route that has already emailed somebody itself must pass `inAppOnly: true` -
+  inviting a sub who had an account sent them the quote request AND a generic
+  notification about it. The bell is a different channel and is never the
+  duplicate; a second letter is. Only a caller that KNOWS it emailed may set it,
+  and where the send failed the notification email is the fallback.
+- A ROUTE THAT COMPUTES A REASON MUST NOT BE THE ONLY PLACE IT EXISTS. The
+  Directory invite answered 200 with `emailSent: false` and SendGrid's own
+  words in `note`; the screen read neither and ticked "Invited", and the route
+  logged nothing - so when an invite never arrived, the answer was recoverable
+  from nowhere. Read it in the UI AND `console.error` it.
 - ONE REQUEST MUST NOT CARRY TWO THINGS THAT CAN BE REFUSED SEPARATELY. "What
   they chose" sent the name and `status: 'chosen'` together; the route refuses
   an accepted status on a row with no budget line, BEFORE the update runs, so

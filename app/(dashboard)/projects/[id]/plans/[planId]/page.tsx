@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { parseDate, formatDate } from '@/lib/dates'
 import { useNotice } from '@/components/ui/notice'
+import { useDeleteGuard } from '@/components/ui/delete-guard'
 
 interface Plan { id: string; name: string; plan_type: string; file_url: string }
 interface Pin {
@@ -34,6 +35,7 @@ function colorFor(name: string | null | undefined) {
 }
 
 export default function PlanViewerPage({ params }: { params: { id: string; planId: string } }) {
+  const guardDelete = useDeleteGuard()
   const notify = useNotice()
   const supabase = createClient()
   const [plan, setPlan] = useState<Plan | null>(null)
@@ -193,13 +195,14 @@ export default function PlanViewerPage({ params }: { params: { id: string; planI
     }
   }
 
-  async function removePin(pin: Pin) {
-    if (!confirm('Remove this pin? The task itself is kept.')) return
-    await fetch(`/api/projects/${params.id}/plans/${params.planId}/pins?pinId=${pin.id}`, {
-      method: 'DELETE', headers: { Authorization: `Bearer ${await token()}` },
-    })
-    setPins(prev => prev.filter(p => p.id !== pin.id))
-    setOpenPin(null)
+  function removePin(pin: Pin) {
+    guardDelete(async () => {
+      await fetch(`/api/projects/${params.id}/plans/${params.planId}/pins?pinId=${pin.id}`, {
+        method: 'DELETE', headers: { Authorization: `Bearer ${await token()}` },
+      })
+      setPins(prev => prev.filter(p => p.id !== pin.id))
+      setOpenPin(null)
+    }, { label: 'this pin - the task itself is kept' })
   }
 
   const pagePins = useMemo(() => pins.filter(p => (p.page || 1) === page), [pins, page])

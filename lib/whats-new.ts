@@ -49,6 +49,33 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-11',
+    title: 'Delete works again, and every confirmation is in the page',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'Deleting a contact from the Directory',
+        text: 'It did nothing and took the screen blank with it. Two separate faults: the "are you sure?" box was a system dialog that can lock the page on a phone, and underneath it the database refused to delete any contact you had invited to the platform, because their pending invite was still attached. Both fixed - the invite now goes with the contact.',
+      },
+      {
+        kind: 'improved',
+        title: 'Every "are you sure?" is now part of the page',
+        text: 'There were twenty-two left that used the system dialog. On a phone one of those can stop the app dead, which is what happened to Delete in the Directory. They all now use the same in-page confirmation - including the ones that are not deletions at all, like voiding an invoice, disconnecting QuickBooks and handing over ownership, which say what they actually do instead of the word "delete".',
+      },
+      {
+        kind: 'fixed',
+        title: 'A sub only gets one email per invite',
+        text: 'Inviting a sub who already has a SyteNav login sent them two: the quote request itself, and a separate notification saying the same thing. The quote request is the one with the link, so that is the one that goes. They still get the bell. A sub we could not email still gets the notification, as a fallback rather than a duplicate.',
+      },
+      {
+        kind: 'fixed',
+        title: 'An invite that did not send says so',
+        text: 'Inviting a contact to the platform from the Directory ticked "Invited" whether or not the email actually left. It now reports what happened, with the reason, and only marks them invited when something really went out.',
+        help: 'invite-team-member',
+      },
+    ],
+  },
+  {
+    date: '2026-09-11',
     title: 'Inviting a sub to quote now actually invites them',
     items: [
       {

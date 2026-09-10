@@ -11,6 +11,7 @@ import { clientAppOrigin } from '@/lib/app-url'
 
 import { formatDate } from '@/lib/dates'
 import { useNotice } from '@/components/ui/notice'
+import { useDeleteGuard } from '@/components/ui/delete-guard'
 interface RFI {
   id: string; rfi_number: number; submitted_by_name: string; company_name: string | null
   subject: string; description: string; is_change_order: boolean
@@ -28,6 +29,7 @@ const CO_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
 }
 
 export default function RFIsPage({ params }: { params: { id: string } }) {
+  const guardDelete = useDeleteGuard()
   const notify = useNotice()
   const supabase = createClient()
   const [rfis, setRfis] = useState<RFI[]>([])
@@ -80,14 +82,15 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
     fetchRfis()
   }
 
-  async function handleDeleteRfi(rfiId: string) {
-    if (!window.confirm('Delete this RFI? This cannot be undone.')) return
-    const token = await getToken()
-    await fetch(`/api/projects/${params.id}/rfis/${rfiId}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    fetchRfis()
+  function handleDeleteRfi(rfiId: string) {
+    guardDelete(async () => {
+      const token = await getToken()
+      await fetch(`/api/projects/${params.id}/rfis/${rfiId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      fetchRfis()
+    }, { label: 'this RFI' })
   }
 
   // One-time answer link for the architect/designer (like compliance requests).

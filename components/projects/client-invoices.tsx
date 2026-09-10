@@ -16,6 +16,7 @@ import { RowMenu, MenuItem } from '@/components/ui/row-menu'
 import { invoiceQbChip, openedLabel } from '@/lib/invoice-qb-state'
 
 import { formatDate } from '@/lib/dates'
+import { useDeleteGuard } from '@/components/ui/delete-guard'
 const money = (n: unknown) => `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
 
 interface Billable {
@@ -99,6 +100,7 @@ export function ClientInvoices({
   onSettle?: (invoice: { id: string; label: string; amount: number }) => void
   reloadKey?: number
 }) {
+  const guardDelete = useDeleteGuard()
   const supabase = createClient()
   const [bills, setBills] = useState<Bill[]>([])
   const [billable, setBillable] = useState<Billable[]>([])
@@ -273,20 +275,23 @@ export function ClientInvoices({
    * QuickBooks does too. The costs on it go back to being billable, and the
    * QuickBooks invoice is voided so it stops counting as money owed.
    */
-  async function voidInvoice(bill: Bill) {
-    if (!confirm(
-      `Void ${bill.invoice_number}?\n\nIt stays on the list for the record, its costs go back to being billable, and the void is sent to QuickBooks. This cannot be undone.`
-    )) return
-    await setStatus(bill, 'void')
+  function voidInvoice(bill: Bill) {
+    guardDelete(() => setStatus(bill, 'void'), {
+      label: bill.invoice_number,
+      title: `Void ${bill.invoice_number}?`,
+      body: 'It stays on the list for the record, its costs go back to being billable, and the void is sent to QuickBooks. This cannot be undone.',
+      confirmLabel: 'Void it',
+    })
   }
 
-  async function remove(bill: Bill) {
-    if (!confirm(`Delete ${bill.invoice_number}? The costs on it go back to being billable.`)) return
-    const t = await token()
-    await fetch(`/api/projects/${projectId}/client-invoices/${bill.id}`, {
-      method: 'DELETE', headers: { Authorization: `Bearer ${t}` },
-    })
-    load()
+  function remove(bill: Bill) {
+    guardDelete(async () => {
+      const t = await token()
+      await fetch(`/api/projects/${projectId}/client-invoices/${bill.id}`, {
+        method: 'DELETE', headers: { Authorization: `Bearer ${t}` },
+      })
+      load()
+    }, { label: `${bill.invoice_number} - the costs on it go back to being billable`, protected: true })
   }
 
   if (loading) return <p className="text-sm text-faint">Loading…</p>

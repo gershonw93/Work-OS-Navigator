@@ -6,6 +6,7 @@ import { Plug, Check, Loader2, RefreshCw, Users, Building2, AlertTriangle, FileT
 import { cn } from '@/lib/utils'
 
 import { formatDate } from '@/lib/dates'
+import { useDeleteGuard } from '@/components/ui/delete-guard'
 interface Connection {
   realm_id: string
   qbo_company_name: string | null
@@ -37,6 +38,7 @@ async function authHeaders(): Promise<Record<string, string>> {
 }
 
 export function QuickBooksCard() {
+  const guardDelete = useDeleteGuard()
   const [status, setStatus] = useState<Status | null>(null)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState<string>('')
@@ -85,14 +87,20 @@ export function QuickBooksCard() {
     } catch (e: any) { setMsg({ ok: false, text: e.message }); setBusy('') }
   }
 
-  async function disconnect() {
-    if (!confirm('Disconnect QuickBooks? Synced records keep their links, so reconnecting the same file will still recognize them.')) return
+  function disconnect() {
+    guardDelete(async () => {
     setBusy('disconnect'); setMsg(null)
     try {
       const res = await fetch('/api/quickbooks/disconnect', { method: 'POST', headers: await authHeaders() })
       if (!res.ok) throw new Error((await res.json()).error || 'Failed')
       await load(); setMsg({ ok: true, text: 'Disconnected.' })
     } catch (e: any) { setMsg({ ok: false, text: e.message }) } finally { setBusy('') }
+    }, {
+      label: 'this QuickBooks connection',
+      title: 'Disconnect QuickBooks?',
+      body: 'Synced records keep their links, so reconnecting the same file will still recognize them.',
+      confirmLabel: 'Disconnect',
+    })
   }
 
   /**

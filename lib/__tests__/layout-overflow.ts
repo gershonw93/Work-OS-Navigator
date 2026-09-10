@@ -617,22 +617,35 @@ ok(!/^\s*\*\s*\{[^}]*overflow-wrap:\s*anywhere/m.test(css),
 // the keyboard was dismissing. A dialog that fails to present is a page that
 // never runs another line.
 //
-// DeleteGuardProvider built the in-page answer for `window.confirm` years ago
-// and 18 delete handlers still call the native one anyway (BACKLOG.md - each is
-// a rewrite into the guard, not a rename, so they are not swept here). `alert`
-// IS a rename, so it is at zero, and there is no exemption - not even for the
-// component that replaced it. Being the exception is how the plans viewer went
-// a whole sweep without learning about the notch.
+// BOTH of them now. `alert` went first; `confirm` was left in 22 handlers with
+// a note in BACKLOG.md saying each was a rewrite rather than a rename - and
+// then one of them took the Directory down. Three hours of production logs
+// after three attempts to delete a contact showed the DELETE endpoint had never
+// been called ONCE: the handler died on `window.confirm` before the fetch.
+//
+// No exemption, not even for `delete-guard.tsx`, which is the component that
+// replaced it: its own local function was renamed rather than excused. Being
+// the exception is how the plans viewer went a whole sweep without the notch.
 // ─────────────────────────────────────────────────────────────────────────────
 const dialogs: string[] = []
 for (const f of [...tsx, ...walk('lib')]) {
   // code() strips comments, so the ones EXPLAINING this bug do not count as it.
   code(f).split('\n').forEach((line, i) => {
-    if (/(?<![A-Za-z0-9_.$])alert\(/.test(line)) dialogs.push(`${f}:${i + 1}`)
+    if (/\bwindow\.(?:alert|confirm)\(|(?<![A-Za-z0-9_.$])(?:alert|confirm)\(/.test(line)) {
+      dialogs.push(`${f}:${i + 1}`)
+    }
   })
 }
 ok(dialogs.length === 0,
-  `no screen opens a blocking alert${dialogs.length ? ` - ${dialogs[0]} (+${dialogs.length - 1})` : ''}`)
+  `no screen opens a blocking native dialog${dialogs.length ? ` - ${dialogs[0]} (+${dialogs.length - 1})` : ''}`)
+
+// Both providers at the ROOT, so no screen can fall outside one and quietly get
+// the native dialog back through a fallback.
+const rootLayout = code('app/layout.tsx')
+ok(/<NoticeProvider><DeleteGuardProvider>\{children\}<\/DeleteGuardProvider><\/NoticeProvider>/.test(rootLayout),
+  'the notice and delete-guard providers both wrap the whole app')
+ok(!/window\.confirm/.test(code('components/ui/delete-guard.tsx')),
+  '...and the guard has no native fallback left to fall back to')
 
 // ─────────────────────────────────────────────────────────────────────────────
 // THERE IS NO HOVER ON A PHONE.
@@ -680,7 +693,7 @@ ok(iconButtons.length >= 5 && unnamed.length === 0,
   `every icon-only task action is named (${iconButtons.length} found, ${unnamed.length} unnamed)`)
 
 const notice = code('components/ui/notice.tsx')
-ok(/<NoticeProvider>\{children\}<\/NoticeProvider>/.test(code('app/layout.tsx')),
+ok(/<NoticeProvider>/.test(code('app/layout.tsx')),
   'the notice provider is mounted at the ROOT - the portal and share links refuse saves too')
 ok(!/data-overlay/.test(notice),
   'a notice does NOT freeze the app behind it - you have to be able to fix the field it is about')

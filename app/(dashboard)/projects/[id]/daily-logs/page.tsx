@@ -21,6 +21,7 @@ import { ACCEPT_DOCS } from '@/lib/file-accept'
 import { usePreviewUrls } from '@/lib/use-preview-urls'
 import { parseDate, formatDate } from '@/lib/dates'
 import { useNotice } from '@/components/ui/notice'
+import { useDeleteGuard } from '@/components/ui/delete-guard'
 
 const SURVEY_QUESTIONS = [
   { key: 'accidents', label: 'Safety incidents or injuries today?' },
@@ -83,6 +84,7 @@ interface TeamMember { id: string; name: string; role: string }
 interface SubContract { id: string; company_id: string; trade: string; companies?: { name: string } }
 
 export default function DailyLogsPage({ params }: { params: { id: string } }) {
+  const guardDelete = useDeleteGuard()
   const notify = useNotice()
   const { can } = usePermissions()
   const canCreateLog = can('daily-logs', 'create')
@@ -483,14 +485,15 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
     fetchLogs()
   }
 
-  async function handleDeleteLog(logId: string) {
-    if (!window.confirm('Delete this daily log? This cannot be undone.')) return
-    const token = await getToken()
-    await fetch(`/api/projects/${params.id}/daily-logs/${logId}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    fetchLogs()
+  function handleDeleteLog(logId: string) {
+    guardDelete(async () => {
+      const token = await getToken()
+      await fetch(`/api/projects/${params.id}/daily-logs/${logId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      fetchLogs()
+    }, { label: 'this daily log' })
   }
 
   async function handleSubmit(e: React.FormEvent) {
