@@ -9,6 +9,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 
 import { formatDate } from '@/lib/dates'
+import { expiryState, daysExpired } from '@/lib/expiry'
 import { useNotice } from '@/components/ui/notice'
 export interface Quote {
   id: string
@@ -333,7 +334,23 @@ export function ComparisonBlock({ comp, projectId, onChanged }: { comp: Comparis
                     <span className={cn('text-2xl font-bold', isLowest ? 'text-success' : 'text-ink')}>{money(q.total_amount)}</span>
                     {isLowest && <span className="text-[10px] font-semibold rounded-full bg-success-tint text-success px-1.5 py-0.5">Lowest</span>}
                   </div>
-                  {q.valid_until && <p className="text-xs text-faint">Valid until {formatDate(q.valid_until)}</p>}
+                  {/* A QUOTE WITH A DATE ON IT CAN RUN OUT. "Valid until Jul 29"
+                      printed the same grey line in August as it did in June, so
+                      the compare page invited somebody to award a price the
+                      vendor is no longer holding. Same shared answer the
+                      compliance and permit screens use. */}
+                  {q.valid_until && (() => {
+                    const state = expiryState(q.valid_until)
+                    const gone = daysExpired(q.valid_until)
+                    return (
+                      <p className={cn('text-xs',
+                        state === 'expired' ? 'font-medium text-danger' : state === 'soon' ? 'text-warn' : 'text-faint')}>
+                        {state === 'expired'
+                          ? `Expired ${gone} day${gone === 1 ? '' : 's'} ago · was valid until ${formatDate(q.valid_until)}`
+                          : `Valid until ${formatDate(q.valid_until)}`}
+                      </p>
+                    )
+                  })()}
                 </div>
                 {(q.data?.contact?.name || q.data?.contact?.email || q.data?.contact?.phone) && (
                   <p className="text-xs text-muted-fg">

@@ -284,6 +284,29 @@ production branch.** Do NOT ask the user to merge or deploy.
   must carry it. A heading beside the buttons makes it a LAYOUT, not a control
   row - the button group inside is the row.
 
+## Controls a phone cannot reach (IMPORTANT)
+- **THERE IS NO HOVER ON A PHONE.** A QA pass reported that tasks could not be
+  edited or deleted anywhere, then retracted it - the pencil and the trash were
+  `opacity-0` until hover, at every width. Invisible is indistinguishable from
+  absent, and the board card's actions were `absolute` against a parent that is
+  only `lg:relative`, so they were mispositioned as well. A control may be
+  hover-revealed FROM `lg` UP; below it, it is on screen:
+  `opacity-100 lg:opacity-0 lg:group-hover:opacity-100`. Six of these existed.
+  Pinned in `layout-overflow.ts`; a decorative chevron is not a control.
+- An icon-only button carries `aria-label` (and `title`). One with a visible
+  word beside the icon does not need one - the scan measures what is left after
+  the icons are removed.
+- **A DISABLED BUTTON EXPLAINS NOTHING.** `disabled={saving || !title.trim()}`
+  means pressing Save does literally nothing and the form never names the field
+  it is waiting on. Disable only for IN FLIGHT (`disabled={saving}`); let it
+  fire and answer with the missing field. Where two dialogs validate the same
+  shape, one function answers for both (`missingMilestone`).
+- A record that a client will read must not be blank. A daily log with only a
+  date filed happily into the list, the count and the client PDF - a page of
+  empty headings asserting somebody was on site and reported this. Guard on the
+  ROUTE as well as the form, since the field app posts to the same route, and
+  count evidence (a photo, who was there) as a report, not just words.
+
 ## Derived facts, not stored ones (IMPORTANT)
 - A status that is really a DATE must be computed from the date. Compliance and
   Permits each asked only "is it expiring soon", and soon was a window BEFORE

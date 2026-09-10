@@ -610,8 +610,15 @@ export default function TasksPage({ params }: { params: { id: string } }) {
 
   async function submitTask(e: React.FormEvent) {
     e.preventDefault()
-    setSaving(true)
     setSaveError(null)
+    // A DISABLED BUTTON EXPLAINS NOTHING. It used to be disabled while the
+    // title was empty, so pressing it did literally nothing and the form never
+    // said which field it was waiting on. Let it fire and answer.
+    if (!title.trim()) {
+      setSaveError('Give the task a name - it is the line everybody reads on the board.')
+      return
+    }
+    setSaving(true)
     try {
       const token = await getToken()
 
@@ -798,9 +805,17 @@ export default function TasksPage({ params }: { params: { id: string } }) {
           />
 
           {/* hover actions */}
-          <div className="absolute top-2 right-7 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          {/* THERE IS NO HOVER ON A PHONE. These were `opacity-0` until hover at
+              every width, and positioned `absolute` against a parent that is
+              only `lg:relative` - so on the phone board they were invisible
+              AND in the wrong place. Edit and delete were reported as missing
+              entirely, which is what invisible means. The desktop keeps
+              exactly what it had: hover-revealed, pinned to the card's corner.
+              Each is icon-only, so each says what it is. */}
+          <div className="mt-2 flex items-center justify-end gap-1 lg:absolute lg:top-2 lg:right-7 lg:mt-0 lg:opacity-0 lg:transition-opacity lg:group-hover:opacity-100">
             <button
               onClick={e => { e.stopPropagation(); openEditForm(task) }}
+              aria-label={`Edit "${task.title}"`} title="Edit task"
               className="p-1 rounded text-faint hover:text-accent-fg hover:bg-accent-tint transition-colors">
               <Pencil className="h-3 w-3" />
             </button>
@@ -808,12 +823,13 @@ export default function TasksPage({ params }: { params: { id: string } }) {
               <button
                 onClick={e => { e.stopPropagation(); openInvoiceModal(task) }}
                 className="p-1 rounded text-faint hover:text-accent-fg hover:bg-accent-tint transition-colors"
-                title="Create invoice">
+                aria-label={`Create an invoice from "${task.title}"`} title="Create invoice">
                 <Receipt className="h-3 w-3" />
               </button>
             )}
             <button
               onClick={e => { e.stopPropagation(); deleteTask(task.id) }}
+              aria-label={`Delete "${task.title}"`} title="Delete task"
               className="p-1 rounded text-faint hover:text-danger hover:bg-danger-tint transition-colors">
               <Trash2 className="h-3 w-3" />
             </button>
@@ -886,6 +902,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
             )}
             <button
               onClick={e => { e.stopPropagation(); openEditForm(task) }}
+              aria-label={`Edit "${task.title}"`} title="Edit task"
               className="p-1.5 text-faint hover:text-accent-fg rounded transition-colors">
               <Pencil className="h-3.5 w-3.5" />
             </button>
@@ -898,6 +915,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
             </SearchableSelect>
             <button
               onClick={e => { e.stopPropagation(); deleteTask(task.id) }}
+              aria-label={`Delete "${task.title}"`} title="Delete task"
               className="p-1.5 text-faint hover:text-danger rounded transition-colors">
               <Trash2 className="h-3.5 w-3.5" />
             </button>
@@ -1240,7 +1258,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
                 {saveError && <p className="text-sm text-danger">{saveError}</p>}
                 <div className="row-even lg:flex lg:flex-wrap gap-2 justify-end">
                   <Button type="button" variant="secondary" onClick={() => { setShowAdd(false); resetForm() }}>Cancel</Button>
-                  <Button type="submit" disabled={saving || !title.trim()}>{submitLabel}</Button>
+                  <Button type="submit" disabled={saving}>{submitLabel}</Button>
                 </div>
               </div>
             </form>

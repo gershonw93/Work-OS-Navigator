@@ -634,6 +634,51 @@ for (const f of [...tsx, ...walk('lib')]) {
 ok(dialogs.length === 0,
   `no screen opens a blocking alert${dialogs.length ? ` - ${dialogs[0]} (+${dialogs.length - 1})` : ''}`)
 
+// ─────────────────────────────────────────────────────────────────────────────
+// THERE IS NO HOVER ON A PHONE.
+//
+// A QA pass reported that tasks could not be edited or deleted anywhere, then
+// retracted it: the pencil and the trash were there all along, `opacity-0`
+// until hover. On a desktop that is a tidy affordance. On the device this whole
+// product is being tested on there is no hover, so the control did not exist -
+// and the board card's actions were `absolute` against a parent that is only
+// `lg:relative`, so they were in the wrong place as well as invisible.
+//
+// A control may be hover-revealed from `lg` up. Below it, it is on screen. A
+// decorative chevron is not a control and is allowed either way.
+// ─────────────────────────────────────────────────────────────────────────────
+const hoverOnly: string[] = []
+for (const f of tsx) {
+  code(f).split('\n').forEach((line, i) => {
+    if (!/group-hover:opacity-100/.test(line)) return
+    // Gated at a breakpoint, so a phone gets it - that is the fix.
+    if (/(?:sm|md|lg):opacity-0/.test(line)) return
+    // Not a control: an arrow that hints a row is clickable, and a pdf-filler
+    // handle that has its own selected state.
+    if (/<Chevron|activeId === box\.id/.test(line)) return
+    hoverOnly.push(`${f}:${i + 1}`)
+  })
+}
+ok(hoverOnly.length === 0,
+  `no control is hover-only on a phone${hoverOnly.length ? ` - ${hoverOnly[0]} (+${hoverOnly.length - 1})` : ''}`)
+
+// ...and an icon-only button says what it is, since there is no label to read.
+const iconButtons = (tasksPage.match(/<button[\s\S]{0,400}?<\/button>/g) ?? [])
+  .filter(b => /<(?:Pencil|Trash2|Receipt) className/.test(b))
+  // ICON-ONLY means nothing left to read once the icons are taken out. A button
+  // that says "Invoice" beside its receipt already names itself.
+  .filter(b => {
+    // Attribute expressions first - they hold `>` inside arrow functions, which
+    // would otherwise make the tag stripper stop in the middle of a tag.
+    const body = b
+      .replace(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g, '')
+      .replace(/<[^>]*>/g, '')
+    return body.trim() === ''
+  })
+const unnamed = iconButtons.filter(b => !/aria-label=/.test(b))
+ok(iconButtons.length >= 5 && unnamed.length === 0,
+  `every icon-only task action is named (${iconButtons.length} found, ${unnamed.length} unnamed)`)
+
 const notice = code('components/ui/notice.tsx')
 ok(/<NoticeProvider>\{children\}<\/NoticeProvider>/.test(code('app/layout.tsx')),
   'the notice provider is mounted at the ROOT - the portal and share links refuse saves too')

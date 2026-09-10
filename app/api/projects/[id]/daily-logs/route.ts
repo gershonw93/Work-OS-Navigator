@@ -132,6 +132,31 @@ export async function POST(request: Request, { params }: { params: { id: string 
   if (sigFile && sigFile.size > 0) signature_url = await uploadTo('daily-log-photos', sigFile)
   const signed = !!(signature_url || signed_by_name)
 
+  // A LOG HAS TO SAY SOMETHING.
+  //
+  // THE BUG: opening the form and pressing Save filed a log with a date and
+  // nothing else. It landed in the list, in the count, and in the client-facing
+  // PDF - a page of blank fields under a heading, which is worse than no entry
+  // at all because it asserts that somebody was on site and reported this.
+  //
+  // Checked here rather than only in the form, because the field app posts to
+  // the same route. Anything substantive counts: a note, an observation, a
+  // photo, an attachment, who was on site, or an answered survey question. The
+  // DATE does not, and neither does the weather - both are filled in for you.
+  const said = [
+    notes, safety_observation, quality_observation,
+  ].some(v => (v ?? '').trim() !== '')
+  const showed = photos.length > 0 || attachments.length > 0
+    || totalWorkers > 0 || subs_on_site.length > 0
+    // blankSurvey() starts every question at 'na' with no note, so an
+    // untouched survey is not a report.
+    || Object.values(survey ?? {}).some((v: any) => v && (v.answer !== 'na' || (v.description ?? '').trim() !== ''))
+  if (!said && !showed) {
+    return NextResponse.json({
+      error: 'An empty log says somebody was on site and reported nothing. Add a note, a photo, who was there, or an observation.',
+    }, { status: 400 })
+  }
+
   const { data: log, error } = await db.from('daily_logs').insert({
     project_id: params.id,
     created_by: user.id,

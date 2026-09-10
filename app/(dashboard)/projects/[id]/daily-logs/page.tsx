@@ -496,6 +496,19 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+    // Same rule as the route, asked here so it costs no round trip. An empty
+    // log filed happily and then sat in the list and the client PDF asserting
+    // that somebody was on site and reported nothing. The date and the weather
+    // do not count - both are filled in for you.
+    const said = [notes, safetyObs, qualityObs].some(v => v.trim() !== '')
+    const showed = photos.length > 0 || attachments.length > 0
+      || workersOnSite.length > 0 || subsOnSite.length > 0
+      // Every question starts at 'na' with no note, so untouched is not an answer.
+      || Object.values(survey ?? {}).some((v: any) => v && (v.answer !== 'na' || (v.description ?? '').trim() !== ''))
+    if (!said && !showed) {
+      setError('An empty log says somebody was on site and reported nothing. Add a note, a photo, who was there, or an observation.')
+      return
+    }
     setSubmitting(true)
     const token = await getToken()
     const form = new FormData()
@@ -1046,7 +1059,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                       <div className="relative group">
                         <img src={src} alt="" loading="lazy" decoding="async" className="h-24 w-full object-cover rounded-lg border border-line" />
                         <button type="button" onClick={() => removePhoto(i)}
-                          className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-danger-solid text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-danger-solid text-white flex items-center justify-center opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
                           <X className="h-3 w-3" />
                         </button>
                       </div>
@@ -1414,7 +1427,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                                         <img src={p.photo_url} alt={p.caption || 'Photo'} className="h-full w-full object-cover group-hover:opacity-90 transition-opacity" />
                                       </div>
                                     </button>
-                                    <button onClick={() => deletePhoto(log.id, p.id)} className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-danger-solid text-white flex items-center justify-center opacity-0 group-hover:opacity-100"><X className="h-3 w-3" /></button>
+                                    <button onClick={() => deletePhoto(log.id, p.id)} className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-danger-solid text-white flex items-center justify-center opacity-100 lg:opacity-0 lg:group-hover:opacity-100"><X className="h-3 w-3" /></button>
                                   </div>
                                   {/* Tag later: sub + category */}
                                   <div className="grid grid-cols-2 gap-1">
@@ -1462,7 +1475,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                                         <button type="button" onClick={() => {
                                           setMoreFiles(p => p.filter((_, j) => j !== i))
                                           setMoreSubs(p => p.filter((_, j) => j !== i)); setMoreCats(p => p.filter((_, j) => j !== i))
-                                        }} className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-danger-solid text-white flex items-center justify-center opacity-0 group-hover:opacity-100"><X className="h-3 w-3" /></button>
+                                        }} className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-danger-solid text-white flex items-center justify-center opacity-100 lg:opacity-0 lg:group-hover:opacity-100"><X className="h-3 w-3" /></button>
                                       </div>
                                       <SearchableSelect value={moreSubs[i] ?? ''} onChange={e => setMoreSubs(p => p.map((s, j) => j === i ? e.target.value : s))} className="text-xs">
                                         <option value="">No sub</option>
