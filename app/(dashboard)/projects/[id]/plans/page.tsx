@@ -517,7 +517,7 @@ export default function PlansPage({ params }: { params: { id: string } }) {
                       </button>
                       {canDelete && <button
                         onClick={e => { e.stopPropagation(); handleDeleteFolder(folder.id) }}
-                        className="absolute top-1.5 right-1.5 p-1 text-danger hover:text-danger opacity-0 group-hover:opacity-100 transition-opacity bg-panel rounded"
+                        className="absolute top-1.5 right-1.5 p-1 text-danger hover:text-danger opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity bg-panel rounded"
                         title="Delete folder"
                       >
                         <Trash2 className="h-3.5 w-3.5" />

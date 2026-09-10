@@ -831,7 +831,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                         </a>
                       )}
                     </div>
-                    <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                    <div className="flex flex-col gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-all">
                       <button
                         onClick={() => openEditMember(member)}
                         className="text-faint hover:text-muted-fg transition-colors"

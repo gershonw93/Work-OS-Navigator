@@ -212,6 +212,7 @@ ok(/\.select\('id, title, amount, status, budget_line_item_id, subcontract_id'\)
   '...selecting only columns change_orders actually has - an unknown one reads as "no rows", not as an error')
 
 const budgetPage = code('app/(dashboard)/projects/[id]/budget/page.tsx')
+const tasksSrc = code('app/(dashboard)/projects/[id]/tasks/page.tsx')
 ok(/unlinkedChangeOrders\.length > 0/.test(budgetPage),
   'the Budget page shows them in the same panel as the other money that is on no row')
 ok(/fileAgainstLine\('change_order', co\.id, e\.target\.value\)/.test(budgetPage),
@@ -220,6 +221,56 @@ ok(/budget_line_item_id: lineId/.test(budgetPage), '...which patches the change 
 ok(/if \(budget_line_item_id !== undefined\) updates\.budget_line_item_id/.test(
   code('app/api/projects/[id]/change-orders/[coId]/route.ts')),
   '...and the change-order route accepts that patch')
+
+// ─────────────────────────────────────────────────────────────────────────────
+// A LATER PASS, section by section. Overview, Field and Buyout came back clean
+// apart from these.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// A daily log with nothing on it.
+//
+// Opening the form and pressing Save filed a log carrying a date and nothing
+// else. It landed in the list, in the count, and in the CLIENT-FACING PDF - a
+// page of blank headings asserting that somebody was on site and reported this,
+// which is worse than no entry at all.
+const logRoute = code('app/api/projects/[id]/daily-logs/route.ts')
+const logPage = code('app/(dashboard)/projects/[id]/daily-logs/page.tsx')
+for (const [where, src] of [['the route', logRoute], ['the form', logPage]] as const) {
+  ok(/An empty log says somebody was on site and reported nothing/.test(src),
+    `${where} refuses a log with nothing on it`)
+  ok(/const said = \[/.test(src) && /const showed = /.test(src),
+    `...${where === 'the route' ? 'and it' : 'and the form'} counts words AND evidence - a photo or who was there is a report too`)
+  ok(/v\.answer !== 'na' \|\| \(v\.description \?\? ''\)\.trim\(\) !== ''/.test(src),
+    `...${where}: an UNTOUCHED survey is not an answer - every question starts at 'na'`)
+}
+ok(/const said = \[\s*notes, safety_observation, quality_observation,?\s*\]/.test(logRoute),
+  'the field app posts to the same route, so the rule cannot live only in the office form')
+
+// A disabled button explains nothing.
+//
+// The new-task and new-milestone dialogs disabled Save until their required
+// fields were filled, so pressing it did literally nothing and neither form
+// ever said which field it was waiting on.
+ok(/<Button type="submit" disabled=\{saving\}>/.test(tasksSrc),
+  'the task dialog lets its button fire')
+ok(/Give the task a name/.test(tasksSrc), '...and answers with the field that is missing')
+const sched = code('app/(dashboard)/projects/[id]/schedule/page.tsx')
+ok(/function missingMilestone\(/.test(sched),
+  'one function says what a milestone still needs')
+ok((sched.match(/missingMilestone\(\{/g) ?? []).length === 2,
+  '...asked by BOTH the add and the edit dialog, so the two cannot disagree')
+ok(/<Button type="submit" disabled=\{addSaving\}>/.test(sched),
+  '...and Add fires rather than sitting there greyed out')
+
+// A quote that has run out.
+//
+// "Valid until Jul 29" printed the same grey line in August as it did in June,
+// so the compare page invited somebody to award a price nobody is holding.
+const compare = code('components/quotes/comparison-block.tsx')
+ok(/from '@\/lib\/expiry'/.test(compare),
+  'the compare page asks the same expiry question as Compliance and Permits')
+ok(/state === 'expired'/.test(compare) && /Expired \$\{gone\} day/.test(compare),
+  '...and an expired quote says so, with how long ago')
 
 // The pay-app schedule of values has surfaced `unmapped` all along, which is
 // how the same money could be on one screen and not the other.

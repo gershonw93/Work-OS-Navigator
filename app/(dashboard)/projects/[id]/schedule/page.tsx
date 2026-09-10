@@ -275,10 +275,32 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     calInit.done = true
   }, [items, calInit])
 
+  /**
+   * What a milestone is still missing, in words, or null when it is complete.
+   *
+   * Shared by Add and Edit so the two dialogs cannot disagree about what a
+   * milestone needs - and it names the FIELD, which is the whole complaint: a
+   * greyed-out button is not a validation message.
+   */
+  function missingMilestone(m: { label: string; start: string; end: string }): string | null {
+    if (!m.label.trim()) return 'Give the milestone a name - it is what shows on the schedule.'
+    if (!m.start) return 'A milestone needs a start date.'
+    if (!m.end) return 'A milestone needs an end date.'
+    // Not asked for, but the pair is right here and a backwards milestone draws
+    // a bar with no width.
+    if (m.end < m.start) return 'The end date is before the start date.'
+    return null
+  }
+
   async function addItem(e: React.FormEvent) {
     e.preventDefault()
-    setAddSaving(true)
     setAddError(null)
+    // A disabled button explains nothing - it used to be disabled until all
+    // three were filled in, so pressing it did nothing and never said which
+    // one it was waiting on.
+    const missing = missingMilestone({ label: addLabel, start: addStart, end: addEnd })
+    if (missing) { setAddError(missing); return }
+    setAddSaving(true)
     const token = await getToken()
     // This used to ignore the response entirely: a failed add closed the modal
     // and cleared the fields, so it looked exactly like a success.
@@ -297,6 +319,8 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
   async function saveEdit(e: React.FormEvent) {
     e.preventDefault()
     if (!editItem) return
+    const missing = missingMilestone({ label: editLabel, start: editStart, end: editEnd })
+    if (missing) { setEditError(missing); return }
     setEditSaving(true)
     setEditError(null)
     const token = await getToken()
@@ -400,7 +424,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
               {addError && <ErrorNote message={addError} className="mx-4 sm:mx-6 mb-1" />}
               <div className="row-even shrink-0 px-4 sm:px-6 py-4 border-t border-line-soft lg:flex lg:flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => { setShowAdd(false); setAddError(null) }}>Cancel</Button>
-                <Button type="submit" disabled={addSaving || !addLabel || !addStart || !addEnd}>
+                <Button type="submit" disabled={addSaving}>
                   {addSaving ? 'Adding...' : 'Add Milestone'}
                 </Button>
               </div>
@@ -660,7 +684,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                             <span className="text-xs text-white font-medium truncate">{spanDays}d</span>
                           </div>
                         </div>
-                        <div className="pr-3 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                        <div className="pr-3 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity shrink-0">
                           <button onClick={() => openEdit(item)} className="text-faint hover:text-muted-fg p-1 rounded">
                             <Pencil className="h-3.5 w-3.5" />
                           </button>

@@ -374,7 +374,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'compare-quotes',
     title: 'Compare quotes (with AI analysis)',
     category: 'quotes',
-    keywords: ['compare', 'analyze', 'ai', 'level', 'quotes', 'quote comparison'],
+    keywords: ['compare', 'analyze', 'ai', 'level', 'quotes', 'quote comparison', 'valid until', 'expired quote', 'expiry', 'out of date', 'stale price'],
     summary: 'Line quotes up side by side - the AI checks each against your requirements automatically.',
     blocks: [
       { type: 'steps', items: [
@@ -384,6 +384,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'The AI analyzes automatically and flags what each quote is missing, its strengths, and concerns - and recommends the best value.',
       ] },
       { type: 'tip', text: 'Comparing already runs the analysis - you no longer click a separate "Analyze" button. Use Re-analyze after you change the requirements.' },
+      { type: 'warn', text: 'WATCH THE VALID-UNTIL DATE. A quote that carries one is flagged amber inside 30 days and red once it has passed, saying how long ago it lapsed. Awarding an expired quote is awarding a price nobody is holding any more - go back to the vendor before you do.' },
     ],
     related: ['request-quotes', 'award-quote'],
   },
@@ -987,7 +988,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'daily-log-create',
     title: 'Write a daily log',
     category: 'field',
-    keywords: ['daily log', 'field', 'report', 'weather', 'workers', 'photos', 'jobsite'],
+    keywords: ['daily log', 'field', 'report', 'weather', 'workers', 'photos', 'jobsite', 'blank log', 'empty log', 'will not save', 'nothing happens'],
     summary: 'Record what happened on site each day.',
     blocks: [
       { type: 'steps', items: [
@@ -997,6 +998,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'Attach photos - you can tag them by subcontractor.',
         'Sign the log and save.',
       ] },
+      { type: 'warn', text: 'A LOG HAS TO SAY SOMETHING. Saving one with only a date on it is refused: a blank entry goes into the count and into the client-facing PDF as a page of empty headings, which reads as "somebody was on site and reported this". Anything real counts - a note, a photo, who was on site, or a safety or quality observation. The date and the weather do not, because they are filled in for you.' },
       { type: 'tip', text: 'You can post updates through the day; they show as a timeline on the log.' },
       { type: 'tip', text: 'Several entries on the same date group together under one day, so a day with crew submissions plus your log reads as one record.' },
     ],

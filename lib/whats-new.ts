@@ -49,6 +49,35 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-10',
+    title: 'Found by going through it screen by screen',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'Edit and delete are visible on a phone',
+        text: 'On the task board, the edit and delete buttons only appeared when you hovered a mouse over the card - and a phone has no hover, so on a phone they were not there at all. They now show on a touch screen, and on a laptop they still appear on hover as before. The same was true of the delete buttons on plans, daily-log photos, the schedule and the crew list. All fixed, and every icon-only button now says what it does out loud for a screen reader.',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
+        title: 'A daily log has to say something',
+        text: 'Opening a daily log and pressing Save filed one with a date and nothing else - and it went into the list, the count and the client PDF, a page of blank headings saying somebody was on site and reported this. A log now needs a note, a photo, who was there, or an observation. The weather and the date do not count, because they are filled in for you.',
+        help: 'daily-log-create',
+      },
+      {
+        kind: 'fixed',
+        title: 'A greyed-out Save now tells you why',
+        text: 'The new-task and new-milestone dialogs left Save greyed out until the required fields were filled, so pressing it did nothing at all and neither form said which field it was waiting on. Both now say what is missing. A milestone also catches an end date before its start date.',
+      },
+      {
+        kind: 'improved',
+        title: 'An expired quote says so when you compare',
+        text: 'A quote carrying a "valid until" date printed the same grey line whether that date was next month or last month, so the compare page could invite you to award a price the vendor is no longer holding. An expired one is now flagged in red with how long ago it lapsed, and one inside 30 days is flagged amber.',
+        help: 'compare-quotes',
+      },
+    ],
+  },
+  {
+    date: '2026-09-10',
     title: 'Errors that stay in the page',
     items: [
       {
