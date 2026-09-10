@@ -48,6 +48,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    date: '2026-09-12',
+    title: 'The menu folds away on a computer',
+    items: [
+      {
+        kind: 'improved',
+        title: 'Collapse the side menu to a strip of icons',
+        text: 'On a laptop the menu was a fixed column down the left, always open, taking about a fifth of the screen for words you already know. Press the arrows at the top of it and it folds to a narrow strip of icons - hover one to see what it is - and the page grows into the space. Press again to bring the labels back. It remembers which way you left it, on that computer, and it is right the moment the page opens rather than snapping in a beat later. Nothing changes on a phone or a tablet: the menu there is still the one behind the button in the top corner.',
+        help: 'collapse-sidebar',
+      },
+    ],
+  },
+  {
     date: '2026-09-11',
     title: 'Delete works again, and every confirmation is in the page',
     items: [

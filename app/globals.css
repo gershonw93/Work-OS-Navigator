@@ -512,6 +512,90 @@
     padding-top: max(2.5rem, calc(env(safe-area-inset-top) + 1rem));
   }
   .overlay-sheet > * { max-height: 100%; min-width: 0; }
+
+  /* ── The desktop sidebar collapses to a rail of icons ─────────────────────
+     ONE NUMBER. The rail was `w-60` and the content column beside it was
+     `lg:pl-60` - the same measurement written in two files, which is the shape
+     of bug this repo keeps paying for. Here the width and the padding are
+     literally the same value, so they cannot disagree: shrink the variable and
+     both move.
+
+     `screen` deliberately. A printed report already hides the sidebar, and
+     `@media (min-width: 1024px)` alone is TRUE ON PAPER - a print stylesheet is
+     not a narrow one - so without `screen` every printed page would gain a
+     240px left margin holding nothing.
+
+     Below lg there are no rules here at all: the phone drawer keeps its own
+     `w-72`, the content keeps no left padding, and the collapsed class is inert
+     however it got set. */
+  @media screen and (min-width: 1024px) {
+    .app-shell { --sidebar-w: 15rem; }
+    .sidebar-collapsed .app-shell { --sidebar-w: 4.5rem; }
+
+    .app-sidebar { width: var(--sidebar-w); }
+    .app-content { padding-left: var(--sidebar-w); }
+
+    /* CLIPPED, NOT `display: none`. The label is the link's ACCESSIBLE NAME -
+       take it out of the tree and a screen reader announces the href instead,
+       so the rail would read as a column of URLs. Same lesson as InfoHint, from
+       the other direction: there, hidden-but-laid-out was the bug; here,
+       gone-entirely would be. */
+    .sidebar-collapsed .app-sidebar .nav-label {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border-width: 0;
+    }
+
+    /* The row is `flex items-center gap-3`; with the label clipped out, the
+       icon has to be centred rather than sitting where the label left it. */
+    /* The header is `justify-between` with the logo clipped out, which would
+       push the toggle to the left edge of the rail. */
+    .sidebar-collapsed .app-sidebar .sidebar-head {
+      justify-content: center;
+      padding-left: 0;
+      padding-right: 0;
+    }
+
+    .sidebar-collapsed .app-sidebar .nav-row {
+      justify-content: center;
+      gap: 0;
+      position: relative;
+      /* The row's height came from the LABEL's line box, so clipping the label
+         shrank every row from 40px to 36 and the rail lost its rhythm. */
+      min-height: 2.5rem;
+    }
+
+    /* The What's New count is a pill hanging off a label that is no longer
+       there. Collapsed it becomes a dot on the icon - the number is still read
+       out, it just has nowhere to be drawn. */
+    .sidebar-collapsed .app-sidebar .nav-badge {
+      position: absolute;
+      top: 0.375rem;
+      right: 0.625rem;
+      min-width: 0.5rem;
+      width: 0.5rem;
+      height: 0.5rem;
+      padding: 0;
+      font-size: 0;
+      line-height: 0;
+    }
+
+    /* The chevron points the way it will go. Done in CSS rather than by
+       swapping icons in React: the state is read after mount, and a control
+       that renders backwards for one frame is a control that looks broken. */
+    .sidebar-collapsed .app-sidebar .sidebar-toggle-icon { transform: rotate(180deg); }
+
+    @media (prefers-reduced-motion: no-preference) {
+      .app-sidebar { transition: width 180ms ease; }
+      .app-content { transition: padding-left 180ms ease; }
+    }
+  }
 }
 
 /* Nothing behind an open overlay scrolls.

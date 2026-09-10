@@ -214,6 +214,7 @@ Shipped in #218: bulk creation makes a site + a job per unit/floor/house, with a
 - **Inspections on the per-project Schedule tab** (currently on Master Calendar).
 
 ## 📱 Misc
+- **Hover-to-peek on the collapsed sidebar.** The desktop rail collapses to icons and names them with a `title` on hover; the other half of the usual pattern is a flyout that springs the full menu open when the pointer rests on the rail. Deliberately not shipped with the collapse - it is a different interaction, and a panel that opens because the mouse drifted past is a nuisance if you did not want it. Revisit if anyone asks for it.
 - **Screenshots in the Help Center** - schema already supports image blocks; drop them in per step when captured.
 - **Mobile app polish** (Capacitor remote-URL build already prepped).
 
