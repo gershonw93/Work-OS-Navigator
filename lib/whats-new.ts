@@ -49,6 +49,35 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-11',
+    title: 'Inviting a sub to quote now actually invites them',
+    items: [
+      {
+        kind: 'fixed',
+        title: '"+ Invite" sends the quote request',
+        text: 'It never did - on any path. It created the row and, if the sub already had a SyteNav login, gave them a notification, which is why it looked like it worked for saved subs. A sub you typed in got nothing at all, and the first email they eventually received read "Still need your price" - a chase for a request they had never been sent. Pressing Invite emails them now, and tells you which address it went to.',
+        help: 'request-quotes',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
+        title: 'A quote invite says whether anyone has been told',
+        text: 'A new invite showed "Invited" the instant you created it, before anything was sent. It now reads "Not sent yet" until an email actually goes out. That one wrong starting state is also why the first email came out as a reminder.',
+      },
+      {
+        kind: 'fixed',
+        title: 'One sub, one invite',
+        text: 'Pressing Invite twice on the same request made two rows for the same sub. It now tells you they are already on it, and points you at Send reminder instead.',
+      },
+      {
+        kind: 'improved',
+        title: 'The invited-sub row has one button that does the thing',
+        text: 'It carried four controls - two of which only copied something, and a Send that opened a panel with another Send inside it. Now: one "Send invite" (or "Send reminder" once they have been told), and the rest behind the dots - copy link, copy email text, send by hand, and send with a note if you want to add a line or use a different address. A sub with no email address gets Copy link as the main button, since that is the only thing that can happen.',
+        help: 'request-quotes',
+      },
+    ],
+  },
+  {
+    date: '2026-09-11',
     title: 'The invite email said the wrong thing',
     items: [
       {
