@@ -141,6 +141,10 @@ export function SearchableSelect({
     return list.filter(o => o.label.toLowerCase().includes(q))
   }, [ordered, query])
 
+  // When the last pick happened, so the trigger can tell a fresh tap from the
+  // tail of the one that closed the panel.
+  const pickedAt = useRef(0)
+
   function place() {
     const el = triggerRef.current
     if (!el) return
@@ -198,6 +202,18 @@ export function SearchableSelect({
     if (opt.disabled) return
     if (value === undefined) setInternal(opt.value)
     onChange?.({ target: { value: opt.value }, currentTarget: { value: opt.value } })
+    // THE DROPDOWN STAYED OPEN AFTER PICKING (the Role field, reported).
+    //
+    // `setOpen(false)` here is correct and always ran. What undid it is the
+    // TRIGGER, which toggles: on a phone the panel is a full-width sheet placed
+    // hard against the trigger, so the tap that picks an option lands on the
+    // trigger the moment the panel unmounts from under the finger, and a
+    // toggle turns "closed" straight back into "open". A close that something
+    // else immediately reverses looks exactly like never closing.
+    //
+    // So the toggle is deaf for a moment after a pick. A timestamp rather than
+    // a flag cleared on a timer: no timer to leak, and it cannot get stuck on.
+    pickedAt.current = Date.now()
     setOpen(false)
   }
 
@@ -219,7 +235,12 @@ export function SearchableSelect({
         ref={triggerRef}
         disabled={disabled}
         style={style}
-        onClick={e => { onClick?.(e); if (!disabled) setOpen(o => !o) }}
+        onClick={e => {
+          onClick?.(e)
+          // The tail of the tap that just picked something - not a new one.
+          if (Date.now() - pickedAt.current < 400) return
+          if (!disabled) setOpen(o => !o)
+        }}
         onKeyDown={onKeyDown}
         className={cn(triggerClasses, className)}
         aria-haspopup="listbox"

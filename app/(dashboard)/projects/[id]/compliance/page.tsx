@@ -93,14 +93,17 @@ function cardChip(status: DocStatus) {
 // cannot disagree about the same certificate.
 function statusFromExpiry(doc: { status: DocStatus; expiry_date: string | null }): DocStatus {
   const state = expiryState(doc.expiry_date)
-  // A date that has passed IS expired. It outranks the stored status entirely -
-  // including 'pending', because a document waiting to be approved that already
-  // ran out is not going to be approved.
+  // THE DATE DECIDES. A certificate carrying a date that has not run out is
+  // current, whatever the row was set to when it was filed - a live COI sitting
+  // at "pending" because nobody clicked Approve is a sub who is covered and
+  // reads as a problem, and it is the same fact in both directions: an expired
+  // one reads as covered no matter what the row says.
+  //
+  // The stored status only speaks for a document with NO date on it - a W-9, a
+  // signed agreement - where there is nothing to derive from.
   if (state === 'expired') return 'expired'
-  // The other direction: a row still flagged Expired whose date is now ahead is
-  // a renewal that was re-uploaded, and should stop shouting.
-  if (doc.status === 'expired' && state !== 'none') return state === 'soon' ? 'expiring_soon' : 'approved'
-  if (doc.status === 'approved' && state === 'soon') return 'expiring_soon'
+  if (state === 'soon') return 'expiring_soon'
+  if (state === 'ok') return 'approved'
   return doc.status
 }
 
@@ -260,7 +263,7 @@ function UploadForm({
   }
 
   return (
-    <div className="rounded-xl border border-line bg-surface p-4 mt-2 space-y-3">
+    <div className="rounded-2xl border border-line bg-panel p-4 space-y-3 shadow-xl lg:rounded-xl">
       <div className="flex items-center justify-between">
         <p className="text-sm font-semibold text-ink-soft">
           {existingDoc ? 'Update' : 'Upload'} {DOC_LABELS[docType]} - {companyName}
@@ -960,19 +963,26 @@ function SubCard({ sub, docs, requests, requirements, projectId, token, onRefres
           )
         })}
       </div>
-      {/* Inline upload form (below table) */}
+      {/* A DIALOG, not a panel bolted to the bottom of the card.
+          It used to render below the whole document list, so pressing Update on
+          the third row put the form somewhere off the bottom of the screen with
+          nothing connecting the two - on a phone that reads as having been sent
+          to a different page. Same treatment as Budget's Add Line. */}
       {openForm && (
-        <div className="px-5 pb-5 pt-2">
-          <UploadForm
-            projectId={projectId}
-            companyId={companyId}
-            companyName={companyName}
-            docType={openForm}
-            existingDoc={getDoc(openForm)}
-            token={token}
-            onClose={() => setOpenForm(null)}
-            onSaved={onRefresh}
-          />
+        <div className="overlay items-center justify-center bg-black/50" data-overlay
+          onClick={() => setOpenForm(null)}>
+          <div className="w-full max-w-lg" onClick={e => e.stopPropagation()}>
+            <UploadForm
+              projectId={projectId}
+              companyId={companyId}
+              companyName={companyName}
+              docType={openForm}
+              existingDoc={getDoc(openForm)}
+              token={token}
+              onClose={() => setOpenForm(null)}
+              onSaved={onRefresh}
+            />
+          </div>
         </div>
       )}
     </div>

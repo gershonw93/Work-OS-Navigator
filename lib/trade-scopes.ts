@@ -215,6 +215,27 @@ export function scopeForTrade(trade: string | null | undefined): TradeScope | nu
     t.includes(s.trade.toLowerCase()) || s.trade.toLowerCase().includes(t)) ?? null
 }
 
+/**
+ * Who supplies the material, given the package.
+ *
+ * THE OVERLAP. "Package" and "Who supplies the material?" sat side by side as
+ * two free choices, and three of the four packages already answer the second
+ * one: labour + material means the sub brings it, labour only means we do, and
+ * material only means the sub is the supplier - that is what the package IS.
+ * Asking anyway invited the contradiction, and a request that says "Labor only"
+ * over "Subcontractor supplies material" is two different jobs on one page.
+ *
+ * `null` for the one package that genuinely does not say: they come out, they
+ * measure, and who buys the material is still open. That is the only one worth
+ * a question.
+ */
+export function materialByFor(pkg: PackageType): MaterialBy | null {
+  if (pkg === 'turnkey') return 'sub'
+  if (pkg === 'labor_only') return 'gc'
+  if (pkg === 'material_only') return 'sub'
+  return null   // measure_quote - ask
+}
+
 export const MATERIAL_BY_LABEL: Record<MaterialBy, string> = {
   sub: 'Subcontractor supplies material',
   gc: 'We supply the material',

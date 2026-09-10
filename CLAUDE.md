@@ -308,6 +308,19 @@ production branch.** Do NOT ask the user to merge or deploy.
   count evidence (a photo, who was there) as a report, not just words.
 
 ## Derived facts, not stored ones (IMPORTANT)
+- **Two controls must not answer one question.** A quote request asked for a
+  package AND "who supplies the material", and three of the four packages ARE
+  that answer - so a request could go out reading "Labor only" over
+  "Subcontractor supplies material", which is two different jobs on one page.
+  `materialByFor(pkg)` derives it and returns null for the one case that is
+  genuinely open (measure & quote), which is the only case still asked. Picking
+  a package writes the derived answer, and a stored template's pair is
+  overridden by it, because a stored pair can disagree with itself.
+- COMPLIANCE STATUS IS DATE-DRIVEN: a date that has not run out means the
+  document is current, whatever the row says, and a date that has passed means
+  expired, whatever the row says. The stored status only speaks for a document
+  with NO date (a W-9, an agreement). A live COI sitting at `pending` because
+  nobody clicked Approve made a covered sub read as a problem.
 - A status that is really a DATE must be computed from the date. Compliance and
   Permits each asked only "is it expiring soon", and soon was a window BEFORE
   the date (`diff > 0 && diff <= 30 days`) - so the day a certificate lapsed the
@@ -330,6 +343,25 @@ production branch.** Do NOT ask the user to merge or deploy.
 - An activity feed row links to the record it is ABOUT (`lib/activity-href.ts`).
   All 34 event types linked to `/plans`; the tab is not derivable from the type
   string, so it is a table pinned against the icon table it mirrors.
+
+## Menus, pickers and the tail of a tap (IMPORTANT)
+- A control that toggles must not be re-triggered by the tap that just used it.
+  `SearchableSelect` closed correctly on pick and the TRIGGER re-opened it: on a
+  phone the panel is a full-width sheet hard against the trigger, so the tap
+  that picks an option lands on the trigger the instant the panel unmounts from
+  under the finger, and a toggle turns "closed" back into "open". A close that
+  something else immediately reverses looks exactly like never closing. Guarded
+  with a `pickedAt` timestamp, not a flag on a timer - no timer to leak and it
+  cannot get stuck on.
+- Something a user opens from a ROW opens over the screen, not at the bottom of
+  the card. Compliance's Update rendered below the whole document list, so
+  pressing it on the third row scrolled you away from what you tapped - which on
+  a phone reads as having been sent to a different page. Same rule as Budget's
+  Add Line and the task detail.
+- A picker that SHOWS a fact in its options fills that fact in. The saved-subs
+  dropdown listed "Joe's Plumbing (Electrical)" and then left Trade blank to be
+  retyped - and a subcontract with no trade drops out of the compliance
+  requirements for its trade.
 
 ## Loading and failure states (IMPORTANT)
 - A permissions check that FAILED answers exactly like being denied - `can()`

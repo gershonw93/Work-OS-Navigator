@@ -254,10 +254,16 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
             <div className="space-y-1.5"><Label>Title <span className="text-danger">*</span></Label><Input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Electrical rough-in" autoFocus={autoFocusOnDesktop()} /></div>
             <div className="space-y-1.5"><Label>Trade</Label><Input value={trade} onChange={e => setTrade(e.target.value)} placeholder="e.g. Electrical" /></div>
           </div>
-          <div className="space-y-1.5"><Label>Scope / instructions</Label>
-            <textarea rows={3} value={description} onChange={e => setDescription(e.target.value)} placeholder="What you need quoted, requirements, etc."
-              className="w-full rounded-md border border-muted2 px-3 py-2 text-sm focus:border-accent focus:outline-none resize-none" /></div>
+          {/* THE BUILT SCOPE COMES FIRST. Type a trade and the scope below fills
+              itself in - which makes a big empty "Scope / instructions" box
+              ABOVE it read as the thing you have to write, so people wrote out
+              by hand what the next control was about to give them. It sits
+              under the built scope now, and says what it is for: the handful of
+              things a template cannot know. */}
           <ScopeBuilder trade={trade || null} value={scopeValue} onChange={setScopeValue} itemCount={itemList.length} />
+          <div className="space-y-1.5"><Label>Anything else <span className="text-faint font-normal">(optional)</span></Label>
+            <textarea rows={3} value={description} onChange={e => setDescription(e.target.value)} placeholder="Site access, working hours, anything the lists above do not cover."
+              className="w-full rounded-md border border-muted2 px-3 py-2 text-sm focus:border-accent focus:outline-none resize-none" /></div>
           <ItemListEditor value={itemList} onChange={setItemList}
             materialBy={scopeValue.material_by} packageType={scopeValue.package_type} />
 

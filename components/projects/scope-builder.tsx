@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 import { Check, X, Plus, Lightbulb, Scale, ArrowLeftRight } from 'lucide-react'
 import {
-  PACKAGE_TYPES, MATERIAL_BY_LABEL, comparabilityNote, scopeForTrade,
+  PACKAGE_TYPES, MATERIAL_BY_LABEL, comparabilityNote, materialByFor, scopeForTrade,
   type MaterialBy, type PackageType, type TradeScope,
 } from '@/lib/trade-scopes'
 
@@ -192,7 +192,9 @@ export function ScopeBuilder({
     setLoadedFor(trade)
     onChange({
       package_type: tpl.package_type,
-      material_by: tpl.material_by,
+      // A template stores both, and a stored pair can disagree with itself.
+      // The package wins wherever it has an answer.
+      material_by: materialByFor(tpl.package_type) ?? tpl.material_by,
       included: [...tpl.included],
       excluded: [...tpl.excluded],
       ask_for: [...tpl.ask_for],
@@ -250,7 +252,14 @@ export function ScopeBuilder({
           <Label className="lg:text-xs">Package</Label>
           <div className="grid gap-1.5">
             {PACKAGE_TYPES.map(p => (
-              <button key={p.key} type="button" onClick={() => set({ package_type: p.key })}
+              <button key={p.key} type="button"
+                onClick={() => {
+                  // The package answers the material question for three of the
+                  // four, so it writes the answer rather than leaving whatever
+                  // the last package chose sitting there contradicting it.
+                  const derived = materialByFor(p.key)
+                  set(derived ? { package_type: p.key, material_by: derived } : { package_type: p.key })
+                }}
                 className={cn('rounded-lg border px-3 py-2 text-left transition-colors',
                   value.package_type === p.key
                     ? 'border-accent bg-accent-tint text-accent-fg'
@@ -264,17 +273,31 @@ export function ScopeBuilder({
 
         <div className="space-y-1.5">
           <Label className="lg:text-xs">Who supplies the material?</Label>
-          <div className="grid gap-1.5">
-            {(['sub', 'gc', 'na'] as MaterialBy[]).map(m => (
-              <button key={m} type="button" onClick={() => set({ material_by: m })}
-                className={cn('rounded-lg border px-3 py-2 text-left text-sm font-medium transition-colors',
-                  value.material_by === m
-                    ? 'border-accent bg-accent-tint text-accent-fg'
-                    : 'border-line bg-panel text-ink-soft hover:bg-muted')}>
-                {MATERIAL_BY_LABEL[m]}
-              </button>
-            ))}
-          </div>
+          {/* DERIVED, not asked twice. Three of the four packages already say
+              who brings the material - that is what the package is - and asking
+              anyway let a request go out saying "Labor only" over
+              "Subcontractor supplies material", which is two different jobs on
+              one page. Only Measure & quote leaves it genuinely open. */}
+          {materialByFor(value.package_type) ? (
+            <p className="rounded-lg border border-line bg-muted px-3 py-2 text-sm text-ink-soft">
+              {MATERIAL_BY_LABEL[value.material_by]}
+              <span className="mt-0.5 block text-[11px] text-muted-fg">
+                Set by the package you picked. Change the package to change this.
+              </span>
+            </p>
+          ) : (
+            <div className="grid gap-1.5">
+              {(['sub', 'gc', 'na'] as MaterialBy[]).map(m => (
+                <button key={m} type="button" onClick={() => set({ material_by: m })}
+                  className={cn('rounded-lg border px-3 py-2 text-left text-sm font-medium transition-colors',
+                    value.material_by === m
+                      ? 'border-accent bg-accent-tint text-accent-fg'
+                      : 'border-line bg-panel text-ink-soft hover:bg-muted')}>
+                  {MATERIAL_BY_LABEL[m]}
+                </button>
+              ))}
+            </div>
+          )}
           {value.material_by === 'gc' && (
             <p className="text-[11px] text-warn">
               You&apos;re buying the material, so ask them for the list of what to order.
