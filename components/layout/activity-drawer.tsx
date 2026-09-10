@@ -96,35 +96,38 @@ export function ActivityDrawer({ projectId, open, onClose }: ActivityDrawerProps
 
   return (
     <>
-      {/* Backdrop */}
+      {/* ONE DEFINITION OF A SIDE DRAWER, not a second hand-rolled one.
+          This was `fixed top-0 right-0 h-full`, mounted always and slid out of
+          frame when closed - and `h-full` is 100% of the LAYOUT viewport, which
+          does not shrink for a keyboard and knows nothing about the notch. So
+          its header sat under the Dynamic Island and, with a keyboard up, its
+          footer sat behind one. `.overlay-drawer` is measured against the
+          VISIBLE strip, the same as every other overlay in the app.
+          Mounted only while open now, which is also what lets the scroll lock
+          (`html:has([data-overlay])`) mean what it says. */}
       {open && (
+        <div className="overlay-drawer bg-black/20 backdrop-blur-[1px]" data-overlay onClick={onClose}>
         <div
-          className="overlay-full z-40 bg-black/20 backdrop-blur-[1px]" data-overlay
-          onClick={onClose}
-        />
-      )}
-
-      {/* Drawer */}
-      <div className={cn(
-        'fixed top-0 right-0 z-50 h-full w-full sm:w-96 bg-panel shadow-2xl border-l border-line flex flex-col transition-transform duration-300 ease-in-out',
-        open ? 'translate-x-0' : 'translate-x-full'
-      )}>
+          onClick={e => e.stopPropagation()}
+          className="flex flex-col overflow-hidden bg-panel shadow-2xl border-l border-line"
+        >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-line-soft">
+        <div className="flex shrink-0 items-center justify-between px-5 py-4 border-b border-line-soft">
           <div className="flex items-center gap-2.5">
             <History className="h-5 w-5 text-muted-fg" />
             <h2 className="text-base font-semibold text-ink">Job History</h2>
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-faint hover:bg-muted hover:text-muted-fg transition-colors"
+            aria-label="Close" title="Close"
+            className="-mr-2 flex h-11 w-11 items-center justify-center rounded-lg text-faint hover:bg-muted hover:text-muted-fg transition-colors lg:h-auto lg:w-auto lg:p-1.5"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           {loading ? (
             <div className="py-12 text-center text-sm text-faint">Loading...</div>
           ) : items.length === 0 ? (
@@ -169,7 +172,9 @@ export function ActivityDrawer({ projectId, open, onClose }: ActivityDrawerProps
             </div>
           )}
         </div>
-      </div>
+        </div>
+        </div>
+      )}
     </>
   )
 }

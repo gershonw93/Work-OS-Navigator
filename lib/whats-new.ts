@@ -48,6 +48,39 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    date: '2026-09-13',
+    title: 'A quieter Tasks board',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'Assigning somebody to an existing task now saves',
+        text: 'Assigning a person while CREATING a task always worked. Changing or adding an assignee afterwards never did - the save reported success and quietly threw that one field away, so the task came back unassigned every time. It saves now, and the change shows up in the job history.',
+        help: 'tasks-assign',
+      },
+      {
+        kind: 'fixed',
+        title: 'A finished task is not overdue',
+        text: 'A completed card still read "6d overdue", which is a contradiction with itself. It shows the date the work was actually finished instead. Tasks completed from now on record that date; ones finished earlier show their due date, never overdue.',
+      },
+      {
+        kind: 'improved',
+        title: 'Cards say four things, and the board is a board again',
+        text: 'Every card carried three status buttons repeating what its own column already said - forty-five controls on a board of fifteen. There is one small status icon now: tap it and pick where the task goes. What is left on the card is what you actually read - the task, when it is due, who has it, and their trade or role.',
+        help: 'tasks-assign',
+      },
+      {
+        kind: 'improved',
+        title: 'The task detail slides in instead of squashing the board',
+        text: 'The detail panel used to sit docked under the board permanently, so the board only ever had about half the height. It opens over the screen from the right now and closes away - the X, a tap outside, or Escape. On a phone it fills the screen rather than opening a strip below the list.',
+      },
+      {
+        kind: 'improved',
+        title: 'The counts are the filters',
+        text: 'There were two rows above the board saying the same five numbers, one of them clickable. Now there is one: All, Open, In Progress, Completed and Overdue each carry their count, and tapping one filters the board.',
+      },
+    ],
+  },
+  {
     date: '2026-09-12',
     title: 'A cleaner top to every job',
     items: [

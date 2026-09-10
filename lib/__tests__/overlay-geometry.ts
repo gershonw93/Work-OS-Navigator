@@ -748,5 +748,74 @@ ok(!clipped.lastItemReachable,
   'and an overflow-x-auto row really does cut it off - the same markup, the same '
   + 'rectangle, and nothing there to click')
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 13. A SIDE DRAWER IS THE HEIGHT OF WHAT YOU CAN SEE.
+//
+// The task detail used to be docked in the layout - under the whole board on a
+// desktop, permanently, so the board was squeezed to half its height whether or
+// not anything was open. It is a drawer now, on `.overlay-drawer`.
+//
+// Why that class exists rather than another hand-rolled one: a drawer written
+// by hand is `fixed top-0 right-0 h-full`, and `h-full` is 100% of the LAYOUT
+// viewport - which does not shrink for a keyboard and knows nothing about the
+// notch. So its close button ends up under the Dynamic Island and its footer
+// behind the keyboard, which is the same pair of bugs the bottom sheet had.
+// ─────────────────────────────────────────────────────────────────────────────
+// The entrance animation is switched off for the measurement, and that is not
+// dodging it: `translateX(100%)` is where the drawer STARTS, and headless
+// Chromium dumps the DOM at a moment when it is still there - so every number
+// below came out exactly one panel-width to the right. What is being asserted
+// is where the drawer comes to REST. That the animation exists at all, and is
+// inside a `prefers-reduced-motion` guard, is checked as source shape instead.
+const DRAWER = `
+<style>.overlay-drawer > * { animation: none !important; }</style>
+<div class="overlay-drawer bg-black/40" data-overlay>
+  <div id="panel" class="flex flex-col overflow-hidden border-l border-line bg-panel shadow-2xl">
+    <div class="flex shrink-0 items-center justify-between border-b border-line px-4 py-2">
+      <span class="text-sm font-semibold text-ink">Task detail</span>
+      <button id="closeX" class="-mr-2 flex h-11 w-11 items-center justify-center rounded-lg"><span class="h-5 w-5 block">X</span></button>
+    </div>
+    <div id="body" class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      <div class="px-4 py-4 space-y-3">${'<p class="text-sm">A note on this task.</p>'.repeat(30)}
+        <button id="send" class="rounded-md px-4 py-2 text-sm">Add note</button>
+      </div>
+    </div>
+  </div>
+</div>`
+
+const DRAWER_PROBE = `(rect) => {
+  const b = s => { const r = rect(s); return { l: Math.round(r.left), r: Math.round(r.right),
+    t: Math.round(r.top), b: Math.round(r.bottom), w: Math.round(r.width), h: Math.round(r.height) } }
+  const body = document.querySelector('#body')
+  return { panel: b('#panel'), close: b('#closeX'), body: b('#body'),
+           scrolls: body.scrollHeight > body.clientHeight,
+           docWidth: document.documentElement.scrollWidth,
+           vw: window.innerWidth, vh: window.innerHeight }
+}`
+
+const drawerPhone = measure(DRAWER, DRAWER_PROBE)
+ok(drawerPhone.panel.w === VIEWPORT.w,
+  `on a phone the drawer is the whole screen, never a strip at the bottom (${drawerPhone.panel.w} of ${VIEWPORT.w})`)
+ok(drawerPhone.panel.r === VIEWPORT.w, `...flush to the right edge (${drawerPhone.panel.r})`)
+ok(drawerPhone.close.t >= 0 && drawerPhone.close.b <= VIEWPORT.h,
+  `...and its close button is on the screen (${drawerPhone.close.t}-${drawerPhone.close.b})`)
+ok(drawerPhone.close.h >= 44, `...at a size a thumb can hit (${drawerPhone.close.h}px)`)
+ok(drawerPhone.scrolls, 'a long task scrolls INSIDE the drawer rather than off the end of it')
+ok(drawerPhone.docWidth <= VIEWPORT.w, `and nothing hangs off the side (${drawerPhone.docWidth})`)
+
+const drawerDesk = measure(DRAWER, DRAWER_PROBE, 800, '', 1280)
+ok(drawerDesk.panel.w === 448, `on a desktop it is a 28rem panel (${drawerDesk.panel.w})`)
+ok(drawerDesk.panel.r === 1280, `...still flush right (${drawerDesk.panel.r} of 1280)`)
+ok(drawerDesk.panel.l > 0,
+  `...leaving the board visible beside it (${drawerDesk.panel.l}px of page showing) - `
+  + 'which is the whole point: it used to sit IN the layout and squeeze the board')
+
+// THE REASON THE CLASS EXISTS. `h-full` would be the layout viewport, which
+// does not shrink for a keyboard, so the panel would run underneath it.
+const drawerKeyboard = measure(DRAWER, DRAWER_PROBE, VIEWPORT.h, KEYBOARD.style)
+ok(drawerKeyboard.panel.b <= KEYBOARD.visible,
+  `with a keyboard up the drawer ends above it (${drawerKeyboard.panel.b} of ${KEYBOARD.visible} visible)`)
+ok(drawerKeyboard.close.t >= 0, `...and its close button is still reachable (${drawerKeyboard.close.t})`)
+
 rmSync(work, { recursive: true, force: true })
 done()
