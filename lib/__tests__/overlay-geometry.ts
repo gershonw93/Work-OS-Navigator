@@ -681,5 +681,72 @@ ok(phone.content.l === 0, `...and the content has no rail to clear (${phone.cont
 ok(phone.drawerLabel > 1,
   `...and the drawer's labels are words, not icons (${phone.drawerLabel}px)`)
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 12. A SECTION'S MENU IS NOT CLIPPED BY THE ROW IT HANGS FROM.
+//
+// The project tab strip lost its second row: the pages of the active section
+// now live on a menu under each section button. The row used to be
+// `overflow-x-auto`, and `overflow-x: auto` establishes a clipping box on BOTH
+// axes - so a panel positioned below a button inside that row is sliced off at
+// the row's bottom edge, which is a menu that opens and shows nothing.
+//
+// Read as source this is invisible: every class on the panel is individually
+// correct. So it is measured.
+// ─────────────────────────────────────────────────────────────────────────────
+const STRIP = (rowClasses: string) => `
+<div class="border-b border-line bg-panel">
+  <nav id="row" class="hidden sm:flex ${rowClasses} px-4 sm:px-6 gap-1">
+    <a class="flex shrink-0 items-center gap-1.5 rounded-t-lg px-3.5 py-2.5 text-sm font-semibold">Overview</a>
+    <div class="relative shrink-0">
+      <button id="btn" class="flex w-full items-center gap-1.5 rounded-t-lg px-3.5 py-2.5 text-sm font-semibold">
+        Finance <span class="h-3.5 w-3.5 block">v</span>
+      </button>
+      <div id="menu" role="menu" class="absolute left-0 top-full z-30 max-h-[70vh] min-w-[15rem] max-w-[calc(100vw-2rem)] overflow-y-auto overscroll-contain rounded-b-xl rounded-tr-xl border border-line bg-panel py-1.5 shadow-xl">
+        ${'<a class="flex items-center gap-2.5 px-3.5 py-2 text-sm"><span class="h-4 w-4 shrink-0 block">i</span><span class="flex-1 whitespace-nowrap">Billing the client</span></a>'.repeat(10)}
+      </div>
+    </div>
+    <div class="relative shrink-0"><button class="flex w-full items-center gap-1.5 rounded-t-lg px-3.5 py-2.5 text-sm font-semibold">Docs</button></div>
+  </nav>
+</div>
+<div class="p-6">The page underneath</div>`
+
+const MENU_PROBE = `(rect) => {
+  const b = s => { const r = rect(s); return { l: Math.round(r.left), r: Math.round(r.right),
+    t: Math.round(r.top), b: Math.round(r.bottom), w: Math.round(r.width), h: Math.round(r.height) } }
+  const menu = document.querySelector('#menu')
+  const items = menu.querySelectorAll('a')
+  const last = items[items.length - 1].getBoundingClientRect()
+  // CLIPPING IS A PAINT OPERATION. A panel cut off by an ancestor's overflow
+  // still reports its full bounding rect, so measuring the panel proves
+  // nothing at all - the question is whether the browser would hand a click at
+  // that point to the menu or to the page behind it.
+  const at = document.elementFromPoint(last.left + last.width / 2, last.top + last.height / 2)
+  return { row: b('#row'), btn: b('#btn'), menu: b('#menu'),
+           lastItemReachable: !!(at && at.closest('#menu')),
+           lastItemTop: Math.round(last.top),
+           vw: window.innerWidth, vh: window.innerHeight }
+}`
+
+const strip = measure(STRIP('flex-wrap'), MENU_PROBE, 800, '', 1280)
+ok(strip.menu.t === strip.btn.b,
+  `the menu starts where the button ends, with no gap for a pointer to fall through (${strip.menu.t} vs ${strip.btn.b})`)
+ok(strip.menu.h > strip.row.h,
+  `the menu is taller than the row it hangs from (${strip.menu.h} vs ${strip.row.h})`)
+ok(strip.lastItemTop > strip.row.b,
+  `...so its last page sits well below the row's own bottom edge (${strip.lastItemTop} vs ${strip.row.b})`)
+ok(strip.lastItemReachable,
+  'THE POINT: a click down there lands on the menu, not on the page behind it')
+ok(strip.menu.b <= strip.vh, `...and still fits on the screen (${strip.menu.b} of ${strip.vh})`)
+ok(strip.menu.l >= 0 && strip.menu.r <= strip.vw,
+  `...and does not run off either edge (${strip.menu.l}-${strip.menu.r} of ${strip.vw})`)
+ok(strip.menu.w >= 240, `a menu row's label is not squashed (${strip.menu.w}px wide)`)
+
+// The shape it must never go back to, measured beside it. Without this the
+// assertion above could be passing for some other reason entirely.
+const clipped = measure(STRIP('overflow-x-auto scrollbar-hide'), MENU_PROBE, 800, '', 1280)
+ok(!clipped.lastItemReachable,
+  'and an overflow-x-auto row really does cut it off - the same markup, the same '
+  + 'rectangle, and nothing there to click')
+
 rmSync(work, { recursive: true, force: true })
 done()

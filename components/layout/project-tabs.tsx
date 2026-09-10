@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { usePermissions } from '@/lib/use-permissions'
 import { createClient } from '@/lib/supabase/client'
@@ -11,7 +11,7 @@ import {
   MessageSquare, Receipt, DollarSign, GitPullRequest, Shield,
   ClipboardCheck, FileCheck, BarChart2, X, LayoutGrid,
   Wrench, Wallet, Clock, Send, ShoppingCart, FileSpreadsheet, Building2, Palette,
-  LayoutDashboard,
+  LayoutDashboard, ChevronDown, Check,
 } from 'lucide-react'
 
 /**
@@ -63,7 +63,7 @@ const groups = [
     ],
   },
   {
-    label: 'Money',
+    label: 'Finance',
     color: 'text-success',
     bg: 'bg-success-tint',
     tabs: [
@@ -153,6 +153,11 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [open, setOpen] = useState(false)
+  // Which group's menu is showing. A STRING, not a boolean per group: exactly
+  // one can be open, and moving the pointer from one to the next replaces it
+  // rather than leaving a trail of panels behind.
+  const [menu, setMenu] = useState<string | null>(null)
+  const navRef = useRef<HTMLElement>(null)
   const { can, loading } = usePermissions()
   const [ctx, setCtx] = useState<{ companyType: string; owns: boolean; billingMode?: string; status?: string; isSite?: boolean } | null>(null)
 
@@ -246,6 +251,33 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
     }
   }, [ready, isSub, isPlanning, isSite, billingMode, pathname])
 
+  // OPEN, NEVER TOGGLE - and that is the whole of why this is not one line.
+  //
+  // A toggle is re-triggered by the interaction that just used it. With a
+  // mouse, `mouseenter` opens the menu and the `click` that inevitably follows
+  // would close it again, so the menu would appear and vanish under the
+  // pointer; on a touch screen the synthesised enter+click does the same. It is
+  // the SearchableSelect bug in a different costume. So hovering opens it,
+  // clicking opens it, and NEITHER closes it. Closing is: pick a tab, Escape,
+  // click outside, or move the pointer off the strip.
+  useEffect(() => {
+    if (!menu) return
+    const onDown = (e: MouseEvent) => {
+      if (navRef.current && !navRef.current.contains(e.target as Node)) setMenu(null)
+    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenu(null) }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [menu])
+
+  // A menu left open across a navigation is a menu hanging over the page you
+  // just asked for.
+  useEffect(() => { setMenu(null) }, [pathname])
+
   const onOverview = pathname.endsWith('/overview')
   const activeTab = visibleTabs.find(t => pathname.includes(`/${t.slug}`))
   const activeGroup = filteredGroups.find(g => g.tabs.some(t => t.slug === activeTab?.slug))
@@ -291,8 +323,17 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
           </button>
         </div>
 
-        {/* Desktop: row 1 = groups */}
-        <nav className="hidden sm:flex overflow-x-auto scrollbar-hide px-4 sm:px-6 gap-1" aria-label="Project sections">
+        {/* Desktop: ONE row. The sections, each holding its own pages.
+            NO `overflow-x-auto`, and that is load-bearing rather than tidying:
+            `overflow-x: auto` establishes a clipping box on BOTH axes, so a
+            panel hanging below a button inside it would be sliced off at the
+            row's bottom edge. Five short words do not need to scroll; they wrap
+            if a window is ever narrow enough, which they will not be. */}
+        <nav ref={navRef}
+          className="hidden sm:flex flex-wrap px-4 sm:px-6 gap-1"
+          aria-label="Project sections"
+          onMouseLeave={() => setMenu(null)}
+        >
           {/* Overview sits OUTSIDE the groups on purpose. It is not a section
               of the job, it is the job - where it stands and what is waiting.
               Making it a fifth group would repeat the mistake this grouping
@@ -313,17 +354,61 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
             // Never highlight a section while Overview is the page - the two
             // would both look selected.
             const isActiveGroup = !onOverview && g.label === activeGroup?.label
+            const isOpen = menu === g.label
             return (
-              <button
-                key={g.label}
-                onClick={() => navigate(g.tabs[0].slug)}
-                className={cn(
-                  'flex shrink-0 items-center gap-1.5 rounded-t-lg px-3.5 py-2.5 text-sm font-semibold transition-colors whitespace-nowrap',
-                  isActiveGroup ? 'bg-surface text-ink' : 'text-muted-fg hover:text-ink-soft'
+              <div key={g.label} className="relative shrink-0"
+                onMouseEnter={() => setMenu(g.label)}>
+                <button
+                  onClick={() => setMenu(g.label)}
+                  aria-haspopup="menu"
+                  aria-expanded={isOpen}
+                  className={cn(
+                    'flex w-full items-center gap-1.5 rounded-t-lg px-3.5 py-2.5 text-sm font-semibold transition-colors whitespace-nowrap',
+                    isActiveGroup || isOpen ? 'bg-surface text-ink' : 'text-muted-fg hover:text-ink-soft'
+                  )}
+                >
+                  {g.label}
+                  <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', isOpen && 'rotate-180')} />
+                </button>
+
+                {/* `absolute` inside this `relative` wrapper, exactly like
+                    RowMenu - which is why it carries NO `data-overlay`. It
+                    travels with the page instead of being pinned to a measured
+                    position, so it must not freeze the page behind it.
+                    `top-full` with no gap: the pointer can reach the panel
+                    without crossing dead space, so there is no timer to leak. */}
+                {isOpen && (
+                  <div
+                    role="menu"
+                    aria-label={`${g.label} pages`}
+                    className="absolute left-0 top-full z-30 max-h-[70vh] min-w-[15rem] max-w-[calc(100vw-2rem)] overflow-y-auto overscroll-contain rounded-b-xl rounded-tr-xl border border-line bg-panel py-1.5 shadow-xl"
+                  >
+                    {g.tabs.map(tab => {
+                      const isActive = pathname.endsWith(`/${tab.slug}`)
+                      const Icon = tab.icon
+                      return (
+                        <Link
+                          key={tab.slug}
+                          role="menuitem"
+                          href={`/projects/${projectId}/${tab.slug}`}
+                          onClick={() => setMenu(null)}
+                          className={cn(
+                            'flex items-center gap-2.5 px-3.5 py-2 text-sm transition-colors',
+                            isActive ? 'font-semibold text-accent-fg' : 'font-medium text-muted-fg hover:bg-surface hover:text-ink',
+                          )}
+                        >
+                          <Icon className={cn('h-4 w-4 shrink-0', isActive ? 'text-accent-fg' : g.color)} />
+                          <span className="flex-1 whitespace-nowrap">{tab.label}</span>
+                          {/* The strip no longer carries a second row naming the
+                              page you are on, so the menu is where "you are
+                              here" is said. */}
+                          {isActive && <Check className="h-3.5 w-3.5 shrink-0" />}
+                        </Link>
+                      )
+                    })}
+                  </div>
                 )}
-              >
-                {g.label}
-              </button>
+              </div>
             )
           })}
           {isSite && (
@@ -345,33 +430,13 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
         </nav>
       </div>
 
-      {/* Desktop: row 2 = sub-tabs of the active group */}
-      {!onOverview && activeGroup && activeGroup.tabs.length > 0 && (
-        <div className="hidden sm:block border-b border-line bg-surface">
-          <nav className="flex overflow-x-auto scrollbar-hide -mb-px px-4 sm:px-6" aria-label={`${activeGroup.label} pages`}>
-            {activeGroup.tabs.map((tab) => {
-              const href = `/projects/${projectId}/${tab.slug}`
-              const isActive = pathname.endsWith(`/${tab.slug}`)
-              const Icon = tab.icon
-              return (
-                <Link
-                  key={tab.slug}
-                  href={href}
-                  className={cn(
-                    'flex shrink-0 items-center gap-1.5 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors whitespace-nowrap',
-                    isActive
-                      ? 'border-accent text-accent-fg'
-                      : 'border-transparent text-muted-fg hover:border-muted2 hover:text-ink-soft'
-                  )}
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                  {tab.label}
-                </Link>
-              )
-            })}
-          </nav>
-        </div>
-      )}
+      {/* THE SECOND ROW IS GONE, and nothing went with it. It listed the
+          active section's pages in a band of its own - a fourth stripe of
+          chrome above every project page, under the top bar, the job header
+          and the section row. Every one of those pages is now in the section's
+          own menu, one hover away, with the current one ticked. Where you are
+          is still said twice without it: the page's own heading, and the
+          breadcrumb in the top bar. */}
 
       {/* Mobile bottom sheet */}
       {/* The dim goes on the overlay itself, not on an `absolute inset-0` child:

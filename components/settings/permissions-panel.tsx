@@ -11,6 +11,7 @@ import {
 import { Check, Shield, User, RotateCcw, Save, Loader2, Plus, X, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
+import { ViewAsSwitcher } from '@/components/layout/view-as-switcher'
 
 interface CompanyRole {
   role_key: string
@@ -41,6 +42,23 @@ export function PermissionsPanel({ teammates, onRolesChanged }: { teammates: Tea
 
   return (
     <div className="space-y-5">
+      {/* SEE IT, DO NOT JUST READ IT. This is the screen that answers "what can
+          a Field Supervisor do", and the preview answers the same question by
+          showing you. It was in the top bar of every page instead, where it was
+          chrome nobody used; here it is beside the grid it demonstrates.
+          The switcher renders nothing for anyone who is not a real admin, which
+          is the same gate this tab already has. */}
+      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-panel px-4 py-3 lg:rounded-lg">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-ink">See the app as somebody else</p>
+          <p className="text-xs text-muted-fg">
+            Pick a role or a teammate and the whole app switches to what they can see. A banner
+            across the top says you are previewing, with a way back.
+          </p>
+        </div>
+        <ViewAsSwitcher />
+      </div>
+
       {/* Mode toggle */}
       <div className="flex gap-1 border-b border-line">
         <button
