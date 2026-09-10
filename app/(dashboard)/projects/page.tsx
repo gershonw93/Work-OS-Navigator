@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
 import { formatDate } from '@/lib/dates'
 import { useNotice } from '@/components/ui/notice'
+import { useDeleteGuard } from '@/components/ui/delete-guard'
 
 interface Project {
   id: string
@@ -105,6 +106,7 @@ function projectHref(p: { id: string; is_site?: boolean | null }) {
 }
 
 export default function ProjectsPage() {
+  const guardDelete = useDeleteGuard()
   const notify = useNotice()
   const { can } = usePermissions()
   const canCreate = can('projects', 'create')
@@ -231,14 +233,15 @@ export default function ProjectsPage() {
     fetchProjects()
   }
 
-  async function handleDelete(project: Project) {
-    if (!window.confirm(`Delete "${project.name}" and all its data?`)) return
-    const token = await getToken()
-    await fetch(`/api/projects/${project.id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    fetchProjects()
+  function handleDelete(project: Project) {
+    guardDelete(async () => {
+      const token = await getToken()
+      await fetch(`/api/projects/${project.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      fetchProjects()
+    }, { label: `"${project.name}" and all its data`, protected: true })
   }
 
   // How many jobs hang off each site, so its row can say "40 units" instead of

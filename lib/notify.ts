@@ -37,6 +37,19 @@ export interface NotifyInput {
   message: string
   /** App-relative path, e.g. `/projects/abc/tasks`. Optional but wanted. */
   link?: string | null
+  /**
+   * Bell and phone, but NO email - because the caller has already sent one.
+   *
+   * THE BUG. Inviting a sub who has an account sent them two emails for one
+   * act: the quote request itself, carrying the link to the scope, and this
+   * notification saying the same thing with a link to /my-bids. One event, one
+   * email. The bell still fires, because that is a different channel and not a
+   * duplicate of anything.
+   *
+   * Only for a caller that KNOWS it emailed this person. A caller that merely
+   * hopes it did will silence a notification nobody ever received.
+   */
+  inAppOnly?: boolean
 }
 
 export interface NotifyResult {
@@ -100,7 +113,9 @@ export async function notify(input: NotifyInput): Promise<NotifyResult> {
     }
 
     // ── Email ────────────────────────────────────────────────────────────────
-    const emailUsers = (people ?? []).filter((p: any) =>
+    // `inAppOnly` means the caller has already put this in the person's inbox
+    // itself, with a better letter than a generic notification would be.
+    const emailUsers = input.inAppOnly ? [] : (people ?? []).filter((p: any) =>
       p?.email && wants(prefsFor(p.id), input.type, 'email'))
 
     const t = notificationType(input.type)

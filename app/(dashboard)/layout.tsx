@@ -7,7 +7,6 @@ import { MobileTabBar } from '@/components/layout/mobile-tab-bar'
 import { ViewAsBanner } from '@/components/layout/view-as-switcher'
 import { PermissionsBanner } from '@/components/layout/permissions-banner'
 import { ImpersonationBanner } from '@/components/layout/impersonate-switcher'
-import { DeleteGuardProvider } from '@/components/ui/delete-guard'
 import { IdleLogout } from '@/components/layout/idle-logout'
 import { NativeShell } from '@/components/layout/native-shell'
 import { FieldPreviewGate } from '@/components/layout/field-preview'
@@ -29,7 +28,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   }
 
   return (
-    <DeleteGuardProvider>
+    <>
       <IdleLogout />
       <NativeShell />
       <FieldPreviewGate />
@@ -72,6 +71,6 @@ export default async function DashboardLayout({ children }: { children: ReactNod
           <MobileTabBar />
         </div>
       </div>
-    </DeleteGuardProvider>
+    </>
   )
 }

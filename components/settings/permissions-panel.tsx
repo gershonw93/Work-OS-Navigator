@@ -10,6 +10,7 @@ import {
 } from '@/lib/permissions'
 import { Check, Shield, User, RotateCcw, Save, Loader2, Plus, X, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useDeleteGuard } from '@/components/ui/delete-guard'
 
 interface CompanyRole {
   role_key: string
@@ -187,6 +188,7 @@ function FragmentGroup({ group, children }: { group: string; children: React.Rea
 
 // ── Role defaults - editable classes, plus create-a-new-class ─────────────────
 function RoleDefaultsView({ onRolesChanged }: { onRolesChanged?: () => void }) {
+  const guardDelete = useDeleteGuard()
   const [roles, setRoles] = useState<CompanyRole[]>([])
   const [loading, setLoading] = useState(true)
   const [roleKey, setRoleKey] = useState('')
@@ -254,13 +256,17 @@ function RoleDefaultsView({ onRolesChanged }: { onRolesChanged?: () => void }) {
     }
   }
 
-  async function removeClass() {
-    if (!selected || !selected.is_custom) return
-    if (!confirm(`Delete the "${selected.label}" class? This can't be undone.`)) return
-    const headers = await authHeaders()
-    const res = await fetch(`/api/settings/roles?role_key=${encodeURIComponent(selected.role_key)}`, { method: 'DELETE', headers })
-    if (res.ok) { setMsg({ ok: true, text: 'Class deleted.' }); load(); onRolesChanged?.() }
-    else setMsg({ ok: false, text: (await res.json().catch(() => ({}))).error ?? 'Could not delete - reassign members first.' })
+  function removeClass() {
+    // Captured before the callback: the narrowing `selected` gets from the
+    // guard above does not survive into a closure that runs later.
+    const target = selected
+    if (!target) return
+    guardDelete(async () => {
+      const headers = await authHeaders()
+      const res = await fetch(`/api/settings/roles?role_key=${encodeURIComponent(selected.role_key)}`, { method: 'DELETE', headers })
+      if (res.ok) { setMsg({ ok: true, text: 'Class deleted.' }); load(); onRolesChanged?.() }
+      else setMsg({ ok: false, text: (await res.json().catch(() => ({}))).error ?? 'Could not delete - reassign members first.' })
+    }, { label: `the "${target.label}" class` })
   }
 
   return (

@@ -147,7 +147,14 @@ export async function POST(request: Request) {
     // SendGrid's own words, kept. "Failed" tells whoever is debugging nothing;
     // "The from address does not match a verified Sender Identity" tells them
     // exactly which of the two mail setups is wrong.
-    if (!result.sent) sendDetail = result.detail ?? result.reason
+    if (!result.sent) {
+      sendDetail = result.detail ?? result.reason
+      // LOGGED AS WELL AS RETURNED. An invite went out with the UI reporting
+      // "Invited" and nothing arriving, and the reason existed in this variable
+      // and nowhere else: the caller discarded it and nothing wrote it down, so
+      // it could not be recovered from the screen, the database or the logs.
+      console.error('[invite] send failed', { to: email, audience, reason: result.reason, detail: result.detail })
+    }
   } else {
     // No SendGrid configured, or the link could not be minted - ask Supabase to
     // send it, which is what happened here before.

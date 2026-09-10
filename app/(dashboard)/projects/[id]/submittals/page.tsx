@@ -15,6 +15,7 @@ import {
 import { ACCEPT_DOCS } from '@/lib/file-accept'
 
 import { formatDate } from '@/lib/dates'
+import { useDeleteGuard } from '@/components/ui/delete-guard'
 const SUBMITTAL_TYPES = ['Tech Sheet', 'Shop Drawing', 'Product Data', 'Sample', 'Other']
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
@@ -32,6 +33,7 @@ interface Submittal {
 }
 
 export default function SubmittalsPage({ params }: { params: { id: string } }) {
+  const guardDelete = useDeleteGuard()
   const supabase = createClient()
   const [submittals, setSubmittals] = useState<Submittal[]>([])
   const [loading, setLoading] = useState(true)
@@ -153,14 +155,15 @@ export default function SubmittalsPage({ params }: { params: { id: string } }) {
     fetchSubmittals()
   }
 
-  async function handleDelete(sub: Submittal) {
-    if (!confirm(`Delete submittal "${sub.title}"?`)) return
-    const token = await getToken()
-    await fetch(`/api/projects/${params.id}/submittals/${sub.id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    fetchSubmittals()
+  function handleDelete(sub: Submittal) {
+    guardDelete(async () => {
+      const token = await getToken()
+      await fetch(`/api/projects/${params.id}/submittals/${sub.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      fetchSubmittals()
+    }, { label: `submittal "${sub.title}"` })
   }
 
   function handleStatusClick(sub: Submittal, s: string) {

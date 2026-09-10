@@ -31,6 +31,7 @@ import { useCanSignUp } from '@/lib/use-native'
 
 import { formatDate } from '@/lib/dates'
 import { useNotice } from '@/components/ui/notice'
+import { useDeleteGuard } from '@/components/ui/delete-guard'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Profile {
@@ -181,6 +182,7 @@ function RoleBadge({ role, label }: { role: string; label?: string }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
+  const guardDelete = useDeleteGuard()
   const notify = useNotice()
   const { theme } = useTheme()
   const { can: canDo, loading: permsLoading } = usePermissions()
@@ -665,12 +667,8 @@ export default function SettingsPage() {
 
   // ── Remove Member ─────────────────────────────────────────────────────────
 
-  async function makeOwner(memberId: string, name: string) {
-    if (!window.confirm(
-      `Make ${name} the owner of this account?\n\n` +
-      'They will be the one person no admin can remove - and you will lose that ' +
-      'protection. Only they can hand it back.'
-    )) return
+  function makeOwner(memberId: string, name: string) {
+    guardDelete(async () => {
     try {
       const headers = await authHeaders()
       const res = await fetch('/api/settings/company/owner', {
@@ -684,20 +682,27 @@ export default function SettingsPage() {
     } catch {
       setInviteMsg({ ok: false, text: 'Could not transfer ownership.' })
     }
+    }, {
+      label: name,
+      title: 'Hand over this account?',
+      body: `${name} will be the one person no admin can remove - and you will lose that protection. Only they can hand it back.`,
+      confirmLabel: 'Hand it over',
+    })
   }
 
-  async function removeMember(memberId: string, name: string) {
-    if (!window.confirm(`Remove ${name} from the team? This cannot be undone.`)) return
-    try {
-      const headers = await authHeaders()
-      await fetch(`/api/settings/members/${memberId}`, {
-        method: 'DELETE',
-        headers,
-      })
-      setTeammates((prev) => prev.filter((t) => t.id !== memberId))
-    } catch {
-      // fail silently
-    }
+  function removeMember(memberId: string, name: string) {
+    guardDelete(async () => {
+      try {
+        const headers = await authHeaders()
+        await fetch(`/api/settings/members/${memberId}`, {
+          method: 'DELETE',
+          headers,
+        })
+        setTeammates((prev) => prev.filter((t) => t.id !== memberId))
+      } catch {
+        // fail silently
+      }
+    }, { label: `${name} from the team` })
   }
 
   // ── Resend Invite ─────────────────────────────────────────────────────────
@@ -782,15 +787,16 @@ export default function SettingsPage() {
 
   // ── Cancel Invite ─────────────────────────────────────────────────────────
 
-  async function cancelInvite(inviteId: string) {
-    if (!window.confirm('Cancel this invite?')) return
-    try {
-      const headers = await authHeaders()
-      await fetch(`/api/invite/${inviteId}`, { method: 'DELETE', headers })
-      setPendingInvites((prev) => prev.filter((i) => i.id !== inviteId))
-    } catch {
-      // fail silently
-    }
+  function cancelInvite(inviteId: string) {
+    guardDelete(async () => {
+      try {
+        const headers = await authHeaders()
+        await fetch(`/api/invite/${inviteId}`, { method: 'DELETE', headers })
+        setPendingInvites((prev) => prev.filter((i) => i.id !== inviteId))
+      } catch {
+        // fail silently
+      }
+    }, { label: 'this invite' })
   }
 
   // ─────────────────────────────────────────────────────────────────────────

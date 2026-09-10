@@ -29,27 +29,6 @@ account role). That is the sharp edge, not the whole surface. Still to do:
 
 ---
 
-## 🗣 The other blocking native dialog: `confirm()`
-
-`alert()` is gone from the app (#419) - every refusal now appears in the page
-through `useNotice`, ratcheted at zero. **`confirm()` is the same bug and is
-still in 18 delete handlers**, e.g. `plans/page.tsx`, `files/page.tsx`,
-`settings/page.tsx`, `change-orders/page.tsx`, `permits/page.tsx`. In the native
-shell each is a native dialog that blocks the JS thread, which is what made the
-`alert` ones read as a crash.
-
-The in-page answer already exists - `useDeleteGuard`
-(`components/ui/delete-guard.tsx`), which most delete buttons already use, and
-which additionally asks for the secret key on protected deletes. This was NOT
-swept with `alert` because it is not a rename: each site is
-`if (!confirm(...)) return; …rest` and has to become
-`guard(() => { …rest }, { label })`, which is a real edit per handler.
-
-When it is done, widen the ratchet in `lib/__tests__/layout-overflow.ts` from
-`alert\(` to `(?:alert|confirm)\(` - the regex is already written that way in
-the commit history.
-
----
 
 ## 📱 On the shelf - the app, then chats (decided 29 Aug 2026, IN THIS ORDER)
 
@@ -308,6 +287,15 @@ looks like it does.
   you avoid paying the same bill twice.
 
 ## ✅ Recently shipped (for reference)
+
+- `confirm()` is gone from the app (#424). All 22 handlers moved to
+  `useDeleteGuard`, which grew `title`/`body`/`confirmLabel` so the ones that are
+  not deletes (voiding an invoice, disconnecting QuickBooks, handing over
+  ownership, accepting a scanned inspection result) have somewhere to go. The
+  guard's own `window.confirm` fallback is gone and its provider moved to the
+  root layout. Ratcheted at zero beside `alert` - the entry that used to be here
+  said each site was "a rewrite, not a rename", which was true and is why it sat
+  long enough for one of them to take the Directory down.
 - Three numbers that were not telling the truth (#370). **Committed read $160,000 on a job with one $80,000 subcontract.** The card held two derivations at once: the headline from `committedTotal` (every contract, plus committed typed on lines with no contract) and the "signed, not yet billed" note beneath it still summed per LINE. Rows added to $80,000, the note said $55,000, the headline said $160,000 - three numbers for one question, in one card. #356 moved the headline to a shared derivation and left the note behind, which is the exact drift it existed to end. The underlying cause is real and will recur in production: a GC types committed from their estimate and then signs a subcontract for the same work, and nothing links them, so the app cannot know it is the same money. It no longer guesses - the card shows "$80,000 on lines + $80,000 not linked" so the headline matches the rows, and says to link the contract to the line if they are the same money (linking makes it $80,000, counted once). **A receipt with no budget line never reached the budget** - the rollup only counts materials with a `budget_line_id`, three of the six most recent receipts had none, and the page claimed receipts flow into project costs. The form now warns before saving and the list flags them. **A quote recommendation read "this is the only quote submitted" with two quotes on screen** - the second arrived 59 seconds after the analysis ran and nothing invalidated it. Staleness is worked out from the `per_quote` list the analysis already stores, so no new column and no way for the two to disagree.
 
 - Who gets notified when what happens, as a setting (#369). `lib/notifications.ts` already said WHAT the events are and each person could mute their own; nothing said who gets told in the FIRST place. `notify()` takes user ids, so the choice was hand-rolled at twenty call sites - and **four of them resolved to every profile at the company**: RFIs, bids received, expiring documents, and work marked ready for inspection. Ten office staff, ten notifications, which is how a team learns to ignore the bell. **The line the design turns on**: some recipients are STRUCTURAL - the assignee, the sub who was invited, whoever asked for the sign-off - and routing those by role would stop the assignee being told they were assigned something, silently. So every event declares `audience: 'direct' | 'team'`, direct ones never reach the settings screen, and the API refuses a rule for one rather than trusting the screen. Defaults are a PERMISSION, not a role list (`['invoices','edit']`), so day-one behaviour is identical and a company that customises its roles keeps working. Migration 095, `lib/notification-routing.ts` pure + `lib/notification-audience.ts` wired, Settings → Notifications → Who gets told (admin only). An empty audience is refused at save: "nobody" is a notification that stops arriving with nothing to see.

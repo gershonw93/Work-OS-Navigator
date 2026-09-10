@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils'
 import { contractAmount, contractAmountLabel, isUnpriced } from '@/lib/contract-amount'
 import { money, percent } from '@/lib/validate'
 import { useNotice } from '@/components/ui/notice'
+import { useDeleteGuard } from '@/components/ui/delete-guard'
 
 const GC_ROLES = [
   'Project Manager', 'Site Manager', 'Superintendent', 'Foreman',
@@ -56,6 +57,7 @@ interface Subcontract {
 }
 
 export default function TeamPage({ params }: { params: { id: string } }) {
+  const guardDelete = useDeleteGuard()
   const notify = useNotice()
   const supabase = createClient()
   const [members, setMembers] = useState<TeamMember[]>([])
@@ -153,16 +155,17 @@ export default function TeamPage({ params }: { params: { id: string } }) {
     }
   }
 
-  async function deleteSub(sub: Subcontract) {
-    if (!confirm(`Remove ${sub.companies?.name ?? 'this subcontractor'} from the project?`)) return
-    setDeletingSubId(sub.id)
-    const token = await getToken()
-    const res = await fetch(`/api/projects/${params.id}/subcontracts/${sub.id}`, {
-      method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
-    })
-    setDeletingSubId(null)
-    if (!res.ok) { notify('Could not remove subcontractor.'); return }
-    load()
+  function deleteSub(sub: Subcontract) {
+    guardDelete(async () => {
+      setDeletingSubId(sub.id)
+      const token = await getToken()
+      const res = await fetch(`/api/projects/${params.id}/subcontracts/${sub.id}`, {
+        method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
+      })
+      setDeletingSubId(null)
+      if (!res.ok) { notify('Could not remove subcontractor.'); return }
+      load()
+    }, { label: `${sub.companies?.name ?? 'this subcontractor'} from the project` })
   }
 
   function openAddSub() {

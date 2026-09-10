@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { LayoutTemplate, FileSpreadsheet, Trash2, ChevronDown, ChevronRight, Loader2, Check, ArrowLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useNotice } from '@/components/ui/notice'
+import { useDeleteGuard } from '@/components/ui/delete-guard'
 import Link from 'next/link'
 
 interface TemplateItem { id?: string; description: string; default_amount: number | null; category?: string }
@@ -15,6 +16,7 @@ interface Template { id: string; name: string; source: string; created_at: strin
 const money = (n: number | null) => n == null ? '-' : `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 
 export default function BudgetTemplatesPage() {
+  const guardDelete = useDeleteGuard()
   const notify = useNotice()
   const supabase = createClient()
   const [templates, setTemplates] = useState<Template[]>([])
@@ -60,11 +62,12 @@ export default function BudgetTemplatesPage() {
     if (res.ok) { setStaged(null); load() }
   }
 
-  async function remove(id: string) {
-    if (!confirm('Delete this template?')) return
-    const token = await getToken()
-    await fetch(`/api/budget-templates/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
-    load()
+  function remove(id: string) {
+    guardDelete(async () => {
+      const token = await getToken()
+      await fetch(`/api/budget-templates/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+      load()
+    }, { label: 'this template' })
   }
 
   return (

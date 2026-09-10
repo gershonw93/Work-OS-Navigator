@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Archivo, Saira_Condensed, Space_Mono } from 'next/font/google'
 import { CANONICAL_ORIGIN } from '@/lib/canonical'
 import { NoticeProvider } from '@/components/ui/notice'
+import { DeleteGuardProvider } from '@/components/ui/delete-guard'
 import './globals.css'
 
 const archivo = Archivo({
@@ -124,7 +125,10 @@ export default function RootLayout({
             the client portal, share links, field mode and admin all refused
             saves through it too. One mount, every screen, so `useNotice` never
             has to fall back to anything. */}
-        <NoticeProvider>{children}</NoticeProvider>
+        {/* Both at the root for the same reason: each replaces a blocking
+            native dialog, and a screen that falls outside the provider would
+            quietly get the native one back. */}
+        <NoticeProvider><DeleteGuardProvider>{children}</DeleteGuardProvider></NoticeProvider>
       </body>
     </html>
   )

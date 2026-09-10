@@ -15,6 +15,7 @@ import { withStructural } from '@/lib/notification-routing'
 import { formatDate, todayDateInput } from '@/lib/dates'
 import { OPEN, CLOSED, isVoid, scheduleProblem } from '@/lib/inspection-status'
 import { ACCEPT_SCAN } from '@/lib/file-accept'
+import { useDeleteGuard } from '@/components/ui/delete-guard'
 const INSPECTION_TYPES = [
   'Foundation', 'Framing', 'Rough Electrical', 'Rough Plumbing', 'Rough Mechanical',
   'Insulation', 'Drywall', 'Final Electrical', 'Final Plumbing', 'Final Mechanical',
@@ -42,6 +43,7 @@ interface Inspection {
 interface Teammate { id: string; full_name: string | null; email: string }
 
 export default function InspectionsPage({ params }: { params: { id: string } }) {
+  const guardDelete = useDeleteGuard()
   const supabase = createClient()
   const [inspections, setInspections] = useState<Inspection[]>([])
   const [loading, setLoading] = useState(true)
@@ -160,9 +162,16 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
       setActionError(data?.error ?? `That file would not upload (${res.status}).`)
       return
     }
-    if (data.suggested_status && insp.status !== data.suggested_status
-      && window.confirm(`The card looks ${data.suggested_status.toUpperCase()}. Mark this inspection ${data.suggested_status}?`)) {
-      await updateStatus(insp, data.suggested_status)
+    // Asked in the page, not in a native dialog. This is a question rather
+    // than a delete, so the guard takes its own words - and the refresh runs
+    // either way, because the card is on file whichever answer comes back.
+    if (data.suggested_status && insp.status !== data.suggested_status) {
+      guardDelete(() => updateStatus(insp, data.suggested_status), {
+        label: 'this inspection',
+        title: 'The card says otherwise',
+        body: `The card looks ${String(data.suggested_status).toUpperCase()}. Mark this inspection ${data.suggested_status}?`,
+        confirmLabel: `Mark ${data.suggested_status}`,
+      })
       return
     }
     fetchInspections()
@@ -289,10 +298,12 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
   // Void, not delete. It stays on the record - which is the point of keeping a
   // compliance history at all - and it can be put back.
   //
-  // Deliberately NOT the shared useDeleteGuard: its modal reads "Confirm
-  // delete" and "This can't be undone", and both halves are untrue here. A
-  // reversible action described as permanent is the same kind of lie as a
-  // failed save that looks like a success.
+  // Its own inline confirmation rather than the shared guard, because "Confirm
+  // delete" and "This can't be undone" are both untrue here - a reversible
+  // action described as permanent is the same kind of lie as a failed save that
+  // looks like a success. (The guard takes `title`/`body`/`confirmLabel` now,
+  // so this could move over; it stays inline only because the void row already
+  // has a good in-place confirmation of its own.)
   async function voidInsp(insp: Inspection) {
     setVoiding(null)
     setActionError(null)

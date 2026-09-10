@@ -15,6 +15,7 @@ import {
 import { readPrefill } from '@/lib/change-order-prefill'
 
 import { formatDate } from '@/lib/dates'
+import { useDeleteGuard } from '@/components/ui/delete-guard'
 const REASONS = [
   'Scope Addition',
   'Scope Reduction',
@@ -58,10 +59,12 @@ const STATUS_CONFIG: Record<string, { label: string; pillClass: string; icon: an
 export default function ChangeOrdersPage({ params }: { params: { id: string } }) {
   // useSearchParams needs a Suspense boundary at the route level - same shape
   // as app/(dashboard)/help/page.tsx, which hit this first.
+  const guardDelete = useDeleteGuard()
   return <Suspense fallback={null}><ChangeOrdersPageInner params={params} /></Suspense>
 }
 
 function ChangeOrdersPageInner({ params }: { params: { id: string } }) {
+  const guardDelete = useDeleteGuard()
   const supabase = createClient()
   const searchParams = useSearchParams()
 
@@ -196,14 +199,15 @@ function ChangeOrdersPageInner({ params }: { params: { id: string } }) {
     fetchData()
   }
 
-  async function handleDelete(co: ChangeOrder) {
-    if (!confirm(`Delete change order "${co.title}"?`)) return
-    const token = await getToken()
-    await fetch(`/api/projects/${params.id}/change-orders/${co.id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    fetchData()
+  function handleDelete(co: ChangeOrder) {
+    guardDelete(async () => {
+      const token = await getToken()
+      await fetch(`/api/projects/${params.id}/change-orders/${co.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      fetchData()
+    }, { label: `change order "${co.title}"`, protected: true })
   }
 
   // Stats

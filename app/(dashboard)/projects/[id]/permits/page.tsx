@@ -12,6 +12,7 @@ import { ContactPicker } from '@/components/contact-picker'
 
 import { formatDate } from '@/lib/dates'
 import { expiryState, daysExpired } from '@/lib/expiry'
+import { useDeleteGuard } from '@/components/ui/delete-guard'
 const PERMIT_TYPES = [
   'Building', 'Electrical', 'Plumbing', 'Mechanical/HVAC',
   'Fire Protection', 'Fire Alarm', 'Sprinkler',
@@ -40,6 +41,7 @@ interface Permit {
 }
 
 export default function PermitsPage({ params }: { params: { id: string } }) {
+  const guardDelete = useDeleteGuard()
   const supabase = createClient()
   const fileRef = useRef<HTMLInputElement>(null)
   const [permits, setPermits] = useState<Permit[]>([])
@@ -148,14 +150,15 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
     setShowForm(true)
   }
 
-  async function handleDeletePermit(permitId: string) {
-    if (!window.confirm('Delete this permit? This cannot be undone.')) return
-    const token = await getToken()
-    await fetch(`/api/projects/${params.id}/permits/${permitId}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    fetchPermits()
+  function handleDeletePermit(permitId: string) {
+    guardDelete(async () => {
+      const token = await getToken()
+      await fetch(`/api/projects/${params.id}/permits/${permitId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      fetchPermits()
+    }, { label: 'this permit' })
   }
 
   async function analyzePermitImage(file: File) {
