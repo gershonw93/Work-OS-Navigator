@@ -302,9 +302,12 @@ export default function DirectoryPage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({
+        // A VENDOR, not a teammate. They get the email that says what the
+        // account is for; the route reads the inviting company off the
+        // profile, so it no longer needs (or trusts) a name from here.
+        audience: 'vendor',
         company_id: inviteCompany.id,
         email: inviteEmail,
-        company_name: inviteCompany.name,
       }),
     })
     if (!res.ok) {

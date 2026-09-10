@@ -1208,7 +1208,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'invite-team-member',
     title: 'Invite a team member',
     category: 'settings',
-    keywords: ['invite', 'team', 'user', 'add', 'member', 'staff'],
+    keywords: ['invite', 'team', 'user', 'add', 'member', 'staff', 'waitlist', 'approved', 'access request', 'invite a sub', 'invite subcontractor', 'who can invite', 'admin only'],
     summary: 'Add coworkers and set what they can access.',
     blocks: [
       { type: 'steps', items: [
@@ -1219,8 +1219,12 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: 'text', text: 'IF THE INVITE EMAIL DOES NOT ARRIVE. Every pending invite has a "Copy link" button next to it. Copy that and send it however you like - your own email, a text, a chat. It does the same thing the emailed link does: takes them to set a password and join your company.' },
       { type: 'warn', text: 'That link signs the person in, so treat it like a password - send it to the person it is for and nobody else.' },
       { type: 'tip', text: 'Roles set sensible defaults, and you can fine-tune each person\'s permissions per screen.' },
+      { type: 'text', text: 'THERE ARE TWO WAYS IN, AND ONLY ONE OF THEM WAITS FOR APPROVAL. Somebody who finds SyteNav and asks for access joins a waitlist, and we approve them before they can create anything. Somebody YOU invite does not wait for us - your invite is the approval, because you already know who they are. It is why an invited person is in as soon as they set a password.' },
+      { type: 'text', text: 'WHO CAN SEND ONE. Inviting a teammate is an admin job, the same as the rest of Team & Users. Inviting a subcontractor or supplier out of your Directory needs Directory edit, which admins and managers have - if you want a project manager to be able to, turn Directory edit on for that role in Permissions.' },
+      { type: 'text', text: 'Only an admin can invite another admin. Anyone else inviting a teammate can hand out any role below that.' },
+      { type: 'tip', text: 'A sub or supplier you invite from the Directory gets a different email from a teammate - it explains what the login is for on their side: the jobs they are on, quoting work you send them, sending in bills, and keeping their insurance current. They are read-only on your side and always land on their own company, never inside yours.' },
     ],
-    related: ['permissions', 'delete-protection'],
+    related: ['permissions', 'delete-protection', 'directory'],
   },
   {
     slug: 'data-security',

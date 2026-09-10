@@ -48,6 +48,25 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    date: '2026-09-11',
+    title: 'The invite email said the wrong thing',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'A sub you invite gets an email written for a sub',
+        text: 'Inviting a subcontractor from your Directory sent them the beta waitlist email - "you are approved, welcome to the beta, start putting jobs in". They had applied for nothing and they do not put jobs in. There are three different people who get invited and there are now three different emails: a waitlist approval, a teammate saying who added them and to what, and a sub or supplier telling them what the login is actually for - the jobs they are on, quoting work you send them, sending in bills, and keeping their insurance current.',
+        help: 'invite-team-member',
+      },
+      {
+        kind: 'improved',
+        title: 'Inviting is limited to the people who should be doing it',
+        text: 'Adding a teammate is an admin job, the same as the rest of Team & Users, and only an admin can invite another admin. Inviting a sub or supplier needs Directory edit, which admins and managers have - turn it on for another role in Permissions if you want them to. A sub you invite is read-only and always lands on their own company, never inside yours.',
+        help: 'invite-team-member',
+        href: '/settings',
+      },
+    ],
+  },
+  {
     date: '2026-09-10',
     title: 'Buyout, gone through end to end',
     items: [

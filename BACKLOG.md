@@ -7,6 +7,28 @@ move it to **In progress**, and when it ships, move it to **Done** with the PR #
 
 ---
 
+## 🔐 The rest of the /api surface is un-audited
+
+`middleware.ts` returns early for every `/api/` path, so **each route is on its
+own for authorisation**. `lib/api-guard.ts` says 152 routes accept writes and 7
+checked anything beyond "are you signed in" when it was written; `/api/invite`
+turned out to be one of the remaining ones (#422) and it was the worst kind -
+`role` and `company_id` straight out of the request body onto a new profile.
+
+`invite-audience.ts` ratchets the exact shape (a role from the body with no
+permission check, currently 1 and it is a project-roster job title, not an
+account role). That is the sharp edge, not the whole surface. Still to do:
+
+- a sweep of every `app/api/**/route.ts` that writes, checking each has a
+  `requirePermission` and that nothing security-relevant is read out of the body;
+- `app/api/projects/[id]/team/[memberId]/route.ts` PATCH/DELETE - any signed-in
+  user can rename or remove somebody from a project roster;
+- the open question `api-guard.ts` already names: which writes a SUBCONTRACTOR
+  may legitimately make on a job they do not own, which is why there is no
+  blanket company check.
+
+---
+
 ## 🗣 The other blocking native dialog: `confirm()`
 
 `alert()` is gone from the app (#419) - every refusal now appears in the page

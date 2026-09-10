@@ -344,6 +344,29 @@ production branch.** Do NOT ask the user to merge or deploy.
   All 34 event types linked to `/plans`; the tab is not derivable from the type
   string, so it is a table pinned against the icon table it mirrors.
 
+## Who the email is FOR, and who may send it (IMPORTANT)
+- **THERE ARE TWO DOORS INTO SYTENAV AND THEY MEAN DIFFERENT THINGS.** The
+  WAITLIST is a stranger asking, approved by a super admin - the only place
+  "you're approved" and "beta" are true. An INVITE is somebody already inside
+  vouching for a person; there is no second approval because the invite IS the
+  approval. `inviteEmail` was written for the first and used for all three
+  audiences, so a subcontractor was told he had been approved for a beta he
+  never applied to and could start "putting jobs in" - the GC's side of the job.
+  One template per audience: `inviteEmail` (waitlist, approvals screen only),
+  `teamInviteEmail`, `vendorInviteEmail`. `/api/invite` takes an `audience`,
+  defaulting to `team` so an un-updated caller cannot silently get the beta text.
+- **A ROLE OR A COMPANY OUT OF A REQUEST BODY IS AN ESCALATION.** `/api/invite`
+  checked only that you were signed in, then wrote `body.role` and
+  `body.company_id` onto the new profile - so any account, including a read-only
+  teammate or an invited sub, could mint an admin of any company whose id it
+  had. `middleware.ts` returns early for every `/api/` path, so nothing else was
+  gating it. Now: `requirePermission` (`settings_team` for a teammate,
+  `directory` for a vendor), the company comes from the ACTOR (a vendor's must
+  carry `added_by_company_id` = the inviter's company), a vendor is always
+  `read_only`, and only an admin may invite an admin. Ratcheted in
+  `invite-audience.ts`: routes taking a role from the body with no permission
+  check may only go DOWN.
+
 ## Menus, pickers and the tail of a tap (IMPORTANT)
 - A control that toggles must not be re-triggered by the tap that just used it.
   `SearchableSelect` closed correctly on pick and the TRIGGER re-opened it: on a
