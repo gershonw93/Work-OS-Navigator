@@ -327,7 +327,24 @@ production branch.** Do NOT ask the user to merge or deploy.
   means pressing Save does literally nothing and the form never names the field
   it is waiting on. Disable only for IN FLIGHT (`disabled={saving}`); let it
   fire and answer with the missing field. Where two dialogs validate the same
-  shape, one function answers for both (`missingMilestone`).
+  shape, one function answers for both (`missingMilestone`, `missingSub`).
+  Adding a REQUIREMENT to a form means writing it into that function, never into
+  the `disabled` condition - a rule enforced by a greyed-out button is a rule
+  nobody is ever told about.
+- A FIELD IS MARKED OR IT IS GUESSED AT. Add Subcontractor had eleven fields, of
+  which one carried a `*`, two said "(optional)" and eight said nothing - so
+  payment terms and dates read as required when a sub only ever needed a name
+  and a trade. Every label in a dialog carries one marker or the other, and a
+  parenthetical that says something ELSE ("(adds to schedule)") is a hint under
+  the field, not a stand-in for the marker: it reads as the marker's slot and
+  leaves the field unmarked. Pinned in `add-sub-form.ts`.
+- A VALUE THE APP WRITES, SUBMITS AND READS BACK MUST HAVE A CONTROL SOMEWHERE.
+  `subScope` is the one line shown wherever a sub appears - the Schedule row,
+  the Directory, the Tasks assignee list, a pay-app line. The AI scan wrote it,
+  the form posted it, the edit form loaded it, and there was no input for it in
+  the entire app, so a wrong scan was uncorrectable by any route. A field with
+  no box is not a hidden implementation detail; it is a fact about the job that
+  only a machine may write.
 - A record that a client will read must not be blank. A daily log with only a
   date filed happily into the list, the count and the client PDF - a page of
   empty headings asserting somebody was on site and reported this. Guard on the

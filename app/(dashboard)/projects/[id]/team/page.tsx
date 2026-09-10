@@ -234,10 +234,41 @@ export default function TeamPage({ params }: { params: { id: string } }) {
     setSubScanned(true); setSubAnalyzing(false)
   }
 
+  /**
+   * What a subcontractor is still missing, in words, or null when it is enough.
+   *
+   * A DISABLED BUTTON EXPLAINS NOTHING. The submit was disabled while the
+   * company name was empty, so pressing Add did literally nothing and the form
+   * never named the field it was waiting on - and adding "trade is required" to
+   * that condition would have made the new rule invisible in exactly the same
+   * way. Same shape as `missingMilestone` on the schedule, for the same reason.
+   *
+   * ONLY TWO THINGS. Everything else on this form is marked optional, so this
+   * is the whole of what a sub needs: who they are, and what they do. A blank
+   * trade is not cosmetic - it drops a subcontract out of the compliance
+   * requirements for its trade.
+   */
+  function missingSub(f: { editing: boolean; mode: 'new' | 'existing'; company: string; existingId: string; trade: string }): string | null {
+    if (!f.editing && f.mode === 'existing' && !f.existingId) {
+      return 'Pick a subcontractor from your directory, or switch to New subcontractor.'
+    }
+    if ((f.editing || f.mode === 'new') && !f.company.trim()) {
+      return 'Give the subcontractor a company name - it is what everything on the job calls them.'
+    }
+    if (!f.trade.trim()) {
+      return 'Pick a trade. Without it this sub is left out of the compliance requirements for their trade.'
+    }
+    return null
+  }
+
   async function addSub(e: React.FormEvent) {
     e.preventDefault()
-    setSubSaving(true)
     setSubError(null)
+    const missing = missingSub({
+      editing: !!editingSubId, mode: subMode, company: subCompany, existingId: subExistingId, trade: subTrade,
+    })
+    if (missing) { setSubError(missing); return }
+    setSubSaving(true)
     const token = await getToken()
 
     const cleanItemsArr = subLineItems
@@ -657,11 +688,11 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-1.5">
-                        <Label>Contact Email</Label>
+                        <Label>Contact Email <span className="text-faint font-normal">(optional)</span></Label>
                         <Input type="email" placeholder="joe@plumbing.com" value={subEmail} onChange={e => setSubEmail(e.target.value)} />
                       </div>
                       <div className="space-y-1.5">
-                        <Label>Phone</Label>
+                        <Label>Phone <span className="text-faint font-normal">(optional)</span></Label>
                         <Input placeholder="(555) 123-4567" value={subPhone} onChange={e => setSubPhone(e.target.value)} />
                       </div>
                     </div>
@@ -669,7 +700,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                 )}
 
                 <div className="space-y-1.5">
-                  <Label>Trade</Label>
+                  <Label>Trade <span className="text-danger">*</span></Label>
                   <Select value={subTrade} onChange={e => setSubTrade(e.target.value)}>
                     <option value="">-- Select trade --</option>
                     {subTrade && !TRADES.includes(subTrade) && <option value={subTrade}>{subTrade}</option>}
@@ -677,9 +708,58 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                   </Select>
                 </div>
 
+                {/* ── SCAN, THEN THE SCOPE IT FILLS ────────────────────────
+                    These were at opposite ends of the form: the button at the
+                    very bottom and the field it fills at the very top, with
+                    everything else in between - so you scrolled past the whole
+                    form to scan, then scrolled back up to see what changed. The
+                    "✓ AI filled the fields below" line pointed at nothing.
+                    They are one block now, in the order the work happens.
+
+                    The scan is add-only, the scope is NOT: editing a sub is the
+                    one time you most want to correct what the scan wrote, so
+                    the two scope fields sit outside that guard rather than
+                    inside it. */}
+                {/* Attach proposal / contract */}
+                {!editingSubId && (
+                <div className="space-y-1.5">
+                  <Label><Paperclip className="inline h-3.5 w-3.5 mr-1 text-faint" />Attach proposal / contract <span className="text-faint font-normal">(optional)</span></Label>
+                  <Input type="file" accept="image/*,application/pdf" onChange={e => setSubProposal(e.target.files?.[0] ?? null)} />
+                  {subProposal && <p className="text-xs text-faint truncate">📎 {subProposal.name}</p>}
+                  <label className="inline-flex items-center gap-1.5 text-xs font-medium text-accent-fg cursor-pointer hover:underline">
+                    {subAnalyzing
+                      ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Reading…</>
+                      : <><Sparkles className="h-3.5 w-3.5" /> Or scan a file and let AI fill the form</>}
+                    <input type="file" accept="image/*,application/pdf" className="sr-only"
+                      onChange={e => { const f = e.target.files?.[0]; if (f) analyzeProposal(f) }} />
+                  </label>
+                  {subAnalyzeError && <p className="text-xs text-danger flex items-center gap-1"><X className="h-3 w-3 shrink-0" />{subAnalyzeError}</p>}
+                  {subScanned && !subAnalyzeError && <p className="text-xs font-medium text-success">✓ AI filled the fields below - review and edit as needed.</p>}
+                </div>
+                )}
+
+                {/* THE FIELD THAT HAD NO BOX.
+                    `scope` is what the Schedule row, the Directory, the Tasks
+                    assignee dropdown, the team quick-view and the pay-app line
+                    all show as this sub's scope - and the AI scan wrote it, the
+                    form submitted it, and there was no input for it ANYWHERE.
+                    A wrong scan was uncorrectable, and a sub added by hand only
+                    ever got whatever the route derived from the line items. */}
+                <div className="space-y-1.5">
+                  <Label>Scope summary <span className="text-faint font-normal">(optional)</span></Label>
+                  <Input
+                    placeholder="e.g. Rough-in and trim plumbing for 3 baths"
+                    value={subScope}
+                    onChange={e => setSubScope(e.target.value)}
+                  />
+                  <p className="text-xs text-faint">
+                    The one line shown wherever this sub appears. Leave it blank and the line items below fill it in.
+                  </p>
+                </div>
+
                 {/* Scope as line items */}
                 <div className="space-y-2">
-                  <Label>Scope of Work - line items</Label>
+                  <Label>Scope of Work - line items <span className="text-faint font-normal">(optional)</span></Label>
                   <div className="space-y-2">
                     {subLineItems.map((li, i) => (
                       <div key={i} className="flex items-center gap-2">
@@ -698,12 +778,11 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label>
-                    Contract Amount{' '}
-                    {lineItemsTotal > 0
-                      ? <span className="text-faint font-normal">(line items total: ${lineItemsTotal.toLocaleString()})</span>
-                      : <span className="text-faint font-normal">(optional)</span>}
-                  </Label>
+                  {/* The marker stays put whatever the line items say. It used
+                      to be REPLACED by the running total, so the one field that
+                      did say "optional" stopped saying it the moment you added
+                      a line item. The total is in the placeholder below. */}
+                  <Label>Contract Amount <span className="text-faint font-normal">(optional)</span></Label>
                   <Input placeholder={lineItemsTotal > 0 ? `Leave blank to use $${lineItemsTotal.toLocaleString()}` : 'e.g. 45000 - or leave blank'} value={subAmount} onChange={e => setSubAmount(e.target.value)} />
                   {lineItemsTotal === 0 && !subAmount.trim() && (
                     <p className="text-xs text-muted-fg">
@@ -715,10 +794,10 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                 {/* Payment schedule (deposit / progress / final) */}
                 <div className="space-y-2 rounded-lg bg-surface border border-line p-3">
                   <div className="flex items-center justify-between">
-                    <Label className="mb-0">Payment Schedule <span className="text-faint font-normal">(deposit / progress / final)</span></Label>
+                    <Label className="mb-0">Payment Schedule <span className="text-faint font-normal">(optional)</span></Label>
                     {paymentTotalPct > 0 && <span className={cn('text-xs font-semibold', Math.round(paymentTotalPct) === 100 ? 'text-success' : 'text-warn')}>{paymentTotalPct}%</span>}
                   </div>
-                  {subPayments.length === 0 && <p className="text-xs text-faint">No payment terms yet. Scan a proposal or add milestones (e.g. 40% deposit, 50% at start, 10% completion).</p>}
+                  {subPayments.length === 0 && <p className="text-xs text-faint">Deposit, progress and final. Scan a proposal or add milestones (e.g. 40% deposit, 50% at start, 10% completion).</p>}
                   {subPayments.map((p, i) => (
                     <div key={i} className="flex items-center gap-2">
                       <Input className="flex-1" placeholder="e.g. Deposit on approval" value={p.label} onChange={e => updatePayment(i, 'label', e.target.value)} />
@@ -741,33 +820,17 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                 {!editingSubId && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label>Start Date <span className="text-faint font-normal">(adds to schedule)</span></Label>
+                    <Label>Start Date <span className="text-faint font-normal">(optional)</span></Label>
                     <Input type="date" value={subStart} onChange={e => setSubStart(e.target.value)} />
+                    <p className="text-xs text-faint">Adds this sub to the schedule.</p>
                   </div>
                   <div className="space-y-1.5">
-                    <Label>End Date</Label>
+                    <Label>End Date <span className="text-faint font-normal">(optional)</span></Label>
                     <Input type="date" value={subEnd} onChange={e => setSubEnd(e.target.value)} />
                   </div>
                 </div>
                 )}
 
-                {/* Attach proposal / contract */}
-                {!editingSubId && (
-                <div className="space-y-1.5">
-                  <Label><Paperclip className="inline h-3.5 w-3.5 mr-1 text-faint" />Attach proposal / contract <span className="text-faint font-normal">(optional)</span></Label>
-                  <Input type="file" accept="image/*,application/pdf" onChange={e => setSubProposal(e.target.files?.[0] ?? null)} />
-                  {subProposal && <p className="text-xs text-faint truncate">📎 {subProposal.name}</p>}
-                  <label className="inline-flex items-center gap-1.5 text-xs font-medium text-accent-fg cursor-pointer hover:underline">
-                    {subAnalyzing
-                      ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Reading…</>
-                      : <><Sparkles className="h-3.5 w-3.5" /> Or scan a file and let AI fill the form</>}
-                    <input type="file" accept="image/*,application/pdf" className="sr-only"
-                      onChange={e => { const f = e.target.files?.[0]; if (f) analyzeProposal(f) }} />
-                  </label>
-                  {subAnalyzeError && <p className="text-xs text-danger flex items-center gap-1"><X className="h-3 w-3 shrink-0" />{subAnalyzeError}</p>}
-                  {subScanned && !subAnalyzeError && <p className="text-xs font-medium text-success">✓ AI filled the fields below - review and edit as needed.</p>}
-                </div>
-                )}
               </div>
               {subError && (
                 <div className="mx-4 sm:mx-6 mb-1 flex items-start gap-2 rounded-lg border border-danger/30 bg-danger-tint px-3 py-2.5">
@@ -780,7 +843,9 @@ export default function TeamPage({ params }: { params: { id: string } }) {
               )}
               <div className="row-even px-4 sm:px-6 py-4 border-t border-line-soft lg:flex lg:flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => { setShowAddSub(false); setEditingSubId(null); setSubError(null) }}>Cancel</Button>
-                <Button type="submit" disabled={subSaving || (editingSubId ? !subCompany : (subMode === 'new' ? !subCompany : !subExistingId))}>{subSaving ? 'Saving...' : (editingSubId ? 'Save Changes' : 'Add Subcontractor')}</Button>
+                {/* IN FLIGHT ONLY. Disabling on a missing field is a press that does
+                    nothing and says nothing - missingSub answers instead. */}
+                <Button type="submit" disabled={subSaving}>{subSaving ? 'Saving...' : (editingSubId ? 'Save Changes' : 'Add Subcontractor')}</Button>
               </div>
             </form>
           </div>
