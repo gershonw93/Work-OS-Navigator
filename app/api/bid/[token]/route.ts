@@ -16,8 +16,13 @@ export async function GET(_request: Request, { params }: { params: { token: stri
   const { data: invite } = await db.from('bid_invites').select('*').eq('token', params.token).single()
   if (!invite) return NextResponse.json({ error: 'Invalid or expired link' }, { status: 404 })
 
-  // Mark viewed (first time)
-  if (invite.status === 'invited') {
+  // Mark viewed (first time).
+  //
+  // 'pending' counts. A row starts there now - nobody told yet - and a sub can
+  // still arrive through a link the GC copied and sent by hand. Without this
+  // that invite would sit at 'pending' for ever and the GC would never see that
+  // it had been opened.
+  if (invite.status === 'invited' || invite.status === 'pending') {
     await db.from('bid_invites').update({ status: 'viewed', viewed_at: new Date().toISOString() }).eq('id', invite.id)
   }
 

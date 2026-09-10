@@ -1,11 +1,10 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { tokenLinkEmail } from '@/lib/email'
+import { bidInviteEmail, bidScopeLine } from '@/lib/bid-invite-email'
 import { deliverLink, readSendBody } from '@/lib/send-link'
 import { notify } from '@/lib/notify'
 import { appOrigin } from '@/lib/app-url'
 
-import { formatDate } from '@/lib/dates'
 export const runtime = 'nodejs'
 
 const admin = () => createClient(
@@ -46,30 +45,18 @@ export async function POST(request: Request, { params }: { params: { id: string;
   // so re-sending to those is a fresh ask, not a chase.
   const isReminder = invite.status === 'invited' || invite.status === 'viewed'
 
-  const scope = [(req as any)?.title, (req as any)?.trade].filter(Boolean).join(' - ') || 'a scope of work'
-  const due = (req as any)?.due_date
-    ? `Please get it back by ${formatDate((req as any).due_date)}.`
-    : null
+  const scope = bidScopeLine((req as any)?.title, (req as any)?.trade)
 
-  const email = tokenLinkEmail({
-    recipientName: invite.vendor_name,
-    eyebrow: isReminder ? 'Quote reminder' : 'Request for quote',
-    heading: isReminder ? `Still need your price: ${scope}` : `Quote request: ${scope}`,
-    lines: isReminder
-      ? [
-          `Just a nudge - ${(company as any)?.name ?? 'a contractor'} is still waiting on your price for ${scope}.`,
-          'Your link is below; the scope and any plans are on it, and you can submit straight from there.',
-          ...(due ? [due] : []),
-        ]
-      : [
-          `${(company as any)?.name ?? 'A contractor'} would like your price for ${scope}.`,
-          'The link has the scope and any plans attached, and you can submit your quote straight from it.',
-          ...(due ? [due] : []),
-        ],
-    ctaLabel: 'View scope and quote',
-    url: `${appOrigin(request.headers.get('origin'))}/bid/${invite.token}`,
+  // The SAME builder the first send uses. They were one edit away from becoming
+  // two different letters about the same job.
+  const email = bidInviteEmail({
+    isReminder,
+    scope,
+    dueDate: (req as any)?.due_date ?? null,
+    gcName: (company as any)?.name ?? null,
     fromName: (me as any)?.full_name ?? null,
-    companyName: (company as any)?.name ?? null,
+    vendorName: invite.vendor_name,
+    url: `${appOrigin(request.headers.get('origin'))}/bid/${invite.token}`,
     note,
   })
 
@@ -80,8 +67,10 @@ export async function POST(request: Request, { params }: { params: { id: string;
       // A chase must not knock 'viewed' back to 'invited' - that would lose the
       // one signal telling the GC whether the sub has even opened it.
       if (!isReminder) {
-        // 'invited' is this table's sent state; it starts null until somebody
-        // is actually told, and moves to viewed/submitted from the sub's side.
+        // 'invited' is this table's SENT state. It used to be the DEFAULT too,
+        // which is what made a row claim it had been told the moment it was
+        // created - and made this route read the first email as a reminder. A
+        // row starts 'pending' now, and only a confirmed send moves it here.
         await db.from('bid_invites').update({ status: 'invited' }).eq('id', params.inviteId)
       }
 

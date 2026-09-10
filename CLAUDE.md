@@ -16,7 +16,7 @@ production branch.** Do NOT ask the user to merge or deploy.
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-095.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-098.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - IMPORTANT: verify every column you `.select()` actually exists - Supabase
   returns `data: null` for an unknown column, so a typo reads as "not found"
@@ -366,6 +366,30 @@ production branch.** Do NOT ask the user to merge or deploy.
   `read_only`, and only an admin may invite an admin. Ratcheted in
   `invite-audience.ts`: routes taking a role from the body with no permission
   check may only go DOWN.
+
+## A button that claims to have done something (IMPORTANT)
+- **A DEFAULT IS A CLAIM.** `bid_invites.status` was `NOT NULL DEFAULT
+  'invited'`, so a row asserted the sub had been told the moment it existed -
+  while the route that created it sent no email at all. Everything downstream
+  believed it: the badge read Invited, and `isReminder` (which reads that
+  status) made the FIRST real email come out as "Still need your price", a chase
+  for a request nobody had sent. A state that means "we did X" must be written
+  by the code that does X, never by a column default. 'pending' is the state a
+  row starts in; only a confirmed send moves it.
+- Sending is what the send BUTTON does. `+ Invite` inserted a row and fired an
+  in-app bell - and only to invitees who already had an account, which is why
+  the directory path looked like it worked and the typed-in path looked broken.
+  Both were broken. A verb on a button is a promise about what happens when it
+  is pressed.
+- ONE PRIMARY ACTION PER ROW, and the rest behind `RowMenu`
+  (`components/ui/row-menu.tsx`). An invited sub carried Link, Email, Send and
+  By hand - two of them copies, and the Send opened a panel containing another
+  button with the same word on it. Where a second screen needs the same thing,
+  the pattern becomes a component rather than a third copy: it was lifted out of
+  `client-invoices.tsx`, which had grown one for the same reason.
+- A UNIQUE CONSTRAINT AND THE SEND SHIP TOGETHER. Duplicate invite rows were
+  untidy while nothing sent; the moment the button really sends, the same double
+  press is two identical emails to one sub.
 
 ## Menus, pickers and the tail of a tap (IMPORTANT)
 - A control that toggles must not be re-triggered by the tap that just used it.

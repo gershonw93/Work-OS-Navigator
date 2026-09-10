@@ -8,8 +8,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { InfoHint } from '@/components/ui/info-hint'
-import { FileText, Plus, Printer, Loader2, Trash2, Check, Copy, Mail, MoreHorizontal, AlertTriangle } from 'lucide-react'
+import { FileText, Plus, Printer, Loader2, Trash2, Check, Copy, Mail, AlertTriangle } from 'lucide-react'
 import { useClientEmail } from '@/lib/use-client-email'
+// Promoted to a shared component when the quote-invite row needed the same
+// thing: one action reads as the action, the rest live behind the dots.
+import { RowMenu, MenuItem } from '@/components/ui/row-menu'
 import { invoiceQbChip, openedLabel } from '@/lib/invoice-qb-state'
 
 import { formatDate } from '@/lib/dates'
@@ -71,80 +74,6 @@ const STATUS: Record<string, string> = {
 
 const shortDate = (iso: string) =>
   formatDate(iso, { month: 'short', day: 'numeric' })
-
-/**
- * The rest of a row's actions, behind one button.
- *
- * A sent invoice carried seven controls in a row - View / Print, Copy link,
- * Email, By hand, Mark paid, a QuickBooks chip and Void - all the same size
- * and weight, with the one you want (Mark paid) and the one you never want
- * (Void) sitting next to each other. One action reads as the action; the rest
- * are here when you go looking.
- *
- * At module scope on purpose. Declared inside the list component, every render
- * would create a new component type and remount the open menu shut.
- */
-function RowMenu({ label, children }: { label: string; children: (close: () => void) => React.ReactNode }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
-    document.addEventListener('mousedown', onDown)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onDown)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [open])
-
-  return (
-    <div ref={ref} className="relative shrink-0">
-      <button
-        type="button"
-        onClick={() => setOpen(o => !o)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label={label}
-        title={label}
-        className="inline-flex items-center rounded-md border border-line px-2 py-1 text-xs font-medium text-muted-fg hover:bg-surface"
-      >
-        <MoreHorizontal className="h-3.5 w-3.5" />
-      </button>
-      {open && (
-        <div role="menu"
-          className="absolute right-0 z-20 mt-1 w-52 overflow-hidden rounded-lg border border-line bg-panel py-1 shadow-lg">
-          {children(() => setOpen(false))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function MenuItem({ onClick, href, newTab, danger, children }: {
-  onClick?: () => void
-  href?: string
-  newTab?: boolean
-  danger?: boolean
-  children: React.ReactNode
-}) {
-  const cls = cn(
-    'flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium hover:bg-surface',
-    danger ? 'text-danger' : 'text-muted-fg',
-  )
-  return href
-    ? (
-      <a role="menuitem" href={href} onClick={onClick} className={cls}
-        {...(newTab ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
-        {children}
-      </a>
-    )
-    : <button role="menuitem" type="button" onClick={onClick} className={cls}>{children}</button>
-}
 
 /**
  * Billing the client on a simple-billing job.

@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { SearchableSelect } from '@/components/ui/searchable-select'
-import { Plus, X, FileText, Send, Link2, Copy, Trash2, Scale, Loader2, CheckCircle2, Mail, Paperclip, Upload, Trophy, AlertTriangle, ChevronRight, ChevronDown } from 'lucide-react'
+import { Plus, X, FileText, Send, Link2, Copy, Trash2, Scale, Loader2, CheckCircle2, Mail, Paperclip, Upload, Trophy, AlertTriangle, ChevronRight, ChevronDown, Pencil } from 'lucide-react'
+import { RowMenu, MenuItem } from '@/components/ui/row-menu'
 import { cn } from '@/lib/utils'
 import { ComparisonBlock, type Comparison } from '@/components/quotes/comparison-block'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
@@ -24,9 +25,15 @@ import { formatDate } from '@/lib/dates'
 import { useNotice } from '@/components/ui/notice'
 const money = (n: number | null) => n == null ? '-' : `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 const STATUS: Record<string, string> = {
+  // Quiet, not an alarm: not having told somebody yet is a normal state to be
+  // in for a second, and the row carries a Send invite button right beside it.
+  pending: 'bg-muted text-faint',
   invited: 'bg-muted text-muted-fg', viewed: 'bg-info-tint text-info',
   submitted: 'bg-success-tint text-success', declined: 'bg-danger-tint text-danger',
 }
+/** What the badge says. 'pending' would read as "waiting on them", which is the
+ *  opposite of the truth - nobody has been told. */
+const STATUS_LABEL: Record<string, string> = { pending: 'Not sent yet' }
 
 export default function RequestQuotesPage({ params }: { params: { id: string } }) {
   const notify = useNotice()
@@ -56,6 +63,8 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
 
   // invite inputs per request
   const [sendingInvite, setSendingInvite] = useState('')
+  // The row whose send is in flight, so its own button can spin.
+  const [sending, setSending] = useState('')
   const [inviteSub, setInviteSub] = useState<Record<string, string>>({})
   const [inviteName, setInviteName] = useState<Record<string, string>>({})
   const [inviteEmail, setInviteEmail] = useState<Record<string, string>>({})
@@ -125,16 +134,34 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
       body: JSON.stringify({ invitees: [{ company_id: subId || null, name, email }] }),
     })
+    const d = await res.json().catch(() => ({} as any))
     if (res.ok) {
       const wasCustom = !subId   // typed name/email, not picked from directory
       setInviteSub(p => ({ ...p, [reqId]: '' })); setInviteName(p => ({ ...p, [reqId]: '' })); setInviteEmail(p => ({ ...p, [reqId]: '' }))
       load()
-      if (wasCustom && (name || email)) {
+
+      // SAY WHAT HAPPENED, not what was attempted. This used to pop the
+      // directory modal saying "Invite sent" the moment a row existed - and
+      // nothing had been sent, on any path.
+      const sent = (d.results ?? []).filter((r: any) => r.sent)
+      const failed = (d.results ?? []).filter((r: any) => !r.sent)
+      if (sent.length) {
+        notify(`Quote request sent to ${sent.map((r: any) => r.email).join(', ')}.`, { tone: 'success' })
+      }
+      for (const f of failed) {
+        notify(f.reason === 'no_email'
+          ? `${f.name ?? 'That sub'} has no email address - use Copy link to send it yourself.`
+          : `Could not email ${f.name ?? 'that sub'}${f.detail ? `: ${f.detail}` : ''}. Use Copy link to send it yourself.`)
+      }
+
+      // The directory offer comes AFTER a real send, and only for somebody
+      // typed in - there is nothing to save about a sub already in there.
+      if (wasCustom && sent.length) {
         setPendingContact({ name: name || '', email: email || '' })
         setContactForm({ name: name || '', email: email || '', phone: '', trade: '', type: 'subcontractor' })
       }
     }
-    else notify((await res.json().catch(() => ({}))).error ?? 'Could not invite')
+    else notify(d.error ?? 'Could not invite')
   }
 
   async function saveContact() {
@@ -221,6 +248,37 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
   const standaloneComparisons = comparisons.filter(c => !c.bid_request_id)
 
   function linkFor(token: string) { return `${origin}/bid/${token}` }
+
+  /**
+   * Send this sub their link. ONE PRESS.
+   *
+   * The row used to carry four controls - two of them copy buttons, and a
+   * "Send" that opened a panel containing another button with the same word on
+   * it. This is the button that does the thing; the panel survives behind
+   * "Send with a note…" for when there is something to say or a different
+   * address to say it to.
+   */
+  async function sendInvite(reqId: string, inv: any) {
+    if (!inv.vendor_email) return
+    setSending(inv.id)
+    try {
+      const t = await token()
+      const res = await fetch(`/api/projects/${params.id}/bid-requests/${reqId}/invites/${inv.id}/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+        body: JSON.stringify({ to: inv.vendor_email }),
+      })
+      const d = await res.json().catch(() => ({} as any))
+      if (d.sent) notify(`Sent to ${inv.vendor_email}.`, { tone: 'success' })
+      else notify(d.error ?? 'Could not send that email. Use Copy link to send it yourself.')
+      load()
+    } catch {
+      notify('Could not reach the server. Use Copy link to send it yourself.')
+    } finally {
+      // A spinner whose only exit is the happy path never stops.
+      setSending('')
+    }
+  }
   function copy(text: string, key: string) { navigator.clipboard?.writeText(text); setCopied(key); setTimeout(() => setCopied(null), 1500) }
   function emailFor(req: any, inv: any) {
     const subject = `Request for Quote - ${req.title}`
@@ -470,6 +528,12 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
                 {invites.map((inv: any) => {
                   const sub = submissions.find((s: any) => s.bid_invite_id === inv.id)
                   const em = emailFor(req, inv)
+                  // Told already, so the next email is a nudge - the same
+                  // question the send route asks, asked here so the button says
+                  // what is about to be sent.
+                  const told = inv.status === 'invited' || inv.status === 'viewed'
+                  // They answered. There is nothing left to chase.
+                  const answered = inv.status === 'submitted' || inv.status === 'declined'
                   return (
                     <div key={inv.id} className="px-3 py-2 flex flex-col sm:flex-row sm:items-center gap-x-3 gap-y-2">
                       <div className="flex-1 min-w-0">
@@ -477,23 +541,55 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
                         {sub && <span className="text-xs text-success ml-2">{money(sub.amount)}{sub.file_name ? ' · file' : ''}</span>}
                         {sub?.created_at && <span className="block text-[11px] text-faint mt-0.5">Submitted {new Date(sub.created_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</span>}
                       </div>
-                      <div className="flex items-center flex-wrap gap-x-3 gap-y-1.5 shrink-0">
-                        <span className={cn('text-[10px] font-medium rounded-full px-1.5 py-0.5 capitalize', STATUS[inv.status] ?? 'bg-muted text-muted-fg')}>{inv.status}</span>
-                        <button onClick={() => copy(linkFor(inv.token), `l${inv.id}`)} title="Copy link" className="inline-flex items-center gap-1 text-xs text-muted-fg hover:text-ink">{copied === `l${inv.id}` ? <CheckCircle2 className="h-3.5 w-3.5 text-success" /> : <Link2 className="h-3.5 w-3.5" />} Link</button>
-                        <button onClick={() => copy(`${em.subject}\n\n${em.body}`, `e${inv.id}`)} title="Copy email" className="inline-flex items-center gap-1 text-xs text-muted-fg hover:text-ink">{copied === `e${inv.id}` ? <CheckCircle2 className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />} Email</button>
-                        <button onClick={() => setSendingInvite(sendingInvite === inv.id ? '' : inv.id)}
-                          className="inline-flex items-center gap-1 text-xs font-semibold text-accent-fg hover:underline">
-                          <Mail className="h-3.5 w-3.5" /> Send
-                        </button>
-                        {inv.vendor_email && <a href={em.mailto} title="Compose it yourself instead" className="text-xs text-faint hover:text-muted-fg">By hand</a>}
-                        <button
-                          onClick={() => removeInvite(req.id, inv.id, inv.vendor_name ?? null)}
-                          title="Remove this invite"
-                          aria-label={`Remove ${inv.vendor_name ?? 'this'} invite`}
-                          className="ml-1 rounded p-1 text-faint hover:bg-danger-tint hover:text-danger"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
+                      {/* ONE PRIMARY ACTION, and the rest behind the dots.
+                          This row used to carry Link, Email, Send, By hand and
+                          a delete X - two of them copies, and the Send opened a
+                          panel holding another Send. Nothing said which one
+                          actually told the sub anything, and none of them did. */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={cn('whitespace-nowrap text-[10px] font-medium rounded-full px-1.5 py-0.5 capitalize', STATUS[inv.status] ?? 'bg-muted text-muted-fg')}>
+                          {STATUS_LABEL[inv.status] ?? inv.status}
+                        </span>
+                        {answered ? null : inv.vendor_email ? (
+                          <Button size="sm" onClick={() => sendInvite(req.id, inv)} disabled={sending === inv.id}>
+                            {sending === inv.id
+                              ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Sending…</>
+                              : <><Mail className="h-3.5 w-3.5" /> {told ? 'Send reminder' : 'Send invite'}</>}
+                          </Button>
+                        ) : (
+                          // No address, so Copy link is the only thing that can
+                          // happen - and a disabled Send would explain nothing.
+                          <Button size="sm" variant="outline" onClick={() => copy(linkFor(inv.token), `l${inv.id}`)}>
+                            {copied === `l${inv.id}`
+                              ? <><CheckCircle2 className="h-3.5 w-3.5 text-success" /> Copied</>
+                              : <><Link2 className="h-3.5 w-3.5" /> Copy link</>}
+                          </Button>
+                        )}
+                        <RowMenu label={`More for ${inv.vendor_name ?? 'this invite'}`}>
+                          {close => (
+                            <>
+                              <MenuItem onClick={() => { copy(linkFor(inv.token), `l${inv.id}`); close() }}>
+                                <Link2 className="h-3.5 w-3.5" /> Copy link
+                              </MenuItem>
+                              <MenuItem onClick={() => { copy(`${em.subject}\n\n${em.body}`, `e${inv.id}`); close() }}>
+                                <Copy className="h-3.5 w-3.5" /> Copy email text
+                              </MenuItem>
+                              {inv.vendor_email && (
+                                <MenuItem href={em.mailto} onClick={close}>
+                                  <Mail className="h-3.5 w-3.5" /> Send by hand
+                                </MenuItem>
+                              )}
+                              {inv.vendor_email && (
+                                <MenuItem onClick={() => { setSendingInvite(inv.id); close() }}>
+                                  <Pencil className="h-3.5 w-3.5" /> Send with a note…
+                                </MenuItem>
+                              )}
+                              <MenuItem danger onClick={() => { removeInvite(req.id, inv.id, inv.vendor_name ?? null); close() }}>
+                                <X className="h-3.5 w-3.5" /> Remove invite
+                              </MenuItem>
+                            </>
+                          )}
+                        </RowMenu>
                       </div>
                       {sendingInvite === inv.id && (
                         <div className="w-full border-t border-line-soft pt-2.5 sm:mt-1">
@@ -501,9 +597,9 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
                             endpoint={`/api/projects/${params.id}/bid-requests/${req.id}/invites/${inv.id}/send`}
                             url={linkFor(inv.token)}
                             defaultTo={inv.vendor_email ?? ''}
-                            label={`Email the quote request to ${inv.vendor_name ?? 'this sub'}`}
+                            label={`Add a line for ${inv.vendor_name ?? 'this sub'}, or send to a different address`}
                             placeholder="sub@example.com"
-                            onSent={() => load()}
+                            onSent={() => { setSendingInvite(''); load() }}
                           />
                         </div>
                       )}
@@ -563,7 +659,11 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
             <div className="flex items-start justify-between gap-2">
               <div>
                 <h3 className="text-base font-semibold text-ink">Add this sub to your directory?</h3>
-                <p className="text-xs text-muted-fg mt-0.5">Invite sent. Save their details so you can reuse them next time.</p>
+                <p className="text-xs text-muted-fg mt-0.5">
+                  {pendingContact.email
+                    ? `Sent to ${pendingContact.email}. Save their details so you can reuse them next time.`
+                    : 'Save their details so you can reuse them next time.'}
+                </p>
               </div>
               <button onClick={() => setPendingContact(null)} className="p-1 rounded-lg text-faint hover:bg-surface"><X className="h-4 w-4" /></button>
             </div>
