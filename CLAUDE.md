@@ -414,6 +414,25 @@ production branch.** Do NOT ask the user to merge or deploy.
   something else immediately reverses looks exactly like never closing. Guarded
   with a `pickedAt` timestamp, not a flag on a timer - no timer to leak and it
   cannot get stuck on.
+- A MENU THAT HOVER OPENS MUST NOT BE A TOGGLE. The project sections open their
+  pages on hover AND on click, and NEITHER closes them - a toggle is
+  re-triggered by the interaction that just used it, so with a mouse
+  `mouseenter` opens and the `click` that follows shuts it again, and the menu
+  flickers out from under the pointer. Same fault as `SearchableSelect`, one
+  costume over. Closing is: pick something, Escape, click outside, or move the
+  pointer off. The panel sits flush at `top-full` so there is no dead space to
+  cross and no timer to leak.
+- A PANEL HANGING OFF A ROW CANNOT LIVE INSIDE `overflow-x-auto`. `overflow-x`
+  establishes a clipping box on BOTH axes, so a dropdown below a button inside a
+  side-scrolling row is sliced off at the row's bottom edge - every class on it
+  individually correct, and nothing there to click. Measured in
+  `overlay-geometry.ts` with `elementFromPoint`, because clipping is a PAINT
+  operation: the clipped panel still reports its full bounding rect, so
+  measuring the panel proves nothing.
+- The controls in a project header are ONE class string
+  (`components/layout/header-icon-button.tsx`), icon-only, each with
+  `aria-label` and `title`. Four independently written ones became an avatar
+  pill, a `px-3 py-1.5` word, a `px-3 py-2` word and a square icon.
 - Something a user opens from a ROW opens over the screen, not at the bottom of
   the card. Compliance's Update rendered below the whole document list, so
   pressing it on the third row scrolled you away from what you tapped - which on

@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Users, Phone, Mail, HardHat, Building2, ChevronDown, X } from 'lucide-react'
+import { Users, Phone, Mail, HardHat, Building2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { headerIconButton } from './header-icon-button'
 
 interface Member {
   id: string
@@ -60,43 +61,25 @@ export function TeamQuickView({ projectId }: { projectId: string }) {
   const totalCount = members.length + subs.length
   if (!loaded || totalCount === 0) return null
 
-  // Build avatar preview (first 4)
-  const avatarItems = [
-    ...members.map((m) => ({ key: `m-${m.id}`, label: m.name, type: 'member' as const })),
-    ...subs.map((s) => ({ key: `s-${s.id}`, label: s.companies?.name ?? s.scope, type: 'sub' as const })),
-  ]
-  const preview = avatarItems.slice(0, 4)
-  const extra = totalCount - preview.length
+  const label = `Team (${totalCount})`
 
   return (
     <div className="relative" ref={wrapperRef}>
+      {/* The avatars used to be the button - a stack of initials, a word and a
+          chevron, next to two bordered words and a square icon. They are not
+          lost: the popover this opens IS the avatars, with names, trades and a
+          way to call each one. The button is the icon and the number. */}
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 rounded-full border border-line bg-panel px-2 py-1 hover:border-accent hover:bg-accent-tint transition-colors"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={label}
+        title={label}
+        className={cn(headerIconButton, 'relative')}
       >
-        <div className="flex -space-x-2">
-          {preview.map((a) => (
-            <span
-              key={a.key}
-              className={cn(
-                'flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-semibold ring-2 ring-panel',
-                a.type === 'member' ? 'bg-accent-tint text-accent-fg' : 'bg-muted2 text-muted-fg',
-              )}
-              title={a.label}
-            >
-              {initials(a.label)}
-            </span>
-          ))}
-          {extra > 0 && (
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-[10px] font-semibold text-muted-fg ring-2 ring-panel">
-              +{extra}
-            </span>
-          )}
-        </div>
-        <span className="hidden sm:flex items-center gap-1 text-sm font-medium text-muted-fg">
-          <Users className="h-4 w-4" />
-          Team
-          <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', open && 'rotate-180')} />
+        <Users className="h-4 w-4" />
+        <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-accent-ink">
+          {totalCount}
         </span>
       </button>
 

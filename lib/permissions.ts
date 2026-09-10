@@ -28,7 +28,12 @@ export interface ResourceDef {
 // Kept in step with the tab groups in components/layout/project-tabs.tsx.
 // Two lists describing the same app in different words is exactly how Bids and
 // Quotes ended up in different sections.
-export const RESOURCE_GROUPS = ['Field', 'Buyout', 'Money', 'Docs', 'Workspace', 'Settings'] as const
+// 'Finance' rather than 'Money': the project tab strip renamed the section and
+// these two lists describe the same app - the comment in project-tabs.tsx says
+// to keep them in step, and two names for one section is how the grouping got
+// into the state that file exists to explain. Display strings, both of them;
+// nothing is stored under either.
+export const RESOURCE_GROUPS = ['Field', 'Buyout', 'Finance', 'Docs', 'Workspace', 'Settings'] as const
 
 export const RESOURCES: ResourceDef[] = [
   // Field (project tabs)
@@ -43,25 +48,25 @@ export const RESOURCES: ResourceDef[] = [
   { key: 'bids',           label: 'Quotes & Bids',  group: 'Buyout', slug: 'request-quotes' },
   { key: 'rfis',           label: 'RFIs',           group: 'Docs', slug: 'rfis' },
   // Money
-  { key: 'invoices',       label: 'Invoices',       group: 'Money', slug: 'invoices' },
-  { key: 'pay-apps',       label: 'Pay Applications', group: 'Money', slug: 'pay-apps' },
-  { key: 'payments',       label: 'Payments & Escrow', group: 'Money', slug: 'payments' },
-  { key: 'budget',         label: 'Budget',         group: 'Money', slug: 'budget' },
+  { key: 'invoices',       label: 'Invoices',       group: 'Finance', slug: 'invoices' },
+  { key: 'pay-apps',       label: 'Pay Applications', group: 'Finance', slug: 'pay-apps' },
+  { key: 'payments',       label: 'Payments & Escrow', group: 'Finance', slug: 'payments' },
+  { key: 'budget',         label: 'Budget',         group: 'Finance', slug: 'budget' },
   // Split out of `budget` deliberately. Seeing what a job COSTS and seeing what
   // you MAKE on it are different questions, and a project manager who has to
   // run the budget does not automatically need the second. While they were one
   // permission there was no way to grant the first without the second.
-  { key: 'margin',         label: 'Job Margin & Markup', group: 'Money' },
+  { key: 'margin',         label: 'Job Margin & Markup', group: 'Finance' },
   { key: 'request-quotes', label: 'Quotes & Bids',  group: 'Buyout', slug: 'request-quotes' },
-  { key: 'quotes',         label: 'Compare Quotes', group: 'Money', slug: 'quotes' },
-  { key: 'financials',     label: 'Financials',     group: 'Money', slug: 'financials' },
-  { key: 'change-orders',  label: 'Change Orders',  group: 'Money', slug: 'change-orders' },
+  { key: 'quotes',         label: 'Compare Quotes', group: 'Finance', slug: 'quotes' },
+  { key: 'financials',     label: 'Financials',     group: 'Finance', slug: 'financials' },
+  { key: 'change-orders',  label: 'Change Orders',  group: 'Finance', slug: 'change-orders' },
   // Compliance
   { key: 'permits',        label: 'Permits',        group: 'Docs', slug: 'permits' },
   { key: 'inspections',    label: 'Inspections',    group: 'Docs', slug: 'inspections' },
   { key: 'submittals',     label: 'Submittals',     group: 'Docs', slug: 'submittals' },
   { key: 'compliance',     label: 'Compliance',     group: 'Buyout', slug: 'compliance' },
-  { key: 'reports',        label: 'Reports',        group: 'Money', slug: 'reports' },
+  { key: 'reports',        label: 'Reports',        group: 'Finance', slug: 'reports' },
   // Workspace (global nav)
   { key: 'dashboard',      label: 'Dashboard',      group: 'Workspace' },
   { key: 'projects',       label: 'Projects',       group: 'Workspace' },

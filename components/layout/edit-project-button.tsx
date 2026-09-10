@@ -12,6 +12,7 @@ import {
   type ContractType, CONTRACT_TYPES, CONTRACT_LABEL, CONTRACT_BLURB, asContractType,
 } from '@/lib/contract-type'
 import { Settings, X } from 'lucide-react'
+import { headerIconButton } from './header-icon-button'
 
 interface Props {
   projectId: string
@@ -144,8 +145,9 @@ export function EditProjectButton({ projectId, project }: Props) {
     <>
       <button
         onClick={() => setOpen(true)}
+        aria-label="Project settings"
         title="Project settings"
-        className="inline-flex items-center justify-center rounded-lg border border-line bg-panel p-2 text-muted-fg hover:bg-muted hover:text-ink transition-colors"
+        className={headerIconButton}
       >
         <Settings className="h-4 w-4" />
       </button>

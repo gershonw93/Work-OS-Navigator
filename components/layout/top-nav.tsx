@@ -4,7 +4,6 @@ import { usePathname } from 'next/navigation'
 import { Menu, User } from 'lucide-react'
 import { NotificationBell } from './notification-bell'
 import { OPEN_SIDEBAR_EVENT } from './sidebar'
-import { ViewAsSwitcher } from './view-as-switcher'
 import { ImpersonateSwitcher } from './impersonate-switcher'
 import { GlobalSearch } from './global-search'
 
@@ -64,8 +63,12 @@ export function TopNav() {
 
       <div className="flex items-center gap-2 shrink-0">
         <ImpersonateSwitcher />
-        {/* View-as crowds the mobile top bar - desktop only */}
-        <div className="hidden sm:block"><ViewAsSwitcher /></div>
+        {/* The role/user preview used to sit here, as a bordered strip with two
+            tab buttons and a dropdown inside it - a control most people never
+            touch, on every screen, forever. It lives in Settings > Permissions
+            now, which is the screen about what each role can see. The banner
+            that says you ARE previewing stays in the chrome below: a preview
+            you cannot see and cannot exit is worse than no preview. */}
         <NotificationBell />
         <button className="flex items-center justify-center w-8 h-8 rounded-full bg-muted2 text-muted-fg hover:bg-muted2 transition-colors">
           <User className="h-4 w-4" />

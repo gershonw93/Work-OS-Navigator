@@ -49,6 +49,30 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-12',
+    title: 'A cleaner top to every job',
+    items: [
+      {
+        kind: 'improved',
+        title: 'One row of sections, with the pages on a menu',
+        text: 'A job used to open with four stacked bands before any of the work: the app bar, the job name, a row of sections, and a fourth row listing that section\u2019s pages. There is one row now. Hover a section - or click it - and its pages drop down, with a tick on the one you are looking at. Nothing was taken away; every page is still there, one hover closer. "Money" is now called "Finance".',
+        help: 'project-tabs-explained',
+      },
+      {
+        kind: 'improved',
+        title: 'The buttons beside the job name are icons',
+        text: 'Team, Share with client, Job history and Settings were four different shapes and two of them were words. They are four matching icons now - hover any of them to see what it does. The team button carries the number of people on the job, and the faces are still inside it.',
+      },
+      {
+        kind: 'improved',
+        title: '\u201cView as\u201d moved to Settings',
+        text: 'The role preview was a strip in the top bar of every page, which is a lot of room for something most people never touch. It now lives at the top of Settings \u2192 Permissions, beside the grid it demonstrates. It works exactly as it did, and the orange banner still tells you when you are previewing and gets you back out.',
+        help: 'permissions',
+        href: '/settings?tab=permissions',
+      },
+    ],
+  },
+  {
+    date: '2026-09-12',
     title: 'The menu folds away on a computer',
     items: [
       {

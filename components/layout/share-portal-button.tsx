@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Share2, X, Copy, Check, Loader2, Send, RotateCcw } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { headerIconButton } from './header-icon-button'
 
 interface SharePortalButtonProps {
   projectId: string
@@ -123,10 +124,11 @@ export function SharePortalButton({ projectId }: SharePortalButtonProps) {
     <>
       <button
         onClick={handleOpen}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-panel px-3 py-1.5 text-sm font-medium text-muted-fg hover:border-accent hover:text-accent-fg transition-colors"
+        aria-label="Share with client"
+        title="Share with client"
+        className={headerIconButton}
       >
-        <Share2 className="h-3.5 w-3.5" />
-        <span className="hidden sm:inline">Share with Client</span>
+        <Share2 className="h-4 w-4" />
       </button>
 
       {open && (
