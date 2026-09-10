@@ -27,6 +27,20 @@ production branch.** Do NOT ask the user to merge or deploy.
   box sat permanently blank because a component read `d.email` from a route
   that answers `{ clientEmail }`. If two places read one endpoint, give them
   one reader (`lib/use-client-email.ts`) rather than two chances to be wrong.
+  IT HAPPENED AGAIN AND THE SECOND ONE WAS WORSE. The printed Compliance Report
+  read `d.documents ?? d.compliance ?? []` from a route that answers
+  `{ subcontracts, docs, requirements }` - so it printed "No compliance
+  documents on record" on EVERY job since it was written, which on an owner's or
+  a lender's copy is not a blank section, it is an assertion that a sub is
+  uninsured. `??` chaining two guesses is the tell: nobody chains a fallback for
+  a key they have read. `lib/compliance-report.ts` is the one reader, and it
+  takes the route's own key names as its argument names.
+- A TYPE THAT DESCRIBES NO TABLE IS NOT CHECKED BY ANYTHING. The same report
+  declared `doc_type`, `subcontractor_name` and `company_name`; a
+  `compliance_documents` row has `type` and `company_id` and none of the three,
+  and the company NAME only exists on the `subcontracts` array beside it. An
+  interface written from memory compiles perfectly and is wrong at runtime -
+  check the columns against the migration, the same as for a `.select()`.
 
 ## What's new (KEEP CURRENT)
 - User-facing release notes live in `lib/whats-new.ts`, shown at `/whats-new`.
@@ -459,6 +473,14 @@ production branch.** Do NOT ask the user to merge or deploy.
   something else immediately reverses looks exactly like never closing. Guarded
   with a `pickedAt` timestamp, not a flag on a timer - no timer to leak and it
   cannot get stuck on.
+- AN "ADD" BUTTON OPENS; IT DOES NOT TOGGLE. Selections' `Add selection` was
+  `setShowAdd(v => !v)` over an INLINE panel rendered partway down the page, so
+  a press while it was already open closed it - and after a failed save it IS
+  already open, which is exactly when somebody presses it again. Reported as
+  "every click after does nothing". Same family as the hover menu below and as
+  `SearchableSelect`: a state the next interaction reverses is indistinguishable
+  from a control that is dead. Add opens a dialog (`.overlay` + `data-overlay`),
+  and closing is Cancel, Escape, the backdrop, or a save that worked.
 - A MENU THAT HOVER OPENS MUST NOT BE A TOGGLE. The project sections open their
   pages on hover AND on click, and NEITHER closes them - a toggle is
   re-triggered by the interaction that just used it, so with a mouse
@@ -503,6 +525,13 @@ production branch.** Do NOT ask the user to merge or deploy.
   `storage_path` fresh per request (a stored signed URL is only as good as the
   key that signed it) and streams anything else from our origin. The URL comes
   off the ROW, never the request.
+- **A POSTGRES MESSAGE IS NOT A USER-FACING MESSAGE.** `null value in column
+  "status" of relation "project_selections" violates not-null constraint` is
+  every word true and none of it usable, and it reads as "the app is broken".
+  `friendlyDbError` (`lib/db-error.ts`) names the FIELD; a route hands it back
+  and `console.error`s the raw text so the log still has it. A route that ends
+  `NextResponse.json({ error: error.message })` is one report away from putting
+  that sentence in front of somebody choosing bathroom tile.
 - **NEVER `alert()` or `confirm()` - and `confirm()` is the one that got proved.**
   Delete on a Directory contact did nothing three times and took the tab blank.
   Three hours of production logs after those three attempts: the DELETE endpoint

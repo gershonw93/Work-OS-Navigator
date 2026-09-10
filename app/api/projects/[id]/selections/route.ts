@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { SELECTION_CATEGORIES, categoryDef, itemsForType } from '@/lib/selections'
 import { money } from '@/lib/validate'
+import { friendlyDbError } from '@/lib/db-error'
 
 export const runtime = 'nodejs'
 
@@ -9,6 +10,24 @@ const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
+
+/**
+ * A database failure, said in words - and written down in full.
+ *
+ * THE REPORT: "shows the user a raw Postgres error". This route ended
+ * `{ error: error.message }` and the page put that straight on screen through
+ * useNotice, so somebody adding a bathroom tile read `null value in column
+ * "status" of relation "project_selections" violates not-null constraint`.
+ * Every word of it true, none of it usable, and it reads as "the app is broken".
+ *
+ * `friendlyDbError` already existed for exactly this and names the FIELD. The
+ * raw text is not thrown away - it goes to the log, where whoever has to debug
+ * it can still find it.
+ */
+function dbFailure(error: { message?: string | null; code?: string | null }, doing: string) {
+  console.error(`[selections] ${doing} failed`, error)
+  return NextResponse.json({ error: friendlyDbError(error) }, { status: 500 })
+}
 
 async function auth(request: Request) {
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
@@ -35,7 +54,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
   if (error && ((error as any).code === '42P01' || /does not exist/i.test(error.message))) {
     return NextResponse.json({ selections: [], budget_lines: [], portal_token: null, needs_migration: true })
   }
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return dbFailure(error, 'loading the board')
 
   // Budget lines to hang an allowance off, and the portal link so the board can
   // offer "send this to the client" without a second place to look it up.
@@ -94,7 +113,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     }
     if (!rows.length) return NextResponse.json({ created: 0 })
     const { error } = await db.from('project_selections').insert(rows)
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) return dbFailure(error, 'seeding the board')
     return NextResponse.json({ created: rows.length })
   }
 
@@ -128,9 +147,13 @@ export async function POST(request: Request, { params }: { params: { id: string 
     lead_time_days: body.lead_time_days ?? categoryDef(category)?.lead_time_days ?? null,
     notes: body.notes || null,
     sort_order: (last?.sort_order ?? 0) + 10,
+    // SAID OUT LOUD, not left to the column default - the seed path eight lines
+    // up already says it, and two doors writing the same row should not depend
+    // on one of them being right about the schema it happens to be pointed at.
+    status: 'pending',
     created_by: user.id,
   }).select('*, selection_options(*)').single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return dbFailure(error, 'adding a selection')
   return NextResponse.json({ selection: data })
 }

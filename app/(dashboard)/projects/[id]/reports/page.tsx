@@ -7,6 +7,7 @@ import { Printer, FileText, ShieldCheck, DollarSign } from 'lucide-react'
 import { clientLabel } from '@/lib/project-access'
 
 import { formatDate } from '@/lib/dates'
+import { complianceReport, type ReportGroup } from '@/lib/compliance-report'
 interface Invoice {
   id: string
   invoice_number: string | null
@@ -17,14 +18,10 @@ interface Invoice {
   created_at: string
 }
 
-interface ComplianceDoc {
-  id: string
-  doc_type: string
-  status: string
-  expiry_date: string | null
-  subcontractor_name: string | null
-  company_name: string | null
-}
+// The shape this used to declare - `doc_type`, `subcontractor_name`,
+// `company_name` - described no table in the database. A compliance_documents
+// row carries `type` and `company_id`; the NAME lives on the subcontracts array
+// the same response sends. lib/compliance-report.ts puts the two together.
 
 interface Permit {
   id: string
@@ -82,6 +79,10 @@ function StatusBadge({ status }: { status: string }) {
     scheduled: 'bg-info-tint text-info',
     pending: 'bg-warn-tint text-warn',
     on_hold: 'bg-warn-tint text-warn',
+    // The compliance tab's own colour for it. Missing from this map, it fell
+    // through to grey - the one state that means "renew this now" printed as
+    // quietly as "draft".
+    expiring_soon: 'bg-accent-tint text-accent-fg',
     expired: 'bg-danger-tint text-danger',
     rejected: 'bg-danger-tint text-danger',
     failed: 'bg-danger-tint text-danger',
@@ -108,7 +109,7 @@ export default function ReportsPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
   const [project, setProject] = useState<Project | null>(null)
   const [invoices, setInvoices] = useState<Invoice[]>([])
-  const [compliance, setCompliance] = useState<ComplianceDoc[]>([])
+  const [complianceGroups, setComplianceGroups] = useState<ReportGroup[]>([])
   const [permits, setPermits] = useState<Permit[]>([])
   const [inspections, setInspections] = useState<Inspection[]>([])
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
@@ -141,8 +142,17 @@ export default function ReportsPage({ params }: { params: { id: string } }) {
         setInvoices(d.invoices ?? [])
       }
       if (compRes.ok) {
+        // THE BUG. This read `d.documents ?? d.compliance ?? []`, and the route
+        // answers neither - it sends `{ subcontracts, docs, requirements }`. So
+        // both were `undefined`, the `??` fell through to the empty array, and
+        // "No compliance documents on record" printed on EVERY job for ever.
+        // On an owner's or a lender's copy that is not a blank section, it is
+        // an assertion that a sub is uninsured.
         const d = await compRes.json()
-        setCompliance(d.documents ?? d.compliance ?? [])
+        setComplianceGroups(complianceReport({
+          subcontracts: d.subcontracts, docs: d.docs, requirements: d.requirements,
+          projectId: params.id,
+        }))
       }
       if (permRes.ok) {
         const d = await permRes.json()
@@ -166,14 +176,6 @@ export default function ReportsPage({ params }: { params: { id: string } }) {
     invoicesBySub[key].push(inv)
   }
 
-  // Compliance grouping
-  const complianceBySub: Record<string, ComplianceDoc[]> = {}
-  for (const doc of compliance) {
-    const key = doc.subcontractor_name ?? doc.company_name ?? 'Unknown'
-    if (!complianceBySub[key]) complianceBySub[key] = []
-    complianceBySub[key].push(doc)
-  }
-
   const permitIssued = permits.filter(p => p.status === 'issued').length
   const permitPending = permits.filter(p => !['issued', 'closed'].includes(p.status)).length
   const inspPassed = inspections.filter(i => i.status === 'passed').length
@@ -182,10 +184,6 @@ export default function ReportsPage({ params }: { params: { id: string } }) {
   const totalInvoiced = invoices.reduce((s, i) => s + (i.amount ?? 0), 0)
   const totalPaid = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + (i.amount ?? 0), 0)
   const totalOutstanding = totalInvoiced - totalPaid
-
-  const today = new Date()
-  const hasExpiredOrMissing = (docs: ComplianceDoc[]) =>
-    docs.some(d => d.status === 'expired' || d.status === 'missing' || (d.expiry_date && new Date(d.expiry_date) < today))
 
   return (
     <>
@@ -345,45 +343,42 @@ export default function ReportsPage({ params }: { params: { id: string } }) {
             <div className="print-card bg-panel rounded-xl border border-line p-6">
               <SectionHeader icon={ShieldCheck} title="Compliance Report" />
 
-              {Object.keys(complianceBySub).length === 0 ? (
-                <p className="text-sm text-faint">No compliance documents on record.</p>
+              {complianceGroups.length === 0 ? (
+                <p className="text-sm text-faint">No subcontractors on this job yet.</p>
               ) : (
                 <div className="space-y-4">
-                  {Object.entries(complianceBySub).map(([sub, docs]) => {
-                    const hasIssue = hasExpiredOrMissing(docs)
-                    return (
-                      <div key={sub} className={cn('border rounded-lg overflow-hidden', hasIssue ? 'border-danger/30' : 'border-line-soft')}>
-                        <div className={cn('px-4 py-2.5 flex flex-wrap items-center justify-between gap-2', hasIssue ? 'bg-danger-tint' : 'bg-surface')}>
-                          <span className="text-sm font-semibold text-ink-soft">{sub}</span>
-                          {hasIssue && (
-                            <span className="whitespace-nowrap text-xs font-medium text-danger bg-danger-tint px-2 py-0.5 rounded-full">Action required</span>
-                          )}
-                        </div>
-                        <div className="divide-y divide-line-soft">
-                          {docs.map(doc => {
-                            const isExpired = doc.status === 'expired' || (doc.expiry_date && new Date(doc.expiry_date) < today)
-                            const isMissing = doc.status === 'missing'
-                            const rowBad = isExpired || isMissing
-                            return (
-                              <div key={doc.id} className={cn('px-4 py-2.5 flex flex-wrap items-center justify-between gap-2', rowBad ? 'bg-danger-tint/50' : '')}>
-                                <div>
-                                  <span className={cn('text-sm font-medium capitalize', rowBad ? 'text-danger' : 'text-ink-soft')}>
-                                    {doc.doc_type.replace(/_/g, ' ')}
-                                  </span>
-                                  {doc.expiry_date && (
-                                    <span className={cn('ml-2 text-xs', rowBad ? 'text-danger' : 'text-faint')}>
-                                      Expires {formatDate(doc.expiry_date)}
-                                    </span>
-                                  )}
-                                </div>
-                                <StatusBadge status={doc.status} />
-                              </div>
-                            )
-                          })}
-                        </div>
+                  {complianceGroups.map(group => (
+                    <div key={group.companyId} className={cn('border rounded-lg overflow-hidden', group.actionRequired ? 'border-danger/30' : 'border-line-soft')}>
+                      <div className={cn('px-4 py-2.5 flex flex-wrap items-center justify-between gap-2', group.actionRequired ? 'bg-danger-tint' : 'bg-surface')}>
+                        <span className="text-sm font-semibold text-ink-soft">{group.name}</span>
+                        {group.actionRequired && (
+                          <span className="whitespace-nowrap text-xs font-medium text-danger bg-danger-tint px-2 py-0.5 rounded-full">Action required</span>
+                        )}
                       </div>
-                    )
-                  })}
+                      <div className="divide-y divide-line-soft">
+                        {group.docs.map(doc => {
+                          const bad = doc.status === 'expired' || doc.status === 'missing'
+                          return (
+                            <div key={doc.id} className={cn('px-4 py-2.5 flex flex-wrap items-center justify-between gap-2', bad ? 'bg-danger-tint/50' : '')}>
+                              <div>
+                                <span className={cn('text-sm font-medium', bad ? 'text-danger' : 'text-ink-soft')}>
+                                  {doc.label}
+                                </span>
+                                {doc.expiry_date ? (
+                                  <span className={cn('ml-2 text-xs', bad ? 'text-danger' : 'text-faint')}>
+                                    Expires {formatDate(doc.expiry_date)}
+                                  </span>
+                                ) : !doc.onFile ? (
+                                  <span className="ml-2 text-xs text-danger">Nothing on file</span>
+                                ) : null}
+                              </div>
+                              <StatusBadge status={doc.status} />
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
