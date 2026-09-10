@@ -12,6 +12,7 @@
 
 import { ACCEPTED_STATUSES, SELECTION_STATUSES } from '../selections'
 import { activityHref, ACTIVITY_TAB } from '../activity-href'
+import { materialByFor } from '../trade-scopes'
 import { approvedChangesByLine, budgetTotals, rollupBudgetLines } from '../invoice-budget'
 import { money as checkMoney } from '../validate'
 import { ok, done, code, read } from './_helpers'
@@ -269,8 +270,76 @@ ok(/<Button type="submit" disabled=\{addSaving\}>/.test(sched),
 const compare = code('components/quotes/comparison-block.tsx')
 ok(/from '@\/lib\/expiry'/.test(compare),
   'the compare page asks the same expiry question as Compliance and Permits')
-ok(/state === 'expired'/.test(compare) && /Expired \$\{gone\} day/.test(compare),
-  '...and an expired quote says so, with how long ago')
+ok(/state === 'expired'/.test(compare) && /Expired \{gone\} day/.test(compare),
+  '...and an expired quote wears a badge saying how long ago, the shape a lapsed COI wears')
+ok(/bg-danger-tint/.test(compare) && /bg-warn-tint/.test(compare),
+  '...red once it has run out, amber inside the window')
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SECTION 2, BUYOUT. Quote requests, crew add/remove and directory came back
+// clean; these are the rest.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// A dropdown that stayed open after picking.
+//
+// `setOpen(false)` in commit() always ran. The TRIGGER undid it: it toggles,
+// and on a phone the panel is a full-width sheet hard against it, so the tap
+// that picks an option lands on the trigger the instant the panel unmounts from
+// under the finger. A close that something else immediately reverses looks
+// exactly like never closing.
+const sel = code('components/ui/searchable-select.tsx')
+ok(/pickedAt\.current = Date\.now\(\)/.test(sel), 'a pick is timestamped')
+ok(/if \(Date\.now\(\) - pickedAt\.current < 400\) return/.test(sel),
+  '...and the trigger ignores the tail of the tap that just picked')
+ok(/setOpen\(false\)/.test(sel), '...while commit still closes it, which was never the broken half')
+
+// Picking a sub out of the directory fills in the Trade.
+//
+// The option already SHOWS the trade in brackets, so leaving the field below it
+// empty made somebody retype what they had just read - and a blank trade leaves
+// the subcontract off the compliance requirements for its trade.
+const team = code('app/(dashboard)/projects/[id]/team/page.tsx')
+ok(/const picked = directorySubs\.find\(x => x\.id === e\.target\.value\)/.test(team)
+  && /if \(picked\?\.trade\) setSubTrade\(picked\.trade\)/.test(team),
+  'picking a saved sub fills in its trade')
+
+// The written scope sits under the built one, and says it is optional.
+const rq = code('app/(dashboard)/projects/[id]/request-quotes/page.tsx')
+const builderAt = rq.indexOf('<ScopeBuilder')
+const freeTextAt = rq.indexOf('Anything else')
+ok(builderAt > 0 && freeTextAt > builderAt,
+  'the free-text box comes AFTER the scope that fills itself in from the trade')
+ok(/Anything else <span className="text-faint font-normal">\(optional\)<\/span>/.test(rq),
+  '...and is marked optional, because the lists above are the scope')
+
+// Package and "who supplies the material" were two free choices that overlap.
+//
+// Three of the four packages ARE the answer to the second question, and asking
+// anyway let a request go out reading "Labor only" over "Subcontractor supplies
+// material" - two different jobs on one page.
+ok(materialByFor('turnkey') === 'sub', 'labour + material means the sub brings it')
+ok(materialByFor('labor_only') === 'gc', 'labour only means we do')
+ok(materialByFor('material_only') === 'sub', 'material only means the sub is the supplier')
+ok(materialByFor('measure_quote') === null,
+  'measure & quote is the ONLY one still worth asking about')
+const builder = code('components/projects/scope-builder.tsx')
+ok(/materialByFor\(value\.package_type\) \? \(/.test(builder),
+  'the question is only shown where it is still a question')
+ok(/set\(derived \? \{ package_type: p\.key, material_by: derived \} : \{ package_type: p\.key \}\)/.test(builder),
+  '...and picking a package writes the answer rather than leaving the last one contradicting it')
+ok(/material_by: materialByFor\(tpl\.package_type\) \?\? tpl\.material_by/.test(builder),
+  '...including a stored template, which can disagree with itself')
+
+// Compliance: the date decides, and Update is a dialog.
+const compliance = code('app/(dashboard)/projects/[id]/compliance/page.tsx')
+ok(/if \(state === 'ok'\) return 'approved'/.test(compliance),
+  "a live date IS active - a covered sub sitting at 'pending' because nobody clicked Approve reads as a problem")
+ok(/The stored status only speaks for a document with NO date/.test(read('app/(dashboard)/projects/[id]/compliance/page.tsx')),
+  '...and the stored status only speaks where there is no date to derive from')
+ok(/\{openForm && \(\s*<div className="overlay items-center justify-center bg-black\/50" data-overlay/.test(compliance),
+  'Update opens a dialog, not a panel below the whole list')
+ok(!/Inline upload form \(below table\)/.test(read('app/(dashboard)/projects/[id]/compliance/page.tsx')),
+  '...which is what made it read as a separate page on a phone')
 
 // The pay-app schedule of values has surfaced `unmapped` all along, which is
 // how the same money could be on one screen and not the other.

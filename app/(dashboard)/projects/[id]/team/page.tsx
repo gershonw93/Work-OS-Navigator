@@ -631,7 +631,16 @@ export default function TeamPage({ params }: { params: { id: string } }) {
                 {subMode === 'existing' ? (
                   <div className="space-y-1.5">
                     <Label>Choose subcontractor <span className="text-danger">*</span></Label>
-                    <Select value={subExistingId} onChange={e => setSubExistingId(e.target.value)}>
+                    {/* Picking a sub fills the Trade in. The option already
+                        SHOWS the trade in brackets, so leaving the field below
+                        empty made somebody retype what they had just read - and
+                        a blank trade is what leaves a subcontract unfilterable
+                        and off the compliance requirements for its trade. */}
+                    <Select value={subExistingId} onChange={e => {
+                      setSubExistingId(e.target.value)
+                      const picked = directorySubs.find(x => x.id === e.target.value)
+                      if (picked?.trade) setSubTrade(picked.trade)
+                    }}>
                       <option value="">-- Pick from your saved subs --</option>
                       {directorySubs.map(s => <option key={s.id} value={s.id}>{s.name}{s.trade ? ` (${s.trade})` : ''}</option>)}
                     </Select>

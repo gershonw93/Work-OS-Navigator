@@ -49,6 +49,46 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-10',
+    title: 'Buyout, gone through end to end',
+    items: [
+      {
+        kind: 'improved',
+        title: 'Compliance is driven by the date on the document',
+        text: 'A certificate whose date has not run out now reads as current, whatever it was set to when it was filed. A live COI sitting at "pending" because nobody clicked Approve made a covered sub look like a problem. It works the same in both directions: past the date it reads Expired no matter what the row says. Only a document with no expiry at all - a W-9, a signed agreement - still goes by the status you pick.',
+        help: 'compliance-overview',
+      },
+      {
+        kind: 'improved',
+        title: 'Update on a compliance document opens where you are',
+        text: 'Pressing Update used to open the form underneath the whole document list, so on a phone you were scrolled away from the row you had just tapped and it read like a different page. It opens as a panel over the screen now.',
+        help: 'compliance-overview',
+      },
+      {
+        kind: 'improved',
+        title: 'A quote request stops asking the same thing twice',
+        text: 'The package and "who supplies the material?" sat side by side as two free choices, but three of the four packages already answer the second one - labour and material means the sub brings it, labour only means you do. It is filled in from the package now and only asked on Measure & quote, which is the one that genuinely leaves it open. The written scope box also moved below the scope that fills itself in from the trade, and is marked optional, because those lists are the scope.',
+        help: 'request-quotes',
+      },
+      {
+        kind: 'fixed',
+        title: 'Picking a saved sub fills in their trade',
+        text: 'The dropdown already showed the trade in brackets beside the name, and then left the Trade field below it empty for you to retype. It carries across now - which matters, because a subcontract with no trade on it drops out of the compliance requirements for that trade.',
+      },
+      {
+        kind: 'fixed',
+        title: 'A dropdown closes when you pick something',
+        text: 'On a phone, picking a role left the list sitting open. The list closes itself correctly; what re-opened it was the field underneath, catching the tail of the same tap as it appeared back under your finger.',
+      },
+      {
+        kind: 'improved',
+        title: 'An expired quote now wears a badge',
+        text: 'A quote past its valid-until date carries a red "Expired 12 days ago" badge, the same shape a lapsed certificate wears, rather than the same grey line it showed while it was still good.',
+        help: 'compare-quotes',
+      },
+    ],
+  },
+  {
+    date: '2026-09-10',
     title: 'Found by going through it screen by screen',
     items: [
       {

@@ -342,13 +342,26 @@ export function ComparisonBlock({ comp, projectId, onChanged }: { comp: Comparis
                   {q.valid_until && (() => {
                     const state = expiryState(q.valid_until)
                     const gone = daysExpired(q.valid_until)
+                    // A BADGE, the same shape Compliance and Permits use for a
+                    // lapsed certificate. Grey text saying "Valid until Jul 29"
+                    // reads identically in June and in August, which is how a
+                    // price nobody is holding still gets awarded.
                     return (
-                      <p className={cn('text-xs',
-                        state === 'expired' ? 'font-medium text-danger' : state === 'soon' ? 'text-warn' : 'text-faint')}>
-                        {state === 'expired'
-                          ? `Expired ${gone} day${gone === 1 ? '' : 's'} ago · was valid until ${formatDate(q.valid_until)}`
-                          : `Valid until ${formatDate(q.valid_until)}`}
-                      </p>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                        {state === 'expired' && (
+                          <span className="whitespace-nowrap rounded-full bg-danger-tint px-2 py-0.5 text-[10px] font-semibold text-danger">
+                            Expired {gone} day{gone === 1 ? '' : 's'} ago
+                          </span>
+                        )}
+                        {state === 'soon' && (
+                          <span className="whitespace-nowrap rounded-full bg-warn-tint px-2 py-0.5 text-[10px] font-semibold text-warn">
+                            Expiring soon
+                          </span>
+                        )}
+                        <span className={cn('text-xs', state === 'expired' ? 'text-danger' : 'text-faint')}>
+                          {state === 'expired' ? 'Was valid until' : 'Valid until'} {formatDate(q.valid_until)}
+                        </span>
+                      </div>
                     )
                   })()}
                 </div>
