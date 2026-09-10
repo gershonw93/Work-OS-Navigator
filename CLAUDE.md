@@ -288,6 +288,20 @@ production branch.** Do NOT ask the user to merge or deploy.
 - A badge or a button label NEVER wraps. `Badge` and `Button` set
   `whitespace-nowrap` centrally; a hand-rolled pill must too, and the test
   scans for it.
+- **AN ICON IS A LUCIDE COMPONENT, NEVER A CHARACTER.** Reported as "wtf is that
+  emoji" against `🤖 Scan with AI` on the Compliance form, beside two other
+  AI-scan blocks already using `<Sparkles>`. An emoji renders in the PLATFORM's
+  emoji font, not the app's - full colour, at a size and weight nothing here
+  controls, drawn differently on every OS. There were six, two of them on the
+  CLIENT PORTAL, and one of those was a bug rather than a style problem: the
+  portal printed `☀` beside every daily log whatever the weather said, so a
+  rainy day showed the client a sun. `lib/weather.ts` is the one table both
+  screens read, and an unrecognised condition returns NULL rather than a default
+  icon - a wrong picture beside the right word is worse than no picture.
+  Arrows and check marks (`→ ← ↑ ↓ ✓`) are NOT this: they render in the text
+  font at the text's size, and the app uses them deliberately in fifty places.
+  Ratcheted at zero in `layout-overflow.ts`, which also asserts the arrows are
+  still there so the scan cannot be passed by banning everything non-ASCII.
 - Something that opens INLINE opens where it was tapped - and the better answer
   is usually not to open it inline at all. The task detail was a panel docked
   under the board; on a phone that is under every OTHER column too, so tapping a

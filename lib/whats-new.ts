@@ -48,6 +48,17 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    date: '2026-09-16',
+    title: 'The client portal showed a sun on every daily log',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'The weather on a daily log is the weather that was logged',
+        text: 'On the page your client reads, every daily log had a sun beside it - a rainy day showed a sun over the word "rainy". It shows what was actually recorded now, the same picture the Daily Logs tab uses. Nothing was wrong with the logs themselves; only the little icon on the client\u2019s copy.',
+      },
+    ],
+  },
+  {
     date: '2026-09-15',
     title: 'The Compliance Report was blank on every job',
     items: [

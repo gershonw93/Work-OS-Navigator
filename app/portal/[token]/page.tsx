@@ -5,6 +5,8 @@ import { cn } from '@/lib/utils'
 import { daysUntil, isOutstanding } from '@/lib/selections'
 import { weightedProgress } from '@/lib/invoice-budget'
 
+import { HardHat } from 'lucide-react'
+import { weatherIcon } from '@/lib/weather'
 import { formatDate } from '@/lib/dates'
 const admin = () =>
   createClient(
@@ -432,8 +434,28 @@ export default async function PortalPage({ params }: { params: { token: string }
                         : 'Date unknown'}
                     </span>
                     <div className="flex items-center gap-3 text-xs text-muted-fg">
-                      {log.weather && <span>☀ {log.weather}</span>}
-                      {log.worker_count != null && <span>👷 {log.worker_count} crew</span>}
+                      {/* A SUN ON EVERY ROW, whatever the weather said.
+                          This printed the character `☀` beside `{log.weather}`
+                          unconditionally, so a rainy day showed the client a
+                          sun over the word "rainy". The table the daily-logs
+                          screen has used all along is in lib/weather.ts now and
+                          both read it - and an unrecognised condition gets no
+                          icon rather than the wrong one. */}
+                      {log.weather && (() => {
+                        const Icon = weatherIcon(log.weather)
+                        return (
+                          <span className="inline-flex items-center gap-1 capitalize">
+                            {Icon && <Icon className="h-3.5 w-3.5 shrink-0" />}
+                            {log.weather}
+                          </span>
+                        )
+                      })()}
+                      {log.worker_count != null && (
+                        <span className="inline-flex items-center gap-1">
+                          <HardHat className="h-3.5 w-3.5 shrink-0" />
+                          {log.worker_count} crew
+                        </span>
+                      )}
                     </div>
                   </div>
                   {log.notes && <p className="text-sm text-muted-fg leading-relaxed">{log.notes}</p>}

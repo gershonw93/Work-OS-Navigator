@@ -758,8 +758,8 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                 </button>
                 <div className="flex items-center gap-2 shrink-0">
                   {task.due_date && (
-                    <span className={cn('text-xs', isOverdue ? 'text-danger font-medium' : 'text-faint')}>
-                      {isOverdue && '⚠ '}
+                    <span className={cn('inline-flex items-center gap-1 text-xs', isOverdue ? 'text-danger font-medium' : 'text-faint')}>
+                      {isOverdue && <AlertTriangle className="h-3 w-3 shrink-0" />}
                       {formatDate(task.due_date, { month: 'short', day: 'numeric' })}
                     </span>
                   )}
