@@ -513,6 +513,50 @@
   }
   .overlay-sheet > * { max-height: 100%; min-width: 0; }
 
+  /* A SIDE DRAWER: flush to the RIGHT edge, the full height of what you can see.
+     `.overlay-sheet` one axis over, and for the same reasons. A drawer written
+     by hand is `fixed top-0 right-0 h-full` - and `h-full` is 100% of the
+     LAYOUT viewport, which does not shrink for a keyboard and knows nothing
+     about the notch, so the drawer's own header sits under the Dynamic Island
+     and its footer sits behind the keyboard. There were two hand-rolled ones
+     before this existed.
+     The one edge a right-hand drawer does not own is the left, so that is the
+     only one padded: something of the page behind must stay visible and
+     tappable, or there is no way to dismiss it by aiming at "not this". */
+  .overlay-drawer {
+    position: fixed;
+    top: var(--vv-t, 0px);
+    height: var(--vv-h, 100%);
+    left: 0;
+    right: 0;
+    z-index: 50;
+    display: flex;
+    justify-content: flex-end;
+    padding-left: max(2.5rem, calc(env(safe-area-inset-left) + 1rem));
+  }
+  /* Full-bleed on a phone - a 28rem panel in a 390px screen is the whole screen
+     anyway, and `min()` says that once instead of at a breakpoint. */
+  .overlay-drawer > * {
+    width: min(28rem, 100%);
+    max-width: 100%;
+    height: 100%;
+    min-height: 0;
+  }
+  @media (max-width: 639px) {
+    /* ...and below sm it takes the lot, including the gutter: the panel IS the
+       screen there, so the only way out is its own close button, which is why
+       that button is a 44px target at the top of it. */
+    .overlay-drawer { padding-left: 0; }
+    .overlay-drawer > * { width: 100%; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .overlay-drawer > * { animation: overlay-drawer-in 200ms ease-out; }
+  }
+  @keyframes overlay-drawer-in {
+    from { transform: translateX(100%); }
+    to   { transform: none; }
+  }
+
   /* ── The desktop sidebar collapses to a rail of icons ─────────────────────
      ONE NUMBER. The rail was `w-60` and the content column beside it was
      `lg:pl-60` - the same measurement written in two files, which is the shape

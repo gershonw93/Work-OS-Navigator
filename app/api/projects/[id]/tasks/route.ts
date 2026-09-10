@@ -94,6 +94,9 @@ export async function POST(request: Request, { params }: { params: { id: string 
       // put the card somewhere else. Whitelisted, not passed through: the
       // value comes from the browser and the column has a check constraint.
       status: TASK_STATUSES.includes(status) ? status : 'open',
+      // The board's Completed column has a "+" too, so a task can be born
+      // finished. Same rule as the PATCH: the timestamp follows the status.
+      completed_at: status === 'completed' ? new Date().toISOString() : null,
       assigned_to_member_id: assigned_to_member_id || null,
       assigned_to_company_id: assigned_to_company_id || null,
       assigned_to_name: assigned_to_name || null,

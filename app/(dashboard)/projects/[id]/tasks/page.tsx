@@ -1,13 +1,12 @@
 'use client'
 
-import { Fragment, useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { StatStrip } from '@/components/ui/stat-strip'
 import { autoFocusOnDesktop } from '@/lib/auto-focus'
-import { SearchableSelect } from '@/components/ui/searchable-select'
 import {
   Plus, X, CheckSquare, Circle, Clock, AlertCircle, Trash2,
   Building2, UserCircle2, Receipt, LayoutGrid, List, Users, Pencil,
-  ChevronDown, MessageSquare, Loader2, ImagePlus, CalendarClock, FileText,
+  MessageSquare, Loader2, ImagePlus, CalendarClock, FileText, Check,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { usePermissions } from '@/lib/use-permissions'
@@ -19,6 +18,7 @@ import { Select } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 
 import { formatDate } from '@/lib/dates'
+import { dueLabel } from '@/lib/task-due'
 // ─── constants ───────────────────────────────────────────────────────────────
 
 const PRIORITIES = [
@@ -79,75 +79,91 @@ function dueSoon(task: Task) {
   return diff >= 0 && diff <= 1
 }
 
-function formatDue(due: string) {
-  const d = new Date(due + 'T00:00:00')
-  const today = new Date(); today.setHours(0,0,0,0)
-  const diff = Math.round((d.getTime() - today.getTime()) / 86400000)
-  if (diff < 0) return `${Math.abs(diff)}d overdue`
-  if (diff === 0) return 'Due today'
-  if (diff === 1) return 'Due tomorrow'
-  return `Due ${formatDate(d, { month: 'short', day: 'numeric' })}`
-}
-
 /**
- * The next stage along, or null if there isn't one.
+ * Move a task, from the card, without the card being three buttons.
  *
- * This used to wrap with `% STATUSES.length`, so one stray tap on a finished
- * task quietly reopened it - no confirm, no undo, and the tooltip cheerfully
- * read "Move to Open". Advancing is a one-way convenience; reopening is a
- * decision, and it stays available through the explicit status dropdown.
+ * WHAT WAS HERE. `StageButtons` - Open / In Progress / Completed, rendered on
+ * every card. On a board of fifteen that is forty-five controls, forty of them
+ * saying something the COLUMN already says, and they were most of what a card
+ * looked like. The status is the column; a card needs a way to leave it, not a
+ * readout of where it is.
+ *
+ * NOT DRAG. Drag was here once and was removed twice over: BoardCard is
+ * declared inside the page component, so every render makes a new component
+ * TYPE - the setState on drag start remounted the card, the browser lost the
+ * node it was dragging and onDragEnd never fired. And HTML5 drag does not exist
+ * on a touch screen, which is the screen this is used on.
+ *
+ * NOT CLICK-TO-ADVANCE either. That was the version before StageButtons: one
+ * stray tap on a finished task quietly reopened it, no confirm and no undo.
+ *
+ * So: the status icon IS the button, and it opens a menu of the three. Same
+ * arrangement as RowMenu - `absolute` inside a `relative` parent, which is why
+ * it carries NO `data-overlay`: it travels with the page and must not freeze
+ * it. Icon-only, so it says what it is.
  */
-/**
- * Move a task to any stage, in one tap.
- *
- * This replaced drag-and-drop, which was a mistake twice over. It broke -
- * BoardCard is declared inside the page component, so every render creates a
- * new component TYPE; the setState on drag start remounted the card, the
- * browser lost the node it was dragging, onDragEnd never fired, and the card
- * sat greyed out until a refresh. And even working it would have been the
- * wrong control: HTML5 drag does not exist on touch, and this is used on a
- * phone on a site.
- *
- * Buttons say what they do, work everywhere, and reach any stage directly
- * rather than one step at a time.
- *
- * Rendered ALWAYS, not on hover: the previous control was invisible until you
- * hovered the exact right spot, which is why moving a task was hard to find at
- * all. `stopPropagation` because the whole card is a click target for expand.
- */
-function StageButtons({
+function StatusPicker({
   status, onPick, className,
 }: {
   status: string
   onPick: (next: string) => void
   className?: string
 }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const current = STATUSES.find(s => s.value === status) ?? STATUSES[0]
+
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
   return (
-    <div className={cn('flex items-center gap-1', className)} onClick={e => e.stopPropagation()}>
-      {STATUSES.map(s => {
-        const current = s.value === status
-        return (
-          <button
-            key={s.value}
-            type="button"
-            aria-pressed={current}
-            title={current ? `Already ${s.label}` : `Move to ${s.label}`}
-            disabled={current}
-            onClick={e => { e.stopPropagation(); if (!current) onPick(s.value) }}
-            className={cn(
-              'inline-flex items-center gap-1 rounded-md border px-1.5 py-1 text-[11px] font-medium transition-colors',
-              current
-                // The current stage is shown filled and inert - it is a state
-                // readout as much as a control.
-                ? cn(s.headerBg, s.headerText, s.colBorder, 'cursor-default')
-                : 'border-line bg-panel text-muted-fg hover:bg-surface hover:text-ink',
-            )}
-          >
-            <s.icon className={cn('h-3 w-3', current ? s.color : 'text-faint')} />
-            <span className="hidden sm:inline">{s.label}</span>
-          </button>
-        )
-      })}
+    <div ref={ref} className={cn('relative shrink-0', className)} onClick={e => e.stopPropagation()}>
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`Status: ${current.label}. Move this task`}
+        title={`${current.label} - tap to move`}
+        onClick={e => { e.stopPropagation(); setOpen(o => !o) }}
+        className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-muted-fg hover:bg-surface lg:h-7 lg:w-7"
+      >
+        <current.icon className={cn('h-4 w-4', current.color)} />
+      </button>
+      {open && (
+        <div role="menu"
+          className="absolute right-0 z-20 mt-1 min-w-[10rem] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-line bg-panel py-1 shadow-lg lg:rounded-lg">
+          {STATUSES.map(st => {
+            const isCurrent = st.value === status
+            return (
+              <button
+                key={st.value}
+                role="menuitem"
+                type="button"
+                onClick={e => { e.stopPropagation(); setOpen(false); if (!isCurrent) onPick(st.value) }}
+                className={cn(
+                  'flex w-full min-h-11 items-center gap-2 px-3 py-2 text-left text-sm font-medium hover:bg-surface lg:min-h-0 lg:text-xs',
+                  isCurrent ? 'text-ink' : 'text-muted-fg',
+                )}
+              >
+                <st.icon className={cn('h-3.5 w-3.5 shrink-0', st.color)} />
+                <span className="flex-1 whitespace-nowrap">{st.label}</span>
+                {isCurrent && <Check className="h-3.5 w-3.5 shrink-0 text-faint" />}
+              </button>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
@@ -179,16 +195,14 @@ function PriorityBadge({ priority }: { priority: string }) {
 
 function PriorityDot({ priority }: { priority: string }) {
   const p = PRIORITIES.find(x => x.value === priority) ?? PRIORITIES[1]
-  return <span title={p.label} className={cn('inline-block w-2 h-2 rounded-full shrink-0', p.dot)} />
+  // 6px, and it is the only thing on a card that is not a word. Kept because
+  // high-priority work is otherwise invisible until the task is opened.
+  return <span title={p.label} className={cn('mt-1.5 inline-block w-1.5 h-1.5 rounded-full shrink-0', p.dot)} />
 }
 
-function StatusIcon({ status }: { status: string }) {
-  const s = STATUSES.find(x => x.value === status) ?? STATUSES[0]
-  const Icon = s.icon
-  return <Icon className={cn('h-4 w-4', s.color)} />
-}
-
-function DueChip({ due, task }: { due: string; task: Task }) {
+function DueChip({ task }: { task: Task }) {
+  const label = dueLabel(task)
+  if (!label) return null
   const overdue = isOverdue(task)
   const soon = dueSoon(task)
   return (
@@ -196,7 +210,7 @@ function DueChip({ due, task }: { due: string; task: Task }) {
       'text-xs font-medium',
       overdue ? 'text-danger' : soon ? 'text-warn' : 'text-faint'
     )}>
-      {formatDue(due)}
+      {label}
     </span>
   )
 }
@@ -310,10 +324,10 @@ function TaskDetailPanel({ task, notes, notesLoading, onAddNote, projectId, onCh
             </div>
           )}
 
-          {task.due_date && (
+          {dueLabel(task) && (
             <div className="flex items-center gap-1.5">
               <Clock className="h-3.5 w-3.5 text-faint shrink-0" />
-              <DueChip due={task.due_date} task={task} />
+              <DueChip task={task} />
             </div>
           )}
 
@@ -455,8 +469,12 @@ export default function TasksPage({ params }: { params: { id: string } }) {
   const [viewMode, setViewMode]     = useState<ViewMode>('board')
   const [filterMode, setFilterMode] = useState<FilterMode>('all')
 
-  // expand panel
-  const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null)
+  // The open task. It used to be `expandedTaskId` and it opened INLINE - a
+  // panel docked under the whole board on a desktop, and under the tapped card
+  // on a phone. Two placements, one of which permanently squeezed the board to
+  // about half its height whether or not anything was open. It is a slide-over
+  // now, so there is one placement and the board keeps its width.
+  const [openTaskId, setOpenTaskId] = useState<string | null>(null)
   const [notesCache, setNotesCache] = useState<Record<string, TaskNote[]>>({})
   const [notesLoading, setNotesLoading] = useState<Record<string, boolean>>({})
 
@@ -535,14 +553,19 @@ export default function TasksPage({ params }: { params: { id: string } }) {
     setNotesLoading(prev => ({ ...prev, [taskId]: false }))
   }
 
-  function toggleExpand(taskId: string) {
-    if (expandedTaskId === taskId) {
-      setExpandedTaskId(null)
-    } else {
-      setExpandedTaskId(taskId)
-      loadNotes(taskId)
-    }
+  function openTask(taskId: string) {
+    setOpenTaskId(taskId)
+    loadNotes(taskId)
   }
+
+  // Escape closes it. A drawer over the whole screen with no keyboard way out
+  // is a modal that only a mouse can leave.
+  useEffect(() => {
+    if (!openTaskId) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpenTaskId(null) }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [openTaskId])
 
   async function handleAddNote(taskId: string, content: string) {
     const token = await getToken()
@@ -695,7 +718,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
       headers: { Authorization: `Bearer ${token}` },
     })
     setTasks(prev => prev.filter(t => t.id !== taskId))
-    if (expandedTaskId === taskId) setExpandedTaskId(null)
+    if (openTaskId === taskId) setOpenTaskId(null)
   }
 
   function openInvoiceModal(task: Task) {
@@ -744,6 +767,27 @@ export default function TasksPage({ params }: { params: { id: string } }) {
   const completedCount = visibleTasks.filter(t => t.status === 'completed').length
   const pctDone        = totalCount ? Math.round((completedCount / totalCount) * 100) : 0
 
+  // THE COUNTS ARE THE FILTERS.
+  //
+  // There were two rows saying the same thing: a strip of filter pills
+  // (All / Open / In Progress / Completed / Overdue) and, under it, a strip of
+  // stat pills (15 total, 9 open, 4 in progress...). Same five facts, twice,
+  // one of them clickable. They are one list now, so the desktop's row and the
+  // phone's card are two renderings of a single set and cannot disagree about
+  // a number.
+  //
+  // Colour only on Overdue, which is the only one where the colour means
+  // something - a total is just a number.
+  const FILTERS: { key: FilterMode; label: string; short: string; count: number; danger?: boolean; note?: string }[] = [
+    { key: 'all',         label: 'All',         short: 'All',      count: totalCount },
+    { key: 'open',        label: 'Open',        short: 'Open',     count: openCount },
+    { key: 'in_progress', label: 'In Progress', short: 'Doing',    count: inProgCount },
+    { key: 'completed',   label: 'Completed',   short: 'Done',     count: completedCount, note: `${pctDone}% of the job` },
+    { key: 'overdue',     label: 'Overdue',     short: 'Overdue',  count: overdueCount, danger: true },
+  ]
+
+  const openTask_ = openTaskId ? tasks.find(t => t.id === openTaskId) ?? null : null
+
   const generalTasks = filteredTasks.filter(t => !t.assigned_to_company_id)
   const subTasks     = filteredTasks.filter(t => t.assigned_to_company_id)
 
@@ -756,231 +800,242 @@ export default function TasksPage({ params }: { params: { id: string } }) {
 
   // ── sub-components ─────────────────────────────────────────────────────────
 
+  /**
+   * What a task tag says, and where it comes from.
+   *
+   * DERIVED, NEVER STORED. A sub's trade lives on the SUBCONTRACT, a crew
+   * member's role lives on the team row - neither is a column on the task, and
+   * copying one there would be a second place for it to be wrong. Both lists
+   * are already in hand from the page's one load().
+   */
+  function taskTag(task: Task): string | null {
+    if (task.assigned_to_company_id) {
+      return subs.find(s => s.companies?.id === task.assigned_to_company_id)?.trade ?? null
+    }
+    if (task.assigned_to_member_id) {
+      return members.find(m => m.id === task.assigned_to_member_id)?.role ?? null
+    }
+    return null
+  }
+
+  function TaskTag({ task }: { task: Task }) {
+    const tag = taskTag(task)
+    if (!tag) return null
+    return (
+      <span className="whitespace-nowrap rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-fg">
+        {tag}
+      </span>
+    )
+  }
+
+  /**
+   * FOUR THINGS AT A GLANCE: title, due date, assignee, tag.
+   *
+   * What came off it, and why each was noise rather than information:
+   *   * the three status buttons - the column already says the status, and
+   *     forty-five of them was most of what the board looked like;
+   *   * the red tint - an overdue card said so in red text AND in a red border
+   *     AND in a red wash over the whole card, three times for one fact;
+   *   * the chevron - nothing expands inline any more, the card opens a panel;
+   *   * the follow-up and image icons - two more glyphs for facts the panel
+   *     states in words.
+   * The priority dot stays, at 6px: it is not a word to read, and high-priority
+   * work is otherwise invisible until the task is opened.
+   */
   function BoardCard({ task }: { task: Task }) {
-    const expanded = expandedTaskId === task.id
+    const selected = openTaskId === task.id
     return (
       <div
         className={cn(
           // Phone: a row. Desktop (lg+): the bordered card it always was.
-          'group cursor-pointer px-4 py-3 transition-colors hover:bg-surface lg:relative lg:flex lg:flex-col lg:rounded-lg lg:border lg:p-3 lg:transition-all',
-          isOverdue(task) ? 'lg:border-danger/30 lg:bg-danger-tint/30' : 'lg:border-line lg:bg-panel lg:hover:border-muted2 lg:hover:shadow-sm',
-          expanded && 'bg-surface lg:ring-2 lg:ring-accent/40',
+          'group cursor-pointer px-4 py-3 transition-colors hover:bg-surface lg:relative lg:flex lg:flex-col lg:rounded-lg lg:border lg:border-line lg:bg-panel lg:p-3 lg:transition-all lg:hover:border-muted2 lg:hover:shadow-sm',
+          selected && 'bg-surface lg:border-accent',
         )}
-        onClick={() => toggleExpand(task.id)}
+        onClick={() => openTask(task.id)}
       >
-        <div className="flex flex-col gap-2">
-          {/* title row */}
-          <div className="flex items-start gap-1.5">
-            <PriorityDot priority={task.priority} />
-            <span className={cn('text-sm font-medium text-ink leading-snug flex-1', task.status === 'completed' && 'line-through text-faint')}>
+        <div className="flex items-start gap-2">
+          <PriorityDot priority={task.priority} />
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <p className={cn('text-sm font-medium leading-snug text-ink', task.status === 'completed' && 'text-faint line-through')}>
               {task.title}
-            </span>
-            <ChevronDown className={cn('h-3.5 w-3.5 text-faint shrink-0 transition-transform', expanded && 'rotate-180')} />
+            </p>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <DueChip task={task} />
+              {task.assigned_to_name && (
+                <span className="flex min-w-0 items-center gap-1 text-xs text-muted-fg">
+                  {task.assigned_to_company_id
+                    ? <Building2 className="h-3 w-3 shrink-0 text-faint" />
+                    : <UserCircle2 className="h-3 w-3 shrink-0 text-faint" />}
+                  <span className="truncate">{task.assigned_to_name}</span>
+                </span>
+              )}
+              <TaskTag task={task} />
+            </div>
           </div>
+          {/* Move it. The status icon IS the control - see StatusPicker. */}
+          <StatusPicker status={task.status} onPick={next => updateStatus(task.id, next)} />
+        </div>
 
-          {/* meta */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {task.assigned_to_name && (
-              <span className="flex items-center gap-1 text-xs text-muted-fg">
-                {task.assigned_to_company_id
-                  ? <Building2 className="h-3 w-3 text-faint" />
-                  : <UserCircle2 className="h-3 w-3 text-faint" />}
-                <span className="truncate max-w-[90px]">{task.assigned_to_name}</span>
-              </span>
-            )}
-            {task.due_date && <DueChip due={task.due_date} task={task} />}
-            {task.follow_up_date && (
-              <span className="flex items-center gap-1 text-xs text-info" title={`Follow up ${task.follow_up_date}`}>
-                <CalendarClock className="h-3 w-3" />
-              </span>
-            )}
-            {task.image_url && <ImagePlus className="h-3 w-3 text-faint" />}
-          </div>
-
-          {/* Move it. Always visible - this is the main thing you do to a task. */}
-          <StageButtons
-            status={task.status}
-            onPick={next => updateStatus(task.id, next)}
-            className="border-t border-line-soft pt-2"
-          />
-
-          {/* hover actions */}
-          {/* THERE IS NO HOVER ON A PHONE. These were `opacity-0` until hover at
-              every width, and positioned `absolute` against a parent that is
-              only `lg:relative` - so on the phone board they were invisible
-              AND in the wrong place. Edit and delete were reported as missing
-              entirely, which is what invisible means. The desktop keeps
-              exactly what it had: hover-revealed, pinned to the card's corner.
-              Each is icon-only, so each says what it is. */}
-          <div className="mt-2 flex items-center justify-end gap-1 lg:absolute lg:top-2 lg:right-7 lg:mt-0 lg:opacity-0 lg:transition-opacity lg:group-hover:opacity-100">
+        {/* THERE IS NO HOVER ON A PHONE. These were `opacity-0` until hover at
+            every width, and positioned `absolute` against a parent that is
+            only `lg:relative` - so on the phone board they were invisible AND
+            in the wrong place. Edit and delete were reported as missing
+            entirely, which is what invisible means. The desktop keeps exactly
+            what it had. Each is icon-only, so each says what it is. */}
+        <div className="mt-2 flex items-center justify-end gap-1 lg:absolute lg:bottom-2 lg:right-2 lg:mt-0 lg:opacity-0 lg:transition-opacity lg:group-hover:opacity-100">
+          <button
+            onClick={e => { e.stopPropagation(); openEditForm(task) }}
+            aria-label={`Edit "${task.title}"`} title="Edit task"
+            className="p-1 rounded text-faint hover:text-accent-fg hover:bg-accent-tint transition-colors">
+            <Pencil className="h-3 w-3" />
+          </button>
+          {task.status === 'completed' && task.assigned_to_company_id && (
             <button
-              onClick={e => { e.stopPropagation(); openEditForm(task) }}
-              aria-label={`Edit "${task.title}"`} title="Edit task"
-              className="p-1 rounded text-faint hover:text-accent-fg hover:bg-accent-tint transition-colors">
-              <Pencil className="h-3 w-3" />
+              onClick={e => { e.stopPropagation(); openInvoiceModal(task) }}
+              className="p-1 rounded text-faint hover:text-accent-fg hover:bg-accent-tint transition-colors"
+              aria-label={`Create an invoice from "${task.title}"`} title="Create invoice">
+              <Receipt className="h-3 w-3" />
             </button>
-            {task.status === 'completed' && task.assigned_to_company_id && (
-              <button
-                onClick={e => { e.stopPropagation(); openInvoiceModal(task) }}
-                className="p-1 rounded text-faint hover:text-accent-fg hover:bg-accent-tint transition-colors"
-                aria-label={`Create an invoice from "${task.title}"`} title="Create invoice">
-                <Receipt className="h-3 w-3" />
-              </button>
-            )}
-            <button
-              onClick={e => { e.stopPropagation(); deleteTask(task.id) }}
-              aria-label={`Delete "${task.title}"`} title="Delete task"
-              className="p-1 rounded text-faint hover:text-danger hover:bg-danger-tint transition-colors">
-              <Trash2 className="h-3 w-3" />
-            </button>
-          </div>
+          )}
+          <button
+            onClick={e => { e.stopPropagation(); deleteTask(task.id) }}
+            aria-label={`Delete "${task.title}"`} title="Delete task"
+            className="p-1 rounded text-faint hover:text-danger hover:bg-danger-tint transition-colors">
+            <Trash2 className="h-3 w-3" />
+          </button>
         </div>
       </div>
     )
   }
 
   function ListCard({ task }: { task: Task }) {
-    const expanded = expandedTaskId === task.id
+    const selected = openTaskId === task.id
     return (
-      <div className={cn(
-        'transition-colors lg:rounded-xl lg:border lg:transition-all',
-        isOverdue(task) ? 'lg:border-danger/30 lg:bg-danger-tint/30' : 'lg:border-line lg:bg-panel lg:hover:border-muted2',
-        expanded && 'bg-surface lg:ring-2 lg:ring-accent/40',
-      )}>
-        <div
-          className="group px-4 py-3 flex items-start gap-3 cursor-pointer"
-          onClick={() => toggleExpand(task.id)}
-        >
-          {/*
-            A state readout, not a control. This used to be a button that
-            advanced the stage on click - a second, invisible way to change
-            something the row already has an explicit dropdown for, and the
-            reason a tap could move a task without anyone meaning to.
-          */}
-          <span className="mt-0.5 shrink-0" title={STATUSES.find(s => s.value === task.status)?.label}>
-            <StatusIcon status={task.status} />
-          </span>
+      <div
+        className={cn(
+          'group flex cursor-pointer items-start gap-3 px-4 py-3 transition-colors',
+          selected ? 'bg-surface' : 'hover:bg-surface',
+        )}
+        onClick={() => openTask(task.id)}
+      >
+        {/* Was a state readout. It is the control now - one tiny status icon,
+            the same one the board card has, from one definition. */}
+        <StatusPicker status={task.status} onPick={next => updateStatus(task.id, next)} className="mt-0.5" />
 
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className={cn('font-semibold text-ink', task.status === 'completed' && 'line-through text-faint')}>
-                {task.title}
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={cn('font-semibold text-ink', task.status === 'completed' && 'line-through text-faint')}>
+              {task.title}
+            </span>
+            <PriorityBadge priority={task.priority} />
+            {task.budget_line_item_id && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium rounded-full bg-accent-tint text-accent-fg px-1.5 py-0.5" title="Created from a Quote progress line">
+                <FileText className="h-2.5 w-2.5" /> Quote line
               </span>
-              <PriorityBadge priority={task.priority} />
-              {task.budget_line_item_id && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-medium rounded-full bg-accent-tint text-accent-fg px-1.5 py-0.5" title="Created from a Quote progress line">
-                  <FileText className="h-2.5 w-2.5" /> Quote line
-                </span>
-              )}
-              {isOverdue(task) && (
-                <span className="flex items-center gap-1 text-xs font-medium text-danger">
-                  <AlertCircle className="h-3 w-3" /> Overdue
-                </span>
-              )}
-            </div>
-            {task.description && (
-              <p className="text-sm text-muted-fg mt-0.5 truncate">{task.description}</p>
             )}
-            <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-              {task.assigned_to_name && (
-                <span className="flex items-center gap-1.5 text-xs text-muted-fg">
-                  {task.assigned_to_company_id ? <Building2 className="h-3 w-3 text-faint" /> : <UserCircle2 className="h-3 w-3 text-faint" />}
-                  {task.assigned_to_name}
-                </span>
-              )}
-              {task.due_date && <DueChip due={task.due_date} task={task} />}
-            </div>
+            {isOverdue(task) && (
+              <span className="flex items-center gap-1 text-xs font-medium text-danger">
+                <AlertCircle className="h-3 w-3" /> Overdue
+              </span>
+            )}
           </div>
-
-          <div className="flex items-center gap-1 shrink-0 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-            {task.status === 'completed' && task.assigned_to_company_id && (
-              <button
-                onClick={e => { e.stopPropagation(); openInvoiceModal(task) }}
-                className="flex items-center gap-1 px-2 py-1 text-xs text-accent-fg border border-accent/40 rounded-md hover:bg-accent-tint transition-colors font-medium">
-                <Receipt className="h-3 w-3" /> Invoice
-              </button>
+          {task.description && (
+            <p className="text-sm text-muted-fg mt-0.5 truncate">{task.description}</p>
+          )}
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+            {task.assigned_to_name && (
+              <span className="flex items-center gap-1.5 text-xs text-muted-fg">
+                {task.assigned_to_company_id ? <Building2 className="h-3 w-3 text-faint" /> : <UserCircle2 className="h-3 w-3 text-faint" />}
+                {task.assigned_to_name}
+              </span>
             )}
-            <button
-              onClick={e => { e.stopPropagation(); openEditForm(task) }}
-              aria-label={`Edit "${task.title}"`} title="Edit task"
-              className="p-1.5 text-faint hover:text-accent-fg rounded transition-colors">
-              <Pencil className="h-3.5 w-3.5" />
-            </button>
-            <SearchableSelect
-              value={task.status}
-              onClick={e => e.stopPropagation()}
-              onChange={e => updateStatus(task.id, e.target.value)}
-              className="text-xs border border-line rounded-md px-2 py-1 text-muted-fg bg-panel focus:outline-none focus:border-accent">
-              {STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-            </SearchableSelect>
-            <button
-              onClick={e => { e.stopPropagation(); deleteTask(task.id) }}
-              aria-label={`Delete "${task.title}"`} title="Delete task"
-              className="p-1.5 text-faint hover:text-danger rounded transition-colors">
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
-            <ChevronDown className={cn('h-4 w-4 text-faint transition-transform', expanded && 'rotate-180')} />
+            <DueChip task={task} />
+            <TaskTag task={task} />
           </div>
         </div>
 
-        {expanded && (
-          <TaskDetailPanel
-            projectId={params.id}
-            onChanged={load}
-            task={task}
-            notes={notesCache[task.id] ?? []}
-            notesLoading={!!notesLoading[task.id]}
-            currentUser={currentUser}
-            onAddNote={handleAddNote}
-          />
-        )}
+        <div className="flex shrink-0 items-center gap-1 opacity-100 transition-opacity lg:opacity-0 lg:group-hover:opacity-100">
+          {task.status === 'completed' && task.assigned_to_company_id && (
+            <button
+              onClick={e => { e.stopPropagation(); openInvoiceModal(task) }}
+              className="flex items-center gap-1 px-2 py-1 text-xs text-accent-fg border border-accent/40 rounded-md hover:bg-accent-tint transition-colors font-medium">
+              <Receipt className="h-3 w-3" /> Invoice
+            </button>
+          )}
+          <button
+            onClick={e => { e.stopPropagation(); openEditForm(task) }}
+            aria-label={`Edit "${task.title}"`} title="Edit task"
+            className="p-1.5 text-faint hover:text-accent-fg rounded transition-colors">
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={e => { e.stopPropagation(); deleteTask(task.id) }}
+            aria-label={`Delete "${task.title}"`} title="Delete task"
+            className="p-1.5 text-faint hover:text-danger rounded transition-colors">
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </div>
     )
   }
 
   /**
-   * The open task's detail, wherever it is being shown.
+   * The open task, over the screen rather than inside the list.
    *
-   * On a desktop the board is three columns side by side and this sits under
-   * all of them, full width - there is nowhere better for it. On a PHONE the
-   * columns stack, so "under the board" is under every other column too: tap
-   * something in Open and the detail opens below In Progress and Completed,
-   * off the bottom of the screen. It goes under the card you tapped instead.
+   * WHAT THIS REPLACES. The detail was rendered INLINE, in two different
+   * places: docked under the whole board on a desktop, and under the tapped
+   * card on a phone (because a phone stacks the three columns, so "under the
+   * board" is under every other column too - tapping something in Open put its
+   * detail below Completed, off the screen). The desktop one was the real
+   * complaint: it sat in the layout permanently, so the board was squeezed to
+   * half the height whether or not anything was open.
+   *
+   * A drawer answers both. `.overlay-drawer` (globals.css) is `.overlay-sheet`
+   * one axis over - sized off the VISIBLE viewport, so its footer is above the
+   * keyboard and its close button is below the notch - and it is full-bleed
+   * below `sm`, which is the "never a bottom strip under the list" half.
+   *
+   * ONE definition, opened the same way from the board, the list and the
+   * assignee view. There is nothing left that opens a task inline.
    */
-  function TaskDetail({ task }: { task: Task }) {
+  function TaskDrawer({ task }: { task: Task }) {
     return (
-      <>
-        <div className="flex items-center justify-between border-b border-line-soft py-1 pl-4 pr-1 lg:border-accent/20 lg:bg-accent-tint lg:px-4 lg:py-2.5">
-          <span className="text-sm font-semibold text-ink lg:text-accent-fg">Task detail</span>
-          <button
-            onClick={() => setExpandedTaskId(null)}
-            aria-label="Close"
-            className="flex h-11 w-11 items-center justify-center rounded-lg text-muted-fg hover:bg-surface hover:text-ink lg:h-auto lg:w-auto lg:text-accent-fg lg:hover:bg-transparent"
-          >
-            <X className="h-4 w-4" />
-          </button>
+      <div className="overlay-drawer bg-black/40" data-overlay onClick={() => setOpenTaskId(null)}>
+        <div
+          onClick={e => e.stopPropagation()}
+          className="flex flex-col overflow-hidden border-l border-line bg-panel shadow-2xl"
+        >
+          <div className="flex shrink-0 items-center justify-between border-b border-line px-4 py-2">
+            <span className="text-sm font-semibold text-ink">Task detail</span>
+            <button
+              onClick={() => setOpenTaskId(null)}
+              aria-label="Close" title="Close"
+              className="-mr-2 flex h-11 w-11 items-center justify-center rounded-lg text-muted-fg hover:bg-surface hover:text-ink"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+            <TaskDetailPanel
+              projectId={params.id}
+              onChanged={load}
+              task={task}
+              notes={notesCache[task.id] ?? []}
+              notesLoading={!!notesLoading[task.id]}
+              currentUser={currentUser}
+              onAddNote={handleAddNote}
+            />
+          </div>
         </div>
-        <TaskDetailPanel
-          projectId={params.id}
-          onChanged={load}
-          task={task}
-          notes={notesCache[task.id] ?? []}
-          notesLoading={!!notesLoading[task.id]}
-          currentUser={currentUser}
-          onAddNote={handleAddNote}
-        />
-      </>
+      </div>
     )
   }
 
   // ── board view ─────────────────────────────────────────────────────────────
 
   function BoardView() {
-    const expandedTask = expandedTaskId ? tasks.find(t => t.id === expandedTaskId) : null
-
     return (
-      <div className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           {STATUSES.map(col => {
             const colTasks = filteredTasks.filter(t => t.status === col.value)
             return (
@@ -1020,28 +1075,12 @@ export default function TasksPage({ params }: { params: { id: string } }) {
                       </button>
                     </div>
                   ) : (
-                    colTasks.map(task => (
-                      <Fragment key={task.id}>
-                        <BoardCard task={task} />
-                        {expandedTask?.id === task.id && (
-                          <div className="bg-surface/40 lg:hidden"><TaskDetail task={task} /></div>
-                        )}
-                      </Fragment>
-                    ))
+                    colTasks.map(task => <BoardCard key={task.id} task={task} />)
                   )}
                 </div>
               </div>
             )
           })}
-        </div>
-
-        {/* Under the whole board, where a desktop's three columns leave room
-            for it. A phone gets it under the card instead - see TaskDetail. */}
-        {expandedTask && (
-          <div className="hidden overflow-hidden rounded-xl border border-accent/40 bg-panel shadow-md lg:block">
-            <TaskDetail task={expandedTask} />
-          </div>
-        )}
       </div>
     )
   }
@@ -1058,7 +1097,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
               <span className="whitespace-nowrap text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{generalTasks.length}</span>
               <GroupProgressBar tasks={generalTasks} />
             </div>
-            <div className="divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-panel lg:divide-y-0 lg:space-y-2 lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent">
+            <div className="divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-panel lg:rounded-xl">
               {generalTasks.map(task => <ListCard key={task.id} task={task} />)}
             </div>
           </div>
@@ -1071,7 +1110,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
               <span className="whitespace-nowrap text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{group.tasks.length}</span>
               <GroupProgressBar tasks={group.tasks} />
             </div>
-            <div className="divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-panel lg:divide-y-0 lg:space-y-2 lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent">
+            <div className="divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-panel lg:rounded-xl">
               {group.tasks.map(task => <ListCard key={task.id} task={task} />)}
             </div>
           </div>
@@ -1110,7 +1149,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
               <span className="whitespace-nowrap text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{group.tasks.length}</span>
               <GroupProgressBar tasks={group.tasks} />
             </div>
-            <div className="divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-panel lg:divide-y-0 lg:space-y-2 lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent">
+            <div className="divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-panel lg:rounded-xl">
               {group.tasks.map(task => <ListCard key={task.id} task={task} />)}
             </div>
           </div>
@@ -1339,77 +1378,56 @@ export default function TasksPage({ params }: { params: { id: string } }) {
         </div>
       </div>
 
-      {/* ── Filter pills ──────────────────────────────────────────────────── */}
-      <div className="scroll-fade flex items-center gap-1.5 overflow-x-auto pb-1 -mb-1 scrollbar-hide">
-        {([
-          { key: 'all',         label: 'All' },
-          { key: 'open',        label: 'Open' },
-          { key: 'in_progress', label: 'In Progress' },
-          { key: 'completed',   label: 'Completed' },
-          { key: 'overdue',     label: 'Overdue', count: overdueCount },
-        ] as { key: FilterMode; label: string; count?: number }[]).map(f => (
-          <button
-            key={f.key}
-            onClick={() => setFilterMode(f.key)}
-            className={cn(
-              'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border whitespace-nowrap transition-all shrink-0',
-              filterMode === f.key
-                ? f.key === 'overdue'
-                  ? 'bg-danger-solid border-danger text-white'
-                  : 'bg-accent border-accent text-accent-ink'
-                : 'bg-panel border-line text-muted-fg hover:border-muted2 hover:bg-surface',
-            )}
-          >
-            {f.label}
-            {f.count !== undefined && f.count > 0 && (
+      {/* ── The filters, which ARE the counts ─────────────────────────────
+          One row instead of two. `scroll-fade` stays: with the scrollbar
+          hidden, the fade on the right edge is the only sign to a phone that
+          the strip keeps going. */}
+      <div className="scroll-fade hidden lg:flex -mb-1 items-center gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+        {FILTERS.map(f => {
+          const active = filterMode === f.key
+          if (f.key === 'overdue' && f.count === 0 && !active) return null
+          return (
+            <button
+              key={f.key}
+              onClick={() => setFilterMode(f.key)}
+              title={f.note}
+              className={cn(
+                'flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm font-medium transition-all',
+                active
+                  ? f.danger
+                    ? 'border-danger bg-danger-solid text-white'
+                    : 'border-accent bg-accent text-accent-ink'
+                  : 'border-line bg-panel text-muted-fg hover:border-muted2 hover:bg-surface',
+              )}
+            >
+              {f.label}
               <span className={cn(
-                'whitespace-nowrap text-xs font-bold rounded-full px-1.5 py-0.5 leading-none',
-                filterMode === f.key ? 'bg-panel/20 text-white' : 'bg-danger-tint text-danger',
+                'whitespace-nowrap rounded-full px-1.5 py-0.5 text-xs font-bold leading-none tabular-nums',
+                active ? 'bg-panel/20 text-white' : f.danger ? 'bg-danger-tint text-danger' : 'bg-muted text-muted-fg',
               )}>
                 {f.count}
               </span>
-            )}
-          </button>
-        ))}
+            </button>
+          )
+        })}
       </div>
 
-      {/* ── The numbers, in ONE card ───────────────────────────────────────
-          Five coloured pills with five borders and four colours, wrapping onto
-          two lines on a phone. Every one of them was a box saying a number.
-          Colour is kept for overdue, where it means something. */}
-      {!loading && totalCount > 0 && (
-        <>
-        <div className="hidden lg:flex items-center gap-2 flex-wrap">
-          <span className="whitespace-nowrap text-xs bg-muted text-muted-fg rounded-full px-2.5 py-1 font-medium border border-line">
-            {totalCount} total
-          </span>
-          <span className="whitespace-nowrap text-xs bg-surface text-muted-fg rounded-full px-2.5 py-1 font-medium border border-line">
-            {openCount} open
-          </span>
-          <span className="whitespace-nowrap text-xs bg-info-tint text-info rounded-full px-2.5 py-1 font-medium border border-info/30">
-            {inProgCount} in progress
-          </span>
-          {overdueCount > 0 && (
-            <span className="whitespace-nowrap text-xs bg-danger-tint text-danger rounded-full px-2.5 py-1 font-medium border border-danger/30">
-              {overdueCount} overdue
-            </span>
-          )}
-          <span className="whitespace-nowrap text-xs bg-success-tint text-success rounded-full px-2.5 py-1 font-medium border border-success/30">
-            {completedCount} completed · {pctDone}%
-          </span>
-        </div>
-        <StatStrip
-          className="lg:hidden"
-          items={[
-            { label: 'Total', value: totalCount },
-            { label: 'Open', value: openCount },
-            { label: 'In progress', value: inProgCount },
-            ...(overdueCount > 0 ? [{ label: 'Overdue', value: overdueCount, tone: 'danger' as const }] : []),
-            { label: 'Completed', value: completedCount, note: `${pctDone}% of the job` },
-          ]}
-        />
-        </>
-      )}
+      {/* Same five, as the one card with hairline dividers a phone gets for
+          related numbers. A StatStrip cell can be a filter (onClick + active) -
+          the Projects list already uses them that way. */}
+      <StatStrip
+        className="lg:hidden"
+        items={FILTERS
+          .filter(f => f.key !== 'overdue' || f.count > 0 || filterMode === 'overdue')
+          .map(f => ({
+            label: f.short,
+            value: f.count,
+            note: f.note,
+            tone: f.danger ? ('danger' as const) : undefined,
+            onClick: () => setFilterMode(f.key),
+            active: filterMode === f.key,
+          }))}
+      />
 
       {/* ── Main content ─────────────────────────────────────────────────── */}
       {loading ? (
@@ -1421,6 +1439,10 @@ export default function TasksPage({ params }: { params: { id: string } }) {
           {viewMode === 'board'    && <BoardView />}
           {viewMode === 'list'     && <ListView />}
           {viewMode === 'assignee' && <AssigneeView />}
+          {/* ONE drawer for all three views, mounted outside them: a task
+              opened from the list and a task opened from the board are the
+              same panel, so they cannot drift. */}
+          {openTask_ && <TaskDrawer task={openTask_} />}
         </>
       )}
     </div>

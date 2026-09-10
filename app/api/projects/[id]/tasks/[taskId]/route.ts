@@ -33,6 +33,28 @@ export async function PATCH(
   if (body.follow_up_date !== undefined) updates.follow_up_date = body.follow_up_date
   if (body.follow_up_note !== undefined) updates.follow_up_note = body.follow_up_note
 
+  // WHO HAS IT. These three were missing from this whitelist, and the edit form
+  // has always sent all three - so the route dropped them, wrote everything
+  // else, and answered 200. Assigning somebody while CREATING a task worked
+  // (that is the POST, which does write them); assigning or reassigning an
+  // existing one has never done anything, with no error anywhere to say so.
+  // A whitelist is the right shape - a body must not be able to write any
+  // column it names - but a field left off one fails exactly like a field the
+  // server rejected, and only one of those tells you.
+  if (body.assigned_to_member_id !== undefined) updates.assigned_to_member_id = body.assigned_to_member_id
+  if (body.assigned_to_company_id !== undefined) updates.assigned_to_company_id = body.assigned_to_company_id
+  if (body.assigned_to_name !== undefined) updates.assigned_to_name = body.assigned_to_name
+
+  // WHEN IT WAS FINISHED. `completed_at` has been in the schema since 046 and
+  // nothing outside the demo seed has ever written it, so a finished task knew
+  // it was finished and not when - which is why a completed card had only its
+  // DUE date to show and read "6d overdue" for ever. Derived from the status
+  // rather than taken from the body: it is a fact about the move, and a client
+  // that could set it could date a task finished last year.
+  if (body.status !== undefined) {
+    updates.completed_at = body.status === 'completed' ? new Date().toISOString() : null
+  }
+
   // Capture the previous state so we can describe the change in history
   const { data: prev } = await db
     .from('project_tasks')
@@ -70,6 +92,9 @@ export async function PATCH(
   }
   if (updates.description !== undefined) {
     changes.push('description updated')
+  }
+  if (updates.assigned_to_name !== undefined && updates.assigned_to_name !== (prev as any)?.assigned_to_name) {
+    changes.push(updates.assigned_to_name ? `assigned to ${updates.assigned_to_name}` : 'unassigned')
   }
 
   if (changes.length > 0) {

@@ -179,6 +179,17 @@ production branch.** Do NOT ask the user to merge or deploy.
   nowrap` do not shrink min-content, so a flex/grid child refuses to go below
   the full unbroken line and the CONTAINER blows out while the text inside
   behaves perfectly.
+- A SIDE DRAWER IS `.overlay-drawer`, never `fixed top-0 right-0 h-full`. There
+  were two hand-rolled ones, and `h-full` is 100% of the LAYOUT viewport - which
+  does not shrink for a keyboard and knows nothing about the notch, so a
+  drawer's own header sat under the Dynamic Island and its footer behind the
+  keyboard. It is `.overlay-sheet` one axis over: sized off `--vv-h` / `--vv-t`,
+  `justify-content: flex-end`, panel at `min(28rem, 100%)`, full-bleed below
+  `sm`, and it pads only the LEFT - something of the page behind has to stay
+  visible or there is nothing to aim at to dismiss it. Measured in
+  `overlay-geometry.ts`, where the entrance animation is switched off for the
+  measurement: `translateX(100%)` is where it STARTS, and headless Chromium
+  dumps the DOM while it is still there.
 - The overlay scroll lock is `overflow-y: hidden`, NEVER the `overflow`
   shorthand. The shorthand also sets `overflow-x`, replacing the `clip` on
   html/body with `hidden` - and clip cannot be scrolled while hidden can. That
@@ -263,12 +274,14 @@ production branch.** Do NOT ask the user to merge or deploy.
 - A badge or a button label NEVER wraps. `Badge` and `Button` set
   `whitespace-nowrap` centrally; a hand-rolled pill must too, and the test
   scans for it.
-- Something that opens INLINE opens where it was tapped. The task board is
-  three columns side by side on a desktop, so its detail panel sits under all
-  of them; a phone STACKS those columns, so "under the board" is under every
-  other column too - tapping a task in Open put its detail below In Progress
-  and Completed, off the screen. Below `lg` it renders inside the column, right
-  after the card. One definition feeds both places so they cannot drift.
+- Something that opens INLINE opens where it was tapped - and the better answer
+  is usually not to open it inline at all. The task detail was a panel docked
+  under the board; on a phone that is under every OTHER column too, so tapping a
+  task in Open put its detail below Completed, off the screen. Rendering it
+  inside the tapped column fixed the phone and left the desktop complaint: it
+  sat in the layout permanently and squeezed the board to half its height. It is
+  `.overlay-drawer` now - one panel over the screen, opened the same way from
+  all three views, full-bleed below `sm`.
 - A list of items is ONE card with `divide-y divide-line-soft` rows, never a
   bordered card per item, and never cards on a tinted column. The Tasks board
   was three coloured boxes each holding a stack of boxes. A selected/expanded
@@ -322,6 +335,21 @@ production branch.** Do NOT ask the user to merge or deploy.
   count evidence (a photo, who was there) as a report, not just words.
 
 ## Derived facts, not stored ones (IMPORTANT)
+- **A WHITELIST WITH A FIELD MISSING FAILS EXACTLY LIKE A REJECTION, and only
+  one of them says so.** The task PATCH route listed the columns a body may
+  write and the three assignment fields were not on it, so the edit form sent
+  them, the route dropped them and answered **200** - assigning somebody to an
+  existing task has never once worked, silently, while assigning at CREATE did
+  (that is the POST, which writes them). A whitelist is still the right shape;
+  when adding a field to a form, add it to the route's list in the same change.
+- A TIMESTAMP THAT NOTHING WRITES IS A COLUMN THAT LIES BY OMISSION.
+  `project_tasks.completed_at` existed from migration 046 and only the demo seed
+  ever set it, so a finished task knew it was finished and not WHEN - leaving a
+  completed card with only its DUE date to show, which it rendered as "6d
+  overdue". It is derived from the status move in the route, never taken from
+  the body: a client that could set it could date a task finished last year.
+  `lib/task-due.ts` (`dueLabel`, pure and tested) is the one answer for what a
+  date on a task says, and completed never returns overdue language.
 - **Two controls must not answer one question.** A quote request asked for a
   package AND "who supplies the material", and three of the four packages ARE
   that answer - so a request could go out reading "Labor only" over
