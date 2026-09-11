@@ -128,6 +128,38 @@ export function scheduleProblem(
 }
 
 /**
+ * What a REQUEST is missing, which is a different question from the one above.
+ *
+ * THE BUG. Request Inspection accepted a fully blank submit: it created an
+ * inspection AND sent a real notification to three schedulers - "Inspection to
+ * book: Foundation at QA Ground-Up 2026" - for a request carrying nothing.
+ *
+ * `scheduleProblem` was already here and stood aside, correctly: it fires on
+ * `scheduled`, and a request is `requested`. And the type could not be caught
+ * because the form's dropdown defaults to 'Foundation', so "Foundation" was
+ * never a value anybody chose. A default on a required field is a claim nobody
+ * made.
+ *
+ * THE DATE IS NOT OPTIONAL ON A REQUEST, and that is not the same as demanding
+ * a booking. The field is labelled "Preferred / Scheduled Date": a request is
+ * somebody being asked to book an inspection, and "when do you need it" is the
+ * whole content of the ask. Without it the notification is three people being
+ * told to act with nothing to act on.
+ */
+export function requestProblem(
+  inspectionType: unknown,
+  scheduledDate: string | null | undefined,
+): string | null {
+  if (!inspectionType || !String(inspectionType).trim()) {
+    return 'Pick which inspection this is - whoever books it needs to know what to call it.'
+  }
+  if (!scheduledDate || !String(scheduledDate).trim()) {
+    return 'Add the date you need it by. A request with no date is somebody being asked to book something with nothing to book it for.'
+  }
+  return null
+}
+
+/**
  * Moving back to a pending state clears the completion stamp.
  *
  * A record reading "PENDING Re-inspection" and "Completed 9/5/2026" at the same

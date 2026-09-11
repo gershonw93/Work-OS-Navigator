@@ -1486,7 +1486,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'permits',
     title: 'Track permits',
     category: 'docs',
-    keywords: ['permit', 'building', 'number', 'status', 'jurisdiction', 'add', 'expiry', 'expired', 'expiring', 'expiration date', 'lapsed', 'renew'],
+    keywords: ['permit', 'building', 'number', 'status', 'jurisdiction', 'add', 'expiry', 'expired', 'expiring', 'expiration date', 'lapsed', 'renew', 'required', 'blank permit', 'cannot save permit', 'pending', 'applied for'],
     summary: 'Log permits and keep their status and documents in one place.',
     blocks: [
       { type: 'steps', items: [
@@ -1495,6 +1495,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'Enter the permit number, type, status, and any contact.',
         'Attach the permit document if you have it, then save.',
       ] },
+      { type: 'text', text: 'WHAT A PERMIT NEEDS BEFORE IT SAVES. The type, and one thing that tells this permit apart from every other one on the job - its number, a description, or who is issuing it. That is deliberately loose, because a permit you have APPLIED for has no number yet, and logging it while you wait is the point.' },
+      { type: 'text', text: 'A STATUS THAT CLAIMS SOMETHING HAS TO CARRY IT. Mark a permit approved, active or recorded and it is saying the permit was granted, so it will not save without the permit number and the date it was issued. Mark one expired and it needs the date it expired on. Leave it pending until you have those and nothing is in your way.' },
       { type: 'text', text: 'EXPIRY IS WATCHED FOR YOU. Put the expiry date on a permit and the list flags it: amber "Expiring soon" inside 30 days, and a red "Expired N days ago" once the date has passed, with the status badge reading Expired whatever the row was last set to. Permits lapse quietly and the paperwork does not tell you.' },
     ],
     related: ['inspections', 'submittals'],
@@ -1503,7 +1505,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'inspections',
     title: 'Request, schedule, and record inspections',
     category: 'docs',
-    keywords: ['inspection', 'inspector', 'pass', 'fail', 'schedule', 'result', 'ready', 'request', 'notify', 'secretary'],
+    keywords: ['inspection', 'inspector', 'pass', 'fail', 'schedule', 'result', 'ready', 'request', 'notify', 'secretary', 'required', 'blank', 'cannot send request', 'preferred date'],
     summary: 'A site manager or sub requests an inspection, the scheduler gets notified, and everyone hears the result.',
     blocks: [
       { type: 'text', text: 'The Inspections tab (under Docs & Legal) runs the whole workflow - request → schedule → pass/fail - with notifications along the way.' },
@@ -1517,6 +1519,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       ] },
       { type: 'text', text: 'WHO ACTUALLY HEARS ABOUT IT. Assigning somebody ADDS them - it does not replace anyone. The people your company routed inspections to (Settings → Notifications → Who gets told) are told as well, every time, and so are whoever requested it and whoever is on booking it. You can leave "Who schedules this?" blank and the request still reaches the people who manage inspections; an unassigned inspection is the one somebody else most needs to see.' },
       { type: 'warn', text: 'If the form says "Nobody will be told", nothing is going to reach anyone. Assign somebody, or ask an admin to set who hears about inspections in Settings → Notifications → Who gets told.' },
+      { type: 'text', text: 'A REQUEST NEEDS THE INSPECTION AND A DATE. You are asking somebody to book something, so it will not send without which inspection it is and the date you need it by. Both used to be optional - and because the dropdown started on "Foundation", an empty form sent a real request for a Foundation inspection to everybody who books them.' },
       { type: 'text', text: 'MARKING ONE SCHEDULED NEEDS A DATE. "Scheduled" tells the office the inspector is booked, so it will not save without the day it is booked for. If you know it is coming but not when, leave it as requested.' },
       { type: 'text', text: 'MARKING ONE FAILED ASKS WHY. Whatever the inspector called out goes on the card, into the notification, and into Job History - so the next person can see what to fix without ringing anybody. Sending it back for re-inspection clears the old completed date.' },
       { type: 'text', text: 'INSPECTIONS ARE VOIDED, NEVER DELETED. Voiding keeps the record, notes who voided it and when, and takes it out of the working list. Tick "Show voided" above the list to see them, and Restore to put one back. You need edit access to inspections to void one.' },

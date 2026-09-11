@@ -455,6 +455,20 @@ production branch.** Do NOT ask the user to merge or deploy.
   check may only go DOWN.
 
 ## A button that claims to have done something (IMPORTANT)
+- **A `useState` DEFAULT ON A REQUIRED SELECT IS THE SAME CLAIM, AND IT DISARMS
+  THE `required` BESIDE IT.** Add Permit and Request Inspection both accepted a
+  fully blank submit and filed "Building / pending" and "Foundation" - names
+  nobody typed, both of them `useState('Building')` / `useState('Foundation')`.
+  So the records did not LOOK blank in a list, and the `required` already on
+  both selects could never fire, because a select that starts on a value cannot
+  fail constraint validation. A picker starts EMPTY with a `-- Select --`
+  option. The blank inspection also NOTIFIED THREE SCHEDULERS, which is why the
+  guard sits on the route as well as the form and runs BEFORE `notify`.
+  Rules are pure and shared - `lib/permit-rules.ts` (`permitProblem`),
+  `requestProblem` beside `scheduleProblem` in `lib/inspection-status.ts` - and
+  a status that CLAIMS something must carry it: `approved`/`active`/`recorded`
+  needs the permit number and issued date, the way `scheduled` needs a date.
+  Pinned in `blank-records.ts`.
 - **A DEFAULT IS A CLAIM.** `bid_invites.status` was `NOT NULL DEFAULT
   'invited'`, so a row asserted the sub had been told the moment it existed -
   while the route that created it sent no email at all. Everything downstream
@@ -610,6 +624,18 @@ production branch.** Do NOT ask the user to merge or deploy.
   the client, not only the answers). `server.ts` swallows cookie writes because
   a Server Component may not set them, so a second client can present a
   refresh token the first one just rotated away.
+
+- A RELATIVE TIME CARRIES THE ABSOLUTE ONE ON HOVER. A notification read "6d
+  ago" minutes after it was created. `notifications.created_at` is
+  `timestamptz DEFAULT now()`, `notify()` is the only writer and never sets it,
+  and the arithmetic is shared - so the stored value and the rendering were both
+  right, which leaves the READER's clock, and nothing server-side can see that.
+  `absoluteTime` (`lib/time-ago.ts`) is on every relative time, so the next one
+  answers itself in one hover. `timeAgo` is that module and only that module: a
+  future timestamp prints the date rather than "just now", and four private
+  copies had already drifted in the branch nobody looks at - past a week they
+  printed three different things. `equipment/page.tsx` keeps its own on purpose
+  ("today"/"yesterday", 30 days), which is different wording, not a copy.
 
 ## Stack notes
 - Next.js 14 App Router, Supabase (Postgres + Storage), Tailwind.

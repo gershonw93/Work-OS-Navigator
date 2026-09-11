@@ -14,6 +14,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import Link from 'next/link'
 import { parseDate, formatDate } from '@/lib/dates'
 import { activityHref } from '@/lib/activity-href'
+import { timeAgo, absoluteTime } from '@/lib/time-ago'
 
 interface Notification {
   id: string
@@ -106,18 +107,6 @@ const ACTIVITY_ICONS: Record<string, React.ElementType> = {
 
 function getActivityIcon(type: string): React.ElementType {
   return ACTIVITY_ICONS[type] ?? Activity
-}
-
-function timeAgo(dateStr: string) {
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
-  const days = Math.floor(hrs / 24)
-  if (days < 7) return `${days}d ago`
-  return formatDate(dateStr)
 }
 
 function greeting() {
@@ -620,7 +609,7 @@ export default function DashboardPage() {
                                 </span>
                               </>
                             )}
-                            <span className="text-xs text-faint ml-auto shrink-0">{timeAgo(item.created_at)}</span>
+                            <span className="text-xs text-faint ml-auto shrink-0" title={absoluteTime(item.created_at)}>{timeAgo(item.created_at)}</span>
                           </div>
                         </div>
                       </>

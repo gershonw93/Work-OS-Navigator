@@ -48,6 +48,35 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    date: '2026-09-11',
+    title: 'A blank permit or inspection cannot be filed any more',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'Add Permit and Request Inspection refuse an empty form',
+        text: 'Both accepted a completely empty submit. What made it hard to spot is that neither record LOOKED empty: the type dropdowns started on "Building" and "Foundation", so you got a permit and an inspection with names nobody had chosen. Both dropdowns now start blank and both forms say which field they are waiting on.',
+        help: 'permits',
+      },
+      {
+        kind: 'fixed',
+        title: 'An empty inspection request no longer notifies anyone',
+        text: 'A blank request did not just file a blank record - it sent a real "inspection to book" notification to everyone who schedules them. A request now needs the inspection and the date you need it by, and it is refused before anybody is told.',
+        help: 'inspections',
+      },
+      {
+        kind: 'improved',
+        title: 'A permit says what its own status claims',
+        text: 'Marked approved, active or recorded, a permit is saying it was granted - so it now needs the permit number and the issued date. Marked expired, it needs the date it expired. A permit you have only applied for still saves with just a number or a description, which is the whole point of pending.',
+        help: 'permits',
+      },
+      {
+        kind: 'improved',
+        title: 'Hover any "3d ago" to see the real time',
+        text: 'Relative times across the app - notifications, job history, the dashboard feed, task notes - now show the exact timestamp when you hover them. Useful if one ever looks wrong.',
+      },
+    ],
+  },
+  {
     date: '2026-09-16',
     title: 'The client portal showed a sun on every daily log',
     items: [

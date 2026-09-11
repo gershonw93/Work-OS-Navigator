@@ -13,7 +13,7 @@ import { ContactPicker } from '@/components/contact-picker'
 import { withStructural } from '@/lib/notification-routing'
 
 import { formatDate, todayDateInput } from '@/lib/dates'
-import { OPEN, CLOSED, isVoid, scheduleProblem } from '@/lib/inspection-status'
+import { OPEN, CLOSED, isVoid, scheduleProblem, requestProblem } from '@/lib/inspection-status'
 import { ACCEPT_SCAN } from '@/lib/file-accept'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 const INSPECTION_TYPES = [
@@ -56,7 +56,11 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
   const [editingInsp, setEditingInsp] = useState<Inspection | null>(null)
 
   // Form
-  const [inspType, setInspType] = useState('Foundation')
+  // EMPTY, not 'Foundation'. A blank submit created an inspection called
+  // "Foundation" that nobody had named AND notified three schedulers about
+  // it. The `required` on the select below could never fire while the state
+  // started on a value.
+  const [inspType, setInspType] = useState('')
   const [trade, setTrade] = useState('')
   const [scheduledDate, setScheduledDate] = useState('')
   const [scheduledTime, setScheduledTime] = useState('')
@@ -183,8 +187,12 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
   // in a `finally` because a throw used to leave the button spinning for good.
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setSubmitting(true)
     setSubmitError(null)
+    // Asked at the field before anything is sent, from the same module the
+    // route asks. A blank request used to reach three schedulers.
+    const problem = requestProblem(inspType, scheduledDate)
+    if (problem) { setSubmitError(problem); return }
+    setSubmitting(true)
     try {
       const token = await getToken()
 
@@ -244,7 +252,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
 
   function resetForm() {
     setEditingInsp(null)
-    setInspType('Foundation'); setTrade(''); setScheduledDate(''); setScheduledTime('')
+    setInspType(''); setTrade(''); setScheduledDate(''); setScheduledTime('')
     setInspectorName(''); setInspectorPhone(''); setSchedulingPhone(''); setSchedulerId(''); setNotes('')
   }
 
@@ -568,9 +576,10 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
                 )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label>Inspection Type</Label>
+                    <Label>Inspection Type <span className="text-danger">*</span></Label>
                     <SearchableSelect value={inspType} onChange={e => setInspType(e.target.value)} required
                       className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
+                      <option value="">-- Select inspection --</option>
                       {INSPECTION_TYPES.map(t => <option key={t}>{t}</option>)}
                     </SearchableSelect>
                   </div>
@@ -581,7 +590,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label>Preferred / Scheduled Date</Label>
+                    <Label>Preferred / Scheduled Date <span className="text-danger">*</span></Label>
                     <Input type="date" value={scheduledDate} onChange={e => setScheduledDate(e.target.value)} />
                   </div>
                   <div className="space-y-1.5">

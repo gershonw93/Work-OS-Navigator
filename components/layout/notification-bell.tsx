@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 
 import { formatDate } from '@/lib/dates'
+import { timeAgo, absoluteTime } from '@/lib/time-ago'
 interface Notification {
   id: string
   title: string
@@ -15,18 +16,6 @@ interface Notification {
   type: string
   read: boolean
   created_at: string
-}
-
-function relativeTime(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const mins = Math.floor(diff / 60_000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
-  const days = Math.floor(hrs / 24)
-  if (days < 7) return `${days}d ago`
-  return formatDate(dateStr)
 }
 
 function TypeIcon({ type }: { type: string }) {
@@ -165,7 +154,7 @@ export function NotificationBell() {
                         {n.message}
                       </p>
                     )}
-                    <p className="text-xs text-faint mt-1">{relativeTime(n.created_at)}</p>
+                    <p className="text-xs text-faint mt-1" title={absoluteTime(n.created_at)}>{timeAgo(n.created_at)}</p>
                   </div>
                   {!n.read && (
                     <span className="mt-1.5 h-2 w-2 rounded-full bg-accent shrink-0" />

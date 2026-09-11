@@ -4,7 +4,7 @@ import { audienceFor } from '@/lib/notification-audience'
 import { withStructural } from '@/lib/notification-routing'
 import { notify } from '@/lib/notify'
 import { logActivity } from '@/lib/log-activity'
-import { scheduleProblem } from '@/lib/inspection-status'
+import { scheduleProblem, requestProblem } from '@/lib/inspection-status'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -60,6 +60,14 @@ export async function POST(request: Request, { params }: { params: { id: string 
   // into the state the PATCH route now refuses to move it into.
   const createProblem = scheduleProblem(status, scheduled_date)
   if (createProblem) return NextResponse.json({ error: createProblem }, { status: 400 })
+
+  // ...AND a blank one cannot be born at all. A fully empty submit created an
+  // inspection and then NOTIFIED THREE SCHEDULERS about it. The guard has to be
+  // here and not only on the form, because the field app posts to this same
+  // route - and it has to be ABOVE the notify below, or the refusal arrives
+  // after three people have already been told.
+  const blank = requestProblem(inspection_type, scheduled_date)
+  if (blank) return NextResponse.json({ error: blank }, { status: 400 })
 
   const { data: me } = await db.from('profiles').select('full_name').eq('id', user.id).single()
 

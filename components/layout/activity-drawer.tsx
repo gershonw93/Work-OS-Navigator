@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { X, History, Package, Users, Award, RotateCcw, Bell, FileText, Upload, ChevronRight, CheckSquare, MessageSquare, Pencil, Trash2, ClipboardCheck, CalendarCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
-import { timeAgo } from '@/lib/time-ago'
+import { timeAgo, absoluteTime } from '@/lib/time-ago'
 
 import { formatDate } from '@/lib/dates'
 interface ActivityItem {
@@ -160,7 +160,7 @@ export function ActivityDrawer({ projectId, open, onClose }: ActivityDrawerProps
                             <div className="flex items-center gap-2 mt-1">
                               <span className="text-xs font-medium text-muted-fg">{item.actor_name}</span>
                               <span className="text-faint">·</span>
-                              <span className="text-xs text-faint">{timeAgo(item.created_at)}</span>
+                              <span className="text-xs text-faint" title={absoluteTime(item.created_at)}>{timeAgo(item.created_at)}</span>
                             </div>
                           </div>
                         </div>
