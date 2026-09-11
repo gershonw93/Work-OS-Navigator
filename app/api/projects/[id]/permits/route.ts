@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
+import { permitProblem } from '@/lib/permit-rules'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -51,6 +52,16 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const inspector_phone = formData.get('inspector_phone') as string | null
   const notes = formData.get('notes') as string | null
   const file = formData.get('file') as File | null
+
+  // A BLANK PERMIT IS NOT A PERMIT. A fully empty submit filed one reading
+  // "Building / pending" - neither word typed by anybody, both of them the
+  // form's dropdown defaults. Asked here as well as on the form because the
+  // form is not the only door, and the rule is pure so the two cannot disagree.
+  const problem = permitProblem({
+    permit_type, permit_number, description, issuing_authority,
+    status, issued_date, expiry_date,
+  })
+  if (problem) return NextResponse.json({ error: problem }, { status: 400 })
 
   let file_url: string | null = null
 

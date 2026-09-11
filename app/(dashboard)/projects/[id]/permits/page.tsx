@@ -13,6 +13,7 @@ import { ContactPicker } from '@/components/contact-picker'
 import { formatDate } from '@/lib/dates'
 import { expiryState, daysExpired } from '@/lib/expiry'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
+import { permitProblem } from '@/lib/permit-rules'
 const PERMIT_TYPES = [
   'Building', 'Electrical', 'Plumbing', 'Mechanical/HVAC',
   'Fire Protection', 'Fire Alarm', 'Sprinkler',
@@ -51,7 +52,11 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
   const [submitting, setSubmitting] = useState(false)
 
   // Form
-  const [permitType, setPermitType] = useState('Building')
+  // EMPTY, not 'Building'. A default on a required field is a claim nobody
+  // made - and it disarmed the `required` beside it, because a select that
+  // starts on a value can never fail constraint validation. A blank submit
+  // filed a permit called "Building" that nobody had named.
+  const [permitType, setPermitType] = useState('')
   const [permitNumber, setPermitNumber] = useState('')
   const [description, setDescription] = useState('')
   const [status, setStatus] = useState('pending')
@@ -127,7 +132,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
   useEffect(() => { fetchPermits() }, [params.id])
 
   function resetForm() {
-    setPermitType('Building'); setPermitNumber(''); setDescription(''); setStatus('pending')
+    setPermitType(''); setPermitNumber(''); setDescription(''); setStatus('pending')
     setIssuedDate(''); setExpiryDate(''); setIssuingAuthority('')
     setInspectorName(''); setInspectorPhone(''); setNotes(''); setPermitFile(null)
     setAnalyzeError(''); setEditingPermit(null)
@@ -194,6 +199,16 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    // The SAME rule the route asks, asked at the field first - a server's answer
+    // can only ever arrive as a message about a whole request that did not
+    // happen. lib/permit-rules.ts is the one copy.
+    const problem = permitProblem({
+      permit_type: permitType, permit_number: permitNumber, description,
+      issuing_authority: issuingAuthority, status,
+      issued_date: issuedDate, expiry_date: expiryDate,
+    })
+    if (problem) { setSubmitError(problem); return }
+    setSubmitError('')
     setSubmitting(true)
     const token = await getToken()
 
@@ -337,9 +352,10 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label>Permit Type</Label>
+                    <Label>Permit Type <span className="text-danger">*</span></Label>
                     <SearchableSelect value={permitType} onChange={e => setPermitType(e.target.value)} required
                       className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
+                      <option value="">-- Select permit type --</option>
                       {PERMIT_TYPES.map(t => <option key={t}>{t}</option>)}
                     </SearchableSelect>
                   </div>

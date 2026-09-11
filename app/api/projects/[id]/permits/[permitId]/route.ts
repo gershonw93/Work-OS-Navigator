@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { permitProblem } from '@/lib/permit-rules'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -40,6 +41,22 @@ export async function PATCH(
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
   }
+
+  // THE SAME RULE ON THE SAME RECORD. Creating a blank permit was refused and
+  // editing one down to blank was not, which is one door short - and the edit
+  // form sends every field, so clearing the number on an "active" permit was a
+  // single keystroke away. Asked against the row AS IT WILL BE: what the patch
+  // sets if it sets it, and what is stored otherwise, so changing the notes on
+  // a permit is not refused for a field the patch never mentioned.
+  const { data: current } = await db
+    .from('permits')
+    .select('permit_type, permit_number, description, issuing_authority, status, issued_date, expiry_date')
+    .eq('id', params.permitId)
+    .eq('project_id', params.id)
+    .maybeSingle()
+  const after = { ...(current ?? {}), ...updates } as Parameters<typeof permitProblem>[0]
+  const problem = permitProblem(after)
+  if (problem) return NextResponse.json({ error: problem }, { status: 400 })
 
   const { data: permit, error } = await db
     .from('permits')

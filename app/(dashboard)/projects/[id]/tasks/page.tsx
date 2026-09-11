@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils'
 
 import { formatDate } from '@/lib/dates'
 import { dueLabel } from '@/lib/task-due'
+import { timeAgo, absoluteTime } from '@/lib/time-ago'
 // ─── constants ───────────────────────────────────────────────────────────────
 
 const PRIORITIES = [
@@ -166,20 +167,6 @@ function StatusPicker({
       )}
     </div>
   )
-}
-
-function timeAgo(dateStr: string) {
-  const d = new Date(dateStr)
-  const now = new Date()
-  const diffMs = now.getTime() - d.getTime()
-  const diffMins = Math.floor(diffMs / 60000)
-  const diffHours = Math.floor(diffMins / 60)
-  const diffDays = Math.floor(diffHours / 24)
-  if (diffMins < 1) return 'just now'
-  if (diffMins < 60) return `${diffMins}m ago`
-  if (diffHours < 24) return `${diffHours}h ago`
-  if (diffDays < 7) return `${diffDays}d ago`
-  return formatDate(d, { month: 'short', day: 'numeric' })
 }
 
 // ─── small components ─────────────────────────────────────────────────────────
@@ -421,7 +408,7 @@ function TaskDetailPanel({ task, notes, notesLoading, onAddNote, projectId, onCh
                 <div key={note.id} className="bg-panel rounded-lg border border-line-soft px-3 py-2">
                   <div className="flex items-center justify-between gap-2 mb-0.5">
                     <span className="text-xs font-semibold text-ink-soft">{note.author_name}</span>
-                    <span className="text-xs text-faint shrink-0">{timeAgo(note.created_at)}</span>
+                    <span className="text-xs text-faint shrink-0" title={absoluteTime(note.created_at)}>{timeAgo(note.created_at)}</span>
                   </div>
                   <p className="text-sm text-muted-fg leading-relaxed">{note.content}</p>
                 </div>

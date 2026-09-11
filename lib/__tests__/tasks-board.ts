@@ -102,7 +102,9 @@ ok(/function StatusPicker\(/.test(page), '...one tiny status icon instead')
 ok(/aria-label=\{`Status: \$\{current\.label\}\. Move this task`\}/.test(page),
   'it is icon-only, so it says what it is and what it does')
 ok(/aria-haspopup="menu"/.test(page) && /role="menuitem"/.test(page), '...and opens a real menu')
-ok(!/data-overlay/.test(page.slice(page.indexOf('function StatusPicker('), page.indexOf('function timeAgo'))),
+ok(!/data-overlay/.test(// Bounded by the next DECLARATION, not by a comment: `code()` strips
+// comments, so a marker written in one is not there to slice on.
+  page.slice(page.indexOf('function StatusPicker('), page.indexOf('function PriorityBadge('))),
   'the menu is absolute in a relative parent, like RowMenu - it travels with the page and must not freeze it')
 // Not click-to-advance. That version shipped once: one stray tap on a finished
 // task reopened it, with no confirm and no undo.
