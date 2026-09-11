@@ -5,7 +5,7 @@ import { audienceFor } from '@/lib/notification-audience'
 import { withStructural } from '@/lib/notification-routing'
 import { notify } from '@/lib/notify'
 import { requirePermission, denied } from '@/lib/api-guard'
-import { clearsBooking, clearsCompletion, notifiesRoutedAudience, scheduleProblem } from '@/lib/inspection-status'
+import { canCarryCompletion, clearsBooking, clearsCompletion, notifiesRoutedAudience, scheduleProblem } from '@/lib/inspection-status'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -117,6 +117,24 @@ export async function PATCH(
     updates.booking_reference = null
     updates.booked_at = null
     updates.booked_by_name = null
+  }
+
+  // ...AND A COMPLETION DATE ONLY BELONGS TO A FINISHED INSPECTION. `clearsCompletion`
+  // above handles the status MOVE; this handles the other direction - a body
+  // setting the date without moving the status, which is how a `requested`
+  // inspection ended up reading "Completed Sep 24, 2026" under a Book it button.
+  // REFUSED rather than dropped: a silent drop is the whitelist trap that made
+  // task assignment answer 200 for months while writing nothing.
+  if ('completed_date' in updates && updates.completed_date) {
+    const effectiveStatus = 'status' in updates
+      ? (updates.status as string)
+      : (await db.from('inspections').select('status')
+        .eq('id', params.inspectionId).eq('project_id', params.id).maybeSingle()).data?.status
+    if (!canCarryCompletion(effectiveStatus)) {
+      return NextResponse.json({
+        error: 'Only a passed or failed inspection carries a completion date. Record the result and the date goes on with it.',
+      }, { status: 400 })
+    }
   }
 
   // #6 - a failure with no reason is the least useful record in the app, and

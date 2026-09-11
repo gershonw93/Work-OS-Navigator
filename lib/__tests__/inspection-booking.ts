@@ -21,11 +21,14 @@
 //     it because a calendar entry looks right until you ring the inspector.
 
 import {
-  scheduleProblem, clearsBooking, inspectionDate,
-  CONFIRMED_LABEL, REQUESTED_LABEL,
+  scheduleProblem, clearsBooking, clearsCompletion, canCarryCompletion,
+  inspectionDate, INSPECTION_STATUSES, CONFIRMED_LABEL, REQUESTED_LABEL,
 } from '../inspection-status'
 import { whoToCall, callLine, callTargetsFor } from '../inspection-contacts'
 import { ok, done, code, read, readCombined } from './_helpers'
+
+const page = code('app/(dashboard)/projects/[id]/inspections/page.tsx')
+const patch = code('app/api/projects/[id]/inspections/[inspectionId]/route.ts')
 
 // ── a booking is a thing somebody DID ───────────────────────────────────────
 ok(scheduleProblem('scheduled', '', 'Newark BD') !== null,
@@ -45,6 +48,47 @@ ok(clearsBooking('requested') && clearsBooking('not_scheduled'),
   'putting it back to requested clears the booking')
 ok(!clearsBooking('scheduled') && !clearsBooking('passed') && !clearsBooking('failed'),
   '...and never touches one that is real')
+
+// ── requested AND completed at the same time ────────────────────────────────
+//
+// Reported from a screenshot: a card reading "Requested" with "Completed
+// Sep 24, 2026" beside it and a Book it button underneath. The inspector's-card
+// scan wrote the date printed on the paperwork straight onto the row and asked
+// about the RESULT separately, so declining "the card looks PASSED, mark it
+// passed?" left a record asserting it was both unbooked and finished.
+// `clearsCompletion` never saw it: that fires on a status MOVE, and no status
+// moved.
+ok(canCarryCompletion('passed') && canCarryCompletion('failed'),
+  'a finished inspection carries a completion date')
+for (const st of INSPECTION_STATUSES.filter(x => x !== 'passed' && x !== 'failed')) {
+  ok(!canCarryCompletion(st), `THE BUG: "${st}" may not carry one - it is not finished`)
+}
+ok(!canCarryCompletion(undefined) && !canCarryCompletion('nonsense'),
+  'and a status nobody recognises certainly may not')
+for (const st of INSPECTION_STATUSES) {
+  ok(!(clearsCompletion(st) && canCarryCompletion(st)),
+    `"${st}" is never both cleared and allowed - the two halves of one rule cannot disagree`)
+}
+
+{
+  const card = code('app/api/projects/[id]/inspections/[inspectionId]/card/route.ts')
+  ok(/canCarryCompletion\(\(existing as any\)\?\.status\)/.test(card),
+    'THE FIX: the scan only fills a completion date on a row that is already finished')
+  const fills = card.split("fillIfEmpty('completed_date'")
+  ok(fills.length === 2, 'the completion fill happens in exactly one place (fixture sanity)')
+  const above = fills[0].split('\n').map(l => l.trim()).filter(Boolean).pop() ?? ''
+  ok(/^if \(canCarryCompletion\(.*\) \{$/.test(above),
+    `...and the line immediately above it is the guard, not nothing (saw: ${above.slice(0, 60)})`)
+  ok(/suggested_completed_date: fields\?\.completed_date/.test(card),
+    'and the date it read is handed back to be applied WITH the result')
+}
+ok(/completed_date: completedOn \|\| todayDateInput\(\)/.test(page),
+  'THE SECOND HALF: accepting the suggestion stamps the date PRINTED ON THE CARD, not today')
+ok(/updateStatus\(insp, data\.suggested_status, undefined, data\.suggested_completed_date\)/.test(page),
+  '...which means reading it off the response rather than throwing it away')
+ok(/if \('completed_date' in updates && updates\.completed_date\)/.test(patch)
+  && /!canCarryCompletion\(effectiveStatus\)/.test(patch),
+  'and the route refuses the pairing rather than dropping it - a silent drop answers 200')
 
 // ── two dates, one label each ───────────────────────────────────────────────
 const asked = inspectionDate({ requested_date: '2026-09-25', scheduled_date: null })
@@ -92,7 +136,6 @@ ok(callLine([]) === '', 'and with nothing on file the notification says nothing 
 ok(/\(973\) 555-0188/.test(callLine(dupes)), '...but with a number it hands it over in one line')
 
 // ── the request never books itself ──────────────────────────────────────────
-const page = code('app/(dashboard)/projects/[id]/inspections/page.tsx')
 ok(!/form\.append\('status', scheduledDate \? 'scheduled'/.test(page),
   'THE BUG: filling in the date you wanted no longer files the inspection as already arranged')
 ok(/form\.append\('status', schedulerId \? 'requested' : 'not_scheduled'\)/.test(page),
@@ -165,6 +208,46 @@ ok(/Add inspector's card<\/MenuItem>|\{insp\.card_image_url \? "Replace inspecto
     'the file input sits OUTSIDE the gate - inside it, the menu item does nothing on exactly the states the block is hidden for')
 }
 
+// ── the shape of the card on a wide screen ──────────────────────────────────
+//
+// Reported against a ~1550px card: "how can we move things around and align
+// properly - too much dead space on the right." Every band was a strip of text
+// with a quarter-mile of nothing beside it, and the attached card rendered as a
+// ~200px slab with a SECOND band under it saying the same thing.
+ok(/lg:grid-cols-\[minmax\(0,1fr\)_24rem\]/.test(page),
+  'THE FIX: the body is two columns on a wide screen - facts left, what-to-do-next right')
+ok(!/lg:grid-cols-\[1fr_24rem\]/.test(page),
+  '...written minmax(0,1fr), never a bare 1fr - a grid child is min-width:auto, so a long '
+  + 'unbroken value can push the COLUMN past its share. A convention, ratcheted as source: '
+  + 'overflow-wrap:anywhere already covers prose, so it cannot be measured here')
+ok(/hasAside && 'lg:grid/.test(page),
+  'and the split only applies when the right column has something in it')
+ok(/const hasAside = needsBookingCall \|\| showCardBlock/.test(page),
+  '...which is what "something in it" means')
+{
+  // `space-y-*` is `> * + *` margins and survives into the grid, fighting the gap.
+  const body = page.slice(page.indexOf("'border-t border-line-soft px-5 py-5"), page.indexOf('grid-cols-2 md:grid-cols-3'))
+  ok(body.length > 40 && /flex flex-col gap-4/.test(body), 'the body lays out with gap, not space-y (fixture sanity)')
+  ok(!/space-y-/.test(body), '...or the margins fight the grid gap')
+}
+ok(/lg:col-span-2 lg:flex lg:items-center/.test(page),
+  'the action row runs under both columns')
+ok(!/lg:ml-auto/.test(page),
+  'THE STRANDED MENU: the actions are one cluster, not a button on one edge and a menu 1400px away')
+
+// ONE BAND ABOUT THE DOCUMENT, not two.
+ok(!/max-h-48/.test(page),
+  'THE SLAB: the standalone card image is gone - a photo of a form is not read at a glance')
+ok(!/<img src=\{insp\.card_image_url\}/.test(page), '...no image on the card at all')
+{
+  const block = page.slice(page.indexOf('{showCardBlock && ('), page.indexOf('row-even lg:col-span-2'))
+  ok(block.length > 400, 'the attachment block is really in the slice (fixture sanity)')
+  ok(/View full image/.test(block),
+    'and the link the image block was carrying lives in the attachment band now - one band, not two')
+  ok(/min-h-11[\s\S]{0,400}?lg:min-h-0/.test(block),
+    '...with controls a thumb can hit; they were py-1.5 text-xs at every width')
+}
+
 // ── one list of numbers, not two ────────────────────────────────────────────
 ok(/callTargetsFor\(needsBookingCall \? insp : null, callTargets\)/.test(page),
   "the card merges the inspection's own numbers into the shared list")
@@ -180,7 +263,6 @@ ok(/No number on file/.test(page),
   'and when there is no number it says where to put one, instead of showing nothing')
 
 // ── the route is the door, not the form ─────────────────────────────────────
-const patch = code('app/api/projects/[id]/inspections/[inspectionId]/route.ts')
 ok(/scheduleProblem\('scheduled', effective, effectiveWith\)/.test(patch),
   'the PATCH route refuses a booking with nobody spoken to')
 ok(/'booked_with',/.test(patch) && /'booking_reference',/.test(patch) && /'requested_date',/.test(patch),
@@ -210,6 +292,18 @@ for (const f of [
 const seed = code('lib/seed-demo.ts')
 ok(/scheduled_date: isBooked \? wanted : null/.test(seed),
   'and the demo seed cannot re-create the bug: a requested row gets no booked date')
+
+// ── and the rows that got in before the guard existed ───────────────────────
+for (const [what, sql] of [
+  ['101_completion_belongs_to_a_finished_inspection.sql',
+    read('supabase/migrations/101_completion_belongs_to_a_finished_inspection.sql')],
+  ['the combined fallback', readCombined()],
+] as const) {
+  ok(/SET completed_date = NULL/.test(sql), `${what}: the false completion dates are cleared`)
+  ok(/NOT IN \('passed', 'failed', 'void'\)/.test(sql),
+    `${what}: ...and VOID is excluded - the restore path reads completed_date to decide `
+    + 'whether an inspection comes back passed or unbooked, so clearing it changes what restore does')
+}
 
 // ── the migration, both steps, in that order ────────────────────────────────
 for (const [what, sql] of [

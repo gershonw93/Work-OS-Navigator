@@ -887,5 +887,75 @@ ok(!clippedCard.lastItemReachable,
   'and overflow-hidden on the card really does cut the menu off - the same markup, '
   + 'the same rectangle, and nothing there to click')
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 17. THE INSPECTION CARD READS IN TWO COLUMNS ON A WIDE SCREEN.
+//
+// Reported against a ~1550px card: every band was a strip of text with a
+// quarter-mile of nothing to its right. The body is now facts on the left and
+// a 24rem panel on the right, with the action row under both - and below `lg`
+// it stacks, because a 24rem sidebar on a 390px phone is not a sidebar.
+//
+// Measured rather than read, because `grid-template-columns` written correctly
+// and then beaten by something else looks identical in the source.
+// ─────────────────────────────────────────────────────────────────────────────
+const BODY = `
+<div class="p-6">
+  <div class="rounded-xl border border-line bg-panel">
+    <div id="body" class="border-t border-line-soft px-5 py-5 flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_24rem] lg:gap-6 lg:items-start">
+      <div id="facts" class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 text-sm min-w-0">
+        <div><p class="text-xs text-faint">Needed by</p><p class="font-medium text-ink-soft">Sep 16, 2026</p></div>
+        <div><p class="text-xs text-faint">Scheduler</p><p class="font-medium text-ink-soft">Office Staff</p></div>
+        <div><p class="text-xs text-faint">Requested by</p><p class="font-medium text-ink-soft">Admin User</p></div>
+        <div id="notes" class="col-span-full"><p class="text-xs text-faint">Notes</p><p class="font-medium text-ink-soft whitespace-nowrap">QA-0909-RETEST2 a very long line the inspector dictated that nobody would ever break</p></div>
+      </div>
+      <div id="aside" class="flex flex-col gap-4 min-w-0">
+        <div class="rounded-lg border border-line bg-surface px-3 py-3">
+          <p class="text-xs font-semibold text-ink-soft">Somebody has to call this in</p>
+          <p class="text-xs text-muted-fg">SyteNav does not contact the inspector.</p>
+        </div>
+      </div>
+      <div id="actions" class="row-even lg:col-span-2 lg:flex lg:items-center gap-2">
+        <button class="inline-flex h-11 items-center justify-center rounded-md px-3 text-sm font-medium">Book it</button>
+        <div class="flex justify-end lg:justify-start">
+          <button class="inline-flex h-11 w-11 items-center justify-center rounded-md border border-line">…</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>`
+
+const BODY_PROBE = `(rect) => {
+  const b = s => { const r = rect(s); return { l: Math.round(r.left), r: Math.round(r.right),
+    t: Math.round(r.top), b: Math.round(r.bottom), w: Math.round(r.width), h: Math.round(r.height) } }
+  return { body: b('#body'), facts: b('#facts'), aside: b('#aside'),
+           actions: b('#actions'), notes: b('#notes'),
+           docWidth: Math.ceil(document.documentElement.scrollWidth), vw: window.innerWidth }
+}`
+
+const wide = measure(BODY, BODY_PROBE, 800, '', 1280)
+ok(wide.aside.w === 384, `on a desktop the right column is 24rem (${wide.aside.w})`)
+ok(wide.aside.l > wide.facts.r,
+  `THE POINT: the panel sits BESIDE the facts, not under them (aside starts ${wide.aside.l}, facts end ${wide.facts.r})`)
+ok(wide.aside.t === wide.facts.t,
+  `...and the two columns start on the same line (${wide.aside.t} vs ${wide.facts.t})`)
+ok(wide.actions.t > wide.facts.b, `the action row is under the columns, not beside them (${wide.actions.t})`)
+ok(wide.actions.l === wide.facts.l && wide.actions.r === wide.aside.r,
+  `...and runs under BOTH of them, edge to edge (${wide.actions.l}-${wide.actions.r} vs `
+  + `facts from ${wide.facts.l} and aside to ${wide.aside.r})`)
+// The tracks are written `minmax(0,1fr)` rather than `1fr` because a grid child
+// is `min-width: auto` and a long unbroken value can push a column past its
+// share. NOT ASSERTED HERE, and deliberately: this app sets `overflow-wrap:
+// anywhere` on prose, which drives min-content to zero, so the fixture measures
+// the same either way and a test that cannot fail is a guess about what it
+// covers. The form is a convention, ratcheted as source in inspection-booking.ts.
+ok(wide.docWidth <= 1280, `and nothing hangs off the side (${wide.docWidth} of 1280)`)
+
+const narrow = measure(BODY, BODY_PROBE, 800, '', VIEWPORT.w)
+ok(narrow.aside.t > narrow.facts.b,
+  `on a phone the two stack (aside at ${narrow.aside.t}, facts end ${narrow.facts.b})`)
+ok(narrow.aside.w === narrow.facts.w,
+  `...both the full width of the card (${narrow.aside.w} and ${narrow.facts.w})`)
+ok(narrow.docWidth <= VIEWPORT.w, `and the phone does not scroll sideways (${narrow.docWidth} of ${VIEWPORT.w})`)
+
 rmSync(work, { recursive: true, force: true })
 done()
