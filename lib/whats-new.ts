@@ -49,6 +49,24 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-11',
+    title: 'The job calendar shows the job, not just the schedule',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'Booked inspections appear on a project\'s calendar',
+        text: 'The Schedule tab\'s calendar only ever drew schedule bars, so an inspection you had booked was nowhere on it - and the only screen that did carry them, the Master Calendar, is admins and managers only. A booked inspection now shows on its confirmed date with the time you were given, and clicking it opens the Inspections tab.',
+        help: 'schedule',
+      },
+      {
+        kind: 'improved',
+        title: 'Tasks with a due date show there too',
+        text: 'A task appears on the day it is due, struck through once it is done. The Timeline and List views are unchanged - they are where you edit the schedule, and an inspection in a list of editable rows is a row nothing can save.',
+        help: 'schedule',
+      },
+    ],
+  },
+  {
+    date: '2026-09-11',
     title: 'Today on the job, and the inspector picker stops making things up',
     items: [
       {

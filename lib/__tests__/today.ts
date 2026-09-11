@@ -90,4 +90,19 @@ ok(/min-h-11/.test(strip), 'and a row is a touch target')
 ok(/role === 'admin' \|\| role === 'manager'/.test(code('app/(dashboard)/master-calendar/page.tsx')),
   'the Master Calendar is still admins and managers only')
 
+// ── the three screens agree about what "booked" means ───────────────────────
+//
+// The Today band, the job's calendar and the Master Calendar each decide
+// whether an inspection is an appointment. If they ever disagree, one of them
+// is putting a wish on a square - which is how 14 unbooked inspections ended
+// up in people's Outlook.
+ok(/if \(i\.scheduled_date\) continue/.test(code('lib/today.ts')),
+  'the Today band treats an inspection WITHOUT a booked date as needing booking')
+ok(/const d = day\(i\.scheduled_date\)/.test(code('lib/schedule-events.ts'))
+  && !/requested_date/.test(code('lib/schedule-events.ts')),
+  '...and the job calendar places one only by its booked date, never the requested one')
+ok(/\.not\('scheduled_date', 'is', null\)/.test(code('app/api/master/calendar/route.ts'))
+  && /\.not\('scheduled_date', 'is', null\)/.test(code('app/api/projects/[id]/schedule/route.ts')),
+  '...and both routes filter on the same column')
+
 done()
