@@ -509,7 +509,9 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
               <span className="font-semibold text-ink">{insp.type}</span>
               {insp.trade && <span className="whitespace-nowrap text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{insp.trade}</span>}
               <span className={cn('whitespace-nowrap text-xs font-medium rounded-full border px-2 py-0.5', cfg.color)}>{cfg.label}</span>
-              {insp.ready_marked_by && insp.status === 'scheduled' && (
+              {/* Not gated on `scheduled` any more - the work can be finished
+                  before anybody has booked, and that is the case worth seeing. */}
+              {insp.ready_marked_by && !isVoid(insp.status) && (
                 <span className="whitespace-nowrap text-xs font-medium bg-success-tint border border-success/30 text-success rounded-full px-2 py-0.5">Ready ✓</span>
               )}
             </div>
@@ -735,6 +737,18 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
                   <CheckCircle2 className="h-3.5 w-3.5" /> Mark ready for inspection
                 </Button>
               ) : null}
+
+              {/* A SUB CANNOT REQUEST AN INSPECTION ANYWHERE IN THIS APP - only
+                  the GC can, from this screen. "Mark ready" is the sub's one
+                  voice, and it only existed once the inspection was BOOKED, so
+                  a crew that finished early had no way to say so and nothing to
+                  press. It is on an unbooked one too now, beside Book it: the
+                  work being done is exactly what makes the call worth making. */}
+              {!booked && !isVoid(insp.status) && !insp.ready_marked_by && (
+                <Button size="sm" variant="outline" onClick={() => markReady(insp)}>
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Work is ready
+                </Button>
+              )}
 
               {/* A result can only be recorded for a visit somebody arranged. */}
               {canRecordResult && (

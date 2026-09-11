@@ -40,6 +40,16 @@ export interface PermitLike {
   inspector_phone?: string | null
 }
 
+/**
+ * A Directory inspector.
+ *
+ * THE ROW COMES OUT OF `companies`, NOT `contacts`. This module was written
+ * against a `contacts` table that holds zero rows, so for two releases the
+ * Directory half of the list returned nothing and looked exactly like "you have
+ * not added any inspectors" - see `directoryInspectors` in the inspections
+ * route for the whole story. The shape below is the same either way; the table
+ * is the thing that was wrong.
+ */
 export interface ContactLike {
   name?: string | null
   type?: string | null
@@ -50,6 +60,18 @@ export interface ContactLike {
 const clean = (v: unknown): string | null => {
   const s = typeof v === 'string' ? v.trim() : ''
   return s ? s : null
+}
+
+/**
+ * A NUMBER WITH NO DIGITS IN IT IS NOT A NUMBER, and it must never become a
+ * `tel:` link. A surname saved into the Quick add form's phone box turned into
+ * `<a href="tel:Dohr">` on every inspection on the job - a control that looks
+ * like a phone number and dials nothing. `quickAddProblem` stops the next one
+ * being stored; this stops the ones already stored being offered as callable.
+ */
+const cleanPhone = (v: unknown): string | null => {
+  const s = clean(v)
+  return s && /[0-9]/.test(s) ? s : null
 }
 
 /** Two entries are the same person when the number matches, or the name does. */
@@ -73,7 +95,7 @@ export function whoToCall({ inspection, permits = [], contacts = [] }: {
 
   // 1. What this inspection already carries. Whoever raised it may well have
   //    known, and if they did it beats anything inferred.
-  const schedulingPhone = clean(inspection?.scheduling_phone)
+  const schedulingPhone = cleanPhone(inspection?.scheduling_phone)
   if (schedulingPhone) {
     out.push({
       name: clean(inspection?.inspector_name) ?? 'Scheduling line',
@@ -81,7 +103,7 @@ export function whoToCall({ inspection, permits = [], contacts = [] }: {
       source: 'On this inspection',
     })
   }
-  const inspPhone = clean(inspection?.inspector_phone)
+  const inspPhone = cleanPhone(inspection?.inspector_phone)
   const inspName = clean(inspection?.inspector_name)
   if (inspName || inspPhone) {
     out.push({
@@ -96,7 +118,7 @@ export function whoToCall({ inspection, permits = [], contacts = [] }: {
   for (const p of permits) {
     const authority = clean(p.issuing_authority)
     const name = clean(p.inspector_name)
-    const phone = clean(p.inspector_phone)
+    const phone = cleanPhone(p.inspector_phone)
     if (!authority && !name && !phone) continue
     out.push({
       name: name ?? authority ?? 'Issuing authority',
@@ -116,7 +138,7 @@ export function whoToCall({ inspection, permits = [], contacts = [] }: {
     const jurisdiction = clean(c.extra?.jurisdiction)
     out.push({
       name,
-      phone: clean(c.phone),
+      phone: cleanPhone(c.phone),
       source: jurisdiction ? `Directory — ${jurisdiction}` : 'Directory',
     })
   }

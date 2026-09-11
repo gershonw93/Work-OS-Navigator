@@ -89,7 +89,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
   ] = await Promise.all([
     db.from('invoices').select('id, amount, status, company_name, created_at, client_paid, escrow_paid').eq('project_id', params.id),
     db.from('rfis').select('id, subject, status, created_at, company_name').eq('project_id', params.id),
-    db.from('inspections').select('id, type, trade, status, scheduled_date, ready_marked_at').eq('project_id', params.id).neq('status', 'void'),
+    db.from('inspections').select('id, type, trade, status, requested_date, scheduled_date, scheduled_time, ready_marked_at').eq('project_id', params.id).neq('status', 'void'),
     db.from('project_selections').select('id, item, status, needed_by').eq('project_id', params.id),
     // Compliance is company-wide, not per project - a lapsed certificate is
     // lapsed everywhere. Narrowed to the companies actually on THIS job below.
@@ -251,6 +251,27 @@ export async function GET(request: Request, { params }: { params: { id: string }
     waitingOnOthers,
     upcoming,
     inspections: booked,
+    // WHAT IS ON SITE TODAY, as raw rows for the browser to sort into a day.
+    //
+    // Everything here was already fetched above - no extra round trip, which is
+    // the whole reason it is assembled in this route rather than a new one.
+    //
+    // The DAY is decided in the browser (`todayOnJob` + `todayIso`), not here:
+    // a calendar date belongs to whoever is living it, and the server has no
+    // idea what timezone that is. The same reason the client sends its own
+    // `completed_date` when an inspection passes.
+    todayFeed: {
+      inspections: (inspections ?? []).map((i: any) => ({
+        id: i.id, type: i.type, trade: i.trade, status: i.status,
+        requested_date: i.requested_date, scheduled_date: i.scheduled_date, scheduled_time: i.scheduled_time,
+      })),
+      schedule: (schedule ?? []).map((s: any) => ({
+        id: s.id, label: s.label, start_date: s.start_date, end_date: s.end_date,
+      })),
+      tasks: (tasks ?? []).map((t: any) => ({
+        id: t.id, title: t.title, due_date: t.due_date, status: t.status,
+      })),
+    },
     tasks: { open: openTasks.length, overdue: overdueTasks.length },
     subcontracts: subs.length,
   })

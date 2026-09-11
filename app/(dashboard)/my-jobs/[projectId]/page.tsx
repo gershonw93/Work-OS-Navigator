@@ -18,6 +18,7 @@ import { Label } from '@/components/ui/label'
 import { contractAmountLabel } from '@/lib/contract-amount'
 import { parseDate, formatDate } from '@/lib/dates'
 import { inspectionDate } from '@/lib/inspection-status'
+import { TodayStrip } from '@/components/projects/today-strip'
 
 type Tab = 'overview' | 'tasks' | 'rfis' | 'inspections' | 'invoices' | 'compliance'
 
@@ -529,6 +530,16 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
       {/* Overview tab */}
       {activeTab === 'overview' && (
         <div className="space-y-4">
+          {/* The day, on the screen a sub actually opens. The Master Calendar
+              is the only other place that gathers one and it is admins and
+              managers only, so nobody standing on the site could see what was
+              coming - including an inspector booked for this morning. */}
+          <TodayStrip
+            projectId={params.projectId}
+            title="Today on this job"
+            inspections={inspections ?? []}
+            tasks={tasks ?? []}
+          />
           {(subcontracts ?? []).map((sub: any) => {
             const billingType = sub.billing_type ?? 'milestone'
             const subInvoices = (data?.invoices ?? []).filter((inv: any) => inv.subcontract_id === sub.id)

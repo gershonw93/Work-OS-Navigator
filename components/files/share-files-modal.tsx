@@ -78,14 +78,17 @@ export function ShareFilesModal({
       const res = await fetch('/api/directory', { headers: { Authorization: `Bearer ${await token()}` } })
       if (!res.ok) return
       const d = await res.json()
-      const list: Contact[] = [
-        ...(d.contacts ?? []).map((c: any) => ({
-          id: `contact:${c.id}`, name: c.name, email: c.email ?? null, company: c.company ?? null, kind: c.type || 'Contact',
-        })),
-        ...(d.companies ?? []).map((c: any) => ({
-          id: `company:${c.id}`, name: c.name, email: c.email ?? null, company: null, kind: c.type || 'Company',
-        })),
-      ].filter(c => c.name)
+      // `contact_email`, NOT `email`. There is no `email` column on `companies`
+      // and never was, so `c.email ?? null` was undefined for every row: picking
+      // somebody from the directory filled their NAME and blanked the address,
+      // which reads as having chosen a person the Send box then refuses.
+      //
+      // The `contacts` half is gone with it. That table holds no rows, and
+      // `/api/directory` no longer returns it - everything the directory shows
+      // lives in `companies`.
+      const list: Contact[] = (d.companies ?? []).map((c: any) => ({
+        id: `company:${c.id}`, name: c.name, email: c.contact_email ?? null, company: null, kind: c.type || 'Company',
+      })).filter((c: Contact) => c.name)
       setContacts(list)
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps

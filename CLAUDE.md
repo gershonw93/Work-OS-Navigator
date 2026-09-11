@@ -16,7 +16,7 @@ production branch.** Do NOT ask the user to merge or deploy.
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-101.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-102.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - IMPORTANT: verify every column you `.select()` actually exists - Supabase
   returns `data: null` for an unknown column, so a typo reads as "not found"
@@ -35,6 +35,18 @@ production branch.** Do NOT ask the user to merge or deploy.
   uninsured. `??` chaining two guesses is the tell: nobody chains a fallback for
   a key they have read. `lib/compliance-report.ts` is the one reader, and it
   takes the route's own key names as its argument names.
+- **AND THE TABLE ITSELF, NOT JUST THE COLUMN.** `lib/inspection-contacts.ts`
+  read `contacts` for the Directory's inspectors. `contacts` HOLDS ZERO ROWS -
+  every door that files one (the picker's Quick add, the permits page, Add
+  Contact) POSTs to `/api/directory`, which inserts into `companies` with
+  `type = 'inspector'`. There are 21 there and none anywhere else, so the
+  Directory half of "who do I call" never produced a line: a query against the
+  wrong table comes back `[]`, which renders exactly like "you have not added
+  any". `/api/directory` GET was also returning an always-empty `contacts: []`
+  that two callers merged into their lists, and `share-files-modal` read
+  `c.email` off a `companies` row that has `contact_email` - so choosing
+  somebody from the directory filled their NAME and blanked the address.
+  Pinned in `contact-picker.ts`, and the red-check is putting `contacts` back.
 - A TYPE THAT DESCRIBES NO TABLE IS NOT CHECKED BY ANYTHING. The same report
   declared `doc_type`, `subcontractor_name` and `company_name`; a
   `compliance_documents` row has `type` and `company_id` and none of the three,
@@ -359,6 +371,21 @@ production branch.** Do NOT ask the user to merge or deploy.
   Adding a REQUIREMENT to a form means writing it into that function, never into
   the `disabled` condition - a rule enforced by a greyed-out button is a rule
   nobody is ever told about.
+- **A FIELD THAT TAKES ANYTHING WILL BE GIVEN ANYTHING.** The inspector
+  picker's Quick add has two boxes, Full name and Phone, and validated neither -
+  so a surname typed into the second saved without a word (`name: 'John'`,
+  `phone: 'Dohr'`), and the inspections card then offered it as a tap-to-call
+  link that dials nothing. `quickAddProblem` (`lib/contact-quick-add.ts`) is
+  asked by the form AND the route, and `whoToCall` refuses to make a `tel:` link
+  out of a string with no digit in it - the guard on the way in stops the next
+  one, the guard on the way out covers the ones already stored. The test is
+  deliberately loose (does it contain a digit) because anything stricter refuses
+  `321-638-0808 x2231`; the thing to catch was a WORD.
+- A PICKER MUST NOT OFFER TO ADD WHAT IT IS ALREADY SHOWING YOU. The same
+  dropdown listed "QA Test Inspector" with a tick beside it and, underneath,
+  `Quick add "QA Test Inspector"…`. The row rendered unconditionally and never
+  looked at the list it sat under. `alreadyListed` is asked of the FILTERED
+  options, so the offer and what is in front of you cannot disagree.
 - A FIELD IS MARKED OR IT IS GUESSED AT. Add Subcontractor had eleven fields, of
   which one carried a `*`, two said "(optional)" and eight said nothing - so
   payment terms and dates read as required when a sub only ever needed a name
@@ -457,6 +484,16 @@ production branch.** Do NOT ask the user to merge or deploy.
   status dropdown and its PATCH beside it did not, so a selection reached
   "Chosen" with nothing chosen. `ACCEPTED_STATUSES` in `lib/selections.ts` is
   the one set both ask.
+- A VIEW THAT GATHERS A DAY MUST BE OPENABLE BY THE PEOPLE LIVING IT. "Whoever
+  is on the job site should see what's coming for that day" - and the Master
+  Calendar, the only screen that gathers one, is `admin`/`manager` only, so a
+  foreman, office staff, a worker or a sub could not open it. It is also a month
+  grid with no "what is next", so even an admin had to know which square to look
+  in: an inspection booked for the 15th was invisible on the 11th. `lib/today.ts`
+  (pure) answers the day and `TodayStrip` shows it on the project Overview and
+  My Jobs. A REQUESTED inspection appears there under its own kind - "needs
+  booking" - never among the day's appointments, which is the same rule that
+  took 14 unbooked ones out of everyone's Outlook.
 - An activity feed row links to the record it is ABOUT (`lib/activity-href.ts`).
   All 34 event types linked to `/plans`; the tab is not derivable from the type
   string, so it is a table pinned against the icon table it mirrors.

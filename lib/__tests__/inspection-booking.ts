@@ -280,6 +280,24 @@ ok(/const scheduled_date = booked_with \? /.test(post),
 ok(/whoToCall\(/.test(post) && /callLine\(/.test(post),
   'the notification carries the number too, so the scheduler has it before opening anything')
 
+// ── and it reads the table the app actually writes to ───────────────────────
+//
+// THE BUG I SHIPPED IN #432. This queried `contacts` for Directory inspectors,
+// and `contacts` holds ZERO ROWS - every door that files an inspector (the
+// picker's Quick add, the permits page, Add Contact) POSTs to /api/directory,
+// which inserts into `companies`. So the Directory half of "who do I call" has
+// never produced one line. Not an error and not an empty state anybody could
+// see: a query against the wrong table comes back `[]`, which renders exactly
+// like "you have not added any".
+ok(!/from\('contacts'\)/.test(post),
+  'THE BUG: the inspections route no longer reads `contacts`, which has no rows')
+ok(/from\('companies'\)[\s\S]{0,120}?\.eq\('type', 'inspector'\)/.test(post),
+  "...it reads `companies` where the app actually files them")
+ok(/added_by_company_id\.eq\.\$\{owner\}/.test(post),
+  'and it is scoped to the job\'s own company - an address book is not shared')
+ok(!/from\('contacts'\)/.test(code('app/api/directory/route.ts')),
+  'and the directory route stopped returning an always-empty contacts array beside it')
+
 // ── the calendar and the feed only ever see booked rows ─────────────────────
 for (const f of [
   'app/api/master/calendar/route.ts',

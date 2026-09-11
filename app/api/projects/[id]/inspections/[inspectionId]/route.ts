@@ -257,10 +257,17 @@ export async function PATCH(
       user.id,
     )
     if (recipients.length) {
+      // THE MESSAGE FOLLOWS THE STATE. It said "Book the inspector when you
+      // can" in every case - including on an inspection that was already
+      // booked, which is the only case the button used to appear in. So the one
+      // sentence it ever sent was an instruction to do something already done.
+      const nextStep = inspection.scheduled_date
+        ? ` The visit is booked for ${inspection.scheduled_date}${inspection.scheduled_time ? ` ${inspection.scheduled_time}` : ''} - nothing else to do.`
+        : ' Book the inspector when you can.'
       await notify({
         db, userIds: recipients, type: 'inspection_ready',
         title: 'Ready for inspection',
-        message: `${updates.ready_marked_by} marked ${label}${at} ready for inspection. Book the inspector when you can.`,
+        message: `${updates.ready_marked_by} marked ${label}${at} ready for inspection.${nextStep}`,
         link: `/projects/${params.id}/inspections?inspection=${params.inspectionId}`,
       })
     }

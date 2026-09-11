@@ -12,6 +12,34 @@ const admin = () => createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
+/**
+ * THE DIRECTORY'S INSPECTORS - OUT OF `companies`, WHICH IS WHERE THEY LIVE.
+ *
+ * This read `contacts` from the day it was written in #432, and `contacts`
+ * holds ZERO ROWS. Every door that files an inspector - the picker's Quick add,
+ * the permits page's "save this inspector", Add Contact in the Directory -
+ * POSTs to /api/directory, which inserts into `companies` with
+ * `type = 'inspector'`. There are 21 of them there and none anywhere else.
+ *
+ * So the Directory half of "who do I call" has never produced a single line.
+ * Not an error, not an empty state anybody could see: a query against the wrong
+ * table comes back `[]`, which renders exactly like "you have not added any" -
+ * the same silent failure as the Compliance Report reading a key the route does
+ * not answer with. Check the table, the same as you check the column.
+ *
+ * Scoped to the job's own GC company, plus rows nobody claimed (the demo seed),
+ * because the picker stamps `added_by_company_id` from whoever added them and a
+ * company must not read another company's address book.
+ */
+async function directoryInspectors(db: ReturnType<typeof admin>, projectId: string) {
+  const { data: proj } = await db.from('projects').select('gc_company_id').eq('id', projectId).maybeSingle()
+  const owner = (proj as any)?.gc_company_id
+  let q = db.from('companies').select('name, type, phone, extra').eq('type', 'inspector')
+  if (owner) q = q.or(`added_by_company_id.eq.${owner},added_by_company_id.is.null`)
+  const { data } = await q.order('name')
+  return (data ?? []) as any[]
+}
+
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -40,11 +68,11 @@ export async function GET(request: Request, { params }: { params: { id: string }
   // two different numbers. Best-effort: a failed lookup costs a list, not a page.
   const [permitsRes, contactsRes] = await Promise.all([
     db.from('permits').select('permit_type, issuing_authority, inspector_name, inspector_phone').eq('project_id', params.id),
-    db.from('contacts').select('name, type, phone, extra').eq('type', 'inspector'),
+    directoryInspectors(db, params.id),
   ])
   const callTargets = whoToCall({
     permits: (permitsRes.data ?? []) as any[],
-    contacts: (contactsRes.data ?? []) as any[],
+    contacts: contactsRes,
   })
 
   return NextResponse.json({ inspections: inspections ?? [], callTargets })
@@ -195,12 +223,12 @@ export async function POST(request: Request, { params }: { params: { id: string 
   // slow query must never stop the request being filed.
   const [permitsRes, contactsRes] = await Promise.all([
     db.from('permits').select('permit_type, issuing_authority, inspector_name, inspector_phone').eq('project_id', params.id),
-    db.from('contacts').select('name, type, phone, extra').eq('type', 'inspector'),
+    directoryInspectors(db, params.id),
   ])
   const contact = callLine(whoToCall({
     inspection: { inspector_name, inspector_phone, scheduling_phone },
     permits: (permitsRes.data ?? []) as any[],
-    contacts: (contactsRes.data ?? []) as any[],
+    contacts: contactsRes,
   }))
   // The assigned scheduler because it is their job - structural, not a setting -
   // PLUS anyone the company wants copied in. Never one instead of the other.

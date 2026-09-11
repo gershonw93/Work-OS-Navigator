@@ -49,6 +49,42 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-11',
+    title: 'Today on the job, and the inspector picker stops making things up',
+    items: [
+      {
+        kind: 'new',
+        title: 'Today on site',
+        text: 'The top of a job\'s Overview, and of a job in My Jobs, now says what is happening today: inspections booked for today, who is on site, tasks due, and anything still waiting to be booked. The Master Calendar is admins and managers only, so until now nobody standing on the site could see what was coming without being told.',
+        href: '/my-jobs',
+      },
+      {
+        kind: 'fixed',
+        title: 'Inspections list your Directory inspectors',
+        text: 'The "who do I call" panel on an inspection was only ever showing contacts off the job\'s permits. It was looking in the wrong place for the rest, so every inspector you have saved in the Directory was missing from it - with no error, just a shorter list. They are all there now.',
+        help: 'inspections',
+      },
+      {
+        kind: 'fixed',
+        title: 'The inspector picker stops offering to add somebody twice',
+        text: 'Searching for a contact you already have still offered "Quick add" for the same name underneath it. It only offers to add a name that is not already in the list you are looking at.',
+        help: 'directory',
+      },
+      {
+        kind: 'fixed',
+        title: 'A phone box that takes a word says so',
+        text: 'Quick add saved anything you typed, so a surname in the phone box became somebody\'s phone number - and then a tap-to-call link that dialled nothing. It now says what the box is for, and the Save button tells you what is missing instead of sitting greyed out. Numbers already stored that were not numbers have been cleared.',
+        help: 'directory',
+      },
+      {
+        kind: 'improved',
+        title: '"Work is ready" before it is booked, too',
+        text: 'A sub cannot request an inspection - only the GC can - so Mark ready is the sub\'s way of saying the work is finished. It only existed once the inspection was already booked, so a crew that finished early had nothing to press. It is on an unbooked inspection now, and the notification no longer tells the office to book something that is already booked.',
+        help: 'inspections',
+      },
+    ],
+  },
+  {
+    date: '2026-09-11',
     title: 'Inspections: the date you asked for and the date you got are two different things',
     items: [
       {

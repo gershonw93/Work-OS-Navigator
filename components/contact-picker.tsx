@@ -5,6 +5,7 @@ import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { ChevronDown, Plus, Check, Search, UserPlus } from 'lucide-react'
+import { quickAddProblem, alreadyListed } from '@/lib/contact-quick-add'
 
 interface Contact {
   id: string
@@ -45,6 +46,7 @@ export function ContactPicker({
   const [quickPhone, setQuickPhone] = useState('')
   const [quickEmail, setQuickEmail] = useState('')
   const [saving, setSaving] = useState(false)
+  const [quickError, setQuickError] = useState<string | null>(null)
   const wrapperRef = useRef<HTMLDivElement>(null)
 
   // Keep query in sync when value changes externally (e.g. form reset)
@@ -81,6 +83,12 @@ export function ContactPicker({
   const filtered = contacts.filter(c =>
     c.name.toLowerCase().includes(query.toLowerCase())
   )
+  // OFFERING TO ADD WHAT IS ALREADY ON THE LIST. Reported against a dropdown
+  // showing "QA Test Inspector" with a tick beside it AND, under it, `Quick add
+  // "QA Test Inspector"…`. The row rendered unconditionally and never looked at
+  // the list it was sitting under. Asked of `filtered` rather than of every
+  // contact, so the offer and the options in front of you cannot disagree.
+  const offerQuickAdd = !alreadyListed(query, filtered.map(c => c.name))
 
   function select(c: Contact) {
     setQuery(c.name)
@@ -91,7 +99,12 @@ export function ContactPicker({
   }
 
   async function handleQuickAdd() {
-    if (!quickName.trim()) return
+    // ASKED HERE AND AT THE ROUTE, and answered rather than greyed out. The
+    // button used to be `disabled` until a name was typed, which is a rule
+    // nobody is ever told about - and it said nothing at all about the phone.
+    const problem = quickAddProblem(quickName, quickPhone)
+    if (problem) { setQuickError(problem); return }
+    setQuickError(null)
     setSaving(true)
     const { data: { session } } = await supabase.auth.getSession()
     const res = await fetch('/api/directory', {
@@ -104,15 +117,18 @@ export function ContactPicker({
         phone: quickPhone.trim() || null,
       }),
     })
-    const json = await res.json()
+    const json = await res.json().catch(() => ({}))
     setSaving(false)
-    if (json.company) {
-      const newContact: Contact = { ...json.company }
-      setContacts(prev => [...prev, newContact])
-      select(newContact)
+    // A refusal the screen throws away is a button that looks like it worked.
+    if (!res.ok || !json.company) {
+      setQuickError(json?.error ?? `That did not save (${res.status}). Nothing has been lost - try again.`)
+      return
     }
+    const newContact: Contact = { ...json.company }
+    setContacts(prev => [...prev, newContact])
+    select(newContact)
     setShowQuickAdd(false)
-    setQuickName(''); setQuickPhone(''); setQuickEmail('')
+    setQuickName(''); setQuickPhone(''); setQuickEmail(''); setQuickError(null)
   }
 
   return (
@@ -156,16 +172,16 @@ export function ContactPicker({
             </button>
           ))}
 
-          {!showQuickAdd ? (
+          {!showQuickAdd ? (offerQuickAdd && (
             <button
               type="button"
               className="w-full flex items-center gap-2 px-3 py-2.5 border-t border-line-soft hover:bg-surface text-sm text-accent-fg font-medium transition-colors"
-              onClick={() => { setShowQuickAdd(true); setQuickName(query) }}
+              onClick={() => { setShowQuickAdd(true); setQuickName(query); setQuickError(null) }}
             >
               <UserPlus className="h-3.5 w-3.5" />
               Quick add{query ? ` "${query}"` : ''}…
             </button>
-          ) : (
+          )) : (
             <div className="border-t border-line-soft px-3 py-3 space-y-2">
               <p className="text-xs font-semibold text-muted-fg uppercase tracking-wide">Quick Add</p>
               <input
@@ -173,14 +189,14 @@ export function ContactPicker({
                 type="text"
                 placeholder="Full name *"
                 value={quickName}
-                onChange={e => setQuickName(e.target.value)}
+                onChange={e => { setQuickName(e.target.value); setQuickError(null) }}
                 className="w-full rounded border border-line px-2 py-1.5 text-sm focus:border-accent focus:outline-none"
               />
               <input
                 type="tel"
                 placeholder="Phone (optional)"
                 value={quickPhone}
-                onChange={e => setQuickPhone(e.target.value)}
+                onChange={e => { setQuickPhone(e.target.value); setQuickError(null) }}
                 className="w-full rounded border border-line px-2 py-1.5 text-sm focus:border-accent focus:outline-none"
               />
               <input
@@ -190,11 +206,12 @@ export function ContactPicker({
                 onChange={e => setQuickEmail(e.target.value)}
                 className="w-full rounded border border-line px-2 py-1.5 text-sm focus:border-accent focus:outline-none"
               />
+              {quickError && <p role="alert" className="text-xs text-danger">{quickError}</p>}
               <div className="flex gap-2 pt-1">
                 <button
                   type="button"
                   onClick={handleQuickAdd}
-                  disabled={saving || !quickName.trim()}
+                  disabled={saving}
                   className="flex-1 rounded bg-accent text-accent-ink text-xs font-semibold py-1.5 hover:bg-accent disabled:opacity-50 transition-colors"
                 >
                   {saving ? 'Saving…' : 'Add & Select'}
