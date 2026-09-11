@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { quickAddProblem } from '@/lib/contact-quick-add'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -95,22 +96,14 @@ export async function GET(request: Request) {
     has_account: companiesWithAccount.has(c.id),
   }))
 
-  // Try to fetch contacts table - gracefully fall back if it doesn't exist
-  let contactsResult: unknown[] = []
-  try {
-    const { data: contacts, error } = await db
-      .from('contacts')
-      .select('*')
-      .order('name')
-    if (!error) {
-      contactsResult = contacts ?? []
-    }
-  } catch {
-    // contacts table doesn't exist - return empty array
-    contactsResult = []
-  }
-
-  return NextResponse.json({ companies: companiesResult, contacts: contactsResult })
+  // `contacts` IS NOT A TABLE THIS APP WRITES TO. It holds zero rows: the
+  // Directory's Add Contact, the inspector picker's Quick add and the permits
+  // page's "save this inspector" all POST here, and this route inserts into
+  // `companies`. The read used to sit here returning `[]` for ever, and two
+  // callers merged that empty array into their lists as though it meant
+  // something. Removed rather than left as a fallback nobody can distinguish
+  // from "there are no contacts".
+  return NextResponse.json({ companies: companiesResult, contacts: [] })
 }
 
 export async function POST(request: Request) {
@@ -145,6 +138,12 @@ export async function POST(request: Request) {
   if (!name || !contact_email) {
     return NextResponse.json({ error: 'Name and contact email are required' }, { status: 400 })
   }
+
+  // The same question the Quick add form asks, asked at the door as well. A
+  // surname in the phone box saved without a word, and the inspections card
+  // then offered it as a tap-to-call link that dials nothing.
+  const problem = quickAddProblem(name, phone)
+  if (problem) return NextResponse.json({ error: problem }, { status: 400 })
 
   const validTypes = ['gc', 'subcontractor', 'inspector', 'supplier', 'worker', 'other']
   const safeType = validTypes.includes(type) ? type : 'other'

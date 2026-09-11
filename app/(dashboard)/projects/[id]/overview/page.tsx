@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { StatStrip } from '@/components/ui/stat-strip'
+import { TodayStrip } from '@/components/projects/today-strip'
+import type { TodayInput } from '@/lib/today'
 import {
   ArrowRight, Banknote, CalendarDays, CheckCircle2, ClipboardCheck,
   FileSignature, HardHat, Inbox, MessageSquare, Palette, Receipt, Send,
@@ -33,6 +35,8 @@ interface Overview {
   waitingOnOthers: Item[]
   upcoming: { id: string; label: string; start_date: string; end_date: string | null; inDays: number }[]
   inspections: { id: string; label: string; date: string; inDays: number }[]
+  /** Raw rows for the Today strip - the DAY is decided in the browser. */
+  todayFeed?: Omit<TodayInput, 'projectId'>
   tasks: { open: number; overdue: number }
   subcontracts: number
 }
@@ -170,6 +174,10 @@ export default function OverviewPage({ params }: { params: { id: string } }) {
 
   return (
     <div className="space-y-6">
+      {/* FIRST, because it is the question somebody standing on the site is
+          actually asking. The Master Calendar answers it and is admins-only. */}
+      <TodayStrip projectId={params.id} {...(data.todayFeed ?? {})} />
+
       {/* Money position. PHONE: one card, the numbers ink, colour only on an
           outstanding balance. DESKTOP (lg+): the four tiles it always had. */}
       <StatStrip label="Money" className="lg:hidden" items={[
