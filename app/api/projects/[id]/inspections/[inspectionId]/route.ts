@@ -5,17 +5,25 @@ import { audienceFor } from '@/lib/notification-audience'
 import { withStructural } from '@/lib/notification-routing'
 import { notify } from '@/lib/notify'
 import { requirePermission, denied } from '@/lib/api-guard'
-import { clearsCompletion, notifiesRoutedAudience, scheduleProblem } from '@/lib/inspection-status'
+import { clearsBooking, clearsCompletion, notifiesRoutedAudience, scheduleProblem } from '@/lib/inspection-status'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
+// A whitelist with a field missing fails exactly like a rejection, and only
+// one of them says so - so every column a form posts is listed here.
+//
+// `booked_at` and `booked_by_name` are deliberately NOT on it: they are
+// DERIVED from the booking, stamped below from the actor and the clock. A
+// client that could set them could date a booking to last year, the same
+// reason `completed_at` on a task is never taken from a body.
 const ALLOWED_FIELDS = [
   'type',
   'trade',
   'status',
+  'requested_date',
   'scheduled_date',
   'completed_date',
   'inspector_name',
@@ -28,6 +36,8 @@ const ALLOWED_FIELDS = [
   'ready_marked_by',
   'ready_marked_at',
   'failure_reason',
+  'booked_with',
+  'booking_reference',
 ] as const
 
 export async function PATCH(
@@ -63,21 +73,51 @@ export async function PATCH(
   // office, the card read "No date yet", and the overview's booked list never
   // showed it because that list needs a date. Refused HERE and not only in the
   // form, because a form is not where invalid states are prevented.
+  //
+  // ...AND THE DATE ALONE WAS NOT ENOUGH, which is the half this guard was
+  // missing. The requester typed their PREFERRED date into `scheduled_date`,
+  // so "is there a date?" was always satisfied by somebody's wish and one tap
+  // on the Scheduled pill turned it into a confirmed appointment on the
+  // company calendar. A booking is a thing a person DID: who they reached is
+  // what proves it, the same shape as the failed-needs-a-reason guard below.
   if (updates.status === 'scheduled') {
     const { data: current } = await db
-      .from('inspections').select('scheduled_date')
+      .from('inspections').select('scheduled_date, booked_with, booked_at')
       .eq('id', params.inspectionId).eq('project_id', params.id).maybeSingle()
     const effective = 'scheduled_date' in updates
       ? (updates.scheduled_date as string | null)
       : (current as any)?.scheduled_date
-    const problem = scheduleProblem('scheduled', effective)
+    const effectiveWith = 'booked_with' in updates
+      ? (updates.booked_with as string | null)
+      : (current as any)?.booked_with
+    const problem = scheduleProblem('scheduled', effective, effectiveWith)
     if (problem) return NextResponse.json({ error: problem }, { status: 400 })
+
+    // WHEN the call was made and WHO made it, derived rather than posted -
+    // neither is on ALLOWED_FIELDS. Stamped only on the move INTO booked, so
+    // editing a note on an already-booked inspection cannot re-date the call.
+    if (!(current as any)?.booked_at) {
+      updates.booked_at = new Date().toISOString()
+      updates.booked_by_name = (profile as any)?.full_name ?? null
+    }
   }
 
   // #6 - a record cannot be pending AND completed. Moving back to a waiting
   // state clears the stamp, or the card reads "PENDING Re-inspection" beside
   // "Completed 9/5/2026" and tells two stories about the same day.
   if (clearsCompletion(updates.status)) updates.completed_date = null
+
+  // ...and the same for the BOOKING. The calendar and the ICS feed show any
+  // inspection with a `scheduled_date`, whatever its status - so a row put back
+  // to "requested" while keeping its booked date would stay in everyone's
+  // Outlook as an appointment the app no longer believes in.
+  if (clearsBooking(updates.status)) {
+    updates.scheduled_date = null
+    updates.booked_with = null
+    updates.booking_reference = null
+    updates.booked_at = null
+    updates.booked_by_name = null
+  }
 
   // #6 - a failure with no reason is the least useful record in the app, and
   // "what keeps failing" is a question a GC actually asks.
@@ -133,7 +173,7 @@ export async function PATCH(
   // promises "every action on this project". Creation and destruction of
   // compliance records is most of what an audit trail is for.
   const STATUS_HISTORY: Record<string, { type: string; say: string }> = {
-    scheduled: { type: 'inspection_scheduled', say: 'scheduled' },
+    scheduled: { type: 'inspection_scheduled', say: 'booked' },
     passed: { type: 'inspection_passed', say: 'passed' },
     failed: { type: 'inspection_failed', say: 'failed' },
     pending_reinspection: { type: 'inspection_reinspection', say: 'sent back for re-inspection' },
@@ -143,7 +183,7 @@ export async function PATCH(
   const hist = newStatus ? STATUS_HISTORY[newStatus] : undefined
   if (hist) {
     const when = newStatus === 'scheduled' && inspection.scheduled_date
-      ? ` for ${inspection.scheduled_date}` : ''
+      ? ` for ${inspection.scheduled_date}${inspection.booked_with ? ` with ${inspection.booked_with}` : ''}` : ''
     const why = newStatus === 'failed' && inspection.failure_reason
       ? `: ${inspection.failure_reason}` : ''
     await logActivity(
@@ -240,7 +280,11 @@ export async function PATCH(
     const { data: proj } = await db.from('projects').select('name, gc_company_id').eq('id', params.id).single()
     const at = proj?.name ? ` at ${proj.name}` : ''
     let msg = ''
-    if (newStatus === 'scheduled') msg = `Your ${label} inspection${at} is scheduled${inspection.scheduled_date ? ` for ${inspection.scheduled_date}${inspection.scheduled_time ? ` ${inspection.scheduled_time}` : ''}` : ''}.`
+    // BOOKED, and by whom - the half that was missing. "is scheduled for the
+    // 25th" was the same sentence whether somebody had rung the township or
+    // tapped a pill, so naming who was reached is what tells the field which
+    // of the two happened.
+    if (newStatus === 'scheduled') msg = `Your ${label} inspection${at} is booked${inspection.scheduled_date ? ` for ${inspection.scheduled_date}${inspection.scheduled_time ? ` ${inspection.scheduled_time}` : ''}` : ''}${inspection.booked_with ? ` with ${inspection.booked_with}` : ''}.${inspection.booking_reference ? ` Ref ${inspection.booking_reference}.` : ''}`
     else if (newStatus === 'passed') msg = `✅ ${label} inspection${at} PASSED.`
     else if (newStatus === 'failed') msg = `❌ ${label} inspection${at} FAILED.${inspection.failure_reason ? ` ${inspection.failure_reason}` : ''}`
     else if (newStatus === 'pending_reinspection') msg = `${label} inspection${at} needs a re-inspection.`

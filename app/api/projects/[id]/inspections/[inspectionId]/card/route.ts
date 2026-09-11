@@ -73,7 +73,19 @@ export async function POST(request: Request, { params }: { params: { id: string;
     fillIfEmpty('inspector_name', fields.inspector_name)
     fillIfEmpty('inspector_phone', fields.inspector_phone)
     fillIfEmpty('scheduling_phone', fields.scheduling_phone)
-    fillIfEmpty('scheduled_date', fields.scheduled_date)
+    // A DATE ON ITS OWN PUTS THE ROW ON EVERYONE'S CALENDAR. The master
+    // calendar and the subscribed ICS feed show any inspection carrying a
+    // `scheduled_date`, whatever its status - so filling that column silently
+    // asserts a confirmed appointment. The card IS evidence that one happened,
+    // so it writes the evidence beside the date rather than the date alone.
+    if (fields.scheduled_date && !(existing as any)?.scheduled_date) {
+      updates.scheduled_date = fields.scheduled_date
+      if (!(existing as any)?.booked_with) {
+        updates.booked_with = fields.inspector_name
+          ? `${fields.inspector_name} (read from the inspector's card)`
+          : "Read from the inspector's card"
+      }
+    }
     fillIfEmpty('completed_date', fields.completed_date)
     if (fields.notes && !(existing as any)?.notes) updates.notes = fields.notes
   }

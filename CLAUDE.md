@@ -16,7 +16,7 @@ production branch.** Do NOT ask the user to merge or deploy.
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-099.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-100.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - IMPORTANT: verify every column you `.select()` actually exists - Supabase
   returns `data: null` for an unknown column, so a typo reads as "not found"
@@ -403,6 +403,26 @@ production branch.** Do NOT ask the user to merge or deploy.
   genuinely open (measure & quote), which is the only case still asked. Picking
   a package writes the derived answer, and a stored template's pair is
   overridden by it, because a stored pair can disagree with itself.
+- ONE COLUMN MUST NOT HOLD A WISH AND AN AGREEMENT. `inspections.scheduled_date`
+  was written by the REQUEST form with the date the field wanted, and the card
+  labelled it "Scheduled Date". So the guard on the one-click Scheduled pill -
+  "you cannot be scheduled with no date" - was satisfied by the requester's own
+  wish, and one tap turned a preference into a confirmed appointment nobody had
+  arranged. Worse one layer out: the Master Calendar and the subscribed ICS feed
+  include ANY inspection carrying a `scheduled_date`, whatever its status, so 14
+  merely-requested rows were sitting in people's Outlook as booked. Two columns
+  now (`requested_date`, `scheduled_date`), one labeller (`inspectionDate` -
+  "Needed by" / "Confirmed for"), and the state that CLAIMS a booking has to
+  carry its evidence: `scheduleProblem` demands `booked_with`, the same shape as
+  failed-needs-a-reason. Moving back to requested CLEARS the booking, or the
+  false appointment stays in the feed. Pinned in `inspection-booking.ts`.
+- AND SAY WHAT THE APP DOES NOT DO. "Inspector got the notification - now what?"
+  was a real report, and the answer was that no inspector was ever contacted:
+  the notification goes to whoever books inspections at the company. A workflow
+  that ends in a human picking up a phone has to SAY so on the screen, and then
+  hand over the number - gathered from the permits and the Directory
+  (`lib/inspection-contacts.ts`), never re-asked of the person in the field who
+  does not know the township's scheduling line.
 - COMPLIANCE STATUS IS DATE-DRIVEN: a date that has not run out means the
   document is current, whatever the row says, and a date that has passed means
   expired, whatever the row says. The stored status only speaks for a document

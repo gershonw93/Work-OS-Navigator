@@ -63,7 +63,7 @@ export function walk(rel: string, out: string[] = []): string[] {
 /**
  * The combined idempotent migration, whatever it is called this week.
  *
- * Its name carries the highest migration number (`_combined_008-099.sql`), so
+ * Its name carries the highest migration number (`_combined_008-100.sql`), so
  * every test that named it directly broke on the next migration - which is a
  * test failing for a reason nobody would act on, the exact thing the lint
  * config is kept narrow to avoid.

@@ -49,6 +49,37 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-11',
+    title: 'Inspections: the date you asked for and the date you got are two different things',
+    items: [
+      {
+        kind: 'new',
+        title: 'Booking an inspection asks what the inspector told you',
+        text: 'Pressing "Scheduled" used to flip the status on the spot. It now opens a short form: the date they gave you, the time or window, who you spoke to, and the confirmation number if there was one. That record lives on the inspection, so anybody can see it was really booked and by whom.',
+        help: 'inspections',
+      },
+      {
+        kind: 'fixed',
+        title: '"Needed by" and "Confirmed for" are no longer the same field',
+        text: 'The date on a request is when the field needs it. The date on a booking is when the jurisdiction can come. They were one column labelled "Scheduled Date", so a request you had not acted on read like a confirmed appointment - and appeared as one on the Master Calendar and in any subscribed Outlook or Google feed. Requested inspections have been taken off those calendars; they go back on the moment somebody books them.',
+        help: 'inspections',
+        href: '/master-calendar',
+      },
+      {
+        kind: 'improved',
+        title: 'The inspection tells you who to call',
+        text: 'SyteNav does not contact the inspector - somebody has to ring the jurisdiction - and nothing on the screen said so. An inspection waiting to be booked now says it plainly and lists the numbers already on the job: the issuing authority and inspector from your permits, and any inspectors in your Directory. The "inspection to book" notification carries the number too.',
+        help: 'inspections',
+      },
+      {
+        kind: 'fixed',
+        title: 'Inspections in My Jobs show their name again',
+        text: 'On a sub\'s job view every inspection card had a blank heading. It was reading a field that does not exist. Fixed, and the cards now say whether the date is the one requested or the one booked.',
+        href: '/my-jobs',
+      },
+    ],
+  },
+  {
+    date: '2026-09-11',
     title: 'A blank permit or inspection cannot be filed any more',
     items: [
       {

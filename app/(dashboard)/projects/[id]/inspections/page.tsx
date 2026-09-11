@@ -13,7 +13,8 @@ import { ContactPicker } from '@/components/contact-picker'
 import { withStructural } from '@/lib/notification-routing'
 
 import { formatDate, todayDateInput } from '@/lib/dates'
-import { OPEN, CLOSED, isVoid, scheduleProblem, requestProblem } from '@/lib/inspection-status'
+import { OPEN, CLOSED, isVoid, requestProblem, scheduleProblem, inspectionDate } from '@/lib/inspection-status'
+import type { CallTarget } from '@/lib/inspection-contacts'
 import { ACCEPT_SCAN } from '@/lib/file-accept'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 const INSPECTION_TYPES = [
@@ -32,7 +33,13 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }>
 
 interface Inspection {
   id: string; type: string; trade: string | null; status: string
+  // TWO DATES. `requested_date` is what the field asked for; `scheduled_date`
+  // is what the jurisdiction actually gave us. They were one column, labelled
+  // "Scheduled Date", which is how a wish ended up on the company calendar.
+  requested_date: string | null
   scheduled_date: string | null; scheduled_time: string | null; completed_date: string | null
+  booked_with: string | null; booking_reference: string | null
+  booked_at: string | null; booked_by_name: string | null
   inspector_name: string | null; inspector_phone: string | null; scheduling_phone: string | null
   scheduler_profile_id: string | null; scheduler_name: string | null; requested_by_name: string | null
   notes: string | null; ready_marked_by: string | null; ready_marked_at: string | null
@@ -62,7 +69,10 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
   // started on a value.
   const [inspType, setInspType] = useState('')
   const [trade, setTrade] = useState('')
-  const [scheduledDate, setScheduledDate] = useState('')
+  // The REQUEST form asks when you need it by. It never sets the booked date -
+  // booking is a separate act with its own dialog, because it is a thing a
+  // person did on the phone rather than a box on a request.
+  const [requestedDate, setRequestedDate] = useState('')
   const [scheduledTime, setScheduledTime] = useState('')
   const [inspectorName, setInspectorName] = useState('')
   const [inspectorPhone, setInspectorPhone] = useState('')
@@ -91,6 +101,24 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
   const [failing, setFailing] = useState<Inspection | null>(null)
   const [failReason, setFailReason] = useState('')
 
+  // BOOKING IS A STEP, NOT A PILL. Tapping "Scheduled" used to flip the status
+  // on the spot, and its only guard was "is there a date?" - which the
+  // REQUESTER had already satisfied by typing the date they wanted. So one tap
+  // turned somebody's preference into a confirmed appointment that nobody had
+  // arranged, and the Master Calendar and everyone's ICS feed showed it as one.
+  const [booking, setBooking] = useState<Inspection | null>(null)
+  const [bookDate, setBookDate] = useState('')
+  const [bookTime, setBookTime] = useState('')
+  const [bookWith, setBookWith] = useState('')
+  const [bookRef, setBookRef] = useState('')
+  const [bookError, setBookError] = useState<string | null>(null)
+  const [bookSaving, setBookSaving] = useState(false)
+
+  // Who to call, gathered from this job's permits and the Directory rather
+  // than retyped into every request. Sent with the list by the same route, so
+  // the card and the notification cannot offer two different numbers.
+  const [callTargets, setCallTargets] = useState<CallTarget[]>([])
+
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
     return session?.access_token ?? ''
@@ -102,7 +130,11 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
       `/api/projects/${params.id}/inspections${voided ? '?voided=1' : ''}`,
       { headers: { Authorization: `Bearer ${token}` } },
     )
-    if (res.ok) setInspections((await res.json()).inspections)
+    if (res.ok) {
+      const d = await res.json()
+      setInspections(d.inspections ?? [])
+      setCallTargets(d.callTargets ?? [])
+    }
     setLoading(false)
   }
 
@@ -190,7 +222,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
     setSubmitError(null)
     // Asked at the field before anything is sent, from the same module the
     // route asks. A blank request used to reach three schedulers.
-    const problem = requestProblem(inspType, scheduledDate)
+    const problem = requestProblem(inspType, requestedDate)
     if (problem) { setSubmitError(problem); return }
     setSubmitting(true)
     try {
@@ -203,7 +235,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
           body: JSON.stringify({
             type: inspType,
             trade: trade || null,
-            scheduled_date: scheduledDate || null,
+            requested_date: requestedDate || null,
             scheduled_time: scheduledTime || null,
             inspector_name: inspectorName || null,
             inspector_phone: inspectorPhone || null,
@@ -239,9 +271,13 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
     const form = new FormData()
     form.append('inspection_type', inspType)
     if (trade) form.append('trade', trade)
-    if (scheduledDate) form.append('scheduled_date', scheduledDate)
+    if (requestedDate) form.append('requested_date', requestedDate)
     if (scheduledTime) form.append('scheduled_time', scheduledTime)
-    form.append('status', scheduledDate ? 'scheduled' : schedulerId ? 'requested' : 'not_scheduled')
+    // A REQUEST IS NEVER BORN BOOKED. This used to read
+    // `scheduledDate ? 'scheduled' : ...`, so filling in the date you wanted
+    // filed the inspection as already arranged - before anybody had rung
+    // anyone. Booking has its own dialog and its own evidence.
+    form.append('status', schedulerId ? 'requested' : 'not_scheduled')
     if (inspectorName) form.append('inspector_name', inspectorName)
     if (inspectorPhone) form.append('inspector_phone', inspectorPhone)
     if (schedulingPhone) form.append('scheduling_phone', schedulingPhone)
@@ -252,7 +288,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
 
   function resetForm() {
     setEditingInsp(null)
-    setInspType(''); setTrade(''); setScheduledDate(''); setScheduledTime('')
+    setInspType(''); setTrade(''); setRequestedDate(''); setScheduledTime('')
     setInspectorName(''); setInspectorPhone(''); setSchedulingPhone(''); setSchedulerId(''); setNotes('')
   }
 
@@ -261,6 +297,12 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
     // reason too - a rule enforced only in a form is not a rule.
     if (newStatus === 'failed' && !reason && !insp.failure_reason) {
       setFailReason(''); setFailing(insp); return
+    }
+    // "Scheduled" asks what the inspector actually told you. Same shape as
+    // Failed above and for the same reason: the status CLAIMS something
+    // happened, so the thing that happened has to be recorded with it.
+    if (newStatus === 'scheduled' && !insp.booked_with) {
+      openBooking(insp); return
     }
     setActionError(null)
     const token = await getToken()
@@ -289,11 +331,62 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
     fetchInspections()
   }
 
+  function openBooking(insp: Inspection) {
+    setBookError(null)
+    // Prefilled with the date they ASKED for, because it is usually the date
+    // you ask the township for - but it is an editable starting point, not the
+    // answer. The point of the dialog is that somebody types what they were
+    // actually given.
+    setBookDate(insp.scheduled_date ?? insp.requested_date ?? '')
+    setBookTime(insp.scheduled_time ?? '')
+    setBookWith(insp.booked_with ?? '')
+    setBookRef(insp.booking_reference ?? '')
+    setBooking(insp)
+  }
+
+  async function saveBooking(e: React.FormEvent) {
+    e.preventDefault()
+    const insp = booking
+    if (!insp) return
+    setBookError(null)
+    // Asked at the field before anything is sent, from the same module the
+    // route asks - a server's answer can only ever arrive as a message about a
+    // whole request that did not happen.
+    const problem = scheduleProblem('scheduled', bookDate, bookWith)
+    if (problem) { setBookError(problem); return }
+    setBookSaving(true)
+    try {
+      const token = await getToken()
+      const res = await fetch(`/api/projects/${params.id}/inspections/${insp.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          status: 'scheduled',
+          scheduled_date: bookDate,
+          scheduled_time: bookTime || null,
+          booked_with: bookWith.trim(),
+          booking_reference: bookRef.trim() || null,
+        }),
+      })
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}))
+        setBookError(d?.error ?? `That did not save (${res.status}). Nothing has been lost - try again.`)
+        return
+      }
+      setBooking(null)
+      fetchInspections()
+    } catch {
+      setBookError('That did not save - check your connection and try again.')
+    } finally {
+      setBookSaving(false)
+    }
+  }
+
   function openEditInsp(insp: Inspection) {
     setEditingInsp(insp)
     setInspType(insp.type)
     setTrade(insp.trade ?? '')
-    setScheduledDate(insp.scheduled_date ?? '')
+    setRequestedDate(insp.requested_date ?? '')
     setScheduledTime(insp.scheduled_time ?? '')
     setInspectorName(insp.inspector_name ?? '')
     setInspectorPhone(insp.inspector_phone ?? '')
@@ -364,6 +457,8 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
     const isExpanded = expanded === insp.id
     const cfg = STATUS_CONFIG[insp.status] ?? STATUS_CONFIG.not_scheduled
     const Icon = cfg.icon
+    const dates = inspectionDate(insp)
+    const needsBookingCall = !dates.confirmed && !isVoid(insp.status) && insp.status !== 'passed' && insp.status !== 'failed'
     return (
       <div className={cn('rounded-xl border bg-panel overflow-hidden',
         isVoid(insp.status) ? 'border-dashed border-line opacity-70' : 'border-line')}>
@@ -385,9 +480,15 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
               )}
             </div>
             <p className="text-xs text-faint mt-0.5 wrap-anywhere">
-              {insp.scheduled_date ? `${formatDate(insp.scheduled_date)}${insp.scheduled_time ? ` ${insp.scheduled_time}` : ''}` : 'No date yet'}
-              {insp.inspector_name && ` · ${insp.inspector_name}`}
-              {insp.status === 'requested' && insp.scheduler_name && ` · ${insp.scheduler_name} to schedule`}
+              {/* "Needed by" until somebody books it, "Confirmed for" after.
+                  One definition (inspectionDate), because the whole bug was a
+                  wish wearing the word "Scheduled". */}
+              {dates.value
+                ? `${dates.label} ${formatDate(dates.value)}${dates.confirmed && insp.scheduled_time ? ` ${insp.scheduled_time}` : ''}`
+                : 'No date yet'}
+              {dates.confirmed && insp.booked_with && ` · booked with ${insp.booked_with}`}
+              {!dates.confirmed && insp.inspector_name && ` · ${insp.inspector_name}`}
+              {insp.status === 'requested' && insp.scheduler_name && ` · ${insp.scheduler_name} to book`}
             </p>
           </div>
           {isExpanded ? <ChevronUp className="h-4 w-4 text-faint shrink-0" /> : <ChevronDown className="h-4 w-4 text-faint shrink-0" />}
@@ -396,11 +497,24 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
         {isExpanded && (
           <div className="border-t border-line-soft px-5 py-5 space-y-4">
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm [&>div]:min-w-0 [&>div]:[overflow-wrap:anywhere]">
-              {insp.scheduled_date && (
-                <div><p className="text-xs text-faint">Scheduled Date</p><p className="font-medium text-ink-soft">{formatDate(insp.scheduled_date)}</p></div>
+              {/* BOTH dates, never one pretending to be the other. The
+                  requested one stays visible after booking, because "we asked
+                  for the 25th and got the 30th" is the fact somebody in the
+                  field needs and it used to be overwritten. */}
+              {insp.requested_date && (
+                <div><p className="text-xs text-faint">Needed by</p><p className="font-medium text-ink-soft">{formatDate(insp.requested_date)}</p></div>
               )}
-              {insp.scheduled_time && (
-                <div><p className="text-xs text-faint">Time</p><p className="font-medium text-ink-soft">{insp.scheduled_time}</p></div>
+              {insp.scheduled_date && (
+                <div><p className="text-xs text-faint">Confirmed for</p><p className="font-medium text-ink-soft">{formatDate(insp.scheduled_date)}{insp.scheduled_time ? ` · ${insp.scheduled_time}` : ''}</p></div>
+              )}
+              {insp.booked_with && (
+                <div><p className="text-xs text-faint">Booked with</p><p className="font-medium text-ink-soft">{insp.booked_with}</p></div>
+              )}
+              {insp.booking_reference && (
+                <div><p className="text-xs text-faint">Confirmation no.</p><p className="font-medium text-ink-soft">{insp.booking_reference}</p></div>
+              )}
+              {insp.booked_at && (
+                <div><p className="text-xs text-faint">Booked</p><p className="font-medium text-ink-soft">{formatDate(insp.booked_at)}{insp.booked_by_name ? ` by ${insp.booked_by_name}` : ''}</p></div>
               )}
               {insp.failure_reason && (
                 <div className="col-span-2"><p className="text-xs text-faint">Why it failed</p><p className="font-medium text-danger break-words wrap-anywhere">{insp.failure_reason}</p></div>
@@ -434,6 +548,50 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
                 </div>
               )}
             </div>
+
+            {/* THE QUESTION NOTHING ON THIS SCREEN ANSWERED: "the inspector got
+                the notification - now what?" Nobody emailed an inspector; the
+                notification went to whoever books inspections here. So the card
+                says that outright, and hands over the numbers the job already
+                knows rather than expecting the person who raised the request to
+                have typed the township's scheduling line from memory. */}
+            {needsBookingCall && (
+              <div className="rounded-lg border border-line bg-surface px-3 py-3 space-y-2">
+                <div>
+                  <p className="text-xs font-semibold text-ink-soft">Somebody has to call this in</p>
+                  <p className="text-xs text-muted-fg">
+                    SyteNav does not contact the inspector. Ring the jurisdiction, then press Book it and
+                    record the date and who you spoke to.
+                  </p>
+                </div>
+                {callTargets.length > 0 ? (
+                  <ul className="space-y-1.5">
+                    {callTargets.slice(0, 4).map((t, idx) => (
+                      <li key={`${t.name}-${idx}`} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                        {t.phone ? (
+                          <a href={`tel:${t.phone}`} className="inline-flex items-center gap-1 text-sm font-medium text-accent-fg hover:underline">
+                            <Phone className="h-3.5 w-3.5" />{t.phone}
+                          </a>
+                        ) : (
+                          <span className="text-sm font-medium text-ink-soft">{t.name}</span>
+                        )}
+                        <span className="text-xs text-faint wrap-anywhere">
+                          {t.phone ? `${t.name} · ${t.source}` : t.source}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-faint">
+                    No number on file. Add the issuing authority and inspector to the permit, or add an
+                    inspector in the Directory, and it will show up here on every inspection.
+                  </p>
+                )}
+                <Button size="sm" onClick={() => openBooking(insp)}>
+                  <Calendar className="h-3.5 w-3.5" /> Book it
+                </Button>
+              </div>
+            )}
 
             {insp.ready_marked_by && (
               <div className="rounded-lg bg-success-tint border border-green-100 px-3 py-2 text-xs text-success">
@@ -470,10 +628,17 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
-              {insp.status === 'scheduled' && !insp.ready_marked_by && (
-                <Button size="sm" variant="outline" onClick={() => markReady(insp)}>
-                  <CheckCircle2 className="h-3.5 w-3.5" /> Mark Ready for Inspection
-                </Button>
+              {insp.status === 'scheduled' && (
+                <div className="row-even lg:flex lg:items-center gap-2 w-full lg:w-auto">
+                  {!insp.ready_marked_by && (
+                    <Button size="sm" variant="outline" onClick={() => markReady(insp)}>
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Mark Ready for Inspection
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" onClick={() => openBooking(insp)}>
+                    <Calendar className="h-3.5 w-3.5" /> Change the booking
+                  </Button>
+                </div>
               )}
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-xs text-faint">Update status:</span>
@@ -560,6 +725,58 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
         </div>
       )}
 
+      {/* WHAT THE INSPECTOR TOLD YOU. The status used to flip on a tap, guarded
+          only by "is there a date?" - and there always was one, because the
+          requester had typed the date they wanted into the same column. A
+          booking is a thing a person did on the phone, so it is recorded like
+          one: the date you were given, and who gave it to you. */}
+      {booking && (
+        <div className="overlay items-center justify-center bg-black/50" data-overlay>
+          <div className="bg-panel rounded-xl shadow-xl w-full min-w-0 max-w-full sm:max-w-md overflow-y-auto">
+            <div className="px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between">
+              <h2 className="font-semibold text-ink">Book this inspection</h2>
+              <button type="button" onClick={() => setBooking(null)} className="text-faint hover:text-muted-fg" aria-label="Close"><X className="h-5 w-5" /></button>
+            </div>
+            <form onSubmit={saveBooking}>
+              <div className="px-4 sm:px-6 py-5 space-y-4">
+                <p className="rounded-lg bg-surface border border-line-soft px-3 py-2 text-xs text-muted-fg">
+                  {booking.type}{booking.trade ? ` (${booking.trade})` : ''}
+                  {booking.requested_date ? ` — needed by ${formatDate(booking.requested_date)}.` : '.'}{' '}
+                  Fill this in after you have called. It is what makes the inspection appear on the calendar
+                  as a real appointment.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Date they gave you <span className="text-danger">*</span></Label>
+                    <Input type="date" value={bookDate} onChange={e => setBookDate(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Time / window <span className="text-faint font-normal">(optional)</span></Label>
+                    <Input placeholder="e.g. 8-12 AM" value={bookTime} onChange={e => setBookTime(e.target.value)} />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Who you spoke to <span className="text-danger">*</span></Label>
+                  <Input placeholder="e.g. Newark Building Dept — Maria at the desk" value={bookWith} onChange={e => setBookWith(e.target.value)} />
+                  <p className="text-xs text-faint">The office or the person. This is what tells everyone it was actually booked.</p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Confirmation no. <span className="text-faint font-normal">(optional)</span></Label>
+                  <Input placeholder="Whatever reference they read out" value={bookRef} onChange={e => setBookRef(e.target.value)} />
+                </div>
+              </div>
+              <div className="px-4 sm:px-6 py-4 border-t border-line-soft space-y-2">
+                {bookError && <p role="alert" className="text-sm text-danger">{bookError}</p>}
+                <div className="row-even lg:flex lg:justify-end gap-2">
+                  <Button type="button" variant="secondary" onClick={() => setBooking(null)}>Cancel</Button>
+                  <Button type="submit" disabled={bookSaving}>{bookSaving ? 'Saving...' : 'Save booking'}</Button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {showForm && (
         <div className="overlay items-center justify-center bg-black/50" data-overlay>
           <div className="bg-panel rounded-xl shadow-xl w-full min-w-0 max-w-full sm:max-w-lg overflow-y-auto">
@@ -571,7 +788,9 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
               <div className="px-4 sm:px-6 py-5 pb-4 space-y-4">
                 {!editingInsp && (
                   <p className="rounded-lg bg-surface border border-line-soft px-3 py-2 text-xs text-muted-fg">
-                    Request an inspection now. Once it happens, upload the inspector's card on the inspection to record the result.
+                    This asks somebody here to book it — SyteNav does not contact the inspector. Whoever books it
+                    calls the jurisdiction and records the date they are given. Once it happens, upload the
+                    inspector's card to record the result.
                   </p>
                 )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -590,11 +809,12 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label>Preferred / Scheduled Date <span className="text-danger">*</span></Label>
-                    <Input type="date" value={scheduledDate} onChange={e => setScheduledDate(e.target.value)} />
+                    <Label>Date needed by <span className="text-danger">*</span></Label>
+                    <Input type="date" value={requestedDate} onChange={e => setRequestedDate(e.target.value)} />
+                    <p className="text-xs text-faint">When you need it on site. The booked date comes back from the inspector.</p>
                   </div>
                   <div className="space-y-1.5">
-                    <Label>Time <span className="text-faint font-normal">(optional)</span></Label>
+                    <Label>Preferred time <span className="text-faint font-normal">(optional)</span></Label>
                     <Input type="time" value={scheduledTime} onChange={e => setScheduledTime(e.target.value)} />
                   </div>
                 </div>
