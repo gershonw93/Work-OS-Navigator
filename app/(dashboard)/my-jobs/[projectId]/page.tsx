@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { contractAmountLabel } from '@/lib/contract-amount'
 import { parseDate, formatDate } from '@/lib/dates'
+import { inspectionDate } from '@/lib/inspection-status'
 
 type Tab = 'overview' | 'tasks' | 'rfis' | 'inspections' | 'invoices' | 'compliance'
 
@@ -1119,7 +1120,12 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
             <div className="overlay items-center justify-center bg-black/50" data-overlay>
               <div className="bg-panel rounded-xl shadow-xl w-full max-w-full sm:max-w-md">
                 <div className="px-6 py-4 border-b border-line-soft flex items-center justify-between">
-                  <h3 className="font-semibold text-ink">{selectedInspection.inspection_type}</h3>
+                  {/* `type`, not `inspection_type` - there is no such column
+                      on `inspections` and never was, so every inspection in a
+                      sub's job view has had a BLANK heading since this was
+                      written. Reading the wrong key gets you `undefined`,
+                      which renders as nothing and reports itself as nothing. */}
+                  <h3 className="font-semibold text-ink">{selectedInspection.type}</h3>
                   <button onClick={() => setSelectedInspection(null)} className="text-faint hover:text-muted-fg"><X className="h-5 w-5" /></button>
                 </div>
                 <div className="px-6 py-5 space-y-3">
@@ -1130,8 +1136,22 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                     </span>
                     {selectedInspection.ready_marked_by && <span className="text-xs text-success font-medium">Ready ✓</span>}
                   </div>
-                  {selectedInspection.scheduled_date && (
-                    <p className="text-sm text-ink-soft">Scheduled: <strong>{formatDate(selectedInspection.scheduled_date)}</strong></p>
+                  {/* Two dates now, and the label follows the fact. A date
+                      the field ASKED for used to read "Scheduled" here too. */}
+                  {(() => {
+                    const d = inspectionDate(selectedInspection)
+                    if (!d.value) return null
+                    return (
+                      <p className="text-sm text-ink-soft">
+                        {d.label}: <strong>{formatDate(d.value)}</strong>
+                        {d.confirmed && selectedInspection.booked_with && (
+                          <span className="text-muted-fg font-normal"> · booked with {selectedInspection.booked_with}</span>
+                        )}
+                      </p>
+                    )
+                  })()}
+                  {!inspectionDate(selectedInspection).confirmed && selectedInspection.status !== 'passed' && selectedInspection.status !== 'failed' && (
+                    <p className="text-xs text-warn">Not booked yet — the office still has to call this in.</p>
                   )}
                   {selectedInspection.scheduling_phone && (
                     <a href={`tel:${selectedInspection.scheduling_phone}`} className="flex items-center gap-2 text-sm text-accent-fg hover:underline font-medium">
@@ -1171,9 +1191,13 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                       {insp.status.replace(/_/g, ' ')}
                     </span>
                   </div>
-                  <p className="text-sm font-semibold text-ink leading-snug">{insp.inspection_type}</p>
+                  <p className="text-sm font-semibold text-ink leading-snug">{insp.type}</p>
                   {insp.trade && <p className="text-xs text-faint mt-1">{insp.trade}</p>}
-                  {insp.scheduled_date && <p className="text-xs text-info mt-1">{formatDate(insp.scheduled_date)}</p>}
+                  {(() => {
+                    const d = inspectionDate(insp)
+                    if (!d.value) return null
+                    return <p className={cn('text-xs mt-1', d.confirmed ? 'text-info' : 'text-muted-fg')}>{d.label} {formatDate(d.value)}</p>
+                  })()}
                   {insp.scheduling_phone && <p className="text-xs text-accent-fg mt-1 flex items-center gap-1"><Phone className="h-3 w-3" />{insp.scheduling_phone}</p>}
                   {insp.ready_marked_by && <p className="text-xs text-success font-medium mt-1">Ready ✓</p>}
                 </button>

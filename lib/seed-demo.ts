@@ -404,7 +404,27 @@ export async function runSeed(
 
     await insert('permits', PERMIT_TYPES.slice(0, 3 + (p % 2)).map((t, i) => ({ project_id: projectId, permit_type: t, type: t, permit_number: `PB-${20000 + p * 100 + i}`, description: `${t} permit`, status: pick(['approved', 'pending', 'active', 'approved'], i), expiry_date: ymd(daysFromNow(120 + i * 30)) })))
 
-    await insert('inspections', INSPECTION_TYPES.slice(0, 3 + (p % 3)).map((t, i) => ({ project_id: projectId, type: t, trade: t, status: pick(['passed', 'scheduled', 'requested', 'passed'], i), scheduled_date: ymd(daysFromNow(-10 + i * 7)), completed_date: i % 4 === 0 ? ymd(daysFromNow(-9 + i * 7)) : null, inspector_name: 'City Inspections Bureau', inspector_phone: '(212) 555-0199', requested_by_name: 'Mike Torres', notes: i % 3 === 0 ? 'Passed with no comments.' : null })))
+    // TWO DATES, and the demo has to respect the difference or it seeds the
+    // exact bug the app was just fixed for: the master calendar and the ICS
+    // feed show ANY inspection carrying a `scheduled_date`, so a `requested`
+    // row with one is a confirmed appointment nobody made. Only a row somebody
+    // "booked" gets a booked date - and it says who it was booked with, which
+    // is what the route now requires as the evidence.
+    await insert('inspections', INSPECTION_TYPES.slice(0, 3 + (p % 3)).map((t, i) => {
+      const status = pick(['passed', 'scheduled', 'requested', 'passed'], i)
+      const wanted = ymd(daysFromNow(-10 + i * 7))
+      const isBooked = status !== 'requested'
+      return {
+        project_id: projectId, type: t, trade: t, status,
+        requested_date: wanted,
+        scheduled_date: isBooked ? wanted : null,
+        booked_with: isBooked ? 'City Inspections Bureau - scheduling desk' : null,
+        booked_by_name: isBooked ? 'Mike Torres' : null,
+        completed_date: i % 4 === 0 ? ymd(daysFromNow(-9 + i * 7)) : null,
+        inspector_name: 'City Inspections Bureau', inspector_phone: '(212) 555-0199',
+        requested_by_name: 'Mike Torres', notes: i % 3 === 0 ? 'Passed with no comments.' : null,
+      }
+    }))
 
     await insert('submittals', SUBMITTAL_TITLES.slice(0, 3 + (p % 2)).map((t, i) => ({ project_id: projectId, title: t, type: 'Product Data', trade: pick(subVendors, i).trade, spec_section: `0${9 + i} 00 00`, manufacturer: pick(['Kohler', 'Lutron', 'Andersen', 'Armstrong'], i), model_number: `M-${1000 + i}`, status: pick(['approved', 'pending', 'in_review'], i), submitted_by_company_id: vendorIds[pick(subVendors, i).name], file_url: SAMPLE_PDF })))
 

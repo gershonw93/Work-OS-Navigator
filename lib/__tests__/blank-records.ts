@@ -72,7 +72,7 @@ ok(requestProblem(null, null) !== null && requestProblem('  ', '  ') !== null,
 
 // The guard that was already here is untouched - it answers a different
 // question and both are asked.
-ok(scheduleProblem('scheduled', '') !== null, 'scheduled with no date is still refused')
+ok(scheduleProblem('scheduled', '', 'Newark BD') !== null, 'scheduled with no date is still refused')
 ok(scheduleProblem('requested', '') === null, '...and it still stands aside for a request, correctly')
 
 // ── the defaults that made both records look filled in ──────────────────────
@@ -94,7 +94,7 @@ for (const [what, src, reset] of [
 
 // ── asked at the field, AND at the door ─────────────────────────────────────
 ok(/const problem = permitProblem\(\{/.test(permits), 'the permit form asks before it sends')
-ok(/const problem = requestProblem\(inspType, scheduledDate\)/.test(inspections),
+ok(/const problem = requestProblem\(inspType, requestedDate\)/.test(inspections),
   'the inspection form asks before it sends')
 
 const permitRoute = code('app/api/projects/[id]/permits/route.ts')
@@ -103,7 +103,7 @@ const inspRoute = code('app/api/projects/[id]/inspections/route.ts')
 ok(/permitProblem\(/.test(permitRoute), 'and the route asks too - the form is not the only door')
 ok(/permitProblem\(after\)/.test(permitPatch),
   '...including the EDIT route, against the row as it will be - clearing the number on an active permit was one keystroke')
-ok(/requestProblem\(inspection_type, scheduled_date\)/.test(inspRoute), 'same for an inspection request')
+ok(/requestProblem\(inspection_type, requested_date\)/.test(inspRoute), 'same for an inspection request')
 
 // THE DAMAGE WAS THE NOTIFICATION, so the refusal has to come first.
 ok(inspRoute.indexOf('requestProblem(') < inspRoute.indexOf('await notify('),

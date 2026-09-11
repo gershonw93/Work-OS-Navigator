@@ -5,6 +5,7 @@ import { withStructural } from '@/lib/notification-routing'
 import { notify } from '@/lib/notify'
 import { logActivity } from '@/lib/log-activity'
 import { scheduleProblem, requestProblem } from '@/lib/inspection-status'
+import { whoToCall, callLine } from '@/lib/inspection-contacts'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -31,7 +32,22 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const { data: inspections, error } = await q.order('created_at', { ascending: false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ inspections: inspections ?? [] })
+
+  // WHO TO CALL, sent with the list rather than left to the screen to assemble.
+  // The scheduler's question is "now what?", and the answer is a phone number
+  // that already exists on this job's permits and in the Directory. One reader
+  // (lib/inspection-contacts.ts) so the card and the notification cannot offer
+  // two different numbers. Best-effort: a failed lookup costs a list, not a page.
+  const [permitsRes, contactsRes] = await Promise.all([
+    db.from('permits').select('permit_type, issuing_authority, inspector_name, inspector_phone').eq('project_id', params.id),
+    db.from('contacts').select('name, type, phone, extra').eq('type', 'inspector'),
+  ])
+  const callTargets = whoToCall({
+    permits: (permitsRes.data ?? []) as any[],
+    contacts: (contactsRes.data ?? []) as any[],
+  })
+
+  return NextResponse.json({ inspections: inspections ?? [], callTargets })
 }
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
@@ -46,7 +62,19 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const inspection_type = (formData.get('inspection_type') ?? formData.get('type')) as string
   const trade = formData.get('trade') as string | null
   const status = formData.get('status') as string | null
-  const scheduled_date = formData.get('scheduled_date') as string | null
+  // TWO DATES NOW, and this is the one a request carries. `scheduled_date` is
+  // read only as a fallback because the field app posts the old name; whatever
+  // arrives under either name is the date somebody ASKED for, and it is stored
+  // as that. It was being written into `scheduled_date` and then labelled
+  // "Scheduled Date" on the card - a wish rendered as an appointment, and put
+  // on the company calendar and everyone's ICS feed as one.
+  const requested_date = (formData.get('requested_date') ?? formData.get('scheduled_date')) as string | null
+  // A create only books something when it says who it was booked with - the
+  // same evidence the PATCH route demands. Filing an already-booked inspection
+  // is a real case; guessing that a preference is a booking is not.
+  const booked_with = formData.get('booked_with') as string | null
+  const booking_reference = formData.get('booking_reference') as string | null
+  const scheduled_date = booked_with ? (formData.get('scheduled_date') as string | null) : null
   const inspector_name = formData.get('inspector_name') as string | null
   const inspector_phone = formData.get('inspector_phone') as string | null
   const scheduling_phone = formData.get('scheduling_phone') as string | null
@@ -58,7 +86,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   // #2 - refused at creation as well as on edit. An inspection cannot be born
   // into the state the PATCH route now refuses to move it into.
-  const createProblem = scheduleProblem(status, scheduled_date)
+  const createProblem = scheduleProblem(status, scheduled_date, booked_with)
   if (createProblem) return NextResponse.json({ error: createProblem }, { status: 400 })
 
   // ...AND a blank one cannot be born at all. A fully empty submit created an
@@ -66,7 +94,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   // here and not only on the form, because the field app posts to this same
   // route - and it has to be ABOVE the notify below, or the refusal arrives
   // after three people have already been told.
-  const blank = requestProblem(inspection_type, scheduled_date)
+  const blank = requestProblem(inspection_type, requested_date)
   if (blank) return NextResponse.json({ error: blank }, { status: 400 })
 
   const { data: me } = await db.from('profiles').select('full_name').eq('id', user.id).single()
@@ -96,7 +124,10 @@ export async function POST(request: Request, { params }: { params: { id: string 
     type: inspection_type ?? null,
     trade: trade || null,
     status: status ?? 'not_scheduled',
+    requested_date: requested_date || null,
     scheduled_date: scheduled_date || null,
+    booked_with: booked_with || null,
+    booking_reference: booking_reference || null,
     scheduled_time: scheduled_time || null,
     inspector_name: inspector_name || null,
     inspector_phone: inspector_phone || null,
@@ -139,7 +170,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     : 'Inspection'
   await logActivity(
     db, params.id, (me as any)?.full_name ?? 'Someone', 'inspection_created',
-    `${label} requested${scheduled_date ? ` for ${scheduled_date}` : ''}`,
+    `${label} requested${requested_date ? ` for ${requested_date}` : ''}`,
     { inspection_id: (inspection as any)?.id, inspection_type, trade },
     user.id,
   )
@@ -154,8 +185,23 @@ export async function POST(request: Request, { params }: { params: { id: string 
   // request had gone into a drawer. An unassigned inspection is exactly the one
   // somebody else needs to hear about.
   const { data: proj } = await db.from('projects').select('name, gc_company_id').eq('id', params.id).single()
-  const when = scheduled_date ? ` - preferred ${scheduled_date}${scheduled_time ? ` ${scheduled_time}` : ''}` : ''
-  const contact = inspector_name ? ` Contact: ${inspector_name}${inspector_phone ? ` (${inspector_phone})` : ''}.` : ''
+  const when = requested_date ? ` - needed by ${requested_date}${scheduled_time ? ` ${scheduled_time}` : ''}` : ''
+
+  // WHO TO CALL, in the notification itself. "Inspection to book" with no
+  // number is a person being told to act with nothing to act on - and the
+  // requester in the field does not know the township's scheduling line. It is
+  // already on the job's permits and in the Directory, so it is gathered rather
+  // than asked for again. Both lookups are best-effort: a missing table or a
+  // slow query must never stop the request being filed.
+  const [permitsRes, contactsRes] = await Promise.all([
+    db.from('permits').select('permit_type, issuing_authority, inspector_name, inspector_phone').eq('project_id', params.id),
+    db.from('contacts').select('name, type, phone, extra').eq('type', 'inspector'),
+  ])
+  const contact = callLine(whoToCall({
+    inspection: { inspector_name, inspector_phone, scheduling_phone },
+    permits: (permitsRes.data ?? []) as any[],
+    contacts: (contactsRes.data ?? []) as any[],
+  }))
   // The assigned scheduler because it is their job - structural, not a setting -
   // PLUS anyone the company wants copied in. Never one instead of the other.
   const bookers = withStructural(
@@ -169,7 +215,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     await notify({
       db, userIds: bookers, type: 'inspection_to_schedule',
       title: 'Inspection to book',
-      message: `Schedule an inspection: ${inspection_type} at ${proj?.name ?? 'a project'}${when}. Requested by ${(me as any)?.full_name ?? 'the field'}.${contact}`,
+      message: `Book an inspection: ${inspection_type} at ${proj?.name ?? 'a project'}${when}. Requested by ${(me as any)?.full_name ?? 'the field'}.${contact} SyteNav does not contact the inspector - somebody has to call, then record what they were given.`,
       link: `/projects/${params.id}/inspections?inspection=${(inspection as any)?.id ?? ''}`,
     })
   }

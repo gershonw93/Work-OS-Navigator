@@ -121,10 +121,25 @@ export const notifiesRoutedAudience = (status: unknown): boolean =>
 export function scheduleProblem(
   status: unknown,
   scheduledDate: string | null | undefined,
+  bookedWith?: string | null | undefined,
 ): string | null {
   if (status !== 'scheduled') return null
-  if (scheduledDate && String(scheduledDate).trim()) return null
-  return 'Pick the date it is booked for. "Scheduled" without a date tells the office it is booked when nobody knows when.'
+  if (!scheduledDate || !String(scheduledDate).trim()) {
+    return 'Pick the date it is booked for. "Scheduled" without a date tells the office it is booked when nobody knows when.'
+  }
+  // ...AND THE DATE WAS NOT ENOUGH. The guard above asked "is there a date?"
+  // and there always was one, because the REQUESTER had typed a preferred date
+  // into the very same column. So the one-click Scheduled pill satisfied this
+  // check using somebody's wish as the evidence, and a single tap turned a
+  // preference into a confirmed appointment with no call made - which then
+  // appeared on the company calendar and in everyone's subscribed feed.
+  //
+  // Booking is a thing a person DID. Who they reached is what proves it
+  // happened, the same way a failed inspection has to say why.
+  if (!bookedWith || !String(bookedWith).trim()) {
+    return 'Say who you booked it with. "Scheduled" means somebody rang the inspector and got a slot - without a name it is still just the date you asked for.'
+  }
+  return null
 }
 
 /**
@@ -168,3 +183,52 @@ export function requestProblem(
  */
 export const clearsCompletion = (status: unknown): boolean =>
   status === 'pending_reinspection' || status === 'not_scheduled' || status === 'requested'
+
+/**
+ * ...and moving back to an unbooked state throws the BOOKING away too.
+ *
+ * Same rule one field over, and it is not cosmetic: the Master Calendar and the
+ * subscribed ICS feed include any inspection carrying a `scheduled_date`,
+ * whatever its status. A row put back to "requested" while keeping its booked
+ * date would sit in everyone's Outlook as a confirmed appointment that the app
+ * itself no longer believes in.
+ */
+export const clearsBooking = (status: unknown): boolean =>
+  status === 'not_scheduled' || status === 'requested'
+
+// ── two dates, and which one the card is showing ────────────────────────────
+
+/**
+ * WHAT THE DATE ON AN INSPECTION MEANS, in one place.
+ *
+ * There used to be one column and one label. `scheduled_date` held the date the
+ * FIELD asked for and the card called it "Scheduled Date" - so a request nobody
+ * had acted on displayed as a confirmed appointment, and said so on the company
+ * calendar and in everyone's subscribed ICS feed too.
+ *
+ * Now `requested_date` is the wish and `scheduled_date` is the booking, and
+ * nothing anywhere picks a label for itself: a date that is booked reads
+ * "Confirmed for" and a date that is not reads "Needed by". Two facts, two
+ * words, one function, so a second screen cannot invent a third wording.
+ */
+export interface InspectionDates {
+  requested_date?: string | null
+  scheduled_date?: string | null
+}
+
+export interface DateLine {
+  label: string
+  value: string | null
+  /** True only when somebody actually booked it. */
+  confirmed: boolean
+}
+
+export const CONFIRMED_LABEL = 'Confirmed for'
+export const REQUESTED_LABEL = 'Needed by'
+
+export function inspectionDate(i: InspectionDates): DateLine {
+  const booked = i.scheduled_date && String(i.scheduled_date).trim() ? String(i.scheduled_date) : null
+  if (booked) return { label: CONFIRMED_LABEL, value: booked, confirmed: true }
+  const wanted = i.requested_date && String(i.requested_date).trim() ? String(i.requested_date) : null
+  return { label: REQUESTED_LABEL, value: wanted, confirmed: false }
+}

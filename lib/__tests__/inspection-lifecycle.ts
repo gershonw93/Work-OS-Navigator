@@ -46,7 +46,13 @@ ok(isOpen('pending_reinspection'), 'a re-inspection is still in flight')
 ok(scheduleProblem('scheduled', null) !== null, '"scheduled" with no date is refused')
 ok(scheduleProblem('scheduled', '') !== null, '...and an empty string is not a date')
 ok(scheduleProblem('scheduled', '   ') !== null, '...nor is whitespace')
-ok(scheduleProblem('scheduled', '2026-09-10') === null, 'with a date it is fine')
+// A DATE IS NO LONGER ENOUGH ON ITS OWN, and that is the point of #432: the
+// requester had typed their preferred date into the same column, so this check
+// was always satisfied by somebody's wish. A booking now has to say who was
+// reached. Covered fully in inspection-booking.ts.
+ok(scheduleProblem('scheduled', '2026-09-10') !== null, 'a date alone is not a booking')
+ok(scheduleProblem('scheduled', '2026-09-10', 'Newark Building Dept') === null,
+  'with a date AND who you spoke to it is fine')
 ok(scheduleProblem('requested', null) === null, 'every other status may have no date')
 ok(scheduleProblem('not_scheduled', null) === null, '...that is what not_scheduled MEANS')
 ok(/date/i.test(scheduleProblem('scheduled', null) ?? ''), 'the refusal says what to do about it')
