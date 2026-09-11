@@ -8,7 +8,12 @@ import { usePermissions } from '@/lib/use-permissions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import Link from 'next/link'
 import { cn } from '@/lib/utils'
+import {
+  calendarEvents, eventsOn, isDelivery, scheduleLabel, scheduleSubLabel,
+  type CalendarEvent, type ScheduleItemRow,
+} from '@/lib/schedule-events'
 import { useViewerContext } from '@/lib/use-viewer-context'
 import { SubSchedule } from '@/components/projects/sub-schedule'
 
@@ -27,36 +32,13 @@ const SUB_LIGHT = 'bg-accent-tint text-accent-fg border-accent/40'
 const DELIVERY_BAR = 'bg-warn-solid'
 const DELIVERY_LIGHT = 'bg-warn-tint text-warn border-warn/40'
 
-interface ScheduleItem {
-  id: string
-  label: string | null
-  start_date: string
-  end_date: string
-  color: string | null
-  subcontract_id: string | null
-  subcontracts: {
-    scope: string
-    trade: string | null
-    companies: { name: string; type?: string } | null
-  } | null
-}
-
-function isDelivery(item: ScheduleItem) {
-  return item.subcontracts?.companies?.type === 'supplier'
-}
-
-function getLabel(item: ScheduleItem) {
-  if (isDelivery(item)) return `Delivery - ${item.subcontracts?.companies?.name ?? item.subcontracts?.trade ?? 'Supplier'}`
-  if (item.label) return item.label
-  if (item.subcontracts) return item.subcontracts.scope
-  return 'Untitled'
-}
-
-function getSubLabel(item: ScheduleItem) {
-  if (isDelivery(item)) return 'Material delivery'
-  if (item.subcontracts?.companies?.name) return item.subcontracts.companies.name
-  return null
-}
+// The NAME of a bar and what it is come from lib/schedule-events.ts, beside the
+// day maths, so the calendar and the list cannot end up with two opinions about
+// what a row is called. The COLOURS stay here, where MILESTONE_COLORS feeds the
+// add and edit dialogs too.
+type ScheduleItem = ScheduleItemRow
+const getLabel = scheduleLabel
+const getSubLabel = scheduleSubLabel
 
 function barColor(item: ScheduleItem) {
   if (isDelivery(item)) return DELIVERY_BAR
@@ -130,6 +112,10 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
   const supabase = createClient()
   const vc = useViewerContext(params.id)
   const [items, setItems] = useState<ScheduleItem[]>([])
+  // The job's other dated things. The calendar draws them; Timeline and List
+  // deliberately do not - see the comment above the month grid.
+  const [inspections, setInspections] = useState<any[]>([])
+  const [dueTasks, setDueTasks] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState<'calendar' | 'timeline' | 'list'>('calendar')
   const [calCursor, setCalCursor] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1) })
@@ -171,6 +157,8 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     if (res.ok) {
       const data = await res.json()
       setItems(data.items)
+      setInspections(data.inspections ?? [])
+      setDueTasks(data.tasks ?? [])
     }
     setLoading(false)
   }
@@ -353,6 +341,8 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
   }
 
   const sorted = [...items].sort((a, b) => a.start_date.localeCompare(b.start_date))
+  // Everything dated on this job, derived once. The calendar filters it per day.
+  const events = calendarEvents({ projectId: params.id, items, inspections, tasks: dueTasks })
   const minDate = sorted.length > 0 ? sorted[0].start_date : new Date().toISOString().split('T')[0]
   const maxDate = sorted.length > 0
     ? sorted.reduce((max, i) => i.end_date > max ? i.end_date : max, sorted[0].end_date)
@@ -614,7 +604,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                     const ds = ymd(day)
                     const inMonth = day.getMonth() === month
                     const isToday = ds === todayStr
-                    const dayItems = sorted.filter(it => it.start_date <= ds && it.end_date >= ds)
+                    const dayItems = eventsOn(events, ds)
                     return (
                       <div key={idx}
                         className={cn('min-h-[84px] sm:min-h-[104px] border-b border-r border-line-soft p-1.5 align-top',
@@ -624,12 +614,30 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                           {day.getDate()}
                         </div>
                         <div className="space-y-1">
-                          {dayItems.slice(0, 3).map(it => (
-                            <button key={it.id} onClick={() => openEdit(it)}
-                              className={cn('w-full flex items-center gap-1 rounded px-1.5 py-0.5 text-left', lightColor(it))}>
-                              <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', barColor(it))} />
-                              <span className="text-[11px] font-medium truncate">{getLabel(it)}</span>
-                            </button>
+                          {/* THE CLICK FOLLOWS THE KIND. A schedule bar opens
+                              the edit dialog it always did; an inspection or a
+                              task goes to its own tab, because nothing in that
+                              dialog could save either of them and a control
+                              that opens an editor which cannot write is a
+                              control that lies. */}
+                          {dayItems.slice(0, 3).map(e => (
+                            e.kind === 'schedule' && e.item ? (
+                              <button key={e.id} onClick={() => openEdit(e.item as ScheduleItem)}
+                                className={cn('w-full flex items-center gap-1 rounded px-1.5 py-0.5 text-left', lightColor(e.item as ScheduleItem))}>
+                                <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', barColor(e.item as ScheduleItem))} />
+                                <span className="text-[11px] font-medium truncate">{e.label}</span>
+                              </button>
+                            ) : (
+                              <Link key={e.id} href={e.href ?? '#'}
+                                className={cn('w-full flex items-center gap-1 rounded px-1.5 py-0.5 text-left',
+                                  e.kind === 'inspection' ? 'bg-info-tint text-info border border-info/30' : 'bg-muted text-ink-soft border border-line',
+                                  e.done && 'line-through opacity-60')}>
+                                <span className={cn('h-1.5 w-1.5 rounded-full shrink-0',
+                                  e.kind === 'inspection' ? 'bg-info' : 'bg-faint')} />
+                                <span className="text-[11px] font-medium truncate">{e.label}</span>
+                                {e.detail && <span className="text-[10px] opacity-70 shrink-0">{e.detail}</span>}
+                              </Link>
+                            )
                           ))}
                           {dayItems.length > 3 && (
                             <p className="text-[10px] text-faint pl-1">+{dayItems.length - 3} more</p>
@@ -638,6 +646,17 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                       </div>
                     )
                   })}
+                </div>
+                {/* WHAT THE SQUARES MEAN. The calendar is the only one of the
+                    three views that draws more than the schedule: Timeline and
+                    List are the schedule EDITOR, where every row opens the edit
+                    dialog, and an inspection in a list of editable rows is a
+                    row that cannot be saved. */}
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-line-soft px-4 py-2.5 text-[11px] text-muted-fg">
+                  <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-accent" /> Schedule &amp; deliveries</span>
+                  <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-info" /> Booked inspections</span>
+                  <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-faint" /> Tasks due</span>
+                  <span className="text-faint">An inspection waiting to be booked is on the job&apos;s Overview, under Today.</span>
                 </div>
               </div>
             )

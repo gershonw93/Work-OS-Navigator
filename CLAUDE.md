@@ -484,6 +484,19 @@ production branch.** Do NOT ask the user to merge or deploy.
   status dropdown and its PATCH beside it did not, so a selection reached
   "Chosen" with nothing chosen. `ACCEPTED_STATUSES` in `lib/selections.ts` is
   the one set both ask.
+- **A SCREEN CALLED A CALENDAR THAT QUERIES ONE TABLE ANSWERS A NARROWER
+  QUESTION THAN ITS NAME PROMISES, AND THE OMISSION IS INVISIBLE.** The project
+  Schedule calendar drew `schedule_items` and nothing else - its route queried
+  that table and `projects`, and the page had ZERO references to inspections or
+  tasks - so a confirmed, booked inspection was simply not there. Reported
+  twice, the second time with the card open beside it ("IT CLEARLY SAYS
+  Confirmed for Sep 15 ... what am I missing here??"), because an empty square
+  looks exactly like a free day and nothing errors. `lib/schedule-events.ts`
+  (pure) merges the three kinds, and the CLICK FOLLOWS THE KIND: a bar opens the
+  edit dialog, an inspection and a task go to their own tabs, because nothing in
+  that dialog could save either and a control that opens an editor which cannot
+  write is a control that lies. Timeline and List stay schedule-only for the
+  same reason - they are the editor, not the view.
 - A VIEW THAT GATHERS A DAY MUST BE OPENABLE BY THE PEOPLE LIVING IT. "Whoever
   is on the job site should see what's coming for that day" - and the Master
   Calendar, the only screen that gathers one, is `admin`/`manager` only, so a

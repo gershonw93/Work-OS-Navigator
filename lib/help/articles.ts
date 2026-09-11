@@ -1359,7 +1359,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'schedule-milestones',
     title: 'Build a project schedule',
     category: 'field',
-    keywords: ['schedule', 'milestone', 'timeline', 'dates', 'gantt', 'plan'],
+    keywords: ['schedule', 'milestone', 'timeline', 'dates', 'gantt', 'plan', 'calendar', 'month view', 'inspection not on calendar', 'why cant i see', 'booked inspection missing', 'tasks on calendar'],
     summary: 'Lay out milestones and see when each phase happens.',
     blocks: [
       { type: 'text', text: 'The Schedule tab auto-populates from awarded bids, and you can add milestones by hand.' },
@@ -1369,9 +1369,11 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'Give it a name, start/end dates, and (optionally) tie it to a subcontractor.',
         'Save - it appears on the timeline alongside the auto-generated items.',
       ] },
+      { type: 'text', text: 'THREE VIEWS, AND THE CALENDAR SHOWS MORE THAN THE OTHER TWO. The Calendar is the whole job on a month: schedule bars and deliveries, BOOKED inspections on their confirmed date with the time you were given, and tasks on the day they are due (struck through once done). Click a schedule bar to edit it; click an inspection or a task and it opens its own tab. Timeline and List are the schedule editor - every row there opens the edit dialog - so they show schedule items only, because an inspection in a list of editable rows is a row nothing can save.' },
+      { type: 'text', text: 'AN INSPECTION NOBODY HAS BOOKED IS NOT ON THE CALENDAR. A calendar is appointments, and a requested date is a day you asked for that nobody has agreed to. It is on the job\'s Overview instead, in the Today band, under "needs booking".' },
       { type: 'tip', text: 'Awarding a quote adds that sub\'s work to the schedule automatically, so the plan fills in as you hire.' },
     ],
-    related: ['award-quote', 'master-calendar', 'tasks-assign'],
+    related: ['award-quote', 'master-calendar', 'tasks-assign', 'inspections'],
   },
   {
     slug: 'tasks-assign',
@@ -1531,7 +1533,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: 'text', text: 'INSPECTIONS ARE VOIDED, NEVER DELETED. Voiding keeps the record, notes who voided it and when, and takes it out of the working list. Tick "Show voided" above the list to see them, and Restore to put one back. You need edit access to inspections to void one.' },
       { type: 'text', text: 'JOB HISTORY HAS ALL OF IT. Every request, edit, booking, pass, fail, re-inspection, void and restore is written to the project\'s Job History with who did it and when - which is the record you would actually want if somebody ever disputed the work.' },
       { type: 'text', text: 'WHAT IS ON TODAY. The top of a job\'s Overview - and of the job in My Jobs - shows what is happening today: inspections booked for today, who is on site, tasks due, and anything still waiting to be booked. The Master Calendar is a month view for admins and managers; this is the day, on the screen the field already opens.' },
-      { type: 'tip', text: 'The inspector\'s card is added AFTER, not at request time. BOOKED inspections show on the Master Calendar timeline, color-coded (purple = upcoming, green = passed, red = failed) - requested ones do not, because nobody has agreed to a date yet.' },
+      { type: 'tip', text: 'The inspector\'s card is added AFTER, not at request time. BOOKED inspections show on the job\'s own Schedule calendar and on the Master Calendar timeline, color-coded (purple = upcoming, green = passed, red = failed) - requested ones do not, because nobody has agreed to a date yet.' },
     ],
     related: ['permits', 'master-calendar', 'who-gets-notified'],
   },
@@ -1678,7 +1680,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     keywords: ['master calendar', 'all projects', 'schedule', 'due dates', 'overview', 'admin'],
     summary: 'All projects\' schedules and task due dates in one view.',
     blocks: [
-      { type: 'text', text: 'Master Calendar (admin only) shows every project\'s schedule and task due dates together.' },
+      { type: 'text', text: 'Master Calendar (admins and managers) shows every project\'s schedule, booked inspections and task due dates together. It is not the only place they appear: each job\'s own Schedule tab has the same month view for that job, and anyone who can see the job can open it.' },
       { type: 'steps', items: [
         'Click Master Calendar in the sidebar (under Master).',
         'Scan across all projects at once.',
