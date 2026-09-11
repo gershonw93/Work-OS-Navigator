@@ -508,6 +508,14 @@ production branch.** Do NOT ask the user to merge or deploy.
   button with the same word on it. Where a second screen needs the same thing,
   the pattern becomes a component rather than a third copy: it was lifted out of
   `client-invoices.tsx`, which had grown one for the same reason.
+- **A CONTROL THAT QUIETLY REDIRECTS IS WORSE THAN ONE THAT IS GONE.** When
+  booking moved into its own dialog, the `Scheduled` pill stayed in the
+  inspection card's status strip and was rerouted into that dialog. Reported
+  immediately: "that pill is a second door to the same room - and if it still
+  one-taps, the old bug is still alive." It did not one-tap, and that is not the
+  point: a redirect teaches the old habit and is one refactor from being the bug
+  again. When an action grows a real path, the old path is DELETED, and the pin
+  reads the statuses a click can set rather than the classes on the buttons.
 - A UNIQUE CONSTRAINT AND THE SEND SHIP TOGETHER. Duplicate invite rows were
   untidy while nothing sent; the moment the button really sends, the same double
   press is two identical emails to one sub.
@@ -537,13 +545,16 @@ production branch.** Do NOT ask the user to merge or deploy.
   costume over. Closing is: pick something, Escape, click outside, or move the
   pointer off. The panel sits flush at `top-full` so there is no dead space to
   cross and no timer to leak.
-- A PANEL HANGING OFF A ROW CANNOT LIVE INSIDE `overflow-x-auto`. `overflow-x`
-  establishes a clipping box on BOTH axes, so a dropdown below a button inside a
-  side-scrolling row is sliced off at the row's bottom edge - every class on it
-  individually correct, and nothing there to click. Measured in
-  `overlay-geometry.ts` with `elementFromPoint`, because clipping is a PAINT
-  operation: the clipped panel still reports its full bounding rect, so
-  measuring the panel proves nothing.
+- A PANEL HANGING OFF A ROW CANNOT LIVE INSIDE `overflow-x-auto` - OR INSIDE
+  ANY `overflow` THAT IS NOT `visible`. `overflow-x` establishes a clipping box
+  on BOTH axes, so a dropdown below a button inside a side-scrolling row is
+  sliced off at the row's bottom edge - every class on it individually correct,
+  and nothing there to click. `overflow-hidden` written on a CARD to round its
+  corners is the same trap and it is worse, because a `RowMenu` in the card's
+  last row hangs entirely below that edge: not shortened, gone. Round the
+  children that touch an edge instead. Measured in `overlay-geometry.ts` with
+  `elementFromPoint`, because clipping is a PAINT operation: the clipped panel
+  still reports its full bounding rect, so measuring the panel proves nothing.
 - The controls in a project header are ONE class string
   (`components/layout/header-icon-button.tsx`), icon-only, each with
   `aria-label` and `title`. Four independently written ones became an avatar

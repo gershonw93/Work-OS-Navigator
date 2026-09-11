@@ -24,7 +24,7 @@ import {
   scheduleProblem, clearsBooking, inspectionDate,
   CONFIRMED_LABEL, REQUESTED_LABEL,
 } from '../inspection-status'
-import { whoToCall, callLine } from '../inspection-contacts'
+import { whoToCall, callLine, callTargetsFor } from '../inspection-contacts'
 import { ok, done, code, read, readCombined } from './_helpers'
 
 // ── a booking is a thing somebody DID ───────────────────────────────────────
@@ -76,6 +76,18 @@ const dupes = whoToCall({
   permits: [{ permit_type: 'Building', inspector_name: 'M. Cole', inspector_phone: '973-555-0188' }],
 })
 ok(dupes.length === 1, 'the same number written two ways is one person, not two')
+// ONE LIST PER CARD. The route sends the project-level numbers; the card's own
+// inspector and scheduling line used to be printed separately a band above them.
+const merged = callTargetsFor(
+  { scheduling_phone: '(973) 555-0100', inspector_name: 'Ray Diaz' },
+  [{ name: 'M. Cole', phone: '(973) 555-0188', source: 'From the Building permit' },
+   { name: 'Ray Diaz', phone: '973-555-0100', source: 'Directory' }],
+)
+ok(merged[0].phone === '(973) 555-0100', "the inspection's own number leads the merged list")
+ok(merged.length === 2, 'THE DUPLICATE: the same line from the route and the inspection appears once, not twice')
+ok(callTargetsFor(null, [{ name: 'M. Cole', phone: '1', source: 'permit' }]).length === 1,
+  'a booked inspection contributes nothing of its own and still gets the shared list')
+
 ok(callLine([]) === '', 'and with nothing on file the notification says nothing rather than inventing a contact')
 ok(/\(973\) 555-0188/.test(callLine(dupes)), '...but with a number it hands it over in one line')
 
@@ -98,10 +110,71 @@ ok(dialog.length > 400, 'the booking dialog is really in the file (fixture sanit
 ok(/data-overlay/.test(dialog), '...and it is an overlay, so the background freezes and the notch is padded')
 ok(/row-even/.test(dialog), '...with a footer that reaches both edges on a phone')
 
+// ── one action row, and one door into booking ───────────────────────────────
+//
+// Reported after #432 shipped: "the Scheduled pill is still sitting in the
+// status row. If Book it is the real path now, that pill is a second door to
+// the same room - and if it still one-taps, the old bug is still alive."
+//
+// It did not one-tap (it redirected into the dialog), and that is not good
+// enough: a control that quietly redirects teaches the old habit and is one
+// refactor away from being the bug again.
+ok(!/\['requested', 'scheduled', 'passed', 'failed', 'pending_reinspection'\]\.map/.test(page),
+  'THE BUG: the five-pill "Update status:" strip is gone')
+ok(!/Update status:/.test(page), '...label and all')
+{
+  // Every status a CLICK can set from the card, read out of the handlers.
+  const clickable = Array.from(page.matchAll(/updateStatus\(insp, '([a-z_]+)'\)/g)).map(m => m[1])
+  ok(clickable.length > 0, 'the scan can see the status handlers at all (fixture sanity)')
+  ok(!clickable.includes('scheduled'),
+    'NO CONTROL SETS "scheduled" DIRECTLY - booking has exactly one door, and it is the dialog')
+  ok(clickable.includes('passed') && clickable.includes('failed'),
+    '...while a result is still one press')
+}
+ok(/<RowMenu label=\{`More for the \$\{insp\.type\} inspection`\}/.test(page),
+  'the rest is behind RowMenu, the same cure client invoices and bid invites use')
+
+// A RESULT NEEDS A VISIT SOMEBODY ARRANGED.
+ok(/const booked = !!insp\.scheduled_date/.test(page), 'booked means it carries a confirmed date')
+ok(/\{canRecordResult && \(/.test(page),
+  'Passed and Failed only exist once it is booked - you cannot pass an inspection nobody arranged')
+
+// THE CLIPPING TRAP, which is invisible until somebody opens the menu.
+{
+  const card = page.slice(page.indexOf("const cfg = STATUS_CONFIG"), page.indexOf('{isExpanded && ('))
+  ok(card.length > 200, 'the card wrapper is really in the slice (fixture sanity)')
+  ok(!/overflow-hidden/.test(card),
+    'the card has no overflow-hidden - it clips on BOTH axes and would slice the menu off its bottom edge')
+}
+
+// ── the orphan line, and the band that did not belong ───────────────────────
+ok(!/\{insp\.notes && <p className="text-sm text-muted-fg/.test(page),
+  'THE BUG: notes is no longer a bare unlabelled paragraph floating mid-card')
+ok(/<p className="text-xs text-faint">Notes<\/p>/.test(page), '...it carries a label like every other fact')
+ok(/<p className="text-xs text-faint">Marked ready<\/p>/.test(page),
+  'and "marked ready" is a fact in the grid, not a green band repeating the header badge')
+ok(/const showCardBlock = /.test(page) && /\{showCardBlock && \(/.test(page),
+  "the inspector's-card block is gated - a request has no card to upload yet")
+ok(/Add inspector's card<\/MenuItem>|\{insp\.card_image_url \? "Replace inspector's card" : "Add inspector's card"\}/.test(page),
+  '...and it stays reachable from the menu, so gating it hides nothing')
+{
+  // The input the menu item clicks must be mounted whatever the gate says.
+  const gate = page.indexOf('{showCardBlock && (')
+  const input = page.indexOf('ref={el => { cardInputRefs.current[insp.id] = el }}')
+  ok(input > -1 && gate > -1 && input < gate,
+    'the file input sits OUTSIDE the gate - inside it, the menu item does nothing on exactly the states the block is hidden for')
+}
+
+// ── one list of numbers, not two ────────────────────────────────────────────
+ok(/callTargetsFor\(needsBookingCall \? insp : null, callTargets\)/.test(page),
+  "the card merges the inspection's own numbers into the shared list")
+ok(/\{!needsBookingCall && insp\.scheduling_phone && \(/.test(page),
+  '...and the details grid stops printing them a band above the call block')
+
 // ── the screen answers "now what?" ──────────────────────────────────────────
 ok(/SyteNav does not contact the inspector/.test(page),
   'THE QUESTION: the card says outright that nobody here emails the inspector')
-ok(/callTargets/.test(page) && /tel:\$\{t\.phone\}/.test(page),
+ok(/calls\.slice\(0, 4\)/.test(page) && /tel:\$\{t\.phone\}/.test(page),
   '...and hands over a number to call rather than a blank the requester was meant to fill in')
 ok(/No number on file/.test(page),
   'and when there is no number it says where to put one, instead of showing nothing')
