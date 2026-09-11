@@ -121,13 +121,45 @@ export function whoToCall({ inspection, permits = [], contacts = [] }: {
     })
   }
 
+  return dedupe(out)
+}
+
+function dedupe(targets: CallTarget[]): CallTarget[] {
   const seen = new Set<string>()
-  return out.filter(t => {
+  const named = new Set<string>()
+  return targets.filter(t => {
     const k = keyFor(t)
     if (seen.has(k)) return false
+    // A NAME WITH NO NUMBER IS NOT A SECOND PERSON. "Ray Diaz" on the
+    // scheduling line and "Ray Diaz" with no direct number are one contact, and
+    // keying on the digits alone kept both - so the card offered a tappable
+    // number and, under it, the same name with nothing to tap.
+    const name = t.name.toLowerCase()
+    if (!t.phone && named.has(name)) return false
     seen.add(k)
+    named.add(name)
     return true
   })
+}
+
+/**
+ * ONE LIST OF NUMBERS PER CARD, not two.
+ *
+ * The inspections route sends a PROJECT-level list (the permits and the
+ * Directory), and the card was separately printing the inspection's OWN
+ * inspector and scheduling phone in its details grid one band above it. Same
+ * kind of fact, two places, and on a card the reader is scanning for "who do I
+ * call" that reads as two different answers.
+ *
+ * This puts what the inspection itself carries at the front of the shared list
+ * and dedupes across both, so a number written on the inspection and on the
+ * permit appears once.
+ */
+export function callTargetsFor(
+  inspection: InspectionLike | null | undefined,
+  projectTargets: CallTarget[] = [],
+): CallTarget[] {
+  return dedupe([...whoToCall({ inspection }), ...projectTargets])
 }
 
 /**

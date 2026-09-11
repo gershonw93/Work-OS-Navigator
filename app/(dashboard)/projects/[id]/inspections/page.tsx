@@ -8,13 +8,14 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
-import { Plus, X, ClipboardCheck, Phone, Calendar, CheckCircle2, XCircle, Clock, AlertCircle, ChevronDown, ChevronUp, Loader2, Upload, Trash2, Pencil } from 'lucide-react'
+import { Plus, X, ClipboardCheck, Phone, Calendar, CheckCircle2, XCircle, Clock, AlertCircle, ChevronDown, ChevronUp, Loader2, Upload, Trash2, Pencil, RotateCcw, Undo2 } from 'lucide-react'
 import { ContactPicker } from '@/components/contact-picker'
 import { withStructural } from '@/lib/notification-routing'
 
 import { formatDate, todayDateInput } from '@/lib/dates'
 import { OPEN, CLOSED, isVoid, requestProblem, scheduleProblem, inspectionDate } from '@/lib/inspection-status'
-import type { CallTarget } from '@/lib/inspection-contacts'
+import { callTargetsFor, type CallTarget } from '@/lib/inspection-contacts'
+import { RowMenu, MenuItem } from '@/components/ui/row-menu'
 import { ACCEPT_SCAN } from '@/lib/file-accept'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 const INSPECTION_TYPES = [
@@ -459,15 +460,39 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
     const Icon = cfg.icon
     const dates = inspectionDate(insp)
     const needsBookingCall = !dates.confirmed && !isVoid(insp.status) && insp.status !== 'passed' && insp.status !== 'failed'
+    // The numbers this card offers: what the inspection itself carries, then
+    // the job's permits and Directory, deduped. ONE list - the details grid
+    // used to print the first two a band above the second lot.
+    const calls = callTargetsFor(needsBookingCall ? insp : null, callTargets)
+    // A result can only be recorded for a visit somebody arranged. Offering
+    // Passed on an inspection nobody booked is half of what made the old strip
+    // of five pills read as a free-for-all.
+    const booked = !!insp.scheduled_date && !isVoid(insp.status)
+    const canRecordResult = booked && insp.status !== 'passed' && insp.status !== 'failed'
+    // No card exists before the visit could have happened, so the upload block
+    // is not shown for a request - it stays in the menu, where nothing is lost.
+    const showCardBlock = !!insp.card_image_url || booked || insp.status === 'passed' || insp.status === 'failed'
+
+    // NO `overflow-hidden` ON THE CARD, AND THAT IS LOAD-BEARING. The action
+    // row at the foot of it ends in a RowMenu whose panel is `absolute` inside
+    // this card, and `overflow-hidden` clips on BOTH axes - so the menu would
+    // be sliced off at the card's bottom edge with every class on it
+    // individually correct and nothing there to click. It was only ever here
+    // to round the header button's corners against the card, which the two
+    // children that touch an edge now do themselves. Measured in
+    // overlay-geometry.ts with `elementFromPoint`, because clipping is a PAINT
+    // operation: a clipped panel still reports its full bounding rect, so
+    // measuring the panel proves nothing at all.
     return (
-      <div className={cn('rounded-xl border bg-panel overflow-hidden',
+      <div className={cn('rounded-xl border bg-panel',
         isVoid(insp.status) ? 'border-dashed border-line opacity-70' : 'border-line')}>
         {isVoid(insp.status) && (
-          <p className="bg-muted px-5 py-2 text-xs text-muted-fg">
+          <p className="rounded-t-xl bg-muted px-5 py-2 text-xs text-muted-fg">
             Voided{insp.voided_at ? ` on ${formatDate(insp.voided_at)}` : ''}. Kept for the record — Restore puts it back.
           </p>
         )}
-        <button className="w-full flex items-center gap-4 px-5 py-4 hover:bg-surface transition-colors text-left"
+        <button className={cn('w-full flex items-center gap-4 px-5 py-4 hover:bg-surface transition-colors text-left',
+          isVoid(insp.status) ? '' : 'rounded-t-xl', isExpanded ? '' : 'rounded-b-xl')}
           onClick={() => setExpanded(isExpanded ? null : insp.id)}>
           <Icon className={cn('h-5 w-5 shrink-0', insp.status === 'passed' ? 'text-success' : insp.status === 'failed' ? 'text-danger' : insp.status === 'scheduled' ? 'text-info' : 'text-faint')} />
           <div className="flex-1 min-w-0">
@@ -528,7 +553,21 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
               {insp.requested_by_name && (
                 <div><p className="text-xs text-faint">Requested by</p><p className="font-medium text-ink-soft">{insp.requested_by_name}</p></div>
               )}
-              {insp.inspector_name && (
+              {/* Marked ready is a FACT about the visit, like the ones beside
+                  it - it had its own green band saying what the header's
+                  "Ready" badge already says. */}
+              {insp.ready_marked_by && (
+                <div>
+                  <p className="text-xs text-faint">Marked ready</p>
+                  <p className="font-medium text-success">
+                    {insp.ready_marked_by}{insp.ready_marked_at ? ` · ${formatDate(insp.ready_marked_at)}` : ''}
+                  </p>
+                </div>
+              )}
+              {/* The numbers live in ONE place. While the call block is
+                  showing they are in it; once the inspection is booked the
+                  block is gone and the inspector is a fact about the visit. */}
+              {!needsBookingCall && insp.inspector_name && (
                 <div>
                   <p className="text-xs text-faint">Inspector</p>
                   <p className="font-medium text-ink-soft">{insp.inspector_name}</p>
@@ -539,12 +578,21 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
                   )}
                 </div>
               )}
-              {insp.scheduling_phone && (
+              {!needsBookingCall && insp.scheduling_phone && (
                 <div>
                   <p className="text-xs text-faint">Schedule Inspection</p>
                   <a href={`tel:${insp.scheduling_phone}`} className="flex items-center gap-1 text-sm font-medium text-accent-fg hover:underline">
                     <Phone className="h-3.5 w-3.5" />{insp.scheduling_phone}
                   </a>
+                </div>
+              )}
+              {/* THE ORPHAN. `notes` was a bare paragraph floating mid-card
+                  while every other fact carried a label above it - reported as
+                  a lowercase line that does not say what it is. */}
+              {insp.notes && (
+                <div className="col-span-2 md:col-span-3">
+                  <p className="text-xs text-faint">Notes</p>
+                  <p className="font-medium text-ink-soft break-words wrap-anywhere">{insp.notes}</p>
                 </div>
               )}
             </div>
@@ -564,9 +612,9 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
                     record the date and who you spoke to.
                   </p>
                 </div>
-                {callTargets.length > 0 ? (
+                {calls.length > 0 ? (
                   <ul className="space-y-1.5">
-                    {callTargets.slice(0, 4).map((t, idx) => (
+                    {calls.slice(0, 4).map((t, idx) => (
                       <li key={`${t.name}-${idx}`} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                         {t.phone ? (
                           <a href={`tel:${t.phone}`} className="inline-flex items-center gap-1 text-sm font-medium text-accent-fg hover:underline">
@@ -587,20 +635,16 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
                     inspector in the Directory, and it will show up here on every inspection.
                   </p>
                 )}
-                <Button size="sm" onClick={() => openBooking(insp)}>
-                  <Calendar className="h-3.5 w-3.5" /> Book it
-                </Button>
               </div>
             )}
 
-            {insp.ready_marked_by && (
-              <div className="rounded-lg bg-success-tint border border-green-100 px-3 py-2 text-xs text-success">
-                Marked ready by <strong>{insp.ready_marked_by}</strong>
-                {insp.ready_marked_at && ` on ${formatDate(insp.ready_marked_at)}`}
-              </div>
-            )}
-
-            {insp.notes && <p className="text-sm text-muted-fg break-words wrap-anywhere">{insp.notes}</p>}
+            {/* MOUNTED IN EVERY STATE, outside the block below. The menu's
+                "Add inspector's card" clicks this input, and an input that only
+                exists when the block is shown is a menu item that does nothing
+                on exactly the states the block is hidden for. */}
+            <input type="file" {...{ accept: ACCEPT_SCAN }} className="sr-only"
+              ref={el => { cardInputRefs.current[insp.id] = el }}
+              onChange={e => { const f = e.target.files?.[0]; if (f) uploadCard(insp, f); e.target.value = '' }} />
 
             {insp.card_image_url && (
               <a href={insp.card_image_url} target="_blank" rel="noopener noreferrer" className="block">
@@ -609,16 +653,17 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
               </a>
             )}
 
-            {/* Add the inspector's card/paper after the inspection happens */}
+            {/* Add the inspector's card/paper after the inspection happens -
+                and NOT before. On a request it was a band of the card offering
+                to upload paperwork for a visit nobody has booked. It is in the
+                menu in every state, so gating the block hides nothing. */}
+            {showCardBlock && (
             <div className="rounded-lg border border-dashed border-line-soft bg-surface px-3 py-2.5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <p className="text-xs font-semibold text-ink-soft">{insp.card_image_url ? "Inspector's card attached" : "Inspector's card / paperwork"}</p>
                   <p className="text-xs text-faint">Upload the card you got from the inspector - AI reads it and fills the details.</p>
                 </div>
-                <input type="file" {...{ accept: ACCEPT_SCAN }} className="sr-only"
-                  ref={el => { cardInputRefs.current[insp.id] = el }}
-                  onChange={e => { const f = e.target.files?.[0]; if (f) uploadCard(insp, f); e.target.value = '' }} />
                 <button type="button" disabled={uploadingCardId === insp.id}
                   onClick={() => cardInputRefs.current[insp.id]?.click()}
                   className="flex items-center gap-2 rounded-md border border-muted2 bg-panel px-3 py-1.5 text-xs font-medium text-ink-soft hover:bg-surface hover:border-accent disabled:opacity-50">
@@ -626,42 +671,85 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
                 </button>
               </div>
             </div>
+            )}
 
-            <div className="flex items-center gap-2 flex-wrap">
-              {insp.status === 'scheduled' && (
-                <div className="row-even lg:flex lg:items-center gap-2 w-full lg:w-auto">
-                  {!insp.ready_marked_by && (
-                    <Button size="sm" variant="outline" onClick={() => markReady(insp)}>
-                      <CheckCircle2 className="h-3.5 w-3.5" /> Mark Ready for Inspection
-                    </Button>
-                  )}
-                  <Button size="sm" variant="outline" onClick={() => openBooking(insp)}>
-                    <Calendar className="h-3.5 w-3.5" /> Change the booking
-                  </Button>
-                </div>
-              )}
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-xs text-faint">Update status:</span>
-                {['requested', 'scheduled', 'passed', 'failed', 'pending_reinspection'].map(s => (
-                  <button key={s} type="button" onClick={() => updateStatus(insp, s)}
-                    className={cn('whitespace-nowrap text-xs rounded-full border px-2 py-0.5 font-medium transition-colors',
-                      insp.status === s ? STATUS_CONFIG[s].color : 'border-line text-muted-fg hover:border-muted2')}>
-                    {STATUS_CONFIG[s].label}
-                  </button>
-                ))}
-              </div>
-              <button onClick={() => openEditInsp(insp)} className="text-faint hover:text-muted-fg p-1 ml-auto" title="Edit inspection">
-                <Pencil className="h-4 w-4" />
-              </button>
+            {/* ONE ACTION ROW. There used to be two-and-a-half: a pair of
+                buttons, a strip of five status pills labelled "Update status:",
+                and two loose icons. The strip was a SECOND DOOR to booking -
+                reported as exactly that - and a control that quietly redirects
+                somewhere else is worse than one that is gone: it teaches the
+                old habit and it is one refactor away from being the bug again.
+                Booking has one door now, and `openBooking` is the only path
+                into `scheduled` from this screen.
+
+                One primary action, named for what the inspection needs next,
+                and the rest behind RowMenu - the same cure client invoices and
+                bid invites already use. */}
+            <div className="row-even lg:flex lg:items-center gap-2">
               {isVoid(insp.status) ? (
-                <button onClick={() => restoreInsp(insp)} className="text-xs font-medium text-accent-fg hover:underline p-1" title="Put this back">
-                  Restore
-                </button>
-              ) : (
-                <button onClick={() => setVoiding(insp)} className="text-danger hover:text-danger p-1" title="Void inspection">
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                <Button size="sm" onClick={() => restoreInsp(insp)}>
+                  <Undo2 className="h-3.5 w-3.5" /> Restore
+                </Button>
+              ) : !booked ? (
+                <Button size="sm" onClick={() => openBooking(insp)}>
+                  <Calendar className="h-3.5 w-3.5" /> Book it
+                </Button>
+              ) : !insp.ready_marked_by && canRecordResult ? (
+                <Button size="sm" onClick={() => markReady(insp)}>
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Mark ready for inspection
+                </Button>
+              ) : null}
+
+              {/* A result can only be recorded for a visit somebody arranged. */}
+              {canRecordResult && (
+                <>
+                  <Button size="sm" variant="outline" onClick={() => updateStatus(insp, 'passed')}>
+                    <CheckCircle2 className="h-3.5 w-3.5 text-success" /> Passed
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => updateStatus(insp, 'failed')}>
+                    <XCircle className="h-3.5 w-3.5 text-danger" /> Failed
+                  </Button>
+                </>
               )}
+
+              <div className="lg:ml-auto flex justify-end">
+                <RowMenu label={`More for the ${insp.type} inspection`}>
+                  {close => (
+                    <>
+                      {booked && !isVoid(insp.status) && (
+                        <MenuItem onClick={() => { openBooking(insp); close() }}>
+                          <Calendar className="h-3.5 w-3.5" /> Change the booking
+                        </MenuItem>
+                      )}
+                      <MenuItem onClick={() => { cardInputRefs.current[insp.id]?.click(); close() }}>
+                        <Upload className="h-3.5 w-3.5" /> {insp.card_image_url ? "Replace inspector's card" : "Add inspector's card"}
+                      </MenuItem>
+                      {!isVoid(insp.status) && insp.status !== 'pending_reinspection' && (
+                        <MenuItem onClick={() => { updateStatus(insp, 'pending_reinspection'); close() }}>
+                          <RotateCcw className="h-3.5 w-3.5" /> Needs re-inspection
+                        </MenuItem>
+                      )}
+                      {booked && (
+                        <MenuItem onClick={() => { updateStatus(insp, 'requested'); close() }}>
+                          <Undo2 className="h-3.5 w-3.5" /> Back to requested — clears the booking
+                        </MenuItem>
+                      )}
+                      <MenuItem onClick={() => { openEditInsp(insp); close() }}>
+                        <Pencil className="h-3.5 w-3.5" /> Edit inspection
+                      </MenuItem>
+                      {isVoid(insp.status) ? (
+                        <MenuItem onClick={() => { restoreInsp(insp); close() }}>
+                          <Undo2 className="h-3.5 w-3.5" /> Restore
+                        </MenuItem>
+                      ) : (
+                        <MenuItem danger onClick={() => { setVoiding(insp); close() }}>
+                          <Trash2 className="h-3.5 w-3.5" /> Void inspection
+                        </MenuItem>
+                      )}
+                    </>
+                  )}
+                </RowMenu>
+              </div>
             </div>
           </div>
         )}

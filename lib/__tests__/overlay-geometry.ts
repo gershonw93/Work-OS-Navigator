@@ -817,5 +817,75 @@ ok(drawerKeyboard.panel.b <= KEYBOARD.visible,
   `with a keyboard up the drawer ends above it (${drawerKeyboard.panel.b} of ${KEYBOARD.visible} visible)`)
 ok(drawerKeyboard.close.t >= 0, `...and its close button is still reachable (${drawerKeyboard.close.t})`)
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 16. AN INSPECTION CARD'S MENU IS NOT CLIPPED BY THE CARD.
+//
+// Same fault as section 12, one container over, and this one is the reason the
+// inspections card had to lose `overflow-hidden`. The card's action row ends in
+// a RowMenu whose panel is `absolute` inside the card, and `overflow-hidden`
+// clips on BOTH axes - so the panel, which hangs off the LAST row of the card,
+// would be sliced off entirely. Not shortened: gone.
+//
+// It cannot be read off the source, because every class on the panel is
+// individually correct and the panel still reports its full rectangle. So the
+// two shapes are laid out side by side and asked the browser.
+// ─────────────────────────────────────────────────────────────────────────────
+const CARD = (wrapper: string) => `
+<div class="p-6 space-y-4">
+  <div id="card" class="${wrapper}">
+    <button class="w-full flex items-center gap-4 rounded-t-xl px-5 py-4 text-left">
+      <span class="flex-1 min-w-0"><span class="font-semibold text-ink">Drywall</span></span>
+    </button>
+    <div class="border-t border-line-soft px-5 py-5 space-y-4">
+      <p class="text-sm text-muted-fg">Needed by Sep 16, 2026</p>
+      <div id="row" class="row-even lg:flex lg:items-center gap-2">
+        <button class="inline-flex h-11 items-center justify-center rounded-md px-3 text-sm font-medium">Book it</button>
+        <div class="lg:ml-auto flex justify-end">
+          <div class="relative shrink-0">
+            <button id="btn" class="inline-flex h-11 w-11 items-center justify-center rounded-md border border-line">…</button>
+            <div id="menu" role="menu" class="absolute right-0 z-20 mt-1 overflow-hidden rounded-xl border border-line bg-panel py-1 shadow-lg max-w-[calc(100vw-2rem)] min-w-[13rem]">
+              ${'<button class="flex w-full min-h-11 items-center gap-2 px-3 py-2 text-left text-sm font-medium">Edit inspection</button>'.repeat(5)}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>`
+
+const CARD_PROBE = `(rect) => {
+  const b = s => { const r = rect(s); return { l: Math.round(r.left), r: Math.round(r.right),
+    t: Math.round(r.top), b: Math.round(r.bottom), w: Math.round(r.width), h: Math.round(r.height) } }
+  const menu = document.querySelector('#menu')
+  const items = menu.querySelectorAll('button')
+  const last = items[items.length - 1].getBoundingClientRect()
+  const at = document.elementFromPoint(last.left + last.width / 2, last.top + last.height / 2)
+  return { card: b('#card'), menu: b('#menu'), btn: b('#btn'),
+           lastItemReachable: !!(at && at.closest('#menu')),
+           lastItemTop: Math.round(last.top),
+           docWidth: Math.ceil(document.documentElement.scrollWidth),
+           vw: window.innerWidth }
+}`
+
+const OPEN_CARD = 'rounded-xl border border-line bg-panel'
+for (const [where, width] of [['a phone', VIEWPORT.w], ['a desktop', 1280]] as const) {
+  const card = measure(CARD(OPEN_CARD), CARD_PROBE, 800, '', width)
+  ok(card.menu.h > 100, `${where}: the menu really rendered (${card.menu.h}px, fixture sanity)`)
+  ok(card.lastItemTop > card.card.b,
+    `${where}: its last item sits below the card's own bottom edge (${card.lastItemTop} vs ${card.card.b})`)
+  ok(card.lastItemReachable,
+    `${where}: THE POINT - a click down there lands on the menu, not on the page behind it`)
+  ok(card.menu.l >= 0 && card.menu.r <= card.vw,
+    `${where}: and it does not run off either edge (${card.menu.l}-${card.menu.r} of ${card.vw})`)
+  ok(card.docWidth <= width, `${where}: and the row adds no sideways scroll (${card.docWidth} of ${width})`)
+}
+
+// The shape it must never go back to, measured beside it - without this the
+// assertion above could be passing for some other reason entirely.
+const clippedCard = measure(CARD(`${OPEN_CARD} overflow-hidden`), CARD_PROBE, 800, '', 1280)
+ok(!clippedCard.lastItemReachable,
+  'and overflow-hidden on the card really does cut the menu off - the same markup, '
+  + 'the same rectangle, and nothing there to click')
+
 rmSync(work, { recursive: true, force: true })
 done()

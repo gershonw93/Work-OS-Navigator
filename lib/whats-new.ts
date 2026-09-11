@@ -52,6 +52,12 @@ export const RELEASES: Release[] = [
     title: 'Inspections: the date you asked for and the date you got are two different things',
     items: [
       {
+        kind: 'improved',
+        title: 'The inspection card has one action row',
+        text: 'The strip of five status pills is gone, and with it the second way to mark something Scheduled - booking is the Book it button and nothing else. Whatever the inspection needs next is the button on the left; Change the booking, Needs re-inspection, Edit and Void live behind the \u2022\u2022\u2022 menu. Passed and Failed appear once it is actually booked. Notes finally sit under a label instead of floating loose, and the inspector\'s-card upload no longer takes up space on a request that has not happened yet.',
+        help: 'inspections',
+      },
+      {
         kind: 'new',
         title: 'Booking an inspection asks what the inspector told you',
         text: 'Pressing "Scheduled" used to flip the status on the spot. It now opens a short form: the date they gave you, the time or window, who you spoke to, and the confirmation number if there was one. That record lives on the inspection, so anybody can see it was really booked and by whom.',
