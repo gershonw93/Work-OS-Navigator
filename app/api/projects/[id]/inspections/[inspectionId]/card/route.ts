@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { canCarryCompletion } from '@/lib/inspection-status'
 
 export const runtime = 'nodejs'
 
@@ -86,7 +87,18 @@ export async function POST(request: Request, { params }: { params: { id: string;
           : "Read from the inspector's card"
       }
     }
-    fillIfEmpty('completed_date', fields.completed_date)
+    // A COMPLETION DATE IS NOT A FREE FIELD. This wrote it straight onto the
+    // row while asking about the RESULT separately, so declining "the card
+    // looks PASSED, mark it passed?" left a `requested` inspection reading
+    // "Completed Sep 24, 2026" under a Book it button. `clearsCompletion`
+    // never saw it, because that fires on a status MOVE and no status moved.
+    //
+    // Filling a blank on an already-finished record is not a contradiction, so
+    // that still happens. Otherwise the date is HANDED BACK below and written
+    // only if somebody says the inspection is finished.
+    if (canCarryCompletion((existing as any)?.status)) {
+      fillIfEmpty('completed_date', fields.completed_date)
+    }
     if (fields.notes && !(existing as any)?.notes) updates.notes = fields.notes
   }
 
@@ -97,5 +109,12 @@ export async function POST(request: Request, { params }: { params: { id: string;
   }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  return NextResponse.json({ inspection, suggested_status: fields?.status ?? null })
+  // The date PRINTED ON THE CARD, offered alongside the result. Accepting the
+  // suggestion used to stamp today - so the one path that resolved the
+  // contradiction also threw away the better date.
+  return NextResponse.json({
+    inspection,
+    suggested_status: fields?.status ?? null,
+    suggested_completed_date: fields?.completed_date ?? null,
+  })
 }

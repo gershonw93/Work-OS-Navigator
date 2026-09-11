@@ -196,6 +196,23 @@ export const clearsCompletion = (status: unknown): boolean =>
 export const clearsBooking = (status: unknown): boolean =>
   status === 'not_scheduled' || status === 'requested'
 
+/**
+ * ...and the other half of the same rule: WHO MAY CARRY A COMPLETION DATE.
+ *
+ * `clearsCompletion` only fires on a status MOVE, so it never saw the door the
+ * inspector's-card scan came through. That route writes the date printed on the
+ * paperwork straight onto the row and asks about the RESULT separately - so
+ * declining "the card looks PASSED, mark it passed?" left a `requested`
+ * inspection carrying "Completed Sep 24, 2026" under a `Book it` button. A
+ * record asserting it is both unbooked and finished, which is exactly what
+ * `clearsCompletion` exists to prevent.
+ *
+ * A completion date belongs to a finished inspection and to nothing else. The
+ * date and the result move together or neither moves.
+ */
+export const canCarryCompletion = (status: unknown): boolean =>
+  isInspectionStatus(status) && CLOSED.includes(status)
+
 // ── two dates, and which one the card is showing ────────────────────────────
 
 /**

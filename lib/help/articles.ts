@@ -1505,7 +1505,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'inspections',
     title: 'Request, schedule, and record inspections',
     category: 'docs',
-    keywords: ['inspection', 'inspector', 'pass', 'fail', 'schedule', 'result', 'ready', 'request', 'notify', 'secretary', 'required', 'blank', 'cannot send request', 'preferred date', 'book', 'booking', 'who do i call', 'now what', 'does it email the inspector', 'confirmation number', 'needed by', 'confirmed for', 'requested date', 'where did the status buttons go', 'update status', 'pills', 'menu', 'cannot mark passed'],
+    keywords: ['inspection', 'inspector', 'pass', 'fail', 'schedule', 'result', 'ready', 'request', 'notify', 'secretary', 'required', 'blank', 'cannot send request', 'preferred date', 'book', 'booking', 'who do i call', 'now what', 'does it email the inspector', 'confirmation number', 'needed by', 'confirmed for', 'requested date', 'where did the status buttons go', 'update status', 'pills', 'menu', 'cannot mark passed', 'completed date wrong', 'says completed but not booked', 'card image too big'],
     summary: 'A site manager or sub requests an inspection, the scheduler gets notified, and everyone hears the result.',
     blocks: [
       { type: 'text', text: 'The Inspections tab (under Docs & Legal) runs the whole workflow - request → schedule → pass/fail - with notifications along the way.' },
@@ -1515,7 +1515,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'When the work is actually done, the sub hits Mark Ready for Inspection from My Jobs (or anyone can from the Inspections tab). Whoever requested it and whoever schedules it get a notification to book the inspector, and it lands in the job history.',
         'Whoever is booking it CALLS the jurisdiction. The inspection lists the numbers already on the job, and says plainly that SyteNav does not contact the inspector for you.',
         'Back from the call, press Book it and fill in the date they gave you, the time or window, who you spoke to, and the confirmation number if there was one. That is what marks it Scheduled, and the requester is notified back with the date.',
-        'After the visit, upload the inspector\'s card/paper on the inspection - AI reads it and fills the details.',
+        'After the visit, upload the inspector\'s card/paper on the inspection - AI reads it and fills any blank details. It only ASKS about the result: nothing is marked passed or failed until you say so, and the completion date recorded is the one printed on the card, not the day you uploaded it.',
         'Mark it Passed or Failed on the card - the requester (and scheduler) are notified of the result. Those two only appear once it is booked; you cannot pass an inspection nobody arranged.',
       ] },
       { type: 'text', text: 'WHO ACTUALLY HEARS ABOUT IT. Assigning somebody ADDS them - it does not replace anyone. The people your company routed inspections to (Settings → Notifications → Who gets told) are told as well, every time, and so are whoever requested it and whoever is on booking it. You can leave "Who schedules this?" blank and the request still reaches the people who manage inspections; an unassigned inspection is the one somebody else most needs to see.' },

@@ -16,7 +16,7 @@ production branch.** Do NOT ask the user to merge or deploy.
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-100.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-101.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - IMPORTANT: verify every column you `.select()` actually exists - Supabase
   returns `data: null` for an unknown column, so a typo reads as "not found"
@@ -423,6 +423,16 @@ production branch.** Do NOT ask the user to merge or deploy.
   hand over the number - gathered from the permits and the Directory
   (`lib/inspection-contacts.ts`), never re-asked of the person in the field who
   does not know the township's scheduling line.
+- A RULE THAT ONLY FIRES ON A STATUS MOVE DOES NOT COVER THE OTHER DOORS.
+  `clearsCompletion` nulls `completed_date` when an inspection goes back to a
+  waiting state - and the inspector's-card scan writes that column directly,
+  asking about the RESULT separately. So declining "the card looks PASSED, mark
+  it passed?" left a `requested` inspection reading "Completed Sep 24, 2026"
+  under a Book it button: a record asserting it was both unbooked and finished.
+  `canCarryCompletion` is the other half of the same rule and all three doors
+  ask it (the scan, the PATCH route, the form). A date and the state it belongs
+  to move together or neither moves - and the state's date comes off the
+  PAPERWORK, not `todayDateInput()`, which is what the one resolving path used.
 - COMPLIANCE STATUS IS DATE-DRIVEN: a date that has not run out means the
   document is current, whatever the row says, and a date that has passed means
   expired, whatever the row says. The stored status only speaks for a document

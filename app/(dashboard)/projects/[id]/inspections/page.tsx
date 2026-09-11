@@ -203,7 +203,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
     // than a delete, so the guard takes its own words - and the refresh runs
     // either way, because the card is on file whichever answer comes back.
     if (data.suggested_status && insp.status !== data.suggested_status) {
-      guardDelete(() => updateStatus(insp, data.suggested_status), {
+      guardDelete(() => updateStatus(insp, data.suggested_status, undefined, data.suggested_completed_date), {
         label: 'this inspection',
         title: 'The card says otherwise',
         body: `The card looks ${String(data.suggested_status).toUpperCase()}. Mark this inspection ${data.suggested_status}?`,
@@ -293,7 +293,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
     setInspectorName(''); setInspectorPhone(''); setSchedulingPhone(''); setSchedulerId(''); setNotes('')
   }
 
-  async function updateStatus(insp: Inspection, newStatus: string, reason?: string) {
+  async function updateStatus(insp: Inspection, newStatus: string, reason?: string, completedOn?: string | null) {
     // Failed asks WHY before it saves. The server refuses a failure with no
     // reason too - a rule enforced only in a form is not a rule.
     if (newStatus === 'failed' && !reason && !insp.failure_reason) {
@@ -313,8 +313,13 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
     // passed on a west-coast evening was stamped tomorrow. The mirror image of
     // the render bug, and it never showed up because the render bug was
     // shifting it back again.
+    //
+    // ...unless the INSPECTOR'S CARD says otherwise. Accepting "the card looks
+    // PASSED, mark it passed?" used to stamp today over the date printed on the
+    // paperwork - the one path that resolved the contradiction also threw away
+    // the better date.
     const completed = newStatus === 'passed' || newStatus === 'failed'
-      ? { completed_date: todayDateInput() }
+      ? { completed_date: completedOn || todayDateInput() }
       : {}
     const res = await fetch(`/api/projects/${params.id}/inspections/${insp.id}`, {
       method: 'PATCH',
@@ -472,6 +477,10 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
     // No card exists before the visit could have happened, so the upload block
     // is not shown for a request - it stays in the menu, where nothing is lost.
     const showCardBlock = !!insp.card_image_url || booked || insp.status === 'passed' || insp.status === 'failed'
+    // Whether there is anything to put in the right-hand column. A voided
+    // request has neither, and a 24rem column of nothing is the dead space this
+    // layout exists to remove.
+    const hasAside = needsBookingCall || showCardBlock
 
     // NO `overflow-hidden` ON THE CARD, AND THAT IS LOAD-BEARING. The action
     // row at the foot of it ends in a RowMenu whose panel is `absolute` inside
@@ -520,8 +529,24 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
         </button>
 
         {isExpanded && (
-          <div className="border-t border-line-soft px-5 py-5 space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm [&>div]:min-w-0 [&>div]:[overflow-wrap:anywhere]">
+          // TWO COLUMNS ON A WIDE SCREEN, not a stack of full-width bands. At
+          // 1550px every band held about 300px of content and a quarter-mile of
+          // nothing to its right. Facts left, what-to-do-next right, actions
+          // across the bottom.
+          //
+          // The tracks are `minmax(0,1fr)`, not `1fr`: a grid child defaults to
+          // `min-width: auto`, so a long unbroken value can refuse to go below
+          // its own line and push the COLUMN past its share while the text
+          // inside behaves perfectly - the same rule as `.truncate` setting
+          // `min-width: 0`. It is belt-and-braces here rather than load-bearing,
+          // because `overflow-wrap: anywhere` on prose already drives
+          // min-content to zero; it is the correct form and costs nothing.
+          //
+          // `gap-`, never `space-y-`: space-y is `> * + *` margins and survives
+          // into the grid, fighting the gap it is laid out with.
+          <div className={cn('border-t border-line-soft px-5 py-5 flex flex-col gap-4',
+            hasAside && 'lg:grid lg:grid-cols-[minmax(0,1fr)_24rem] lg:gap-6 lg:items-start')}>
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 text-sm min-w-0 [&>div]:min-w-0 [&>div]:[overflow-wrap:anywhere]">
               {/* BOTH dates, never one pretending to be the other. The
                   requested one stays visible after booking, because "we asked
                   for the 25th and got the 30th" is the fact somebody in the
@@ -542,7 +567,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
                 <div><p className="text-xs text-faint">Booked</p><p className="font-medium text-ink-soft">{formatDate(insp.booked_at)}{insp.booked_by_name ? ` by ${insp.booked_by_name}` : ''}</p></div>
               )}
               {insp.failure_reason && (
-                <div className="col-span-2"><p className="text-xs text-faint">Why it failed</p><p className="font-medium text-danger break-words wrap-anywhere">{insp.failure_reason}</p></div>
+                <div className="col-span-full"><p className="text-xs text-faint">Why it failed</p><p className="font-medium text-danger break-words wrap-anywhere">{insp.failure_reason}</p></div>
               )}
               {insp.completed_date && (
                 <div><p className="text-xs text-faint">Completed</p><p className="font-medium text-ink-soft">{formatDate(insp.completed_date)}</p></div>
@@ -590,12 +615,25 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
                   while every other fact carried a label above it - reported as
                   a lowercase line that does not say what it is. */}
               {insp.notes && (
-                <div className="col-span-2 md:col-span-3">
+                <div className="col-span-full">
                   <p className="text-xs text-faint">Notes</p>
                   <p className="font-medium text-ink-soft break-words wrap-anywhere">{insp.notes}</p>
                 </div>
               )}
             </div>
+
+            {/* MOUNTED IN EVERY STATE, and outside the aside below. The menu's
+                "Add inspector's card" clicks this input, and an input that only
+                exists when the block is shown is a menu item that does nothing
+                on exactly the states the block is hidden for. */}
+            <input type="file" {...{ accept: ACCEPT_SCAN }} className="sr-only"
+              ref={el => { cardInputRefs.current[insp.id] = el }}
+              onChange={e => { const f = e.target.files?.[0]; if (f) uploadCard(insp, f); e.target.value = '' }} />
+
+            {/* THE RIGHT-HAND COLUMN: what to do next, and what is on file.
+                Rendered at all only when it has something in it. */}
+            {hasAside && (
+            <div className="flex flex-col gap-4 min-w-0">
 
             {/* THE QUESTION NOTHING ON THIS SCREEN ANSWERED: "the inspector got
                 the notification - now what?" Nobody emailed an inspector; the
@@ -638,38 +676,36 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
               </div>
             )}
 
-            {/* MOUNTED IN EVERY STATE, outside the block below. The menu's
-                "Add inspector's card" clicks this input, and an input that only
-                exists when the block is shown is a menu item that does nothing
-                on exactly the states the block is hidden for. */}
-            <input type="file" {...{ accept: ACCEPT_SCAN }} className="sr-only"
-              ref={el => { cardInputRefs.current[insp.id] = el }}
-              onChange={e => { const f = e.target.files?.[0]; if (f) uploadCard(insp, f); e.target.value = '' }} />
+            {/* ONE BAND ABOUT THE DOCUMENT, not two. The card used to render
+                as a ~200px slab with nothing beside it AND a second band
+                underneath saying it was attached and offering to replace it.
+                A photo of a form is not something you read at a glance - the
+                useful facts off it are already in the grid - so it is a link.
 
-            {insp.card_image_url && (
-              <a href={insp.card_image_url} target="_blank" rel="noopener noreferrer" className="block">
-                <img src={insp.card_image_url} alt="Inspection card" className="rounded-lg border border-line max-h-48 object-contain w-auto" />
-                <p className="text-xs text-accent-fg mt-1 hover:underline">View full image ↗</p>
-              </a>
-            )}
-
-            {/* Add the inspector's card/paper after the inspection happens -
-                and NOT before. On a request it was a band of the card offering
-                to upload paperwork for a visit nobody has booked. It is in the
-                menu in every state, so gating the block hides nothing. */}
+                Shown from the booking onward and NOT before: on a request it
+                was offering to upload paperwork for a visit nobody has booked.
+                It is in the menu in every state, so gating it hides nothing. */}
             {showCardBlock && (
-            <div className="rounded-lg border border-dashed border-line-soft bg-surface px-3 py-2.5">
-              <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="rounded-lg border border-dashed border-line-soft bg-surface px-3 py-2.5 space-y-1.5">
                 <div>
                   <p className="text-xs font-semibold text-ink-soft">{insp.card_image_url ? "Inspector's card attached" : "Inspector's card / paperwork"}</p>
                   <p className="text-xs text-faint">Upload the card you got from the inspector - AI reads it and fills the details.</p>
                 </div>
-                <button type="button" disabled={uploadingCardId === insp.id}
-                  onClick={() => cardInputRefs.current[insp.id]?.click()}
-                  className="flex items-center gap-2 rounded-md border border-muted2 bg-panel px-3 py-1.5 text-xs font-medium text-ink-soft hover:bg-surface hover:border-accent disabled:opacity-50">
-                  {uploadingCardId === insp.id ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Reading…</> : <><Upload className="h-3.5 w-3.5" /> {insp.card_image_url ? 'Replace card' : "Add inspector's card"}</>}
-                </button>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  {insp.card_image_url && (
+                    <a href={insp.card_image_url} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex min-h-11 items-center text-xs font-medium text-accent-fg hover:underline lg:min-h-0">
+                      View full image ↗
+                    </a>
+                  )}
+                  <button type="button" disabled={uploadingCardId === insp.id}
+                    onClick={() => cardInputRefs.current[insp.id]?.click()}
+                    className="flex min-h-11 items-center gap-2 rounded-md border border-muted2 bg-panel px-3 py-1.5 text-xs font-medium text-ink-soft hover:bg-surface hover:border-accent disabled:opacity-50 lg:min-h-0">
+                    {uploadingCardId === insp.id ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Reading…</> : <><Upload className="h-3.5 w-3.5" /> {insp.card_image_url ? 'Replace card' : "Add inspector's card"}</>}
+                  </button>
+                </div>
               </div>
+            )}
             </div>
             )}
 
@@ -685,7 +721,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
                 One primary action, named for what the inspection needs next,
                 and the rest behind RowMenu - the same cure client invoices and
                 bid invites already use. */}
-            <div className="row-even lg:flex lg:items-center gap-2">
+            <div className="row-even lg:col-span-2 lg:flex lg:items-center gap-2">
               {isVoid(insp.status) ? (
                 <Button size="sm" onClick={() => restoreInsp(insp)}>
                   <Undo2 className="h-3.5 w-3.5" /> Restore
@@ -712,7 +748,10 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
                 </>
               )}
 
-              <div className="lg:ml-auto flex justify-end">
+              {/* NOT `lg:ml-auto`. On a 1550px card that put Book it on one
+                  edge and the menu 1400px away on the other, with nothing
+                  between them - the actions read as one cluster instead. */}
+              <div className="flex justify-end lg:justify-start">
                 <RowMenu label={`More for the ${insp.type} inspection`}>
                   {close => (
                     <>
