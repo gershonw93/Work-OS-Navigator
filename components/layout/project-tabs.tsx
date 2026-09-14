@@ -6,6 +6,7 @@ import { useState, useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { usePermissions } from '@/lib/use-permissions'
 import { createClient } from '@/lib/supabase/client'
+import { useSheetDismiss } from '@/lib/use-sheet-dismiss'
 import {
   FileText, Users, Calendar, CheckSquare, TrendingUp, BookOpen,
   MessageSquare, Receipt, DollarSign, GitPullRequest, Shield,
@@ -153,6 +154,9 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [open, setOpen] = useState(false)
+  // Pull the sheet down to close it - the way it came up. On the PANEL,
+  // which is also the scroller: the hook reads scrollTop off it.
+  const sheet = useSheetDismiss(() => setOpen(false), open)
   // Which group's menu is showing. A STRING, not a boolean per group: exactly
   // one can be open, and moving the pointer from one to the next replaces it
   // rather than leaving a trail of panels behind.
@@ -277,6 +281,10 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
   // A menu left open across a navigation is a menu hanging over the page you
   // just asked for.
   useEffect(() => { setMenu(null) }, [pathname])
+  // ...and so is a sheet. It is state in the project LAYOUT, and the
+  // edge-swipe (or the phone's own back gesture) can now change the page
+  // underneath an open one - it must not hang over a screen it was never about.
+  useEffect(() => { setOpen(false) }, [pathname])
 
   const onOverview = pathname.endsWith('/overview')
   const activeTab = visibleTabs.find(t => pathname.includes(`/${t.slug}`))
@@ -446,6 +454,8 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
         <div className="overlay-sheet sm:hidden bg-black/40" data-overlay onClick={() => setOpen(false)}>
           <div
             onClick={e => e.stopPropagation()}
+            {...sheet.handlers}
+            style={sheet.style}
             className="flex flex-col overflow-y-auto overscroll-contain rounded-t-2xl bg-panel shadow-2xl pb-safe"
           >
             <div className="flex items-center justify-between px-5 pt-5 pb-3">

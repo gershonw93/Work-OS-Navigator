@@ -981,6 +981,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       'phone', 'mobile', 'ipad', 'tablet', 'iphone', 'android', 'app', 'app store',
       'download', 'install', 'home screen', 'add to home screen', 'offline', 'on site',
       'jobsite', 'camera', 'photos', 'notifications', 'push', 'keyboard', 'screen jumps', 'form scrolls away', 'tab bar in the middle', 'cant see the form',
+      'swipe', 'swipe back', 'go back', 'back gesture', 'gesture', 'swipe down', 'pull down', 'close menu', 'slide',
     ],
     summary: 'SyteNav works in your phone browser today - add it to your home screen and it behaves like an app.',
     blocks: [
@@ -1000,6 +1001,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: 'text', text: 'NOTIFICATIONS. Email notifications work on a phone today, and you control which ones you get under Settings then Notifications. Notifications that pop up on the phone itself arrive with the app.' },
       { type: 'text', text: 'GETTING AROUND. The search bar at the top and the tabs at the bottom stay put while you scroll — only the page between them moves. The tabs cover the busiest screens; More opens the full menu, which is everything the sidebar has on a desktop.' },
       { type: 'text', text: 'DIALOGS. Anything that opens over the page — adding a milestone, recording a payment, picking a sub — fits inside the screen, clears the notch and the home indicator, and scrolls inside itself if it has more to show. The page underneath holds still while it is open. If a table is wider than your phone, swipe it sideways rather than assuming the missing columns are not there.' },
+      { type: 'text', text: 'SWIPE, LIKE ANY APP. Drag in from the left edge of the screen and let go to go back a page — a short flick is enough, and a small chevron follows your finger so you can see it is working. It never fires from the first page you opened, and never while a dialog or a menu is open: close that first. The Project Sections menu, the job status picker and the Team panel pull DOWN to close; the More menu slides back to the left; a task or the job history slides back to the right. Scrolling still scrolls — a menu only comes down when it is already at the top, so pulling a long list back up never closes it by accident.' },
+      { type: 'tip', text: 'In the iPhone app the back swipe is the phone\'s own, with the page sliding under your finger the way it does in every other app. That half needs the next build of the app to reach you; everything else here arrives with the site.' },
       { type: 'text', text: 'THE APP ITSELF. A native iPhone and iPad app is in the works. When it lands you will sign in with the account you already have and everything will be where you left it. Accounts, plans and billing stay on the website; the app is for the work. We will tell you here and in What\'s New the day it is downloadable.' },
     ],
     related: ['field-mode', 'daily-log-create', 'time-clock'],

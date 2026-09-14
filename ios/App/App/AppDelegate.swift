@@ -1,4 +1,5 @@
 import UIKit
+import WebKit
 import Capacitor
 
 @UIApplicationMain
@@ -72,4 +73,36 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         return ApplicationDelegateProxy.shared.application(application, continue: userActivity, restorationHandler: restorationHandler)
     }
 
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// SWIPE FROM THE LEFT EDGE TO GO BACK - the gesture every iPhone app has.
+//
+// WKWebView can do it itself, interactively, with the system's own
+// slide-and-snapshot animation: `allowsBackForwardNavigationGestures`. It is
+// off by default, and off is the single clearest tell that an app is a
+// website in a wrapper. The web app carries its own JavaScript version of the
+// gesture (lib/use-swipe-back.ts) for Safari, Android and any phone still on
+// a build from before this line; inside the shell the system gesture takes the
+// edge touch first, so the two never fight.
+//
+// Back-forward here is the webview's history, which includes every soft
+// navigation the Next router pushes - so this goes exactly where the in-app
+// back goes, one screen at a time, never out to a blank page.
+//
+// A SUBCLASS, because the storyboard instantiates the view controller and
+// nothing else in the app ever holds a reference to it. `capacitorDidLoad()`
+// is the override point Capacitor documents (the webview exists by then;
+// `viewDidLoad` is where it is created). It lives in this file rather than
+// its own so it needs no entry in project.pbxproj - a Swift file the project
+// does not list is a file Xcode does not compile, silently.
+// Main.storyboard points at it: customClass="SyteNavViewController".
+//
+// NEEDS AN IOS REBUILD TO TAKE EFFECT. Pinned in lib/__tests__/swipe-back.ts.
+// ─────────────────────────────────────────────────────────────────────────
+class SyteNavViewController: CAPBridgeViewController {
+    override open func capacitorDidLoad() {
+        super.capacitorDidLoad()
+        webView?.allowsBackForwardNavigationGestures = true
+    }
 }

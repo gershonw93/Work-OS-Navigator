@@ -9,7 +9,7 @@
 // The top inset is a measurement and lives in `overlay-geometry` (section 13).
 // The other two are here: WHY it played its entrance twice, and the gesture.
 
-import { swipeAxis, swipeOffset, shouldDismiss, SWIPE_SLOP } from '../swipe-dismiss'
+import { swipeAxis, swipeOffset, swipeTravel, shouldDismiss, SWIPE_SLOP } from '../swipe-dismiss'
 import { ok, done, code, read, walk } from './_helpers'
 
 // ── which way is this gesture going ─────────────────────────────────────────
@@ -112,5 +112,30 @@ ok(nested.length <= NESTED_LIMIT,
   `components declared inside components: ${nested.length} (limit ${NESTED_LIMIT}, may only go down)`)
 ok(!nested.some(n => /TaskDrawer/.test(n)),
   '...and the one that was reported is not among them')
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ONE RULE, EVERY EDGE. "add swiping all over ... make it feel super native
+// app like" - so the one-way rule became `swipeTravel`, signed per direction,
+// and the phone navigation (which comes in from the LEFT) reads the same hook
+// as the two right-hand drawers. The bottom sheets are in swipe-sheet.ts.
+// ─────────────────────────────────────────────────────────────────────────────
+ok(swipeTravel(80, 5, 'right') === 80 && swipeTravel(-80, 5, 'right') === 0,
+  'a right-hand drawer follows a rightward drag and ignores a leftward one')
+ok(swipeTravel(-80, 5, 'left') === -80 && swipeTravel(80, 5, 'left') === 0,
+  'THE PHONE NAVIGATION leaves to the left, and only to the left - signed, so it feeds a translateX as-is')
+ok(swipeOffset(80) === swipeTravel(80, 0, 'right') && swipeOffset(-80) === swipeTravel(-80, 0, 'right'),
+  'swipeOffset is the right-hand case by its old name, so the two drawers that read it did not change')
+
+ok(/direction: 'right' \| 'left' = 'right'/.test(hook), 'the drawer hook takes the edge it leaves by')
+ok(/direction === 'left' \? Math\.min\(-width, travel\) : Math\.max\(width, travel\)/.test(hook),
+  '...and slides all the way out on THAT side')
+ok(/if \(enabled\) return\s+setLeaving\(false\)/.test(hook),
+  'closing an always-mounted panel resets the gesture - or `leaving` sticks and every later touch is ignored')
+
+const sidebar = code('components/layout/sidebar.tsx')
+ok(/useSwipeDismiss\(\(\) => setMobileOpen\(false\), mobileOpen, 'left'\)/.test(sidebar),
+  'the phone navigation can be slid back off the LEFT edge - enabled only while open, since it stays mounted')
+ok(/\{\.\.\.swipe\.handlers\}/.test(sidebar) && /style=\{swipe\.style\}/.test(sidebar),
+  '...with the gesture on the panel')
 
 done()

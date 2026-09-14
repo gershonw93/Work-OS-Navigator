@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, type CSSProperties, type TouchEvent } from 'react'
-import { swipeAxis, swipeOffset, shouldDismiss, type SwipeAxis } from './swipe-dismiss'
+import { swipeAxis, swipeTravel, shouldDismiss, type SwipeAxis } from './swipe-dismiss'
 
 /** Long enough to read as the panel leaving, short enough not to be a wait. */
 export const SWIPE_EXIT_MS = 180
@@ -18,7 +18,11 @@ export interface SwipeDismiss {
 }
 
 /**
- * Drag a side drawer back off the right edge of the screen to close it.
+ * Drag a side drawer back off the edge it came in from to close it.
+ *
+ * `'right'` for a right-hand drawer (`.overlay-drawer`), `'left'` for the
+ * phone navigation, which slides in from the left. One hook, because a gesture
+ * only some drawers answer to is worse than none.
  *
  * Touch only, deliberately: a mouse has the close button and the backdrop, and
  * a drag-to-dismiss on a pointer device fights text selection.
@@ -32,7 +36,11 @@ export interface SwipeDismiss {
  * would not work, and it is not needed - nothing here scrolls sideways, so a
  * horizontal drag has nothing to steal.
  */
-export function useSwipeDismiss(onDismiss: () => void, enabled = true): SwipeDismiss {
+export function useSwipeDismiss(
+  onDismiss: () => void,
+  enabled = true,
+  direction: 'right' | 'left' = 'right',
+): SwipeDismiss {
   const [offset, setOffset] = useState(0)
   const [dragging, setDragging] = useState(false)
   // Once it is on its way out, every further touch is ignored: a second
@@ -45,6 +53,19 @@ export function useSwipeDismiss(onDismiss: () => void, enabled = true): SwipeDis
   const exit = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   useEffect(() => () => clearTimeout(exit.current), [])
+
+  // A panel that UNMOUNTS on dismiss takes this state with it. One that stays
+  // mounted and merely slides out of frame - the phone navigation - does not,
+  // and would be left with `leaving` set forever: every later touch ignored,
+  // the inline transform still pinning it off-screen. So closing resets it.
+  useEffect(() => {
+    if (enabled) return
+    setLeaving(false)
+    setDragging(false)
+    setOffset(0)
+    start.current = null
+    axis.current = 'undecided'
+  }, [enabled])
 
   const cancel = () => {
     start.current = null
@@ -73,7 +94,7 @@ export function useSwipeDismiss(onDismiss: () => void, enabled = true): SwipeDis
     if (axis.current !== 'horizontal') return          // it is a scroll; leave it
 
     if (!dragging) setDragging(true)
-    setOffset(swipeOffset(dx))
+    setOffset(swipeTravel(dx, dy, direction))
   }
 
   const onTouchEnd = (e: TouchEvent<HTMLElement>) => {
@@ -83,10 +104,10 @@ export function useSwipeDismiss(onDismiss: () => void, enabled = true): SwipeDis
     if (!from || leaving || axis.current !== 'horizontal') { setOffset(0); return }
 
     const t = e.changedTouches[0]
-    const dx = t ? t.clientX - from.x : 0
+    const travel = t ? swipeTravel(t.clientX - from.x, 0, direction) : 0
     const width = e.currentTarget.offsetWidth
 
-    if (!shouldDismiss({ dx, width, elapsedMs: Date.now() - from.at })) {
+    if (!shouldDismiss({ dx: Math.abs(travel), width, elapsedMs: Date.now() - from.at })) {
       setOffset(0)                                     // spring back
       return
     }
@@ -97,7 +118,7 @@ export function useSwipeDismiss(onDismiss: () => void, enabled = true): SwipeDis
     // half off the screen is unrecoverable without the close button it just
     // slid away from.
     setLeaving(true)
-    setOffset(Math.max(width, dx))
+    setOffset(direction === 'left' ? Math.min(-width, travel) : Math.max(width, travel))
     exit.current = setTimeout(onDismiss, SWIPE_EXIT_MS)
   }
 

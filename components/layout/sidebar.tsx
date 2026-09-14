@@ -11,6 +11,7 @@ import {
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { usePermissions } from '@/lib/use-permissions'
+import { useSwipeDismiss } from '@/lib/use-swipe-dismiss'
 import { unregisterThisDevice } from '@/lib/use-push'
 import { SEEN_KEY, unreadCount } from '@/lib/whats-new'
 import { SyteNavLogo } from '@/components/ui/logo'
@@ -69,6 +70,9 @@ export function Sidebar() {
   // permissions rather than from a second query the browser makes itself.
   const isSubcontractor = companyType === 'subcontractor'
   const [mobileOpen, setMobileOpen] = useState(false)
+  // Slide it back off the LEFT edge - it came in from there. Stays mounted
+  // while closed, so the hook resets itself when `mobileOpen` drops.
+  const swipe = useSwipeDismiss(() => setMobileOpen(false), mobileOpen, 'left')
 
   // COLLAPSED IS A CLASS ON <html>, NOT REACT STATE, and this mirror exists for
   // exactly two attributes: the toggle's label and its aria-expanded. Nothing
@@ -281,7 +285,14 @@ export function Sidebar() {
       )}
 
       {/* Mobile drawer */}
-      <aside className={cn(
+      {/* The gesture's inline transform outranks the translate classes while a
+          finger is on it, and clears when it lifts, so the classes keep the
+          open/closed positions. Its transition (180ms) is what the drawer opens
+          and closes with now - the same speed as every other panel here. */}
+      <aside
+        {...swipe.handlers}
+        style={swipe.style}
+        className={cn(
         'lg:hidden fixed inset-y-0 left-0 z-50 w-72 flex flex-col bg-panel text-ink border-r border-line transition-transform duration-300 ease-in-out pt-safe pb-safe',
         mobileOpen ? 'translate-x-0' : '-translate-x-full'
       )}>

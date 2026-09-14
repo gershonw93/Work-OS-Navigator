@@ -580,6 +580,31 @@
     to   { transform: none; }
   }
 
+  /* A bottom sheet slides UP, the way a drawer slides in: it used to simply
+     appear, which is the other tell of a website in a wrapper. Same guard as
+     the drawer, and `overlay-geometry` switches both off for its measurements
+     - translateY(100%) is where the sheet STARTS, one panel-height too low. */
+  @media (prefers-reduced-motion: no-preference) {
+    .overlay-sheet > * { animation: overlay-sheet-in 200ms ease-out; }
+  }
+  @keyframes overlay-sheet-in {
+    from { transform: translateY(100%); }
+    to   { transform: none; }
+  }
+
+  /* The chip that follows a finger pulling in from the left edge to go back
+     (components/layout/swipe-back.tsx). Halfway down the VISIBLE strip, off
+     --vv-*, like every other fixed element; above the tab bar (30) and a row
+     menu (40), below any overlay (50) - which it never shows under anyway.
+     Not a control: pointer-events off, and the component marks it aria-hidden. */
+  .swipe-back-hint {
+    position: fixed;
+    left: 0;
+    top: calc(var(--vv-t, 0px) + var(--vv-h, 100%) / 2);
+    z-index: 45;
+    pointer-events: none;
+  }
+
   /* ── The desktop sidebar collapses to a rail of icons ─────────────────────
      ONE NUMBER. The rail was `w-60` and the content column beside it was
      `lg:pl-60` - the same measurement written in two files, which is the shape

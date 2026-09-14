@@ -113,6 +113,25 @@ the biggest build yet while the books are half-wired ends with both half-done.
     current plan; and this is the largest thing SyteNav has built.
 
 ## 📱 Native shell
+- **Gestures - the next steps** (edge-swipe back, pull-down sheets and the
+  slide-left nav shipped; `lib/__tests__/swipe-back.ts`, `swipe-sheet.ts`):
+  - Pull-to-refresh on `<main data-app-scroll>` - `router.refresh()` from
+    scrollTop 0. Must not fight the sheet gesture, which also starts at
+    scrollTop 0 and also pulls down; the difference is whether a
+    `[data-overlay]` is open.
+  - A light haptic (`@capacitor/haptics`, a NATIVE dep - needs a rebuild and
+    a Podfile line, pin it like `keyboard-resize.ts`) when a swipe crosses its
+    commit point.
+  - Android's system back is left to Capacitor's default. Verify on a device
+    that it goes back a page rather than out of the app, then add an
+    `App.addListener('backButton')` that closes an open `[data-overlay]`
+    FIRST and only then goes back - the same rule `canSwipeBack` applies.
+  - The job-history drawer (`activity-drawer.tsx`) is layout state with no
+    pathname close, so a back-swipe underneath it leaves it open over the new
+    page. The sections sheet got the close; this one should match.
+  - Swiping between project sections was considered and NOT done: it takes the
+    horizontal axis from every side-scrolling table, calendar and photo strip
+    on the page, and a panel that fights a scroll is worse than no gesture.
 
 - **`Keyboard: { resize: 'none' }` in `capacitor.config.ts`.** Capacitor's
   default shrinks the WKWebView frame for the keyboard, which is what made
