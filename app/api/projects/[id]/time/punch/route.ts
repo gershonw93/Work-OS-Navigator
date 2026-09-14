@@ -2,6 +2,8 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
 import { punchLocation } from '@/lib/punch-location'
+import { projectSite } from '@/lib/project-site'
+import { lookUpAddress } from '@/lib/geocode'
 
 export const runtime = 'nodejs'
 
@@ -12,18 +14,15 @@ const admin = () => createClient(
 
 // The radius, the distance and WHICH of the four outcomes this is all live in
 // lib/punch-location.ts, so the route and every screen answer the same way.
-
-async function geocode(address: string): Promise<{ lat: number; lng: number } | null> {
-  try {
-    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(address)}`, {
-      headers: { 'User-Agent': 'SyteNav/1.0 (construction-pm)' },
-    })
-    if (!res.ok) return null
-    const data = await res.json()
-    if (!data?.[0]) return null
-    return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }
-  } catch { return null }
-}
+// WHERE the job is, and whether that answer may be used, lives in
+// lib/project-site.ts - this route used to read `projects.latitude` /
+// `longitude`, a second pair of columns that only the demo seed and this
+// route's own private Nominatim call ever wrote. The map, the project form and
+// the bulk creator have always written `lat` / `lng`, so the geofence was
+// asking an empty column on every real job and flagging the worker for it.
+//
+// The private geocoder is gone with it. It was Nominatim, unverified, and it
+// pinned a job called "1 North St" to a street in east London.
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
@@ -44,15 +43,29 @@ export async function POST(request: Request, { params }: { params: { id: string 
   if (action !== 'in' && action !== 'out') return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
   if (!selfie || selfie.size === 0) return NextResponse.json({ error: 'A selfie is required to punch.' }, { status: 400 })
 
-  // Resolve job-site coordinates (geocode + cache on first use)
-  const { data: project } = await db.from('projects').select('latitude, longitude, address').eq('id', params.id).single()
-  let siteLat = (project as any)?.latitude as number | null
-  let siteLng = (project as any)?.longitude as number | null
-  if ((siteLat == null || siteLng == null) && (project as any)?.address) {
-    const geo = await geocode((project as any).address)
-    if (geo) {
-      siteLat = geo.lat; siteLng = geo.lng
-      await db.from('projects').update({ latitude: geo.lat, longitude: geo.lng }).eq('id', params.id)
+  // Resolve job-site coordinates (geocode + cache on first use).
+  const { data: project } = await db.from('projects')
+    .select('address, lat, lng, geocoded_address').eq('id', params.id).single()
+  let site = projectSite(project ?? {})
+
+  // Never mapped, and there is an address to try: look it up once and cache it
+  // in the SAME columns the map and the project screen read, so the next punch,
+  // the map and the Time tab all agree. A STALE pin is deliberately not
+  // re-looked-up here - a punch is the wrong moment to move a job's pin, and
+  // the map sweep and the project settings both do it properly.
+  if (site.state === 'unmapped' && (project as any)?.address) {
+    const found = await lookUpAddress((project as any).address)
+    if (found.ok) {
+      const patch = {
+        lat: found.coords.lat, lng: found.coords.lng,
+        geocoded_address: (project as any).address as string,
+      }
+      await db.from('projects').update(patch).eq('id', params.id)
+      site = projectSite({ ...(project as any), ...patch })
+    } else {
+      // Recoverable from nowhere if we swallow it: the screen says the job is
+      // not mapped, and this is the only record of WHY it could not be.
+      console.error(`[punch] could not map project ${params.id}: ${found.why}`)
     }
   }
 
@@ -63,7 +76,13 @@ export async function POST(request: Request, { params }: { params: { id: string 
   // perfect fix was told their location was unavailable whenever the JOB had
   // no coordinates. Reported as "clock in and out says no GPS, but I allowed
   // location", with their latitude sitting in the same row.
-  const { fix, distance, flagged } = punchLocation({ lat, lng }, { lat: siteLat, lng: siteLng })
+  // `site.coords` is null for a stale pin as well as a missing one - a pin we
+  // will not vouch for must never become a distance, because the distance is
+  // what flags the worker.
+  const { fix, distance, flagged } = punchLocation(
+    { lat, lng },
+    site.coords ?? { lat: null, lng: null },
+  )
 
   // Upload selfie
   const path = `${params.id}/time/${Date.now()}-${(selfie.name || 'selfie.jpg').replace(/[^a-zA-Z0-9._-]/g, '_')}`

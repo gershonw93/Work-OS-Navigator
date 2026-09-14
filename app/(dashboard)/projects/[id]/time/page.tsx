@@ -9,6 +9,7 @@ import { usePermissions } from '@/lib/use-permissions'
 import { Button } from '@/components/ui/button'
 import { formatDateShort } from '@/lib/dates'
 import { punchFixLabel, punchMessage, type PunchFix, type PunchLocation } from '@/lib/punch-location'
+import { projectSite, siteLabel, siteAdvice, type ProjectSite } from '@/lib/project-site'
 import { getPosition, geoFailureMessage } from '@/lib/geo-position'
 
 interface TimeEntry {
@@ -62,6 +63,10 @@ export default function TimeClockPage({ params }: { params: { id: string } }) {
   const { can } = usePermissions()
   const canManage = can('time', 'edit')
   const [weekCursor, setWeekCursor] = useState(() => startOfWeek(new Date()))
+  // Whether this job has a usable pin. Every punch is measured against it, so a
+  // column of flagged entries with nothing to explain them IS a missing pin -
+  // and the worker reading that column cannot see the project settings.
+  const [site, setSite] = useState<ProjectSite>(() => projectSite({}))
 
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -76,6 +81,7 @@ export default function TimeClockPage({ params }: { params: { id: string } }) {
       setEntries(d.entries ?? [])
       setMyOpen(d.myOpen ?? null)
       setMyId(d.myId ?? '')
+      if (d.site) setSite(d.site)
     }
     setLoading(false)
   }
@@ -187,6 +193,25 @@ export default function TimeClockPage({ params }: { params: { id: string } }) {
         <p className="text-sm text-muted-fg mt-0.5">Punch in/out with an auto timestamp, GPS check, and a selfie.</p>
       </div>
 
+      {/* One labeller for both halves of this - lib/project-site.ts - because
+          the project settings dialog says the same thing about the same fact,
+          and two files describing one state is how they drift. */}
+      {!loading && site.state !== 'mapped' && (
+        <div className="rounded-xl border border-warn/40 bg-warn-tint px-4 py-3 text-sm text-ink">
+          <div className="flex items-start gap-2">
+            <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-warn" />
+            <div className="min-w-0">
+              <p>{siteLabel(site)}</p>
+              <p className="mt-0.5 text-xs text-muted-fg">
+                {canManage
+                  ? `${siteAdvice(site)} Project settings — the gear in the header.`
+                  : 'Punches are still recorded. Ask the office to set the job site location.'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Punch card */}
       <div className="bg-panel rounded-xl border border-line p-6 text-center">
         {myOpen ? (
@@ -213,9 +238,15 @@ export default function TimeClockPage({ params }: { params: { id: string } }) {
               ? <><LogOut className="h-5 w-5" /> Clock Out</>
               : <><LogIn className="h-5 w-5" /> Clock In</>}
         </button>
-        <p className="text-xs text-faint mt-3 flex items-center justify-center gap-3">
+        {/* "Location checked" was printed whatever the job's state, and it was
+            not true on any job without a pin - which was every job, while the
+            geofence read a column nothing wrote. */}
+        <p className="text-xs text-faint mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
           <span className="inline-flex items-center gap-1"><Camera className="h-3.5 w-3.5" /> Live selfie required</span>
-          <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> Location checked</span>
+          <span className="inline-flex items-center gap-1">
+            <MapPin className="h-3.5 w-3.5" />
+            {site.state === 'mapped' ? 'Location checked' : 'Location recorded, not checked'}
+          </span>
         </p>
 
         {msg && (

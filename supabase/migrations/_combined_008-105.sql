@@ -2632,3 +2632,21 @@ ALTER TABLE inspections ADD COLUMN IF NOT EXISTS ready_reminder_sent_at timestam
 -- ── 104: a punch says what it could not check ───────────────────────────────
 ALTER TABLE time_entries ADD COLUMN IF NOT EXISTS clock_in_fix  TEXT;
 ALTER TABLE time_entries ADD COLUMN IF NOT EXISTS clock_out_fix TEXT;
+
+-- ── 105: one home for a job's coordinates ───────────────────────────────────
+-- A projects row carried FOUR columns for one fact. lat/lng/geocoded_address
+-- (047) are what the address autocomplete, the project form, the bulk creator
+-- and the map sweep write, and what the map has drawn from for months.
+-- latitude/longitude (014) were written by the demo seed and by one private
+-- Nominatim call inside the clock-in route, and read by nothing else.
+--
+-- The clock-in geofence read latitude/longitude. So it asked an empty column on
+-- every real job, came back null, and told the worker their phone had given no
+-- location - with their own latitude sitting in the same row. Dropping the
+-- second home is what stops the next route picking the wrong one.
+--
+-- Nothing is backfilled: 15 of the 16 rows holding a legacy pair duplicate
+-- lat/lng, and the 16th is an unverified Nominatim answer that pinned a US job
+-- to a street in east London.
+ALTER TABLE projects DROP COLUMN IF EXISTS latitude;
+ALTER TABLE projects DROP COLUMN IF EXISTS longitude;

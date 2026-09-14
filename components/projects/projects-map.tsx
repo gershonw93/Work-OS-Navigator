@@ -5,10 +5,12 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import 'leaflet/dist/leaflet.css'
 import { cn } from '@/lib/utils'
+import { projectSite } from '@/lib/project-site'
 
 interface MapProject {
   id: string; name: string; status: string; address: string | null
   client?: string | null; lat?: number | null; lng?: number | null
+  geocoded_address?: string | null
 }
 
 const STATUS_COLOR: Record<string, string> = {
@@ -27,9 +29,15 @@ export function ProjectsMap({ projects }: { projects: MapProject[] }) {
   const [items, setItems] = useState(projects)
   const [note, setNote] = useState('')
 
-  // Kick off geocoding for projects that don't have coordinates yet, then refresh.
+  // Kick off geocoding for projects that are not on the map, then refresh.
+  //
+  // "Not on the map" is not the same as "has no coordinates". A pin resolved
+  // from an address the job has since changed is still a pin, so this trigger
+  // never fired for one - and the route behind it has always been willing to
+  // replace them. Fourteen of a hundred jobs were drawn at an address they no
+  // longer have, one of them two hundred miles out, and nothing ever asked.
   useEffect(() => {
-    const missing = projects.filter(p => p.address && p.lat == null).length
+    const missing = projects.filter(p => p.address && projectSite(p).state !== 'mapped').length
     if (!missing) return
     setNote(`Locating ${missing} project${missing !== 1 ? 's' : ''}…`)
     ;(async () => {

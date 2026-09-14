@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { getActor, actorCan } from '@/lib/server-permissions'
+import { projectSite } from '@/lib/project-site'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,9 +30,19 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
   if (!canManage) query = query.eq('profile_id', user.id)
 
-  const { data: entries, error } = await query
+  // Whether this job has a usable place on the map. Every punch is measured
+  // against it, so a screen full of flagged entries with no explanation is
+  // exactly what a missing pin looks like - the reason belongs on the same
+  // screen as the consequence.
+  const [{ data: entries, error }, { data: project }] = await Promise.all([
+    query,
+    db.from('projects').select('address, lat, lng, geocoded_address').eq('id', params.id).maybeSingle(),
+  ])
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   const myOpen = (entries ?? []).find(e => e.profile_id === user.id && !e.clock_out_at) ?? null
-  return NextResponse.json({ entries: entries ?? [], myOpen, myId: user.id, canManage })
+  return NextResponse.json({
+    entries: entries ?? [], myOpen, myId: user.id, canManage,
+    site: projectSite(project ?? {}),
+  })
 }
