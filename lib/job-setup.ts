@@ -22,8 +22,21 @@ export interface SetupFacts {
   subcontracts: number
   complianceDocs: number
   scheduleItems: number
-  /** The client portal has been shared at least once. */
-  shared: boolean
+  /**
+   * The client portal link has actually been HANDED OVER - emailed from the
+   * share dialog, or copied out of it.
+   *
+   * This used to be `file_shares > 0`, which is the Sharing TAB: sending this
+   * job's paperwork to an expeditor or a lender. A different feature entirely,
+   * so a job whose portal had been shared read as "Not shared yet" for ever.
+   */
+  portalShared: boolean
+  /**
+   * A portal link EXISTS. Deliberately not the same question: the share dialog
+   * mints a token when there is not one, on open, so this is true the moment
+   * somebody looks - which is why it cannot tick the step on its own.
+   */
+  portalLinkExists: boolean
   /** AIA jobs bill by pay application, so some copy changes. */
   billingMode: string
   /**
@@ -48,8 +61,16 @@ export interface SetupStep {
   done: boolean
   /** What is there now, or what is missing. */
   detail: string
-  /** Tab slug to send them to. */
-  href: string
+  /**
+   * Tab slug to send them to, or null when the step is not a tab.
+   *
+   * The portal share is a dialog in the project header with no URL of its own,
+   * and pointing this at `sharing` sent people to the document-sending page -
+   * reported as "this page is if you wanna send docs to someone".
+   */
+  href: string | null
+  /** A control to fire instead of navigating. Set when `href` is null. */
+  action?: 'share-portal'
   cta: string
   /** True when the job cannot really function without it. */
   essential: boolean
@@ -156,9 +177,18 @@ export function setupSteps(f: SetupFacts): SetupStep[] {
       key: 'share',
       label: 'Give the client their link',
       why: 'Last, once there is something worth looking at. One link, no account, and it covers progress, selections and their invoices.',
-      done: f.shared,
-      detail: f.shared ? 'Shared' : 'Not shared yet',
-      href: 'sharing',
+      done: f.portalShared,
+      // Three states, not two. A link that exists but has never been sent is
+      // not the same as no link at all, and telling somebody "Not shared yet"
+      // when they are looking at a link they minted last week is how this
+      // step lost their trust in the first place.
+      detail: f.portalShared
+        ? 'Shared with the client'
+        : f.portalLinkExists
+          ? 'A link exists, but nothing has been sent from here yet'
+          : 'Not shared yet',
+      href: null,
+      action: 'share-portal',
       cta: 'Share the portal',
       essential: false,
     },

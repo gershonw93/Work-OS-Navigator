@@ -907,6 +907,31 @@ export const HELP_ARTICLES: HelpArticle[] = [
     related: ['share-documents', 'compliance-overview'],
   },
   {
+    slug: 'client-portal',
+    title: 'Give the client their link (the client portal)',
+    category: 'projects',
+    keywords: [
+      'client portal', 'portal', 'client link', 'share with client', 'owner', 'homeowner',
+      'read only', 'no account', 'progress', 'selections', 'invoices', 'share the portal',
+      'setup checklist', '9 of 10', 'not shared yet', 'regenerate link', 'revoke',
+    ],
+    summary: 'One standing link that shows the client their job - and how it differs from sending documents.',
+    blocks: [
+      { type: 'text', text: 'The client portal is one link per job for the person paying for it. It is read-only, needs no account and no password, and works on a phone. They see progress, the schedule, permits, recent daily logs, any selections waiting on them, invoices you have sent and payments you have recorded.' },
+      { type: 'steps', items: [
+        'Open the job and press the share icon in the header (next to the gear).',
+        'Copy the link, or type their email and press Send to have SyteNav email it for you.',
+        'That is it - the link keeps working, and what they see updates as the job moves.',
+      ] },
+      { type: 'text', text: 'NOT THE SAME THING AS THE SHARING TAB. Sharing (under Docs & Legal) sends a chosen set of documents to somebody outside your company - an expeditor pulling a permit, an architect, a lender. The client portal is the whole job, standing, for your client. Two different jobs, two different doors.' },
+      { type: 'text', text: 'WHEN THE SETUP CHECKLIST TICKS IT. The last setup step, "Give the client their link", is done once the link has actually been handed over - emailed from that box, or copied out of it. Simply opening the box does not count: SyteNav creates the link the first time you look, so a link existing only proves you looked. If you are in that state it says so - "a link exists, but nothing has been sent from here yet" - rather than claiming you have never shared it.' },
+      { type: 'tip', text: 'Already gave the client the link some other way? Open the box and press Copy. That records the share and finishes the checklist.' },
+      { type: 'text', text: 'Opening the box does NOT break a link the client is already using. Regenerating does, and it is a separate, confirmed action - that is the point of having it, for when a link has gone somewhere it should not have.' },
+      { type: 'tip', text: 'Nothing appears on their page until you have actually sent it. A draft invoice or an unsent payment request stays yours.' },
+    ],
+    related: ['share-documents', 'project-settings'],
+  },
+  {
     slug: 'share-documents',
     title: 'Send documents to someone outside your company',
     category: 'compliance',
@@ -934,8 +959,9 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: 'text', text: 'Plans got revised? Click Add documents on the link you already sent instead of making a new one. The recipient keeps the same URL and sees the new files marked with the date they were added. Documents already on the link are never replaced or removed - so a link only ever grows, and nothing you sent quietly changes underneath the person you sent it to.' },
       { type: 'text', text: 'That is also why the files you send are a snapshot: rename, re-file or delete the file on your side and they still see exactly what you sent.' },
       { type: 'text', text: 'This is the opposite of a compliance request. Use a compliance request to collect insurance and licences FROM a sub; use this to send documents TO someone.' },
+      { type: 'text', text: 'IT IS ALSO NOT THE CLIENT PORTAL. The Sharing tab sends a set of documents to somebody outside your company - an expeditor, an architect, a lender. The client portal is a single standing link to the whole job for the person paying for it: progress, schedule, selections and their invoices. That one lives behind the share icon in the job header, not here.' },
     ],
-    related: ['request-compliance-docs', 'compliance-overview', 'create-first-project'],
+    related: ['client-portal', 'request-compliance-docs', 'compliance-overview', 'create-first-project'],
   },
   {
     slug: 'request-compliance-docs',

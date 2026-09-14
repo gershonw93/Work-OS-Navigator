@@ -38,7 +38,7 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-105.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-106.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - **Verify every column you `.select()` actually exists.** Supabase returns
   `data: null` for an unknown column, so a typo reads as "not found" rather than
@@ -53,7 +53,12 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
   returns `[]`, which renders exactly like "you have not added any". Directory
   contacts live in `companies` (`type = 'inspector'`), NOT in `contacts`, and
   the address column there is `contact_email`, not `email`. Pinned in
-  `contact-picker.ts`.
+  `contact-picker.ts`. AND AGAIN: the setup checklist's "Give the client their
+  link" counted `file_shares`, which is the Sharing TAB - paperwork sent to an
+  expeditor or a lender, a different feature entirely - so a shared portal read
+  "Not shared yet" for ever and the only way to tick it was to send somebody a
+  document. Two names near each other is the smell; ask what WRITES the table
+  before you count it. Pinned in `portal-share.ts`.
 - **One fact, ONE home.** A second column holding the same fact is not a typo
   you can grep for: both names exist, both compile, and the one you pick decides
   whether the feature has ever worked. Project coordinates are
@@ -64,6 +69,11 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
   one, because a caller handed a number WILL measure against it. Same rule going
   in: `lib/geocode-match.ts` refuses a question too vague to have one answer,
   and refuses an answer whose state or ZIP contradicts the address.
+- **A CONTROL THAT LEADS SOMEWHERE MUST LEAD TO THE THING IT NAMES.** The same
+  step's `href` was `sharing`, so "Share the portal" opened the document-sending
+  page - reported in the same breath as the count being wrong. The client portal
+  is a DIALOG in the project header with no URL, so a step can carry an `action`
+  instead of an `href` (never both, pinned), and the drawer fires it.
 - **A type that describes no table is checked by nothing.** An interface written
   from memory compiles perfectly and is wrong at runtime - check its fields
   against the migration, the same as for a `.select()`.

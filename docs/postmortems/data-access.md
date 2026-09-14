@@ -44,6 +44,37 @@ each one was written the day something shipped broken.*
   `c.email` off a `companies` row that has `contact_email` - so choosing
   somebody from the directory filled their NAME and blanked the address.
   Pinned in `contact-picker.ts`, and the red-check is putting `contacts` back.
+  **AND IT HAPPENED A THIRD TIME, IN A CHECKLIST.** "I shared the client portal
+  - this page is if you wanna send docs to someone, and the final 10/10 is to
+  share a file? It's off." The setup checklist's last step, "Give the client
+  their link", was `count('file_shares') > 0`. `file_shares` is the SHARING TAB:
+  sending this job's paperwork to an expeditor, an architect, a lender. A
+  different feature, a different audience, a different table. The row they were
+  looking at:
+
+      client_portal_token   set        <- the portal HAD been shared
+      file_shares           0          <- what the step counted
+
+  So the only way to finish setting up a job was to send somebody a document,
+  and a portal that really had been shared read "Not shared yet" for ever. Two
+  features whose names both contain "share" is the whole smell: ask what WRITES
+  a table before you count it.
+  The step's LINK was wrong for the same reason, and that is the half the
+  reporter walked into first - `href: 'sharing'` sent them to the
+  document-sending page. The client portal is a DIALOG in the project header
+  with no URL at all, so a step now carries an `action` instead of an `href`
+  (never both) and the drawer fires it.
+  **AND THE FIX WAS NOT "READ THE TOKEN INSTEAD".** The share dialog MINTS a
+  token when there is not one, ON OPEN - so `client_portal_token IS NOT NULL` is
+  true the moment somebody looks at the box, and reading it would have ticked
+  the step for a link nobody had ever been given. That is `bid_invites.status
+  DEFAULT 'invited'` one table over: a state meaning "we did X" written by
+  something other than doing X. Migration 106 adds `portal_shared_at` /
+  `portal_shared_how`, written only by a confirmed email send or by the Copy
+  button after the clipboard write succeeds - and the detail line has THREE
+  states, because telling somebody "Not shared yet" while they are looking at a
+  link they minted last week is how the step lost their trust to begin with.
+  Pinned in `portal-share.ts`.
 - **AND THE COLUMN NOBODY WRITES, WHICH IS THE SAME FAULT WITH TWO HOMES
   INSTEAD OF ONE.** `projects` carried FOUR columns for one fact: `lat`, `lng`,
   `geocoded_address` (047) - written by the address autocomplete, the project
