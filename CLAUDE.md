@@ -242,6 +242,44 @@ production branch.** Do NOT ask the user to merge or deploy.
   `overlay-geometry.ts`, where the entrance animation is switched off for the
   measurement: `translateX(100%)` is where it STARTS, and headless Chromium
   dumps the DOM while it is still there.
+  **AND ITS INSETS GO ON THE PANEL, NOT THE CONTAINER.** `.overlay-sheet` was
+  given a `padding-top` the day a sheet's close button ended up under the
+  Dynamic Island; the drawer is that class one axis over and never got the same
+  treatment - it padded only its LEFT - so the panel began at y=0 and its
+  header row, Close button and all, spent its first 59pt under the status bar.
+  Reported as "the top is too squished so won't x". The container is the wrong
+  place for it here: `.overlay` pads the container because its panel FLOATS
+  inside one, but a drawer below `sm` IS the screen, so padding the container
+  leaves a bare strip above the drawer instead of the drawer. The panel takes
+  them, its own background fills the notch strip, and only its CONTENT starts
+  below it. `max(0.5rem, env(...))` like every other safe-area rule: `env()` is
+  0 in a desktop browser, so a declaration with only the env() half cannot be
+  measured at all and would pass `overlay-geometry` while failing on the phone
+  it was written for. The assertion that let this through was
+  `close.t >= 0` - a button at y=0 is "on the screen" AND under the status bar.
+- **A COMPONENT DECLARED INSIDE A COMPONENT IS A NEW TYPE ON EVERY RENDER, so
+  React does not update it - it throws the DOM away and builds a new one.**
+  `TaskDrawer` was declared inside `TasksPage`. Reported as "it blinks/slides
+  out twice when I open a task": opening a task renders the drawer (it slides
+  in), the notes arrive and set state on the page, the page re-renders, the
+  drawer is a different function and therefore a different type, React deletes
+  it and mounts a fresh one - and `overlay-drawer-in` plays again on the new
+  element. The animation is the visible half; the invisible half is that the
+  remount resets the state INSIDE the subtree, so a half-typed note goes with
+  it. Hoist it and pass props (derive the type from the props of what it wraps,
+  rather than retyping them). Nine other files still do this - counted and
+  ratcheted in `swipe-dismiss.ts`, may only go DOWN.
+- A DRAWER CAN BE SLID BACK THE WAY IT CAME IN. `lib/swipe-dismiss.ts` (pure)
+  and `lib/use-swipe-dismiss.ts`, on the PANEL not the backdrop. The axis is
+  decided ONCE at the slop boundary and kept: re-deciding on every move turns a
+  scroll that curves into a swipe halfway through, and a panel that slides
+  sideways when somebody tries to scroll it is worse than no gesture. Dragging
+  LEFT does nothing - there is nothing behind a full-bleed drawer to pull it
+  away from. Dismiss is a fraction of the panel's own width (so it means the
+  same on a 390px phone and a 448px desktop drawer) OR a flick, which distance
+  alone refuses. The close is a TIMER, never `transitionend`: that never fires
+  under reduced motion, and a gesture that leaves a drawer stuck half off the
+  screen has slid the close button away with it.
 - The overlay scroll lock is `overflow-y: hidden`, NEVER the `overflow`
   shorthand. The shorthand also sets `overflow-x`, replacing the `clip` on
   html/body with `hidden` - and clip cannot be scrolled while hidden can. That

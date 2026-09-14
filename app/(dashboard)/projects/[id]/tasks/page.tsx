@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/dates'
 import { dueLabel } from '@/lib/task-due'
 import { timeAgo, absoluteTime } from '@/lib/time-ago'
+import { useSwipeDismiss } from '@/lib/use-swipe-dismiss'
 // ─── constants ───────────────────────────────────────────────────────────────
 
 const PRIORITIES = [
@@ -442,6 +443,84 @@ function TaskDetailPanel({ task, notes, notesLoading, onAddNote, projectId, onCh
 }
 
 // ─── main page ────────────────────────────────────────────────────────────────
+
+/**
+ * The open task, over the screen rather than inside the list.
+ *
+ * WHAT THIS REPLACES. The detail was rendered INLINE, in two different places:
+ * docked under the whole board on a desktop, and under the tapped card on a
+ * phone (because a phone stacks the three columns, so "under the board" is
+ * under every other column too - tapping something in Open put its detail
+ * below Completed, off the screen). The desktop one was the real complaint: it
+ * sat in the layout permanently, so the board was squeezed to half the height
+ * whether or not anything was open.
+ *
+ * A drawer answers both. `.overlay-drawer` (globals.css) is `.overlay-sheet`
+ * one axis over - sized off the VISIBLE viewport, so its footer is above the
+ * keyboard and its close button is below the notch - and it is full-bleed
+ * below `sm`, which is the "never a bottom strip under the list" half.
+ *
+ * ONE definition, opened the same way from the board, the list and the
+ * assignee view. There is nothing left that opens a task inline.
+ *
+ * ── AND IT LIVES OUT HERE, WHICH IS THE WHOLE POINT OF THIS COMMENT ─────────
+ *
+ * It used to be declared INSIDE `TasksPage`. A function declared inside a
+ * component is a NEW FUNCTION on every render, and React reconciles by element
+ * TYPE - so a new type means the old one is not updated, it is unmounted and a
+ * fresh one is mounted in its place. The DOM is thrown away and rebuilt every
+ * single time the page re-renders.
+ *
+ * Reported as "it blinks/slides out twice when I open a task", and that is
+ * exactly what you see: opening a task renders the drawer (it slides in), the
+ * notes for that task then arrive and set state on the page, the page
+ * re-renders, the drawer is a different type, React deletes it and builds it
+ * again - and `overlay-drawer-in` plays a second time on the new element.
+ *
+ * The animation is the visible half. The invisible half is worse: a remount
+ * resets the state inside `TaskDetailPanel`, so anything half-typed into "Add
+ * an update" is gone the moment anything else on the page changes, and the
+ * scroll position with it. Props instead of closures; nothing else changed.
+ */
+function TaskDrawer({
+  task, notes, notesLoading, currentUser, projectId, onClose, onAddNote, onChanged,
+}: TaskDetailPanelProps & { onClose: () => void }) {
+  // Slide it back off the right edge to close it - the way it came in.
+  const swipe = useSwipeDismiss(onClose)
+
+  return (
+    <div className="overlay-drawer bg-black/40" data-overlay onClick={onClose}>
+      <div
+        onClick={e => e.stopPropagation()}
+        {...swipe.handlers}
+        style={swipe.style}
+        className="flex flex-col overflow-hidden border-l border-line bg-panel shadow-2xl"
+      >
+        <div className="flex shrink-0 items-center justify-between border-b border-line px-4 py-2">
+          <span className="text-sm font-semibold text-ink">Task detail</span>
+          <button
+            onClick={onClose}
+            aria-label="Close" title="Close"
+            className="-mr-2 flex h-11 w-11 items-center justify-center rounded-lg text-muted-fg hover:bg-surface hover:text-ink"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <TaskDetailPanel
+            projectId={projectId}
+            onChanged={onChanged}
+            task={task}
+            notes={notes}
+            notesLoading={notesLoading}
+            currentUser={currentUser}
+            onAddNote={onAddNote}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function TasksPage({ params }: { params: { id: string } }) {
   const { can } = usePermissions()
@@ -966,58 +1045,6 @@ export default function TasksPage({ params }: { params: { id: string } }) {
     )
   }
 
-  /**
-   * The open task, over the screen rather than inside the list.
-   *
-   * WHAT THIS REPLACES. The detail was rendered INLINE, in two different
-   * places: docked under the whole board on a desktop, and under the tapped
-   * card on a phone (because a phone stacks the three columns, so "under the
-   * board" is under every other column too - tapping something in Open put its
-   * detail below Completed, off the screen). The desktop one was the real
-   * complaint: it sat in the layout permanently, so the board was squeezed to
-   * half the height whether or not anything was open.
-   *
-   * A drawer answers both. `.overlay-drawer` (globals.css) is `.overlay-sheet`
-   * one axis over - sized off the VISIBLE viewport, so its footer is above the
-   * keyboard and its close button is below the notch - and it is full-bleed
-   * below `sm`, which is the "never a bottom strip under the list" half.
-   *
-   * ONE definition, opened the same way from the board, the list and the
-   * assignee view. There is nothing left that opens a task inline.
-   */
-  function TaskDrawer({ task }: { task: Task }) {
-    return (
-      <div className="overlay-drawer bg-black/40" data-overlay onClick={() => setOpenTaskId(null)}>
-        <div
-          onClick={e => e.stopPropagation()}
-          className="flex flex-col overflow-hidden border-l border-line bg-panel shadow-2xl"
-        >
-          <div className="flex shrink-0 items-center justify-between border-b border-line px-4 py-2">
-            <span className="text-sm font-semibold text-ink">Task detail</span>
-            <button
-              onClick={() => setOpenTaskId(null)}
-              aria-label="Close" title="Close"
-              className="-mr-2 flex h-11 w-11 items-center justify-center rounded-lg text-muted-fg hover:bg-surface hover:text-ink"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-            <TaskDetailPanel
-              projectId={params.id}
-              onChanged={load}
-              task={task}
-              notes={notesCache[task.id] ?? []}
-              notesLoading={!!notesLoading[task.id]}
-              currentUser={currentUser}
-              onAddNote={handleAddNote}
-            />
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   // ── board view ─────────────────────────────────────────────────────────────
 
   function BoardView() {
@@ -1429,7 +1456,18 @@ export default function TasksPage({ params }: { params: { id: string } }) {
           {/* ONE drawer for all three views, mounted outside them: a task
               opened from the list and a task opened from the board are the
               same panel, so they cannot drift. */}
-          {openTask_ && <TaskDrawer task={openTask_} />}
+          {openTask_ && (
+            <TaskDrawer
+              task={openTask_}
+              projectId={params.id}
+              notes={notesCache[openTask_.id] ?? []}
+              notesLoading={!!notesLoading[openTask_.id]}
+              currentUser={currentUser}
+              onClose={() => setOpenTaskId(null)}
+              onAddNote={handleAddNote}
+              onChanged={load}
+            />
+          )}
         </>
       )}
     </div>

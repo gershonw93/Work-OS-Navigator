@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { timeAgo, absoluteTime } from '@/lib/time-ago'
 
 import { formatDate } from '@/lib/dates'
+import { useSwipeDismiss } from '@/lib/use-swipe-dismiss'
 interface ActivityItem {
   id: string
   actor_name: string
@@ -93,6 +94,8 @@ export function ActivityDrawer({ projectId, open, onClose }: ActivityDrawerProps
   }, [open, projectId])
 
   const groups = groupByDate(items)
+  // Slide it back off the right edge, the same as the task drawer.
+  const swipe = useSwipeDismiss(onClose)
 
   return (
     <>
@@ -109,6 +112,8 @@ export function ActivityDrawer({ projectId, open, onClose }: ActivityDrawerProps
         <div className="overlay-drawer bg-black/20 backdrop-blur-[1px]" data-overlay onClick={onClose}>
         <div
           onClick={e => e.stopPropagation()}
+          {...swipe.handlers}
+          style={swipe.style}
           className="flex flex-col overflow-hidden bg-panel shadow-2xl border-l border-line"
         >
         {/* Header */}

@@ -49,6 +49,27 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-15',
+    title: 'The task panel: reachable, steady, and swipe to go back',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'The X at the top of a task was under the status bar',
+        text: 'The panel that slides in when you open a task started at the very top of the screen, so its title and its close button spent their first half-inch underneath the clock and the notch \u2013 squished, and hard or impossible to tap. It now starts below them, and so does the bottom edge, clear of the home bar.',
+      },
+      {
+        kind: 'fixed',
+        title: 'It no longer slides in twice',
+        text: 'Opening a task made the panel slide in, blink, and slide in again. The panel was being thrown away and rebuilt the moment the task\u2019s notes finished loading, which replayed its entrance. It is built once now \u2013 which also means an update you are halfway through typing no longer disappears when something else on the page refreshes.',
+      },
+      {
+        kind: 'new',
+        title: 'Swipe right to go back',
+        text: 'Drag the task panel to the right to send it back and return to your tasks, the way it arrived. A flick works as well as a full drag, and scrolling the panel up and down is untouched. The same gesture closes the Job History panel.',
+      },
+    ],
+  },
+  {
+    date: '2026-09-15',
     title: 'Signing in stops sending you back to the sign-in screen',
     items: [
       {

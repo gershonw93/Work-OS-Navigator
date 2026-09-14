@@ -1404,7 +1404,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'tasks-assign',
     title: 'Create and assign tasks',
     category: 'field',
-    keywords: ['task', 'todo', 'assign', 'reassign', 'change assignee', 'crew', 'due date', 'priority', 'punch list', 'board', 'kanban', 'drag', 'move task', 'in progress', 'completed', 'column', 'stage', 'status', 'overdue', 'done', 'filter', 'task detail', 'panel', 'trade'],
+    keywords: ['task', 'todo', 'assign', 'reassign', 'change assignee', 'crew', 'due date', 'priority', 'punch list', 'board', 'kanban', 'drag', 'move task', 'in progress', 'completed', 'column', 'stage', 'status', 'overdue', 'done', 'filter', 'task detail', 'panel', 'trade', 'swipe', 'swipe back', 'slide back', 'gesture', 'close task', 'cant close', 'x doesnt work'],
     summary: 'Assign work to your crew or subs and track it to done.',
     blocks: [
       { type: 'steps', items: [
@@ -1415,7 +1415,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'Move tasks along as they progress and add notes as you go.',
       ] },
       { type: 'text', text: 'MOVING A TASK ALONG. The small round icon on a card is both the stage it is in and the way to change it: tap it and pick Open, In Progress or Completed. It goes both ways, so reopening something is the same two taps. It never moves on a single stray tap - it always asks first.' },
-      { type: 'text', text: 'OPENING A TASK. Tap anywhere else on a card and the full task slides in from the right - description, photo, notes, follow-up and sign-off. On a phone it fills the screen. Close it with the X, by tapping outside it, or with the Escape key, and the board is exactly where you left it.' },
+      { type: 'text', text: 'OPENING A TASK. Tap anywhere else on a card and the full task slides in from the right - description, photo, notes, follow-up and sign-off. On a phone it fills the screen. Close it with the X, by tapping outside it, with the Escape key, or by SWIPING IT BACK to the right - a flick is enough. Scrolling the panel up and down still scrolls it. However you close it, the board is exactly where you left it.' },
       { type: 'text', text: 'WHAT A CARD SHOWS. Four things: what it is, when it is due, who has it, and their trade or role. A late task shows the days it is overdue in red. A finished one shows the date it was done instead - finished work is never late.' },
       { type: 'text', text: 'THE COUNTS ARE THE FILTERS. The row above the board - All, Open, In Progress, Completed, Overdue - carries the number in each. Tap one to show only those; tap it again, or tap All, to come back.' },
       { type: 'text', text: 'Each column on the board has its own + button, and it adds straight into that column. Press + on In Progress and the task starts as in progress - useful when you are writing down work that is already underway. The form tells you which column it is adding to.' },
