@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { visibleViewport } from './visible-viewport'
+import { raisesKeyboard, visibleViewport } from './visible-viewport'
 
 /**
  * Keep `--vv-h` and `--vv-t` on <html> tracking the part of the screen you can
@@ -40,7 +40,11 @@ export function useVisualViewport() {
     const root = document.documentElement
     const apply = () => {
       const next = visibleViewport(
-        { innerHeight: window.innerHeight, vvHeight: vv.height, vvOffsetTop: vv.offsetTop },
+        {
+          innerHeight: window.innerHeight, vvHeight: vv.height, vvOffsetTop: vv.offsetTop,
+          // The fact that cannot lag. See visibleViewport.
+          keyboardPossible: raisesKeyboard(document.activeElement),
+        },
         fullFrame.current,
       )
       fullFrame.current = next.fullFrame
@@ -62,11 +66,23 @@ export function useVisualViewport() {
     // decision pivots on, reading it early picks the wrong branch - and then
     // nothing recomputes, so `--vv-h` keeps a wrong number for as long as the
     // keyboard is up. One deferred re-read costs a frame and closes it.
+    // AND AGAIN WHEN THE ANIMATION IS OVER. One frame was a guess: the iOS
+    // keyboard takes about a quarter of a second to slide away, so a re-read
+    // 16ms later is still reading the middle of it. The frame catches an
+    // innerHeight that had not settled; the timer catches a vvHeight that had
+    // not. Both are cancelled on the next event, so a burst is one extra read
+    // of each rather than a queue.
     let raf = 0
-    const applySoon = () => {
-      apply()
+    let settle: ReturnType<typeof setTimeout> | undefined
+    const applyLater = () => {
       cancelAnimationFrame(raf)
       raf = requestAnimationFrame(apply)
+      clearTimeout(settle)
+      settle = setTimeout(apply, 300)
+    }
+    const applySoon = () => {
+      apply()
+      applyLater()
     }
 
     vv.addEventListener('resize', applySoon)
@@ -80,8 +96,18 @@ export function useVisualViewport() {
     // left `--vv-h` stale until something else happened to fire.
     window.addEventListener('resize', applySoon)
     window.addEventListener('orientationchange', reset)
+    // FOCUS IS THE FACT, the viewport numbers are the measurement. Deferred,
+    // never immediate: moving from one field to the next fires focusout before
+    // focusin, so `activeElement` is <body> for an instant - measuring there
+    // would throw the app to full height for a frame with the keyboard still
+    // up, which is a flicker rather than a fix.
+    document.addEventListener('focusin', applyLater)
+    document.addEventListener('focusout', applyLater)
     return () => {
       cancelAnimationFrame(raf)
+      clearTimeout(settle)
+      document.removeEventListener('focusin', applyLater)
+      document.removeEventListener('focusout', applyLater)
       vv.removeEventListener('resize', applySoon)
       vv.removeEventListener('scroll', applySoon)
       window.removeEventListener('resize', applySoon)

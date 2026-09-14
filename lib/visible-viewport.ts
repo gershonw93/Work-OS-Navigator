@@ -38,6 +38,13 @@ export interface ViewportNow {
   innerHeight: number
   vvHeight: number
   vvOffsetTop: number
+  /**
+   * Is something focused that could be covering the bottom of the screen?
+   *
+   * Required, not optional: a caller that forgets it is the bug below, and a
+   * default would hide that behind a compile that passed.
+   */
+  keyboardPossible: boolean
 }
 
 export interface VisibleViewport {
@@ -59,6 +66,31 @@ export interface VisibleViewport {
 export function visibleViewport(now: ViewportNow, fullFrame: number): VisibleViewport {
   const full = Math.max(fullFrame, now.innerHeight)
 
+  // NOTHING IS FOCUSED, SO NOTHING IS COVERING THE SCREEN.
+  //
+  // THE BUG THIS CLOSES. A task drawer opened over the top half of the phone
+  // with bare white under it and no top bar - reported as "what's this? is it
+  // my phone or the app?", a few times in one day, always after typing. Both
+  // `.overlay-drawer` and `.h-app` are `var(--vv-h)`, so a `--vv-h` left at a
+  // keyboard-open value draws exactly that: a half-height app on a full-height
+  // screen.
+  //
+  // It is stale because the two numbers below do not recover together. When
+  // the keyboard goes away `innerHeight` comes back first, which drops us out
+  // of the shrunk-frame branch and into the one that trusts `vvHeight` - and
+  // `vvHeight` is still mid-animation, or has already fired its last event. We
+  // then publish a strip as though the frame were whole, and nothing
+  // recomputes, because from the browser's point of view nothing is happening
+  // any more.
+  //
+  // A measurement that can lag has to be checked against a fact that cannot.
+  // The keyboard (and the iOS select wheel) exists only while something is
+  // focused, so with nothing focused the visible strip is the WHOLE frame,
+  // whatever `visualViewport` is still reporting.
+  if (!now.keyboardPossible) {
+    return { height: now.innerHeight, top: 0, fullFrame: full }
+  }
+
   // The frame shrank, so it has already taken the keyboard off for us.
   if (now.innerHeight < full - 1) {
     return { height: now.innerHeight, top: 0, fullFrame: full }
@@ -69,4 +101,30 @@ export function visibleViewport(now: ViewportNow, fullFrame: number): VisibleVie
   // Rounded up: half a pixel of slack at the top is invisible, half a pixel
   // short is a hairline of the page showing above a full-bleed sheet.
   return { height: now.vvHeight, top: Math.ceil(now.vvOffsetTop), fullFrame: full }
+}
+
+/**
+ * Can this element be raising a keyboard?
+ *
+ * A `<select>` counts: it is not a keyboard, but on iOS it is a wheel over the
+ * bottom of the screen, which is the same fact as far as "how much can you see"
+ * is concerned. Everything else is a shape a keyboard never opens for.
+ *
+ * Deliberately loose in the uncertain direction - an unknown input type counts
+ * as a keyboard. Being wrong that way leaves today's behaviour; being wrong the
+ * other way forces the app to full height with a keyboard still up.
+ */
+const NO_KEYBOARD = new Set([
+  'button', 'checkbox', 'color', 'file', 'hidden', 'image', 'radio', 'range', 'reset', 'submit',
+])
+
+export function raisesKeyboard(
+  el: { tagName?: string; type?: string; isContentEditable?: boolean } | null | undefined,
+): boolean {
+  if (!el) return false
+  if (el.isContentEditable) return true
+  const tag = (el.tagName ?? '').toLowerCase()
+  if (tag === 'textarea' || tag === 'select') return true
+  if (tag !== 'input') return false
+  return !NO_KEYBOARD.has((el.type ?? 'text').toLowerCase())
 }
