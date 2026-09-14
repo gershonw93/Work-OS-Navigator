@@ -767,11 +767,11 @@ ok(!clipped.lastItemReachable,
 // below came out exactly one panel-width to the right. What is being asserted
 // is where the drawer comes to REST. That the animation exists at all, and is
 // inside a `prefers-reduced-motion` guard, is checked as source shape instead.
-const DRAWER = `
+const DRAWER = (panelStyle = '') => `
 <style>.overlay-drawer > * { animation: none !important; }</style>
 <div class="overlay-drawer bg-black/40" data-overlay>
-  <div id="panel" class="flex flex-col overflow-hidden border-l border-line bg-panel shadow-2xl">
-    <div class="flex shrink-0 items-center justify-between border-b border-line px-4 py-2">
+  <div id="panel" style="${panelStyle}" class="flex flex-col overflow-hidden border-l border-line bg-panel shadow-2xl">
+    <div id="head" class="flex shrink-0 items-center justify-between border-b border-line px-4 py-2">
       <span class="text-sm font-semibold text-ink">Task detail</span>
       <button id="closeX" class="-mr-2 flex h-11 w-11 items-center justify-center rounded-lg"><span class="h-5 w-5 block">X</span></button>
     </div>
@@ -787,23 +787,54 @@ const DRAWER_PROBE = `(rect) => {
   const b = s => { const r = rect(s); return { l: Math.round(r.left), r: Math.round(r.right),
     t: Math.round(r.top), b: Math.round(r.bottom), w: Math.round(r.width), h: Math.round(r.height) } }
   const body = document.querySelector('#body')
-  return { panel: b('#panel'), close: b('#closeX'), body: b('#body'),
+  return { panel: b('#panel'), close: b('#closeX'), body: b('#body'), head: b('#head'),
            scrolls: body.scrollHeight > body.clientHeight,
            docWidth: document.documentElement.scrollWidth,
            vw: window.innerWidth, vh: window.innerHeight }
 }`
 
-const drawerPhone = measure(DRAWER, DRAWER_PROBE)
+const drawerPhone = measure(DRAWER(), DRAWER_PROBE)
 ok(drawerPhone.panel.w === VIEWPORT.w,
   `on a phone the drawer is the whole screen, never a strip at the bottom (${drawerPhone.panel.w} of ${VIEWPORT.w})`)
 ok(drawerPhone.panel.r === VIEWPORT.w, `...flush to the right edge (${drawerPhone.panel.r})`)
-ok(drawerPhone.close.t >= 0 && drawerPhone.close.b <= VIEWPORT.h,
+// `>= 0` USED TO BE THIS ASSERTION, and it is the reason the next bug got
+// through: a close button at y=0 is "on the screen" and is also underneath the
+// status bar. Reported as "the top is too squished so won't x".
+//
+// `.overlay-sheet` was given a padding-top the day a sheet's close button
+// ended up under the Dynamic Island (section 1). `.overlay-drawer` is that
+// class one axis over and never got the same treatment - it padded only its
+// LEFT - so the panel began at y=0 and the header row spent its first 59
+// points under the status bar. The insets go on the PANEL here rather than the
+// container the way `.overlay` does it: a drawer below sm IS the screen, so
+// padding the container would leave a bare strip above the drawer instead of
+// the drawer.
+//
+// `env()` is 0 in this browser, so what is measured is the `max()` FLOOR -
+// which is exactly why the floor is there. See the note at the top of the file.
+ok(drawerPhone.close.b <= VIEWPORT.h,
   `...and its close button is on the screen (${drawerPhone.close.t}-${drawerPhone.close.b})`)
+ok(drawerPhone.head.t >= 8,
+  `THE FIX: the header begins below the top inset, not at the very edge (${drawerPhone.head.t})`)
+ok(drawerPhone.close.t >= 8,
+  `...so the whole Close target is clear of it (${drawerPhone.close.t})`)
+ok(drawerPhone.body.b <= drawerPhone.panel.b - 8,
+  `and the bottom inset comes OUT of the height rather than overflowing it `
+  + `(${drawerPhone.body.b} vs ${drawerPhone.panel.b})`)
+
+// The reported shape, same markup, the insets removed - so the three above
+// cannot be passing for some other reason.
+const squished = measure(DRAWER('padding-top:0;padding-bottom:0'), DRAWER_PROBE)
+ok(squished.head.t === 0,
+  'the reported bug, measured: with no inset the header sits at y=0, under the status bar')
+ok(drawerPhone.head.t - squished.head.t === 8,
+  `...and the inset is what moved it - the whole header, Close button and all, `
+  + `shifts down by exactly the floor (${squished.close.t} -> ${drawerPhone.close.t})`)
 ok(drawerPhone.close.h >= 44, `...at a size a thumb can hit (${drawerPhone.close.h}px)`)
 ok(drawerPhone.scrolls, 'a long task scrolls INSIDE the drawer rather than off the end of it')
 ok(drawerPhone.docWidth <= VIEWPORT.w, `and nothing hangs off the side (${drawerPhone.docWidth})`)
 
-const drawerDesk = measure(DRAWER, DRAWER_PROBE, 800, '', 1280)
+const drawerDesk = measure(DRAWER(), DRAWER_PROBE, 800, '', 1280)
 ok(drawerDesk.panel.w === 448, `on a desktop it is a 28rem panel (${drawerDesk.panel.w})`)
 ok(drawerDesk.panel.r === 1280, `...still flush right (${drawerDesk.panel.r} of 1280)`)
 ok(drawerDesk.panel.l > 0,
@@ -812,7 +843,7 @@ ok(drawerDesk.panel.l > 0,
 
 // THE REASON THE CLASS EXISTS. `h-full` would be the layout viewport, which
 // does not shrink for a keyboard, so the panel would run underneath it.
-const drawerKeyboard = measure(DRAWER, DRAWER_PROBE, VIEWPORT.h, KEYBOARD.style)
+const drawerKeyboard = measure(DRAWER(), DRAWER_PROBE, VIEWPORT.h, KEYBOARD.style)
 ok(drawerKeyboard.panel.b <= KEYBOARD.visible,
   `with a keyboard up the drawer ends above it (${drawerKeyboard.panel.b} of ${KEYBOARD.visible} visible)`)
 ok(drawerKeyboard.close.t >= 0, `...and its close button is still reachable (${drawerKeyboard.close.t})`)
@@ -1090,6 +1121,7 @@ const gridDesk = measure(MONTH_GRID(NOW_TEXT), GRID_PROBE, 900, '', 1280)
 ok(gridDesk.pill!.h > 0, 'from lg up the labelled pill is exactly where it was')
 ok(gridDesk.dots!.h === 0, '...and the dots are not')
 ok(gridDesk.pill!.over <= 0, `with its text inside it (${gridDesk.pill!.over})`)
+
 
 rmSync(work, { recursive: true, force: true })
 done()

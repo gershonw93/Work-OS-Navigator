@@ -535,12 +535,35 @@
     padding-left: max(2.5rem, calc(env(safe-area-inset-left) + 1rem));
   }
   /* Full-bleed on a phone - a 28rem panel in a 390px screen is the whole screen
-     anyway, and `min()` says that once instead of at a breakpoint. */
+     anyway, and `min()` says that once instead of at a breakpoint.
+
+     AND THE INSETS GO ON THE PANEL, NOT THE CONTAINER. `.overlay` and
+     `.overlay-sheet` pad the container, because their panels float inside one
+     - there is page behind, and the gap is the way out of them. A drawer below
+     `sm` IS the screen: pad the container and you get a bare strip above the
+     drawer instead of the drawer. So the panel takes the insets, its own
+     background fills the notch strip, and only its CONTENT starts below it.
+
+     THE BUG. There was no top inset here at all, in either form - the comment
+     above promised "its close button is below the notch" and nothing
+     implemented it - so the header row began at y=0 and the top ~59pt of it,
+     the Close button included, sat under the status bar and the Dynamic
+     Island. Reported as "the top is too squished so won't x". Exactly the
+     fault `.overlay-sheet` was given its padding-top for, one axis over, which
+     is where it was missed.
+
+     `max(<floor>, env(...))` like every other safe-area rule here, and the
+     floor is not decoration: `env()` is 0 in a desktop browser, so a
+     declaration with only the env() half cannot be measured at all and would
+     pass `overlay-geometry` while failing on the phone it was written for.
+     The floor is the branch that suite exercises. */
   .overlay-drawer > * {
     width: min(28rem, 100%);
     max-width: 100%;
     height: 100%;
     min-height: 0;
+    padding-top: max(0.5rem, env(safe-area-inset-top));
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
   }
   @media (max-width: 639px) {
     /* ...and below sm it takes the lot, including the gutter: the panel IS the
