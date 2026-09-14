@@ -1,0 +1,115 @@
+# Integration post-mortems
+
+QuickBooks, the two registries, and who an email is for.
+
+*Evidence for rules in [`CLAUDE.md`](../../CLAUDE.md). Every rule there that cites
+this file is summarised to one line; the reasoning, the report that produced it and
+the arithmetic live here. Read the matching section before arguing with a rule —
+each one was written the day something shipped broken.*
+
+---
+
+## QuickBooks
+- One-way push, SyteNav -> QuickBooks Online. All of it lives in
+  `lib/quickbooks-push.ts`; the manual Settings sync and the automatic push
+  call the SAME functions so they cannot drift.
+- **The connection is PER COMPANY.** A company only ever pushes to its own
+  QuickBooks file, and the sync only sees the company you are signed into.
+  Counting "unsynced" across companies is how you end up telling somebody
+  their payment failed to sync when it was never in that company's scope.
+- ACCRUAL, and the halves must move together: a SENT client invoice becomes a
+  QBO Invoice (A/R); a payment becomes a Payment applied against it; a deposit
+  with no invoice to settle becomes a Sales Receipt. **A sale must never be
+  counted twice** - a Sales Receipt already means sold AND paid, so if an
+  invoice exists, the money settling it can never be another receipt.
+- BOTH halves, BOTH directions. Money in: a client invoice is an Invoice and
+  the money settling it is a Payment applied to it. Money OUT: a sub bill is a
+  Bill and the money settling it is a BillPayment applied to it
+  (`invoices.qbo_payment_id`, separate id and separate claim from `qbo_id` -
+  one row, two QBO records). Ship a half and the ledger overstates: A/R showed
+  money owed that had arrived, A/P showed money owed that had gone out.
+- A payment settles the invoice NAMED ON IT (`client_payments.client_invoice_id`),
+  never "the oldest one still sent". Same-day invoices share an `issue_date`, so
+  "oldest" was whichever row came back first and the money settled a coin toss.
+  Only unlinked money (a deposit) falls back to oldest-open.
+- A payment whose invoice has NOT reached QBO yet must book NOTHING - not a
+  Sales Receipt. Booking one records the sale, then the invoice records it
+  again. `pushClientPayment` (Sales Receipt) is only for money that settles
+  nothing; every other caller goes through `pushPaymentForProject`. The
+  Settings backlog sync called the Sales Receipt pusher directly for a while.
+- Keep `Fault.Error[].Detail`, not just `Message`. QBO's Message is a label
+  ("Object Not Found"); Detail is the sentence that names the object. Errors
+  are `QboError` and carry `.code` - branch on `QBO_OBJECT_NOT_FOUND` (610).
+- 610 means "a reference you sent is unusable" and names NONE of them. On 610:
+  retry once without the optional ref (the payment method, which moves into the
+  memo), then `probeReferences` each id we sent and log which one QBO refuses.
+  Never fall back to a Sales Receipt on failure - that is the double-count.
+- Every QBO lookup filters `Active = true`. `paymentMethodId` did not, so an
+  inactive method came back as a good id. PaymentMethod.Type is only
+  `CREDIT_CARD` or `NON_CREDIT_CARD` - `OTHER` is not a value QBO defines.
+- A cached `qbo_id` for a record QBO does not have fails identically forever:
+  clear it so the next push re-creates. Only when MISSING, never when inactive
+  - re-creating an inactive customer leaves two with the same name.
+- Reference no. is the USER's (`client_payments.reference`), not `SN-<id8>` -
+  it is the bank-reconciliation column. `paymentIdentity()` composes ref+memo
+  for every payment path; SN- moves into the memo when the user gave a ref, so
+  it appears in exactly one place. `PaymentRefNum` on a Payment, `DocNumber` on
+  a Sales Receipt - the wrong one is accepted and silently ignored.
+- A payment row is one of TWO QBO entities. `qbo_txn_type` says which; the
+  refresh assumed Sales Receipt for everything and reported applied Payments as
+  missing. Any path that touches an existing payment must branch on it.
+- Every push: never throws, capped at 8s, "not connected" is a normal state,
+  and misses land in `quickbooks_sync_log` for the backlog sync to pick up.
+- Pushes take an atomic claim (`qbo_claimed_at`) via a conditional UPDATE. A
+  check-then-act guard is NOT enough: a double-pressed button created two QBO
+  invoices for one record, and the spare became an orphan receivable.
+
+## Two registries, and why a new thing goes IN them
+- **A NEW NOTIFICATION BELONGS IN THE CATALOG, OR ITS AUDIENCE IS NOT A
+  SETTING.** `lib/notifications.ts` is the list of event types; an entry with
+  `status: 'live'` appears on its own in Settings -> Notifications (each
+  person's bell and email switches) AND in Who gets told (the company's routed
+  audience). A cron that sends under a type the catalog has never heard of is a
+  notification nobody can turn off or redirect. The not-ready warning was one
+  `notify()` call away from borrowing `inspection_ready`'s audience, which would
+  have glued a nag to a different event's switch.
+- **A NEW ABILITY BELONGS IN `RESOURCES`, for the same reason.**
+  `lib/permissions.ts` is resources x actions, with role defaults a company can
+  remap and per-user overrides in `profiles.permission_overrides`. Splitting one
+  out is the designed move, not a hack: `margin` came out of `budget` so a PM
+  could run a budget without seeing the markup, and `mark-ready` came out of
+  `inspections` because RUNNING inspections is office work while saying THE WORK
+  IS FINISHED is a report from the site - and every role who can honestly make
+  it (`field_supervisor`, `worker`, vendor `read_only`) has `inspections: N`.
+  Give every built-in role an EXPLICIT entry: a resource a role never names
+  resolves to nothing, which is a permission silently defaulting to "no" for
+  somebody who should have it. Pinned in `mark-ready-permission.ts`.
+- AND THE ROUTE HAS TO ASK, or the setting is decoration. The inspections PATCH
+  gated nothing - `requirePermission` was on DELETE and restore only - so anyone
+  who could reach the API could mark ready, change a booking or set a status
+  whatever their role said. A body that only touches the ready columns is gated
+  on `mark-ready`; everything else on `inspections`.
+
+## Who the email is FOR, and who may send it
+- **THERE ARE TWO DOORS INTO SYTENAV AND THEY MEAN DIFFERENT THINGS.** The
+  WAITLIST is a stranger asking, approved by a super admin - the only place
+  "you're approved" and "beta" are true. An INVITE is somebody already inside
+  vouching for a person; there is no second approval because the invite IS the
+  approval. `inviteEmail` was written for the first and used for all three
+  audiences, so a subcontractor was told he had been approved for a beta he
+  never applied to and could start "putting jobs in" - the GC's side of the job.
+  One template per audience: `inviteEmail` (waitlist, approvals screen only),
+  `teamInviteEmail`, `vendorInviteEmail`. `/api/invite` takes an `audience`,
+  defaulting to `team` so an un-updated caller cannot silently get the beta text.
+- **A ROLE OR A COMPANY OUT OF A REQUEST BODY IS AN ESCALATION.** `/api/invite`
+  checked only that you were signed in, then wrote `body.role` and
+  `body.company_id` onto the new profile - so any account, including a read-only
+  teammate or an invited sub, could mint an admin of any company whose id it
+  had. `middleware.ts` returns early for every `/api/` path, so nothing else was
+  gating it. Now: `requirePermission` (`settings_team` for a teammate,
+  `directory` for a vendor), the company comes from the ACTOR (a vendor's must
+  carry `added_by_company_id` = the inviter's company), a vendor is always
+  `read_only`, and only an admin may invite an admin. Ratcheted in
+  `invite-audience.ts`: routes taking a role from the body with no permission
+  check may only go DOWN.
+

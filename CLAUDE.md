@@ -1,5 +1,26 @@
 # SyteNav - working agreement
 
+Most rules here were written the day something shipped broken. The incident that
+produced each one - the report, the arithmetic, the wrong column - lives in
+`docs/postmortems/` and is linked from the rule.
+
+**A rule is not weaker because its story is in another file.** If one looks
+arbitrary, expensive, or like it does not apply to your case, read its
+post-mortem before working around it: the case you think is an exception is
+usually the one that produced the rule.
+
+| Post-mortem | Covers |
+| --- | --- |
+| [data-access](docs/postmortems/data-access.md) | Wrong column, wrong table, wrong key, stale coordinates |
+| [layout](docs/postmortems/layout.md) | App shell, overlays, safe areas, the `--vv-h` saga |
+| [mobile](docs/postmortems/mobile.md) | Phone look, unreachable controls, menus and pickers |
+| [derived-state](docs/postmortems/derived-state.md) | Facts that lie, defaults that claim, buttons that promise |
+| [failure-states](docs/postmortems/failure-states.md) | Auth, loading vs failed, native dialogs, geolocation, time |
+| [integrations](docs/postmortems/integrations.md) | QuickBooks, the two registries, invite emails |
+
+New rule? The imperative goes here, the story goes there, and they link to each
+other. See `docs/postmortems/README.md`.
+
 ## Ship workflow (IMPORTANT)
 When work is done: **build → commit → push → merge to `main` → fast-forward the
 production branch.** Do NOT ask the user to merge or deploy.
@@ -12,72 +33,40 @@ production branch.** Do NOT ask the user to merge or deploy.
   part of shipping - the user does NOT paste SQL by hand. Verify the schema
   landed, then say what ran. Don't nag about deploy.
 
-## Migrations
+## Migrations and reading data (IMPORTANT)
+Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md).
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
   `supabase/migrations/_combined_008-105.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
-- IMPORTANT: verify every column you `.select()` actually exists - Supabase
-  returns `data: null` for an unknown column, so a typo reads as "not found"
-  rather than an error. `projects` has `client`, NOT `client_name`, and has no
+- **Verify every column you `.select()` actually exists.** Supabase returns
+  `data: null` for an unknown column, so a typo reads as "not found" rather than
+  as an error. `projects` has `client`, NOT `client_name`, and has no
   `client_email` at all (the address is on `customers`).
-- The same class of silent failure on the way BACK: read the wrong key off a
-  response and you get `undefined`, which a truthiness guard swallows. A Send
-  box sat permanently blank because a component read `d.email` from a route
-  that answers `{ clientEmail }`. If two places read one endpoint, give them
-  one reader (`lib/use-client-email.ts`) rather than two chances to be wrong.
-  IT HAPPENED AGAIN AND THE SECOND ONE WAS WORSE. The printed Compliance Report
-  read `d.documents ?? d.compliance ?? []` from a route that answers
-  `{ subcontracts, docs, requirements }` - so it printed "No compliance
-  documents on record" on EVERY job since it was written, which on an owner's or
-  a lender's copy is not a blank section, it is an assertion that a sub is
-  uninsured. `??` chaining two guesses is the tell: nobody chains a fallback for
-  a key they have read. `lib/compliance-report.ts` is the one reader, and it
-  takes the route's own key names as its argument names.
-- **AND THE TABLE ITSELF, NOT JUST THE COLUMN.** `lib/inspection-contacts.ts`
-  read `contacts` for the Directory's inspectors. `contacts` HOLDS ZERO ROWS -
-  every door that files one (the picker's Quick add, the permits page, Add
-  Contact) POSTs to `/api/directory`, which inserts into `companies` with
-  `type = 'inspector'`. There are 21 there and none anywhere else, so the
-  Directory half of "who do I call" never produced a line: a query against the
-  wrong table comes back `[]`, which renders exactly like "you have not added
-  any". `/api/directory` GET was also returning an always-empty `contacts: []`
-  that two callers merged into their lists, and `share-files-modal` read
-  `c.email` off a `companies` row that has `contact_email` - so choosing
-  somebody from the directory filled their NAME and blanked the address.
-  Pinned in `contact-picker.ts`, and the red-check is putting `contacts` back.
-- **AND THE COLUMN NOBODY WRITES, WHICH IS THE SAME FAULT WITH TWO HOMES
-  INSTEAD OF ONE.** `projects` carried FOUR columns for one fact: `lat`, `lng`,
-  `geocoded_address` (047) - written by the address autocomplete, the project
-  form, the bulk creator and the map sweep, and present on 94 of 100 rows - and
-  `latitude`, `longitude` (014), written by the demo seed and by one private
-  Nominatim call inside the clock-in route and by nothing else, ever. The
-  GEOFENCE read `latitude`/`longitude`, so it asked an empty column on every
-  real job, got null, and told the worker their phone had given no location
-  while their own latitude sat in the same row - the bug #444 made honest
-  without curing. A second home is not a typo you can grep for: both names
-  exist, both compile, and the one you picked decides whether the feature has
-  ever worked. `lib/project-site.ts` is the one reader and 105 drops the spare.
-- **AND A VALUE THAT IS PRESENT AND WRONG IS WORSE THAN ONE THAT IS MISSING.**
-  `geocoded_address` records the address a pin was resolved FROM. Editing a job's
-  address without picking a suggestion leaves the coordinates behind, so a job
-  reading "17 Fairview Terrace, Maplewood, NJ" was pinned in Frederick, MD - 14
-  of 100 rows like it. A missing pin makes the app say "not mapped"; a stale one
-  makes it flag an honest worker two hundred miles from a place they have never
-  been. `projectSite()` returns `coords: null` for a stale pin as well as an
-  absent one, because a caller handed a number WILL measure against it; what
-  differs is only what `siteLabel` says. Same rule going in: a geocoder handed
-  "1 North St" (no town, no state, no ZIP) does not fail, it PICKS - it picked a
-  street in east London for a US job - so `lib/geocode-match.ts` refuses to ask a
-  question too vague to have one answer, and refuses an answer whose state or ZIP
-  contradicts the address. A wrong pin is a confident lie; null is honest.
-- A TYPE THAT DESCRIBES NO TABLE IS NOT CHECKED BY ANYTHING. The same report
-  declared `doc_type`, `subcontractor_name` and `company_name`; a
-  `compliance_documents` row has `type` and `company_id` and none of the three,
-  and the company NAME only exists on the `subcontracts` array beside it. An
-  interface written from memory compiles perfectly and is wrong at runtime -
-  check the columns against the migration, the same as for a `.select()`.
+- **Verify the KEY you read back, too** - the wrong key is `undefined`, which a
+  truthiness guard swallows. `??` chaining two guesses is the tell: nobody
+  chains a fallback for a key they have read. If two places read one endpoint,
+  give them ONE reader (`lib/use-client-email.ts`, `lib/compliance-report.ts`),
+  and let it take the route's own key names as its argument names.
+- **Verify the TABLE, not just the column.** A query against the wrong table
+  returns `[]`, which renders exactly like "you have not added any". Directory
+  contacts live in `companies` (`type = 'inspector'`), NOT in `contacts`, and
+  the address column there is `contact_email`, not `email`. Pinned in
+  `contact-picker.ts`.
+- **One fact, ONE home.** A second column holding the same fact is not a typo
+  you can grep for: both names exist, both compile, and the one you pick decides
+  whether the feature has ever worked. Project coordinates are
+  `lat`/`lng`/`geocoded_address`, never `latitude`/`longitude` (dropped in 105);
+  `lib/project-site.ts` is the one reader.
+- **A value that is present and WRONG is worse than one that is missing.**
+  `projectSite()` returns `coords: null` for a STALE pin as well as an absent
+  one, because a caller handed a number WILL measure against it. Same rule going
+  in: `lib/geocode-match.ts` refuses a question too vague to have one answer,
+  and refuses an answer whose state or ZIP contradicts the address.
+- **A type that describes no table is checked by nothing.** An interface written
+  from memory compiles perfectly and is wrong at runtime - check its fields
+  against the migration, the same as for a `.select()`.
 
 ## What's new (KEEP CURRENT)
 - User-facing release notes live in `lib/whats-new.ts`, shown at `/whats-new`.
@@ -90,87 +79,6 @@ production branch.** Do NOT ask the user to merge or deploy.
 - IMPORTANT: whenever you add or change a feature/flow, update the matching
   article (or add a new one) in the SAME change so Help never drifts from the app.
 - Search is client-side; keep each article's `keywords` list rich so it's findable.
-
-## QuickBooks (KEEP CURRENT)
-- One-way push, SyteNav -> QuickBooks Online. All of it lives in
-  `lib/quickbooks-push.ts`; the manual Settings sync and the automatic push
-  call the SAME functions so they cannot drift.
-- **The connection is PER COMPANY.** A company only ever pushes to its own
-  QuickBooks file, and the sync only sees the company you are signed into.
-  Counting "unsynced" across companies is how you end up telling somebody
-  their payment failed to sync when it was never in that company's scope.
-- ACCRUAL, and the halves must move together: a SENT client invoice becomes a
-  QBO Invoice (A/R); a payment becomes a Payment applied against it; a deposit
-  with no invoice to settle becomes a Sales Receipt. **A sale must never be
-  counted twice** - a Sales Receipt already means sold AND paid, so if an
-  invoice exists, the money settling it can never be another receipt.
-- BOTH halves, BOTH directions. Money in: a client invoice is an Invoice and
-  the money settling it is a Payment applied to it. Money OUT: a sub bill is a
-  Bill and the money settling it is a BillPayment applied to it
-  (`invoices.qbo_payment_id`, separate id and separate claim from `qbo_id` -
-  one row, two QBO records). Ship a half and the ledger overstates: A/R showed
-  money owed that had arrived, A/P showed money owed that had gone out.
-- A payment settles the invoice NAMED ON IT (`client_payments.client_invoice_id`),
-  never "the oldest one still sent". Same-day invoices share an `issue_date`, so
-  "oldest" was whichever row came back first and the money settled a coin toss.
-  Only unlinked money (a deposit) falls back to oldest-open.
-- A payment whose invoice has NOT reached QBO yet must book NOTHING - not a
-  Sales Receipt. Booking one records the sale, then the invoice records it
-  again. `pushClientPayment` (Sales Receipt) is only for money that settles
-  nothing; every other caller goes through `pushPaymentForProject`. The
-  Settings backlog sync called the Sales Receipt pusher directly for a while.
-- Keep `Fault.Error[].Detail`, not just `Message`. QBO's Message is a label
-  ("Object Not Found"); Detail is the sentence that names the object. Errors
-  are `QboError` and carry `.code` - branch on `QBO_OBJECT_NOT_FOUND` (610).
-- 610 means "a reference you sent is unusable" and names NONE of them. On 610:
-  retry once without the optional ref (the payment method, which moves into the
-  memo), then `probeReferences` each id we sent and log which one QBO refuses.
-  Never fall back to a Sales Receipt on failure - that is the double-count.
-- Every QBO lookup filters `Active = true`. `paymentMethodId` did not, so an
-  inactive method came back as a good id. PaymentMethod.Type is only
-  `CREDIT_CARD` or `NON_CREDIT_CARD` - `OTHER` is not a value QBO defines.
-- A cached `qbo_id` for a record QBO does not have fails identically forever:
-  clear it so the next push re-creates. Only when MISSING, never when inactive
-  - re-creating an inactive customer leaves two with the same name.
-- Reference no. is the USER's (`client_payments.reference`), not `SN-<id8>` -
-  it is the bank-reconciliation column. `paymentIdentity()` composes ref+memo
-  for every payment path; SN- moves into the memo when the user gave a ref, so
-  it appears in exactly one place. `PaymentRefNum` on a Payment, `DocNumber` on
-  a Sales Receipt - the wrong one is accepted and silently ignored.
-- A payment row is one of TWO QBO entities. `qbo_txn_type` says which; the
-  refresh assumed Sales Receipt for everything and reported applied Payments as
-  missing. Any path that touches an existing payment must branch on it.
-- Every push: never throws, capped at 8s, "not connected" is a normal state,
-  and misses land in `quickbooks_sync_log` for the backlog sync to pick up.
-- Pushes take an atomic claim (`qbo_claimed_at`) via a conditional UPDATE. A
-  check-then-act guard is NOT enough: a double-pressed button created two QBO
-  invoices for one record, and the spare became an orphan receivable.
-
-## Two registries, and why a new thing goes IN them (IMPORTANT)
-- **A NEW NOTIFICATION BELONGS IN THE CATALOG, OR ITS AUDIENCE IS NOT A
-  SETTING.** `lib/notifications.ts` is the list of event types; an entry with
-  `status: 'live'` appears on its own in Settings -> Notifications (each
-  person's bell and email switches) AND in Who gets told (the company's routed
-  audience). A cron that sends under a type the catalog has never heard of is a
-  notification nobody can turn off or redirect. The not-ready warning was one
-  `notify()` call away from borrowing `inspection_ready`'s audience, which would
-  have glued a nag to a different event's switch.
-- **A NEW ABILITY BELONGS IN `RESOURCES`, for the same reason.**
-  `lib/permissions.ts` is resources x actions, with role defaults a company can
-  remap and per-user overrides in `profiles.permission_overrides`. Splitting one
-  out is the designed move, not a hack: `margin` came out of `budget` so a PM
-  could run a budget without seeing the markup, and `mark-ready` came out of
-  `inspections` because RUNNING inspections is office work while saying THE WORK
-  IS FINISHED is a report from the site - and every role who can honestly make
-  it (`field_supervisor`, `worker`, vendor `read_only`) has `inspections: N`.
-  Give every built-in role an EXPLICIT entry: a resource a role never names
-  resolves to nothing, which is a permission silently defaulting to "no" for
-  somebody who should have it. Pinned in `mark-ready-permission.ts`.
-- AND THE ROUTE HAS TO ASK, or the setting is decoration. The inspections PATCH
-  gated nothing - `requirePermission` was on DELETE and restore only - so anyone
-  who could reach the API could mark ready, change a booking or set a status
-  whatever their role said. A body that only touches the ready columns is gated
-  on `mark-ready`; everything else on `inspections`.
 
 ## Product brief for non-developers (KEEP CURRENT)
 - A prospect/customer-facing brief is published as an Artifact - what SyteNav
@@ -185,6 +93,86 @@ production branch.** Do NOT ask the user to merge or deploy.
 - Parked / future ideas live in `BACKLOG.md` at the repo root.
 - When we defer an idea, add it there; when we ship one, move it to "Recently shipped" with the PR #.
 
+## QuickBooks (KEEP CURRENT)
+Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.md).
+- One-way push, SyteNav -> QuickBooks Online. All of it lives in
+  `lib/quickbooks-push.ts`; the manual Settings sync and the automatic push
+  call the SAME functions so they cannot drift.
+- **The connection is PER COMPANY.** A company only ever pushes to its own
+  QuickBooks file, and the sync only sees the company you are signed into.
+- ACCRUAL, and the halves must move together: a SENT client invoice becomes a
+  QBO Invoice (A/R); a payment becomes a Payment applied against it; a deposit
+  with no invoice to settle becomes a Sales Receipt. **A sale must never be
+  counted twice** - if an invoice exists, the money settling it can never be
+  another receipt.
+- BOTH halves, BOTH directions. Money in: Invoice + Payment applied to it.
+  Money OUT: a sub bill is a Bill and the money settling it is a BillPayment
+  applied to it (`invoices.qbo_payment_id`, separate id and separate claim from
+  `qbo_id` - one row, two QBO records).
+- A payment settles the invoice NAMED ON IT (`client_payments.client_invoice_id`),
+  never "the oldest one still sent". Only unlinked money (a deposit) falls back
+  to oldest-open.
+- A payment whose invoice has NOT reached QBO yet must book NOTHING - not a
+  Sales Receipt. `pushClientPayment` (Sales Receipt) is only for money that
+  settles nothing; every other caller goes through `pushPaymentForProject`.
+- Keep `Fault.Error[].Detail`, not just `Message`. Errors are `QboError` and
+  carry `.code` - branch on `QBO_OBJECT_NOT_FOUND` (610).
+- 610 means "a reference you sent is unusable" and names NONE of them. On 610:
+  retry once without the optional ref (the payment method, which moves into the
+  memo), then `probeReferences` each id we sent and log which one QBO refuses.
+  Never fall back to a Sales Receipt on failure - that is the double-count.
+- Every QBO lookup filters `Active = true`. PaymentMethod.Type is only
+  `CREDIT_CARD` or `NON_CREDIT_CARD` - `OTHER` is not a value QBO defines.
+- A cached `qbo_id` for a record QBO does not have fails identically forever:
+  clear it so the next push re-creates. Only when MISSING, never when inactive.
+- Reference no. is the USER's (`client_payments.reference`), not `SN-<id8>` -
+  it is the bank-reconciliation column. `paymentIdentity()` composes ref+memo
+  for every payment path. `PaymentRefNum` on a Payment, `DocNumber` on a Sales
+  Receipt - the wrong one is accepted and silently ignored.
+- A payment row is one of TWO QBO entities. `qbo_txn_type` says which; any path
+  that touches an existing payment must branch on it.
+- Every push: never throws, capped at 8s, "not connected" is a normal state,
+  and misses land in `quickbooks_sync_log` for the backlog sync to pick up.
+- Pushes take an atomic claim (`qbo_claimed_at`) via a conditional UPDATE. A
+  check-then-act guard is NOT enough.
+
+## Two registries, and why a new thing goes IN them (IMPORTANT)
+Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.md).
+- **A NEW NOTIFICATION BELONGS IN THE CATALOG, OR ITS AUDIENCE IS NOT A
+  SETTING.** `lib/notifications.ts` is the list of event types; an entry with
+  `status: 'live'` appears on its own in Settings -> Notifications AND in Who
+  gets told. A cron that sends under a type the catalog has never heard of is a
+  notification nobody can turn off or redirect - and borrowing a neighbouring
+  type's audience glues a nag to a different event's switch.
+- **A NEW ABILITY BELONGS IN `RESOURCES`, for the same reason.**
+  `lib/permissions.ts` is resources x actions, with role defaults a company can
+  remap and per-user overrides in `profiles.permission_overrides`. Splitting one
+  out is the designed move, not a hack (`margin` out of `budget`, `mark-ready`
+  out of `inspections`). Give every built-in role an EXPLICIT entry: a resource
+  a role never names resolves to nothing, which is a permission silently
+  defaulting to "no" for somebody who should have it. Pinned in
+  `mark-ready-permission.ts`.
+- **AND THE ROUTE HAS TO ASK**, or the setting is decoration. Gate the narrow
+  body on the narrow permission and everything else on the broad one.
+
+## Who the email is FOR, and who may send it (IMPORTANT)
+Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.md).
+- **THERE ARE TWO DOORS INTO SYTENAV AND THEY MEAN DIFFERENT THINGS.** The
+  WAITLIST is a stranger asking, approved by a super admin - the only place
+  "you're approved" and "beta" are true. An INVITE is somebody already inside
+  vouching for a person; the invite IS the approval. One template per audience:
+  `inviteEmail` (waitlist, approvals screen only), `teamInviteEmail`,
+  `vendorInviteEmail`. `/api/invite` takes an `audience`, defaulting to `team`
+  so an un-updated caller cannot silently get the beta text.
+- **A ROLE OR A COMPANY OUT OF A REQUEST BODY IS AN ESCALATION.**
+  `middleware.ts` returns early for every `/api/` path, so nothing else gates
+  it. Use `requirePermission` (`settings_team` for a teammate, `directory` for a
+  vendor); the company comes from the ACTOR (a vendor's must carry
+  `added_by_company_id` = the inviter's company); a vendor is always
+  `read_only`; only an admin may invite an admin. Ratcheted in
+  `invite-audience.ts`: routes taking a role from the body with no permission
+  check may only go DOWN.
+
 ## Server-side data fetching (IMPORTANT)
 - Layouts nest: `(dashboard)/layout.tsx` wraps `projects/[id]/layout.tsx` wraps
   every project page. Anything sequential in a layout is paid on EVERY
@@ -196,235 +184,120 @@ production branch.** Do NOT ask the user to merge or deploy.
 - Prefer a join over a second round trip (`select('*, customers(name)')`), and
   `Promise.all` anything independent. #325 added three sequential trips for one
   line of header text and made the whole app feel slow.
+- One Supabase server client per request (`lib/supabase/current-user.ts` caches
+  the client, not only the answers). `server.ts` swallows cookie writes because
+  a Server Component may not set them, so a second client can present a
+  refresh token the first one just rotated away.
 
 ## Layout: the app shell and overlays (IMPORTANT)
+Full detail: [`docs/postmortems/layout.md`](docs/postmortems/layout.md) and
+`MOBILE.md`. Pinned by `lib/__tests__/layout-overflow.ts` and, for anything that
+is a measurement rather than a pattern, `lib/__tests__/overlay-geometry.ts`,
+which lays real markup out in headless Chromium.
 - The shell is ONE SCREEN TALL - `.h-app` + `overflow-hidden`, and the only
-  thing that scrolls is `<main data-app-scroll>`. `min-h-screen` lets the
-  DOCUMENT grow, which carries the top bar off the screen and means `<main>`'s
-  `overflow-y-auto` never engages.
-- Every dialog/drawer/sheet uses `.overlay` (or `.overlay-full`), NEVER a
-  hand-rolled `fixed inset-0` - and there are NO exemptions. The plans viewer
-  had one ("a fullscreen toggle that IS the scroller, not a dialog over one")
-  and being the exception is exactly why it never learned about the notch: its
-  title and its own exit button sat under the Dynamic Island. It also hid from
-  the scan a second way, by writing the class string as a `cn()` argument on
-  its own line, so the pin now reads quoted class strings anywhere rather than
-  `className="…"` literals. There were 78 of those and whether a dialog fitted
-  on the phone depended on which file it lived in. `.overlay` pads by the safe
-  insets and caps its panel at `max-height: 100%`, so a panel cannot be taller
-  than the screen. Do NOT re-add `max-h-[90vh]`: vh knows nothing about the
-  notch, and as a utility it beats the rule and wins with the wrong answer.
-- Anything floating over the app carries `data-overlay`, which is what freezes
-  the background (`html:has([data-overlay])` in globals.css). Menus too - a
-  panel positioned from `getBoundingClientRect()` detaches if the page moves.
-  A tooltip is the exception: `InfoHint` measures, floats as a fixed portal
-  (`lib/hint-position.ts`, pure and tested) and CLOSES on scroll instead. It
-  used to be an `absolute` child hidden with `visibility` - hidden is not
-  gone: it still had a width, made a sheet's scroll body wider than the panel
-  (a thumb dragged the sheet sideways), and opened off the edge of a phone.
-- THE DESKTOP SIDEBAR'S WIDTH IS ONE VARIABLE, NOT TWO CLASSES. It was `w-60`
-  on the aside and `lg:pl-60` on the content column - the same measurement in
-  two files, with nothing connecting them, and `(dashboard)/layout.tsx` is a
-  Server Component so no React state ever could. Both now read `--sidebar-w`
-  off `.app-shell` (globals.css), which is how the rail can collapse to a 72px
-  strip of icons without the content overlapping it or leaving a hole. The
-  collapsed state is a class on `<html>`, set by a pre-paint script in
-  `lib/sidebar-collapse.ts` - the same door the theme uses, because anything
-  read from localStorage AFTER mount is drawn wrong first and then snaps.
-  Every rule is `@media screen and (min-width: 1024px)`: `screen` because a
-  print stylesheet is not a narrow one, and 1024 because the phone drawer is
-  untouched. Collapsed labels are CLIPPED, never `display: none` - the label is
-  the link's accessible name, and dropping it leaves a screen reader announcing
-  the href. Pinned in `sidebar-collapse.ts` and measured in `overlay-geometry.ts`.
+  thing that scrolls is `<main data-app-scroll>`. Never `min-h-screen`: it lets
+  the DOCUMENT grow, which carries the top bar off the screen.
+- **Every dialog/drawer/sheet uses `.overlay` (or `.overlay-full`), NEVER a
+  hand-rolled `fixed inset-0` - and there are NO exemptions.** `.overlay` pads
+  by the safe insets and caps its panel at `max-height: 100%`. Do NOT re-add
+  `max-h-[90vh]`: vh knows nothing about the notch, and as a utility it beats
+  the rule and wins with the wrong answer. The pin reads quoted class strings
+  anywhere, not just `className="…"` literals.
+- Anything floating over the app carries `data-overlay`, which freezes the
+  background (`html:has([data-overlay])` in globals.css). Menus too - a panel
+  positioned from `getBoundingClientRect()` detaches if the page moves. A
+  tooltip is the exception: `InfoHint` measures, floats as a fixed portal
+  (`lib/hint-position.ts`, pure and tested) and CLOSES on scroll. Never hide one
+  with `visibility` - hidden is not gone: it still has a width.
+- **THE DESKTOP SIDEBAR'S WIDTH IS ONE VARIABLE, NOT TWO CLASSES.** Both the
+  aside and the content column read `--sidebar-w` off `.app-shell`
+  (globals.css). The collapsed state is a class on `<html>`, set by a pre-paint
+  script in `lib/sidebar-collapse.ts` - anything read from localStorage AFTER
+  mount is drawn wrong first and then snaps. Every rule is `@media screen and
+  (min-width: 1024px)`: `screen` because a print stylesheet is not a narrow one.
+  Collapsed labels are CLIPPED, never `display: none` - the label is the link's
+  accessible name.
 - Wide content gets `overflow-x-auto`, never `overflow-hidden`. Hidden does not
   contain a wide table, it cuts it off with nothing to say so.
-- SAFE AREAS ARE OURS, not iOS's. `capacitor.config.ts` sets
+- **SAFE AREAS ARE OURS, not iOS's.** `capacitor.config.ts` sets
   `contentInset: 'never'` so `env(safe-area-inset-*)` reports real numbers, and
   EXACTLY ONE element pads each edge - the chrome wrapper at the top of each
-  shell, `pb-safe` on each bottom nav. When iOS was also insetting, the header
-  jumped 59pt whenever a layout event made it recalculate. A second `pt-safe`
-  is not belt-and-braces, it is a visible band of nothing.
-- `pt-safe` never goes on the `h-14` header: border-box takes the padding out of
-  the row and squashes the search bar rather than moving it down.
+  shell, `pb-safe` on each bottom nav. A second `pt-safe` is not
+  belt-and-braces, it is a visible band of nothing. `pt-safe` never goes on the
+  `h-14` header: border-box takes the padding out of the row and squashes the
+  search bar rather than moving it down.
 - `overflow-wrap: anywhere` is the default for prose - NOT for `td`/`th`. In a
-  table it tells the layout a cell can be one character wide, so a `w-full`
-  table on a phone crushed "Create" to Cr/ea/te and a group name to its first
-  letter. Cells are `break-word`, `th` is `white-space: nowrap`, and a table
-  too wide for the screen scrolls in its `overflow-x-auto` wrapper (give it a
-  `min-w-[…]` when the columns matter). Measured in `overlay-geometry.ts`.
-  `.truncate` sets `min-width: 0`. Both are the same rule: `break-words` and `white-space:
-  nowrap` do not shrink min-content, so a flex/grid child refuses to go below
-  the full unbroken line and the CONTAINER blows out while the text inside
-  behaves perfectly.
-- A SIDE DRAWER IS `.overlay-drawer`, never `fixed top-0 right-0 h-full`. There
-  were two hand-rolled ones, and `h-full` is 100% of the LAYOUT viewport - which
-  does not shrink for a keyboard and knows nothing about the notch, so a
-  drawer's own header sat under the Dynamic Island and its footer behind the
-  keyboard. It is `.overlay-sheet` one axis over: sized off `--vv-h` / `--vv-t`,
-  `justify-content: flex-end`, panel at `min(28rem, 100%)`, full-bleed below
-  `sm`, and it pads only the LEFT - something of the page behind has to stay
-  visible or there is nothing to aim at to dismiss it. Measured in
-  `overlay-geometry.ts`, where the entrance animation is switched off for the
-  measurement: `translateX(100%)` is where it STARTS, and headless Chromium
-  dumps the DOM while it is still there.
-  **AND ITS INSETS GO ON THE PANEL, NOT THE CONTAINER.** `.overlay-sheet` was
-  given a `padding-top` the day a sheet's close button ended up under the
-  Dynamic Island; the drawer is that class one axis over and never got the same
-  treatment - it padded only its LEFT - so the panel began at y=0 and its
-  header row, Close button and all, spent its first 59pt under the status bar.
-  Reported as "the top is too squished so won't x". The container is the wrong
-  place for it here: `.overlay` pads the container because its panel FLOATS
-  inside one, but a drawer below `sm` IS the screen, so padding the container
-  leaves a bare strip above the drawer instead of the drawer. The panel takes
-  them, its own background fills the notch strip, and only its CONTENT starts
-  below it. `max(0.5rem, env(...))` like every other safe-area rule: `env()` is
-  0 in a desktop browser, so a declaration with only the env() half cannot be
-  measured at all and would pass `overlay-geometry` while failing on the phone
-  it was written for. The assertion that let this through was
-  `close.t >= 0` - a button at y=0 is "on the screen" AND under the status bar.
-- **A COMPONENT DECLARED INSIDE A COMPONENT IS A NEW TYPE ON EVERY RENDER, so
-  React does not update it - it throws the DOM away and builds a new one.**
-  `TaskDrawer` was declared inside `TasksPage`. Reported as "it blinks/slides
-  out twice when I open a task": opening a task renders the drawer (it slides
-  in), the notes arrive and set state on the page, the page re-renders, the
-  drawer is a different function and therefore a different type, React deletes
-  it and mounts a fresh one - and `overlay-drawer-in` plays again on the new
-  element. The animation is the visible half; the invisible half is that the
-  remount resets the state INSIDE the subtree, so a half-typed note goes with
-  it. Hoist it and pass props (derive the type from the props of what it wraps,
-  rather than retyping them). Nine other files still do this - counted and
-  ratcheted in `swipe-dismiss.ts`, may only go DOWN.
+  table it tells the layout a cell can be one character wide. Cells are
+  `break-word`, `th` is `white-space: nowrap`, and a table too wide for the
+  screen scrolls in its `overflow-x-auto` wrapper (give it a `min-w-[…]` when
+  the columns matter). `.truncate` sets `min-width: 0` - same rule: `break-words`
+  and `white-space: nowrap` do not shrink min-content, so a flex/grid child
+  refuses to go below the full unbroken line and the CONTAINER blows out.
+- **A SIDE DRAWER IS `.overlay-drawer`**, never `fixed top-0 right-0 h-full`:
+  `h-full` is 100% of the LAYOUT viewport, which does not shrink for a keyboard
+  and knows nothing about the notch. **AND ITS INSETS GO ON THE PANEL, NOT THE
+  CONTAINER** - a drawer below `sm` IS the screen, so padding the container
+  leaves a bare strip above the drawer instead of the drawer. Always
+  `max(0.5rem, env(...))`: `env()` is 0 in a desktop browser, so a declaration
+  with only the env() half cannot be measured at all.
+- **A COMPONENT DECLARED INSIDE A COMPONENT IS A NEW TYPE ON EVERY RENDER**, so
+  React throws the DOM away and builds a new one - the entrance animation
+  replays and the state inside the subtree resets, taking a half-typed note with
+  it. Hoist it and pass props (derive the type from the props of what it wraps).
+  Nine other files still do this - counted and ratcheted in `swipe-dismiss.ts`,
+  may only go DOWN.
 - A DRAWER CAN BE SLID BACK THE WAY IT CAME IN. `lib/swipe-dismiss.ts` (pure)
   and `lib/use-swipe-dismiss.ts`, on the PANEL not the backdrop. The axis is
-  decided ONCE at the slop boundary and kept: re-deciding on every move turns a
-  scroll that curves into a swipe halfway through, and a panel that slides
-  sideways when somebody tries to scroll it is worse than no gesture. Dragging
-  LEFT does nothing - there is nothing behind a full-bleed drawer to pull it
-  away from. Dismiss is a fraction of the panel's own width (so it means the
-  same on a 390px phone and a 448px desktop drawer) OR a flick, which distance
-  alone refuses. The close is a TIMER, never `transitionend`: that never fires
-  under reduced motion, and a gesture that leaves a drawer stuck half off the
-  screen has slid the close button away with it.
+  decided ONCE at the slop boundary and kept. Dragging LEFT does nothing.
+  Dismiss is a fraction of the panel's own width OR a flick. The close is a
+  TIMER, never `transitionend`: that never fires under reduced motion.
 - The overlay scroll lock is `overflow-y: hidden`, NEVER the `overflow`
-  shorthand. The shorthand also sets `overflow-x`, replacing the `clip` on
-  html/body with `hidden` - and clip cannot be scrolled while hidden can. That
-  turned latent sideways overflow into a pannable viewport, and `position:
-  fixed` is pinned to the LAYOUT viewport, so dialogs slid off the screen.
+  shorthand - the shorthand replaces the `clip` on html/body with `hidden`, and
+  clip cannot be scrolled while hidden can.
 - NEVER `autoFocus` on a touch screen - `autoFocus={autoFocusOnDesktop()}`
-  (`lib/auto-focus.ts`). iOS opens the keyboard for it unasked and scrolls the
-  LAYOUT viewport to reach the field, dragging the fixed dialog off with it.
-- A form control under 16px makes iOS ZOOM THE PAGE on focus. Zoom shrinks and
-  pans the visual viewport while `position: fixed` stays on the LAYOUT one, so
-  the top bar hides under the status bar and the tab bar slides off the left -
-  the "screen goes crazy" that is not a scroll at all. globals.css forces 16px
-  on touch/narrow, with `!important`: **a `@layer base` rule does NOT beat a
-  utility class.** Tailwind 3 emits base as plain CSS, so `.text-sm` (0,1,0)
-  outranks `input` (0,0,1) whatever the order - the rule sat there dead while
-  42 controls, `components/ui/input.tsx` included, zoomed every screen.
-  Measured in `overlay-geometry.ts`; never write a bare element rule in base
-  and assume it wins.
-- Overlays are sized from `--vv-h` / `--vv-t` (`lib/use-visual-viewport.ts`),
-  not `inset: 0`. The layout viewport does not shrink for a keyboard, so a
-  centred dialog puts its own buttons behind one.
-- **`--vv-h` is NOT `visualViewport.height`.** It is the visible strip measured
-  against the layout viewport the CSS resolves in, and `lib/visible-viewport.ts`
-  (pure, unit-tested) decides which of the two knows. On `resize: 'native'` the
-  WKWebView frame shrinks, so the layout viewport is ALREADY the strip and
-  `visualViewport` subtracts the keyboard a SECOND time - the app came out
-  ~121pt tall in a ~516pt space.
-  **THAT TAKES A PLUGIN, AND FOR MOST OF THIS APP'S LIFE IT WAS NOT INSTALLED.**
-  This file used to assert the frame-shrinking as a fact about "Capacitor's
-  default"; `@capacitor/keyboard` was absent from `package.json`, the Podfile
-  and the iOS project, so NOTHING resized anything and the shrunken-frame branch
-  was dead code. What iOS does instead is PAN the visual viewport to reach a
-  focused field, dragging every `position: fixed` element with it: tapping
-  Inspector Name on the Request Inspection form left the bottom tab bar floating
-  mid-screen, a band of bare background, and the dialog off the top. An
-  assumption nothing checks is a comment rather than a guarantee - the plugin,
-  the Podfile line and `resize: 'native'` are pinned in `keyboard-resize.ts`,
-  and it is a NATIVE dependency, so a config change only reaches a phone after
-  an iOS rebuild. When `innerHeight` has dropped below
-  the tallest frame seen, trust `innerHeight` and set the offset to 0; only an
-  unshrunk frame (mobile Safari) defers to `visualViewport`. Rotation resets
-  the baseline, or landscape reads as a keyboard forever.
-  AND THE HOOK LISTENS FOR `window.resize` AS WELL, which it did not: every
-  decision in that file turns on `window.innerHeight` and nothing was listening
-  for the event that says it changed, so a frame that resized without a
-  `visualViewport` event left `--vv-h` stale for as long as the keyboard was up.
-  Each event also measures AGAIN a frame later (`requestAnimationFrame`),
-  because the two numbers do not settle together on iOS: `visualViewport` fires
-  first, and reading `innerHeight` at that instant picks the branch from a value
-  that has not caught up yet.
-  **AND A MEASUREMENT THAT CAN LAG IS CHECKED AGAINST A FACT THAT CANNOT.**
-  Reported as "what's this? is it my phone or the app?" - a task drawer over
-  the top half of the screen, bare white below it, no top bar, a few times in
-  one day and always after typing. Both `.overlay-drawer` and `.h-app` are
-  `var(--vv-h)`, so that picture IS a `--vv-h` stuck at a keyboard-open value.
-  The two inputs do not recover together: `innerHeight` comes back first, which
-  drops out of the shrunk-frame branch and into the one that trusts `vvHeight`,
-  and `vvHeight` is still mid-animation - so a strip is published as though the
-  frame were whole, and then NOTHING FIRES AGAIN, because as far as the browser
-  is concerned nothing is happening any more. A stale number with no further
-  event is indistinguishable from a correct one. The keyboard (and the iOS
-  select wheel) exists only while something is focused, so `raisesKeyboard`
-  asks `document.activeElement` and nothing-focused means the whole frame,
-  whatever `visualViewport` still says; `focusin`/`focusout` recompute, both
-  DEFERRED because focusout fires before focusin and `activeElement` is `body`
-  between two fields. The re-read after each event is a frame AND ~300ms: one
-  frame was sized to nothing in particular, and the iOS keyboard animation is a
-  quarter of a second long.
-  **AND THE BASELINE IS ONLY LEARNED WITH NOTHING FOCUSED.** `fullFrame` means
-  "the frame with nothing covering it" and was `Math.max(fullFrame,
-  innerHeight)` on EVERY call - including calls made while the frame had
-  already shrunk for a keyboard. ONE of those redefines a whole screen as a
-  strip, and every call afterwards compares against the strip, so `innerHeight
-  < full - 1` is false and we fall through to the branch that trusts `vvHeight`
-  - which inside an already-shrunk frame has the keyboard taken out AGAIN.
-  Reported against the daily logs: tapping "Add an update" left the app in a
-  band across the top third of the screen. The arithmetic closes exactly - the
-  app filled 33.5% of the space above the keyboard, and on a 932pt screen with
-  a 372pt keyboard the strip is 560 while `vvHeight` says 560-372=188, which is
-  33.5% of 560. It only takes one poisoning event (a page loaded onto a focused
-  field, a rotation while typing - `orientationchange` zeroes the baseline and
-  re-reads it on the spot - the app resumed onto a field) and it sticks until
-  the keyboard closes, because `innerHeight` cannot grow past a baseline it
-  already equals. With NO baseline yet, take `innerHeight`: trusting it on an
-  unshrunk frame leaves a dialog's buttons under the keyboard, trusting
-  `vvHeight` on a shrunk one collapses the whole app - take the smaller
-  mistake.
-- **The SHELL follows `--vv-h` too**, not just overlays: `.h-app` is
-  `var(--vv-h, 100dvh)` inside `@supports (height: 100dvh)`. A document taller
-  than the webview's frame is one the webview can scroll, and Capacitor shrinks
-  that frame for the keyboard - so it scrolled by a keyboard-height, the
-  keyboard closed, and the offset had nothing left to undo it: the app sat too
-  high with bare background below and no top bar. The `@supports` is
-  load-bearing. An unset `--vv-h` falls back to `100dvh`, and where `dvh` does
-  not parse that is invalid AT COMPUTED-VALUE TIME, which makes `height`
-  `unset` - it does NOT fall back to the `100vh` declaration above it the way a
-  plain bad value would, and the shell collapses to `auto` on exactly the old
-  WebKit those declarations exist for.
-- A form control is 44px tall on a phone as well as 16px (see above). 16px is
-  forced and cannot be lowered, so a `h-8` box put big text in a small frame
-  next to a 12px label and read as enormous. Fields grow; `<Label>` keeps its
-  `text-sm` on a phone and shrinks only at `lg` (`lg:text-xs`, never a bare
-  `text-xs` - pinned). Both measured in `overlay-geometry.ts`.
-- Pinned by `lib/__tests__/layout-overflow.ts` and, for anything that is a
-  measurement rather than a pattern, `lib/__tests__/overlay-geometry.ts`, which
-  lays real markup out in headless Chromium. Full detail in MOBILE.md.
+  (`lib/auto-focus.ts`). iOS opens the keyboard unasked and scrolls the LAYOUT
+  viewport, dragging the fixed dialog off with it.
+- **A form control under 16px makes iOS ZOOM THE PAGE on focus**, which hides
+  the top bar under the status bar and slides the tab bar off. globals.css
+  forces 16px on touch/narrow, with `!important`: **a `@layer base` rule does
+  NOT beat a utility class** - Tailwind 3 emits base as plain CSS, so `.text-sm`
+  (0,1,0) outranks `input` (0,0,1) whatever the order. Never write a bare
+  element rule in base and assume it wins.
+- A form control is also 44px tall on a phone. `<Label>` keeps its `text-sm` on
+  a phone and shrinks only at `lg` (`lg:text-xs`, never a bare `text-xs`).
+- **Overlays are sized from `--vv-h` / `--vv-t`** (`lib/use-visual-viewport.ts`),
+  not `inset: 0`. `--vv-h` is NOT `visualViewport.height` - it is the visible
+  strip measured against the layout viewport the CSS resolves in, and
+  `lib/visible-viewport.ts` (pure, unit-tested) decides which of the two knows.
+  Rules that file encodes, each of which cost a bug: trust `innerHeight` when it
+  has dropped below the tallest frame seen; learn the `fullFrame` baseline ONLY
+  with nothing focused; `raisesKeyboard` asks `document.activeElement`, because a
+  stale number with no further event is indistinguishable from a correct one;
+  recompute on `focusin`/`focusout`, both DEFERRED; listen for `window.resize`
+  as well as `visualViewport`; re-measure after each event a frame AND ~300ms
+  later; reset the baseline on `orientationchange`; with NO baseline yet, take
+  `innerHeight`.
+- **The SHELL follows `--vv-h` too**: `.h-app` is `var(--vv-h, 100dvh)` inside
+  `@supports (height: 100dvh)`. The `@supports` is load-bearing - an unset
+  `--vv-h` falling back to an unparseable `100dvh` is invalid AT
+  COMPUTED-VALUE TIME, which makes `height` `unset` rather than falling back to
+  the `100vh` declaration above it.
+- `@capacitor/keyboard`, its Podfile line and `resize: 'native'` are pinned in
+  `keyboard-resize.ts`. It is a NATIVE dependency, so a config change only
+  reaches a phone after an iOS rebuild - and for most of this app's life the
+  plugin was simply absent while this file asserted its behaviour as fact.
 
 ## Mobile look and feel (IN PROGRESS)
+Full detail: [`docs/postmortems/mobile.md`](docs/postmortems/mobile.md).
 - **PHONE ONLY. The desktop does not change - that is a decision, not an
-  oversight.** The phone look lives BELOW `lg` (1024px), the breakpoint where
-  the tab bar becomes the sidebar: if you see the bottom tab bar you get the
-  phone look, and from `lg` up every screen looks exactly as it did before the
-  sweep. Passes 1-4 shipped without this gate and a user found their laptop
-  changed. Two ways to write it: `lg:` variants where only classes changed
-  (`Card` is `rounded-2xl … lg:rounded-lg lg:shadow-sm`), and a SECOND MARKUP
-  where the shape changed - the old desktop block under `hidden lg:block` /
-  `hidden lg:grid` / `hidden lg:contents`, the phone block under `lg:hidden`.
-  Pinned: every `<StatStrip>` is `lg:hidden` with a `hidden lg:` twin in the
-  same file; restored tables sit under `hidden lg:block` within 4 lines of
-  `<table`; and `overlay-geometry.ts` MEASURES a card at 390 and 1280.
+  oversight.** The phone look lives BELOW `lg` (1024px). Two ways to write it:
+  `lg:` variants where only classes changed (`Card` is `rounded-2xl …
+  lg:rounded-lg lg:shadow-sm`), and a SECOND MARKUP where the shape changed -
+  the old desktop block under `hidden lg:block` / `hidden lg:grid` / `hidden
+  lg:contents`, the phone block under `lg:hidden`. Pinned: every `<StatStrip>`
+  is `lg:hidden` with a `hidden lg:` twin in the same file; restored tables sit
+  under `hidden lg:block` within 4 lines of `<table`; and `overlay-geometry.ts`
+  MEASURES a card at 390 and 1280.
 - Target on the phone: clean, quiet, native-feeling. FEWER boxes, fewer
   colours, more whitespace, stronger type. 8px spacing, ~24px screen gutters,
   cards at ~18-22px radius with a 1px `border-line` and no shadow, 44px+
@@ -433,554 +306,308 @@ production branch.** Do NOT ask the user to merge or deploy.
   (`components/ui/stat-strip.tsx`), not a coloured pill per metric. Colour only
   when the colour MEANS something (overdue red; a total is just a number). A
   cell can be a link (`href`) or a filter (`onClick` + `active`, a quiet fill,
-  no ring). In use on the dashboard, Tasks, Compliance, a customer, a project's
-  overview, the Projects list and Master Money - always `lg:hidden`, always
-  with the desktop's tiles beside it.
-- A `<table>` is not a phone layout. Five columns in 390px gave headings
-  running one letter per line down the page. Prefer a list of rows; keep a
-  table only for genuinely tabular data, and then wrap it in `overflow-x-auto`.
+  no ring). Always `lg:hidden`, always with the desktop's tiles beside it.
+- A `<table>` is not a phone layout. Prefer a list of rows; keep a table only
+  for genuinely tabular data, and then wrap it in `overflow-x-auto`.
   `layout-overflow.ts` ratchets the count of tables a phone renders - it may
   only go DOWN.
 - `Card` is `rounded-2xl border border-line bg-panel` with NO shadow, and the
   page wrapper is `p-6` on every width - not `p-4 sm:p-6`. Both are pinned.
 - A badge or a button label NEVER wraps. `Badge` and `Button` set
-  `whitespace-nowrap` centrally; a hand-rolled pill must too, and the test
-  scans for it.
-- **AN ICON IS A LUCIDE COMPONENT, NEVER A CHARACTER.** Reported as "wtf is that
-  emoji" against `🤖 Scan with AI` on the Compliance form, beside two other
-  AI-scan blocks already using `<Sparkles>`. An emoji renders in the PLATFORM's
-  emoji font, not the app's - full colour, at a size and weight nothing here
-  controls, drawn differently on every OS. There were six, two of them on the
-  CLIENT PORTAL, and one of those was a bug rather than a style problem: the
-  portal printed `☀` beside every daily log whatever the weather said, so a
-  rainy day showed the client a sun. `lib/weather.ts` is the one table both
-  screens read, and an unrecognised condition returns NULL rather than a default
-  icon - a wrong picture beside the right word is worse than no picture.
-  Arrows and check marks (`→ ← ↑ ↓ ✓`) are NOT this: they render in the text
-  font at the text's size, and the app uses them deliberately in fifty places.
-  Ratcheted at zero in `layout-overflow.ts`, which also asserts the arrows are
-  still there so the scan cannot be passed by banning everything non-ASCII.
-- **SEVEN COLUMNS AT 390px IS A 55px SQUARE, AND TEXT CANNOT LIVE IN ONE.** The
-  job's Schedule calendar drew a labelled pill per item in a month cell, so
-  every label truncated to "F…" while the time beside it - `shrink-0`, a span
-  that refuses to get smaller than its own text - did not shorten but LEFT the
-  pill, through its own rounded border. Reported as "text overflow here - looks
-  terrible". A month cell on a phone is DOTS (colour only, with the legend under
-  the grid), and the DAY is the control: tapping it opens the day in full. That
-  sheet is `components/calendar/day-detail-sheet.tsx`, shared with the Master
-  Calendar which had it all along - and it takes an `onOpen` CALLBACK rather
-  than an href, because on the job's calendar a schedule bar opens its edit
-  dialog while an inspection navigates. Narrower rule, everywhere: a pill's
-  label and its detail are ONE truncating box, never two flex children fighting
-  over the width. Measured in `overlay-geometry.ts` (section 19) at 390 and
-  1280, with the spill measured beside it as the negative control.
+  `whitespace-nowrap` centrally; a hand-rolled pill must too.
+- **AN ICON IS A LUCIDE COMPONENT, NEVER A CHARACTER.** An emoji renders in the
+  PLATFORM's emoji font - full colour, at a size and weight nothing here
+  controls. Arrows and check marks (`→ ← ↑ ↓ ✓`) are NOT this: they render in
+  the text font at the text's size. Ratcheted at zero in `layout-overflow.ts`,
+  which also asserts the arrows are still there so the scan cannot be passed by
+  banning everything non-ASCII. `lib/weather.ts` is the one table both the app
+  and the client portal read, and an unrecognised condition returns NULL rather
+  than a default icon - a wrong picture beside the right word is worse than no
+  picture.
+- **SEVEN COLUMNS AT 390px IS A 55px SQUARE, AND TEXT CANNOT LIVE IN ONE.** A
+  month cell on a phone is DOTS (colour only, with the legend under the grid),
+  and the DAY is the control: tapping it opens
+  `components/calendar/day-detail-sheet.tsx`, which takes an `onOpen` CALLBACK
+  rather than an href because different kinds of item open different things.
+  Narrower rule, everywhere: a pill's label and its detail are ONE truncating
+  box, never two flex children fighting over the width.
 - Something that opens INLINE opens where it was tapped - and the better answer
-  is usually not to open it inline at all. The task detail was a panel docked
-  under the board; on a phone that is under every OTHER column too, so tapping a
-  task in Open put its detail below Completed, off the screen. Rendering it
-  inside the tapped column fixed the phone and left the desktop complaint: it
-  sat in the layout permanently and squeezed the board to half its height. It is
-  `.overlay-drawer` now - one panel over the screen, opened the same way from
-  all three views, full-bleed below `sm`.
+  is usually not to open it inline at all. A detail panel docked under a board
+  is under every OTHER column too; rendering it inside the tapped column fixes
+  the phone and squeezes the desktop. Use `.overlay-drawer`.
 - A list of items is ONE card with `divide-y divide-line-soft` rows, never a
-  bordered card per item, and never cards on a tinted column. The Tasks board
-  was three coloured boxes each holding a stack of boxes. A selected/expanded
-  row is `bg-surface`, not `ring-2`; an overdue row says "Overdue" in red and is
-  NOT tinted on top of it.
+  bordered card per item, and never cards on a tinted column. A
+  selected/expanded row is `bg-surface`, not `ring-2`; an overdue row says
+  "Overdue" in red and is NOT tinted on top of it.
 - A strip that scrolls sideways carries `.scroll-fade` (globals.css) so its
-  right edge fades - with the scrollbar hidden that is the only sign there is
-  more. Pinned for the Tasks filter row and the Settings tab strip.
-  **AND A STRIP THAT DOES NOT FIT MUST ACTUALLY SCROLL.** The Directory's
-  contact dialog had four tabs at `px-5` - about 440px - in a plain `flex` row
-  inside a 390px screen, so Projects was not merely off the edge, there was NO
-  WAY TO REACH IT: no `overflow-x-auto`, nothing to swipe. Reported as "I can't
-  see all options on top - missing projects, it's cut off". Measured with
-  `scrollLeft = scrollWidth` and then asking where the last tab is, because a
-  strip that cannot scroll reports the same rectangles as one that can.
+  right edge fades. **AND A STRIP THAT DOES NOT FIT MUST ACTUALLY SCROLL** -
+  needs `overflow-x-auto`, or an off-edge tab is not merely cut off, there is
+  NO WAY TO REACH IT. Measure with `scrollLeft = scrollWidth` and then ask where
+  the last tab is, because a strip that cannot scroll reports the same
+  rectangles as one that can.
 - **A TITLE IN A FLEX ROW NEEDS `min-w-0` AND SOMEWHERE FOR THE ACTIONS TO GO.**
-  The same dialog's heading came out "Vol / t / Ele / ctri / c / Co". It was
-  `flex justify-between` with Edit, Delete and a close button opposite the
-  name and nothing stopping them taking the width: at 390px, `px-8` plus a 56px
-  icon plus a ~200px button group leaves the name about 50px, and this app's
-  prose default (`overflow-wrap: anywhere`, there so a pasted reference number
-  cannot blow a container out) then breaks it wherever it likes - the same
-  fault as a `w-full` table crushing "Create" to Cr/ea/te. `min-w-0` ALONE IS
-  NOT THE FIX: it only trades the shards for "V…". Three controls and a title
-  do not share 390px, so below `lg` the actions take their own row
-  (`.row-even`, equal width, both edges) and only the CLOSE button stays beside
-  the title - a dialog's exit is the one control that may never move.
+  `min-w-0` ALONE IS NOT THE FIX: it only trades the shards for "V…". Three
+  controls and a title do not share 390px, so below `lg` the actions take their
+  own row (`.row-even`) and only the CLOSE button stays beside the title - a
+  dialog's exit is the one control that may never move.
 - A row of controls REACHES BOTH EDGES: `.row-even` (globals.css), written
-  `row-even lg:flex lg:flex-wrap gap-2 …`. `flex flex-wrap` makes each control
-  as wide as its own label, so Budget's toolbar came out 2 + 2 + 1 at three
-  different widths with none of them meeting the right edge. Two share the row
-  at equal width and an odd last one takes it whole - the trick `StatStrip`
-  uses for an odd number. The child width override uses `:is()` for
+  `row-even lg:flex lg:flex-wrap gap-2 …`. Two share the row at equal width and
+  an odd last one takes it whole. The child width override uses `:is()` for
   SPECIFICITY, not tidiness: `.row-even > *` is (0,1,0) and loses to a `w-28`
-  written for the desktop row, the same trap that left the 16px rule dead.
-  A `.row-even` NEVER contains another: a grid in a cell of a grid halves an
-  already-halved cell, so the Edit Item footer gave Cancel and Save a quarter
-  of the dialog each and "Save Changes", which may not wrap, ran out of both
-  sides of its own button. Where a wrapper only groups the actions for a
-  desktop, the wrapper is the layout and the group inside carries the rule -
-  and a footer of three is not one row on a phone: the two choices share a
-  row and the destructive one goes under them. Both pinned.
-  Nothing restores `display` at `lg` - the row's own `lg:flex` does, because
-  Tailwind emits utilities after components. Measured in `overlay-geometry.ts`
-  and ratcheted in `layout-overflow.ts`: a flex row of two or more `<Button>`s
-  must carry it. A heading beside the buttons makes it a LAYOUT, not a control
-  row - the button group inside is the row.
+  written for the desktop row. A `.row-even` NEVER contains another - a grid in
+  a cell of a grid halves an already-halved cell. Where a wrapper only groups
+  the actions for a desktop, the wrapper is the layout and the group inside
+  carries the rule; a footer of three is not one row on a phone (the two choices
+  share a row, the destructive one goes under them). A heading beside the
+  buttons makes it a LAYOUT, not a control row. Nothing restores `display` at
+  `lg` - the row's own `lg:flex` does, because Tailwind emits utilities after
+  components. Measured in `overlay-geometry.ts`, ratcheted in
+  `layout-overflow.ts`.
 
 ## Controls a phone cannot reach (IMPORTANT)
-- **THERE IS NO HOVER ON A PHONE.** A QA pass reported that tasks could not be
-  edited or deleted anywhere, then retracted it - the pencil and the trash were
-  `opacity-0` until hover, at every width. Invisible is indistinguishable from
-  absent, and the board card's actions were `absolute` against a parent that is
-  only `lg:relative`, so they were mispositioned as well. A control may be
-  hover-revealed FROM `lg` UP; below it, it is on screen:
-  `opacity-100 lg:opacity-0 lg:group-hover:opacity-100`. Six of these existed.
-  Pinned in `layout-overflow.ts`; a decorative chevron is not a control.
+Full detail: [`docs/postmortems/mobile.md`](docs/postmortems/mobile.md).
+- **THERE IS NO HOVER ON A PHONE.** Invisible is indistinguishable from absent.
+  A control may be hover-revealed FROM `lg` UP; below it, it is on screen:
+  `opacity-100 lg:opacity-0 lg:group-hover:opacity-100`. Pinned in
+  `layout-overflow.ts`; a decorative chevron is not a control.
 - An icon-only button carries `aria-label` (and `title`). One with a visible
   word beside the icon does not need one - the scan measures what is left after
   the icons are removed.
-- **A DISABLED BUTTON EXPLAINS NOTHING.** `disabled={saving || !title.trim()}`
-  means pressing Save does literally nothing and the form never names the field
-  it is waiting on. Disable only for IN FLIGHT (`disabled={saving}`); let it
-  fire and answer with the missing field. Where two dialogs validate the same
-  shape, one function answers for both (`missingMilestone`, `missingSub`).
-  Adding a REQUIREMENT to a form means writing it into that function, never into
-  the `disabled` condition - a rule enforced by a greyed-out button is a rule
-  nobody is ever told about.
-- **A FIELD THAT TAKES ANYTHING WILL BE GIVEN ANYTHING.** The inspector
-  picker's Quick add has two boxes, Full name and Phone, and validated neither -
-  so a surname typed into the second saved without a word (`name: 'John'`,
-  `phone: 'Dohr'`), and the inspections card then offered it as a tap-to-call
-  link that dials nothing. `quickAddProblem` (`lib/contact-quick-add.ts`) is
-  asked by the form AND the route, and `whoToCall` refuses to make a `tel:` link
-  out of a string with no digit in it - the guard on the way in stops the next
-  one, the guard on the way out covers the ones already stored. The test is
-  deliberately loose (does it contain a digit) because anything stricter refuses
-  `321-638-0808 x2231`; the thing to catch was a WORD.
-- A PICKER MUST NOT OFFER TO ADD WHAT IT IS ALREADY SHOWING YOU. The same
-  dropdown listed "QA Test Inspector" with a tick beside it and, underneath,
-  `Quick add "QA Test Inspector"…`. The row rendered unconditionally and never
-  looked at the list it sat under. `alreadyListed` is asked of the FILTERED
-  options, so the offer and what is in front of you cannot disagree.
-- A FIELD IS MARKED OR IT IS GUESSED AT. Add Subcontractor had eleven fields, of
-  which one carried a `*`, two said "(optional)" and eight said nothing - so
-  payment terms and dates read as required when a sub only ever needed a name
-  and a trade. Every label in a dialog carries one marker or the other, and a
-  parenthetical that says something ELSE ("(adds to schedule)") is a hint under
-  the field, not a stand-in for the marker: it reads as the marker's slot and
-  leaves the field unmarked. Pinned in `add-sub-form.ts`.
+- **A DISABLED BUTTON EXPLAINS NOTHING.** Disable only for IN FLIGHT
+  (`disabled={saving}`); let it fire and answer with the missing field. Where
+  two dialogs validate the same shape, one function answers for both
+  (`missingMilestone`, `missingSub`). Adding a REQUIREMENT means writing it into
+  that function, never into the `disabled` condition - a rule enforced by a
+  greyed-out button is a rule nobody is ever told about.
+- **A FIELD THAT TAKES ANYTHING WILL BE GIVEN ANYTHING.** `quickAddProblem`
+  (`lib/contact-quick-add.ts`) is asked by the form AND the route, and
+  `whoToCall` refuses to make a `tel:` link out of a string with no digit in it
+  - the guard on the way in stops the next one, the guard on the way out covers
+  the ones already stored. The test is deliberately loose (does it contain a
+  digit) because anything stricter refuses `321-638-0808 x2231`.
+- A PICKER MUST NOT OFFER TO ADD WHAT IT IS ALREADY SHOWING YOU.
+  `alreadyListed` is asked of the FILTERED options, so the offer and what is in
+  front of you cannot disagree.
+- A FIELD IS MARKED OR IT IS GUESSED AT. Every label in a dialog carries a `*`
+  or "(optional)", and a parenthetical that says something ELSE ("(adds to
+  schedule)") is a hint under the field, not a stand-in for the marker. Pinned
+  in `add-sub-form.ts`.
 - A VALUE THE APP WRITES, SUBMITS AND READS BACK MUST HAVE A CONTROL SOMEWHERE.
-  `subScope` is the one line shown wherever a sub appears - the Schedule row,
-  the Directory, the Tasks assignee list, a pay-app line. The AI scan wrote it,
-  the form posted it, the edit form loaded it, and there was no input for it in
-  the entire app, so a wrong scan was uncorrectable by any route. A field with
-  no box is not a hidden implementation detail; it is a fact about the job that
-  only a machine may write.
-- A record that a client will read must not be blank. A daily log with only a
-  date filed happily into the list, the count and the client PDF - a page of
-  empty headings asserting somebody was on site and reported this. Guard on the
-  ROUTE as well as the form, since the field app posts to the same route, and
-  count evidence (a photo, who was there) as a report, not just words.
+  A field with no box is not a hidden implementation detail; it is a fact about
+  the job that only a machine may write.
+- A record that a client will read must not be blank. Guard on the ROUTE as well
+  as the form, since the field app posts to the same route, and count evidence
+  (a photo, who was there) as a report, not just words.
 
 ## Derived facts, not stored ones (IMPORTANT)
+Full detail: [`docs/postmortems/derived-state.md`](docs/postmortems/derived-state.md).
 - **A WHITELIST WITH A FIELD MISSING FAILS EXACTLY LIKE A REJECTION, and only
-  one of them says so.** The task PATCH route listed the columns a body may
-  write and the three assignment fields were not on it, so the edit form sent
-  them, the route dropped them and answered **200** - assigning somebody to an
-  existing task has never once worked, silently, while assigning at CREATE did
-  (that is the POST, which writes them). A whitelist is still the right shape;
-  when adding a field to a form, add it to the route's list in the same change.
-- A TIMESTAMP THAT NOTHING WRITES IS A COLUMN THAT LIES BY OMISSION.
-  `project_tasks.completed_at` existed from migration 046 and only the demo seed
-  ever set it, so a finished task knew it was finished and not WHEN - leaving a
-  completed card with only its DUE date to show, which it rendered as "6d
-  overdue". It is derived from the status move in the route, never taken from
-  the body: a client that could set it could date a task finished last year.
-  `lib/task-due.ts` (`dueLabel`, pure and tested) is the one answer for what a
-  date on a task says, and completed never returns overdue language.
-- **Two controls must not answer one question.** A quote request asked for a
-  package AND "who supplies the material", and three of the four packages ARE
-  that answer - so a request could go out reading "Labor only" over
-  "Subcontractor supplies material", which is two different jobs on one page.
-  `materialByFor(pkg)` derives it and returns null for the one case that is
-  genuinely open (measure & quote), which is the only case still asked. Picking
-  a package writes the derived answer, and a stored template's pair is
-  overridden by it, because a stored pair can disagree with itself.
-- ONE COLUMN MUST NOT HOLD A WISH AND AN AGREEMENT. `inspections.scheduled_date`
-  was written by the REQUEST form with the date the field wanted, and the card
-  labelled it "Scheduled Date". So the guard on the one-click Scheduled pill -
-  "you cannot be scheduled with no date" - was satisfied by the requester's own
-  wish, and one tap turned a preference into a confirmed appointment nobody had
-  arranged. Worse one layer out: the Master Calendar and the subscribed ICS feed
-  include ANY inspection carrying a `scheduled_date`, whatever its status, so 14
-  merely-requested rows were sitting in people's Outlook as booked. Two columns
-  now (`requested_date`, `scheduled_date`), one labeller (`inspectionDate` -
-  "Needed by" / "Confirmed for"), and the state that CLAIMS a booking has to
-  carry its evidence: `scheduleProblem` demands `booked_with`, the same shape as
-  failed-needs-a-reason. Moving back to requested CLEARS the booking, or the
-  false appointment stays in the feed. Pinned in `inspection-booking.ts`.
-- AND SAY WHAT THE APP DOES NOT DO. "Inspector got the notification - now what?"
-  was a real report, and the answer was that no inspector was ever contacted:
-  the notification goes to whoever books inspections at the company. A workflow
-  that ends in a human picking up a phone has to SAY so on the screen, and then
-  hand over the number - gathered from the permits and the Directory
-  (`lib/inspection-contacts.ts`), never re-asked of the person in the field who
-  does not know the township's scheduling line.
+  one of them says so** - the route drops the field and answers 200. A whitelist
+  is still the right shape; when adding a field to a form, add it to the route's
+  list in the same change.
+- A TIMESTAMP THAT NOTHING WRITES IS A COLUMN THAT LIES BY OMISSION. Derive it
+  from the status move in the route, never take it from the body - a client that
+  could set it could date a task finished last year. `lib/task-due.ts`
+  (`dueLabel`, pure and tested) is the one answer for what a date on a task
+  says, and completed never returns overdue language.
+- **Two controls must not answer one question.** `materialByFor(pkg)` derives
+  the answer and returns null for the one case that is genuinely open, which is
+  the only case still asked. A stored template's pair is overridden by the
+  derived answer, because a stored pair can disagree with itself.
+- ONE COLUMN MUST NOT HOLD A WISH AND AN AGREEMENT. Two columns
+  (`requested_date`, `scheduled_date`), one labeller (`inspectionDate` - "Needed
+  by" / "Confirmed for"), and the state that CLAIMS a booking has to carry its
+  evidence: `scheduleProblem` demands `booked_with`. Moving back to requested
+  CLEARS the booking, or the false appointment stays in the ICS feed. Pinned in
+  `inspection-booking.ts`.
+- AND SAY WHAT THE APP DOES NOT DO. A workflow that ends in a human picking up a
+  phone has to SAY so on the screen, and then hand over the number - gathered
+  from the permits and the Directory (`lib/inspection-contacts.ts`), never
+  re-asked of the person in the field.
 - A RULE THAT ONLY FIRES ON A STATUS MOVE DOES NOT COVER THE OTHER DOORS.
-  `clearsCompletion` nulls `completed_date` when an inspection goes back to a
-  waiting state - and the inspector's-card scan writes that column directly,
-  asking about the RESULT separately. So declining "the card looks PASSED, mark
-  it passed?" left a `requested` inspection reading "Completed Sep 24, 2026"
-  under a Book it button: a record asserting it was both unbooked and finished.
-  `canCarryCompletion` is the other half of the same rule and all three doors
-  ask it (the scan, the PATCH route, the form). A date and the state it belongs
-  to move together or neither moves - and the state's date comes off the
-  PAPERWORK, not `todayDateInput()`, which is what the one resolving path used.
-- COMPLIANCE STATUS IS DATE-DRIVEN: a date that has not run out means the
-  document is current, whatever the row says, and a date that has passed means
-  expired, whatever the row says. The stored status only speaks for a document
-  with NO date (a W-9, an agreement). A live COI sitting at `pending` because
-  nobody clicked Approve made a covered sub read as a problem.
-- A status that is really a DATE must be computed from the date. Compliance and
-  Permits each asked only "is it expiring soon", and soon was a window BEFORE
-  the date (`diff > 0 && diff <= 30 days`) - so the day a certificate lapsed the
-  warning went away and an expired COI read as Approved for ever. One answer,
-  four states, tested: `lib/expiry.ts` (`expiryState`, `daysExpired`), anchored
-  to LOCAL midnight so "expires today" is still good today.
-- MONEY IN A TOTAL HAS TO BE ON A ROW OR NAMED. An approved change order that
-  names neither a budget line nor a subcontract reached nothing and was silently
-  dropped by the Budget page - $70,725 on one job - while the pay-app SOV had
-  shown the same `unmapped` figure all along. `budgetTotals` takes it and reports
-  it as `changes_unlinked`, beside `committed_unlinked` and `materials_unassigned`,
-  and the "Not on a budget line" panel shows each with a way to file it. Any new
+  `clearsCompletion` and `canCarryCompletion` are two halves of one rule and all
+  three doors ask both. A date and the state it belongs to move together or
+  neither moves - and the state's date comes off the PAPERWORK, not
+  `todayDateInput()`.
+- COMPLIANCE STATUS IS DATE-DRIVEN: a date that has not run out means current,
+  whatever the row says; a date that has passed means expired, whatever the row
+  says. The stored status only speaks for a document with NO date.
+- A status that is really a DATE must be computed from the date, and the window
+  must not stop AT the date. One answer, four states, tested: `lib/expiry.ts`
+  (`expiryState`, `daysExpired`), anchored to LOCAL midnight so "expires today"
+  is still good today.
+- MONEY IN A TOTAL HAS TO BE ON A ROW OR NAMED. `budgetTotals` reports
+  `changes_unlinked` beside `committed_unlinked` and `materials_unassigned`, and
+  the "Not on a budget line" panel shows each with a way to file it. Any new
   rollup that can drop a row owes the screen the same two things: the total, and
   the list.
-- A rule that exists on one door has to exist on the others. The order route
-  refused a selection with no `selected_name` from the day it was written; the
-  status dropdown and its PATCH beside it did not, so a selection reached
-  "Chosen" with nothing chosen. `ACCEPTED_STATUSES` in `lib/selections.ts` is
-  the one set both ask.
+- A rule that exists on one door has to exist on the others.
+  `ACCEPTED_STATUSES` in `lib/selections.ts` is the one set every door asks.
 - **A SCREEN CALLED A CALENDAR THAT QUERIES ONE TABLE ANSWERS A NARROWER
-  QUESTION THAN ITS NAME PROMISES, AND THE OMISSION IS INVISIBLE.** The project
-  Schedule calendar drew `schedule_items` and nothing else - its route queried
-  that table and `projects`, and the page had ZERO references to inspections or
-  tasks - so a confirmed, booked inspection was simply not there. Reported
-  twice, the second time with the card open beside it ("IT CLEARLY SAYS
-  Confirmed for Sep 15 ... what am I missing here??"), because an empty square
-  looks exactly like a free day and nothing errors. `lib/schedule-events.ts`
-  (pure) merges the three kinds, and the CLICK FOLLOWS THE KIND: a bar opens the
-  edit dialog, an inspection and a task go to their own tabs, because nothing in
-  that dialog could save either and a control that opens an editor which cannot
-  write is a control that lies. Timeline and List stay schedule-only for the
-  same reason - they are the editor, not the view.
-- **A DEADLINE WITH NO JOB BEHIND IT WARNS NOBODY.** "If the inspection date is
-  approaching and it's not ready, who gets notified?" - nobody: the only
-  scheduled work in the app was `/api/cron/compliance-reminders`, and
-  `vercel.json` listed exactly that one path. Writing the route is half of it;
-  a job nothing schedules never runs, so the pin reads `vercel.json` too. The
-  gate column (`ready_reminder_sent_at`, like `reminder_sent_at` on a compliance
-  doc) makes it fire once per BOOKING, not once per row - which means the PATCH
-  route has to clear it whenever `scheduled_date` changes
-  (`BOOKING_DERIVED_COLUMNS`), or moving a visit to next month carries a spent
-  gate and the warning never comes again.
-- A RETRACTION IS AN EVENT TOO. `ready_marked_by` was writable from the day it
-  existed and nothing ever sent a null, so a wrong "ready" was permanent - and
-  the notify block fires only when it is truthy while the history branch skips
-  its generic entry whenever the column is in play, so undoing one would have
-  left no trace anywhere. An audit trail that records a claim and not its
+  QUESTION THAN ITS NAME PROMISES, AND THE OMISSION IS INVISIBLE** - an empty
+  square looks exactly like a free day and nothing errors.
+  `lib/schedule-events.ts` (pure) merges the three kinds, and the CLICK FOLLOWS
+  THE KIND, because a control that opens an editor which cannot write is a
+  control that lies. Timeline and List stay schedule-only - they are the editor,
+  not the view.
+- **A DEADLINE WITH NO JOB BEHIND IT WARNS NOBODY.** Writing the route is half
+  of it; a job nothing schedules never runs, so the pin reads `vercel.json` too.
+  A gate column (`ready_reminder_sent_at`) makes it fire once per BOOKING, not
+  once per row - so the PATCH route has to clear it whenever `scheduled_date`
+  changes (`BOOKING_DERIVED_COLUMNS`).
+- A RETRACTION IS AN EVENT TOO. An audit trail that records a claim and not its
   withdrawal is half a record.
-- A VIEW THAT GATHERS A DAY MUST BE OPENABLE BY THE PEOPLE LIVING IT. "Whoever
-  is on the job site should see what's coming for that day" - and the Master
-  Calendar, the only screen that gathers one, is `admin`/`manager` only, so a
-  foreman, office staff, a worker or a sub could not open it. It is also a month
-  grid with no "what is next", so even an admin had to know which square to look
-  in: an inspection booked for the 15th was invisible on the 11th. `lib/today.ts`
-  (pure) answers the day and `TodayStrip` shows it on the project Overview and
-  My Jobs. A REQUESTED inspection appears there under its own kind - "needs
-  booking" - never among the day's appointments, which is the same rule that
-  took 14 unbooked ones out of everyone's Outlook.
+- A VIEW THAT GATHERS A DAY MUST BE OPENABLE BY THE PEOPLE LIVING IT.
+  `lib/today.ts` (pure) answers the day and `TodayStrip` shows it on the project
+  Overview and My Jobs. A REQUESTED inspection appears there under its own kind
+  - "needs booking" - never among the day's appointments.
 - An activity feed row links to the record it is ABOUT (`lib/activity-href.ts`).
-  All 34 event types linked to `/plans`; the tab is not derivable from the type
-  string, so it is a table pinned against the icon table it mirrors.
-
-## Who the email is FOR, and who may send it (IMPORTANT)
-- **THERE ARE TWO DOORS INTO SYTENAV AND THEY MEAN DIFFERENT THINGS.** The
-  WAITLIST is a stranger asking, approved by a super admin - the only place
-  "you're approved" and "beta" are true. An INVITE is somebody already inside
-  vouching for a person; there is no second approval because the invite IS the
-  approval. `inviteEmail` was written for the first and used for all three
-  audiences, so a subcontractor was told he had been approved for a beta he
-  never applied to and could start "putting jobs in" - the GC's side of the job.
-  One template per audience: `inviteEmail` (waitlist, approvals screen only),
-  `teamInviteEmail`, `vendorInviteEmail`. `/api/invite` takes an `audience`,
-  defaulting to `team` so an un-updated caller cannot silently get the beta text.
-- **A ROLE OR A COMPANY OUT OF A REQUEST BODY IS AN ESCALATION.** `/api/invite`
-  checked only that you were signed in, then wrote `body.role` and
-  `body.company_id` onto the new profile - so any account, including a read-only
-  teammate or an invited sub, could mint an admin of any company whose id it
-  had. `middleware.ts` returns early for every `/api/` path, so nothing else was
-  gating it. Now: `requirePermission` (`settings_team` for a teammate,
-  `directory` for a vendor), the company comes from the ACTOR (a vendor's must
-  carry `added_by_company_id` = the inviter's company), a vendor is always
-  `read_only`, and only an admin may invite an admin. Ratcheted in
-  `invite-audience.ts`: routes taking a role from the body with no permission
-  check may only go DOWN.
+  The tab is not derivable from the type string, so it is a table pinned against
+  the icon table it mirrors.
 
 ## A button that claims to have done something (IMPORTANT)
-- **A `useState` DEFAULT ON A REQUIRED SELECT IS THE SAME CLAIM, AND IT DISARMS
-  THE `required` BESIDE IT.** Add Permit and Request Inspection both accepted a
-  fully blank submit and filed "Building / pending" and "Foundation" - names
-  nobody typed, both of them `useState('Building')` / `useState('Foundation')`.
-  So the records did not LOOK blank in a list, and the `required` already on
-  both selects could never fire, because a select that starts on a value cannot
-  fail constraint validation. A picker starts EMPTY with a `-- Select --`
-  option. The blank inspection also NOTIFIED THREE SCHEDULERS, which is why the
-  guard sits on the route as well as the form and runs BEFORE `notify`.
-  Rules are pure and shared - `lib/permit-rules.ts` (`permitProblem`),
-  `requestProblem` beside `scheduleProblem` in `lib/inspection-status.ts` - and
-  a status that CLAIMS something must carry it: `approved`/`active`/`recorded`
-  needs the permit number and issued date, the way `scheduled` needs a date.
+Full detail: [`docs/postmortems/derived-state.md`](docs/postmortems/derived-state.md).
+- **A `useState` DEFAULT ON A REQUIRED SELECT IS A CLAIM, AND IT DISARMS THE
+  `required` BESIDE IT** - a select that starts on a value cannot fail
+  constraint validation, and the record does not LOOK blank in a list. A picker
+  starts EMPTY with a `-- Select --` option. Rules are pure and shared
+  (`lib/permit-rules.ts`, `requestProblem`/`scheduleProblem` in
+  `lib/inspection-status.ts`), the guard sits on the ROUTE as well as the form
+  and runs BEFORE `notify`, and a status that CLAIMS something must carry it.
   Pinned in `blank-records.ts`.
-- **A DEFAULT IS A CLAIM.** `bid_invites.status` was `NOT NULL DEFAULT
-  'invited'`, so a row asserted the sub had been told the moment it existed -
-  while the route that created it sent no email at all. Everything downstream
-  believed it: the badge read Invited, and `isReminder` (which reads that
-  status) made the FIRST real email come out as "Still need your price", a chase
-  for a request nobody had sent. A state that means "we did X" must be written
-  by the code that does X, never by a column default. 'pending' is the state a
-  row starts in; only a confirmed send moves it.
-- Sending is what the send BUTTON does. `+ Invite` inserted a row and fired an
-  in-app bell - and only to invitees who already had an account, which is why
-  the directory path looked like it worked and the typed-in path looked broken.
-  Both were broken. A verb on a button is a promise about what happens when it
-  is pressed.
+- **A DEFAULT IS A CLAIM.** A state that means "we did X" must be written by the
+  code that does X, never by a column default. `pending` is the state a row
+  starts in; only a confirmed send moves it.
+- Sending is what the send BUTTON does. A verb on a button is a promise about
+  what happens when it is pressed.
 - ONE PRIMARY ACTION PER ROW, and the rest behind `RowMenu`
-  (`components/ui/row-menu.tsx`). An invited sub carried Link, Email, Send and
-  By hand - two of them copies, and the Send opened a panel containing another
-  button with the same word on it. Where a second screen needs the same thing,
-  the pattern becomes a component rather than a third copy: it was lifted out of
-  `client-invoices.tsx`, which had grown one for the same reason.
-- **A CONTROL THAT QUIETLY REDIRECTS IS WORSE THAN ONE THAT IS GONE.** When
-  booking moved into its own dialog, the `Scheduled` pill stayed in the
-  inspection card's status strip and was rerouted into that dialog. Reported
-  immediately: "that pill is a second door to the same room - and if it still
-  one-taps, the old bug is still alive." It did not one-tap, and that is not the
-  point: a redirect teaches the old habit and is one refactor from being the bug
-  again. When an action grows a real path, the old path is DELETED, and the pin
-  reads the statuses a click can set rather than the classes on the buttons.
-- A UNIQUE CONSTRAINT AND THE SEND SHIP TOGETHER. Duplicate invite rows were
-  untidy while nothing sent; the moment the button really sends, the same double
-  press is two identical emails to one sub.
+  (`components/ui/row-menu.tsx`). Where a second screen needs the same thing,
+  the pattern becomes a component rather than a third copy.
+- **A CONTROL THAT QUIETLY REDIRECTS IS WORSE THAN ONE THAT IS GONE** - a
+  redirect teaches the old habit and is one refactor from being the bug again.
+  When an action grows a real path, the old path is DELETED, and the pin reads
+  the statuses a click can set rather than the classes on the buttons.
+- A UNIQUE CONSTRAINT AND THE SEND SHIP TOGETHER. The moment the button really
+  sends, a double press is two identical emails to one sub.
 
 ## Menus, pickers and the tail of a tap (IMPORTANT)
-- A control that toggles must not be re-triggered by the tap that just used it.
-  `SearchableSelect` closed correctly on pick and the TRIGGER re-opened it: on a
-  phone the panel is a full-width sheet hard against the trigger, so the tap
-  that picks an option lands on the trigger the instant the panel unmounts from
-  under the finger, and a toggle turns "closed" back into "open". A close that
-  something else immediately reverses looks exactly like never closing. Guarded
-  with a `pickedAt` timestamp, not a flag on a timer - no timer to leak and it
-  cannot get stuck on.
-- AN "ADD" BUTTON OPENS; IT DOES NOT TOGGLE. Selections' `Add selection` was
-  `setShowAdd(v => !v)` over an INLINE panel rendered partway down the page, so
-  a press while it was already open closed it - and after a failed save it IS
-  already open, which is exactly when somebody presses it again. Reported as
-  "every click after does nothing". Same family as the hover menu below and as
-  `SearchableSelect`: a state the next interaction reverses is indistinguishable
-  from a control that is dead. Add opens a dialog (`.overlay` + `data-overlay`),
-  and closing is Cancel, Escape, the backdrop, or a save that worked.
-- A MENU THAT HOVER OPENS MUST NOT BE A TOGGLE. The project sections open their
-  pages on hover AND on click, and NEITHER closes them - a toggle is
-  re-triggered by the interaction that just used it, so with a mouse
-  `mouseenter` opens and the `click` that follows shuts it again, and the menu
-  flickers out from under the pointer. Same fault as `SearchableSelect`, one
-  costume over. Closing is: pick something, Escape, click outside, or move the
-  pointer off. The panel sits flush at `top-full` so there is no dead space to
-  cross and no timer to leak.
-- A PANEL HANGING OFF A ROW CANNOT LIVE INSIDE `overflow-x-auto` - OR INSIDE
-  ANY `overflow` THAT IS NOT `visible`. `overflow-x` establishes a clipping box
-  on BOTH axes, so a dropdown below a button inside a side-scrolling row is
-  sliced off at the row's bottom edge - every class on it individually correct,
-  and nothing there to click. `overflow-hidden` written on a CARD to round its
-  corners is the same trap and it is worse, because a `RowMenu` in the card's
-  last row hangs entirely below that edge: not shortened, gone. Round the
-  children that touch an edge instead. Measured in `overlay-geometry.ts` with
+Full detail: [`docs/postmortems/mobile.md`](docs/postmortems/mobile.md).
+- **A state the next interaction reverses is indistinguishable from a control
+  that is dead.** A control that toggles must not be re-triggered by the tap
+  that just used it - on a phone the panel is hard against the trigger, so the
+  tap that picks lands on the trigger the instant the panel unmounts.
+  `SearchableSelect` guards with a `pickedAt` timestamp, not a flag on a timer.
+- AN "ADD" BUTTON OPENS; IT DOES NOT TOGGLE - after a failed save it IS already
+  open, which is exactly when somebody presses it again. Add opens a dialog
+  (`.overlay` + `data-overlay`); closing is Cancel, Escape, the backdrop, or a
+  save that worked.
+- A MENU THAT HOVER OPENS MUST NOT BE A TOGGLE - `mouseenter` opens and the
+  `click` that follows shuts it again. Closing is: pick something, Escape, click
+  outside, or move the pointer off. The panel sits flush at `top-full` so there
+  is no dead space to cross and no timer to leak.
+- A PANEL HANGING OFF A ROW CANNOT LIVE INSIDE `overflow-x-auto` - OR INSIDE ANY
+  `overflow` THAT IS NOT `visible`. `overflow-x` establishes a clipping box on
+  BOTH axes. `overflow-hidden` written on a CARD to round its corners is the
+  same trap and worse - a `RowMenu` in the last row is not shortened, it is
+  gone. Round the children that touch an edge instead. Measured with
   `elementFromPoint`, because clipping is a PAINT operation: the clipped panel
-  still reports its full bounding rect, so measuring the panel proves nothing.
-- **A POSITIONED PANEL MUST KNOW WHERE THE SCREEN ENDS, AND THE FIXED BOTTOM
-  NAV IS PART OF WHERE IT ENDS.** `RowMenu` was `absolute z-20`, always `mt-1`
-  below its trigger, with no flip and no measurement. The phone tab bar is
-  `fixed bottom-0 z-30`, so a menu opened near the bottom painted UNDER it and
-  its last items could not be reached - reported as "I can't scroll down to see
-  the whole card", because scrolling cannot help: the bar is pinned to the
-  VIEWPORT, so the items stay behind it wherever you scroll to. It flips to
-  `bottom-full` using `hintPosition`'s verdict (the tooltip had this same
-  fault), counts the strip under `[data-bottom-nav]` as gone, and sits at `z-40`
-  - above the tab bar and desktop sidebar, below the phone drawer. Measured in
-  `overlay-geometry.ts` with `elementFromPoint`: stacking is a paint operation,
-  so the covered panel still reports its full rectangle.
+  still reports its full bounding rect.
+- **A POSITIONED PANEL MUST KNOW WHERE THE SCREEN ENDS, AND THE FIXED BOTTOM NAV
+  IS PART OF WHERE IT ENDS.** Scrolling cannot help: the bar is pinned to the
+  VIEWPORT. `RowMenu` flips to `bottom-full` using `hintPosition`'s verdict,
+  counts the strip under `[data-bottom-nav]` as gone, and sits at `z-40` - above
+  the tab bar and desktop sidebar, below the phone drawer.
 - The controls in a project header are ONE class string
   (`components/layout/header-icon-button.tsx`), icon-only, each with
-  `aria-label` and `title`. Four independently written ones became an avatar
-  pill, a `px-3 py-1.5` word, a `px-3 py-2` word and a square icon.
+  `aria-label` and `title`.
 - Something a user opens from a ROW opens over the screen, not at the bottom of
-  the card. Compliance's Update rendered below the whole document list, so
-  pressing it on the third row scrolled you away from what you tapped - which on
-  a phone reads as having been sent to a different page. Same rule as Budget's
-  Add Line and the task detail.
-- A picker that SHOWS a fact in its options fills that fact in. The saved-subs
-  dropdown listed "Joe's Plumbing (Electrical)" and then left Trade blank to be
-  retyped - and a subcontract with no trade drops out of the compliance
-  requirements for its trade.
+  the card - otherwise pressing it on the third row scrolls you away from what
+  you tapped, which on a phone reads as a different page.
+- A picker that SHOWS a fact in its options fills that fact in.
 
 ## Loading and failure states (IMPORTANT)
-- **AND ONE LAYER DOWN IT IS NOT A BUTTON, IT IS THE SESSION.** Every gate in
-  the app was `const { data: { user } } = await getUser(); if (!user)
-  redirect('/login')`. `user` is null when nobody is signed in AND when the
-  question could not be asked, the `error` beside it was dropped, and the
-  answer to both was the login screen. Reported as "I'm having a hard time
-  logging in now - it's blank or just loading forever", and the password was
-  never wrong: `POST /auth/v1/token` 200, `GET /dashboard` **307 back to
-  /login**, three times in ninety seconds, then the password reset page -
-  twice. Supabase's auth server was answering `/user` in 2-4ms throughout; the
-  502s and 504s came off the gateway in front of it and never reached it. The
-  middleware's own comment claimed a timeout only meant "the convenience
-  redirects do not fire - the page still renders", but `!user &&
-  isProtectedRoute` IS one of those redirects, so the bound that was supposed
-  to degrade gracefully signed people out instead. Three answers now
-  (`lib/auth-outcome.ts`): a 4xx is a verdict about the token and may be
-  believed; a 5xx, a status of 0, an `AuthRetryableFetchError` or a timeout is
-  a failure to ask and says NOTHING. **When it says nothing, guess signed IN** -
-  a wrong "signed in" is corrected by the page asking again a moment later,
-  while a wrong "signed out" has already thrown away the only thing that could
-  correct it. Middleware asks once and carries an `unknown` to the page; a
-  layout asks twice (the blips are a few hundred ms in front of a 3ms server)
-  and then renders `AuthUnavailable`, which says it is not your password,
-  because the trace shows the reset page being opened twice.
-- A permissions check that FAILED answers exactly like being denied - `can()`
-  is `!!perms?.[r]?.[a]` and `perms` is null either way - so a bad minute of
-  signal took the Upload button off the Plans tab with nothing to say why
-  ("where do I upload files"). Seven screens still destructure only `can`, so
-  the fact is announced ONCE for the session by `PermissionsBanner` in the
-  dashboard chrome, beside `ViewAsBanner`. A screen may add "Checking access…"
-  for the in-flight case, but the failure belongs to the session, not the page.
-- A plan's bytes are fetched through `/api/projects/[id]/plans/[planId]/file`,
-  never `plan.file_url` directly. pdf.js reads them in the BROWSER, so a file
-  on another server is a cross-origin read - the demo rows point at w3.org,
-  which allows none, and every plan failed on every device. The route signs
-  `storage_path` fresh per request (a stored signed URL is only as good as the
-  key that signed it) and streams anything else from our origin. The URL comes
-  off the ROW, never the request.
-- **A POSTGRES MESSAGE IS NOT A USER-FACING MESSAGE.** `null value in column
-  "status" of relation "project_selections" violates not-null constraint` is
-  every word true and none of it usable, and it reads as "the app is broken".
-  `friendlyDbError` (`lib/db-error.ts`) names the FIELD; a route hands it back
-  and `console.error`s the raw text so the log still has it. A route that ends
-  `NextResponse.json({ error: error.message })` is one report away from putting
-  that sentence in front of somebody choosing bathroom tile.
-- **NEVER `alert()` or `confirm()` - and `confirm()` is the one that got proved.**
-  Delete on a Directory contact did nothing three times and took the tab blank.
-  Three hours of production logs after those three attempts: the DELETE endpoint
-  had never been called ONCE, and there was no 5xx in the window - so the
-  handler died before the fetch, on `window.confirm`. The evidence for this
-  class of bug is an ABSENT request, which is why it reads as "the page died"
-  rather than as an error. Both are now ratcheted at zero in
-  `layout-overflow.ts`, with no exemption: `delete-guard.tsx` renamed its own
-  local `confirm()` rather than being excused, and its `window.confirm` fallback
-  is gone because the provider is mounted at the ROOT layout beside
-  `NoticeProvider`. `useDeleteGuard` takes `title`/`body`/`confirmLabel`, so a
-  confirmation that is NOT a delete - voiding an invoice, disconnecting
-  QuickBooks, handing over ownership - has somewhere to go other than the
-  native dialog.
-- A FOREIGN KEY WITH NO `ON DELETE` RULE IS A DELETE THAT FAILS ON EXACTLY ONE
-  ROW. `company_invites.company_id` had none, so a contact could be deleted
-  right up until somebody invited them to the platform - which is why it looked
-  contact-specific rather than broken. When adding a table that points at
-  `companies`, decide CASCADE (the row is a fact about that company alone) or
-  SET NULL (a record of work that outlives the attribution), and never leave it
-  at the default.
-- **NEVER `alert()` or `confirm()`.** In the native shell this app is a remote
-  WKWebView, so a JS dialog is a native UIAlertController presented by the
-  Capacitor bridge and WebKit BLOCKS THE JS THREAD until it is dismissed. One
-  that fails to present - fired from a `blur` handler while the keyboard is
-  dismissing, say - is a page that never runs another line, which from the
-  outside is a crash. Two reports in a row said "it killed the page"; both were
-  an ordinary 400 and 409 whose only output was `alert(...)`. Use
-  `useNotice()` (`components/ui/notice.tsx`), mounted at the ROOT layout so the
-  portal and share links are covered too. It is deliberately NOT an overlay: no
-  `data-overlay`, `pointer-events: none` on the dock, sized off `--vv-h` so it
-  is above the keyboard - a message about a field must leave you able to fix
-  the field. `confirm()` already had its answer in `useDeleteGuard`; the 18
-  handlers still calling the native one are in BACKLOG.md. Ratcheted at zero
-  `alert` in `layout-overflow.ts`, with no exemption for `notice.tsx` itself.
-- ONE EVENT, ONE EMAIL. `notify()` sends email as well as ringing the bell, so a
-  route that has already emailed somebody itself must pass `inAppOnly: true` -
-  inviting a sub who had an account sent them the quote request AND a generic
-  notification about it. The bell is a different channel and is never the
-  duplicate; a second letter is. Only a caller that KNOWS it emailed may set it,
-  and where the send failed the notification email is the fallback.
-- A ROUTE THAT COMPUTES A REASON MUST NOT BE THE ONLY PLACE IT EXISTS. The
-  Directory invite answered 200 with `emailSent: false` and SendGrid's own
-  words in `note`; the screen read neither and ticked "Invited", and the route
-  logged nothing - so when an invite never arrived, the answer was recoverable
-  from nowhere. Read it in the UI AND `console.error` it.
-- ONE REQUEST MUST NOT CARRY TWO THINGS THAT CAN BE REFUSED SEPARATELY. "What
-  they chose" sent the name and `status: 'chosen'` together; the route refuses
-  an accepted status on a row with no budget line, BEFORE the update runs, so
-  typing a choice threw the choice away with the status. Recording a fact is
-  not the same act as accepting it. And ask the refusable question at the FIELD
-  before sending (`missingFor` in the selections page uses the same
-  `ACCEPTED_STATUSES` the route does): a server's answer can only ever arrive
-  as a message about a whole request that did not happen.
+Full detail: [`docs/postmortems/failure-states.md`](docs/postmortems/failure-states.md).
+- **A NULL USER IS TWO DIFFERENT FACTS**: nobody is signed in, and the question
+  could not be asked. Three answers (`lib/auth-outcome.ts`): a 4xx is a verdict
+  about the token and may be believed; a 5xx, a status of 0, an
+  `AuthRetryableFetchError` or a timeout is a failure to ask and says NOTHING.
+  **When it says nothing, guess signed IN** - a wrong "signed in" is corrected
+  by the page asking again a moment later, while a wrong "signed out" has
+  already thrown away the only thing that could correct it. Middleware asks once
+  and carries an `unknown` to the page; a layout asks twice and then renders
+  `AuthUnavailable`, which says it is not your password.
+- A permissions check that FAILED answers exactly like being denied - `can()` is
+  `!!perms?.[r]?.[a]` and `perms` is null either way. The fact is announced ONCE
+  for the session by `PermissionsBanner` in the dashboard chrome, beside
+  `ViewAsBanner`. A screen may add "Checking access…" for the in-flight case,
+  but the failure belongs to the session, not the page.
+- "Loading" and "failed" are different facts. Collapsing them into one falsy
+  value renders a menu with four links and no explanation. Callers need `error`
+  as well as `loading`.
 - A loading state must have a WAY TO END. `setLoading(false)` as the last
   statement of an async function ends only on the happy path - use
   try/catch/finally, always.
-- "Loading" and "failed" are different facts. Collapsing them into one falsy
-  value is how a failed permissions call rendered a menu with four links and no
-  explanation. Callers need `error` as well as `loading`.
-- One Supabase server client per request (`lib/supabase/current-user.ts` caches
-  the client, not only the answers). `server.ts` swallows cookie writes because
-  a Server Component may not set them, so a second client can present a
-  refresh token the first one just rotated away.
+- A plan's bytes are fetched through `/api/projects/[id]/plans/[planId]/file`,
+  never `plan.file_url` directly - pdf.js reads them in the BROWSER, so a file
+  on another server is a cross-origin read. The route signs `storage_path` fresh
+  per request (a stored signed URL is only as good as the key that signed it)
+  and streams anything else from our origin. The URL comes off the ROW, never
+  the request.
+- **A POSTGRES MESSAGE IS NOT A USER-FACING MESSAGE.** `friendlyDbError`
+  (`lib/db-error.ts`) names the FIELD; a route hands that back and
+  `console.error`s the raw text so the log still has it. A route that ends
+  `NextResponse.json({ error: error.message })` is one report away from putting
+  a not-null-constraint sentence in front of somebody choosing bathroom tile.
+- **NEVER `alert()` or `confirm()`.** In the native shell a JS dialog is a
+  native UIAlertController and WebKit BLOCKS THE JS THREAD until it is
+  dismissed; one that fails to present is a page that never runs another line.
+  `confirm()` is the one that got proved: the evidence for this class of bug is
+  an ABSENT request, which reads as "the page died". Use `useNotice()`
+  (`components/ui/notice.tsx`) and `useDeleteGuard`, both mounted at the ROOT
+  layout. `useDeleteGuard` takes `title`/`body`/`confirmLabel`, so a
+  confirmation that is NOT a delete has somewhere to go. Notice is deliberately
+  NOT an overlay: no `data-overlay`, `pointer-events: none` on the dock, sized
+  off `--vv-h` - a message about a field must leave you able to fix the field.
+  Both ratcheted at zero in `layout-overflow.ts`, with no exemption for
+  `notice.tsx` or `delete-guard.tsx` themselves. The 18 handlers still calling
+  the native `confirm` are in BACKLOG.md.
+- A FOREIGN KEY WITH NO `ON DELETE` RULE IS A DELETE THAT FAILS ON EXACTLY ONE
+  ROW. When adding a table that points at `companies`, decide CASCADE (the row
+  is a fact about that company alone) or SET NULL (a record of work that
+  outlives the attribution), and never leave it at the default.
+- ONE EVENT, ONE EMAIL. `notify()` sends email as well as ringing the bell, so a
+  route that has already emailed somebody must pass `inAppOnly: true`. The bell
+  is a different channel and is never the duplicate; a second letter is. Only a
+  caller that KNOWS it emailed may set it, and where the send failed the
+  notification email is the fallback.
+- A ROUTE THAT COMPUTES A REASON MUST NOT BE THE ONLY PLACE IT EXISTS. Read it
+  in the UI AND `console.error` it, or an invite that never arrived is
+  recoverable from nowhere.
+- ONE REQUEST MUST NOT CARRY TWO THINGS THAT CAN BE REFUSED SEPARATELY.
+  Recording a fact is not the same act as accepting it. And ask the refusable
+  question at the FIELD before sending, using the same set the route does: a
+  server's answer can only ever arrive as a message about a whole request that
+  did not happen.
 
+## Location and time (IMPORTANT)
+Full detail: [`docs/postmortems/failure-states.md`](docs/postmortems/failure-states.md).
 - **TWO COORDINATES ARE NEEDED FOR ONE COMPARISON, AND ONLY ONE OF THEM IS THE
-  WORKER'S.** The punch route computed the geofence with
-  `if (lat && lng && siteLat && siteLng) {...} else { flagged = true }`,
-  commented "no GPS available" - so a worker whose phone gave a perfect fix was
-  told "your location is unavailable" and had the punch flagged whenever the
-  JOB had no coordinates. Reported as "clock in and out says no GPS, but I
-  allowed location while using the app", and the row it wrote at that moment
-  held `clock_in_lat 40.6701718866206`. The job's address was "1 Test Lane,
-  Testville, NY 10001", which no geocoder resolves. A flag is a mark against
-  the WORKER; this one was for an address only the office can fix.
-  `lib/punch-location.ts` answers with four outcomes - `ok` / `far` / `no_fix`
-  / `no_site` - stored on the row (`clock_in_fix`) so a review months later
-  still knows which, and is the ONE place each sentence is written, because the
-  punch response, the entry row and the review list each used to compose their
-  own (which is how " · no GPS" came to print beside a stored latitude). When
-  NEITHER is known it reports `no_fix`: the phone is the half the person
-  holding it can act on.
-- AND THE REASON THE PHONE GAVE IS PART OF THE ANSWER. Both punch screens had
-  their own `getCurrentPosition(ok, () => resolve(null), …)` - so "location is
-  off", "no fix indoors" and "ten seconds was not enough" were one value.
-  `lib/geo-position.ts` is the one reader and keeps the `code`. It also asks
-  TWICE: `enableHighAccuracy: true` with no `maximumAge` refuses a perfectly
-  good fix from thirty seconds ago, which is exactly the request that runs out
-  the clock in a building, so a failure is re-asked coarsely - except `denied`,
-  which no second prompt can change.
-- A RELATIVE TIME CARRIES THE ABSOLUTE ONE ON HOVER. A notification read "6d
-  ago" minutes after it was created. `notifications.created_at` is
-  `timestamptz DEFAULT now()`, `notify()` is the only writer and never sets it,
-  and the arithmetic is shared - so the stored value and the rendering were both
-  right, which leaves the READER's clock, and nothing server-side can see that.
-  `absoluteTime` (`lib/time-ago.ts`) is on every relative time, so the next one
-  answers itself in one hover. `timeAgo` is that module and only that module: a
-  future timestamp prints the date rather than "just now", and four private
-  copies had already drifted in the branch nobody looks at - past a week they
-  printed three different things. `equipment/page.tsx` keeps its own on purpose
+  WORKER'S.** A flag is a mark against the WORKER, so never raise one for an
+  address only the office can fix. `lib/punch-location.ts` answers with four
+  outcomes - `ok` / `far` / `no_fix` / `no_site` - stored on the row
+  (`clock_in_fix`) so a review months later still knows which, and is the ONE
+  place each sentence is written. When NEITHER is known it reports `no_fix`: the
+  phone is the half the person holding it can act on.
+- AND THE REASON THE PHONE GAVE IS PART OF THE ANSWER. `lib/geo-position.ts` is
+  the one reader and keeps the `code`, so "location is off", "no fix indoors"
+  and "ten seconds was not enough" are not one value. It asks TWICE -
+  `enableHighAccuracy: true` with no `maximumAge` refuses a perfectly good fix
+  from thirty seconds ago - except `denied`, which no second prompt can change.
+- A RELATIVE TIME CARRIES THE ABSOLUTE ONE ON HOVER (`absoluteTime`,
+  `lib/time-ago.ts`) - when the stored value and the arithmetic are both right,
+  what is left is the READER's clock, and nothing server-side can see that.
+  `timeAgo` is that module and only that module: a future timestamp prints the
+  date rather than "just now". `equipment/page.tsx` keeps its own on purpose
   ("today"/"yesterday", 30 days), which is different wording, not a copy.
 
 ## Stack notes
