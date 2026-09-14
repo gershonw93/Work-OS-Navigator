@@ -211,6 +211,8 @@ Shipped in #218: bulk creation makes a site + a job per unit/floor/house, with a
 - Notifications: requester notified when signed; signoff stored with name + timestamp + signature image.
 
 ## 🏗️ Field / Inspections
+- **No project has ever been geocoded.** Every row in `projects` has `latitude`/`longitude` null, including ones with real addresses - `geocode()` in the punch route is the only caller and only runs when somebody punches on that job. Nominatim also blocks server-to-server traffic from cloud IPs, so it may never succeed from Vercel. #444 made the failure honest ("this job has no map location yet") rather than blaming the worker's phone, but the geofence still cannot work until coordinates exist: needs a geocoder that answers from a serverless function, a way to set a job's pin by hand, and a visible "not mapped" state on the project itself.
+- The daily-log weather auto-fill keeps its own `getCurrentPosition` copy. It degrades correctly (falls back to the project address), so it was left alone in #444 - but it is the third copy and should read `lib/geo-position.ts`.
 - **Email/SMS for inspection notifications** (currently in-app bell only).
 - **Inspections on the per-project Schedule tab** (currently on Master Calendar).
 

@@ -64,7 +64,33 @@ export interface VisibleViewport {
  * heights and a half-pixel wobble must not read as "the keyboard opened".
  */
 export function visibleViewport(now: ViewportNow, fullFrame: number): VisibleViewport {
-  const full = Math.max(fullFrame, now.innerHeight)
+  // ── THE BASELINE IS ONLY LEARNED WITH NOTHING FOCUSED ──────────────────────
+  //
+  // `fullFrame` means "the frame with nothing covering it", and it used to be
+  // `Math.max(fullFrame, now.innerHeight)` on EVERY call - including calls made
+  // while the keyboard was up and the frame had already shrunk for it. One
+  // measurement taken in that state redefines a whole screen as a strip, and
+  // every measurement afterwards compares against the strip: `innerHeight <
+  // full - 1` is then false, so we fall through to the branch that trusts
+  // `vvHeight` - which inside an already-shrunk frame has the keyboard taken
+  // out of it a SECOND time.
+  //
+  // Reported against the daily logs: tapping "Add an update" left the app in a
+  // band across the top third of the screen with bare background under it,
+  // down to the keyboard. The arithmetic closes exactly - the app filled 33.5%
+  // of the space above the keyboard, and on a 932pt screen with a 372pt
+  // keyboard the visible strip is 560pt while `vvHeight` reports 560 - 372 =
+  // 188, which is 33.5% of 560. The keyboard, subtracted twice, which is the
+  // bug this whole file exists for - reached this time through the baseline
+  // rather than through the branch.
+  //
+  // A keyboard-up frame is poisoned data for this question, so it is not
+  // learned from at all. It only takes ONE - a page loaded with a field
+  // already focused, a rotation while typing (`orientationchange` zeroes the
+  // baseline and re-reads it on the spot), the app resumed onto a focused
+  // field - and it sticks until the keyboard closes, because `innerHeight`
+  // cannot grow back past a baseline it is already equal to.
+  const full = now.keyboardPossible ? fullFrame : Math.max(fullFrame, now.innerHeight)
 
   // NOTHING IS FOCUSED, SO NOTHING IS COVERING THE SCREEN.
   //
@@ -92,7 +118,15 @@ export function visibleViewport(now: ViewportNow, fullFrame: number): VisibleVie
   }
 
   // The frame shrank, so it has already taken the keyboard off for us.
-  if (now.innerHeight < full - 1) {
+  //
+  // `!full` is the other half of the rule above: with no trustworthy baseline
+  // yet - the keyboard was up the whole time we have existed - a shrunk frame
+  // and a whole one are indistinguishable, and the two wrong answers are not
+  // the same size. Trusting `innerHeight` on an unshrunk frame leaves a
+  // dialog's buttons under the keyboard until it closes; trusting `vvHeight`
+  // on a shrunk one collapses the entire app to a third of the screen, which
+  // is the report. Take the smaller mistake.
+  if (!full || now.innerHeight < full - 1) {
     return { height: now.innerHeight, top: 0, fullFrame: full }
   }
 

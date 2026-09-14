@@ -2628,3 +2628,7 @@ UPDATE companies
 -- ─────────────────────────────────────────────────────────────────────────────
 
 ALTER TABLE inspections ADD COLUMN IF NOT EXISTS ready_reminder_sent_at timestamptz;
+
+-- ── 104: a punch says what it could not check ───────────────────────────────
+ALTER TABLE time_entries ADD COLUMN IF NOT EXISTS clock_in_fix  TEXT;
+ALTER TABLE time_entries ADD COLUMN IF NOT EXISTS clock_out_fix TEXT;

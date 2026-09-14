@@ -49,6 +49,28 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-15',
+    title: 'Clock-in stops blaming your phone, and the app stays full height',
+    items: [
+      {
+        kind: 'fixed',
+        title: '\u201CNo GPS\u201D when your GPS was working fine',
+        text: 'Clocking in and out said your location was unavailable and flagged the punch for review \u2013 while storing your exact coordinates. Your phone was never the problem. What was missing was the JOB\u2019s location: SyteNav compares where you are against where the site is, and if the job\u2019s address cannot be found on a map there is nothing to compare to. It now says which it was: \u201Cthis job has no map location yet\u201D (fix the address in project settings) versus \u201Cyour phone did not provide a location\u201D \u2013 and if it really is the phone, it tells you whether location is switched off, has no signal, or just took too long. It also accepts a fix from the last few seconds instead of insisting on a brand-new one, which is what kept failing indoors.',
+        help: 'time-clock',
+      },
+      {
+        kind: 'fixed',
+        title: 'The app shrank to a band across the top while you typed',
+        text: 'Tapping \u201CAdd an update\u201D on a daily log \u2013 or any field, on any screen \u2013 could leave the app squeezed into the top third of the screen with bare background underneath, down to the keyboard. The app measures how much screen the keyboard leaves you, and it had learned that measurement WHILE a keyboard was already up, so it went on subtracting the keyboard from a screen it had already been subtracted from. It only takes that measurement when nothing is selected to type into now.',
+      },
+      {
+        kind: 'fixed',
+        title: 'The timesheet Export button ran off the edge',
+        text: 'On a phone, the Timesheet heading, the week arrows and Export did not fit on one line, and Export was pushed out through the side of the card. The week picker and Export now share the line under the heading, both reaching the edges.',
+      },
+    ],
+  },
+  {
+    date: '2026-09-15',
     title: 'The task panel: reachable, steady, and swipe to go back',
     items: [
       {
