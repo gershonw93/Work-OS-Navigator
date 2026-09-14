@@ -48,6 +48,43 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    date: '2026-09-16',
+    title: 'Clock-in location checks actually work, and you can place a job yourself',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'Every clock-in was flagged, on every job',
+        text: 'The time clock compares where you are against where the job is \u2013 and it was reading the job\u2019s location out of the wrong place. Jobs have had a point on the map for months (it is what the Projects map draws), but the clock-in check was looking at a second, empty set of columns that nothing in SyteNav has ever filled in. So it always found nothing, always said \u201Cthis job has no map location\u201D, and always flagged the punch. It reads the real one now, so a punch on site comes back with the distance and no flag.',
+        help: 'time-clock',
+        href: '/projects',
+      },
+      {
+        kind: 'new',
+        title: 'Set a job\u2019s location on the map yourself',
+        text: 'Project Settings now shows whether the job is on the map, and lets you put it there: tap the map where the site entrance is, or press \u201CUse my current location\u201D if you are standing on the site. Use it for a site whose entrance is on a different road from its postal address, a long driveway, or new construction with no street number yet \u2013 anywhere the address alone puts the pin in the wrong spot.',
+        help: 'job-site-location',
+      },
+      {
+        kind: 'fixed',
+        title: 'Some jobs were pinned at an address they no longer have',
+        text: 'Changing a job\u2019s address without picking one of the suggestions left the old map pin behind \u2013 one job was showing in Maryland while its address said New Jersey. SyteNav now says so, names the address the pin is stuck on, and refuses to check clock-ins against it until it is corrected. The Projects map also puts these right on its own the next time you open it.',
+        help: 'job-site-location',
+      },
+      {
+        kind: 'fixed',
+        title: 'A wrong location is no longer stored as if it were right',
+        text: 'An address with no town and no ZIP \u2013 \u201C1 North St\u201D \u2013 was being looked up anyway, and a map service simply picked one of the many: a job of yours was pinned to a street in London. SyteNav now refuses to look up an address too vague to have one answer, and throws away any match that contradicts what you typed, saying which. A job with no pin says so; it no longer invents one.',
+        help: 'job-site-location',
+      },
+      {
+        kind: 'improved',
+        title: 'The Time Clock tab says when a job is not mapped',
+        text: 'Rather than a column of flagged punches with nothing to explain them, the tab says the job has no usable location and \u2013 if you can edit the job \u2013 what to do about it. The line under the punch button reads \u201CLocation recorded, not checked\u201D instead of claiming a check that is not happening.',
+        help: 'time-clock',
+      },
+    ],
+  },
+  {
     date: '2026-09-15',
     title: 'A contact\u2019s name fits, and the Projects tab is reachable',
     items: [

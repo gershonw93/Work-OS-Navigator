@@ -636,8 +636,10 @@ ALTER TABLE project_tasks ADD COLUMN IF NOT EXISTS follow_up_note TEXT;
 ALTER TABLE daily_log_photos ADD COLUMN IF NOT EXISTS category TEXT;
 
 -- ─── 014: time clock ────────────────────────────────────────
-ALTER TABLE projects ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;
-ALTER TABLE projects ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;
+-- projects.latitude / .longitude used to be added here. They were a SECOND
+-- home for a fact projects.lat / .lng (047) already held, and the clock-in
+-- geofence spent its whole life reading the empty one. Dropped in 105; not
+-- created here, so a fresh environment never has the trap to fall into.
 
 CREATE TABLE IF NOT EXISTS time_entries (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

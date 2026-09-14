@@ -1,0 +1,39 @@
+-- ===== 105_one_home_for_a_jobs_coordinates.sql =====
+--
+-- A `projects` row carried FOUR columns for one fact:
+--
+--   lat, lng, geocoded_address   migration 047. Written by the address
+--                                autocomplete, the project form, the bulk
+--                                creator and /api/projects/geocode. 94 of the
+--                                100 live rows have them, and the map has been
+--                                drawing from them for months.
+--   latitude, longitude          migration 014. Written by the demo seed, and
+--                                by one private Nominatim call inside the
+--                                clock-in route. Nothing else in the app has
+--                                ever read or written them.
+--
+-- The clock-in geofence read `latitude`/`longitude`. So it has never worked on
+-- a real job - not because the addresses could not be geocoded, but because the
+-- punch route asked the empty pair. Every punch came back flagged, and the
+-- worker was told their phone had given no location while their latitude sat in
+-- the same row. Fixed in code by reading lat/lng through lib/project-site.ts;
+-- this takes away the second home so it cannot happen again.
+--
+-- NOTHING IS BACKFILLED, DELIBERATELY. Of the 16 rows holding a legacy pair,
+-- 15 are byte-identical duplicates of lat/lng (the demo seed writes both) or
+-- agree to within ~100m, so there is nothing to carry over. The sixteenth is
+-- the only row where `latitude` exists and `lat` does not:
+--
+--   name "Test", address "1 North St", latitude 51.5392957, longitude 0.0752215
+--
+-- which is a street in east London, for a job in the United States. That is the
+-- unverified Nominatim answer the punch route stored, and copying it into the
+-- surviving columns would move a wrong pin into the one place the geofence now
+-- trusts. It is dropped with the column, and the job reads as "not mapped",
+-- which is what it has always honestly been.
+--
+-- Idempotent: IF EXISTS, so a fresh environment that never had migration 014's
+-- columns runs this without complaint.
+
+ALTER TABLE projects DROP COLUMN IF EXISTS latitude;
+ALTER TABLE projects DROP COLUMN IF EXISTS longitude;

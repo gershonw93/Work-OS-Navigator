@@ -16,7 +16,7 @@ production branch.** Do NOT ask the user to merge or deploy.
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-104.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-105.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - IMPORTANT: verify every column you `.select()` actually exists - Supabase
   returns `data: null` for an unknown column, so a typo reads as "not found"
@@ -47,6 +47,31 @@ production branch.** Do NOT ask the user to merge or deploy.
   `c.email` off a `companies` row that has `contact_email` - so choosing
   somebody from the directory filled their NAME and blanked the address.
   Pinned in `contact-picker.ts`, and the red-check is putting `contacts` back.
+- **AND THE COLUMN NOBODY WRITES, WHICH IS THE SAME FAULT WITH TWO HOMES
+  INSTEAD OF ONE.** `projects` carried FOUR columns for one fact: `lat`, `lng`,
+  `geocoded_address` (047) - written by the address autocomplete, the project
+  form, the bulk creator and the map sweep, and present on 94 of 100 rows - and
+  `latitude`, `longitude` (014), written by the demo seed and by one private
+  Nominatim call inside the clock-in route and by nothing else, ever. The
+  GEOFENCE read `latitude`/`longitude`, so it asked an empty column on every
+  real job, got null, and told the worker their phone had given no location
+  while their own latitude sat in the same row - the bug #444 made honest
+  without curing. A second home is not a typo you can grep for: both names
+  exist, both compile, and the one you picked decides whether the feature has
+  ever worked. `lib/project-site.ts` is the one reader and 105 drops the spare.
+- **AND A VALUE THAT IS PRESENT AND WRONG IS WORSE THAN ONE THAT IS MISSING.**
+  `geocoded_address` records the address a pin was resolved FROM. Editing a job's
+  address without picking a suggestion leaves the coordinates behind, so a job
+  reading "17 Fairview Terrace, Maplewood, NJ" was pinned in Frederick, MD - 14
+  of 100 rows like it. A missing pin makes the app say "not mapped"; a stale one
+  makes it flag an honest worker two hundred miles from a place they have never
+  been. `projectSite()` returns `coords: null` for a stale pin as well as an
+  absent one, because a caller handed a number WILL measure against it; what
+  differs is only what `siteLabel` says. Same rule going in: a geocoder handed
+  "1 North St" (no town, no state, no ZIP) does not fail, it PICKS - it picked a
+  street in east London for a US job - so `lib/geocode-match.ts` refuses to ask a
+  question too vague to have one answer, and refuses an answer whose state or ZIP
+  contradicts the address. A wrong pin is a confident lie; null is honest.
 - A TYPE THAT DESCRIBES NO TABLE IS NOT CHECKED BY ANYTHING. The same report
   declared `doc_type`, `subcontractor_name` and `company_name`; a
   `compliance_documents` row has `type` and `company_id` and none of the three,

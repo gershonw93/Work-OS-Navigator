@@ -37,6 +37,8 @@ interface Project {
   end_date: string | null
   lat?: number | null
   lng?: number | null
+  /** The address the pin was resolved from - how the map tells a stale pin from a good one. */
+  geocoded_address?: string | null
   interior_sqft?: number | null
   exterior_sqft?: number | null
   billing_mode?: string | null

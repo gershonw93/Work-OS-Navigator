@@ -11,6 +11,7 @@ import { AddressFields } from '@/components/ui/address-fields'
 import {
   type ContractType, CONTRACT_TYPES, CONTRACT_LABEL, CONTRACT_BLURB, asContractType,
 } from '@/lib/contract-type'
+import { SitePinField } from '@/components/projects/site-pin-field'
 import { Settings, X } from 'lucide-react'
 import { headerIconButton } from './header-icon-button'
 
@@ -35,6 +36,9 @@ interface Props {
     floor?: string | null
     is_site?: boolean | null
     parent_project_id?: string | null
+    lat?: number | null
+    lng?: number | null
+    geocoded_address?: string | null
   }
 }
 
@@ -54,6 +58,12 @@ export function EditProjectButton({ projectId, project }: Props) {
   const [startDate, setStartDate] = useState((project.start_date ?? '').slice(0, 10))
   const [endDate, setEndDate] = useState((project.end_date ?? '').slice(0, 10))
   const [coords, setCoords] = useState<{ lat: number | null; lng: number | null } | null>(null)
+  // The pin, as it stands on the server. It saves on its own (see SitePinField),
+  // so this mirrors what came back rather than something the form will submit.
+  const [pin, setPin] = useState<{ lat: number | null; lng: number | null }>({
+    lat: project.lat ?? null, lng: project.lng ?? null,
+  })
+  const [pinnedFor, setPinnedFor] = useState<string | null>(project.geocoded_address ?? null)
   const [interiorSqft, setInteriorSqft] = useState(project.interior_sqft != null ? String(project.interior_sqft) : '')
   const [exteriorSqft, setExteriorSqft] = useState(project.exterior_sqft != null ? String(project.exterior_sqft) : '')
   const [billingMode, setBillingMode] = useState<'simple' | 'aia'>(project.billing_mode === 'aia' ? 'aia' : 'simple')
@@ -167,6 +177,29 @@ export function EditProjectButton({ projectId, project }: Props) {
               <div className="space-y-1.5">
                 <Label>Address</Label>
                 <AddressFields value={address} onChange={setAddress} onCoords={(lat, lng) => setCoords({ lat, lng })} />
+                {/* Reads the address as it stands in THIS form, not as it was
+                    saved - so typing over a mapped address says the pin is
+                    about to be stale while there is still a dialog open to fix
+                    it in. A suggestion picked a moment ago has not been saved
+                    either, but it IS the pin this form is about to write, so it
+                    wins over the stored one: otherwise somebody is told their
+                    pin is stale immediately after fixing it. */}
+                <SitePinField
+                  projectId={projectId}
+                  address={address}
+                  lat={coords?.lat ?? pin.lat}
+                  lng={coords?.lng ?? pin.lng}
+                  geocodedAddress={coords?.lat != null && coords?.lng != null ? address : pinnedFor}
+                  onChange={next => {
+                    setPin({ lat: next?.lat ?? null, lng: next?.lng ?? null })
+                    // A hand-placed pin stands for the address on screen; a
+                    // cleared one stands for nothing.
+                    setPinnedFor(next ? address : null)
+                    // And it must not be overwritten by a stale `coords` from
+                    // an autocomplete pick made earlier in the same sitting.
+                    setCoords(null)
+                  }}
+                />
               </div>
               {showUnitFloor && (
                 <div className="grid grid-cols-2 gap-4">

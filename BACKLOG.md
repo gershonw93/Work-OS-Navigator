@@ -211,7 +211,15 @@ Shipped in #218: bulk creation makes a site + a job per unit/floor/house, with a
 - Notifications: requester notified when signed; signoff stored with name + timestamp + signature image.
 
 ## 🏗️ Field / Inspections
-- **No project has ever been geocoded.** Every row in `projects` has `latitude`/`longitude` null, including ones with real addresses - `geocode()` in the punch route is the only caller and only runs when somebody punches on that job. Nominatim also blocks server-to-server traffic from cloud IPs, so it may never succeed from Vercel. #444 made the failure honest ("this job has no map location yet") rather than blaming the worker's phone, but the geofence still cannot work until coordinates exist: needs a geocoder that answers from a serverless function, a way to set a job's pin by hand, and a visible "not mapped" state on the project itself.
+- **Placeholder addresses still resolve to a real place.** The geocoder is no
+  longer asked anything too vague to have one answer, and its answer is thrown
+  away if the state or ZIP contradicts the address - but "2 Test Lane,
+  Testville, NY 10001" names a real state and a real ZIP, so a provider can
+  still hand back a point in Manhattan and it will pass. Nothing cheap
+  distinguishes a placeholder from a rural address a map service has not heard
+  of, and the pin can now be cleared or corrected by hand, so this is left
+  alone deliberately. Revisit only if somebody reports a pin that is wrong in a
+  way they did not put there themselves.
 - The daily-log weather auto-fill keeps its own `getCurrentPosition` copy. It degrades correctly (falls back to the project address), so it was left alone in #444 - but it is the third copy and should read `lib/geo-position.ts`.
 - **Email/SMS for inspection notifications** (currently in-app bell only).
 - **Inspections on the per-project Schedule tab** (currently on Master Calendar).
@@ -408,6 +416,7 @@ belongs in its own pass rather than buried in this one.
 - Calendar: read-only iCal feed + one-click Connect + day detail view (#99–#101)
 - Sellout → projected profit on the budget, and total sellout vs total cost across a site's units (#221)
 - Status badge is a switch, with a data-driven pre-flight before a job goes Active; project PATCH/DELETE permission-gated (#219)
+- The clock-in geofence reads the coordinates the app actually writes (it had always read a second, empty pair of columns), a stale pin is refused rather than measured against, the job site can be set by hand from the map or from where you are standing, and a geocoder is no longer asked a question too vague to have one answer (#446)
 - Bulk project creation rebuilt: sites (parent/child projects), unit + floor as real fields, floor-by-floor mode for commercial, server-side geocoding so batches reach the map, entry point on the Projects page (#218)
 - Budget categories: 49 trades in build order + custom categories that persist across jobs (#217)
 - Project Settings: address-dropdown fix, billing method + square footage editable after setup (#216)

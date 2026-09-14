@@ -99,6 +99,7 @@ export default async function ProjectLayout({ children, params }: ProjectLayoutP
               default_retainage_pct: project?.default_retainage_pct,
               unit: project?.unit, floor: project?.floor,
               is_site: project?.is_site, parent_project_id: project?.parent_project_id,
+              lat: project?.lat, lng: project?.lng, geocoded_address: project?.geocoded_address,
             }} />
           </div>
         </div>

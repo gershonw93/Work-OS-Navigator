@@ -45,7 +45,7 @@ export async function GET(request: Request) {
   if ((profile.companies as any)?.type === 'subcontractor' && profile.company_id) {
     const subScope = `created_by_company_id.eq.${profile.company_id},gc_company_id.eq.${profile.company_id}`
     let { data: ownProjects, error: e1 } = await db.from('projects')
-      .select('id, name, status, start_date, end_date, address, client, type, created_at, lat, lng')
+      .select('id, name, status, start_date, end_date, address, client, type, created_at, lat, lng, geocoded_address')
       .or(subScope).order('created_at', { ascending: false })
     if (e1 && (e1 as any).code === '42703') {
       ownProjects = (await db.from('projects')
@@ -86,7 +86,7 @@ export async function GET(request: Request) {
 
     let { data, error: e2 } = await db
       .from('projects')
-      .select('id, name, status, start_date, end_date, address, client, type, created_at, lat, lng')
+      .select('id, name, status, start_date, end_date, address, client, type, created_at, lat, lng, geocoded_address')
       .in('id', projectIds)
       .order('created_at', { ascending: false })
     if (e2 && (e2 as any).code === '42703') {
@@ -111,7 +111,7 @@ export async function GET(request: Request) {
   const scope = `gc_company_id.eq.${profile.company_id},created_by_company_id.eq.${profile.company_id}`
   let { data, error } = await db
     .from('projects')
-    .select('id, name, status, start_date, end_date, type, customer_id, address, client, lat, lng, interior_sqft, exterior_sqft, parent_project_id, is_site, unit, floor')
+    .select('id, name, status, start_date, end_date, type, customer_id, address, client, lat, lng, geocoded_address, interior_sqft, exterior_sqft, parent_project_id, is_site, unit, floor')
     .or(scope)
     .order('created_at', { ascending: false })
 
@@ -119,7 +119,7 @@ export async function GET(request: Request) {
   if (error && (error as any).code === '42703') {
     const retry1 = await db
       .from('projects')
-      .select('id, name, status, start_date, end_date, type, customer_id, address, client, lat, lng')
+      .select('id, name, status, start_date, end_date, type, customer_id, address, client, lat, lng, geocoded_address')
       .or(scope)
       .order('created_at', { ascending: false })
     data = retry1.data as any; error = retry1.error
