@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation'
 import { ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/server'
+import { checkAuth } from '@/lib/supabase/auth-check'
+import { AuthUnavailable } from '@/components/layout/auth-unavailable'
 import { FIELD_ROLES } from '@/lib/permissions'
 import { IdleLogout } from '@/components/layout/idle-logout'
 import { NativeShell } from '@/components/layout/native-shell'
@@ -15,8 +17,12 @@ const PREVIEW_ROLES = ['admin', 'manager']
 // here are bounced back to the full app.
 export default async function FieldLayout({ children }: { children: ReactNode }) {
   const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  // Not `if (!user)`: a failed check is not a signed-out user. See
+  // lib/auth-outcome.ts - flattening the two bounced people who had just
+  // signed in back to the login screen.
+  const { outcome, user } = await checkAuth(supabase, { attempts: 2 })
+  if (outcome === 'signed-out') redirect('/login')
+  if (!user) return <AuthUnavailable />
 
   const { data: profile } = await supabase
     .from('profiles').select('role').eq('id', user.id).single()
