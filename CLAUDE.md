@@ -284,6 +284,14 @@ production branch.** Do NOT ask the user to merge or deploy.
   the tallest frame seen, trust `innerHeight` and set the offset to 0; only an
   unshrunk frame (mobile Safari) defers to `visualViewport`. Rotation resets
   the baseline, or landscape reads as a keyboard forever.
+  AND THE HOOK LISTENS FOR `window.resize` AS WELL, which it did not: every
+  decision in that file turns on `window.innerHeight` and nothing was listening
+  for the event that says it changed, so a frame that resized without a
+  `visualViewport` event left `--vv-h` stale for as long as the keyboard was up.
+  Each event also measures AGAIN a frame later (`requestAnimationFrame`),
+  because the two numbers do not settle together on iOS: `visualViewport` fires
+  first, and reading `innerHeight` at that instant picks the branch from a value
+  that has not caught up yet.
 - **The SHELL follows `--vv-h` too**, not just overlays: `.h-app` is
   `var(--vv-h, 100dvh)` inside `@supports (height: 100dvh)`. A document taller
   than the webview's frame is one the webview can scroll, and Capacitor shrinks

@@ -55,15 +55,36 @@ export function useVisualViewport() {
     // would size itself from the wrong branch for the rest of the session.
     const reset = () => { fullFrame.current = 0; apply() }
 
-    vv.addEventListener('resize', apply)
+    // TWICE, A FRAME APART. `visualViewport` resize and `window.innerHeight`
+    // do not settle together on iOS: the visual viewport fires first, and a
+    // measurement taken at that instant can read an `innerHeight` that has not
+    // caught up with the frame yet. Since `innerHeight` is the input the whole
+    // decision pivots on, reading it early picks the wrong branch - and then
+    // nothing recomputes, so `--vv-h` keeps a wrong number for as long as the
+    // keyboard is up. One deferred re-read costs a frame and closes it.
+    let raf = 0
+    const applySoon = () => {
+      apply()
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(apply)
+    }
+
+    vv.addEventListener('resize', applySoon)
     // The keyboard does not only resize: focusing a field near the bottom
     // SCROLLS the visual viewport within the layout one, and offsetTop is the
     // only place that shows up.
-    vv.addEventListener('scroll', apply)
+    vv.addEventListener('scroll', applySoon)
+    // THE LAYOUT VIEWPORT'S OWN EVENT, which was missing. Everything here turns
+    // on `window.innerHeight`, and nothing was listening for the event that
+    // says it changed - so a frame that resized without a visualViewport event
+    // left `--vv-h` stale until something else happened to fire.
+    window.addEventListener('resize', applySoon)
     window.addEventListener('orientationchange', reset)
     return () => {
-      vv.removeEventListener('resize', apply)
-      vv.removeEventListener('scroll', apply)
+      cancelAnimationFrame(raf)
+      vv.removeEventListener('resize', applySoon)
+      vv.removeEventListener('scroll', applySoon)
+      window.removeEventListener('resize', applySoon)
       window.removeEventListener('orientationchange', reset)
       root.style.removeProperty('--vv-h')
       root.style.removeProperty('--vv-t')
