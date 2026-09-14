@@ -830,30 +830,68 @@ export default function DirectoryPage() {
           <div className="absolute inset-0" onClick={() => setProfileCompanyId(null)} />
           {/* Panel */}
           <div className="relative w-full max-w-2xl bg-panel shadow-2xl rounded-2xl flex flex-col overflow-hidden">
-            {/* Header */}
-            <div className="px-8 pt-8 pb-6 border-b border-line-soft flex items-start justify-between shrink-0">
-              <div className="flex items-center gap-4">
-                <div className="h-14 w-14 rounded-2xl bg-accent-tint flex items-center justify-center shrink-0">
-                  <Building2 className="h-7 w-7 text-accent-fg" />
+            {/* Header
+                THE NAME WAS COMING OUT ONE LETTER PER LINE - "Vol / t / Ele /
+                ctri / c / Co". This was `flex justify-between` with Edit,
+                Delete and a close button on the right and NOTHING to stop them
+                taking the width: at 390px, `px-8` plus a 56px icon plus a
+                ~200px button group leaves the name about 50px, and the app's
+                prose default (`overflow-wrap: anywhere`, there so a pasted
+                reference number cannot blow a container out) then breaks it
+                wherever it likes. The same fault as a `w-full` table crushing
+                "Create" to Cr/ea/te, one layer over.
+                Two fixes, and the first is not enough on its own: `min-w-0` so
+                the name shrinks honestly instead of shattering, and on a phone
+                the actions get their OWN row - three controls and a title do
+                not share 390px, and truncating the name to "V…" would be no
+                more readable than the shards were. The close button stays top
+                right at every width, because that is where a dialog's exit
+                lives and it is the one control that must never move. */}
+            <div className="px-5 pt-5 pb-4 lg:px-8 lg:pt-8 lg:pb-6 border-b border-line-soft shrink-0">
+              <div className="flex items-start gap-3 lg:gap-4">
+                <div className="h-12 w-12 lg:h-14 lg:w-14 rounded-2xl bg-accent-tint flex items-center justify-center shrink-0">
+                  <Building2 className="h-6 w-6 lg:h-7 lg:w-7 text-accent-fg" />
                 </div>
-                <div>
-                  <h2 className="text-2xl font-bold text-ink">{profileData?.company?.name ?? '…'}</h2>
-                  <p className="text-sm text-faint mt-0.5">{[profileData?.company?.trade, profileData?.company?.type ? TYPE_LABELS[profileData.company.type as ContactType] : null].filter(Boolean).join(' · ')}</p>
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-xl lg:text-2xl font-bold text-ink break-words">{profileData?.company?.name ?? '…'}</h2>
+                  <p className="text-sm text-faint mt-0.5 break-words">{[profileData?.company?.trade, profileData?.company?.type ? TYPE_LABELS[profileData.company.type as ContactType] : null].filter(Boolean).join(' · ')}</p>
                 </div>
+                <div className="hidden lg:flex items-center gap-2 mt-1 shrink-0">
+                  <button onClick={() => openEditCompany(profileData?.company)} className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-muted-fg hover:border-muted2 hover:text-ink-soft transition-colors">
+                    <Pencil className="h-3.5 w-3.5" /> Edit
+                  </button>
+                  <button onClick={() => deleteCompany(profileData?.company)} className="flex items-center gap-1.5 rounded-lg border border-danger/30 px-3 py-1.5 text-xs font-medium text-danger hover:bg-danger-tint transition-colors">
+                    <Trash2 className="h-3.5 w-3.5" /> Delete
+                  </button>
+                  <button onClick={() => setProfileCompanyId(null)} aria-label="Close" title="Close" className="text-faint hover:text-muted-fg ml-2"><X className="h-5 w-5" /></button>
+                </div>
+                <button onClick={() => setProfileCompanyId(null)} aria-label="Close" title="Close"
+                  className="lg:hidden -mr-2 -mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-faint hover:bg-surface hover:text-muted-fg">
+                  <X className="h-5 w-5" />
+                </button>
               </div>
-              <div className="flex items-center gap-2 mt-1">
-                <button onClick={() => openEditCompany(profileData?.company)} className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-muted-fg hover:border-muted2 hover:text-ink-soft transition-colors">
-                  <Pencil className="h-3.5 w-3.5" /> Edit
+              {/* Both edges, equal width - .row-even, not `flex` making each
+                  control as wide as its own label. */}
+              <div className="row-even gap-2 mt-4 lg:hidden">
+                <button onClick={() => openEditCompany(profileData?.company)} className="flex h-11 items-center justify-center gap-1.5 rounded-lg border border-line px-3 text-sm font-medium text-muted-fg hover:border-muted2 hover:text-ink-soft transition-colors">
+                  <Pencil className="h-4 w-4" /> Edit
                 </button>
-                <button onClick={() => deleteCompany(profileData?.company)} className="flex items-center gap-1.5 rounded-lg border border-danger/30 px-3 py-1.5 text-xs font-medium text-danger hover:bg-danger-tint transition-colors">
-                  <Trash2 className="h-3.5 w-3.5" /> Delete
+                <button onClick={() => deleteCompany(profileData?.company)} className="flex h-11 items-center justify-center gap-1.5 rounded-lg border border-danger/30 px-3 text-sm font-medium text-danger hover:bg-danger-tint transition-colors">
+                  <Trash2 className="h-4 w-4" /> Delete
                 </button>
-                <button onClick={() => setProfileCompanyId(null)} className="text-faint hover:text-muted-fg ml-2"><X className="h-5 w-5" /></button>
               </div>
             </div>
 
-            {/* Tabs */}
-            <div className="flex border-b border-line-soft shrink-0 px-8">
+            {/* Tabs
+                "I can't see all options on top - missing projects, it's cut
+                off." Four tabs at `px-5` come to ~440px inside a 390px screen
+                and the strip was a plain `flex`, so Projects was not merely
+                off the edge - there was no way to scroll to it. A strip that
+                does not fit SCROLLS, and it carries `.scroll-fade`: the
+                scrollbar is hidden, so a faded right edge is the only thing
+                that says there is more. Same rule as the Tasks filter row and
+                the Settings tab strip; this one was missed. */}
+            <div className="flex border-b border-line-soft shrink-0 px-5 lg:px-8 overflow-x-auto scrollbar-hide scroll-fade">
               {[
                 { key: 'overview', label: 'Overview' },
                 { key: 'documents', label: 'Documents' },
@@ -861,7 +899,7 @@ export default function DirectoryPage() {
                 { key: 'projects', label: 'Projects' },
               ].map(t => (
                 <button key={t.key} onClick={() => setProfileTab(t.key as any)}
-                  className={cn('px-5 py-3.5 text-sm font-medium border-b-2 transition-colors',
+                  className={cn('shrink-0 whitespace-nowrap px-4 lg:px-5 py-3.5 text-sm font-medium border-b-2 transition-colors',
                     profileTab === t.key ? 'border-accent text-accent-fg' : 'border-transparent text-muted-fg hover:text-ink-soft')}>
                   {t.label}
                 </button>

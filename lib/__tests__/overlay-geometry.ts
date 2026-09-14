@@ -1195,5 +1195,149 @@ ok(/row-even/.test(timePage), 'and the real timesheet header carries the rule me
 ok(!/flex items-center justify-between gap-2">\s*<span className="text-sm font-semibold text-ink-soft">Timesheet/.test(timePage),
   '...rather than the single unbreakable row it was')
 
+const TAB_STRIP = (strip: string, tab: string) => `
+  <div id="tabs" class="${strip}">
+    ${['Overview', 'Documents', 'Payments', 'Projects']
+      .map(t => `<button class="${tab} text-sm font-medium border-b-2 border-transparent">${t}</button>`).join('')}
+  </div>`
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 21. A TITLE NEEDS ROOM, AND A TAB YOU CANNOT REACH IS NOT A TAB.
+//
+// "Contact? 🤔" against a dialog whose heading read
+//
+//     Vol
+//     t
+//     Ele
+//     ctri
+//     c
+//     Co
+//
+// The header was `flex justify-between` with Edit, Delete and a close button
+// on the right and nothing to stop them taking the width. At 390px, `px-8`
+// plus a 56px icon plus a ~200px button group leaves the name about 50px - and
+// the app's prose default (`overflow-wrap: anywhere`, there so a pasted
+// reference number cannot blow a container out) then breaks it wherever it
+// likes. Same fault as a `w-full` table crushing "Create" to Cr/ea/te.
+//
+// `min-w-0` alone would only trade the shards for "V…". Three controls and a
+// title do not share 390px, so the actions take their own row.
+//
+// And beside it: "I can't see all options on top - missing projects, it's cut
+// off." Four tabs come to ~440px in a 390px screen and the strip was a plain
+// `flex` - so Projects was not merely off the edge, there was no way to scroll
+// to it.
+// ─────────────────────────────────────────────────────────────────────────────
+const NAME = 'Volt Electric Co'
+
+const OLD_HEAD = `
+<div class="overlay items-center justify-center bg-black/40"><div id="panel" class="relative w-full max-w-2xl bg-panel rounded-2xl flex flex-col overflow-hidden">
+  <div class="px-8 pt-8 pb-6 border-b border-line-soft flex items-start justify-between shrink-0">
+    <div class="flex items-center gap-4">
+      <div class="h-14 w-14 rounded-2xl bg-accent-tint shrink-0"></div>
+      <div>
+        <h2 id="name" class="text-2xl font-bold text-ink">${NAME}</h2>
+        <p class="text-sm text-faint mt-0.5">Electrical · Sub</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2 mt-1">
+      <button class="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium">Edit</button>
+      <button class="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium">Delete</button>
+      <button class="ml-2"><span class="block h-5 w-5">x</span></button>
+    </div>
+  </div>
+  ${TAB_STRIP('flex border-b border-line-soft shrink-0 px-8', 'px-5 py-3.5')}
+</div></div>`
+
+const NEW_HEAD = `
+<div class="overlay items-center justify-center bg-black/40"><div id="panel" class="relative w-full max-w-2xl bg-panel rounded-2xl flex flex-col overflow-hidden">
+  <div class="px-5 pt-5 pb-4 lg:px-8 lg:pt-8 lg:pb-6 border-b border-line-soft shrink-0">
+    <div class="flex items-start gap-3 lg:gap-4">
+      <div class="h-12 w-12 lg:h-14 lg:w-14 rounded-2xl bg-accent-tint shrink-0"></div>
+      <div class="min-w-0 flex-1">
+        <h2 id="name" class="text-xl lg:text-2xl font-bold text-ink break-words">${NAME}</h2>
+        <p class="text-sm text-faint mt-0.5 break-words">Electrical · Sub</p>
+      </div>
+      <div class="hidden lg:flex items-center gap-2 mt-1 shrink-0">
+        <button class="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium">Edit</button>
+        <button class="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium">Delete</button>
+        <button class="ml-2"><span class="block h-5 w-5">x</span></button>
+      </div>
+      <button id="close" class="lg:hidden -mr-2 -mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg"><span class="block h-5 w-5">x</span></button>
+    </div>
+    <div id="actions" class="row-even gap-2 mt-4 lg:hidden">
+      <button id="edit" class="flex h-11 items-center justify-center gap-1.5 rounded-lg border px-3 text-sm font-medium">Edit</button>
+      <button id="del" class="flex h-11 items-center justify-center gap-1.5 rounded-lg border px-3 text-sm font-medium">Delete</button>
+    </div>
+  </div>
+  ${TAB_STRIP('flex border-b border-line-soft shrink-0 px-5 lg:px-8 overflow-x-auto scrollbar-hide scroll-fade', 'shrink-0 whitespace-nowrap px-4 lg:px-5 py-3.5')}
+</div></div>`
+
+const HEAD_PROBE = `rect => {
+  const name = rect('#name'), panel = rect('#panel')
+  const strip = document.querySelector('#tabs')
+  const last = document.querySelector('#tabs button:last-child')
+  // Can Projects be REACHED, not merely does it exist? Scroll the strip as far
+  // as it will go and ask where the last tab ended up. A plain flex row does
+  // not move, so it stays off the screen.
+  strip.scrollLeft = strip.scrollWidth
+  const lastBox = last.getBoundingClientRect()
+  const stripBox = strip.getBoundingClientRect()
+  return {
+    nameW: Math.round(name.width), nameH: Math.round(name.height),
+    panelW: Math.round(panel.width),
+    lines: Math.round(name.height / parseFloat(getComputedStyle(document.querySelector('#name')).lineHeight)),
+    more: strip.scrollWidth > strip.clientWidth + 1,
+    lastReachable: Math.round(lastBox.right) <= Math.round(stripBox.right) + 1
+                   && Math.round(lastBox.left) >= Math.round(stripBox.left) - 1,
+    lastRight: Math.round(lastBox.right), stripRight: Math.round(stripBox.right),
+  }
+}`
+
+const shattered = measure(OLD_HEAD, HEAD_PROBE)
+// The phone showed six lines; this fixture's plain buttons are narrower than
+// the real ones (which carry icons), so it reproduces three. The defect is the
+// WIDTH - a two-word name given 75px has nowhere to go but down.
+ok(shattered.nameW < 100 && shattered.lines > 1,
+  `the reported bug, measured: "${NAME}" got ${shattered.nameW}px and broke over ${shattered.lines} lines`)
+ok(!shattered.lastReachable,
+  `...and the last tab could not be reached even by scrolling (${shattered.lastRight} vs ${shattered.stripRight})`)
+
+const fixed = measure(NEW_HEAD, HEAD_PROBE)
+ok(fixed.lines === 1, `THE FIX: the name is one line (${fixed.lines}, ${fixed.nameW}px wide)`)
+ok(fixed.nameW > shattered.nameW * 2,
+  `...with real room for it (${fixed.nameW}px, up from ${shattered.nameW}px)`)
+ok(fixed.more, 'the tab strip still has more than fits - four tabs do not go in 390px')
+ok(fixed.lastReachable,
+  `...but Projects can now be SCROLLED to (${fixed.lastRight} vs ${fixed.stripRight})`)
+
+// The actions that moved off the title's row reach both edges of it.
+const ACTIONS_PROBE = `rect => {
+  const a = rect('#actions'), e = rect('#edit'), d = rect('#del'), c = rect('#close')
+  return { aL: Math.round(a.left), aR: Math.round(a.right),
+           eL: Math.round(e.left), eR: Math.round(e.right), eW: Math.round(e.width),
+           dL: Math.round(d.left), dR: Math.round(d.right), dW: Math.round(d.width),
+           closeR: Math.round(c.right), closeW: Math.round(c.width), closeH: Math.round(c.height) }
+}`
+const acts = measure(NEW_HEAD, ACTIONS_PROBE)
+ok(acts.eL === acts.aL && acts.dR === acts.aR,
+  'Edit and Delete reach both edges of the header rather than sitting as wide as their own labels')
+ok(Math.abs(acts.eW - acts.dW) <= 1, `...at equal width (${acts.eW} / ${acts.dW})`)
+ok(acts.closeW >= 44 && acts.closeH >= 44, `and the close button is a real target (${acts.closeW}x${acts.closeH})`)
+
+// The desktop, which was not asked to change: one row, actions beside the name.
+const desktopHead = measure(NEW_HEAD, `rect => {
+  const e = document.querySelector('#edit'), a = document.querySelector('#actions')
+  return { phoneRowHidden: getComputedStyle(a).display === 'none',
+           nameH: Math.round(rect('#name').height) }
+}`, 900, '', 1280)
+ok(desktopHead.phoneRowHidden, 'from lg up the actions are back beside the title, not on their own row')
+
+const dirPage = code('app/(dashboard)/directory/page.tsx')
+ok(/overflow-x-auto scrollbar-hide scroll-fade/.test(dirPage),
+  'and the real strip carries the rule measured here')
+ok(/min-w-0 flex-1">\s*\n?\s*<h2/.test(dirPage.replace(/\s+/g, ' ').replace(/min-w-0 flex-1"> <h2/, 'min-w-0 flex-1">\n<h2')) || /min-w-0 flex-1/.test(dirPage),
+  '...and the title sits in a box that is allowed to shrink')
+
 rmSync(work, { recursive: true, force: true })
 done()

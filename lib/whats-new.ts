@@ -49,6 +49,23 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-15',
+    title: 'A contact\u2019s name fits, and the Projects tab is reachable',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'Company names broke into single letters',
+        text: 'Opening a company in the Directory on a phone could stack its name one or two letters per line \u2013 \u201CVol / t / Ele / ctri / c / Co\u201D. Edit, Delete and the close button were taking the width of the row and the name was left with about fifty pixels. The name now gets the room, and on a phone Edit and Delete sit on their own line underneath it, at equal width. Close stays where it always was, top right.',
+      },
+      {
+        kind: 'fixed',
+        title: 'The Projects tab could not be reached',
+        text: 'Overview, Documents, Payments and Projects do not fit across a phone, and the row did not scroll \u2013 so Projects was simply off the edge with no way to get to it. The row scrolls sideways now, and its right edge fades so you can see there is more.',
+        help: 'directory',
+      },
+    ],
+  },
+  {
+    date: '2026-09-15',
     title: 'Clock-in stops blaming your phone, and the app stays full height',
     items: [
       {

@@ -465,6 +465,25 @@ production branch.** Do NOT ask the user to merge or deploy.
 - A strip that scrolls sideways carries `.scroll-fade` (globals.css) so its
   right edge fades - with the scrollbar hidden that is the only sign there is
   more. Pinned for the Tasks filter row and the Settings tab strip.
+  **AND A STRIP THAT DOES NOT FIT MUST ACTUALLY SCROLL.** The Directory's
+  contact dialog had four tabs at `px-5` - about 440px - in a plain `flex` row
+  inside a 390px screen, so Projects was not merely off the edge, there was NO
+  WAY TO REACH IT: no `overflow-x-auto`, nothing to swipe. Reported as "I can't
+  see all options on top - missing projects, it's cut off". Measured with
+  `scrollLeft = scrollWidth` and then asking where the last tab is, because a
+  strip that cannot scroll reports the same rectangles as one that can.
+- **A TITLE IN A FLEX ROW NEEDS `min-w-0` AND SOMEWHERE FOR THE ACTIONS TO GO.**
+  The same dialog's heading came out "Vol / t / Ele / ctri / c / Co". It was
+  `flex justify-between` with Edit, Delete and a close button opposite the
+  name and nothing stopping them taking the width: at 390px, `px-8` plus a 56px
+  icon plus a ~200px button group leaves the name about 50px, and this app's
+  prose default (`overflow-wrap: anywhere`, there so a pasted reference number
+  cannot blow a container out) then breaks it wherever it likes - the same
+  fault as a `w-full` table crushing "Create" to Cr/ea/te. `min-w-0` ALONE IS
+  NOT THE FIX: it only trades the shards for "V…". Three controls and a title
+  do not share 390px, so below `lg` the actions take their own row
+  (`.row-even`, equal width, both edges) and only the CLOSE button stays beside
+  the title - a dialog's exit is the one control that may never move.
 - A row of controls REACHES BOTH EDGES: `.row-even` (globals.css), written
   `row-even lg:flex lg:flex-wrap gap-2 …`. `flex flex-wrap` makes each control
   as wide as its own label, so Budget's toolbar came out 2 + 2 + 1 at three
