@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 import { Clock, MapPin, Camera, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
+import { getPosition } from '@/lib/geo-position'
 
 interface Project { id: string; name: string }
 interface OpenEntry { id: string; project_id: string; project_name: string; clock_in_at: string }
@@ -11,17 +12,6 @@ interface OpenEntry { id: string; project_id: string; project_name: string; cloc
 async function token() {
   const { data: { session } } = await createClient().auth.getSession()
   return session?.access_token ?? ''
-}
-
-function getPosition(): Promise<{ lat: number | null; lng: number | null }> {
-  return new Promise(resolve => {
-    if (!navigator.geolocation) return resolve({ lat: null, lng: null })
-    navigator.geolocation.getCurrentPosition(
-      p => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
-      () => resolve({ lat: null, lng: null }),
-      { enableHighAccuracy: true, timeout: 8000 },
-    )
-  })
 }
 
 // Big one-tap clock in / out. Takes a selfie (required by the punch API),
@@ -68,11 +58,13 @@ export function ClockCard({
     setBusy(true)
     setError('')
     try {
-      const { lat, lng } = await getPosition()
+      const pos = await getPosition()
       const fd = new FormData()
       fd.append('action', clockedIn ? 'out' : 'in')
-      if (lat != null) fd.append('lat', String(lat))
-      if (lng != null) fd.append('lng', String(lng))
+      if (pos.ok) {
+        fd.append('lat', String(pos.fix.lat))
+        fd.append('lng', String(pos.fix.lng))
+      }
       fd.append('selfie', file)
       const res = await fetch(`/api/projects/${projectId}/time/punch`, {
         method: 'POST',

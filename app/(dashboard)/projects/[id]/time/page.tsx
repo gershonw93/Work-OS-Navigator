@@ -8,6 +8,8 @@ import { CameraCapture } from '@/components/ui/camera-capture'
 import { usePermissions } from '@/lib/use-permissions'
 import { Button } from '@/components/ui/button'
 import { formatDateShort } from '@/lib/dates'
+import { punchFixLabel, punchMessage, type PunchFix, type PunchLocation } from '@/lib/punch-location'
+import { getPosition, geoFailureMessage } from '@/lib/geo-position'
 
 interface TimeEntry {
   id: string
@@ -16,10 +18,12 @@ interface TimeEntry {
   clock_in_at: string
   clock_in_distance_m: number | null
   clock_in_flagged: boolean
+  clock_in_fix: PunchFix | null
   clock_in_selfie_url: string | null
   clock_out_at: string | null
   clock_out_distance_m: number | null
   clock_out_flagged: boolean
+  clock_out_fix: PunchFix | null
   clock_out_selfie_url: string | null
   approval_status: 'pending' | 'approved' | 'rejected'
   reviewed_by_name: string | null
@@ -78,17 +82,6 @@ export default function TimeClockPage({ params }: { params: { id: string } }) {
 
   useEffect(() => { load() }, [params.id])
 
-  function getPosition(): Promise<{ lat: number; lng: number } | null> {
-    return new Promise(resolve => {
-      if (!navigator.geolocation) return resolve(null)
-      navigator.geolocation.getCurrentPosition(
-        p => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
-        () => resolve(null),
-        { enableHighAccuracy: true, timeout: 10000 }
-      )
-    })
-  }
-
   // Step 1: tapping the button opens the LIVE camera (no upload allowed)
   function startPunch() {
     setMsg(null)
@@ -106,18 +99,27 @@ export default function TimeClockPage({ params }: { params: { id: string } }) {
       const form = new FormData()
       form.append('action', action)
       form.append('selfie', new File([selfie], 'selfie.jpg', { type: 'image/jpeg' }))
-      if (pos) { form.append('lat', String(pos.lat)); form.append('lng', String(pos.lng)) }
+      if (pos.ok) { form.append('lat', String(pos.fix.lat)); form.append('lng', String(pos.fix.lng)) }
       const token = await getToken()
       const res = await fetch(`/api/projects/${params.id}/time/punch`, {
         method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form,
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) { setMsg({ kind: 'error', text: data.error || 'Punch failed.' }); return }
-      if (data.flagged) {
-        setMsg({ kind: 'warn', text: `Clocked ${action === 'in' ? 'in' : 'out'} - but your location is ${data.distance != null ? `${data.distance}m from the job site` : 'unavailable'}. Flagged for review.` })
-      } else {
-        setMsg({ kind: 'ok', text: `Clocked ${action === 'in' ? 'in' : 'out'} successfully${data.distance != null ? ` · ${data.distance}m from site` : ''}.` })
+      // ONE sentence writer for all four outcomes - see lib/punch-location.ts.
+      // This used to be composed here, and said "your location is unavailable"
+      // whenever the distance was null, which is also what it says when the
+      // JOB has no coordinates and the phone was fine.
+      const loc: PunchLocation = {
+        fix: data.fix ?? (data.flagged ? 'no_fix' : 'ok'),
+        distance: data.distance ?? null,
+        flagged: !!data.flagged,
       }
+      // When it really WAS the phone, say which of the three it was - the
+      // fix for "turned off" and the fix for "no signal indoors" are not the
+      // same, and `() => resolve(null)` used to lose the difference.
+      const why = !pos.ok && loc.fix === 'no_fix' ? ` ${geoFailureMessage(pos.why)}` : ''
+      setMsg({ kind: loc.fix === 'ok' ? 'ok' : 'warn', text: punchMessage(action, loc) + why })
       load()
     } catch (err: any) {
       setMsg({ kind: 'error', text: err?.message ? `Failed: ${err.message}` : 'Failed - check connection.' })
@@ -242,7 +244,7 @@ export default function TimeClockPage({ params }: { params: { id: string } }) {
                   <p className="text-sm font-medium text-ink-soft truncate">{e.worker_name ?? 'Worker'}</p>
                   <p className="text-xs text-faint">
                     {fmtDate(e.clock_in_at)} · {fmtTime(e.clock_in_at)}{e.clock_out_at ? ` – ${fmtTime(e.clock_out_at)}` : ''}
-                    {e.clock_in_distance_m != null ? ` · ${e.clock_in_distance_m}m from site` : ' · no GPS'}
+                    {` · ${punchFixLabel(e.clock_in_fix ?? (e.clock_in_distance_m != null ? 'ok' : 'no_fix'), e.clock_in_distance_m)}`}
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
@@ -263,15 +265,27 @@ export default function TimeClockPage({ params }: { params: { id: string } }) {
 
       {/* Weekly timesheet */}
       <div className="bg-panel rounded-xl border border-line overflow-hidden">
-        <div className="px-4 sm:px-5 py-3 border-b border-line-soft flex items-center justify-between gap-2">
+        <div className="px-4 sm:px-5 py-3 border-b border-line-soft lg:flex lg:items-center lg:justify-between lg:gap-2">
           <span className="text-sm font-semibold text-ink-soft">Timesheet</span>
-          <div className="flex items-center gap-1">
-            <button onClick={() => { const d = new Date(weekCursor); d.setDate(d.getDate() - 7); setWeekCursor(d) }}
-              className="p-1.5 rounded-lg text-faint hover:bg-muted hover:text-ink"><ChevronLeft className="h-4 w-4" /></button>
-            <span className="text-xs font-medium text-muted-fg px-1 min-w-[110px] text-center">{weekLabel}</span>
-            <button onClick={() => { const d = new Date(weekCursor); d.setDate(d.getDate() + 7); setWeekCursor(d) }}
-              className="p-1.5 rounded-lg text-faint hover:bg-muted hover:text-ink"><ChevronRight className="h-4 w-4" /></button>
-            <Button size="sm" variant="outline" onClick={exportWeek} className="ml-1"><Download className="h-3.5 w-3.5" /> Export</Button>
+          {/* THE EXPORT BUTTON USED TO LEAVE THE CARD. Title, two chevrons, a
+              110px week label and a button do not fit in 390px, and nothing in
+              the row could shrink or wrap - `Button` is `whitespace-nowrap` by
+              rule and the label has a `min-w`. So it ran out through the card's
+              own border. A heading beside controls is a LAYOUT, not a control
+              row: the heading keeps its line and the controls take the next
+              one, where `.row-even` gives the week nav and Export half each and
+              both edges are reached. From lg up the single row is unchanged. */}
+          <div className="row-even mt-2 gap-1 lg:mt-0 lg:flex lg:items-center lg:w-auto">
+            <div className="flex min-w-0 items-center justify-center gap-1">
+              <button aria-label="Previous week" title="Previous week"
+                onClick={() => { const d = new Date(weekCursor); d.setDate(d.getDate() - 7); setWeekCursor(d) }}
+                className="shrink-0 p-1.5 rounded-lg text-faint hover:bg-muted hover:text-ink"><ChevronLeft className="h-4 w-4" /></button>
+              <span className="min-w-0 flex-1 truncate text-center text-xs font-medium text-muted-fg px-1 lg:min-w-[110px] lg:flex-none">{weekLabel}</span>
+              <button aria-label="Next week" title="Next week"
+                onClick={() => { const d = new Date(weekCursor); d.setDate(d.getDate() + 7); setWeekCursor(d) }}
+                className="shrink-0 p-1.5 rounded-lg text-faint hover:bg-muted hover:text-ink"><ChevronRight className="h-4 w-4" /></button>
+            </div>
+            <Button size="sm" variant="outline" onClick={exportWeek} className="lg:ml-1"><Download className="h-3.5 w-3.5" /> Export</Button>
           </div>
         </div>
         {timesheet.length === 0 ? (
@@ -332,7 +346,8 @@ export default function TimeClockPage({ params }: { params: { id: string } }) {
                       {e.profile_id === myId && <span className="text-[10px] rounded-full bg-muted text-muted-fg px-1.5 py-0.5">You</span>}
                       {flagged && (
                         <span className="inline-flex items-center gap-1 text-[10px] font-medium rounded-full bg-warn-tint text-warn px-1.5 py-0.5">
-                          <AlertTriangle className="h-2.5 w-2.5" /> Location flagged
+                          <AlertTriangle className="h-2.5 w-2.5" />
+                          {(e.clock_in_fix ?? e.clock_out_fix) === 'no_site' ? 'Site not mapped' : 'Location flagged'}
                         </span>
                       )}
                       {e.approval_status === 'approved' && <span className="text-[10px] font-medium rounded-full bg-success-tint text-success px-1.5 py-0.5">Approved</span>}
@@ -341,7 +356,7 @@ export default function TimeClockPage({ params }: { params: { id: string } }) {
                     <p className="text-xs text-faint">
                       {fmtDate(e.clock_in_at)} · {fmtTime(e.clock_in_at)}
                       {e.clock_out_at ? ` – ${fmtTime(e.clock_out_at)}` : ' – present'}
-                      {e.clock_in_distance_m != null && ` · ${e.clock_in_distance_m}m from site`}
+                      {e.clock_in_fix && ` · ${punchFixLabel(e.clock_in_fix, e.clock_in_distance_m)}`}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">

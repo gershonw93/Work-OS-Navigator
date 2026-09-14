@@ -1123,5 +1123,77 @@ ok(gridDesk.dots!.h === 0, '...and the dots are not')
 ok(gridDesk.pill!.over <= 0, `with its text inside it (${gridDesk.pill!.over})`)
 
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 20. A CARD HEADER'S BUTTON MUST NOT LEAVE THE CARD.
+//
+// "The timesheet export button is cut off." The header was one flex row -
+// "Timesheet", two chevrons, a `min-w-[110px]` week label and an Export button
+// - and nothing in it could give: `Button` sets `whitespace-nowrap` by rule
+// and the label carries a min-width, so at 390px the row was simply wider than
+// the card and the button left through its own border.
+//
+// A heading beside controls is a LAYOUT, not a control row (CLAUDE.md): the
+// heading keeps its line and the controls take the next one, where `.row-even`
+// gives the week nav and Export half each and both edges are reached.
+// ─────────────────────────────────────────────────────────────────────────────
+const HEADER = (row: string) => `
+<div class="p-6"><div id="card" class="bg-panel rounded-xl border border-line overflow-hidden">
+  ${row}
+</div></div>`
+
+const ONE_ROW = `
+<div class="px-4 py-3 border-b border-line-soft flex items-center justify-between gap-2">
+  <span class="text-sm font-semibold text-ink-soft">Timesheet</span>
+  <div class="flex items-center gap-1">
+    <button class="p-1.5 rounded-lg"><span class="block h-4 w-4">&lt;</span></button>
+    <span class="text-xs font-medium text-muted-fg px-1 min-w-[110px] text-center">Sep 13 – Sep 19</span>
+    <button class="p-1.5 rounded-lg"><span class="block h-4 w-4">&gt;</span></button>
+    <button id="export" class="ml-1 inline-flex items-center gap-1 whitespace-nowrap rounded-lg border px-3 h-9 text-sm"><span class="block h-3.5 w-3.5">v</span> Export</button>
+  </div>
+</div>`
+
+const TWO_ROWS = `
+<div class="px-4 py-3 border-b border-line-soft lg:flex lg:items-center lg:justify-between lg:gap-2">
+  <span class="text-sm font-semibold text-ink-soft">Timesheet</span>
+  <div class="row-even mt-2 gap-1 lg:mt-0 lg:flex lg:items-center lg:w-auto">
+    <div class="flex min-w-0 items-center justify-center gap-1">
+      <button class="shrink-0 p-1.5 rounded-lg"><span class="block h-4 w-4">&lt;</span></button>
+      <span class="min-w-0 flex-1 truncate text-center text-xs font-medium text-muted-fg px-1 lg:min-w-[110px] lg:flex-none">Sep 13 – Sep 19</span>
+      <button class="shrink-0 p-1.5 rounded-lg"><span class="block h-4 w-4">&gt;</span></button>
+    </div>
+    <button id="export" class="inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-lg border px-3 h-9 text-sm lg:ml-1"><span class="block h-3.5 w-3.5">v</span> Export</button>
+  </div>
+</div>`
+
+const HEADER_PROBE = `rect => {
+  const c = rect('#card'), x = rect('#export')
+  return { cardRight: Math.round(c.right), exportRight: Math.round(x.right),
+           exportLeft: Math.round(x.left), exportW: Math.round(x.width),
+           doc: Math.round(document.documentElement.scrollWidth), vw: window.innerWidth }
+}`
+
+const cut = measure(HEADER(ONE_ROW), HEADER_PROBE, VIEWPORT.h, '', 390)
+ok(cut.exportRight > cut.cardRight,
+  `the reported bug, measured: Export ended ${cut.exportRight - cut.cardRight}px past the card's own edge`)
+
+const fits = measure(HEADER(TWO_ROWS), HEADER_PROBE, VIEWPORT.h, '', 390)
+ok(fits.exportRight <= fits.cardRight,
+  `THE FIX: Export is inside the card (${fits.exportRight} vs ${fits.cardRight})`)
+ok(fits.exportRight >= fits.cardRight - 20,
+  `...and reaches its edge rather than floating short of it (${fits.cardRight - fits.exportRight}px gap)`)
+ok(fits.exportW >= 44, `...at a width a thumb can hit (${fits.exportW}px)`)
+ok(fits.doc <= fits.vw, `and nothing drags the page sideways (${fits.doc} vs ${fits.vw})`)
+
+// The desktop row is the one that was fine, and it stays one row.
+const desk = measure(HEADER(TWO_ROWS), HEADER_PROBE, 900, '', 1280)
+ok(desk.exportRight <= desk.cardRight, 'from lg up it still fits')
+ok(desk.exportW < 200, `...as a button beside the week nav, not half the card (${desk.exportW}px)`)
+
+// The fixture above is only a fixture. This is the page.
+const timePage = code('app/(dashboard)/projects/[id]/time/page.tsx')
+ok(/row-even/.test(timePage), 'and the real timesheet header carries the rule measured here')
+ok(!/flex items-center justify-between gap-2">\s*<span className="text-sm font-semibold text-ink-soft">Timesheet/.test(timePage),
+  '...rather than the single unbreakable row it was')
+
 rmSync(work, { recursive: true, force: true })
 done()

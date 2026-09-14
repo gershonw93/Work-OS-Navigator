@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
+import { punchLocation } from '@/lib/punch-location'
 
 export const runtime = 'nodejs'
 
@@ -9,17 +10,8 @@ const admin = () => createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
-// Flag a punch when the worker is farther than this from the job site.
-const GEOFENCE_RADIUS_M = 250
-
-function haversine(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371000
-  const toRad = (d: number) => (d * Math.PI) / 180
-  const dLat = toRad(lat2 - lat1)
-  const dLon = toRad(lon2 - lon1)
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2
-  return 2 * R * Math.asin(Math.sqrt(a))
-}
+// The radius, the distance and WHICH of the four outcomes this is all live in
+// lib/punch-location.ts, so the route and every screen answer the same way.
 
 async function geocode(address: string): Promise<{ lat: number; lng: number } | null> {
   try {
@@ -64,15 +56,14 @@ export async function POST(request: Request, { params }: { params: { id: string 
     }
   }
 
-  // Distance + flag
-  let distance: number | null = null
-  let flagged = false
-  if (lat != null && lng != null && siteLat != null && siteLng != null) {
-    distance = Math.round(haversine(lat, lng, siteLat, siteLng))
-    flagged = distance > GEOFENCE_RADIUS_M
-  } else {
-    flagged = true // no GPS available → flag for review
-  }
+  // WHICH of the four, not just flagged-or-not.
+  //
+  // This used to be one `if` with four conditions and an `else { flagged =
+  // true }` commented "no GPS available" - so a worker whose phone gave a
+  // perfect fix was told their location was unavailable whenever the JOB had
+  // no coordinates. Reported as "clock in and out says no GPS, but I allowed
+  // location", with their latitude sitting in the same row.
+  const { fix, distance, flagged } = punchLocation({ lat, lng }, { lat: siteLat, lng: siteLng })
 
   // Upload selfie
   const path = `${params.id}/time/${Date.now()}-${(selfie.name || 'selfie.jpg').replace(/[^a-zA-Z0-9._-]/g, '_')}`
@@ -92,7 +83,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
       profile_id: user.id,
       worker_name: (profile as any)?.full_name ?? user.email ?? 'Worker',
       clock_in_lat: lat, clock_in_lng: lng,
-      clock_in_distance_m: distance, clock_in_flagged: flagged,
+      clock_in_distance_m: distance, clock_in_flagged: flagged, clock_in_fix: fix,
       clock_in_selfie_url: selfieUrl,
     }).select().single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -101,7 +92,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
       `${(profile as any)?.full_name || 'A worker'} clocked in${flagged ? ' (flagged)' : ''}`,
       { entry_id: data.id, flagged, distance }, user.id)
 
-    return NextResponse.json({ entry: data, flagged, distance })
+    return NextResponse.json({ entry: data, flagged, distance, fix })
   }
 
   // action === 'out'
@@ -113,7 +104,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const { data, error } = await db.from('time_entries').update({
     clock_out_at: new Date().toISOString(),
     clock_out_lat: lat, clock_out_lng: lng,
-    clock_out_distance_m: distance, clock_out_flagged: flagged,
+    clock_out_distance_m: distance, clock_out_flagged: flagged, clock_out_fix: fix,
     clock_out_selfie_url: selfieUrl,
   }).eq('id', open.id).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -122,5 +113,5 @@ export async function POST(request: Request, { params }: { params: { id: string 
     `${(profile as any)?.full_name || 'A worker'} clocked out${flagged ? ' (flagged)' : ''}`,
     { entry_id: data.id, flagged, distance }, user.id)
 
-  return NextResponse.json({ entry: data, flagged, distance })
+  return NextResponse.json({ entry: data, flagged, distance, fix })
 }

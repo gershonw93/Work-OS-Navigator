@@ -136,4 +136,65 @@ ok(!/'focusout', applySoon\)/.test(hook),
 ok(/setTimeout\(apply, 300\)/.test(hook) && /clearTimeout\(settle\)/.test(hook),
   'and one more read after the keyboard animation, which a single frame is far too early for')
 
+// ─────────────────────────────────────────────────────────────────────────────
+// AND THE ONE AFTER THAT: the baseline learned with the keyboard already up.
+//
+// "Daily logs update got this issue as well" - tapping "Add an update" left the
+// app in a band across the top THIRD of the screen, bare background under it
+// all the way down to the keyboard.
+//
+// The arithmetic closes exactly. The app filled 33.5% of the space above the
+// keyboard; on this screen that space is 560pt and the keyboard is 372pt, and
+// 560 - 372 = 188, which is 33.5% of 560. The keyboard subtracted TWICE - the
+// bug this file exists for - but reached through the BASELINE this time rather
+// than through the branch.
+//
+// `fullFrame` means "the frame with nothing covering it" and was updated on
+// every call, including calls made while the frame had already shrunk for a
+// keyboard. One of those redefines a whole screen as a strip, and from then on
+// `innerHeight < full - 1` is false, so every measurement falls through to the
+// branch that trusts `vvHeight`.
+// ─────────────────────────────────────────────────────────────────────────────
+{
+  const KEYBOARD = 372
+  const VISIBLE = SCREEN - KEYBOARD            // 560: the frame Capacitor leaves
+  const TWICE = VISIBLE - KEYBOARD             // 188: what vvHeight says inside it
+
+  // The poisoning event: the very first measurement happens with a field
+  // already focused - a page loaded onto one, a rotation while typing, the app
+  // resumed. There is no baseline yet and the frame is already shrunk.
+  const first = visibleViewport(
+    { innerHeight: VISIBLE, vvHeight: TWICE, vvOffsetTop: 0, keyboardPossible: true }, 0)
+  ok(first.height === VISIBLE,
+    `THE REPORT: with no baseline and a keyboard up, the frame we can see is the answer (got ${first.height}, not ${TWICE})`)
+  ok(first.fullFrame === 0,
+    'and a keyboard-up frame is NOT taken as the baseline - that is what poisons every later call')
+
+  // Still typing. Without the rule above this reads `188` for as long as the
+  // keyboard is up, because innerHeight can never grow past a baseline it is
+  // already equal to.
+  const still = visibleViewport(
+    { innerHeight: VISIBLE, vvHeight: TWICE, vvOffsetTop: 0, keyboardPossible: true }, first.fullFrame)
+  ok(still.height === VISIBLE, `...and it stays right while they keep typing (${still.height})`)
+
+  // The keyboard goes: now the frame is honest, and only now is it learned.
+  const closed = visibleViewport(
+    { innerHeight: SCREEN, vvHeight: SCREEN, vvOffsetTop: 0, keyboardPossible: false }, still.fullFrame)
+  ok(closed.height === SCREEN && closed.fullFrame === SCREEN,
+    'the whole screen comes back, and THAT is the measurement worth remembering')
+
+  // And with a real baseline the original shrunk-frame branch still does the work.
+  const again = visibleViewport(
+    { innerHeight: VISIBLE, vvHeight: TWICE, vvOffsetTop: 0, keyboardPossible: true }, closed.fullFrame)
+  ok(again.height === VISIBLE, `the next keyboard is handled by the baseline as before (${again.height})`)
+  ok(again.fullFrame === SCREEN, '...and does not lower it on the way through')
+
+  // Mobile Safari is untouched: the frame does not shrink there, so the visual
+  // viewport is still the only thing that knows what the keyboard covers.
+  const safariNow = visibleViewport(
+    { innerHeight: SCREEN, vvHeight: VISIBLE, vvOffsetTop: 0, keyboardPossible: true }, SCREEN)
+  ok(safariNow.height === VISIBLE,
+    `an unshrunk frame still defers to the visual viewport (${safariNow.height})`)
+}
+
 done()

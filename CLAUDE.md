@@ -16,7 +16,7 @@ production branch.** Do NOT ask the user to merge or deploy.
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-103.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-104.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - IMPORTANT: verify every column you `.select()` actually exists - Supabase
   returns `data: null` for an unknown column, so a typo reads as "not found"
@@ -348,6 +348,25 @@ production branch.** Do NOT ask the user to merge or deploy.
   between two fields. The re-read after each event is a frame AND ~300ms: one
   frame was sized to nothing in particular, and the iOS keyboard animation is a
   quarter of a second long.
+  **AND THE BASELINE IS ONLY LEARNED WITH NOTHING FOCUSED.** `fullFrame` means
+  "the frame with nothing covering it" and was `Math.max(fullFrame,
+  innerHeight)` on EVERY call - including calls made while the frame had
+  already shrunk for a keyboard. ONE of those redefines a whole screen as a
+  strip, and every call afterwards compares against the strip, so `innerHeight
+  < full - 1` is false and we fall through to the branch that trusts `vvHeight`
+  - which inside an already-shrunk frame has the keyboard taken out AGAIN.
+  Reported against the daily logs: tapping "Add an update" left the app in a
+  band across the top third of the screen. The arithmetic closes exactly - the
+  app filled 33.5% of the space above the keyboard, and on a 932pt screen with
+  a 372pt keyboard the strip is 560 while `vvHeight` says 560-372=188, which is
+  33.5% of 560. It only takes one poisoning event (a page loaded onto a focused
+  field, a rotation while typing - `orientationchange` zeroes the baseline and
+  re-reads it on the spot - the app resumed onto a field) and it sticks until
+  the keyboard closes, because `innerHeight` cannot grow past a baseline it
+  already equals. With NO baseline yet, take `innerHeight`: trusting it on an
+  unshrunk frame leaves a dialog's buttons under the keyboard, trusting
+  `vvHeight` on a shrunk one collapses the whole app - take the smaller
+  mistake.
 - **The SHELL follows `--vv-h` too**, not just overlays: `.h-app` is
   `var(--vv-h, 100dvh)` inside `@supports (height: 100dvh)`. A document taller
   than the webview's frame is one the webview can scroll, and Capacitor shrinks
@@ -883,6 +902,31 @@ production branch.** Do NOT ask the user to merge or deploy.
   a Server Component may not set them, so a second client can present a
   refresh token the first one just rotated away.
 
+- **TWO COORDINATES ARE NEEDED FOR ONE COMPARISON, AND ONLY ONE OF THEM IS THE
+  WORKER'S.** The punch route computed the geofence with
+  `if (lat && lng && siteLat && siteLng) {...} else { flagged = true }`,
+  commented "no GPS available" - so a worker whose phone gave a perfect fix was
+  told "your location is unavailable" and had the punch flagged whenever the
+  JOB had no coordinates. Reported as "clock in and out says no GPS, but I
+  allowed location while using the app", and the row it wrote at that moment
+  held `clock_in_lat 40.6701718866206`. The job's address was "1 Test Lane,
+  Testville, NY 10001", which no geocoder resolves. A flag is a mark against
+  the WORKER; this one was for an address only the office can fix.
+  `lib/punch-location.ts` answers with four outcomes - `ok` / `far` / `no_fix`
+  / `no_site` - stored on the row (`clock_in_fix`) so a review months later
+  still knows which, and is the ONE place each sentence is written, because the
+  punch response, the entry row and the review list each used to compose their
+  own (which is how " · no GPS" came to print beside a stored latitude). When
+  NEITHER is known it reports `no_fix`: the phone is the half the person
+  holding it can act on.
+- AND THE REASON THE PHONE GAVE IS PART OF THE ANSWER. Both punch screens had
+  their own `getCurrentPosition(ok, () => resolve(null), …)` - so "location is
+  off", "no fix indoors" and "ten seconds was not enough" were one value.
+  `lib/geo-position.ts` is the one reader and keeps the `code`. It also asks
+  TWICE: `enableHighAccuracy: true` with no `maximumAge` refuses a perfectly
+  good fix from thirty seconds ago, which is exactly the request that runs out
+  the clock in a building, so a failure is re-asked coarsely - except `denied`,
+  which no second prompt can change.
 - A RELATIVE TIME CARRIES THE ABSOLUTE ONE ON HOVER. A notification read "6d
   ago" minutes after it was created. `notifications.created_at` is
   `timestamptz DEFAULT now()`, `notify()` is the only writer and never sets it,
