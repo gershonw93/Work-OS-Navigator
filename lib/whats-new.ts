@@ -48,6 +48,29 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    date: '2026-09-17',
+    title: 'Swipe, like a real app',
+    items: [
+      {
+        kind: 'new',
+        title: 'Swipe in from the left edge to go back',
+        text: 'Drag in from the left edge of the screen and let go to go back a page \u2013 a short flick is enough. A small chevron follows your finger so you can see it is working. It never fires from the first page you opened, never while a dialog or menu is open, and never on a laptop. In the iPhone app this becomes the phone\u2019s own back swipe, with the page sliding under your finger; that half needs the next build of the app.',
+        help: 'sytenav-on-your-phone',
+      },
+      {
+        kind: 'new',
+        title: 'Pull the project menu down to close it',
+        text: 'The Project Sections menu, the job status picker and the Team panel now pull down to dismiss, the way they came up. The More menu slides back to the left, and a task or the job history slides back to the right, as before. Scrolling still scrolls: a menu only comes down when it is already at the top, so pulling a long list back up never closes it by accident.',
+        help: 'sytenav-on-your-phone',
+      },
+      {
+        kind: 'improved',
+        title: 'Menus slide up instead of appearing',
+        text: 'Bottom menus on a phone now slide up from the bottom edge rather than popping into place. Switched off automatically if your phone is set to reduce motion.',
+      },
+    ],
+  },
+  {
     date: '2026-09-16',
     title: 'Clock-in location checks actually work, and you can place a job yourself',
     items: [

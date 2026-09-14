@@ -243,3 +243,75 @@ each one was written the day something shipped broken.*
   retyped - and a subcontract with no trade drops out of the compliance
   requirements for its trade.
 
+## Swiping all over
+
+Asked for directly, after one drawer had learned to slide back: "add swiping
+all over to go back or swipe down the project menu etc. make it feel super
+native app like." The audit that followed found the gesture set was one
+drawer wide: the task drawer and the job-history drawer slid right; the
+project sections sheet, the job status picker and the Team panel simply
+appeared and had only their X; the More navigation slid in from the left and
+could not be slid back; and nothing anywhere went BACK.
+
+**One rule set, every edge.** `swipeTravel(dx, dy, direction)` is the one-way
+rule with a sign: a right-hand drawer follows a rightward drag and ignores a
+leftward one, the phone navigation is the mirror, a sheet follows a downward
+drag and ignores an upward one. `shouldDismiss` (a fraction of the panel's
+own extent, or a flick) and the timer close are shared unchanged. The two
+right-hand drawers still read `swipeOffset` by its old name and did not
+change.
+
+**A sheet is the hard one, and for exactly one reason.** A drawer's exit axis
+is horizontal and its body scrolls vertically, so "swipe" and "scroll" never
+collide. A sheet leaves DOWN - the axis its body scrolls on. The only thing
+that tells the two apart is where the scroller is: at the top, a downward
+drag has nowhere to scroll to, so it is the sheet; anywhere else it is the
+list being scrolled back up and the sheet must not move. `sheetTakesGesture`
+reads `scrollTop` ONCE, when the finger lands. Re-asking on every move would
+start dragging the moment a scroll-up reached the top - mid-gesture, out from
+under a finger that only wanted the first row. While the sheet follows the
+finger its `overflow-y` is held `hidden`: iOS rubber-bands an `auto` scroller
+pulled past its top even under `overscroll-behavior: contain`, and a panel
+sliding down AND bouncing inside itself moves twice for one drag.
+
+**A panel that stays mounted has to reset itself.** The drawers unmount on
+dismiss and their gesture state dies with them. The More navigation stays
+mounted and slides out of frame by class - so after one swipe-close it would
+have been left with `leaving` set forever: every later touch ignored, the
+inline transform still pinning it off-screen. The hook resets on `enabled`
+dropping. Its inline transition (180ms) now also governs that drawer's open
+and close, which used to be 300ms; every panel moves at one speed.
+
+**Back is two halves.** In the native shell WKWebView does the edge-swipe
+itself - `allowsBackForwardNavigationGestures`, off by default, and off is the
+single clearest tell of a website in a wrapper. Turning it on is a subclass of
+`CAPBridgeViewController` that `Main.storyboard` has to instantiate; it lives
+inside `AppDelegate.swift` so it needs no `project.pbxproj` entry (a Swift
+file the project does not list is a file Xcode does not compile, silently). It
+is a NATIVE setting and reaches a phone only after a rebuild - the
+`@capacitor/keyboard` shape, which sat asserted-but-absent for most of the
+app's life, so the test reads the Swift, the storyboard AND the base class in
+`node_modules`. The web half (`lib/swipe-back.ts`, `useSwipeBack`) is for the
+home-screen app in Safari, Android, and any phone still on an older build;
+inside the shell the system gesture takes the edge touch before the DOM sees
+it, so the two never fight. Commit is `window.history.back()`, which the Next
+router owns - the same place the native gesture goes, one screen at a time.
+
+**Three refusals, each a different bug avoided.** On the first page of the
+session, back is out of the app - a home-screen app has no address bar, and
+from inside that reads as a crash. With a `[data-overlay]` open, the thing
+on top is a dialog or a sheet with its own gesture, and navigating the page
+out from underneath it leaves the sheet hanging over a screen it was never
+about - which is also why the sections sheet, which is LAYOUT state, now
+closes on `pathname`. At `lg` and above the desktop does not change.
+
+**What was deliberately not done.** Swiping between project sections takes
+the horizontal axis from every side-scrolling table, calendar and photo strip
+on the page; a panel that fights a scroll is worse than no gesture. The
+edge strip is 24px for the same reason - wider and it steals the first
+column of a table. Pull-to-refresh and haptics are in BACKLOG.md.
+
+Pinned: `swipe-dismiss.ts` (travel, the left-hand drawer, the reset),
+`swipe-sheet.ts` (the scroll gate, every sheet, the entrance animation both
+ways, and the geometry harness measuring at rest), `swipe-back.ts` (the rules,
+the refusals, the single mount, and the native half end to end).

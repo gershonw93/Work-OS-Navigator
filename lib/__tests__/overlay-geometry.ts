@@ -86,7 +86,12 @@ function measure(body: string, probe: string, height = VIEWPORT.h, rootStyle = '
   const css = styles(body)
   const page = `<!doctype html><html${rootStyle ? ` style="${rootStyle}"` : ''}><head>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<style>${css}</style><style>html,body{margin:0}</style></head>
+<style>${css}</style><style>html,body{margin:0}
+/* Every entrance animation off: translateX(100%) / translateY(100%) is where a
+   drawer or a sheet STARTS, and the DOM is dumped while it is still there. The
+   suite measures where panels come to REST; that the animations exist, inside
+   a reduced-motion guard, is pinned as source shape in swipe-sheet.ts. */
+.overlay-drawer > *, .overlay-sheet > * { animation: none !important; }</style></head>
 <body class="bg-surface font-sans">${body}
 <script>window.addEventListener('load',()=>{
   const rect = s => { const e = document.querySelector(s); return e ? e.getBoundingClientRect() : null }
@@ -761,14 +766,13 @@ ok(!clipped.lastItemReachable,
 // notch. So its close button ends up under the Dynamic Island and its footer
 // behind the keyboard, which is the same pair of bugs the bottom sheet had.
 // ─────────────────────────────────────────────────────────────────────────────
-// The entrance animation is switched off for the measurement, and that is not
-// dodging it: `translateX(100%)` is where the drawer STARTS, and headless
+// The entrance animation is switched off for the measurement - in `measure()`,
+// for every drawer and sheet alike - and that is not dodging it: `translateX(100%)` is where the drawer STARTS, and headless
 // Chromium dumps the DOM at a moment when it is still there - so every number
 // below came out exactly one panel-width to the right. What is being asserted
 // is where the drawer comes to REST. That the animation exists at all, and is
 // inside a `prefers-reduced-motion` guard, is checked as source shape instead.
 const DRAWER = (panelStyle = '') => `
-<style>.overlay-drawer > * { animation: none !important; }</style>
 <div class="overlay-drawer bg-black/40" data-overlay>
   <div id="panel" style="${panelStyle}" class="flex flex-col overflow-hidden border-l border-line bg-panel shadow-2xl">
     <div id="head" class="flex shrink-0 items-center justify-between border-b border-line px-4 py-2">

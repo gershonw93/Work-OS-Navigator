@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Users, Phone, Mail, HardHat, Building2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useSheetDismiss } from '@/lib/use-sheet-dismiss'
 import { headerIconButton } from './header-icon-button'
 
 interface Member {
@@ -30,6 +31,7 @@ export function TeamQuickView({ projectId }: { projectId: string }) {
   const [members, setMembers] = useState<Member[]>([])
   const [subs, setSubs] = useState<Sub[]>([])
   const [open, setOpen] = useState(false)
+  const sheet = useSheetDismiss(() => setOpen(false), open)
   const [loaded, setLoaded] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
 
@@ -168,6 +170,8 @@ export function TeamQuickView({ projectId }: { projectId: string }) {
       {open && (
         <div className="overlay-sheet lg:hidden bg-black/40" data-overlay onClick={() => setOpen(false)}>
           <div onClick={e => e.stopPropagation()}
+            {...sheet.handlers}
+            style={sheet.style}
             className="flex flex-col overflow-y-auto overscroll-contain rounded-t-2xl bg-panel shadow-2xl pb-safe">
             <div className="flex items-center justify-between py-2 pl-5 pr-2">
               <h2 className="text-base font-bold text-ink">Team</h2>

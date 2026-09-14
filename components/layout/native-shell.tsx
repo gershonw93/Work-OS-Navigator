@@ -4,14 +4,15 @@ import { useEffect } from 'react'
 import { usePush } from '@/lib/use-push'
 import { useVisualViewport } from '@/lib/use-visual-viewport'
 import { useNativePlatform } from '@/lib/use-native'
+import { SwipeBack } from './swipe-back'
 
 /**
  * Everything the phone app needs that the website does not.
  *
  * Rendered once per shell (the dashboard and the field layouts). On the web
- * every hook inside it short-circuits on `isNative` and this renders nothing,
- * costs nothing and downloads nothing - the Capacitor plugins are behind
- * dynamic imports.
+ * every native hook inside it short-circuits on `isNative` and costs nothing -
+ * the Capacitor plugins are behind dynamic imports. The one thing it renders
+ * is the swipe-back hint, which is for every phone, not only the app.
  *
  * One component rather than three hooks scattered through the layouts, so
  * there is a single answer to "what is different inside the app".
@@ -25,7 +26,11 @@ export function NativeShell() {
   // up behind it either way. This is the only component mounted in both shells,
   // which is why it lives here.
   useVisualViewport()
-  return null
+  // Edge-swipe to go back, for the same reason and from the same place: the
+  // native shell has WKWebView's own gesture (AppDelegate.swift), and this is
+  // the same gesture for the home-screen app, Android, and a phone still on an
+  // older build. Mounted here so every screen answers to it and none can forget.
+  return <SwipeBack />
 }
 
 /**

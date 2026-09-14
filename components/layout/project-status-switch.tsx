@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { usePermissions } from '@/lib/use-permissions'
+import { useSheetDismiss } from '@/lib/use-sheet-dismiss'
 import { Badge, getStatusVariant } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -81,6 +82,7 @@ export function ProjectStatusSwitch({
   const router = useRouter()
   const supabase = createClient()
   const [open, setOpen] = useState(false)
+  const sheet = useSheetDismiss(() => setOpen(false), open)
   const [confirming, setConfirming] = useState(false)
   const [checks, setChecks] = useState<Check[] | null>(null)
   // The serious concerns this job has, from the pre-flight, which are the keys
@@ -193,6 +195,8 @@ export function ProjectStatusSwitch({
         {open && (
           <div className="overlay-sheet lg:hidden bg-black/40" data-overlay onClick={() => setOpen(false)}>
             <div onClick={e => e.stopPropagation()}
+              {...sheet.handlers}
+              style={sheet.style}
               className="flex flex-col overflow-y-auto overscroll-contain rounded-t-2xl bg-panel shadow-2xl pb-safe">
               <div className="flex items-center justify-between py-2 pl-5 pr-2">
                 <h2 className="text-base font-bold text-ink">Job status</h2>

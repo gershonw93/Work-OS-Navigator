@@ -248,9 +248,25 @@ which lays real markup out in headless Chromium.
   may only go DOWN.
 - A DRAWER CAN BE SLID BACK THE WAY IT CAME IN. `lib/swipe-dismiss.ts` (pure)
   and `lib/use-swipe-dismiss.ts`, on the PANEL not the backdrop. The axis is
-  decided ONCE at the slop boundary and kept. Dragging LEFT does nothing.
+  decided ONCE at the slop boundary and kept. Dragging the other way does nothing.
   Dismiss is a fraction of the panel's own width OR a flick. The close is a
   TIMER, never `transitionend`: that never fires under reduced motion.
+- **AND SO CAN EVERY OTHER PANEL, AND THE PAGE ITSELF.** One rule set
+  (`swipeTravel`, one-way, signed per edge): right-hand drawers leave right,
+  the phone navigation leaves LEFT (`useSwipeDismiss(…, 'left')`), a bottom
+  sheet leaves DOWN (`lib/use-sheet-dismiss.ts`). A sheet's exit axis is the
+  axis its body scrolls on, so it takes a downward drag ONLY when scrolled to
+  the top - `sheetTakesGesture`, read ONCE at touch start. Every
+  `.overlay-sheet` answers to it (ratcheted), and a sheet that is LAYOUT state
+  closes on `pathname`, because the page can now change underneath it. The
+  page goes BACK from the left edge (`lib/swipe-back.ts`, mounted once from
+  `NativeShell`): never on the first page of the session, never with a
+  `[data-overlay]` open, never at `lg`. The native shell has WKWebView's own
+  gesture (`SyteNavViewController` in `AppDelegate.swift`,
+  `allowsBackForwardNavigationGestures`, instantiated by `Main.storyboard`) -
+  a NATIVE setting that reaches a phone only after an iOS rebuild; the JS
+  gesture is for everyone else and the system one takes the edge touch first,
+  so they never fight. Pinned in `swipe-sheet.ts` and `swipe-back.ts`.
 - The overlay scroll lock is `overflow-y: hidden`, NEVER the `overflow`
   shorthand - the shorthand replaces the `clip` on html/body with `hidden`, and
   clip cannot be scrolled while hidden can.
