@@ -365,7 +365,14 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
         method: 'POST', headers: { Authorization: `Bearer ${t}` },
       })
       setLinking(false)
-      if (!res.ok) { notify('Could not create a client link for this project.'); return }
+      // The reason, not a shrug. The portal routes are permission-gated now
+      // (`client-portal`), and "could not create a client link" over a 403 is
+      // the shape of message that gets reported as the app being broken.
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}))
+        notify(d?.error ?? 'Could not create a client link for this project.')
+        return
+      }
       tok = (await res.json()).token
       setPortalToken(tok ?? null)
     }

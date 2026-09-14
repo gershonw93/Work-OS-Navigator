@@ -164,6 +164,21 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   `mark-ready-permission.ts`.
 - **AND THE ROUTE HAS TO ASK**, or the setting is decoration. Gate the narrow
   body on the narrow permission and everything else on the broad one.
+- **WHOSE JOB IT IS IS A SECOND QUESTION, AND SOME ROUTES MUST ASK IT.**
+  `requirePermission` deliberately does not check company ownership - subs
+  legitimately write to jobs they do not own - so it is opt-in per route:
+  `ownedProject(db, gate.actor, id, cols)` in `lib/api-guard.ts`. Opt in
+  wherever the thing being read or written belongs to the GC rather than to the
+  job: the whole `portal-token` family does, because the client portal carries
+  the GC's invoices to their client and an invited sub is ON that job. 403, not
+  404 - they can see the job. Pinned in `portal-gate.ts`.
+- **CREATING A THING AND DESTROYING THE ONE THAT EXISTS ARE DIFFERENT POWERS,
+  AND ONE ROUTE MUST NOT DO BOTH BY ACCIDENT.** `POST /portal-token` minted
+  unconditionally, so the only thing between a client's working link and
+  oblivion was a confirm dialog in one of the two callers - which a second tab
+  or a double press went round. A destructive replace needs an explicit flag in
+  the body AND the heavier permission (`edit`); without the flag the route hands
+  back what is already there.
 
 ## Who the email is FOR, and who may send it (IMPORTANT)
 Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.md).

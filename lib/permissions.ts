@@ -81,6 +81,19 @@ export const RESOURCES: ResourceDef[] = [
   { key: 'dashboard',      label: 'Dashboard',      group: 'Workspace' },
   { key: 'projects',       label: 'Projects',       group: 'Workspace' },
   { key: 'customers',      label: 'Customers',      group: 'Workspace' },
+  // The client's read-only link to a whole job - progress, selections, the
+  // invoices you have sent them. Its own resource, not a corner of `projects`,
+  // because it is a different question: handing an outsider a standing view of
+  // the job is not the same act as renaming it or moving its dates. Three
+  // actions, and they are genuinely different powers:
+  //
+  //   view    read the link (so: copy it, email it - seeing it IS the power)
+  //   create  bring a link into existence on a job that has none
+  //   edit    REGENERATE one, which cuts off a client already using it
+  //
+  // No slug: there is no screen behind it, only the share dialog in the project
+  // header. Ratcheted in `portal-gate.ts`.
+  { key: 'client-portal',  label: 'Client Portal Link', group: 'Workspace' },
   { key: 'directory',      label: 'Directory',      group: 'Workspace' },
   { key: 'files',          label: 'Files',          group: 'Workspace' },
   { key: 'equipment',      label: 'Equipment',      group: 'Workspace' },
@@ -141,6 +154,9 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
     invoices: VE, 'pay-apps': FULL, payments: VE, budget: FULL, margin: N, quotes: FULL, 'request-quotes': FULL, financials: N, 'change-orders': FULL,
     permits: FULL, inspections: FULL, 'mark-ready': VE, submittals: FULL, compliance: V, reports: N,
     dashboard: V, projects: VCE, customers: VE, directory: V, files: FULL, equipment: FULL, materials: FULL, approvals: VE,
+    // Runs the job and is who the client asks. Regenerating is theirs too - a
+    // link that has gone somewhere it should not have is their problem to fix.
+    'client-portal': FULL,
     // View, not edit: the old check let them OPEN Company settings, and that is
     // what this preserves. Not the Danger Zone, which needs delete.
     settings_company: V, settings_team: N, settings_billing: N,
@@ -152,6 +168,8 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
     invoices: FULL, 'pay-apps': FULL, payments: FULL, budget: FULL, margin: N, quotes: FULL, 'request-quotes': FULL, financials: V, 'change-orders': FULL,
     permits: VE, inspections: VE, 'mark-ready': VE, submittals: VE, compliance: FULL, reports: V,
     dashboard: V, projects: V, customers: VE, directory: V, files: FULL, equipment: FULL, materials: FULL, approvals: VE,
+    // The people who actually email a client their link.
+    'client-portal': FULL,
     settings_company: V, settings_team: N, settings_billing: N,
   },
 
@@ -161,6 +179,10 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
     invoices: N, payments: N, budget: N, margin: N, quotes: N, 'request-quotes': N, financials: N, 'change-orders': N,
     permits: N, inspections: N, 'mark-ready': VE, submittals: N, compliance: N, reports: N,
     dashboard: V, projects: V, customers: N, directory: V, files: V, equipment: VCE, materials: VCE, approvals: V,
+    // The crew does not hand the owner a billing portal. Explicit N rather than
+    // absent: a resource a role never names resolves to nothing, and "nothing"
+    // is indistinguishable from an oversight.
+    'client-portal': N,
     settings_company: N, settings_team: N, settings_billing: N,
   },
 
@@ -170,6 +192,7 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
     invoices: N, payments: N, budget: N, margin: N, quotes: N, 'request-quotes': N, financials: N, 'change-orders': N,
     permits: N, inspections: N, 'mark-ready': VE, submittals: N, compliance: N, reports: N,
     dashboard: V, projects: V, customers: N, directory: N, files: V, equipment: VC, materials: VC, approvals: V,
+    'client-portal': N,
     settings_company: N, settings_team: N, settings_billing: N,
   },
 
@@ -179,6 +202,11 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
     invoices: N, payments: N, budget: N, margin: N, quotes: N, 'request-quotes': N, financials: N, 'change-orders': N,
     permits: N, inspections: N, 'mark-ready': VE, submittals: N, compliance: N, reports: N,
     dashboard: V, projects: V, customers: N, directory: V, files: V, equipment: V, materials: V, approvals: V,
+    // This is the VENDOR role - an invited subcontractor. The client portal
+    // carries the GC's invoices to their client; a sub on the job has no
+    // business anywhere near it, and the company check on the routes is the
+    // other half of saying so.
+    'client-portal': N,
     settings_company: N, settings_team: N, settings_billing: N,
   },
 }

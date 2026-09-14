@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
 
 export const runtime = 'nodejs'
 
@@ -22,26 +23,25 @@ const admin = () => createClient(
  * Only the code that actually hands the link over writes these columns: this
  * route for a copy, and the send route for a confirmed email.
  *
- * Gated the same way as the sibling portal-token routes - signed in. It writes
- * one timestamp about a link the caller can already read and re-mint from the
- * route next door, so a heavier gate here would guard nothing while leaving the
- * stronger door open. Tightening the whole portal-token family is its own job
- * and is in BACKLOG.md.
+ * `view` and the company check, same as the rest of the family: you can only
+ * have copied a link you were allowed to see, and only on a job that is yours.
+ * (This route shipped matching its siblings' signed-in-only gate, on the
+ * argument that a heavier gate on a timestamp guards nothing while the mint
+ * next door stays open. The mint is gated now, so this is too.)
  */
 export async function POST(request: Request, { params }: { params: { id: string } }) {
-  const auth = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(auth)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const gate = await requirePermission(db, request, 'client-portal', 'view')
+  if (denied(gate)) return gate.denied
 
   // There has to BE a link for one to have been copied. Without this a stray
   // call would mark a job shared that has nothing to share.
-  const { data: project } = await db.from('projects')
-    .select('client_portal_token').eq('id', params.id).maybeSingle()
-  if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 })
-  if (!(project as any).client_portal_token) {
+  const owned = await ownedProject<{ client_portal_token: string | null }>(
+    db, gate.actor, params.id, 'client_portal_token',
+  )
+  if ('denied' in owned) return owned.denied
+  if (!owned.project.client_portal_token) {
     return NextResponse.json({ error: 'There is no share link on this job yet.' }, { status: 400 })
   }
 

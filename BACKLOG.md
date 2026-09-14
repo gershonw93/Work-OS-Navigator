@@ -9,14 +9,11 @@ move it to **In progress**, and when it ships, move it to **Done** with the PR #
 
 ## 🔐 The rest of the /api surface is un-audited
 
-**The portal-token family is on this list.** `/api/projects/[id]/portal-token`
-POST MINTS a new client-portal token - invalidating any link the client is
-holding - and checks only that you are signed in, with no project-ownership or
-permission check at all. GET and the new `shared` sibling are the same. The new
-route was written to match rather than to be the one tightened door, because a
-heavier gate on a timestamp guards nothing while the mint next to it stays open.
-Gate the whole family together: `projects: edit` for mint, something lighter for
-read.
+**The portal-token family is done (#450)** - `client-portal` as its own
+resource, `ownedProject` on every route, and create split from regenerate. It is
+worth reading as the worked example for the rest: the ability goes in
+`RESOURCES`, the company check is opt-in per route via `lib/api-guard.ts`, and
+the UI hides a control only when the permissions answer is KNOWN.
 
 `middleware.ts` returns early for every `/api/` path, so **each route is on its
 own for authorisation**. `lib/api-guard.ts` says 152 routes accept writes and 7
@@ -445,6 +442,7 @@ belongs in its own pass rather than buried in this one.
 - Sellout → projected profit on the budget, and total sellout vs total cost across a site's units (#221)
 - Status badge is a switch, with a data-driven pre-flight before a job goes Active; project PATCH/DELETE permission-gated (#219)
 - The clock-in geofence reads the coordinates the app actually writes (it had always read a second, empty pair of columns), a stale pin is refused rather than measured against, the job site can be set by hand from the map or from where you are standing, and a geocoder is no longer asked a question too vague to have one answer (#446)
+- The client-portal link family is permission-gated: `client-portal` is its own resource with view/create/replace, every route also checks the job is your company's, and replacing a live link needs an explicit flag rather than any second POST (#450)
 - Setup checklist: "Give the client their link" reads the client portal instead of counting documents sent from the Sharing tab, its CTA opens the share box instead of the wrong page, and copying the link counts as sharing it (#448)
 - Bulk project creation rebuilt: sites (parent/child projects), unit + floor as real fields, floor-by-floor mode for commercial, server-side geocoding so batches reach the map, entry point on the Projects page (#218)
 - Budget categories: 49 trades in build order + custom categories that persist across jobs (#217)
