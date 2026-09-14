@@ -197,6 +197,16 @@ export const clearsBooking = (status: unknown): boolean =>
   status === 'not_scheduled' || status === 'requested'
 
 /**
+ * Columns that stop meaning anything the moment the booking changes.
+ *
+ * `ready_reminder_sent_at` is the once-per-booking gate on the not-ready
+ * warning. Move a visit to next month and a spent gate would mean the warning
+ * never comes again for the new date - a reminder that fires once per ROW
+ * rather than once per BOOKING is a reminder you cannot rely on.
+ */
+export const BOOKING_DERIVED_COLUMNS = ['ready_reminder_sent_at'] as const
+
+/**
  * ...and the other half of the same rule: WHO MAY CARRY A COMPLETION DATE.
  *
  * `clearsCompletion` only fires on a status MOVE, so it never saw the door the
@@ -210,6 +220,52 @@ export const clearsBooking = (status: unknown): boolean =>
  * A completion date belongs to a finished inspection and to nothing else. The
  * date and the result move together or neither moves.
  */
+/**
+ * WHOSE INSPECTION IS COMING AND IS NOT READY.
+ *
+ * THE GAP. "If the inspection date is approaching and it's not ready, who gets
+ * notified?" - nobody. The only scheduled job in the app was compliance
+ * reminders, so a visit booked for Friday that nobody had marked ready was
+ * silent right up to the morning the inspector turned up.
+ *
+ * TWO DAYS, and the number is the point: it is long enough to finish the work
+ * or ring the jurisdiction and move the trip, and short enough that the warning
+ * is about THIS visit rather than a diary entry. Marked ready silences it - a
+ * bell that fires about work that is done is one people stop opening.
+ *
+ * Pure, so the cron and the tests ask one function.
+ */
+export const READY_REMINDER_DAYS = 2
+
+export interface ReminderCandidate {
+  status?: string | null
+  scheduled_date?: string | null
+  ready_marked_by?: string | null
+  ready_reminder_sent_at?: string | null
+}
+
+export function needsReadyReminder(i: ReminderCandidate, today: string): boolean {
+  // Nothing to warn about on a visit that has happened, or one nobody booked.
+  if (!isInspectionStatus(i.status) || CLOSED.includes(i.status) || isVoid(i.status)) return false
+  const booked = i.scheduled_date ? String(i.scheduled_date).slice(0, 10) : ''
+  if (!booked) return false
+  // The work is done. Say nothing.
+  if (i.ready_marked_by && String(i.ready_marked_by).trim()) return false
+  // Once per booking. Re-booking clears the stamp, which re-arms it.
+  if (i.ready_reminder_sent_at) return false
+  if (booked < today) return false
+  return booked <= addDaysIso(today, READY_REMINDER_DAYS)
+}
+
+/** Date-only arithmetic that never goes through UTC. */
+export function addDaysIso(iso: string, days: number): string {
+  const [y, m, d] = iso.slice(0, 10).split('-').map(Number)
+  const dt = new Date(y, (m ?? 1) - 1, d ?? 1)
+  dt.setDate(dt.getDate() + days)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`
+}
+
 export const canCarryCompletion = (status: unknown): boolean =>
   isInspectionStatus(status) && CLOSED.includes(status)
 

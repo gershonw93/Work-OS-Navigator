@@ -48,6 +48,35 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    date: '2026-09-14',
+    title: 'A warning before an inspection nobody has marked ready',
+    items: [
+      {
+        kind: 'new',
+        title: 'Told two days before, when the work is not ready',
+        text: 'Until now nothing warned you: an inspection booked for Friday that nobody had marked ready was silent right up to the morning the inspector turned up. Two days out you get told, with time to finish the work or ring the jurisdiction and move the trip. Marking it ready silences it. Who hears is yours to set in Settings \u2192 Notifications \u2192 Who gets told, and each person has their own bell and email switches for it.',
+        help: 'inspections',
+      },
+      {
+        kind: 'new',
+        title: '"Mark work ready" is its own permission',
+        text: 'Running inspections is office work; saying the work is finished is a report from the site, and the people who can honestly make it - a field supervisor, a worker, a sub - could not see the Inspections tab at all. It is a separate row in the roles matrix now, on by default for everyone who had it, so you can grant or take it away without handing over the whole tab.',
+        help: 'roles-permissions',
+      },
+      {
+        kind: 'fixed',
+        title: 'Marking ready can be undone',
+        text: 'There was no way back - a wrong press was permanent. The \u2022\u2022\u2022 menu now has "Not ready any more". It tells nobody and it is recorded in Job History, so the record shows the claim and its withdrawal.',
+        help: 'inspections',
+      },
+      {
+        kind: 'fixed',
+        title: 'Row menus no longer hide behind the bottom bar',
+        text: 'On a phone, opening the \u2022\u2022\u2022 on a card near the bottom of the screen put the last items - Void, usually - underneath the tab bar, where nothing could reach them and scrolling did not help. The menu now opens upward when there is no room below.',
+      },
+    ],
+  },
+  {
     date: '2026-09-11',
     title: 'The job calendar shows the job, not just the schedule',
     items: [

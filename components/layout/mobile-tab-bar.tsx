@@ -75,6 +75,7 @@ export function MobileTabBar() {
 
   return (
     <nav
+      data-bottom-nav
       className="lg:hidden fixed bottom-0 inset-x-0 z-30 border-t border-line bg-panel/95 backdrop-blur supports-[backdrop-filter]:bg-panel/80 pb-safe px-safe print:hidden"
       aria-label="Main"
     >

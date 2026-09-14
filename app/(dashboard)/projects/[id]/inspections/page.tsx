@@ -443,12 +443,30 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
   }
 
   async function markReady(insp: Inspection) {
+    await setReady(insp, currentUser)
+  }
+
+  /**
+   * Ready, and UN-ready. There was no way back: both columns were on the
+   * route's whitelist the whole time and nothing in the app ever sent a null,
+   * so a wrong press was permanent and the office had pressed it.
+   */
+  async function setReady(insp: Inspection, who: string | null) {
+    setActionError(null)
     const token = await getToken()
-    await fetch(`/api/projects/${params.id}/inspections/${insp.id}`, {
+    const res = await fetch(`/api/projects/${params.id}/inspections/${insp.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ ready_marked_by: currentUser, ready_marked_at: new Date().toISOString() }),
+      body: JSON.stringify({
+        ready_marked_by: who,
+        ready_marked_at: who ? new Date().toISOString() : null,
+      }),
     })
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}))
+      setActionError(d?.error ?? `That did not save (${res.status}).`)
+      return
+    }
     fetchInspections()
   }
 
@@ -785,6 +803,11 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
                       {booked && (
                         <MenuItem onClick={() => { updateStatus(insp, 'requested'); close() }}>
                           <Undo2 className="h-3.5 w-3.5" /> Back to requested — clears the booking
+                        </MenuItem>
+                      )}
+                      {insp.ready_marked_by && !isVoid(insp.status) && (
+                        <MenuItem onClick={() => { setReady(insp, null); close() }}>
+                          <Undo2 className="h-3.5 w-3.5" /> Not ready any more
                         </MenuItem>
                       )}
                       <MenuItem onClick={() => { openEditInsp(insp); close() }}>

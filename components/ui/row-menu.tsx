@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { hintPosition } from '@/lib/hint-position'
 import { MoreHorizontal } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -22,7 +23,29 @@ import { cn } from '@/lib/utils'
 // with the page rather than being pinned to a measured position - which is why
 // it needs no `data-overlay` and must not freeze the app behind it. A menu you
 // cannot scroll away from is a dialog wearing a menu's clothes.
+//
+// ...BUT IT STILL HAS TO KNOW WHERE THE SCREEN ENDS. Reported as "I can't
+// scroll down to see the whole card": the panel was `z-20`, always `mt-1` below
+// the trigger, with no flip and no idea how much room was left. The phone tab
+// bar is `fixed bottom-0 z-30`, so a menu opened near the bottom painted UNDER
+// it and its last items - Void, in the case reported - could not be reached at
+// all. Scrolling does not help, because the bar is pinned to the viewport.
+//
+// So: flip above the trigger when there is no room below, and stop counting the
+// strip the bottom nav is sitting on as room. `z-40` clears that bar and the
+// desktop sidebar (both `z-30`) and stays under the phone drawer (`z-50`).
 // ─────────────────────────────────────────────────────────────────────────────
+
+/** The visible strip, minus any fixed bottom nav parked on top of it. */
+function usableHeight(): number {
+  if (typeof window === 'undefined') return 0
+  const h = window.innerHeight
+  const nav = document.querySelector('[data-bottom-nav]')
+  if (!nav) return h
+  const r = nav.getBoundingClientRect()
+  // Only when it is actually parked at the bottom of THIS viewport.
+  return r.height > 0 && r.bottom >= h - 1 ? Math.max(0, r.top) : h
+}
 
 export function RowMenu({
   label,
@@ -36,7 +59,28 @@ export function RowMenu({
   children: (close: () => void) => ReactNode
 }) {
   const [open, setOpen] = useState(false)
+  const [above, setAbove] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+
+  // Measured before paint, or the menu is drawn in the wrong place and jumps.
+  useLayoutEffect(() => {
+    if (!open) return
+    const t = triggerRef.current?.getBoundingClientRect()
+    const p = panelRef.current?.getBoundingClientRect()
+    if (!t || !p) return
+    // `hintPosition` already decides fits-below / fits-above, and it was
+    // written for the tooltip that had this exact fault. Only its verdict is
+    // used: this panel is `absolute` and anchored to an edge, so it works out
+    // its own horizontal place.
+    const { above: flip } = hintPosition(
+      { left: t.left, top: t.top, right: t.right, bottom: t.bottom },
+      { width: p.width, height: p.height },
+      { width: window.innerWidth, height: usableHeight() },
+    )
+    setAbove(flip)
+  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -55,6 +99,7 @@ export function RowMenu({
   return (
     <div ref={ref} className="relative shrink-0">
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen(o => !o)}
         aria-haspopup="menu"
@@ -69,9 +114,11 @@ export function RowMenu({
       </button>
       {open && (
         <div
+          ref={panelRef}
           role="menu"
           className={cn(
-            'absolute z-20 mt-1 overflow-hidden rounded-xl border border-line bg-panel py-1 shadow-lg lg:rounded-lg',
+            'absolute z-40 overflow-hidden rounded-xl border border-line bg-panel py-1 shadow-lg lg:rounded-lg',
+            above ? 'bottom-full mb-1' : 'top-full mt-1',
             // A fixed `w-52` hanging off the right edge ran off the LEFT of a
             // narrow row. It takes the space it needs and no more than the
             // screen, and the viewport gutter is the floor.

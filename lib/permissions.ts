@@ -43,6 +43,16 @@ export const RESOURCES: ResourceDef[] = [
   { key: 'progress',       label: 'Progress',       group: 'Field', slug: 'progress' },
   { key: 'daily-logs',     label: 'Daily Logs',     group: 'Field', slug: 'daily-logs' },
   { key: 'time',           label: 'Time Clock',     group: 'Field', slug: 'time' },
+  // Split out of `inspections` for the same reason `margin` was split out of
+  // `budget`: they are different questions. RUNNING inspections - requesting,
+  // booking, recording a result - is an office job, and `inspections` stays the
+  // permission for it. Saying THE WORK IS FINISHED is a report from the site,
+  // and the people who can honestly make it (a field supervisor, a worker, a
+  // sub) all have `inspections: N`. While it was one permission there was no
+  // way to let the crew say they were done without handing them the tab.
+  //
+  // It has no `slug`: there is no screen behind it, only a button.
+  { key: 'mark-ready',     label: 'Mark work ready for inspection', group: 'Field' },
   // People
   { key: 'team',           label: 'Subs & Team',    group: 'Buyout', slug: 'team' },
   { key: 'bids',           label: 'Quotes & Bids',  group: 'Buyout', slug: 'request-quotes' },
@@ -129,7 +139,7 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
     plans: FULL, schedule: FULL, tasks: FULL, progress: FULL, 'daily-logs': FULL, time: FULL,
     team: VE, bids: FULL, rfis: FULL,
     invoices: VE, 'pay-apps': FULL, payments: VE, budget: FULL, margin: N, quotes: FULL, 'request-quotes': FULL, financials: N, 'change-orders': FULL,
-    permits: FULL, inspections: FULL, submittals: FULL, compliance: V, reports: N,
+    permits: FULL, inspections: FULL, 'mark-ready': VE, submittals: FULL, compliance: V, reports: N,
     dashboard: V, projects: VCE, customers: VE, directory: V, files: FULL, equipment: FULL, materials: FULL, approvals: VE,
     // View, not edit: the old check let them OPEN Company settings, and that is
     // what this preserves. Not the Danger Zone, which needs delete.
@@ -140,7 +150,7 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
     plans: V, schedule: V, tasks: V, progress: V, 'daily-logs': V, time: VC,
     team: V, bids: V, rfis: V,
     invoices: FULL, 'pay-apps': FULL, payments: FULL, budget: FULL, margin: N, quotes: FULL, 'request-quotes': FULL, financials: V, 'change-orders': FULL,
-    permits: VE, inspections: VE, submittals: VE, compliance: FULL, reports: V,
+    permits: VE, inspections: VE, 'mark-ready': VE, submittals: VE, compliance: FULL, reports: V,
     dashboard: V, projects: V, customers: VE, directory: V, files: FULL, equipment: FULL, materials: FULL, approvals: VE,
     settings_company: V, settings_team: N, settings_billing: N,
   },
@@ -149,7 +159,7 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
     plans: V, schedule: V, tasks: VE, progress: VE, 'daily-logs': VCE, time: VCE,
     team: V, bids: N, rfis: V,
     invoices: N, payments: N, budget: N, margin: N, quotes: N, 'request-quotes': N, financials: N, 'change-orders': N,
-    permits: N, inspections: N, submittals: N, compliance: N, reports: N,
+    permits: N, inspections: N, 'mark-ready': VE, submittals: N, compliance: N, reports: N,
     dashboard: V, projects: V, customers: N, directory: V, files: V, equipment: VCE, materials: VCE, approvals: V,
     settings_company: N, settings_team: N, settings_billing: N,
   },
@@ -158,7 +168,7 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
     plans: V, schedule: N, tasks: VE, progress: V, 'daily-logs': VC, time: VC,
     team: N, bids: N, rfis: N,
     invoices: N, payments: N, budget: N, margin: N, quotes: N, 'request-quotes': N, financials: N, 'change-orders': N,
-    permits: N, inspections: N, submittals: N, compliance: N, reports: N,
+    permits: N, inspections: N, 'mark-ready': VE, submittals: N, compliance: N, reports: N,
     dashboard: V, projects: V, customers: N, directory: N, files: V, equipment: VC, materials: VC, approvals: V,
     settings_company: N, settings_team: N, settings_billing: N,
   },
@@ -167,7 +177,7 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
     plans: V, schedule: V, tasks: V, progress: V, 'daily-logs': V, time: VC,
     team: V, bids: N, rfis: V,
     invoices: N, payments: N, budget: N, margin: N, quotes: N, 'request-quotes': N, financials: N, 'change-orders': N,
-    permits: N, inspections: N, submittals: N, compliance: N, reports: N,
+    permits: N, inspections: N, 'mark-ready': VE, submittals: N, compliance: N, reports: N,
     dashboard: V, projects: V, customers: N, directory: V, files: V, equipment: V, materials: V, approvals: V,
     settings_company: N, settings_team: N, settings_billing: N,
   },
