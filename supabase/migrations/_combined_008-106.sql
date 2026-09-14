@@ -2650,3 +2650,17 @@ ALTER TABLE time_entries ADD COLUMN IF NOT EXISTS clock_out_fix TEXT;
 -- to a street in east London.
 ALTER TABLE projects DROP COLUMN IF EXISTS latitude;
 ALTER TABLE projects DROP COLUMN IF EXISTS longitude;
+
+-- ── 106: the portal was shared, or it was not ───────────────────────────────
+-- The setup checklist's last step, "Give the client their link", counted rows
+-- in `file_shares` - which is the Sharing TAB, sending this job's paperwork to
+-- an expeditor or a lender. A different feature and a different table, so a job
+-- whose client portal HAD been shared read "Not shared yet" for ever.
+--
+-- Not `client_portal_token IS NOT NULL` either: the share dialog mints a token
+-- on open, so that would claim a share for anybody who merely looked. These are
+-- written only by the code that hands the link over - a confirmed email send,
+-- or a copy.
+ALTER TABLE projects
+  ADD COLUMN IF NOT EXISTS portal_shared_at  timestamptz,
+  ADD COLUMN IF NOT EXISTS portal_shared_how text;

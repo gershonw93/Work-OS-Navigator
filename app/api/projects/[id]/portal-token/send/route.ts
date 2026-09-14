@@ -75,5 +75,18 @@ export async function POST(request: Request, { params }: { params: { id: string 
     }, { status: 200 })
   }
 
+  // The send is what "we gave the client their link" MEANS, so this is where
+  // the fact is written - never a column default, and never inferred from the
+  // token existing (the dialog mints one on open, so that would claim a share
+  // for anybody who merely looked). The setup checklist reads it.
+  //
+  // After the send, not before: a stamp written ahead of a send that fails
+  // claims something that did not happen. Best-effort - the email HAS gone, so
+  // a failure to record it must not turn a successful send into an error.
+  const { error: stampErr } = await db.from('projects')
+    .update({ portal_shared_at: new Date().toISOString(), portal_shared_how: 'email' })
+    .eq('id', params.id)
+  if (stampErr) console.error(`[portal] sent to ${to} but could not record the share: ${stampErr.message}`)
+
   return NextResponse.json({ sent: true, to })
 }

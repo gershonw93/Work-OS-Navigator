@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Share2, X, Copy, Check, Loader2, Send, RotateCcw } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { headerIconButton } from './header-icon-button'
@@ -49,6 +49,17 @@ export function SharePortalButton({ projectId }: SharePortalButtonProps) {
     return { Authorization: `Bearer ${session?.access_token ?? ''}` }
   }
 
+  // The setup checklist's last step is this dialog, and a checklist item that
+  // navigated to the Sharing TAB instead (a different feature - sending
+  // paperwork to an expeditor) is what sent somebody to the wrong page. There
+  // is no URL for a header dialog, so the step asks for it by event.
+  useEffect(() => {
+    const onAsk = () => { handleOpen() }
+    window.addEventListener('sytenav:share-portal', onAsk)
+    return () => window.removeEventListener('sytenav:share-portal', onAsk)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [portalUrl])
+
   async function handleOpen() {
     setOpen(true)
     setSend({ kind: 'idle' })
@@ -96,6 +107,19 @@ export function SharePortalButton({ projectId }: SharePortalButtonProps) {
     await navigator.clipboard.writeText(portalUrl)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+    // Copying IS how most people share this - into a text, into their own
+    // email - and it used to leave no trace, so the setup checklist had no way
+    // to tell a shared portal from an untouched one. Recorded after the
+    // clipboard write succeeded, never before it.
+    try {
+      await fetch(`/api/projects/${projectId}/portal-token/shared`, {
+        method: 'POST', headers: await authHeader(),
+      })
+      window.dispatchEvent(new Event('sytenav:portal-shared'))
+    } catch {
+      // The link is on their clipboard either way. A checklist that stays on
+      // 9/10 is not worth interrupting a copy over.
+    }
   }
 
   async function handleSend(e: React.FormEvent) {
@@ -115,6 +139,8 @@ export function SharePortalButton({ projectId }: SharePortalButtonProps) {
         return
       }
       setSend({ kind: 'sent', to: d.to ?? to })
+      // The route records the share; tell the checklist to re-read it.
+      window.dispatchEvent(new Event('sytenav:portal-shared'))
     } catch {
       setSend({ kind: 'failed', message: 'Network error - copy the link and send it yourself.' })
     }

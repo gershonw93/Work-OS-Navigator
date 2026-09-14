@@ -49,6 +49,30 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-16',
+    title: 'The setup checklist knows you shared the client portal',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'Sharing the client portal never ticked the last step',
+        text: 'The final item on a job\u2019s setup checklist \u2013 \u201CGive the client their link\u201D \u2013 was counting something else entirely: documents sent from the Sharing tab, which is for getting paperwork to an expeditor or a lender. So a job whose client portal had been shared sat on 9 of 10 for ever, and the only way to finish the checklist was to send somebody a file. It now reads the portal itself.',
+        help: 'client-portal',
+      },
+      {
+        kind: 'fixed',
+        title: '\u201CShare the portal\u201D opened the wrong page',
+        text: 'Pressing it on the checklist took you to the Sharing tab \u2013 sending documents outside your company \u2013 rather than the client portal. It now opens the Share with Client box straight away, wherever you press it from.',
+        help: 'client-portal',
+      },
+      {
+        kind: 'improved',
+        title: 'Copying the link counts as sharing it',
+        text: 'Most people share the portal by copying the link into a text or their own email, and that used to leave no trace. Copy or Send now both count, and the checklist ticks on the spot. A link you have only looked at does not count \u2013 it says \u201Ca link exists, but nothing has been sent from here yet\u201D, which is a different thing from never having shared it.',
+        help: 'client-portal',
+      },
+    ],
+  },
+  {
+    date: '2026-09-16',
     title: 'Clock-in location checks actually work, and you can place a job yourself',
     items: [
       {

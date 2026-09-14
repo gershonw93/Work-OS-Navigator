@@ -56,6 +56,14 @@ export function SetupChecklist({ projectId }: { projectId: string }) {
     return () => window.removeEventListener('sytenav:setup-visibility', onChange)
   }, [load])
 
+  // The share dialog lives beside this in the project header and writes the
+  // fact the last step reads. Without this the step stays untidily unticked
+  // until the next navigation, which reads as the share not having counted.
+  useEffect(() => {
+    window.addEventListener('sytenav:portal-shared', load)
+    return () => window.removeEventListener('sytenav:portal-shared', load)
+  }, [load])
+
   const setDismissedOnServer = useCallback(async (next: boolean) => {
     const { data: { session } } = await supabase.auth.getSession()
     await fetch(`/api/projects/${projectId}/setup`, {
@@ -182,7 +190,7 @@ export function SetupChecklist({ projectId }: { projectId: string }) {
               </p>
               <ol className="space-y-2">
                 {data.steps.map((s, i) => (
-                  <Step key={s.key} step={s} index={i + 1} projectId={projectId} />
+                  <Step key={s.key} step={s} index={i + 1} projectId={projectId} onClose={close} />
                 ))}
               </ol>
             </div>
@@ -192,10 +200,19 @@ export function SetupChecklist({ projectId }: { projectId: string }) {
                 Hide this checklist
               </button>
               {data.next && (
-                <a href={`/projects/${projectId}/${data.next.href}`}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-accent-ink hover:bg-accent/90">
-                  {data.next.cta} <ArrowRight className="h-3.5 w-3.5" />
-                </a>
+                data.next.action
+                  ? (
+                    <button type="button" onClick={() => { close(); fireAction(data.next!.action!) }}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-accent-ink hover:bg-accent/90">
+                      {data.next.cta} <ArrowRight className="h-3.5 w-3.5" />
+                    </button>
+                  )
+                  : (
+                    <a href={`/projects/${projectId}/${data.next.href}`}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-accent-ink hover:bg-accent/90">
+                      {data.next.cta} <ArrowRight className="h-3.5 w-3.5" />
+                    </a>
+                  )
               )}
             </div>
           </div>
@@ -205,7 +222,22 @@ export function SetupChecklist({ projectId }: { projectId: string }) {
   )
 }
 
-function Step({ step, index, projectId }: { step: SetupStep; index: number; projectId: string }) {
+/**
+ * A step whose CTA is not a link.
+ *
+ * "Give the client their link" is a dialog in the project header, not a tab.
+ * Pointing its href at `sharing` sent people to the document-sending page -
+ * reported as "this page is if you wanna send docs to someone". A header dialog
+ * has no URL, so the step asks for it by event and the drawer gets out of the
+ * way first.
+ */
+function fireAction(action: NonNullable<SetupStep['action']>) {
+  window.dispatchEvent(new Event(`sytenav:${action}`))
+}
+
+function Step({ step, index, projectId, onClose }: {
+  step: SetupStep; index: number; projectId: string; onClose: () => void
+}) {
   return (
     <li className={cn(
       'rounded-lg border px-3 py-2.5',
@@ -232,10 +264,19 @@ function Step({ step, index, projectId }: { step: SetupStep; index: number; proj
           <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
             <span className="text-[11px] text-faint">{step.detail}</span>
             {!step.done && (
-              <a href={`/projects/${projectId}/${step.href}`}
-                className="text-xs font-semibold text-accent-fg hover:underline">
-                {step.cta} →
-              </a>
+              step.action
+                ? (
+                  <button type="button" onClick={() => { onClose(); fireAction(step.action!) }}
+                    className="text-xs font-semibold text-accent-fg hover:underline">
+                    {step.cta} →
+                  </button>
+                )
+                : (
+                  <a href={`/projects/${projectId}/${step.href}`}
+                    className="text-xs font-semibold text-accent-fg hover:underline">
+                    {step.cta} →
+                  </a>
+                )
             )}
           </div>
         </div>
