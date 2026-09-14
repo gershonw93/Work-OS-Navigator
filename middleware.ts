@@ -2,6 +2,8 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { APP_URL, SITE_URL, splitHosts, isAppPath, isMarketingPath } from '@/lib/hosts'
 import { CANONICAL_ORIGIN, isIndexableHost, isSiteVerificationPath, shouldRedirectToCanonical } from '@/lib/canonical'
+import { checkAuth } from '@/lib/supabase/auth-check'
+import { treatAsSignedIn } from '@/lib/auth-outcome'
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
@@ -73,17 +75,30 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // Bounded, so a slow auth server degrades instead of timing out the whole
-  // request. On timeout `user` is null and the only consequence is that the
-  // convenience redirects below do not fire - the page still renders and its
-  // own checks still apply. Middleware routing is UX, not the security
-  // boundary; API routes and server queries verify independently.
+  // THE COMMENT HERE USED TO SAY the only consequence of a timeout was that
+  // "the convenience redirects below do not fire - the page still renders".
+  // That was never true of the code beneath it. A timeout produced `user =
+  // null`, `!user && isProtectedRoute` is the first of those redirects, and it
+  // fires on exactly that null - so a slow auth server did not degrade, it
+  // SIGNED PEOPLE OUT. Reported as "I'm having a hard time logging in now -
+  // it's blank or just loading forever": the sign-in POST returned 200, the
+  // /dashboard that followed it 307'd back to /login, three times in ninety
+  // seconds, while Supabase's gateway 502'd the verification the auth server
+  // behind it was answering in 3ms.
+  //
+  // So the third answer is carried rather than flattened. 'unknown' means the
+  // question could not be asked, and NOTHING below may route on it as though
+  // it were a verdict. One attempt only: middleware has somewhere better to
+  // put an 'unknown' than a second wait - hand the request to the page, which
+  // asks again itself.
+  //
+  // Still bounded, and still UX rather than a security boundary: API routes
+  // and server queries verify independently.
   const AUTH_TIMEOUT_MS = 3000
-  const { data: { user } } = await Promise.race([
-    supabase.auth.getUser(),
-    new Promise<{ data: { user: null } }>(resolve =>
-      setTimeout(() => resolve({ data: { user: null } }), AUTH_TIMEOUT_MS)),
-  ])
+  const { outcome, user } = await checkAuth(supabase, { timeoutMs: AUTH_TIMEOUT_MS })
+  // When we cannot tell, guess signed in - see treatAsSignedIn. A wrong "yes"
+  // costs one extra hop; a wrong "no" is the loop above.
+  const maybeSignedIn = treatAsSignedIn(outcome)
 
   // ── Host split ────────────────────────────────────────────────────────────
   // sytenav.com is the marketing site and nothing else; the product lives on
@@ -98,7 +113,7 @@ export async function middleware(request: NextRequest) {
     const appHost = new URL(APP_URL).host
     const onAppHost = host === appHost
 
-    if (!onAppHost && (isAppPath(pathname) || (user && pathname === '/'))) {
+    if (!onAppHost && (isAppPath(pathname) || (maybeSignedIn && pathname === '/'))) {
       return NextResponse.redirect(new URL(pathname + request.nextUrl.search, APP_URL))
     }
 
@@ -115,7 +130,7 @@ export async function middleware(request: NextRequest) {
     // homepage on one, the dashboard on the other.
     if (onAppHost && pathname === '/') {
       const url = request.nextUrl.clone()
-      url.pathname = user ? '/dashboard' : '/login'
+      url.pathname = maybeSignedIn ? '/dashboard' : '/login'
       return NextResponse.redirect(url)
     }
 
@@ -139,7 +154,9 @@ export async function middleware(request: NextRequest) {
   const isAuthRoute = pathname === '/login' || pathname === '/signup'
   const isRoot = pathname === '/'
 
-  if (!user && isProtectedRoute) {
+  // `!maybeSignedIn`, not `!user`: this is the line that was bouncing people
+  // whose session was fine and whose verification had merely failed to arrive.
+  if (!maybeSignedIn && isProtectedRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
@@ -150,6 +167,9 @@ export async function middleware(request: NextRequest) {
   // name: it reads the name from the homepage of the DOMAIN, the root returned
   // a 307 to /homepage, and every naming signal lived on the redirect target.
 
+  // A VERIFIED user only. An 'unknown' must not push anyone OFF the login
+  // page either: somebody whose session really has gone needs to be able to
+  // stand on /login and use it while the auth gateway is flapping.
   if (user && (isAuthRoute || isRoot)) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'

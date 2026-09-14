@@ -736,6 +736,29 @@ production branch.** Do NOT ask the user to merge or deploy.
   requirements for its trade.
 
 ## Loading and failure states (IMPORTANT)
+- **AND ONE LAYER DOWN IT IS NOT A BUTTON, IT IS THE SESSION.** Every gate in
+  the app was `const { data: { user } } = await getUser(); if (!user)
+  redirect('/login')`. `user` is null when nobody is signed in AND when the
+  question could not be asked, the `error` beside it was dropped, and the
+  answer to both was the login screen. Reported as "I'm having a hard time
+  logging in now - it's blank or just loading forever", and the password was
+  never wrong: `POST /auth/v1/token` 200, `GET /dashboard` **307 back to
+  /login**, three times in ninety seconds, then the password reset page -
+  twice. Supabase's auth server was answering `/user` in 2-4ms throughout; the
+  502s and 504s came off the gateway in front of it and never reached it. The
+  middleware's own comment claimed a timeout only meant "the convenience
+  redirects do not fire - the page still renders", but `!user &&
+  isProtectedRoute` IS one of those redirects, so the bound that was supposed
+  to degrade gracefully signed people out instead. Three answers now
+  (`lib/auth-outcome.ts`): a 4xx is a verdict about the token and may be
+  believed; a 5xx, a status of 0, an `AuthRetryableFetchError` or a timeout is
+  a failure to ask and says NOTHING. **When it says nothing, guess signed IN** -
+  a wrong "signed in" is corrected by the page asking again a moment later,
+  while a wrong "signed out" has already thrown away the only thing that could
+  correct it. Middleware asks once and carries an `unknown` to the page; a
+  layout asks twice (the blips are a few hundred ms in front of a 3ms server)
+  and then renders `AuthUnavailable`, which says it is not your password,
+  because the trace shows the reset page being opened twice.
 - A permissions check that FAILED answers exactly like being denied - `can()`
   is `!!perms?.[r]?.[a]` and `perms` is null either way - so a bad minute of
   signal took the Upload button off the Plans tab with nothing to say why

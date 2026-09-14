@@ -222,8 +222,8 @@ Shipped in #218: bulk creation makes a site + a job per unit/floor/house, with a
 ---
 
 ## ⚡ Performance
-- **Audit what else middleware does per-request.** Removing `supabase.auth.getUser()` from `/api/*` cut a network auth round trip off every API call. The remaining page requests still pay for it; consider whether the routing decisions could use a cheap cookie presence check and leave real verification to the page.
-- **The 3s auth timeout in middleware fails OPEN** - on timeout `user` is null, so the convenience redirects do not fire and the page renders. Fine because pages and API routes verify independently, but worth revisiting if middleware ever becomes a real gate.
+- **Middleware still pays a network auth round trip on every page request.** Removing `supabase.auth.getUser()` from `/api/*` cut one off every API call; pages still have theirs, and it is the single biggest source of the gateway blips that caused #442. Middleware routing is UX by its own admission - every page, route and query verifies for itself - so the decision could come from the session cookie (a local `exp` read, no network) and leave verification to the page. That would take the hop off the hot path AND make the front door immune to the auth gateway entirely. Not done in #442 because the failure mode was already closed there and this changes the front door for everybody.
+- ~~**The 3s auth timeout in middleware fails OPEN** - on timeout `user` is null, so the convenience redirects do not fire and the page renders.~~ **THIS WAS WRONG, and it was the bug in #442.** `!user && isProtectedRoute` is one of "the convenience redirects", and it fires on exactly that null - so the timeout failed CLOSED and signed people out. Fixed: the check reports `signed-in` / `signed-out` / `unknown` (`lib/auth-outcome.ts`) and only a verdict routes.
 - **Other pages with bare `await fetch()` and no catch** will hang their save buttons the same way the schedule page did. `saveRequest` in `app/(dashboard)/projects/[id]/schedule/page.tsx` is the pattern; it should move to `lib/` and be applied broadly.
 
 ## 🧹 Error handling

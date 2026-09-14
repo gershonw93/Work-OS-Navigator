@@ -1340,6 +1340,27 @@ export const HELP_ARTICLES: HelpArticle[] = [
     related: ['delete-protection', 'permissions'],
   },
   {
+    slug: 'trouble-signing-in',
+    title: 'Signing in sends you back to the sign-in screen',
+    category: 'settings',
+    keywords: ['login', 'log in', 'sign in', 'cant log in', 'can\'t sign in', 'blank screen', 'loading forever',
+      'stuck', 'password not working', 'keeps logging me out', 'bounced back', 'spinning', 'white screen'],
+    summary: 'What to do when signing in appears to work but lands you back on the sign-in page.',
+    blocks: [
+      { type: 'text', text: 'If you enter your email and password, nothing complains, and you end up looking at the sign-in screen again - or at a blank page that never finishes loading - it is almost certainly not your password. Do not reset it.' },
+      { type: 'text', text: 'Every time SyteNav opens a page it asks the sign-in service to confirm who you are. That check takes a few thousandths of a second normally, but if it cannot get through, the app used to assume you were signed out and send you back to sign in - where signing in worked, and the next page asked again, and bounced you again.' },
+      { type: 'steps', items: [
+        'Wait a few seconds and try once more - these outages are usually very short.',
+        'If you see a page saying SyteNav cannot reach the sign-in service, press Try again on it. That page means your session is fine and the connection is not.',
+        'On the phone app, close it completely and reopen it.',
+        'If it is still happening after a few minutes, tell us - and say whether you saw the sign-in form again or the "cannot reach" page, because they mean different things.',
+      ] },
+      { type: 'tip', text: 'A real sign-out looks different: you are told your session expired, or you land on the sign-in page without having tried to sign in. Being returned to the form immediately after a successful sign-in is the connection problem above.' },
+      { type: 'warn', text: 'Resetting your password will not help with this, and it logs you out everywhere while you do it.' },
+    ],
+    related: ['auto-signout', 'sytenav-on-your-phone'],
+  },
+  {
     slug: 'delete-protection',
     title: 'Protect deletes with a secret key',
     category: 'settings',

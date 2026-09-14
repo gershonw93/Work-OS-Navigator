@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { ReactNode } from 'react'
-import { currentUser, currentProfile } from '@/lib/supabase/current-user'
+import { currentAuth, currentProfile } from '@/lib/supabase/current-user'
 import { Sidebar } from '@/components/layout/sidebar'
 import { TopNav } from '@/components/layout/top-nav'
 import { MobileTabBar } from '@/components/layout/mobile-tab-bar'
@@ -9,6 +9,7 @@ import { PermissionsBanner } from '@/components/layout/permissions-banner'
 import { ImpersonationBanner } from '@/components/layout/impersonate-switcher'
 import { IdleLogout } from '@/components/layout/idle-logout'
 import { NativeShell } from '@/components/layout/native-shell'
+import { AuthUnavailable } from '@/components/layout/auth-unavailable'
 import { FieldPreviewGate } from '@/components/layout/field-preview'
 import { FIELD_ROLES } from '@/lib/permissions'
 
@@ -16,9 +17,18 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   // Resolved once per request and shared with the project layout nested inside
   // this one, which needs the same two answers. Asking separately meant every
   // project page validated the token against the auth server twice.
-  const user = await currentUser()
-  if (!user) {
+  // THREE ANSWERS, NOT TWO. `if (!user) redirect('/login')` cannot tell nobody
+  // being signed in from the auth gateway refusing to answer, and it sent both
+  // to the login screen - so somebody who had just signed in successfully was
+  // told to sign in, and did, and was told again. See lib/auth-outcome.ts.
+  const { outcome, user } = await currentAuth()
+  if (outcome === 'signed-out') {
     redirect('/login')
+  }
+  if (!user) {
+    // 'unknown': we could not ask, twice. Say that, rather than showing a
+    // login form to somebody whose session is fine.
+    return <AuthUnavailable />
   }
 
   // Field workers get the dedicated Field Mode shell, not the office app.

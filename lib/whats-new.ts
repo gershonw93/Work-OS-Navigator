@@ -48,6 +48,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    date: '2026-09-15',
+    title: 'Signing in stops sending you back to the sign-in screen',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'The login that worked, and bounced anyway',
+        text: 'Signing in could put you straight back on the sign-in screen, or leave the app blank and loading. Your password was never the problem \u2013 the sign-in itself was succeeding every time. Before showing you a page, SyteNav checks with the sign-in service who you are, and when that check failed to come back it was treated as \u201Cyou are not signed in\u201D and you were sent to sign in again. It now knows the difference between a no and no answer: a check that fails is retried, and if it still cannot get through you get a page that says so, with a Try again button, instead of the login form. Nothing to reinstall \u2013 it reaches you on the next load.',
+        help: 'trouble-signing-in',
+      },
+    ],
+  },
+  {
     date: '2026-09-14',
     title: 'The app stops getting stuck at half height',
     items: [

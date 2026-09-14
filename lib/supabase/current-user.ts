@@ -1,5 +1,6 @@
 import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
+import { checkAuth, type AuthCheck } from '@/lib/supabase/auth-check'
 
 /**
  * Who is asking, resolved ONCE per request.
@@ -34,10 +35,32 @@ import { createClient } from '@/lib/supabase/server'
  */
 const requestClient = cache(() => createClient())
 
-export const currentUser = cache(async () => {
-  const { data: { user } } = await requestClient().auth.getUser()
-  return user
-})
+/**
+ * The full answer, including the one a layout MUST NOT flatten.
+ *
+ * THE BUG THIS EXISTS FOR. Every gate in the app was
+ * `const { data: { user } } = await getUser(); if (!user) redirect('/login')`,
+ * which cannot tell "nobody is signed in" from "the auth gateway 502'd" - and
+ * sends both to the login screen. Reported as "I'm having a hard time logging
+ * in now - it's blank or just loading forever": the sign-in itself returned
+ * 200 every time and the dashboard behind it bounced straight back, so the
+ * only visible symptom was the login page, again. See lib/auth-outcome.ts.
+ *
+ * TWO attempts here, where middleware takes one. A layout has to render
+ * something either way, so a second ask is the cheapest thing it can do with
+ * an 'unknown' - and these failures are gateway blips a few hundred
+ * milliseconds wide in front of an auth server that answers in three.
+ */
+export const currentAuth = cache(async (): Promise<AuthCheck> =>
+  checkAuth(requestClient(), { attempts: 2, timeoutMs: 3000 }))
+
+/**
+ * Just the user, for callers that only want to READ something off it.
+ *
+ * A GATE MUST NOT USE THIS - it cannot see the difference between no and
+ * could-not-ask, which is the whole bug above. Gates call `currentAuth`.
+ */
+export const currentUser = cache(async () => (await currentAuth()).user)
 
 export interface CurrentProfile {
   id: string
