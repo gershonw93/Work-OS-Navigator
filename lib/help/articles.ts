@@ -1593,10 +1593,11 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'directory',
     title: 'Add contacts to your Directory',
     category: 'workspace',
-    keywords: ['directory', 'contact', 'sub', 'vendor', 'supplier', 'add', 'company', 'quick add', 'inspector', 'phone', 'duplicate', 'added twice', 'wrong phone number'],
+    keywords: ['directory', 'contact', 'sub', 'vendor', 'supplier', 'add', 'company', 'quick add', 'inspector', 'phone', 'duplicate', 'added twice', 'wrong phone number', 'tabs', 'projects tab', 'cut off', 'missing tab', 'company profile', 'name wrapping'],
     summary: 'Keep your subs, suppliers, and contacts in one address book.',
     blocks: [
       { type: 'text', text: 'QUICK ADD, FROM A PICKER. Anywhere you pick an inspector or a sub you can add one without leaving the form. Two rules: it will not offer to add a name that is already in the list in front of you, and the phone box has to contain a phone number - a surname typed there used to save happily and then appear as a tap-to-call link that dialled nothing. Only the name is required.' },
+      { type: 'text', text: 'WHAT IS ON A CONTACT. Opening one gives you four tabs: Overview (how to reach them), Documents (their insurance and licences), Payments (what they are owed and what has been paid), and Projects (every job they are on). On a phone the four do not fit across the screen - swipe the row sideways to reach the later ones; the faded right edge is the sign there is more.' },
       { type: 'text', text: 'DELETING A CONTACT. Open them and use Delete. If they are still attached to something on a job - a subcontract, a bill, a submittal - it will say so rather than deleting the history along with them; take them off those first. A pending platform invite is not a blocker: that goes with the contact.' },
       { type: 'steps', items: [
         'Click Directory in the sidebar.',
