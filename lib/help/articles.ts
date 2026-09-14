@@ -980,7 +980,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     keywords: [
       'phone', 'mobile', 'ipad', 'tablet', 'iphone', 'android', 'app', 'app store',
       'download', 'install', 'home screen', 'add to home screen', 'offline', 'on site',
-      'jobsite', 'camera', 'photos', 'notifications', 'push',
+      'jobsite', 'camera', 'photos', 'notifications', 'push', 'keyboard', 'screen jumps', 'form scrolls away', 'tab bar in the middle', 'cant see the form',
     ],
     summary: 'SyteNav works in your phone browser today - add it to your home screen and it behaves like an app.',
     blocks: [
@@ -995,6 +995,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: 'text', text: 'GETTING AROUND. On a phone there is a bar along the bottom with the screens you use most - Home, Projects and Approvals, or Home, My Jobs and My Bids if you are a subcontractor. "More" opens the full menu, which is everything the sidebar has on a computer. You only see tabs for screens your role can open.' },
       { type: 'text', text: 'WHAT WORKS WELL ON A PHONE. Daily logs with photos straight from the camera. The time clock, which records where you clocked in and out. Scanning an invoice, quote or permit by photographing it. Approving a bill. Checking what a job is costing while you are standing on it.' },
       { type: 'tip', text: 'Crew on the Worker role get Field Mode automatically - a stripped-back screen built for gloves and sunlight, with just today\'s work on it. See "Field Mode for field workers".' },
+      { type: 'text', text: 'TYPING IN THE APP. In the iPhone app, opening the keyboard used to shove the whole page around to reach the field you tapped - the bottom bar could end up floating in the middle of the screen with a band of empty background, and a form could scroll off the top. That was a missing piece in the app itself, not in a screen, and it is fixed. It needs a new build of the iPhone app to reach you, so if you are still seeing it, update.' },
       { type: 'text', text: 'WHAT TO EXPECT ON POOR SIGNAL. SyteNav needs a connection - it is not an offline app. On one bar it will be slow rather than broken. If you are about to lose signal completely, write the daily log when you are back in range rather than losing what you typed.' },
       { type: 'text', text: 'NOTIFICATIONS. Email notifications work on a phone today, and you control which ones you get under Settings then Notifications. Notifications that pop up on the phone itself arrive with the app.' },
       { type: 'text', text: 'GETTING AROUND. The search bar at the top and the tabs at the bottom stay put while you scroll — only the page between them moves. The tabs cover the busiest screens; More opens the full menu, which is everything the sidebar has on a desktop.' },

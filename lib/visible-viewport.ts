@@ -7,8 +7,16 @@
 // visible strip above the keyboard was ~516pt and the shell got ~121pt. The
 // difference, ~395, is the keyboard - it had been subtracted TWICE.
 //
-//   1. Capacitor's default keyboard mode shrinks the WKWebView frame, so the
-//      LAYOUT viewport is already only the visible strip.
+//   1. The native keyboard mode shrinks the WKWebView frame, so the LAYOUT
+//      viewport is already only the visible strip. That takes the
+//      `@capacitor/keyboard` plugin on `resize: 'native'` - WITHOUT IT
+//      NOTHING RESIZES, and the first branch below is unreachable. It was
+//      missing from the app for its whole life, which is how the Request
+//      Inspection form came to leave the tab bar floating mid-screen: iOS
+//      cannot shrink the frame, so it PANS the visual viewport instead and
+//      drags every `position: fixed` element along with it. Pinned in
+//      `lib/__tests__/keyboard-resize.ts`, because an assumption nothing
+//      checks is a comment rather than a guarantee.
 //   2. `window.visualViewport.height` inside that frame subtracts it again.
 //
 // `--vv-h` was published straight from (2), so the shell and every overlay

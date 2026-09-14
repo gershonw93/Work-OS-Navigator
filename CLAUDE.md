@@ -265,10 +265,22 @@ production branch.** Do NOT ask the user to merge or deploy.
   centred dialog puts its own buttons behind one.
 - **`--vv-h` is NOT `visualViewport.height`.** It is the visible strip measured
   against the layout viewport the CSS resolves in, and `lib/visible-viewport.ts`
-  (pure, unit-tested) decides which of the two knows. Capacitor's default
-  keyboard mode shrinks the WKWebView frame, so the layout viewport is ALREADY
-  the strip and `visualViewport` subtracts the keyboard a SECOND time - the app
-  came out ~121pt tall in a ~516pt space. When `innerHeight` has dropped below
+  (pure, unit-tested) decides which of the two knows. On `resize: 'native'` the
+  WKWebView frame shrinks, so the layout viewport is ALREADY the strip and
+  `visualViewport` subtracts the keyboard a SECOND time - the app came out
+  ~121pt tall in a ~516pt space.
+  **THAT TAKES A PLUGIN, AND FOR MOST OF THIS APP'S LIFE IT WAS NOT INSTALLED.**
+  This file used to assert the frame-shrinking as a fact about "Capacitor's
+  default"; `@capacitor/keyboard` was absent from `package.json`, the Podfile
+  and the iOS project, so NOTHING resized anything and the shrunken-frame branch
+  was dead code. What iOS does instead is PAN the visual viewport to reach a
+  focused field, dragging every `position: fixed` element with it: tapping
+  Inspector Name on the Request Inspection form left the bottom tab bar floating
+  mid-screen, a band of bare background, and the dialog off the top. An
+  assumption nothing checks is a comment rather than a guarantee - the plugin,
+  the Podfile line and `resize: 'native'` are pinned in `keyboard-resize.ts`,
+  and it is a NATIVE dependency, so a config change only reaches a phone after
+  an iOS rebuild. When `innerHeight` has dropped below
   the tallest frame seen, trust `innerHeight` and set the offset to 0; only an
   unshrunk frame (mobile Safari) defers to `visualViewport`. Rotation resets
   the baseline, or landscape reads as a keyboard forever.
