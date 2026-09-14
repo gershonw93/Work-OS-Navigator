@@ -63,4 +63,23 @@ ok(!/vv\.height\}px|Math\.round\(vv\.height\)/.test(hook),
 ok(/orientationchange/.test(hook),
   'and rotation resets the baseline, or landscape reads as a keyboard for the rest of the session')
 
+// ── the event that says the input changed ───────────────────────────────────
+//
+// Everything above turns on `window.innerHeight`, and the hook listened to
+// `visualViewport` resize/scroll and `orientationchange` - never to
+// `window.resize`. A frame that resized without a visualViewport event left
+// `--vv-h` stale for as long as the keyboard was up, and the whole point of the
+// remembered baseline is that it is compared against a CURRENT innerHeight.
+ok(/window\.addEventListener\('resize'/.test(hook),
+  'THE MISSING LISTENER: the layout viewport has its own event, and innerHeight is the input')
+ok(/window\.removeEventListener\('resize'/.test(hook), '...and it is cleaned up')
+
+// AND TWICE, A FRAME APART. visualViewport fires before innerHeight settles on
+// iOS, so a measurement taken at that instant reads a stale innerHeight, picks
+// the wrong branch, and nothing recomputes afterwards.
+ok(/requestAnimationFrame\(apply\)/.test(hook),
+  'each event measures again a frame later, because the two numbers do not settle together')
+ok(/cancelAnimationFrame\(raf\)/.test(hook),
+  '...with the pending one cancelled, so a burst of events is one extra read and not a queue')
+
 done()
