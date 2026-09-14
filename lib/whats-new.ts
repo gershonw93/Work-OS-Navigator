@@ -49,6 +49,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-14',
+    title: 'The job calendar fits on a phone',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'Tap a day to see what is on it',
+        text: 'A month is seven columns, and on a phone that is a square about the width of a thumbnail - so the labels on the job\u2019s Schedule calendar came out as a single letter and the times beside them spilled straight out of their boxes. Each square now shows a coloured dot per item, and tapping the day opens the full list: schedule work and deliveries, booked inspections with the time you were given, and tasks due. Tapping one takes you to it, the same as the Master Calendar. Nothing changes on a laptop.',
+        help: 'schedule-milestones',
+      },
+    ],
+  },
+  {
+    date: '2026-09-14',
     title: 'The keyboard stops throwing the screen around',
     items: [
       {

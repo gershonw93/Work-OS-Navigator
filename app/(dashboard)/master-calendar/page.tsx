@@ -7,6 +7,7 @@ import { usePermissions } from '@/lib/use-permissions'
 import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ConnectCalendarButton } from '@/components/calendar/connect-calendar'
+import { DayDetailSheet } from '@/components/calendar/day-detail-sheet'
 
 import { formatDate } from '@/lib/dates'
 interface Item {
@@ -124,33 +125,26 @@ export default function MasterCalendarPage() {
         </div>
       </div>
 
-      {/* Day detail - everything happening that day; click one to open it */}
+      {/* Day detail - everything happening that day; click one to open it.
+          The sheet itself is shared with the job's Schedule calendar
+          (components/calendar/day-detail-sheet.tsx) - it was reported missing
+          there, and a second copy is how two screens start disagreeing about
+          what a day contains. */}
       {selectedDay && (
-        <div className="overlay items-center justify-center bg-black/50" data-overlay onClick={() => setSelectedDay(null)}>
-          <div className="w-full max-w-md overflow-y-auto rounded-xl bg-panel shadow-xl" onClick={e => e.stopPropagation()}>
-            <div className="sticky top-0 flex items-center justify-between border-b border-line bg-panel px-5 py-4">
-              <h2 className="text-lg font-bold text-ink">
-                {formatDate(selectedDay, { weekday: 'long', month: 'long', day: 'numeric' })}
-              </h2>
-              <button onClick={() => setSelectedDay(null)} className="text-faint hover:text-ink text-2xl leading-none">×</button>
-            </div>
-            <div className="space-y-2 px-5 py-4">
-              {(byDay.get(selectedDay) ?? []).map(it => (
-                <button key={it.id} onClick={() => { setSelectedDay(null); router.push(it.href) }}
-                  className="flex w-full items-center gap-3 rounded-xl border border-line bg-panel px-3.5 py-3 text-left hover:border-accent hover:bg-surface transition-colors">
-                  <span className={cn('mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full', (COLOR[it.color] ?? COLOR.blue).split(' ')[0])} />
-                  <span className="min-w-0 flex-1">
-                    <span className={cn('block font-medium text-ink', it.done && 'line-through text-muted-fg')}>{it.title}</span>
-                    <span className="block text-xs text-muted-fg">{it.project_name} · {it.kind === 'inspection' ? 'Inspection' : it.kind === 'task' ? 'Task' : 'Schedule'}</span>
-                  </span>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-faint" />
-                </button>
-              ))}
-              {(byDay.get(selectedDay) ?? []).length === 0 && <p className="py-6 text-center text-sm text-muted-fg">Nothing scheduled.</p>}
-            </div>
-          </div>
-        </div>
+        <DayDetailSheet
+          date={selectedDay}
+          onClose={() => setSelectedDay(null)}
+          rows={(byDay.get(selectedDay) ?? []).map(it => ({
+            id: it.id,
+            title: it.title,
+            subtitle: `${it.project_name} · ${it.kind === 'inspection' ? 'Inspection' : it.kind === 'task' ? 'Task' : 'Schedule'}`,
+            dot: (COLOR[it.color] ?? COLOR.blue).split(' ')[0],
+            done: it.done,
+            onOpen: () => router.push(it.href),
+          }))}
+        />
       )}
+
     </div>
   )
 }

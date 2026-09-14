@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { Plus, X, CalendarDays, Pencil, Trash2, Building2, Flag, ChevronLeft, ChevronRight, GanttChartSquare, List, CalendarRange, AlertCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -16,6 +17,7 @@ import {
 } from '@/lib/schedule-events'
 import { useViewerContext } from '@/lib/use-viewer-context'
 import { SubSchedule } from '@/components/projects/sub-schedule'
+import { DayDetailSheet } from '@/components/calendar/day-detail-sheet'
 
 import { formatDate, formatDateShort } from '@/lib/dates'
 const MILESTONE_COLORS = [
@@ -52,6 +54,22 @@ function lightColor(item: ScheduleItem) {
   if (item.subcontract_id) return SUB_LIGHT
   const c = MILESTONE_COLORS.find(c => c.value === item.color)
   return c?.light ?? 'bg-muted text-ink-soft border-line'
+}
+
+// ── what an event looks like away from its pill ─────────────────────────────
+// The month grid on a phone is dots (see the cell below) and the day sheet is
+// a list, so both need an event's colour and its second line without the pill
+// markup around them.
+
+function eventDot(e: CalendarEvent): string {
+  if (e.kind === 'schedule' && e.item) return barColor(e.item)
+  return e.kind === 'inspection' ? 'bg-info' : 'bg-faint'
+}
+
+function eventSubtitle(e: CalendarEvent): string {
+  if (e.kind === 'schedule' && e.item) return getSubLabel(e.item) ?? 'Schedule'
+  const what = e.kind === 'inspection' ? 'Inspection' : 'Task'
+  return e.detail ? `${what} · ${e.detail}` : what
 }
 
 function daysBetween(a: string, b: string) {
@@ -114,11 +132,13 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
   const [items, setItems] = useState<ScheduleItem[]>([])
   // The job's other dated things. The calendar draws them; Timeline and List
   // deliberately do not - see the comment above the month grid.
+  const router = useRouter()
   const [inspections, setInspections] = useState<any[]>([])
   const [dueTasks, setDueTasks] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState<'calendar' | 'timeline' | 'list'>('calendar')
   const [calCursor, setCalCursor] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1) })
+  const [selectedDay, setSelectedDay] = useState<string | null>(null)
   const calInit = useState({ done: false })[0]
 
   const [showAdd, setShowAdd] = useState(false)
@@ -605,37 +625,70 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                     const inMonth = day.getMonth() === month
                     const isToday = ds === todayStr
                     const dayItems = eventsOn(events, ds)
+                    // The whole square is the control when there is anything
+                    // on it - the same rule the Master Calendar uses, which is
+                    // where this was reported missing.
+                    const open = dayItems.length ? () => setSelectedDay(ds) : undefined
                     return (
                       <div key={idx}
-                        className={cn('min-h-[84px] sm:min-h-[104px] border-b border-r border-line-soft p-1.5 align-top',
-                          idx % 7 === 0 && 'border-l', !inMonth && 'bg-surface/60')}>
+                        onClick={open}
+                        role={open ? 'button' : undefined}
+                        tabIndex={open ? 0 : undefined}
+                        aria-label={open ? `${formatDate(day, { month: 'long', day: 'numeric' })}, ${dayItems.length} ${dayItems.length === 1 ? 'item' : 'items'}` : undefined}
+                        onKeyDown={open ? (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); open() } } : undefined}
+                        className={cn('min-w-0 min-h-[60px] lg:min-h-[104px] border-b border-r border-line-soft p-1.5 align-top',
+                          idx % 7 === 0 && 'border-l', !inMonth && 'bg-surface/60',
+                          open && 'cursor-pointer hover:bg-surface/60')}>
                         <div className={cn('whitespace-nowrap flex items-center justify-center h-6 w-6 rounded-full text-xs mb-1',
                           isToday ? 'bg-accent text-accent-ink font-bold' : inMonth ? 'text-ink-soft' : 'text-faint')}>
                           {day.getDate()}
                         </div>
-                        <div className="space-y-1">
+
+                        {/* PHONE: DOTS. Seven columns at 390px is a ~55px
+                            square and text cannot live in one - every label
+                            came out as "F…" while the times beside them
+                            ("5-7pm", "08:00") were `shrink-0` and spilled
+                            straight out of their own pill borders. Colour
+                            only, which the legend under the grid already
+                            explains, and the DAY is what you tap. */}
+                        <div className="lg:hidden flex flex-wrap gap-1">
+                          {dayItems.slice(0, 6).map(e => (
+                            <span key={e.id} className={cn('h-1.5 w-1.5 rounded-full', eventDot(e), e.done && 'opacity-40')} />
+                          ))}
+                        </div>
+
+                        <div className="hidden lg:block space-y-1">
                           {/* THE CLICK FOLLOWS THE KIND. A schedule bar opens
                               the edit dialog it always did; an inspection or a
                               task goes to its own tab, because nothing in that
                               dialog could save either of them and a control
                               that opens an editor which cannot write is a
-                              control that lies. */}
+                              control that lies. Each stops the event so the
+                              pill still does its own thing rather than opening
+                              the day sheet behind it. */}
                           {dayItems.slice(0, 3).map(e => (
                             e.kind === 'schedule' && e.item ? (
-                              <button key={e.id} onClick={() => openEdit(e.item as ScheduleItem)}
+                              <button key={e.id} onClick={(ev) => { ev.stopPropagation(); openEdit(e.item as ScheduleItem) }}
                                 className={cn('w-full flex items-center gap-1 rounded px-1.5 py-0.5 text-left', lightColor(e.item as ScheduleItem))}>
                                 <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', barColor(e.item as ScheduleItem))} />
-                                <span className="text-[11px] font-medium truncate">{e.label}</span>
+                                <span className="min-w-0 flex-1 truncate text-[11px] font-medium">{e.label}</span>
                               </button>
                             ) : (
-                              <Link key={e.id} href={e.href ?? '#'}
+                              <Link key={e.id} href={e.href ?? '#'} onClick={(ev) => ev.stopPropagation()}
                                 className={cn('w-full flex items-center gap-1 rounded px-1.5 py-0.5 text-left',
                                   e.kind === 'inspection' ? 'bg-info-tint text-info border border-info/30' : 'bg-muted text-ink-soft border border-line',
                                   e.done && 'line-through opacity-60')}>
                                 <span className={cn('h-1.5 w-1.5 rounded-full shrink-0',
                                   e.kind === 'inspection' ? 'bg-info' : 'bg-faint')} />
-                                <span className="text-[11px] font-medium truncate">{e.label}</span>
-                                {e.detail && <span className="text-[10px] opacity-70 shrink-0">{e.detail}</span>}
+                                {/* ONE TRUNCATING BOX, not two children
+                                    fighting over the width. The detail used to
+                                    be a `shrink-0` sibling, which is a span
+                                    that refuses to get smaller than its own
+                                    text - so it did not shorten, it left the
+                                    pill. */}
+                                <span className="min-w-0 flex-1 truncate text-[11px] font-medium">
+                                  {e.label}{e.detail && <span className="ml-1 font-normal opacity-70">{e.detail}</span>}
+                                </span>
                               </Link>
                             )
                           ))}
@@ -661,6 +714,29 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
               </div>
             )
           })()}
+
+          {/* THE DAY, IN FULL. "When I tap a day it should show the days
+              summary like master calendar" - so it is literally the Master
+              Calendar's sheet, lifted into a component rather than copied.
+              The click still follows the kind: a bar opens its edit dialog,
+              an inspection or a task goes to its own tab. */}
+          {selectedDay && (
+            <DayDetailSheet
+              date={selectedDay}
+              onClose={() => setSelectedDay(null)}
+              rows={eventsOn(events, selectedDay).map(e => ({
+                id: e.id,
+                title: e.label,
+                subtitle: eventSubtitle(e),
+                dot: eventDot(e),
+                done: e.done,
+                onOpen: () => {
+                  if (e.kind === 'schedule' && e.item) openEdit(e.item as ScheduleItem)
+                  else if (e.href) router.push(e.href)
+                },
+              }))}
+            />
+          )}
 
           {/* Gantt */}
           {view === 'timeline' && (
