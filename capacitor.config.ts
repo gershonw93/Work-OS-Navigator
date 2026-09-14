@@ -32,6 +32,36 @@ const config = {
     PushNotifications: {
       presentationOptions: ['badge', 'sound', 'alert'],
     },
+    // ─────────────────────────────────────────────────────────────────────
+    // THE PLUGIN THE WHOLE VIEWPORT DESIGN ASSUMED WAS ALREADY HERE.
+    //
+    // `lib/visible-viewport.ts` opens by stating that "Capacitor's default
+    // keyboard mode shrinks the WKWebView frame, so the LAYOUT viewport is
+    // already only the visible strip" - and CLAUDE.md repeated it as fact.
+    // It was not true of the shipped app: @capacitor/keyboard was never
+    // installed, so nothing resized anything. The branch in that file for a
+    // shrunken frame was dead code, and the app ran permanently in the
+    // mobile-Safari branch it was only meant to fall back to.
+    //
+    // What that looks like on the phone: WKWebView does not resize, so iOS
+    // PANS the visual viewport to bring a focused field above the keyboard -
+    // and panning drags every `position: fixed` element with it. Reported
+    // against the Request Inspection form: tapping Inspector Name left the
+    // bottom tab bar floating in the middle of the screen, a band of bare
+    // background where the app should be, and the dialog somewhere off the
+    // top. The same "the screen goes crazy" family as the 16px zoom rule.
+    //
+    // `resize: 'native'` is what the CSS was written for: the frame shrinks,
+    // the layout viewport IS the strip, fixed elements stay where they are,
+    // and `visibleViewport` takes its first branch instead of subtracting a
+    // keyboard that is already outside the frame.
+    //
+    // NEEDS AN IOS REBUILD TO TAKE EFFECT - it is a native dependency, not
+    // something the remote web app can change on its own.
+    // ─────────────────────────────────────────────────────────────────────
+    Keyboard: {
+      resize: 'native',
+    },
   },
   ios: {
     // 'never', and this is not a harmless default.

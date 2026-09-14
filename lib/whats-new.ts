@@ -49,6 +49,17 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-14',
+    title: 'The keyboard stops throwing the screen around',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'Tapping a field no longer scatters the app',
+        text: 'On the iPhone app, tapping a field in a dialog - Inspector Name on Request Inspection, for one - could leave the bottom tab bar floating in the middle of the screen, a band of empty background where the form should be, and the dialog itself off the top. The app was missing the piece that tells iOS to shrink the web view for the keyboard, so iOS shoved the whole page around instead. It is installed now. This one needs a new build of the iPhone app to reach you; nothing changes in a browser.',
+      },
+    ],
+  },
+  {
+    date: '2026-09-14',
     title: 'A warning before an inspection nobody has marked ready',
     items: [
       {
