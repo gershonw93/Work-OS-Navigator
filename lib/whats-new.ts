@@ -49,6 +49,17 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-14',
+    title: 'The app stops getting stuck at half height',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'A panel over the top half of the screen, with nothing under it',
+        text: 'After typing somewhere - a note on a task, most often - the app could redraw at about half the height of the phone: a panel across the top, bare white below it, and no top bar. It was the app, not your phone. It sizes itself to the part of the screen the keyboard leaves you, and when the keyboard went away that measurement sometimes never came back. It is now checked against something that cannot go stale: if nothing is selected to type into, there is no keyboard, so the app is full height whatever the measurement says. This one reaches you on the next load - no new build needed.',
+      },
+    ],
+  },
+  {
+    date: '2026-09-14',
     title: 'The job calendar fits on a phone',
     items: [
       {

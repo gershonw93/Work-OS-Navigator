@@ -292,6 +292,24 @@ production branch.** Do NOT ask the user to merge or deploy.
   because the two numbers do not settle together on iOS: `visualViewport` fires
   first, and reading `innerHeight` at that instant picks the branch from a value
   that has not caught up yet.
+  **AND A MEASUREMENT THAT CAN LAG IS CHECKED AGAINST A FACT THAT CANNOT.**
+  Reported as "what's this? is it my phone or the app?" - a task drawer over
+  the top half of the screen, bare white below it, no top bar, a few times in
+  one day and always after typing. Both `.overlay-drawer` and `.h-app` are
+  `var(--vv-h)`, so that picture IS a `--vv-h` stuck at a keyboard-open value.
+  The two inputs do not recover together: `innerHeight` comes back first, which
+  drops out of the shrunk-frame branch and into the one that trusts `vvHeight`,
+  and `vvHeight` is still mid-animation - so a strip is published as though the
+  frame were whole, and then NOTHING FIRES AGAIN, because as far as the browser
+  is concerned nothing is happening any more. A stale number with no further
+  event is indistinguishable from a correct one. The keyboard (and the iOS
+  select wheel) exists only while something is focused, so `raisesKeyboard`
+  asks `document.activeElement` and nothing-focused means the whole frame,
+  whatever `visualViewport` still says; `focusin`/`focusout` recompute, both
+  DEFERRED because focusout fires before focusin and `activeElement` is `body`
+  between two fields. The re-read after each event is a frame AND ~300ms: one
+  frame was sized to nothing in particular, and the iOS keyboard animation is a
+  quarter of a second long.
 - **The SHELL follows `--vv-h` too**, not just overlays: `.h-app` is
   `var(--vv-h, 100dvh)` inside `@supports (height: 100dvh)`. A document taller
   than the webview's frame is one the webview can scroll, and Capacitor shrinks
