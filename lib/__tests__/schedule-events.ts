@@ -106,4 +106,36 @@ ok(/\.not\('scheduled_date', 'is', null\)/.test(route),
   '...booked ones only, the same filter the master calendar and the ICS feed use')
 ok(/Promise\.all/.test(route), 'and in one trip rather than three sequential ones')
 
+// ── the phone square, and the day sheet ─────────────────────────────────────
+// "Text overflow here - looks terrible. And when I tap a day it should show the
+// days summary like master calendar." Seven columns at 390px is a ~55px square,
+// so on a phone the cell is dots and the DAY is the control. What the dots and
+// the pills LOOK like is measured in overlay-geometry.ts section 19; this is
+// the half that source can see - that the page really is split, and that the
+// sheet is one component rather than a second copy of the Master Calendar's.
+ok(/<div className="lg:hidden flex flex-wrap gap-1">/.test(page),
+  'a phone square draws dots')
+ok(/<div className="hidden lg:block space-y-1">/.test(page),
+  '...and the labelled pills are gated to lg and up, so the desktop is untouched')
+ok(/onClick=\{open\}/.test(page) && /setSelectedDay\(ds\)/.test(page),
+  'THE ASK: tapping a day opens that day')
+ok(/role=\{open \? 'button'/.test(page) && /aria-label=\{open \?/.test(page),
+  '...and a div that behaves like a button says so')
+ok(!/shrink-0.*\{e\.detail\}/.test(page),
+  'THE OVERFLOW: the detail is no longer a shrink-0 sibling that leaves the pill')
+ok(/\{e\.label\}\{e\.detail && <span className="ml-1 font-normal opacity-70">\{e\.detail\}<\/span>\}/.test(page),
+  '...it is inside the one box that truncates')
+ok(/e\.kind === 'schedule' && e\.item\) openEdit/.test(page) && /else if \(e\.href\) router\.push\(e\.href\)/.test(page),
+  'and the sheet keeps the rule the grid has: the click follows the kind')
+
+for (const f of ['app/(dashboard)/projects/[id]/schedule/page.tsx', 'app/(dashboard)/master-calendar/page.tsx']) {
+  ok(/<DayDetailSheet/.test(code(f)),
+    `${f.split('/').slice(-2, -1)[0]} renders the SHARED day sheet`)
+}
+const sheet = code('components/calendar/day-detail-sheet.tsx')
+ok(/className="overlay items-center justify-center bg-black\/50" data-overlay/.test(sheet),
+  'the sheet is a real overlay, not a hand-rolled fixed inset-0')
+ok(/onOpen: \(\) => void/.test(sheet) && !/href/.test(sheet),
+  'it takes a CALLBACK, not an href - an href could not have opened the edit dialog')
+
 done()

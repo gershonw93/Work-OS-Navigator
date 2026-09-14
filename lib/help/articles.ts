@@ -1362,7 +1362,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'schedule-milestones',
     title: 'Build a project schedule',
     category: 'field',
-    keywords: ['schedule', 'milestone', 'timeline', 'dates', 'gantt', 'plan', 'calendar', 'month view', 'inspection not on calendar', 'why cant i see', 'booked inspection missing', 'tasks on calendar'],
+    keywords: ['schedule', 'milestone', 'timeline', 'dates', 'gantt', 'plan', 'calendar', 'month view', 'inspection not on calendar', 'why cant i see', 'booked inspection missing', 'tasks on calendar', 'tap a day', 'day summary', 'dots', 'calendar on phone', 'text overflow', 'cant read the calendar'],
     summary: 'Lay out milestones and see when each phase happens.',
     blocks: [
       { type: 'text', text: 'The Schedule tab auto-populates from awarded bids, and you can add milestones by hand.' },
@@ -1373,6 +1373,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'Save - it appears on the timeline alongside the auto-generated items.',
       ] },
       { type: 'text', text: 'THREE VIEWS, AND THE CALENDAR SHOWS MORE THAN THE OTHER TWO. The Calendar is the whole job on a month: schedule bars and deliveries, BOOKED inspections on their confirmed date with the time you were given, and tasks on the day they are due (struck through once done). Click a schedule bar to edit it; click an inspection or a task and it opens its own tab. Timeline and List are the schedule editor - every row there opens the edit dialog - so they show schedule items only, because an inspection in a list of editable rows is a row nothing can save.' },
+      { type: 'text', text: 'ON A PHONE, TAP THE DAY. A month is seven columns, so a square is about the width of a thumbnail - too narrow for a name. Each square shows a coloured dot per item instead (the key is under the grid), and tapping the day opens everything on it in full: what it is, whose it is, and the time an inspection was booked for. Tap a row there to open it. On a laptop the squares keep their labels.' },
       { type: 'text', text: 'AN INSPECTION NOBODY HAS BOOKED IS NOT ON THE CALENDAR. A calendar is appointments, and a requested date is a day you asked for that nobody has agreed to. It is on the job\'s Overview instead, in the Today band, under "needs booking".' },
       { type: 'tip', text: 'Awarding a quote adds that sub\'s work to the schedule automatically, so the plan fills in as you hire.' },
     ],

@@ -200,6 +200,7 @@ Shipped in #218: bulk creation makes a site + a job per unit/floor/house, with a
 ## 🗓️ Calendar
 - **Week / agenda view** and **filter by project** on the Master Calendar.
 - **Per-project calendar tab** (not just Master).
+- **Master Calendar month cells → dots on a phone.** The job's Schedule calendar got this (its pills were spilling out of their borders at 390px, which is what was reported). The Master Calendar's cells truncate rather than spill, so they are unreadable rather than broken, and it is admin/manager only - same ~55px square, same answer, not yet done. The pieces are already there: `components/calendar/day-detail-sheet.tsx` is shared, and the dots are eight lines of markup.
 
 ## ✍️ Work signoffs (planned - next up)
 - **Signature-based approval of completed work** (distinct from percent-done tracking and button approvals). Reuses the existing signature pad (daily logs already collect one).

@@ -360,6 +360,20 @@ production branch.** Do NOT ask the user to merge or deploy.
   font at the text's size, and the app uses them deliberately in fifty places.
   Ratcheted at zero in `layout-overflow.ts`, which also asserts the arrows are
   still there so the scan cannot be passed by banning everything non-ASCII.
+- **SEVEN COLUMNS AT 390px IS A 55px SQUARE, AND TEXT CANNOT LIVE IN ONE.** The
+  job's Schedule calendar drew a labelled pill per item in a month cell, so
+  every label truncated to "F…" while the time beside it - `shrink-0`, a span
+  that refuses to get smaller than its own text - did not shorten but LEFT the
+  pill, through its own rounded border. Reported as "text overflow here - looks
+  terrible". A month cell on a phone is DOTS (colour only, with the legend under
+  the grid), and the DAY is the control: tapping it opens the day in full. That
+  sheet is `components/calendar/day-detail-sheet.tsx`, shared with the Master
+  Calendar which had it all along - and it takes an `onOpen` CALLBACK rather
+  than an href, because on the job's calendar a schedule bar opens its edit
+  dialog while an inspection navigates. Narrower rule, everywhere: a pill's
+  label and its detail are ONE truncating box, never two flex children fighting
+  over the width. Measured in `overlay-geometry.ts` (section 19) at 390 and
+  1280, with the spill measured beside it as the negative control.
 - Something that opens INLINE opens where it was tapped - and the better answer
   is usually not to open it inline at all. The task detail was a panel docked
   under the board; on a phone that is under every OTHER column too, so tapping a

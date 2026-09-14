@@ -1020,5 +1020,76 @@ ok(buried.lastBottom > buried.nav.t,
 ok(!buried.lastReachable,
   'and its last item really was unreachable - the same markup, the same rectangle, and nothing there to click')
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 19. A MONTH CELL ON A PHONE IS DOTS, AND THE TEXT THAT WAS IN IT SPILLED.
+//
+// "Text overflow here - looks terrible." Seven columns at 390px is a ~55px
+// square. The job's calendar drew a labelled pill in one, and the pill's two
+// children were fighting over the width: the label had `truncate`, so it
+// collapsed to "F…", while the time beside it was `shrink-0` - a span that
+// refuses to get smaller than its own text. It did not shorten. It left the
+// pill, through the rounded border, which is what the screenshot shows.
+//
+// A truncating box reports the same rectangle whether its text fits or not, so
+// the question is scrollWidth against clientWidth: does the content of the pill
+// stick out of the pill.
+// ─────────────────────────────────────────────────────────────────────────────
+const NOW_TEXT = `<span class="min-w-0 flex-1 truncate text-[11px] font-medium">Certificate of Occupancy · CO<span class="ml-1 font-normal opacity-70">5-7pm</span></span>`
+const OLD_TEXT = `<span class="text-[11px] font-medium truncate">Certificate of Occupancy · CO</span><span class="text-[10px] opacity-70 shrink-0">5-7pm</span>`
+
+/** One week of the real grid. `gate` is what hides the pills on a phone. */
+const MONTH_GRID = (text: string, gate = { pills: 'hidden lg:block', dots: 'lg:hidden' }) => `
+<div class="bg-panel rounded-xl border border-line overflow-hidden">
+  <div class="grid grid-cols-7">
+    ${[0, 1, 2, 3, 4, 5, 6].map(i => `
+    <div class="min-w-0 min-h-[60px] lg:min-h-[104px] border-b border-r border-line-soft p-1.5 align-top">
+      <div class="whitespace-nowrap flex items-center justify-center h-6 w-6 rounded-full text-xs mb-1 text-ink-soft">1${i}</div>
+      <div ${i === 3 ? 'id="dots"' : ''} class="${gate.dots} flex flex-wrap gap-1">
+        <span class="h-1.5 w-1.5 rounded-full bg-info"></span>
+        <span class="h-1.5 w-1.5 rounded-full bg-faint"></span>
+      </div>
+      <div class="${gate.pills} space-y-1">
+        <a ${i === 3 ? 'id="pill"' : ''} class="w-full flex items-center gap-1 rounded px-1.5 py-0.5 text-left bg-info-tint text-info border border-info/30">
+          <span class="h-1.5 w-1.5 rounded-full shrink-0 bg-info"></span>
+          ${text}
+        </a>
+      </div>
+    </div>`).join('')}
+  </div>
+</div>`
+
+const GRID_PROBE = `(rect) => {
+  const pill = document.querySelector('#pill'), dots = document.querySelector('#dots')
+  const box = e => e ? { w: Math.round(e.getBoundingClientRect().width), h: Math.round(e.getBoundingClientRect().height),
+                         over: e.scrollWidth - e.clientWidth } : null
+  return { pill: box(pill), dots: box(dots), cell: Math.round(rect('.grid > div').width),
+           doc: Math.round(document.documentElement.scrollWidth), vw: window.innerWidth }
+}`
+
+// ── the phone ───────────────────────────────────────────────────────────────
+const gridPhone = measure(MONTH_GRID(NOW_TEXT), GRID_PROBE, VIEWPORT.h, '', 390)
+ok(gridPhone.cell <= 56, `a square really is about 55px wide on a phone (${gridPhone.cell}, fixture sanity)`)
+ok(gridPhone.pill!.h === 0, 'THE FIX: a phone square draws no text pill at all')
+ok(gridPhone.dots!.h > 0, '...it draws dots, which the legend under the grid explains')
+ok(gridPhone.doc <= gridPhone.vw, `and nothing drags the page sideways (${gridPhone.doc} vs ${gridPhone.vw})`)
+
+// The shape it replaced, in the same fixture and at the same width. Without
+// this the assertion above could be passing for any reason at all.
+const spilled = measure(MONTH_GRID(OLD_TEXT, { pills: 'block', dots: 'hidden' }), GRID_PROBE, VIEWPORT.h, '', 390)
+ok(spilled.pill!.over > 0,
+  `the reported bug, measured: the pill's content ran ${spilled.pill!.over}px out of its own box`)
+
+// And the same pill with the text in ONE truncating box instead of two
+// children - the form the desktop still uses - stays inside it even there.
+const contained = measure(MONTH_GRID(NOW_TEXT, { pills: 'block', dots: 'hidden' }), GRID_PROBE, VIEWPORT.h, '', 390)
+ok(contained.pill!.over <= 0,
+  `one truncating box does not spill at any width (${contained.pill!.over})`)
+
+// ── the desktop, which was not asked to change ──────────────────────────────
+const gridDesk = measure(MONTH_GRID(NOW_TEXT), GRID_PROBE, 900, '', 1280)
+ok(gridDesk.pill!.h > 0, 'from lg up the labelled pill is exactly where it was')
+ok(gridDesk.dots!.h === 0, '...and the dots are not')
+ok(gridDesk.pill!.over <= 0, `with its text inside it (${gridDesk.pill!.over})`)
+
 rmSync(work, { recursive: true, force: true })
 done()
