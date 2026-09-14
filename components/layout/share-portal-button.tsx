@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Share2, X, Copy, Check, Loader2, Send, RotateCcw } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { usePermissions } from '@/lib/use-permissions'
 import { headerIconButton } from './header-icon-button'
 
 interface SharePortalButtonProps {
@@ -33,6 +34,13 @@ type SendState =
  */
 export function SharePortalButton({ projectId }: SharePortalButtonProps) {
   const supabase = createClient()
+  // Hidden only when we KNOW the answer is no. A permissions call that FAILED
+  // returns `can() === false` exactly like a denial, and hiding a control on
+  // that is how the Upload button vanished off the Plans tab with nothing to
+  // say why - so `loading` and `error` both keep it on screen, and the route
+  // answers if they press it.
+  const { can, loading: permsLoading, error: permsError } = usePermissions()
+  const hidden = !permsLoading && !permsError && !can('client-portal', 'view')
   const [open, setOpen] = useState(false)
   const [portalUrl, setPortalUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -70,15 +78,24 @@ export function SharePortalButton({ projectId }: SharePortalButtonProps) {
       const headers = await authHeader()
       // Read first. Minting on open is what used to break live links.
       const res = await fetch(`/api/projects/${projectId}/portal-token`, { headers })
-      const data = res.ok ? await res.json() : null
+      // Parsed either way: a refusal carries the reason, and throwing the body
+      // away on !ok leaves the screen with nothing to say.
+      const data = await res.json().catch(() => null)
       if (data?.clientEmail && !to) setTo(data.clientEmail)
 
       if (data?.url) {
         setPortalUrl(data.url)
-      } else {
-        // No link yet - this is the one case where creating one is right.
+      } else if (res.ok) {
+        // No link yet - this is the one case where creating one is right, and
+        // it goes WITHOUT `regenerate`, so the route hands back an existing
+        // link rather than destroying it if one appeared in the meantime.
         const made = await fetch(`/api/projects/${projectId}/portal-token`, { method: 'POST', headers })
         if (made.ok) setPortalUrl((await made.json()).url)
+        else setSend({ kind: 'failed', message: (await made.json().catch(() => ({})))?.error ?? 'Could not create a link for this job.' })
+      } else {
+        // The read itself was refused - not a permission the UI knows about
+        // until it asks. Say so rather than showing an empty box.
+        setSend({ kind: 'failed', message: data?.error ?? 'You do not have access to this job\u2019s client link.' })
       }
     } finally {
       setLoading(false)
@@ -90,11 +107,24 @@ export function SharePortalButton({ projectId }: SharePortalButtonProps) {
     try {
       const res = await fetch(`/api/projects/${projectId}/portal-token`, {
         method: 'POST',
-        headers: await authHeader(),
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+        // The route will NOT replace a live link without being asked in as many
+        // words. It used to overwrite whatever was there on any POST, so the
+        // only thing between a client's working link and oblivion was this
+        // dialog's own confirmation - and a second tab, or a double press,
+        // went straight round it.
+        body: JSON.stringify({ regenerate: true }),
       })
       if (res.ok) {
         setPortalUrl((await res.json()).url)
         setSend({ kind: 'idle' })
+      } else {
+        // A refusal is a real answer - "you may not replace this link" - and
+        // silently doing nothing is what a dead button looks like.
+        setSend({
+          kind: 'failed',
+          message: (await res.json().catch(() => ({})))?.error ?? 'Could not replace the link.',
+        })
       }
     } finally {
       setRegenerating(false)
@@ -148,14 +178,16 @@ export function SharePortalButton({ projectId }: SharePortalButtonProps) {
 
   return (
     <>
-      <button
-        onClick={handleOpen}
-        aria-label="Share with client"
-        title="Share with client"
-        className={headerIconButton}
-      >
-        <Share2 className="h-4 w-4" />
-      </button>
+      {!hidden && (
+        <button
+          onClick={handleOpen}
+          aria-label="Share with client"
+          title="Share with client"
+          className={headerIconButton}
+        >
+          <Share2 className="h-4 w-4" />
+        </button>
+      )}
 
       {open && (
         <div className="overlay items-center justify-center bg-black/40 backdrop-blur-sm" data-overlay onClick={() => setOpen(false)}>

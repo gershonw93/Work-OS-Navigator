@@ -49,6 +49,30 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 export const RELEASES: Release[] = [
   {
     date: '2026-09-17',
+    title: 'The client portal link is a permission now',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'Anyone signed in could read a job\u2019s client link',
+        text: 'The client portal shows the whole job \u2013 progress, selections, and the invoices you have sent your client. The link to it was readable by any signed-in account that had the job\u2019s id, including a subcontractor you invited onto that job. It is now its own permission, off by default for field supervisors, workers and invited vendors, and every route also checks the job belongs to your company.',
+        help: 'client-portal',
+      },
+      {
+        kind: 'new',
+        title: 'Client Portal Link in Settings \u2192 Permissions',
+        text: 'A new row you can grant or take away per role or per person, with three levels: see the link, create one on a job that has none, and replace an existing one. Admins, managers, project managers and office staff have all three by default.',
+        href: '/settings',
+      },
+      {
+        kind: 'fixed',
+        title: 'A live client link could be replaced by accident',
+        text: 'Replacing the link cuts off a client who is using the old one, and the only thing preventing it was the confirmation in the share box \u2013 a second tab or a double press went straight round it. The server now refuses to replace a link unless it is asked to in as many words, and replacing is a separate permission from creating.',
+        help: 'client-portal',
+      },
+    ],
+  },
+  {
+    date: '2026-09-17',
     title: 'Swipe, like a real app',
     items: [
       {

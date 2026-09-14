@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getActor, actorCan, type ActorPerms } from '@/lib/server-permissions'
 import type { Action } from '@/lib/permissions'
+import { ownsProject } from '@/lib/project-access'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // "Are you allowed to do this?" - asked once, in one place.
@@ -73,4 +74,55 @@ export async function requirePermission(
 /** Narrowing helper, so a caller reads as one line rather than a type dance. */
 export function denied(gate: Gate): gate is { denied: NextResponse } {
   return 'denied' in gate
+}
+
+export type OwnedProject<T> = { project: T } | { denied: NextResponse }
+
+/**
+ * The SECOND question, for the routes that genuinely need it: does the caller's
+ * company own this job?
+ *
+ * `requirePermission` deliberately does not ask - subcontractors legitimately
+ * write to jobs they do not own (they submit bills, file daily logs, clock in),
+ * so a blanket company check would break every sub in the product. That is why
+ * this is opt-in per route rather than folded into the gate.
+ *
+ * The client portal is the clearest case for opting in. It is a standing
+ * read-only link to the WHOLE job - progress, selections, and the invoices the
+ * GC has sent their client - so a sub who is legitimately on the job must not
+ * be able to read it, mint one, or regenerate it. The permission map says the
+ * same thing (`read_only` has `client-portal: N`), and this is the half that
+ * survives a company remapping the defaults.
+ *
+ * 403, not 404: they can see the job, and pretending it does not exist would be
+ * a worse answer to a person who is legitimately standing on it.
+ */
+export async function ownedProject<T extends Record<string, unknown>>(
+  db: SupabaseClient,
+  actor: ActorPerms,
+  projectId: string,
+  columns: string,
+): Promise<OwnedProject<T>> {
+  const { data: project, error } = await db
+    .from('projects')
+    .select(`${columns}, gc_company_id, created_by_company_id`)
+    .eq('id', projectId)
+    .maybeSingle()
+
+  if (error) {
+    return { denied: NextResponse.json({ error: error.message }, { status: 500 }) }
+  }
+  if (!project) {
+    return { denied: NextResponse.json({ error: 'Project not found' }, { status: 404 }) }
+  }
+  if (!ownsProject(actor.companyId, project as any)) {
+    return {
+      denied: NextResponse.json(
+        { error: 'This job belongs to another company.' },
+        { status: 403 },
+      ),
+    }
+  }
+
+  return { project: project as unknown as T }
 }

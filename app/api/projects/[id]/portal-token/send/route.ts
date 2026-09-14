@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { clientPortalEmail, isEmailAddress, sendEmail } from '@/lib/email'
 import { appOrigin } from '@/lib/app-url'
+import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
 
 export const runtime = 'nodejs'
 
@@ -24,12 +25,13 @@ const admin = () => createClient(
  * and copying it by hand is the fallback.
  */
 export async function POST(request: Request, { params }: { params: { id: string } }) {
-  const auth = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(auth)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // `view`, not `create`: seeing the link IS the power to send it - anyone who
+  // can read it can paste it into their own email. Gating the send higher than
+  // the read would be theatre.
+  const gate = await requirePermission(db, request, 'client-portal', 'view')
+  if (denied(gate)) return gate.denied
 
   const body = await request.json().catch(() => ({}))
   const to = String(body?.to ?? '').trim()
@@ -39,14 +41,19 @@ export async function POST(request: Request, { params }: { params: { id: string 
     return NextResponse.json({ error: 'That does not look like an email address.' }, { status: 400 })
   }
 
-  const [{ data: project }, { data: me }] = await Promise.all([
-    db.from('projects')
-      .select('name, client, customer_id, client_portal_token, gc_company_id')
-      .eq('id', params.id).maybeSingle(),
-    db.from('profiles').select('full_name, company_id').eq('id', user.id).maybeSingle(),
+  const [owned, { data: me }] = await Promise.all([
+    ownedProject<{
+      // `name` is NOT NULL in the schema, same as the project PATCH relies on.
+      name: string; client: string | null
+      customer_id: string | null; client_portal_token: string | null
+      gc_company_id: string | null
+    }>(db, gate.actor, params.id, 'name, client, customer_id, client_portal_token'),
+    db.from('profiles').select('full_name, company_id').eq('id', gate.actor.userId).maybeSingle(),
   ])
 
-  if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+  if ('denied' in owned) return owned.denied
+  const project = owned.project
+
   if (!project.client_portal_token) {
     return NextResponse.json({ error: 'No share link yet - close and reopen this dialog.' }, { status: 400 })
   }

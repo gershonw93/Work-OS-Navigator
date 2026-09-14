@@ -113,3 +113,62 @@ each one was written the day something shipped broken.*
   `invite-audience.ts`: routes taking a role from the body with no permission
   check may only go DOWN.
 
+## The client portal link was gated by nothing at all
+
+The client portal is one standing, read-only link per job: progress, the
+schedule, selections, and the invoices the GC has sent their client. Four routes
+serve it - read the link, mint one, email it, record that it was shared - and
+every one of them checked exactly one thing:
+
+```ts
+const { data: { user } } = await db.auth.getUser(token)
+if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+```
+
+`middleware.ts` returns early for every `/api/` path, so nothing else was gating
+them. Any signed-in account holding a project id could read that link - and
+`read_only` is the VENDOR role, so **a subcontractor invited onto the job had
+exactly as much access to the GC's client portal as the GC did**. The thing it
+exposes is the GC's billing to their own customer.
+
+And POST **minted a new token unconditionally**, which cuts off a client using
+the old link. The only thing standing between a live link and oblivion was a
+confirmation dialog in one of the two callers; a second tab, or a double press,
+went straight round it. The route had no idea whether it was creating a job's
+first link or destroying one somebody was using.
+
+### Two questions, because they are two questions
+
+`client-portal` is the ABILITY, in `RESOURCES` like any other, remappable per
+company and per user. Its three actions are genuinely different powers:
+
+| action | what it is |
+| --- | --- |
+| `view` | read the link. Seeing it IS the power - you can copy it, you can paste it into your own email. This is why the send is gated here and not higher: gating a send above the read is theatre. |
+| `create` | bring a link into existence on a job that has none. |
+| `edit` | REGENERATE one, cutting off a client already using it. |
+
+`ownedProject` is WHOSE JOB IT IS, and it is deliberately **not** part of
+`requirePermission`. That guard has always refused to check company ownership,
+because subcontractors legitimately write to jobs they do not own - they submit
+bills, file daily logs, clock in - so a blanket check there would break every sub
+in the product. It is opt-in per route instead, and the portal family is the
+clearest case for opting in. 403, not 404: they can see the job, and pretending
+it does not exist is a worse answer to somebody standing on it.
+
+Both halves matter. The permission map can be remapped by a company; the
+ownership check is what survives somebody granting `client-portal` to a vendor
+role by mistake.
+
+### And the UI trap on the way out
+
+Hiding the share icon from people who cannot use it is right - but `can()` is
+`!!perms?.[r]?.[a]`, and a permissions call that FAILED returns `false` exactly
+like a denial. That is how the Upload button vanished off the Plans tab with
+nothing to say why. So the trigger hides only when the answer is KNOWN:
+`!loading && !error && !can(...)`. On a bad minute of signal it stays on screen
+and the route answers.
+
+Pinned in `portal-gate.ts`, red-checked seven ways - including one where the
+route computes the refusal and then falls past it, which is the same as no
+guard and which the first version of the test did not catch.
