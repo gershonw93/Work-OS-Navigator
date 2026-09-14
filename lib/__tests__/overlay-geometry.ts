@@ -957,5 +957,68 @@ ok(narrow.aside.w === narrow.facts.w,
   `...both the full width of the card (${narrow.aside.w} and ${narrow.facts.w})`)
 ok(narrow.docWidth <= VIEWPORT.w, `and the phone does not scroll sideways (${narrow.docWidth} of ${VIEWPORT.w})`)
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 18. A ROW MENU NEAR THE BOTTOM DOES NOT HIDE BEHIND THE TAB BAR.
+//
+// Reported as "I can't scroll down to see the whole card". The panel was
+// `absolute z-20`, always below the trigger, with no flip and no idea how much
+// room was left. The phone tab bar is `fixed bottom-0 z-30`, so a menu opened
+// near the bottom painted UNDER it and its last items - Void, in the case
+// reported - could not be reached at all. Scrolling does not help: the bar is
+// pinned to the viewport, so the items stay behind it wherever you scroll to.
+//
+// Stacking is a paint operation, like the clipping in section 16: the covered
+// panel still reports its full rectangle. So the question is only ever whether
+// the browser would hand a click at that point to the menu or to the bar.
+// ─────────────────────────────────────────────────────────────────────────────
+const BOTTOM_MENU = (panel: string) => `
+<div class="p-6" style="padding-top:560px">
+  <div class="rounded-xl border border-line bg-panel">
+    <div class="px-5 py-5">
+      <div class="row-even lg:flex gap-2">
+        <button class="inline-flex h-11 items-center rounded-md px-3 text-sm">Book it</button>
+        <div class="flex justify-end">
+          <div class="relative shrink-0">
+            <button id="btn" class="inline-flex h-11 w-11 items-center justify-center rounded-md border border-line">…</button>
+            <div id="menu" role="menu" class="${panel} overflow-hidden rounded-xl border border-line bg-panel py-1 shadow-lg max-w-[calc(100vw-2rem)] min-w-[13rem] right-0">
+              ${'<button class="flex w-full min-h-11 items-center px-3 py-2 text-left text-sm">Item</button>'.repeat(5)}
+              <button id="last" class="flex w-full min-h-11 items-center px-3 py-2 text-left text-sm">Void inspection</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<nav data-bottom-nav class="fixed bottom-0 inset-x-0 z-30 border-t border-line bg-panel" style="height:64px"></nav>`
+
+const BOTTOM_PROBE = `(rect) => {
+  const b = s => { const r = rect(s); return { l: Math.round(r.left), r: Math.round(r.right),
+    t: Math.round(r.top), b: Math.round(r.bottom), w: Math.round(r.width), h: Math.round(r.height) } }
+  const last = document.querySelector('#last').getBoundingClientRect()
+  const at = document.elementFromPoint(last.left + last.width / 2, last.top + last.height / 2)
+  return { menu: b('#menu'), btn: b('#btn'), nav: b('[data-bottom-nav]'),
+           lastReachable: !!(at && at.closest('#menu')),
+           lastBottom: Math.round(last.bottom), vh: window.innerHeight }
+}`
+
+// What the component does now: flipped above the trigger, and z-40.
+const flipped = measure(BOTTOM_MENU('absolute z-40 bottom-full mb-1'), BOTTOM_PROBE, VIEWPORT.h, '', VIEWPORT.w)
+ok(flipped.nav.b === flipped.vh, `the tab bar really is parked at the bottom (${flipped.nav.b} of ${flipped.vh}, fixture sanity)`)
+ok(flipped.menu.b <= flipped.btn.t, `the menu opens ABOVE the trigger (${flipped.menu.b} vs ${flipped.btn.t})`)
+ok(flipped.lastBottom <= flipped.nav.t,
+  `...so its last item clears the tab bar (${flipped.lastBottom} vs ${flipped.nav.t})`)
+ok(flipped.lastReachable,
+  'THE POINT: a click on the last item lands on the menu, not on the tab bar over it')
+ok(flipped.menu.t >= 0, `and the top of it is still on the screen (${flipped.menu.t})`)
+
+// The shape it must never go back to, measured beside it - without this the
+// assertion above could be passing for some other reason entirely.
+const buried = measure(BOTTOM_MENU('absolute z-20 top-full mt-1'), BOTTOM_PROBE, VIEWPORT.h, '', VIEWPORT.w)
+ok(buried.lastBottom > buried.nav.t,
+  `the old shape really did run under the bar (${buried.lastBottom} vs ${buried.nav.t}, fixture sanity)`)
+ok(!buried.lastReachable,
+  'and its last item really was unreachable - the same markup, the same rectangle, and nothing there to click')
+
 rmSync(work, { recursive: true, force: true })
 done()

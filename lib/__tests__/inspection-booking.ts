@@ -273,6 +273,15 @@ ok(/updates\.booked_at = new Date\(\)\.toISOString\(\)/.test(patch), '...they ar
 ok(/clearsBooking\(updates\.status\)/.test(patch) && /updates\.scheduled_date = null/.test(patch),
   'moving back to requested clears the booked date, or it stays in everyone\'s Outlook')
 
+// A NEW DATE IS A NEW BOOKING. The not-ready warning fires once per booking,
+// gated on `ready_reminder_sent_at`; carry a spent gate across a re-book and
+// the warning never comes again for the date that replaced it.
+ok(/if \('scheduled_date' in updates\) \{[\s\S]{0,140}?BOOKING_DERIVED_COLUMNS/.test(patch),
+  're-booking re-arms whatever was derived from the old booking')
+ok(/BOOKING_DERIVED_COLUMNS/.test(code('lib/inspection-status.ts'))
+  && /ready_reminder_sent_at/.test(code('lib/inspection-status.ts')),
+  '...from one list, so the next derived column cannot be forgotten in two routes')
+
 const post = code('app/api/projects/[id]/inspections/route.ts')
 ok(/requested_date: requested_date \|\| null/.test(post), 'a created request stores its requested date')
 ok(/const scheduled_date = booked_with \? /.test(post),

@@ -16,7 +16,7 @@ production branch.** Do NOT ask the user to merge or deploy.
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-102.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-103.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - IMPORTANT: verify every column you `.select()` actually exists - Supabase
   returns `data: null` for an unknown column, so a typo reads as "not found"
@@ -120,6 +120,32 @@ production branch.** Do NOT ask the user to merge or deploy.
 - Pushes take an atomic claim (`qbo_claimed_at`) via a conditional UPDATE. A
   check-then-act guard is NOT enough: a double-pressed button created two QBO
   invoices for one record, and the spare became an orphan receivable.
+
+## Two registries, and why a new thing goes IN them (IMPORTANT)
+- **A NEW NOTIFICATION BELONGS IN THE CATALOG, OR ITS AUDIENCE IS NOT A
+  SETTING.** `lib/notifications.ts` is the list of event types; an entry with
+  `status: 'live'` appears on its own in Settings -> Notifications (each
+  person's bell and email switches) AND in Who gets told (the company's routed
+  audience). A cron that sends under a type the catalog has never heard of is a
+  notification nobody can turn off or redirect. The not-ready warning was one
+  `notify()` call away from borrowing `inspection_ready`'s audience, which would
+  have glued a nag to a different event's switch.
+- **A NEW ABILITY BELONGS IN `RESOURCES`, for the same reason.**
+  `lib/permissions.ts` is resources x actions, with role defaults a company can
+  remap and per-user overrides in `profiles.permission_overrides`. Splitting one
+  out is the designed move, not a hack: `margin` came out of `budget` so a PM
+  could run a budget without seeing the markup, and `mark-ready` came out of
+  `inspections` because RUNNING inspections is office work while saying THE WORK
+  IS FINISHED is a report from the site - and every role who can honestly make
+  it (`field_supervisor`, `worker`, vendor `read_only`) has `inspections: N`.
+  Give every built-in role an EXPLICIT entry: a resource a role never names
+  resolves to nothing, which is a permission silently defaulting to "no" for
+  somebody who should have it. Pinned in `mark-ready-permission.ts`.
+- AND THE ROUTE HAS TO ASK, or the setting is decoration. The inspections PATCH
+  gated nothing - `requirePermission` was on DELETE and restore only - so anyone
+  who could reach the API could mark ready, change a booking or set a status
+  whatever their role said. A body that only touches the ready columns is gated
+  on `mark-ready`; everything else on `inspections`.
 
 ## Product brief for non-developers (KEEP CURRENT)
 - A prospect/customer-facing brief is published as an Artifact - what SyteNav
@@ -497,6 +523,22 @@ production branch.** Do NOT ask the user to merge or deploy.
   that dialog could save either and a control that opens an editor which cannot
   write is a control that lies. Timeline and List stay schedule-only for the
   same reason - they are the editor, not the view.
+- **A DEADLINE WITH NO JOB BEHIND IT WARNS NOBODY.** "If the inspection date is
+  approaching and it's not ready, who gets notified?" - nobody: the only
+  scheduled work in the app was `/api/cron/compliance-reminders`, and
+  `vercel.json` listed exactly that one path. Writing the route is half of it;
+  a job nothing schedules never runs, so the pin reads `vercel.json` too. The
+  gate column (`ready_reminder_sent_at`, like `reminder_sent_at` on a compliance
+  doc) makes it fire once per BOOKING, not once per row - which means the PATCH
+  route has to clear it whenever `scheduled_date` changes
+  (`BOOKING_DERIVED_COLUMNS`), or moving a visit to next month carries a spent
+  gate and the warning never comes again.
+- A RETRACTION IS AN EVENT TOO. `ready_marked_by` was writable from the day it
+  existed and nothing ever sent a null, so a wrong "ready" was permanent - and
+  the notify block fires only when it is truthy while the history branch skips
+  its generic entry whenever the column is in play, so undoing one would have
+  left no trace anywhere. An audit trail that records a claim and not its
+  withdrawal is half a record.
 - A VIEW THAT GATHERS A DAY MUST BE OPENABLE BY THE PEOPLE LIVING IT. "Whoever
   is on the job site should see what's coming for that day" - and the Master
   Calendar, the only screen that gathers one, is `admin`/`manager` only, so a
@@ -615,6 +657,18 @@ production branch.** Do NOT ask the user to merge or deploy.
   children that touch an edge instead. Measured in `overlay-geometry.ts` with
   `elementFromPoint`, because clipping is a PAINT operation: the clipped panel
   still reports its full bounding rect, so measuring the panel proves nothing.
+- **A POSITIONED PANEL MUST KNOW WHERE THE SCREEN ENDS, AND THE FIXED BOTTOM
+  NAV IS PART OF WHERE IT ENDS.** `RowMenu` was `absolute z-20`, always `mt-1`
+  below its trigger, with no flip and no measurement. The phone tab bar is
+  `fixed bottom-0 z-30`, so a menu opened near the bottom painted UNDER it and
+  its last items could not be reached - reported as "I can't scroll down to see
+  the whole card", because scrolling cannot help: the bar is pinned to the
+  VIEWPORT, so the items stay behind it wherever you scroll to. It flips to
+  `bottom-full` using `hintPosition`'s verdict (the tooltip had this same
+  fault), counts the strip under `[data-bottom-nav]` as gone, and sits at `z-40`
+  - above the tab bar and desktop sidebar, below the phone drawer. Measured in
+  `overlay-geometry.ts` with `elementFromPoint`: stacking is a paint operation,
+  so the covered panel still reports its full rectangle.
 - The controls in a project header are ONE class string
   (`components/layout/header-icon-button.tsx`), icon-only, each with
   `aria-label` and `title`. Four independently written ones became an avatar

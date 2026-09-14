@@ -5,7 +5,7 @@ import { audienceFor } from '@/lib/notification-audience'
 import { withStructural } from '@/lib/notification-routing'
 import { notify } from '@/lib/notify'
 import { requirePermission, denied } from '@/lib/api-guard'
-import { canCarryCompletion, clearsBooking, clearsCompletion, notifiesRoutedAudience, scheduleProblem } from '@/lib/inspection-status'
+import { BOOKING_DERIVED_COLUMNS, canCarryCompletion, clearsBooking, clearsCompletion, notifiesRoutedAudience, scheduleProblem } from '@/lib/inspection-status'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -68,6 +68,21 @@ export async function PATCH(
     return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
   }
 
+  // WHO MAY DO WHAT, AND IT IS A SETTING. This route gated NOTHING - the
+  // permission checks were on DELETE and restore only - so anyone who could
+  // reach the API could mark work ready, change a booking or set a status,
+  // whatever their role said.
+  //
+  // Two gates, because they are two different jobs. RUNNING an inspection is
+  // office work and stays on `inspections`. Saying THE WORK IS FINISHED is a
+  // report from the site, and the people who can honestly make it - a field
+  // supervisor, a worker, a sub - all have `inspections: N`. Both are rows in
+  // the permissions matrix a company edits, so this is configurable rather
+  // than my opinion compiled in.
+  const readyOnly = Object.keys(updates).every(k => k === 'ready_marked_by' || k === 'ready_marked_at')
+  const gate = await requirePermission(db, request, readyOnly ? 'mark-ready' : 'inspections', 'edit')
+  if (denied(gate)) return gate.denied
+
   // #2 - "Scheduled" with no date was a storable state, and it lied four
   // different ways at once: it fired an "is scheduled" notification to the
   // office, the card read "No date yet", and the overview's booked list never
@@ -111,8 +126,16 @@ export async function PATCH(
   // inspection with a `scheduled_date`, whatever its status - so a row put back
   // to "requested" while keeping its booked date would stay in everyone's
   // Outlook as an appointment the app no longer believes in.
+  // A NEW DATE IS A NEW BOOKING, so the once-per-booking warning re-arms. A
+  // spent gate carried across a re-book means the not-ready warning never comes
+  // again for the date that replaced it.
+  if ('scheduled_date' in updates) {
+    for (const col of BOOKING_DERIVED_COLUMNS) updates[col] = null
+  }
+
   if (clearsBooking(updates.status)) {
     updates.scheduled_date = null
+    for (const col of BOOKING_DERIVED_COLUMNS) updates[col] = null
     updates.booked_with = null
     updates.booking_reference = null
     updates.booked_at = null
@@ -212,6 +235,18 @@ export async function PATCH(
         trade: inspection.trade, status: newStatus,
         ...(inspection.failure_reason ? { failure_reason: inspection.failure_reason } : {}),
       },
+      user.id,
+    )
+  } else if ('ready_marked_by' in updates && !updates.ready_marked_by) {
+    // A RETRACTION IS AN EVENT TOO. The branch below skips its generic entry
+    // whenever `ready_marked_by` is in play, and the notify block only fires
+    // when it is truthy - so without this, taking a "ready" back left no trace
+    // anywhere. An audit trail that records a claim and not its withdrawal is
+    // half a record.
+    await logActivity(
+      db, params.id, actorName, 'inspection_updated',
+      `${label} no longer marked ready`,
+      { inspection_id: inspection.id, ready_marked_by: null },
       user.id,
     )
   } else if (!('ready_marked_by' in updates)) {

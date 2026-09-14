@@ -239,6 +239,17 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
     defaults: { inApp: true, email: false }, status: 'live',
   },
   {
+    key: 'inspection_not_ready', label: 'Inspection coming up and not ready', group: 'Compliance',
+    description: 'An inspection is booked within two days and nobody has marked the work ready.',
+    audience: 'team', defaultAudience: ['inspections', 'edit'],
+    alsoTold: 'whoever requested it, and whoever is assigned to book it',
+    // Email ON by default, like a document about to expire: finding out at your
+    // next login is too late for a visit two days away, and the whole point of
+    // the warning is that there is still time to finish the work or move the
+    // booking.
+    defaults: { inApp: true, email: true }, push: true, status: 'live',
+  },
+  {
     // The route built this type dynamically - `inspection_${newStatus}` -
     // producing three strings no switch had ever heard of. Aliased below.
     key: 'inspection_result', label: 'Inspection scheduled, passed or failed', group: 'Compliance',
