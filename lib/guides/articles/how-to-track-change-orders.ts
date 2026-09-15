@@ -86,7 +86,7 @@ export const guide: Guide = {
       'Amount, and whether it is an addition or a deduction.',
       'Status: pending, approved, rejected, withdrawn - with the date it changed.',
       'Who approved it, and where that approval is recorded.',
-      'The budget line it raises.',
+      'Which budget line the change order raises.',
       'The sub contract it raises, if any.',
       'The client invoice it went out on.',
     ] },
@@ -95,6 +95,10 @@ export const guide: Guide = {
     { type: 'h2', text: 'How SyteNav handles it' },
     { type: 'p', text: 'In SyteNav a change order carries the budget line it raises and, where relevant, the sub contract it belongs to. Approving it adds the amount to that line and folds it into that sub’s contract; un-approving, rejecting or deleting it takes the amount straight back out, because the budget figure is derived from the change order rather than copied from it. There is nothing to reverse by hand and no way to count it twice.' },
     { type: 'p', text: 'An approved change order that names neither a line nor a contract still counts in the job total, and the budget tab lists it under "Not on a budget line" with a picker to file it - because money in a total that is not on a row is exactly how a job stops adding up. And when a pay application refuses a line for being billed past its scheduled value, the words "change order" in that message open the form with the overage and the right line already filled in.' },
+  ],
+  links: [
+    { text: 'budget line it raises', href: '/money' },
+    { text: 'the budget tab lists it under "Not on a budget line" with a picker to file it', href: '/money' },
   ],
   faqs: [
     { q: 'Can I bill for a change order that was only approved verbally?', a: 'You can try, and on a good relationship you will often be paid. What you cannot do is rely on it. If the work is already done and the only record is a conversation, write up what was agreed, send it with the invoice, and ask for confirmation in reply - a written acknowledgement after the fact is weaker than one before, but it is far better than nothing.' },

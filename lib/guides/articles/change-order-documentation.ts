@@ -2,7 +2,8 @@ import type { Guide } from '../schema'
 
 export const guide: Guide = {
   slug: 'change-order-documentation',
-  title: 'Why your change orders will not hold up',
+  title: 'Change order documentation that holds up: why yours may not',
+  cardTitle: 'Why your change orders will not hold up',
   metaTitle: 'Change Order Documentation: Why Yours Will Not Hold Up | SyteNav',
   description:
     'Change order documentation that survives a dispute: why voice notes, texts and verbal approvals fail, and what a defensible record actually looks like.',
@@ -95,6 +96,11 @@ export const guide: Guide = {
     { type: 'p', text: 'Change orders live on the job with a title, an amount, a reason, who requested it, and the budget line and subcontract they raise. Status moves - raised, approved, rejected, reset to pending - are recorded with who did it and when, in the project’s Job History, alongside every inspection request, booking, pass, fail, void and restore. A claim and its withdrawal are both kept: marking inspection work ready and then taking it back leaves both entries, because a retraction is an event too.' },
     { type: 'p', text: 'The supporting record is created by the work: daily logs with photos filed to the job and tagged by sub, a time clock that records where a punch happened and why it could not be checked if it could not, and plans you can pin a task to. The client-facing side is a link rather than an account, and an invoice shows how many times it has been opened and when.' },
     { type: 'p', text: 'What it does not do: it is not a legal product. It does not generate contract notices, it cannot tell you whether your change clause has been complied with, and none of this is legal advice. It makes the contemporaneous record exist and stay retrievable, which is the part a contractor controls.' },
+  ],
+  links: [
+    { text: 'the budget line and subcontract they raise', href: '/money' },
+    { text: 'daily logs with photos filed to the job and tagged by sub, a time clock', href: '/mobile' },
+    { text: 'plans you can pin a task to', href: '/features' },
   ],
   faqs: [
     { q: 'Are text messages legally binding for a change order?', a: 'A written exchange can form an agreement in many circumstances, and many contracts also require changes to be in writing and signed - which is a separate question from whether a text counts. Ask your attorney about your contract and your state. Practically: treat a text as the start of the record, and follow it with an email that states the scope and the amount.' },

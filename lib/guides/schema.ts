@@ -31,6 +31,74 @@ export type GuideBlock =
 
 export type GuideTone = 'tip' | 'warn' | 'note'
 
+/**
+ * An inline link inside a guide's prose.
+ *
+ * WHY IT IS DECLARED HERE AND NOT WRITTEN INTO THE TEXT. A block is a plain
+ * string, which is what keeps the copy readable and greppable. Putting anchors
+ * in it would mean either HTML in the data (which the renderer would have to
+ * trust) or a markdown parser nobody asked for. So a guide declares its links
+ * beside its body: a phrase, and where that phrase should point.
+ *
+ * THE FAILURE THIS SHAPE HAS, and the reason the test is not optional: a phrase
+ * that does not match the prose EXACTLY links nothing, silently. It does not
+ * throw, it does not warn, and the page renders perfectly - just without the
+ * link somebody asked for. `lib/__tests__/guides.ts` asserts every declared
+ * phrase occurs EXACTLY ONCE in the guide it belongs to, which is the only
+ * thing standing between a typo and a link nobody notices is missing.
+ */
+export interface GuideLink {
+  /** The exact words to turn into a link. */
+  text: string
+  /** Where they point - a marketing path, or an absolute URL for a citation. */
+  href: string
+}
+
+/** One piece of rendered prose: plain text, or text that is a link. */
+export interface GuideSpan { text: string; href?: string }
+
+/**
+ * Split a string into spans, linking each declared phrase.
+ *
+ * Longest phrase first, so a declared phrase that contains another cannot be
+ * half-eaten by it; each phrase links its FIRST occurrence only, and a region
+ * already claimed by one link is never re-matched. Pure, and unit-tested.
+ */
+export function linkify(text: string, links: GuideLink[] = []): GuideSpan[] {
+  const claims: { start: number; end: number; href: string }[] = []
+  for (const link of [...links].sort((a, b) => b.text.length - a.text.length)) {
+    let from = 0
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const at = text.indexOf(link.text, from)
+      if (at === -1) break
+      const end = at + link.text.length
+      if (!claims.some(c => at < c.end && end > c.start)) {
+        claims.push({ start: at, end, href: link.href })
+        break
+      }
+      from = at + 1
+    }
+  }
+  if (claims.length === 0) return [{ text }]
+
+  claims.sort((a, b) => a.start - b.start)
+  const spans: GuideSpan[] = []
+  let cursor = 0
+  for (const c of claims) {
+    if (c.start > cursor) spans.push({ text: text.slice(cursor, c.start) })
+    spans.push({ text: text.slice(c.start, c.end), href: c.href })
+    cursor = c.end
+  }
+  if (cursor < text.length) spans.push({ text: text.slice(cursor) })
+  return spans
+}
+
+/** True for a link that leaves the site, which is rendered differently. */
+export function isExternal(href: string): boolean {
+  return /^https?:\/\//.test(href)
+}
+
 export interface GuideColumn { label: string; items: string[] }
 
 export interface GuideFaq { q: string; a: string }
@@ -40,6 +108,15 @@ export interface Guide {
   slug: string
   /** The H1. */
   title: string
+  /**
+   * The short name used on a card and in the breadcrumb trail.
+   *
+   * An H1 may be long, because it is read in place and carries the search
+   * phrase; "A construction daily log app that actually gets used: logs and
+   * inspections from the field" is a good heading and a terrible card. Defaults
+   * to the title, so it is only set where the two genuinely differ.
+   */
+  cardTitle?: string
   /** The <title> tag, which is allowed to be longer and more literal. */
   metaTitle: string
   /** The meta description. */
@@ -57,6 +134,8 @@ export interface Guide {
   /** The short version, for somebody who will not read the whole thing. */
   takeaways: string[]
   blocks: GuideBlock[]
+  /** Inline links applied to the prose. See GuideLink for why they live here. */
+  links?: GuideLink[]
   faqs: GuideFaq[]
   /** Slugs of other guides. Validated, so a typo cannot ship a dead link. */
   related: string[]
@@ -76,6 +155,11 @@ export const GUIDE_CATEGORIES: GuideCategory[] = [
   { key: 'billing', label: 'Billing and job costs', description: 'Invoices in, invoices out, and knowing where a job stands while you can still do something about it.' },
   { key: 'field', label: 'The field', description: 'Daily logs, inspections and the record the site actually produces.' },
 ]
+
+/** The short name for a card or a breadcrumb. One answer, so the two agree. */
+export function cardLabel(g: Guide): string {
+  return g.cardTitle ?? g.title
+}
 
 /** What a guide's category is CALLED. Asked by the card and by the article hero. */
 export function categoryLabel(g: Guide): string {

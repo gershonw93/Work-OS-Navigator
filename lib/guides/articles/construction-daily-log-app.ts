@@ -2,7 +2,8 @@ import type { Guide } from '../schema'
 
 export const guide: Guide = {
   slug: 'construction-daily-log-app',
-  title: 'Daily logs and inspections from the field',
+  title: 'A construction daily log app that actually gets used: logs and inspections from the field',
+  cardTitle: 'Daily logs and inspections from the field',
   metaTitle: 'Construction Daily Log App: Logs and Inspections From the Field | SyteNav',
   description:
     'What a construction daily log app has to do to actually get used: what belongs in a log, why the photos carry the weight, and how inspections should run.',
@@ -74,6 +75,10 @@ export const guide: Guide = {
     { type: 'p', text: 'Field Mode is a stripped-down phone view for crew: one big clock in and out button with a location check, today’s tasks, and Log - pick a job, snap photos, add a note. Entries arrive on the day’s log marked "needs review"; the office can turn one into a task with the note and first photo carried over, and unreviewed entries are deliberately left out of the client-facing PDF. Several entries on the same date group into one day, so crew submissions and the manager’s log read as a single record. A log with nothing real on it will not save.' },
     { type: 'p', text: 'Inspections run request to booking to result with the two dates kept separate. The request needs the inspection type and the date needed by. Whoever is booking it gets the numbers the job already knows - the issuing authority and inspector from your permits, plus any inspectors in your Directory - and the screen says plainly that SyteNav does not contact the inspector for you. Booking asks for the confirmed date, the window, who you spoke to and the confirmation number. Only booked inspections appear on calendars. The sub presses "Work is ready" when the work is done, which is its own permission because saying the work is finished is a report from the site rather than office work. If an inspection is booked within two days and nobody has marked it ready, the people who asked for it and the people booking it are told. The inspector’s card is scanned afterwards and fills in the details, but nothing is marked passed or failed until a person says so.' },
     { type: 'p', text: 'What it does not do: it does not submit permit applications or inspection requests to a jurisdiction, and it has no integration with municipal portals. Somebody still makes the call - SyteNav tells the right person, hands them the number, and holds the answer they come back with.' },
+  ],
+  links: [
+    { text: 'Field Mode is a stripped-down phone view for crew', href: '/mobile' },
+    { text: 'The inspector’s card is scanned afterwards and fills in the details', href: '/ai' },
   ],
   faqs: [
     { q: 'Who should write the daily log - the foreman or the project manager?', a: 'Whoever is on site. A log written by somebody who was not there is a summary of a phone call. If the PM wants to add context afterwards, that is an addition to the day, not a replacement for the field entry.' },

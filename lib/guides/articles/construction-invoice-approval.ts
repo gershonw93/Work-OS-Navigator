@@ -95,6 +95,11 @@ export const guide: Guide = {
     { type: 'p', text: 'Approving is what moves the budget - uploading the document alone does not - and once an invoice is approved a "Bill the client" button appears on it showing what the client owes with your markup applied, which opens a client invoice with that cost already on it. A cost can only ever appear on one client invoice, so the same bill cannot go out twice. Markup is set per invoice, or inherited from the budget line, or from the project rate, most specific first.' },
     { type: 'p', text: 'What it does not do: it is not an accounts payable system with multi-level approval routing and delegation rules, and it does not run your payment run. It pushes one way into QuickBooks Online, where the money side is settled.' },
   ],
+  links: [
+    { text: 'Scanning the PDF fills the form', href: '/ai' },
+    { text: 'shows which budget line the money will land on with what is budgeted, billed and remaining on it', href: '/money' },
+    { text: 'Approving is what moves the budget', href: '/money' },
+  ],
   faqs: [
     { q: 'Do we need a formal three-way match in construction?', a: 'Not in the purchase-order sense, for most small GCs - construction’s equivalent is contract, progress and invoice. Match the invoice to the subcontract, confirm the progress from the field record, and check the arithmetic. That is the same control with different documents.' },
     { q: 'Who should approve invoices if the owner is the only one who knows the job?', a: 'The owner, for now - but write the checklist down anyway. The checklist is the thing that transfers when you hire a project manager, and a process that exists only in one head is the reason many small contractors cannot delegate the office work.' },

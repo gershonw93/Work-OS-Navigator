@@ -23,7 +23,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { GUIDES, GUIDE_CATEGORIES, guideBySlug, guidePath, relatedTo } from '../guides'
-import { headingId, readMinutes, tocFor, guideText, type Guide } from '../guides/schema'
+import { cardLabel, headingId, isExternal, linkify, readMinutes, tocFor, guideText, type Guide } from '../guides/schema'
+import { GUIDE_AUTHOR, authorNode } from '../guides/author'
 import { isMarketingPath, isAppPath, MARKETING_PATHS } from '../hosts'
 import { crumbsFor } from '../breadcrumbs'
 import sitemap from '../../app/sitemap'
@@ -77,6 +78,99 @@ const OFF: Guide = { ...GUIDES[0], keyword: 'hydraulic excavator financing' }
 ok(!has([OFF.title, OFF.description, ...guideText(OFF)].join(' '), OFF.keyword),
   '...and the scan can see a keyword that is absent (fault check)')
 
+// ── 3b. the title, the H1 and the slug are about ONE thing ───────────────────
+// A page whose <title> targets one phrase while its H1 narrows to another is a
+// page that ranks for neither: "construction spreadsheet vs software" in the
+// title with "Google Sheets vs construction software" as the heading was the
+// worked example. Both now have to carry the phrase the page is written for.
+const mismatched: string[] = []
+for (const g of GUIDES) {
+  if (!has(g.title, g.keyword)) mismatched.push(`${g.slug}: H1`)
+  if (!has(g.metaTitle, g.keyword)) mismatched.push(`${g.slug}: title`)
+}
+ok(mismatched.length === 0,
+  `the H1 and the <title> both carry the target phrase${mismatched.length ? ` - ${mismatched[0]}` : ''}`)
+ok(!has('Google Sheets vs construction software', 'construction spreadsheet vs software'),
+  '...and the scan can see the mismatch it was written for (fault check)')
+
+// A card and a breadcrumb print the SHORT label, which is why an H1 is allowed
+// to be long. Without a cap the two silently become the same thing again.
+const longCards = GUIDES.filter(g => cardLabel(g).length > 60)
+ok(longCards.length === 0,
+  `no card label is too long to read${longCards.length ? ` - ${longCards[0].slug} (${cardLabel(longCards[0]).length})` : ''}`)
+ok(GUIDES.some(g => g.cardTitle && g.cardTitle !== g.title),
+  '...and where an H1 carries a search phrase, the card has its own shorter name')
+
+// ── 3c. an inline link points at something, and its words exist ──────────────
+// THE SILENT FAILURE this exists for: a link is declared as a PHRASE plus an
+// href, and a phrase that does not match the prose exactly links nothing at
+// all. No error, no warning - the page just renders without the link somebody
+// asked for. So every declared phrase must occur exactly once in the guide it
+// belongs to, and every internal href must be a real marketing path.
+const badLinks: string[] = []
+for (const g of GUIDES) {
+  const prose = guideText(g).join('\n')
+  for (const link of g.links ?? []) {
+    const hits = prose.split(link.text).length - 1
+    if (hits === 0) badLinks.push(`${g.slug}: "${link.text}" is not in the text`)
+    else if (hits > 1) badLinks.push(`${g.slug}: "${link.text}" appears ${hits} times, so which one is the link?`)
+    if (!isExternal(link.href) && !isMarketingPath(link.href)) badLinks.push(`${g.slug}: ${link.href} is not a marketing page`)
+  }
+}
+ok(badLinks.length === 0,
+  `every inline link matches its prose exactly once${badLinks.length ? ` - ${badLinks[0]}` : ''}`)
+ok(GUIDES.every(g => (g.links ?? []).length > 0), 'every guide links out to the product pages it describes')
+ok(GUIDES.some(g => (g.links ?? []).some(l => isExternal(l.href))),
+  '...and a claim about somebody else\u2019s pricing cites its source')
+
+// The fault, both halves: a phrase that is absent, and one that is ambiguous.
+const sample = GUIDES[0]
+const sampleProse = guideText(sample).join('\n')
+ok(sampleProse.split('a phrase nobody wrote').length - 1 === 0,
+  '...and the scan can see an absent phrase (fault check)')
+ok(sampleProse.split('the').length - 1 > 1,
+  '...and an ambiguous one (fault check)')
+
+// ── 3d. linkify itself ───────────────────────────────────────────────────────
+const LINKS = [{ text: 'budget line', href: '/money' }, { text: 'the budget line it raises', href: '/features' }]
+const spans = linkify('It carries the budget line it raises, and the budget line is the point.', LINKS)
+ok(spans.filter(s => s.href).length === 2, `both phrases link (${spans.filter(s => s.href).length})`)
+ok(spans.find(s => s.text === 'the budget line it raises')?.href === '/features',
+  'the LONGER phrase wins, so a short one cannot eat half of it')
+ok(spans.map(s => s.text).join('') === 'It carries the budget line it raises, and the budget line is the point.',
+  'and the text is returned whole - nothing dropped, nothing reordered')
+ok(linkify('nothing to link here', LINKS).length === 1, 'prose with no match comes back as one span')
+ok(linkify('the budget line', []).length === 1, '...and so does prose with no links declared')
+
+// ── 3e. a person wrote it, and the page says so ──────────────────────────────
+// An Article whose author is the Organization is a page nobody put their name
+// to. The byline a reader sees and the Person node a crawler reads come from
+// one module, so they cannot name different people.
+const byline = code('components/marketing/guide-byline.tsx')
+ok(/GUIDE_AUTHOR\.byline/.test(byline) && /GUIDE_AUTHOR\.bio/.test(byline),
+  'the visible byline and bio are printed from the author module')
+ok(authorNode['@type'] === 'Person' && authorNode.description === GUIDE_AUTHOR.bio,
+  '...and the Person node is built from the same one')
+const articlePage = code('app/(marketing)/guides/[slug]/page.tsx')
+ok(/<GuideByline \/>/.test(articlePage), 'every guide prints the byline, not just the markup')
+ok(/author: \{ '@id': GUIDE_AUTHOR\.id \}/.test(articlePage),
+  'the Article credits the PERSON as author')
+ok(/publisher: \{ '@id': `\$\{CANONICAL_ORIGIN\}\/#organization` \}/.test(articlePage),
+  '...and the organisation as publisher')
+ok(!/author: \{ '@id': `\$\{CANONICAL_ORIGIN\}\/#organization` \}/.test(articlePage),
+  '...and never the organisation as author again (fault check)')
+
+// ── 3f. dateModified is CONTENT, not the build clock ─────────────────────────
+// A dateModified generated at build time restamps all ten articles on every
+// deploy, telling a crawler the library was rewritten because a dependency
+// changed. It reads `updated ?? published`, both of which are written by hand.
+ok(/dateModified: guide\.updated \?\? guide\.published/.test(articlePage),
+  'dateModified comes from the article, not from the clock')
+ok(!/dateModified: new Date\(\)|dateModified: Date\.now\(\)|dateModified: new Date\(\)\.toISOString/.test(articlePage),
+  '...and is never generated at build time (fault check)')
+ok(GUIDES.every(g => !g.updated || g.updated >= g.published),
+  'no guide claims it was modified before it was published')
+
 // ── 4. the parts a reader and a search result both need ──────────────────────
 const thin: string[] = []
 for (const g of GUIDES) {
@@ -89,7 +183,11 @@ ok(thin.length === 0, `no guide is a stub${thin.length ? ` - ${thin[0]}` : ''}`)
 
 // Meta lengths. Not style: a description past ~160 characters is truncated in
 // the result, so the half that was doing the persuading is the half that goes.
-const overlong = GUIDES.filter(g => g.description.length > 170 || g.metaTitle.length > 80)
+// 90, not 80: a result truncates a title around 60 characters anyway, so this
+// cap is here to catch a runaway, not to police the last few. The longest of
+// the ten - "Construction Invoice Verification: How to Stop Subcontractor
+// Overbilling | SyteNav" - is a deliberate 82.
+const overlong = GUIDES.filter(g => g.description.length > 175 || g.metaTitle.length > 90)
 ok(overlong.length === 0,
   `titles and descriptions stay inside what a result shows${overlong.length ? ` - ${overlong[0].slug}` : ''}`)
 
@@ -145,8 +243,8 @@ ok(!urls.some(u => u.endsWith('/guides/no-such-guide')),
 const first = GUIDES[0]
 const trail = crumbsFor(guidePath(first.slug))
 ok(!!trail && trail.length === 3, 'a guide gets a three-level trail')
-ok(!!trail && trail[1].path === '/guides' && trail[2].name === first.title,
-  '...ending in the article title rather than its slug')
+ok(!!trail && trail[1].path === '/guides' && trail[2].name === cardLabel(first),
+  '...ending in the article\u2019s short name rather than its slug or a long H1')
 ok(crumbsFor('/guides/not-a-guide') === null,
   '...and an unpublished slug gets no trail (fault check)')
 

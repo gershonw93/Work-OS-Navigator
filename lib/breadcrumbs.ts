@@ -7,6 +7,7 @@
 // than "contractors".
 
 import { GUIDES, guidePath } from './guides'
+import { cardLabel } from './guides/schema'
 
 export interface Crumb { name: string; path: string }
 
@@ -43,12 +44,12 @@ export function crumbsFor(pathname: string | null | undefined): Crumb[] | null {
   const name = NAMES[clean]
   if (name) return [ROOT, { name, path: clean }]
 
-  // A guide is three deep, and its name is the article's own title rather than
-  // its slug - which is the entire point of marking a trail up at all. Read
-  // from the guide registry so a published article cannot be missing one, and
-  // an unpublished slug cannot invent one.
+  // A guide is three deep, and its name is the article's own SHORT label rather
+  // than its slug - which is the entire point of marking a trail up at all. The
+  // short label, not the H1: a trail is printed under a search result, and an
+  // H1 written to carry a search phrase is too long to read there.
   const guide = GUIDES.find(g => guidePath(g.slug) === clean)
-  if (guide) return [ROOT, { name: NAMES['/guides'], path: '/guides' }, { name: guide.title, path: clean }]
+  if (guide) return [ROOT, { name: NAMES['/guides'], path: '/guides' }, { name: cardLabel(guide), path: clean }]
 
   return null
 }

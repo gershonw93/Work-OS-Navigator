@@ -122,6 +122,28 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
   as the Help Center and the product brief, and for the same reason.
 - Read time, the contents list and heading anchors are DERIVED (`schema.ts`).
   A stored "6 min read" is a claim that stops being true on the next edit.
+- **AN INLINE LINK IS A PHRASE PLUS AN HREF, DECLARED BESIDE THE BODY** (`links`
+  on a guide, applied by `linkify`). A block stays a plain string, so nobody has
+  to trust HTML in the data. THE FAILURE: a phrase that does not match the prose
+  EXACTLY links nothing, silently - the page renders perfectly, minus the link.
+  The pin asserts every declared phrase occurs EXACTLY ONCE in its guide, which
+  is what catches both a typo and an ambiguous anchor. It has caught one of each
+  already.
+- **THE H1 AND THE `<title>` BOTH CARRY THE TARGET PHRASE**, or the page is
+  written for a phrase nobody is searching. An H1 may be long because of that,
+  so a card and a breadcrumb print `cardTitle` instead - one short name, capped,
+  asked for by `cardLabel()`.
+- **A PERSON IS THE AUTHOR, NOT THE ORGANISATION.** `lib/guides/author.ts` is
+  the one home for that fact: the byline a reader sees and the Person node in
+  the Article JSON-LD are built from it, so the page and the markup cannot name
+  different authors. The Organization stays the publisher.
+- `dateModified` is CONTENT DATA (`updated ?? published`), never `new Date()`.
+  A build-time date restamps all ten articles on every deploy and tells a
+  crawler the library was rewritten because a dependency changed.
+- A factual claim about another product carries a LINK TO ITS OWN SOURCE and is
+  worded as what that source says. If the source cannot be checked, the claim
+  does not ship - `with implementation on top` was removed from the Procore
+  guide for exactly that reason, including where it had been restated in an FAQ.
 
 ## Product brief for non-developers (KEEP CURRENT)
 - A prospect/customer-facing brief is published as an Artifact - what SyteNav

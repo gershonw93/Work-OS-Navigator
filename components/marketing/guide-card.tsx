@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { ArrowRight, Clock } from 'lucide-react'
 import type { Guide } from '@/lib/guides/schema'
-import { categoryLabel, guidePath, readMinutes } from '@/lib/guides/schema'
+import { cardLabel, categoryLabel, guidePath, readMinutes } from '@/lib/guides/schema'
 
 // One card per guide, used by the index and by the "read next" strip at the
 // foot of an article. Read time is DERIVED here rather than stored on the
@@ -26,7 +26,7 @@ export function GuideCard({ guide, className }: { guide: Guide; className?: stri
       <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-faint">
         {categoryLabel(guide)}
       </p>
-      <h3 className="mt-2.5 text-lg font-bold text-ink leading-snug break-words">{guide.title}</h3>
+      <h3 className="mt-2.5 text-lg font-bold text-ink leading-snug break-words">{cardLabel(guide)}</h3>
       <p className="mt-2.5 text-[15px] text-muted-fg leading-relaxed break-words">{guide.description}</p>
       <div className="mt-5 flex items-center justify-between gap-3 pt-1">
         <span className="inline-flex items-center gap-1.5 text-xs text-faint whitespace-nowrap">

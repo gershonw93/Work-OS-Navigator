@@ -1,6 +1,7 @@
+import { Fragment } from 'react'
 import { Lightbulb, AlertTriangle, Info, Check, X } from 'lucide-react'
-import type { GuideBlock, GuideTone } from '@/lib/guides/schema'
-import { headingId } from '@/lib/guides/schema'
+import type { GuideBlock, GuideLink, GuideTone } from '@/lib/guides/schema'
+import { headingId, isExternal, linkify } from '@/lib/guides/schema'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The renderer for a guide's body.
@@ -12,7 +13,36 @@ import { headingId } from '@/lib/guides/schema'
 //
 // Anchors come from `headingId`, the same function the contents list asks, so
 // a link and the heading it points at cannot disagree.
+//
+// Inline links are declared beside the body (see GuideLink) and applied here by
+// `linkify`, which is pure and unit-tested. Every text-bearing block goes
+// through it, so a phrase can be linked wherever it actually appears rather
+// than only in a paragraph - and the test that a phrase occurs exactly once
+// scans the same set of blocks this renders.
 // ─────────────────────────────────────────────────────────────────────────────
+
+/** Prose with its declared links applied. */
+function Prose({ text, links }: { text: string; links?: GuideLink[] }) {
+  const spans = linkify(text, links)
+  return (
+    <>
+      {spans.map((s, i) =>
+        s.href ? (
+          <a
+            key={i}
+            href={s.href}
+            className="text-accent-fg underline underline-offset-2 decoration-accent-fg/40 hover:decoration-accent-fg"
+            {...(isExternal(s.href) ? { target: '_blank', rel: 'noopener' } : {})}
+          >
+            {s.text}
+          </a>
+        ) : (
+          <Fragment key={i}>{s.text}</Fragment>
+        )
+      )}
+    </>
+  )
+}
 
 const TONE: Record<GuideTone, { icon: typeof Lightbulb; wrap: string; badge: string }> = {
   tip: { icon: Lightbulb, wrap: 'border-accent-tint bg-accent-tint/40', badge: 'text-accent-fg' },
@@ -20,7 +50,7 @@ const TONE: Record<GuideTone, { icon: typeof Lightbulb; wrap: string; badge: str
   note: { icon: Info, wrap: 'border-info/30 bg-info-tint/50', badge: 'text-info' },
 }
 
-function Callout({ tone, title, text }: { tone: GuideTone; title: string; text: string }) {
+function Callout({ tone, title, text, links }: { tone: GuideTone; title: string; text: string; links?: GuideLink[] }) {
   const t = TONE[tone]
   const Icon = t.icon
   return (
@@ -29,7 +59,7 @@ function Callout({ tone, title, text }: { tone: GuideTone; title: string; text: 
         <Icon className="h-[18px] w-[18px] shrink-0 mt-0.5" aria-hidden />
         <span className="text-ink">{title}</span>
       </p>
-      <p className="mt-2 text-[15px] sm:text-base text-muted-fg leading-relaxed">{text}</p>
+      <p className="mt-2 text-[15px] sm:text-base text-muted-fg leading-relaxed"><Prose text={text} links={links} /></p>
     </div>
   )
 }
@@ -64,7 +94,7 @@ function Compare({ title, left, right }: Extract<GuideBlock, { type: 'compare' }
   )
 }
 
-export function GuideBody({ blocks }: { blocks: GuideBlock[] }) {
+export function GuideBody({ blocks, links }: { blocks: GuideBlock[]; links?: GuideLink[] }) {
   return (
     <div className="max-w-none">
       {blocks.map((b, i) => {
@@ -88,7 +118,7 @@ export function GuideBody({ blocks }: { blocks: GuideBlock[] }) {
           case 'p':
             return (
               <p key={i} className="mt-4 text-[17px] text-ink-soft leading-[1.75]">
-                {b.text}
+                <Prose text={b.text} links={links} />
               </p>
             )
           case 'list':
@@ -97,7 +127,7 @@ export function GuideBody({ blocks }: { blocks: GuideBlock[] }) {
                 {b.items.map(item => (
                   <li key={item} className="flex gap-3 text-[17px] text-ink-soft leading-[1.7]">
                     <span aria-hidden className="mt-[13px] h-1.5 w-1.5 shrink-0 rounded-full bg-accent-fg" />
-                    <span>{item}</span>
+                    <span><Prose text={item} links={links} /></span>
                   </li>
                 ))}
               </ul>
@@ -113,7 +143,7 @@ export function GuideBody({ blocks }: { blocks: GuideBlock[] }) {
                     >
                       {n + 1}
                     </span>
-                    <span>{item}</span>
+                    <span><Prose text={item} links={links} /></span>
                   </li>
                 ))}
               </ol>
@@ -138,7 +168,7 @@ export function GuideBody({ blocks }: { blocks: GuideBlock[] }) {
               </div>
             )
           case 'callout':
-            return <Callout key={i} tone={b.tone} title={b.title} text={b.text} />
+            return <Callout key={i} tone={b.tone} title={b.title} text={b.text} links={links} />
           case 'compare':
             return <Compare key={i} {...b} />
         }
