@@ -2,7 +2,8 @@ import type { Guide } from '../schema'
 
 export const guide: Guide = {
   slug: 'construction-job-cost-tracking',
-  title: 'Job cost tracking in real time',
+  title: 'Construction job cost tracking software for real-time job costing',
+  cardTitle: 'Job cost tracking in real time',
   metaTitle: 'Construction Job Cost Tracking Software: Real-Time Job Costing | SyteNav',
   description:
     'What real-time job cost tracking takes: committed versus actual, the costs that never reach a budget line, and knowing where a job stands in time to act.',
@@ -84,6 +85,12 @@ export const guide: Guide = {
     { type: 'p', text: 'Committed counts every signed subcontract plus anything committed on a line without a contract behind it, each counted once - a line tied to a contract does not add on top of it. The same figure appears on the budget tab, the job summary and Master Money, from one calculation. Approved change orders raise the line they belong to, shown as "incl. $X CO" with the original estimate kept underneath, and the increase is derived, so rejecting or deleting the change order takes it straight back out.' },
     { type: 'p', text: 'Costs arrive from where they happen: sub invoices scanned from the PDF and landed on the contract’s budget line, material receipts photographed in the field and assigned to a job, hours clocked from the site with a location check. Anything that ends up in the total without a row - unlinked change orders, unassigned materials, committed money with no line - is listed under "Not on a budget line" with a picker to file it.' },
     { type: 'p', text: 'What it does not do: it is not a WIP schedule or a percentage-of-completion revenue recognition engine for your accountant, it does not run payroll, and it does not model a development pro-forma. It keeps the construction side honest while the job is running.' },
+  ],
+  links: [
+    { text: 'The budget tab', href: '/money' },
+    { text: 'sub invoices scanned from the PDF', href: '/ai' },
+    { text: 'material receipts photographed in the field and assigned to a job, hours clocked from the site with a location check', href: '/mobile' },
+    { text: '"Not on a budget line" with a picker to file it', href: '/money' },
   ],
   faqs: [
     { q: 'What is the difference between committed and actual cost?', a: 'Committed is money you have promised - a signed subcontract, a purchase order - whether or not anybody has billed you. Actual is cost that has been invoiced and approved. Committed tells you where the job is heading; actual tells you where it has been.' },

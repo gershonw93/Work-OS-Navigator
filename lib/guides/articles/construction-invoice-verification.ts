@@ -2,8 +2,9 @@ import type { Guide } from '../schema'
 
 export const guide: Guide = {
   slug: 'construction-invoice-verification',
-  title: 'How to stop subs from overbilling',
-  metaTitle: 'How to Stop Subs From Overbilling: Construction Invoice Verification | SyteNav',
+  title: 'Construction invoice verification that stops subcontractor overbilling',
+  cardTitle: 'How to stop subs from overbilling',
+  metaTitle: 'Construction Invoice Verification: How to Stop Subcontractor Overbilling | SyteNav',
   description:
     'Construction invoice verification that catches overbilling before you pay: the four checks that matter, and why the invoice total is the weakest of them.',
   keyword: 'construction invoice verification',
@@ -83,6 +84,10 @@ export const guide: Guide = {
     { type: 'p', text: 'Drop the PDF the sub emailed onto "Scan an invoice" and SyteNav reads it: who is billing, the amount, the date, the work, and the line breakdown with quantities and rates where the vendor printed them. It attaches the file at the same time and tries to match the invoice to a subcontract on the job and to a line on that sub’s payment schedule. Nothing is created until you save, and the form says plainly when the scan was unsure.' },
     { type: 'p', text: 'Then it does the comparisons. It checks the lines add up to the total and says exactly how far out they are if not. Where the sub’s contract has priced lines behind it - from an awarded quote or an accepted bid - it checks the invoice against them and flags three things: a line billed above the quoted rate, with both figures; a line that is not on the quote at all; and an invoice that takes the running total past the contract. The form also shows which budget line the money will land on, what is budgeted, what has been billed, and what is left.' },
     { type: 'p', text: 'It never blocks the invoice. It puts the discrepancy in front of you before you approve, which is the moment it is still a question.' },
+  ],
+  links: [
+    { text: '"Scan an invoice"', href: '/ai' },
+    { text: 'which budget line the money will land on, what is budgeted, what has been billed, and what is left', href: '/money' },
   ],
   faqs: [
     { q: 'How do I verify an invoice when the sub never gave a line-item quote?', a: 'You cannot, properly - which is the argument for insisting on priced lines at bid stage. In the meantime, verify against the schedule of values in their contract and against what is physically built. And make line pricing a condition of the next award: the cost of that conversation is one awkward email.' },

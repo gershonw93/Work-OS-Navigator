@@ -95,6 +95,12 @@ export const guide: Guide = {
     { type: 'p', text: 'SyteNav is built for contractors running roughly two to twenty live jobs who need the money and the field in one place: AI scanning for quotes, sub invoices and inspector cards; budgets that show committed, actual and remaining as costs land; change orders that raise the budget line and the sub contract together; client invoices built from costs already recorded, with markup applied per invoice; daily logs, time clock with a location check, permits, inspections and compliance tracking; and links rather than logins for subs and clients.' },
     { type: 'p', text: 'It is an invite-only beta, free while you are in it. It does not do document control at enterprise scale, it does not run payroll, and its QuickBooks Online integration pushes one way - out of SyteNav. If you need any of those, say so on the call and we will tell you straight whether it is a fit.' },
   ],
+  links: [
+    { text: 'AI scanning for quotes, sub invoices and inspector cards', href: '/ai' },
+    { text: 'budgets that show committed, actual and remaining as costs land', href: '/money' },
+    { text: 'daily logs, time clock with a location check, permits, inspections and compliance tracking', href: '/mobile' },
+    { text: 'links rather than logins for subs and clients', href: '/features' },
+  ],
   faqs: [
     { q: 'What is the difference between construction management software and accounting software?', a: 'Accounting software answers what happened, in a form your accountant and the tax authority accept. Construction management software is supposed to answer what is happening, while you can still change it. Most small contractors need both, with a clear rule about which one is the book of record for costs.' },
     { q: 'Do I need software if I only run three or four jobs?', a: 'Not necessarily. Three jobs with one crew and no subs bills is a spreadsheet problem. The threshold is usually subcontractors and change orders: once other companies are billing you against agreed amounts and scope is changing mid-job, the coordination cost outgrows a sheet quickly.' },

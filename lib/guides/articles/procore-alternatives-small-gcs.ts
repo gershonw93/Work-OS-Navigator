@@ -17,7 +17,7 @@ export const guide: Guide = {
   lede:
     'Most small GCs who go looking for a Procore alternative are not unhappy with Procore. They are doing four jobs, not forty, and they cannot work out how to buy a system built for a company ten times their size - or how to get their crew to open it.',
   takeaways: [
-    'Procore prices on your annual construction volume, not per seat, and sells on an annual contract. That maths gets better as you get bigger and worse as you get smaller.',
+    'Procore charges an annual fee set by product and annual construction volume, with unlimited users rather than per-seat licences. That maths gets better as you get bigger and worse as you get smaller.',
     'The real cost of any of these systems is implementation and adoption, not the licence. A tool the field will not open is a filing cabinet you pay monthly for.',
     'Write down the five things you actually lose money on before you look at a single demo. Buy against that list.',
     'Some jobs genuinely need Procore. Owner-required, heavy submittal and RFI volume, multiple concurrent large commercial projects - that is what it is for.',
@@ -27,7 +27,7 @@ export const guide: Guide = {
 
     { type: 'h2', text: 'Why small GCs go looking in the first place' },
     { type: 'p', text: 'The search almost always starts the same way. The spreadsheet stopped being one spreadsheet. There is a budget file, a schedule file, a folder of sub quotes, a group text where the site decisions live, and an invoicing app that has never heard of any of it. Something falls through - a change order nobody signed, a sub billing past their contract, an expired certificate of insurance found in a claim - and the answer is obviously "we need a system".' },
-    { type: 'p', text: 'Then the pricing conversation happens. Procore does not sell seats; it prices against the annual construction volume you run through the platform, on an annual contract, with implementation on top. For a firm putting through tens of millions a year across concurrent commercial jobs, that model is defensible and often good value - everyone in the company, plus the subs, can be in the system without a per-user meter running. For a GC doing a handful of residential builds and remodels, the same model asks for an annual commitment that has to be justified against exactly one question: will this stop us losing money, and will the field use it.' },
+    { type: 'p', text: 'Then the pricing conversation happens. Procore says it charges an upfront annual fee by product and annual construction volume, with unlimited users included. For a firm putting through tens of millions a year across concurrent commercial jobs, that model can be defensible: everyone in the company, plus the subs, can be in the system without a per-user meter running. For a GC doing a handful of residential builds and remodels, the annual commitment still has to be justified against one question: will this stop us losing money, and will the field use it? (Procore pricing, as of September 2026.)' },
     { type: 'p', text: 'That is the honest shape of it. Not "expensive" - mismatched. A system designed around a project team with a full-time project engineer behaves differently from one designed around an owner who is on site in the morning and doing invoices at nine at night.' },
 
     { type: 'h2', text: 'What to actually compare' },
@@ -99,9 +99,15 @@ export const guide: Guide = {
     { type: 'p', text: 'SyteNav is built for the small-to-mid GC end of that table: quotes scanned in by AI so line items are not retyped, budgets that receive sub bills directly, change orders that raise the budget line and the sub contract they belong to, client invoices generated from costs already recorded, and a field view a crew can use with gloves on. Subs and clients get links rather than logins. It is currently an invite-only beta and free while you are in it.' },
     { type: 'p', text: 'What it does not do: it is not a document-control platform for large commercial work, it does not model a development pro-forma, and its QuickBooks integration is a one-way push from SyteNav into QuickBooks Online rather than a two-way sync. If those are your requirements, one of the categories above is a better fit and we would rather say so here than in week three of an implementation.' },
   ],
+  links: [
+    { text: 'quotes scanned in by AI', href: '/ai' },
+    { text: 'budgets that receive sub bills directly', href: '/money' },
+    { text: 'a field view a crew can use with gloves on', href: '/mobile' },
+    { text: 'Procore pricing', href: 'https://www.procore.com/pricing' },
+  ],
   faqs: [
     { q: 'Is there a free Procore alternative?', a: 'There are free tiers among the point tools - scheduling, storage, basic invoicing - and they work for a single crew. What no free tool does well is tie the money to the work, which is where most of the loss on a small job actually happens. SyteNav is free during its invite-only beta, which is a different thing from having a permanently free plan.' },
-    { q: 'How much does Procore cost for a small contractor?', a: 'Procore does not publish list pricing and quotes against the annual construction volume you run through the platform, plus implementation, on an annual contract. Any number you see quoted in a blog post is somebody else’s deal. Ask for a quote against your real volume and compare it to what your leaks cost you a year.' },
+    { q: 'How much does Procore cost for a small contractor?', a: 'Procore does not publish list prices. Its pricing page describes an upfront annual fee set by the products you take and your annual construction volume, with unlimited users included, so any number you see quoted in a blog post is somebody else’s deal. Ask for a quote against your real volume and compare it to what your leaks cost you a year.' },
     { q: 'Can we run Procore on one job and something else on the others?', a: 'Yes, and plenty of GCs do exactly this when one owner mandates a platform. The cost is that your company-wide view - what every job has committed, what every sub is owed - lives in neither system. Decide up front which one is your book of record for money.' },
     { q: 'What is the hardest part of switching construction software?', a: 'Jobs that are already running. A new job starts clean; a job at 60% complete needs its budget, its awarded subs, its spent costs and its permits entered before anything the system says is true. Do one job first, all the way, before moving the rest.' },
   ],

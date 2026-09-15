@@ -7,9 +7,11 @@ import { Eyebrow } from '@/components/marketing/section'
 import { CtaBand } from '@/components/marketing/cta-band'
 import { BlueprintGrid } from '@/components/marketing/blueprint'
 import { GuideBody } from '@/components/marketing/guide-body'
+import { GuideByline } from '@/components/marketing/guide-byline'
 import { GuideCard } from '@/components/marketing/guide-card'
 import { GUIDES, GUIDE_CATEGORIES, guideBySlug, guidePath, relatedTo } from '@/lib/guides'
 import { readMinutes, tocFor } from '@/lib/guides/schema'
+import { authorNode, GUIDE_AUTHOR } from '@/lib/guides/author'
 import { CANONICAL_ORIGIN, canonicalUrl } from '@/lib/canonical'
 import { formatDate } from '@/lib/dates'
 
@@ -80,16 +82,23 @@ export default function GuidePage({ params }: { params: { slug: string } }) {
   const jsonLd = {
     '@context': 'https://schema.org',
     '@graph': [
+      // The PERSON wrote it; the organisation published it. Crediting the
+      // organisation as author is what a page does when nobody will put their
+      // name to it, and it is the half of the byline a crawler reads.
+      authorNode,
       {
         '@type': 'Article',
         '@id': `${url}#article`,
         headline: guide.title,
         description: guide.description,
         datePublished: guide.published,
+        // CONTENT DATA, never `new Date()`. A dateModified generated at build
+        // time restamps all ten articles every deploy, which tells a crawler
+        // the whole library was rewritten because a dependency changed.
         dateModified: guide.updated ?? guide.published,
         inLanguage: 'en-US',
         mainEntityOfPage: url,
-        author: { '@id': `${CANONICAL_ORIGIN}/#organization` },
+        author: { '@id': GUIDE_AUTHOR.id },
         publisher: { '@id': `${CANONICAL_ORIGIN}/#organization` },
         articleSection: category?.label,
       },
@@ -137,6 +146,7 @@ export default function GuidePage({ params }: { params: { slug: string } }) {
               <Clock className="h-3.5 w-3.5" aria-hidden /> {readMinutes(guide)} min read
             </span>
           </div>
+          <GuideByline />
         </div>
       </section>
 
@@ -161,7 +171,7 @@ export default function GuidePage({ params }: { params: { slug: string } }) {
               cannot also be the thing a phone reads first. */}
           <Contents items={toc} className="mt-8 rounded-2xl border border-line bg-panel p-5 lg:hidden" />
 
-          <GuideBody blocks={guide.blocks} />
+          <GuideBody blocks={guide.blocks} links={guide.links} />
 
           {guide.faqs.length > 0 && (
             <section className="mt-14 sm:mt-16 border-t border-line pt-10">

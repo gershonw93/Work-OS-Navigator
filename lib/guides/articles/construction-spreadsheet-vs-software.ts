@@ -2,7 +2,8 @@ import type { Guide } from '../schema'
 
 export const guide: Guide = {
   slug: 'construction-spreadsheet-vs-software',
-  title: 'Google Sheets vs construction software',
+  title: 'Construction spreadsheet vs software: when Google Sheets stops working',
+  cardTitle: 'Google Sheets vs construction software',
   metaTitle: 'Construction Spreadsheet vs Software: When to Switch | SyteNav',
   description:
     'When a construction spreadsheet is still the right tool, the four failures that mean it is not, and how to move one live job across without losing what works.',
@@ -85,6 +86,11 @@ export const guide: Guide = {
     { type: 'h2', text: 'How SyteNav handles it' },
     { type: 'p', text: 'SyteNav is built assuming you already have a budget in a sheet: import it rather than retyping it, and quotes, sub invoices and inspector cards are scanned by AI rather than keyed in. Committed, actual and remaining are derived from contracts, approved invoices and approved change orders - the same calculation on the budget tab, the job summary and Master Money, so they cannot disagree. Anything in the total that is not on a row is listed with a way to file it. Job History records who changed what and when.' },
     { type: 'p', text: 'What it does not replace: your estimating workbook, your development model, and your accounting package. Estimating in particular is something we would rather you kept doing where you are good at it, and bring the result in.' },
+  ],
+  links: [
+    { text: 'quotes, sub invoices and inspector cards are scanned by AI rather than keyed in', href: '/ai' },
+    { text: 'the budget tab, the job summary and Master Money', href: '/money' },
+    { text: 'Job History records who changed what and when', href: '/features' },
   ],
   faqs: [
     { q: 'Can I keep using my estimating spreadsheet?', a: 'Yes, and most contractors should. Estimating is the one part of this workflow where a spreadsheet is genuinely the better tool. What you want is for the accepted estimate to become the job budget without being retyped.' },

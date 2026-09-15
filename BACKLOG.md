@@ -279,6 +279,14 @@ Shipped in #218: bulk creation makes a site + a job per unit/floor/house, with a
 Ten articles shipped, one per target phrase, rendered from `lib/guides` by one
 template. Parked, in rough order of value:
 
+- **Change orders for SUBCONTRACTORS, as its own article.** The
+  `change-order-management-software` URL was retitled for the GC buyer query and
+  rewritten from the GC side, which is what that phrase is searched for. The
+  subcontractor material it replaced was good and is not published anywhere now:
+  getting extra work authorised by a GC, the daily signed T&M ticket, tracking
+  extras against your own contract, and what to do when a super says "proceed
+  and the paperwork will follow". That is a different search and deserves its
+  own slug.
 - **The next ten articles.** Candidates already implied by the first ten: lien
   waivers and what to hold, retainage, AIA G702/G703 explained for a small GC,
   cost-plus vs fixed price, sub prequalification and COI tracking, what a
