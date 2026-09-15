@@ -53,6 +53,34 @@ account role). That is the sharp edge, not the whole surface. Still to do:
 ---
 
 
+## 💳 Self-serve: the trial and the demo the pricing page cannot offer
+
+Prices are published (#456) and the tiers meter ACTIVE PROJECTS - $99 / $199 /
+$399 a month for 3 / 10 / unlimited, annual at ten months for twelve. The
+product is still an invite-only beta and free while you are in it, so every
+button on `/pricing` opens the Request Access form.
+
+The supplied copy wanted two things that do not exist, and the page deliberately
+does not claim either. Both are real features, not copy changes:
+
+- **A 14-day free trial, no card.** Needs self-serve sign-up (today `/signup` is
+  `RequestAccessForm` behind a waitlist), trial state on the company, an expiry,
+  and an answer to what happens on day 15 - which is a product decision before
+  it is a build. When it ships, `/pricing`, the closing block and the "So what
+  am I paying today?" FAQ entry all stop being true in the same change.
+- **A live demo with no signup.** The only thing called demo today is
+  `/api/dev/seed-demo`, a dev seeding route. A public demo means a seeded
+  read-only tenant and a way to reset it.
+
+- **Nothing METERS the limits yet.** The plans name 3 / 10 / unlimited active
+  projects and 150 / 300 / 750 AI scans a month, and nothing counts either. The
+  FAQ answers ("you can upgrade or close out a finished job", "we reach out")
+  are true because a human is the enforcement - fine while the beta is free,
+  not fine on the day billing starts.
+
+---
+
+
 ## 📱 On the shelf - the app, then chats (decided 29 Aug 2026, IN THIS ORDER)
 
 **Order agreed: finish QuickBooks → App Store → project chats.** Each needs the

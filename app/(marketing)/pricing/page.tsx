@@ -1,62 +1,58 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
-import { ArrowRight, Check, HardHat, Building2, Landmark, Users, FolderKanban, ScanLine, Equal } from 'lucide-react'
-import { PLANS } from '@/lib/plans'
+import { ArrowRight, Check, Archive } from 'lucide-react'
+import { PLAN_FEATURES, PLAN_CTA_HREF, PLAN_CTA_WEB, PLAN_CTA_WEB_HREF, PRICING_STATUS } from '@/lib/plans'
+import { appHref } from '@/lib/hosts'
 import { marketingMeta } from '@/components/marketing/meta'
 import { Reveal } from '@/components/marketing/reveal'
 import { Eyebrow, SectionHead } from '@/components/marketing/section'
-import { CtaBand } from '@/components/marketing/cta-band'
+import { PricingPlans } from '@/components/marketing/pricing-plans'
 
 export const metadata: Metadata = marketingMeta({
-  title: 'Pricing · SyteNav construction management',
+  title: 'SyteNav Pricing | Pay by Active Project',
   description:
-    'One system instead of four. Book a setup and we will scope the right plan for your crew. SyteNav is in an invite-only beta, free while you are in it, and your subs and clients never need paid seats.',
+    'Run every part of the job in SyteNav. Plans start at $99 a month and include unlimited team members, subs and clients. SyteNav is an invite-only beta and free while you are in it.',
   path: '/pricing',
 })
 
-// The tiers live in lib/plans.ts so the app's Settings -> Billing shows the
-// same three. It used to show Starter / Pro / Enterprise with $49 on the middle
-// one - a price this page deliberately does not print.
-const TIER_ICONS = { HardHat, Building2, Landmark } as const
-const LIMIT_ICONS = { Users, FolderKanban, ScanLine } as const
-const TIERS = PLANS.map(p => ({
-  ...p,
-  icon: TIER_ICONS[p.icon],
-  limits: p.limits.map(l => ({ icon: LIMIT_ICONS[l.icon], t: l.t })),
-}))
-
-// The replacement math, no competitor names, honest ranges.
-const STACK = [
-  { tool: 'Project management suite', price: '$299 to $499' },
-  { tool: 'Daily log & field app', price: '$150 to $400', note: 'priced per user, so it grows with your crew' },
-  { tool: 'Invoicing software', price: '$35 to $90' },
-  { tool: 'Cloud storage for plans & photos', price: '$10 to $20' },
-]
-
+// The tiers and every number on this page come from lib/plans.ts, the same list
+// Settings -> Billing renders. They used to be two hardcoded sets that disagreed
+// about the tier names AND the price.
+//
+// TWO THINGS THIS PAGE MUST NOT SAY, both of which the draft copy said:
+//
+//   "Start free trial. 14 days. No card."  There is no trial. /signup is a
+//   Request Access form behind a waitlist, so a button carrying that verb opens
+//   something else - the same class of bug as a checklist step labelled "Share
+//   the portal" that opened the document-sending page.
+//
+//   "Poke around the live demo. No signup."  There is no public demo. The only
+//   thing named demo in this repo is /api/dev/seed-demo, which seeds a database.
+//
+// Both were replaced with Request access, which is the door that exists. When a
+// trial or a demo ships, this page is where it goes - and the FAQ below stops
+// being true, so fix it in the same change.
 const FAQ = [
   {
-    q: 'Why is there no price on this page?',
-    a: 'Because the honest answer depends on your crew size and how many documents you run through the AI, and a number on a page is usually wrong in one direction or the other. Book a setup, tell us how you work, and you get a flat monthly rate the same day. It is a real conversation, not a sales process.',
+    q: 'What happens when I reach my project limit?',
+    a: 'You can upgrade or close out a finished job. Nothing is deleted either way. Closed jobs stay fully readable.',
   },
   {
-    q: 'What counts as an AI scan?',
-    a: 'One document read by the AI: a quote, an invoice, a receipt, or a permit. A failed read never counts against you. The caps sit above what a busy month actually uses; on Crew, 50 scans is more than two every working day.',
+    q: 'What happens if I go over the scan allowance?',
+    a: 'We reach out. We do not cut you off in the middle of a job.',
   },
   {
-    q: 'What happens if I hit my scan limit?',
-    a: 'Nothing breaks. You can keep entering documents by hand, top up scans for that month, or move up a tier. We will warn you well before you get close.',
+    q: 'Do subs or clients cost extra?',
+    a: 'No. Team members are unlimited. Subs and clients use links, not logins.',
   },
   {
-    q: 'Do my subs and clients need paid seats?',
-    a: 'No. Subs bid on RFQ links without an account, and clients view and approve on a portal link. You only pay for your own team.',
+    q: 'Can I cancel?',
+    a: 'Yes. Monthly plans cancel anytime.',
   },
   {
-    q: 'What does the beta cost?',
-    a: 'Nothing while you are in it. SyteNav is invite-only right now, so you get the full feature set on a real job with no card on file. When we open up, the plan we scoped on your setup call is the one you move onto - no surprise.',
-  },
-  {
-    q: 'Can I cancel anytime?',
-    a: 'Yes. No contracts, no cancellation calls. Export your data whenever you want, it stays yours.',
+    // The question the prices on this page raise, answered where they are.
+    q: 'So what am I paying today?',
+    a: 'Nothing. SyteNav is an invite-only beta and free while you are in it, on the full product with a real job. The prices above are what the plans will cost when billing starts, published now so nobody finds out later. There is no card on file and no trial clock running.',
   },
 ]
 
@@ -64,126 +60,95 @@ export default function PricingPage() {
   return (
     <>
       {/* Hero */}
-      <section className="max-w-4xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-12 sm:pb-16 text-center">
+      <section className="mx-auto max-w-4xl px-4 sm:px-6 pt-16 sm:pt-24 pb-10 text-center">
         <Eyebrow className="justify-center">Pricing</Eyebrow>
-        <h1 className="mt-3 text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-ink leading-[1.04]">
-          One system. Instead of four.
+        <h1 className="mt-3 text-4xl font-extrabold leading-[1.04] tracking-tight text-ink sm:text-5xl lg:text-6xl">
+          Pricing that follows the work on your board.
         </h1>
-        <p className="mt-6 text-lg text-muted-fg leading-relaxed max-w-2xl mx-auto">
-          SyteNav replaces the PM tool, the field app, the invoicing software, and the storage plan, for less than most crews pay for the first one. Book a setup and we&apos;ll scope the right plan for how you actually work. Your subs and clients never need paid seats.
+        <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-muted-fg">
+          Every plan has the full product. You only pay for how many projects are active at
+          once. Finished jobs stay with you and do not count toward your limit.
         </p>
       </section>
 
       {/* Tiers */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-16 sm:pb-20">
-        <div className="grid md:grid-cols-3 gap-5 items-stretch">
-          {TIERS.map((t, i) => (
-            <Reveal key={t.name} delay={i * 100} className="h-full">
-              <div
-                className={[
-                  'h-full flex flex-col rounded-3xl p-7 sm:p-8',
-                  t.featured
-                    ? 'bg-ink text-surface dark:bg-panel dark:text-ink border-2 border-accent relative'
-                    : 'border border-line bg-panel',
-                ].join(' ')}
-              >
-                {t.featured && (
-                  <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-accent text-accent-ink text-[11px] font-bold px-3 py-1">
-                    Most popular
-                  </span>
-                )}
-                <t.icon className={`h-8 w-8 mb-4 ${t.featured ? 'text-accent' : 'text-accent-fg'}`} />
-                {/* Explicit color needed: the global h2 base style is text-ink,
-                    which disappears on the featured card's dark background. */}
-                <h2 className={`text-2xl font-extrabold tracking-tight ${t.featured ? 'text-surface dark:text-ink' : 'text-ink'}`}>{t.name}</h2>
-                <p className={`mt-1 text-sm font-medium ${t.featured ? 'opacity-70' : 'text-muted-fg'}`}>{t.who}</p>
+      <section className="mx-auto max-w-6xl px-4 sm:px-6 pb-16 sm:pb-20">
+        <PricingPlans />
+      </section>
 
-                {/* No number here on purpose - what a crew actually needs
-                    varies enough that a quoted list price is usually wrong in
-                    one direction or the other. We scope it on the call. */}
-                <p className={`mt-5 font-display font-bold text-3xl tracking-tight ${t.featured ? '' : 'text-ink'}`}>
-                  Let&apos;s scope it
-                </p>
-                <p className={`mt-1 text-xs ${t.featured ? 'opacity-50' : 'text-faint'}`}>
-                  Flat monthly rate · no per-seat billing · cancel anytime
-                </p>
+      {/* Finished jobs do not count */}
+      <section className="border-y border-line bg-panel">
+        <div className="mx-auto max-w-4xl px-4 sm:px-6 py-16 sm:py-20">
+          <Reveal>
+            <div className="rounded-3xl border border-line bg-surface p-7 sm:p-10">
+              <Archive className="h-8 w-8 text-accent-fg" />
+              <h2 className="mt-4 text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">
+                Finished jobs do not count.
+              </h2>
+              <p className="mt-4 leading-relaxed text-muted-fg">
+                Complete a project and it stays fully readable forever. The budget, invoices,
+                daily logs, photos, documents and Job History stay where they are. Only active
+                projects use your plan.
+              </p>
+            </div>
+          </Reveal>
+        </div>
+      </section>
 
-                {/* Limits */}
-                <div className={`mt-5 rounded-xl px-4 py-3 space-y-2 ${t.featured ? 'bg-surface/10 dark:bg-muted' : 'bg-surface border border-line-soft'}`}>
-                  {t.limits.map(l => (
-                    <p key={l.t} className={`flex items-center gap-2.5 font-mono text-xs ${t.featured ? 'opacity-85' : 'text-ink-soft'}`}>
-                      <l.icon className={`h-3.5 w-3.5 shrink-0 ${t.featured ? 'text-accent' : 'text-accent-fg'}`} /> {l.t}
-                    </p>
-                  ))}
+      {/* Everything, on every plan */}
+      <section className="mx-auto max-w-5xl px-4 sm:px-6 py-20 sm:py-24">
+        <Reveal>
+          <SectionHead
+            center
+            eyebrow="What you get"
+            title="Everything, on every plan."
+            lead="The $99 plan is not a stripped-down version. Every plan gets the same product. You are only buying project capacity."
+            className="mb-12 sm:mb-14"
+          />
+        </Reveal>
+        <div className="grid gap-x-8 gap-y-7 sm:grid-cols-2">
+          {PLAN_FEATURES.map((f, i) => (
+            <Reveal key={f.t} delay={i * 40}>
+              <div className="flex items-start gap-3">
+                <Check className="mt-1 h-4 w-4 shrink-0 text-success" />
+                <div>
+                  <p className="font-bold text-ink">{f.t}</p>
+                  <p className="mt-1 text-sm leading-relaxed text-muted-fg">{f.d}</p>
                 </div>
-
-                <p className={`mt-5 text-sm leading-relaxed ${t.featured ? 'opacity-80' : 'text-muted-fg'}`}>{t.blurb}</p>
-                <ul className="mt-5 space-y-2.5 flex-1">
-                  {t.features.map(f => (
-                    <li key={f} className={`flex items-start gap-2.5 text-sm ${t.featured ? 'opacity-90' : 'text-ink-soft'}`}>
-                      <Check className={`h-4 w-4 mt-0.5 shrink-0 ${t.featured ? 'text-accent' : 'text-success'}`} /> {f}
-                    </li>
-                  ))}
-                </ul>
-                <Link
-                  href="/contact"
-                  className={[
-                    'mt-8 inline-flex items-center justify-center gap-2 rounded-xl font-bold px-6 py-3 transition-colors',
-                    t.featured
-                      ? 'bg-accent text-accent-ink hover:bg-accent/90'
-                      : 'border border-line text-ink hover:bg-muted',
-                  ].join(' ')}
-                >
-                  {t.cta} <ArrowRight className="h-4 w-4" />
-                </Link>
               </div>
             </Reveal>
           ))}
         </div>
-        <p className="mt-8 text-center text-sm text-faint max-w-2xl mx-auto">
-          Invite-only beta: full features on a real job, no card required, while you are in it. Unlimited client and sub links on every plan.
-        </p>
       </section>
 
-      {/* Do the math, dark band */}
+      {/* Run a real job before you decide. The beta IS the trial - it is the
+          full product on a real job with no card - so this block says that
+          rather than promising a self-serve clock that does not exist. */}
       <section className="dark">
-        <div className="bg-surface text-ink border-y border-line">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 py-20 sm:py-28">
+        <div className="border-y border-line bg-surface text-ink">
+          <div className="mx-auto max-w-3xl px-4 sm:px-6 py-20 sm:py-24 text-center">
             <Reveal>
-              <SectionHead
-                center
-                eyebrow="Do the math"
-                title="What the stack you replace costs"
-                lead="No competitor names, just what crews around here actually pay each month for the tools SyteNav folds into one."
-                className="mb-12 sm:mb-14"
-              />
-            </Reveal>
-            <Reveal delay={120}>
-              <div className="rounded-3xl border border-line bg-panel p-6 sm:p-8">
-                <div className="divide-y divide-line-soft">
-                  {STACK.map(s => (
-                    <div key={s.tool} className="py-4 flex items-start justify-between gap-4">
-                      <div>
-                        <p className="font-semibold text-ink">{s.tool}</p>
-                        {s.note && <p className="text-xs text-muted-fg mt-0.5">{s.note}</p>}
-                      </div>
-                      <p className="font-mono text-sm text-ink-soft shrink-0 pt-0.5">{s.price} <span className="text-faint">/mo</span></p>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-2 pt-5 border-t-2 border-line flex items-center justify-between gap-4">
-                  <p className="font-bold text-ink flex items-center gap-2"><Equal className="h-4 w-4 text-danger" /> Four tools, four logins</p>
-                  <p className="font-mono font-bold text-ink shrink-0">$494 to $1,009 <span className="text-faint font-normal">/mo</span></p>
-                </div>
-                <div className="mt-4 rounded-2xl bg-accent text-accent-ink px-5 py-4 flex flex-wrap items-center justify-between gap-3">
-                  <p className="font-bold flex items-center gap-2">
-                    <Check className="h-5 w-5" /> SyteNav, all of it in one system
-                  </p>
-                  <p className="font-display font-bold text-xl shrink-0">Less than the first line on this list</p>
-                </div>
-                <p className="mt-4 text-xs text-muted-fg text-center">
-                  And that&apos;s before counting the hours nobody bills for retyping quotes into budgets and progress into invoices.
-                </p>
+              <h2 className="text-3xl font-extrabold tracking-tight text-ink sm:text-4xl">
+                Run a real job before you decide.
+              </h2>
+              <p className="mx-auto mt-5 max-w-xl leading-relaxed text-muted-fg">
+                SyteNav is an invite-only beta. Ask for access, tell us how you work, and you
+                get the whole product on a real job — free while you are in the beta, with no
+                card and no cut-down plan.
+              </p>
+              <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+                <Link
+                  href={appHref(PLAN_CTA_WEB_HREF)}
+                  className="inline-flex items-center gap-2 whitespace-nowrap rounded-xl bg-accent px-7 py-3.5 font-bold text-accent-ink transition-opacity hover:opacity-90"
+                >
+                  {PLAN_CTA_WEB} <ArrowRight className="h-4 w-4" />
+                </Link>
+                <Link
+                  href={PLAN_CTA_HREF}
+                  className="inline-flex items-center gap-2 whitespace-nowrap rounded-xl border border-line px-7 py-3.5 font-semibold text-ink transition-colors hover:bg-muted"
+                >
+                  Book a setup
+                </Link>
               </div>
             </Reveal>
           </div>
@@ -191,10 +156,10 @@ export default function PricingPage() {
       </section>
 
       {/* FAQ */}
-      <section className="bg-panel border-y border-line">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-20 sm:py-24">
+      <section className="border-b border-line bg-panel">
+        <div className="mx-auto max-w-3xl px-4 sm:px-6 py-20 sm:py-24">
           <Reveal>
-            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-ink text-center mb-12">
+            <h2 className="mb-12 text-center text-3xl font-extrabold tracking-tight text-ink sm:text-4xl">
               Fair questions
             </h2>
           </Reveal>
@@ -203,7 +168,7 @@ export default function PricingPage() {
               <Reveal key={f.q} delay={i * 60}>
                 <div className="py-7">
                   <h3 className="text-lg font-bold text-ink">{f.q}</h3>
-                  <p className="mt-2.5 text-muted-fg leading-relaxed">{f.a}</p>
+                  <p className="mt-2.5 leading-relaxed text-muted-fg">{f.a}</p>
                 </div>
               </Reveal>
             ))}
@@ -211,7 +176,35 @@ export default function PricingPage() {
         </div>
       </section>
 
-      <CtaBand title="Book a setup" body="Twenty minutes, we scope your plan, and you start on a free job to see whether this replaces the stack." />
+      {/* Closing */}
+      <section aria-label="Get started" className="mx-auto max-w-6xl px-4 sm:px-6 py-20 sm:py-28">
+        <div className="relative overflow-hidden rounded-3xl bg-accent px-6 py-16 text-center text-accent-ink sm:px-14 sm:py-20">
+          <span aria-hidden className="bp-grid absolute inset-0" />
+          <div className="relative">
+            <h2 className="text-3xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl">
+              One caught billing mistake pays for the year.
+            </h2>
+            <p className="mx-auto mt-4 max-w-xl text-base text-accent-ink/75 sm:text-lg">
+              Run the next job with the quote, budget, field record and billing on the same page.
+            </p>
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+              <Link
+                href={appHref(PLAN_CTA_WEB_HREF)}
+                className="inline-flex items-center gap-2 whitespace-nowrap rounded-xl bg-ink px-7 py-3.5 font-bold text-surface transition-opacity hover:opacity-90"
+              >
+                {PLAN_CTA_WEB} <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link
+                href={PLAN_CTA_HREF}
+                className="inline-flex items-center gap-2 whitespace-nowrap rounded-xl border border-accent-ink/30 px-7 py-3.5 font-semibold transition-colors hover:bg-accent-ink/10"
+              >
+                Book a setup
+              </Link>
+            </div>
+            <p className="mt-5 text-xs text-accent-ink/60">{PRICING_STATUS.line}</p>
+          </div>
+        </div>
+      </section>
     </>
   )
 }

@@ -8,7 +8,15 @@
 // Articles are plain data so search stays instant and offline. Blocks render in
 // order; use 'steps' for numbered how-tos, 'tip'/'warn' for callouts, and
 // 'image' for an optional screenshot (public path under /public).
+//
+// PLAIN DATA IS NOT AN EXCUSE TO RETYPE A FACT. An article that quotes a price,
+// a limit or a role default is a SECOND home for it, and the copy here is the
+// one nobody remembers to update - this file has no compiler to catch a stale
+// $99. Where the product already holds the fact, build the string from it, the
+// way 'plans-and-pricing' builds its steps out of PLANS.
 // ─────────────────────────────────────────────────────────────────────────────
+
+import { PLANS, planPrice } from '@/lib/plans'
 
 export type HelpBlock =
   | { type: 'text'; text: string }
@@ -1314,6 +1322,34 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: 'text', text: 'FIXED IN SEPTEMBER 2026. Eight tables - including the one holding client invoices and their portal links - were readable without signing in. Nothing indicates it was used, but it was possible. Every table is now closed, and a check in the build refuses any future table that forgets it.' },
     ],
     related: ['permissions', 'auto-signout', 'create-invoice'],
+  },
+  {
+    slug: 'plans-and-pricing',
+    title: 'Plans, prices and what an active project is',
+    category: 'settings',
+    keywords: [
+      'price', 'prices', 'pricing', 'plan', 'plans', 'billing', 'cost', 'how much',
+      'subscription', 'monthly', 'annual', 'yearly', 'invoice from sytenav', 'upgrade',
+      'active project', 'project limit', 'limit', 'scans', 'scan allowance', 'ai scans',
+      'beta', 'free', 'trial', 'card', 'cancel', 'seats', 'per seat', 'team members',
+    ],
+    summary: 'What each plan costs at launch, what counts toward your project limit, and what you are paying today (nothing).',
+    blocks: [
+      { type: 'text', text: 'WHAT YOU ARE PAYING TODAY: nothing. SyteNav is an invite-only beta and free while you are in it, on the full product with a real job. There is no card on file and no trial clock running. The prices in Settings \u2192 Billing are what the plans will cost when billing starts \u2013 published now rather than sprung on you later.' },
+      { type: 'text', text: 'THE TIERS ARE CAPACITY, NOT FEATURES. Every plan is the whole product. You are only buying how many projects can be active at once: up to 3, up to 10, or unlimited. The cheapest plan is not a cut-down version, so there is never a feature you cannot reach because of which plan you are on.' },
+      // Built from PLANS, not typed. A price quoted in help text is the copy
+      // that goes stale silently - there is no compiler watching this file.
+      { type: 'steps', items: PLANS.map(
+        p => `${p.name} \u2013 ${planPrice(p.monthly)} a month, ${p.scans.toLocaleString('en-US')} AI scans a month.`,
+      ) },
+      { type: 'tip', text: 'Paying annually is ten months for twelve \u2013 two months free. The per-month figure and the saving shown beside each plan are worked out from the monthly price, so they cannot drift out of date.' },
+      { type: 'text', text: 'WHAT COUNTS AS AN ACTIVE PROJECT. Only jobs that are running. Complete a project and it stops counting toward your limit while staying fully readable forever \u2013 the budget, invoices, daily logs, photos, documents and Job History all stay exactly where they are. Nothing is deleted or archived away when you close a job out.' },
+      { type: 'text', text: 'WHEN YOU REACH THE LIMIT you can upgrade or close out a finished job. Either way nothing is lost.' },
+      { type: 'text', text: 'WHAT AN AI SCAN IS. One document read by the AI: a quote, a sub invoice, a receipt, or an inspector card. A failed read never counts against you. If you go over the allowance we reach out \u2013 we do not cut you off in the middle of a job.' },
+      { type: 'text', text: 'SUBS AND CLIENTS COST NOTHING. Team members are unlimited on every plan, and subs and clients work through links rather than logins, so there is no seat to buy for them and no reason to ration access to the people on site.' },
+      { type: 'warn', text: 'There is no self-serve sign-up or free trial yet. Access is by invite while the beta is on, and the buttons on the pricing page open a request form rather than a checkout \u2013 on purpose, so nothing promises a card-free instant start that does not exist.' },
+    ],
+    related: ['permissions', 'scan-sub-invoice', 'create-invoice'],
   },
   {
     slug: 'permissions',

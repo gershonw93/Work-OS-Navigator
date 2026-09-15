@@ -5,6 +5,7 @@ import { crumbsFor } from '@/lib/breadcrumbs'
 import { MarketingNav } from '@/components/marketing/marketing-nav'
 import { MarketingFooter } from '@/components/marketing/marketing-footer'
 import { CANONICAL_ORIGIN } from '@/lib/canonical'
+import { PLANS } from '@/lib/plans'
 
 // Structured data for the whole marketing site.
 //
@@ -53,9 +54,21 @@ const jsonLd = {
       operatingSystem: 'Web',
       description:
         'AI-powered construction management: quote scanning, budgets, client payments and escrow, invoices, scheduling, daily logs, time clock, permits, inspections, compliance, and RFIs.',
-      // Structured data has to match the page. We don't publish a list price,
-      // so this states availability rather than inventing a number.
-      offers: { '@type': 'Offer', priceCurrency: 'USD', availability: 'https://schema.org/LimitedAvailability', description: 'Invite-only beta, free while in beta' },
+      // STRUCTURED DATA HAS TO MATCH THE PAGE, and the page now publishes a
+      // list price - so this reads the same numbers off lib/plans.ts rather
+      // than restating "we don't publish one", which stopped being true the
+      // day /pricing printed $99. Availability stays LimitedAvailability
+      // because the door is still a waitlist and the beta is still free: the
+      // prices are what the plans WILL cost, and the description says so.
+      offers: {
+        '@type': 'AggregateOffer',
+        priceCurrency: 'USD',
+        lowPrice: Math.min(...PLANS.map(p => p.monthly)),
+        highPrice: Math.max(...PLANS.map(p => p.monthly)),
+        offerCount: PLANS.length,
+        availability: 'https://schema.org/LimitedAvailability',
+        description: 'Launch pricing, billed per month by active project. Invite-only beta, free while in beta.',
+      },
       publisher: { '@id': `${CANONICAL_ORIGIN}/#organization` },
     },
   ],
