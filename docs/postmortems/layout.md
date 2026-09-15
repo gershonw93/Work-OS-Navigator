@@ -224,3 +224,80 @@ each one was written the day something shipped broken.*
   measurement rather than a pattern, `lib/__tests__/overlay-geometry.ts`, which
   lays real markup out in headless Chromium. Full detail in MOBILE.md.
 
+
+## A menu that covers the page is an overlay, whatever it is called
+
+> When the menu is open, I can still scroll on mobile
+
+The marketing site's phone menu. It opens under a `sticky` header, covers the
+page, and the page behind it kept scrolling.
+
+`globals.css` has had the lock for a long time:
+
+```css
+html:has([data-overlay]) { overflow-y: hidden; }
+html:has([data-overlay]) [data-app-scroll] { overflow-y: hidden !important; }
+```
+
+and `layout-overflow.ts` has had a scan for a long time that every overlay
+carries `data-overlay`. Both were working. The menu had no `data-overlay` on it
+at all.
+
+### Why the scan could not see it
+
+The scan asks which panels DECLARE themselves overlays:
+
+```ts
+if (!/className="(overlay|overlay-full)\b/.test(line)) continue
+overlays.push(f)
+if (!/data-overlay/.test(line)) unmarked.push(...)
+```
+
+That is the right question for a dialog, and it is unanswerable for a panel
+that declares nothing. This menu is a plain `<div>` with `md:hidden border-t
+bg-panel` - no `.overlay`, no `fixed inset-0`, nothing for a pattern to match
+on. It is an overlay by behaviour and not by name, so a scan keyed on the name
+reports green over it for ever.
+
+The CSS was never that fussy. `html:has([data-overlay])` does not care what a
+panel is called; it cares that the panel says it is one. So the fix is one
+attribute, and the new scan asks a behavioural question instead - a panel
+rendered from an `open` state that hides itself at a breakpoint is a phone
+menu, and a phone menu covers the page.
+
+### The two surfaces fail differently, which is why this one was missed
+
+Inside the app the DOCUMENT never scrolls: the shell is `h-app` +
+`overflow-hidden` and the only thing that moves is `<main data-app-scroll>`. So
+the second line of the rule does the work and the first is belt-and-braces. The
+app's own phone nav has carried `data-overlay` since #388.
+
+Marketing is an ordinary scrolling document. The first line is the only lock it
+has, and a missing attribute is the entire bug. Two surfaces, one rule, and only
+one of them was ever exercised by it.
+
+### Two smaller things in the same panel
+
+Its cap was `max-h-[calc(100vh-4rem)]`. `vh` knows nothing about the browser
+chrome that collapses as you scroll, so the menu could be taller than the
+screen. `--vv-h` is the right answer, but it is set by `useVisualViewport` in
+`NativeShell`, which wraps the dashboard and field shells and NOT marketing - so
+the fallback is what actually applies here. `calc(var(--vv-h, 100dvh) - 4rem)`
+uses `dvh`, which does track the chrome, and needs no edit if marketing ever
+mounts the hook.
+
+And Escape did not close it. The dropdown two elements away always had Escape;
+the one panel that covers the whole page did not, so on a keyboard it was the
+only thing you could not dismiss without finding its button again.
+
+### Two tests that failed on the fix they were written to protect
+
+The vh assertion was first written `/max-h-\[[^\]]*\dvh/`, which matches the
+`0dvh` inside `100dvh` - it failed on the replacement. `[^dsl]vh` is the
+distinction that was meant: `dvh`, `svh` and `lvh` are the units that DO track
+the chrome, so they are the answer rather than the bug.
+
+Then it failed again, on prose: the comment beside the fix quotes the old
+`max-h-[calc(100vh-4rem)]` to say what it replaced, and the assertion was
+reading the raw file. `code()` exists for exactly this, and this is the second
+time in this session that a scan has found its own explanatory comment.

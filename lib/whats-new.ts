@@ -55,6 +55,17 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 const AUTHORED: Release[] = [
   {
     date: '2026-09-15',
+    title: 'The website menu holds still',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'The page scrolled behind the phone menu',
+        text: 'On a phone, opening the menu on sytenav.com left the page behind it still scrolling, so closing the menu could leave you somewhere else entirely. The page now holds still until you close it, the menu fits the screen properly, and Escape closes it.',
+      },
+    ],
+  },
+  {
+    date: '2026-09-15',
     title: 'The sign-in screen stops looking like a fake',
     items: [
       {

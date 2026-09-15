@@ -38,6 +38,17 @@ export function MarketingNav() {
     setDrop(false)
   }, [pathname])
 
+  // Escape closes the mobile menu. The dropdown below has always had this and
+  // the menu never did, which on a keyboard leaves the one panel that covers
+  // the whole page as the only thing you cannot dismiss without finding its
+  // button again.
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open])
+
   // Close the dropdown on outside click or Escape.
   useEffect(() => {
     if (!drop) return
@@ -133,9 +144,28 @@ export function MarketingNav() {
         </div>
       </div>
 
-      {/* Mobile menu */}
+      {/* Mobile menu.
+          `data-overlay` IS THE SCROLL LOCK. Reported against this menu: it
+          opens over the page and the page behind it still scrolls. Nothing
+          here is a dialog, so the `.overlay` scan in layout-overflow.ts could
+          not see it - but `html:has([data-overlay]) { overflow-y: hidden }` in
+          globals.css does not care what a panel is called, only that it says
+          it is one. The app's own phone nav has carried it since #388
+          (sidebar.tsx, `overlay-full ... data-overlay`); the marketing nav was
+          simply never given it.
+
+          AND THE CAP IS NOT `vh`. It was `max-h-[calc(100vh-4rem)]`, and vh
+          knows nothing about the browser chrome that collapses as you scroll,
+          so the menu was taller than the screen on a phone. `--vv-h` is the
+          right answer but it is only mounted by NativeShell, which wraps the
+          dashboard and field shells and not this one, so the fallback is what
+          actually applies here - `dvh`, which at least tracks the chrome. The
+          var stays in front so this needs no edit if marketing ever gets it. */}
       {open && (
-        <div className="md:hidden border-t border-line bg-panel px-4 py-4 space-y-1 max-h-[calc(100vh-4rem)] overflow-y-auto">
+        <div
+          data-overlay
+          className="md:hidden border-t border-line bg-panel px-4 py-4 space-y-1 max-h-[calc(var(--vv-h,100dvh)-4rem)] overflow-y-auto"
+        >
           {LINKS.map(l => (
             <Link key={l.href} href={l.href} onClick={() => setOpen(false)} className="block text-[15px] font-medium text-ink-soft py-2.5">
               {l.label}
