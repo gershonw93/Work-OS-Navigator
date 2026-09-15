@@ -37,10 +37,10 @@ export default function FlowsPage() {
         <Reveal delay={0.05}>
           <div className="mt-8 flex flex-wrap items-center gap-3 text-xs">
             <span className="inline-flex items-center gap-1.5 rounded-lg border border-success/25 bg-success-tint px-3 py-1.5 font-semibold text-success">
-              <TrendingUp className="h-3.5 w-3.5" /> Win — what you get
+              <TrendingUp className="h-3.5 w-3.5" /> Win - what you get
             </span>
             <span className="inline-flex items-center gap-1.5 rounded-lg border border-danger/25 bg-danger-tint px-3 py-1.5 font-semibold text-danger">
-              <TrendingDown className="h-3.5 w-3.5" /> Without it — what it costs
+              <TrendingDown className="h-3.5 w-3.5" /> Without it - what it costs
             </span>
           </div>
         </Reveal>

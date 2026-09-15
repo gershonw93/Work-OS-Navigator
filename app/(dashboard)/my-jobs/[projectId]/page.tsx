@@ -1162,7 +1162,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                     )
                   })()}
                   {!inspectionDate(selectedInspection).confirmed && selectedInspection.status !== 'passed' && selectedInspection.status !== 'failed' && (
-                    <p className="text-xs text-warn">Not booked yet — the office still has to call this in.</p>
+                    <p className="text-xs text-warn">Not booked yet - the office still has to call this in.</p>
                   )}
                   {selectedInspection.scheduling_phone && (
                     <a href={`tel:${selectedInspection.scheduling_phone}`} className="flex items-center gap-2 text-sm text-accent-fg hover:underline font-medium">

@@ -222,7 +222,7 @@ export function PaymentRequests({
                   {why && <p className="text-xs text-warn">{why}</p>}
                 </div>
                 <span className={cn('text-sm font-semibold', isRequestable(stage) ? 'text-ink' : 'text-faint')}>
-                  {isRequestable(stage) ? money(stage.amount!) : '—'}
+                  {isRequestable(stage) ? money(stage.amount!) : '-'}
                 </span>
                 {already ? (
                   <span className="text-xs font-medium text-success">Requested</span>

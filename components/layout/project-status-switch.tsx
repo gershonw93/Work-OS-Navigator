@@ -309,7 +309,7 @@ export function ProjectStatusSwitch({
                         className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--accent)]"
                       />
                       <span className="text-sm text-ink-soft">
-                        Go ahead anyway — I will add {needsAck.length === 1 ? 'it' : 'these'} later.
+                        Go ahead anyway - I will add {needsAck.length === 1 ? 'it' : 'these'} later.
                       </span>
                     </label>
                   )}

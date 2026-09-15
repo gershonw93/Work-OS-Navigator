@@ -67,7 +67,7 @@ export function LineEditor({
 
       {lines.length === 0 ? (
         <p className="text-xs text-faint">
-          No breakdown. Add lines to record what the charges are — or leave it and the
+          No breakdown. Add lines to record what the charges are - or leave it and the
           bill keeps just its total.
         </p>
       ) : (

@@ -644,6 +644,57 @@ for (const f of tsx) {
 ok(emoji.length === 0,
   `no character stands in for an icon${emoji.length ? ` - ${emoji[0]} (+${emoji.length - 1})` : ''}`)
 
+// ── 14b. AND A DASH IS A HYPHEN ─────────────────────────────────────────────
+//
+// Reported in three words, looking at the app: "I see some Em Dashes. Get RID
+// of them." There were 130 across 28 files - 74 em dashes and the rest en -
+// almost all of them sentence dashes in copy a user reads, plus five standing
+// in for an empty value in a table cell.
+//
+// Different problem from the emoji above, same shape: a character doing a job
+// the house style does it another way. Every code comment and every line of
+// CLAUDE.md in this repo already writes a sentence dash as " - ", so the copy
+// was the only place disagreeing with it - and an em dash is the tell that a
+// sentence was written somewhere other than here.
+//
+// The en dashes go too, including the legitimate RANGES (a date span, a
+// clock-in to a clock-out). "Sep 1 - Sep 7" reads fine, and a rule with an
+// exception nobody can see is a rule that comes back.
+//
+// Ratcheted at ZERO. By codepoint, like the emoji scan, and NOT from `code()`:
+// a dash in a comment is the same character, and this one has no reason to be
+// spared. The escaped forms are checked separately because `\u2014` in a
+// source string is the same em dash once it renders.
+const DASHES: Array<[string, string]> = [['\u2014', 'em dash'], ['\u2013', 'en dash']]
+//
+// AND IT WALKS ITS OWN FILE LIST. `tsx` above is .tsx under app/ and
+// components/ only, which is the right surface for an overlay or a StatStrip
+// and the WRONG one for copy: 80 of the 130 dashes were in lib/whats-new.ts,
+// lib/help/articles.ts, lib/pdf-fill.ts and the API routes, none of which it
+// walks. A scan pinned at zero over half the surface reports green and means
+// nothing - the first version of this one did exactly that, and only a
+// red-check that injected a dash into lib/ found out.
+const COPY_FILES = [...walk('app'), ...walk('components'), ...walk('lib')]
+  .filter(f => (f.endsWith('.ts') || f.endsWith('.tsx')) && f.indexOf('__tests__') === -1)
+const dashes: string[] = []
+for (const f of COPY_FILES) {
+  read(f).split('\n').forEach((line, i) => {
+    for (const [ch, name] of DASHES) {
+      if (line.indexOf(ch) !== -1) dashes.push(`${f}:${i + 1} ${name}`)
+      if (line.indexOf('\\u' + ch.codePointAt(0)!.toString(16)) !== -1) {
+        dashes.push(`${f}:${i + 1} escaped ${name}`)
+      }
+    }
+  })
+}
+ok(dashes.length === 0,
+  `no em or en dashes${dashes.length ? ` - ${dashes[0]} (+${dashes.length - 1})` : ''}`)
+
+// ...and the hyphens that replaced them are really there, so this cannot have
+// been passed by deleting the sentences.
+ok(/is the whole product - you are only buying/.test(read('app/(dashboard)/settings/page.tsx')),
+  'the sentence dashes came back as hyphens rather than vanishing')
+
 // ...and the typography it deliberately keeps is still there, so the scan above
 // cannot have been passed by deleting everything.
 const arrows = tsx.filter(f => /[→←↑↓]/.test(code(f)))

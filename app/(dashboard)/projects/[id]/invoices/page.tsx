@@ -809,11 +809,11 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
                           return (
                             <tr key={i} className={flag ? 'bg-warn-tint/40' : undefined}>
                               <td className="px-4 py-2 text-ink-soft">
-                                <span className="break-words">{li.description || '—'}</span>
+                                <span className="break-words">{li.description || '-'}</span>
                                 {flag && (
                                   <span className="block text-[11px] text-warn mt-0.5">
                                     {flag.kind === 'over_quoted_line'
-                                      ? `Quoted $${Number(flag.quoted).toLocaleString()} — $${Math.round(flag.over ?? 0).toLocaleString()} more`
+                                      ? `Quoted $${Number(flag.quoted).toLocaleString()} - $${Math.round(flag.over ?? 0).toLocaleString()} more`
                                       : 'Not on their quote'}
                                   </span>
                                 )}
@@ -824,7 +824,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
                                   : ''}
                               </td>
                               <td className="px-4 py-2 text-right text-ink whitespace-nowrap tabular-nums">
-                                {amt != null ? `$${amt.toLocaleString()}` : <span className="text-faint">—</span>}
+                                {amt != null ? `$${amt.toLocaleString()}` : <span className="text-faint">-</span>}
                               </td>
                             </tr>
                           )
@@ -1169,12 +1169,12 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
                       <p key={i} className="text-xs text-warn/90">
                         {f.kind === 'over_quoted_line' ? (
                           <>
-                            <span className="font-medium">{f.description}</span> — billed ${Number(f.invoiced).toLocaleString()},
+                            <span className="font-medium">{f.description}</span> - billed ${Number(f.invoiced).toLocaleString()},
                             quoted ${Number(f.quoted).toLocaleString()} (${Math.round(f.over ?? 0).toLocaleString()} more)
                           </>
                         ) : (
                           <>
-                            <span className="font-medium">{f.description}</span> — ${Number(f.invoiced).toLocaleString()},
+                            <span className="font-medium">{f.description}</span> - ${Number(f.invoiced).toLocaleString()},
                             not on their quote
                           </>
                         )}
@@ -1212,7 +1212,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
                         yet. Choosing one attaches them, so entering a bill
                         never dead-ends on "that sub exists, but not here". */}
                     {directoryOptions.length > 0 && (
-                      <optgroup label="From your directory — not on this job yet">
+                      <optgroup label="From your directory - not on this job yet">
                         {directoryOptions.map(c => (
                           <option key={c.id} value={`dir:${c.id}`}>
                             {c.name}{c.trade ? ` - ${c.trade}` : ''}

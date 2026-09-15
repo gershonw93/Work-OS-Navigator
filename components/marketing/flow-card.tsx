@@ -68,13 +68,13 @@ export function FlowCard({ flow, defaultOpen = false }: { flow: Flow; defaultOpe
                       {s.win && (
                         <p className="flex items-start gap-2 rounded-lg border border-success/25 bg-success-tint px-3 py-2 text-xs leading-relaxed text-success">
                           <TrendingUp className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                          <span><span className="font-bold">Win — </span>{s.win}</span>
+                          <span><span className="font-bold">Win - </span>{s.win}</span>
                         </p>
                       )}
                       {s.loss && (
                         <p className="flex items-start gap-2 rounded-lg border border-danger/25 bg-danger-tint px-3 py-2 text-xs leading-relaxed text-danger">
                           <TrendingDown className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                          <span><span className="font-bold">Without it — </span>{s.loss}</span>
+                          <span><span className="font-bold">Without it - </span>{s.loss}</span>
                         </p>
                       )}
                     </div>

@@ -60,14 +60,14 @@ const AUTHORED: Release[] = [
       {
         kind: 'new',
         title: 'Plans and prices are published',
-        text: 'Settings \u2192 Billing and the pricing page now show what each plan will cost: $99, $199 or $399 a month, depending on how many projects you have running at once. Paying annually is ten months for twelve. Every plan is the whole product \u2013 you are only buying project capacity, so there is no feature locked behind a higher tier.',
+        text: 'Settings \u2192 Billing and the pricing page now show what each plan will cost: $99, $199 or $399 a month, depending on how many projects you have running at once. Paying annually is ten months for twelve. Every plan is the whole product - you are only buying project capacity, so there is no feature locked behind a higher tier.',
         help: 'plans-and-pricing',
         href: '/settings',
       },
       {
         kind: 'improved',
         title: 'Finished jobs do not count toward your limit',
-        text: 'Only active projects use your plan. Close a job out and it stays fully readable forever \u2013 budget, invoices, daily logs, photos, documents and Job History all stay where they are.',
+        text: 'Only active projects use your plan. Close a job out and it stays fully readable forever - budget, invoices, daily logs, photos, documents and Job History all stay where they are.',
         help: 'plans-and-pricing',
       },
       {
@@ -79,7 +79,7 @@ const AUTHORED: Release[] = [
       {
         kind: 'improved',
         title: 'You are still not paying anything',
-        text: 'SyteNav is an invite-only beta and free while you are in it. The prices are published so nobody finds out later what this will cost \u2013 there is no card on file and no trial clock running.',
+        text: 'SyteNav is an invite-only beta and free while you are in it. The prices are published so nobody finds out later what this will cost - there is no card on file and no trial clock running.',
         help: 'plans-and-pricing',
       },
     ],
@@ -91,13 +91,13 @@ const AUTHORED: Release[] = [
       {
         kind: 'fixed',
         title: 'The subcontractor dropdown was empty for project managers',
-        text: 'On the Invoices tab, the list of subcontractors was being loaded from the Financials summary – a screen project managers are deliberately not given. So a PM got a Subcontractor dropdown with nothing in it, and a scanned invoice would say “Matched to Ridgeline Framing” at the top while the field underneath stayed blank. The subcontractors now come from the Invoices tab’s own data, so anyone who can open the tab can fill in the form. Scanning a bill fills the sub in for you again.',
+        text: 'On the Invoices tab, the list of subcontractors was being loaded from the Financials summary - a screen project managers are deliberately not given. So a PM got a Subcontractor dropdown with nothing in it, and a scanned invoice would say “Matched to Ridgeline Framing” at the top while the field underneath stayed blank. The subcontractors now come from the Invoices tab’s own data, so anyone who can open the tab can fill in the form. Scanning a bill fills the sub in for you again.',
         href: '/projects',
       },
       {
         kind: 'fixed',
         title: 'Payment schedules were never showing up',
-        text: 'If a subcontract had an agreed payment schedule – deposit, rough-in, final – the “bill against a scheduled payment” option showed nothing to pick, on every job. The schedule was there the whole time; the app was asking for it the wrong way round and getting an empty answer back. Those milestones are now where they should be, on the Invoices tab and on the Financials summary.',
+        text: 'If a subcontract had an agreed payment schedule - deposit, rough-in, final - the “bill against a scheduled payment” option showed nothing to pick, on every job. The schedule was there the whole time; the app was asking for it the wrong way round and getting an empty answer back. Those milestones are now where they should be, on the Invoices tab and on the Financials summary.',
         href: '/projects',
       },
     ],
@@ -109,17 +109,17 @@ const AUTHORED: Release[] = [
       {
         kind: 'fixed',
         title: 'An empty subcontractor list with no explanation',
-        text: 'On the Invoices tab, the subcontractors come from a separate request to the server. If that request failed \u2013 a bad moment of signal \u2013 the page carried on looking normal, but the Subcontractor dropdown on a new invoice was empty, on a job with subs on it, and nothing said why. It now says so at the top of the page AND on the field itself, with a Try again.',
+        text: 'On the Invoices tab, the subcontractors come from a separate request to the server. If that request failed - a bad moment of signal - the page carried on looking normal, but the Subcontractor dropdown on a new invoice was empty, on a job with subs on it, and nothing said why. It now says so at the top of the page AND on the field itself, with a Try again.',
       },
       {
         kind: 'fixed',
         title: '\u201CNo invoices yet\u201D on a job that has them',
-        text: 'If the invoice list failed to load, the page printed its empty state \u2013 telling you a job had no bills on it when what it actually knew was that it could not ask. It reports the failure instead, and an invoice list already on screen is no longer wiped by a refresh that fails.',
+        text: 'If the invoice list failed to load, the page printed its empty state - telling you a job had no bills on it when what it actually knew was that it could not ask. It reports the failure instead, and an invoice list already on screen is no longer wiped by a refresh that fails.',
       },
       {
         kind: 'fixed',
         title: 'The page could sit on \u201CLoading\u2026\u201D for ever',
-        text: 'If the request threw outright \u2013 offline, or the connection dropped mid-flight \u2013 nothing ever turned the loading state off. It always ends now, and tells you what happened.',
+        text: 'If the request threw outright - offline, or the connection dropped mid-flight - nothing ever turned the loading state off. It always ends now, and tells you what happened.',
       },
     ],
   },
@@ -130,7 +130,7 @@ const AUTHORED: Release[] = [
       {
         kind: 'fixed',
         title: 'Anyone signed in could read a job\u2019s client link',
-        text: 'The client portal shows the whole job \u2013 progress, selections, and the invoices you have sent your client. The link to it was readable by any signed-in account that had the job\u2019s id, including a subcontractor you invited onto that job. It is now its own permission, off by default for field supervisors, workers and invited vendors, and every route also checks the job belongs to your company.',
+        text: 'The client portal shows the whole job - progress, selections, and the invoices you have sent your client. The link to it was readable by any signed-in account that had the job\u2019s id, including a subcontractor you invited onto that job. It is now its own permission, off by default for field supervisors, workers and invited vendors, and every route also checks the job belongs to your company.',
         help: 'client-portal',
       },
       {
@@ -142,7 +142,7 @@ const AUTHORED: Release[] = [
       {
         kind: 'fixed',
         title: 'A live client link could be replaced by accident',
-        text: 'Replacing the link cuts off a client who is using the old one, and the only thing preventing it was the confirmation in the share box \u2013 a second tab or a double press went straight round it. The server now refuses to replace a link unless it is asked to in as many words, and replacing is a separate permission from creating.',
+        text: 'Replacing the link cuts off a client who is using the old one, and the only thing preventing it was the confirmation in the share box - a second tab or a double press went straight round it. The server now refuses to replace a link unless it is asked to in as many words, and replacing is a separate permission from creating.',
         help: 'client-portal',
       },
     ],
@@ -154,7 +154,7 @@ const AUTHORED: Release[] = [
       {
         kind: 'new',
         title: 'Swipe in from the left edge to go back',
-        text: 'Drag in from the left edge of the screen and let go to go back a page \u2013 a short flick is enough. A small chevron follows your finger so you can see it is working. It never fires from the first page you opened, never while a dialog or menu is open, and never on a laptop. In the iPhone app this becomes the phone\u2019s own back swipe, with the page sliding under your finger; that half needs the next build of the app.',
+        text: 'Drag in from the left edge of the screen and let go to go back a page - a short flick is enough. A small chevron follows your finger so you can see it is working. It never fires from the first page you opened, never while a dialog or menu is open, and never on a laptop. In the iPhone app this becomes the phone\u2019s own back swipe, with the page sliding under your finger; that half needs the next build of the app.',
         help: 'sytenav-on-your-phone',
       },
       {
@@ -177,19 +177,19 @@ const AUTHORED: Release[] = [
       {
         kind: 'fixed',
         title: 'Sharing the client portal never ticked the last step',
-        text: 'The final item on a job\u2019s setup checklist \u2013 \u201CGive the client their link\u201D \u2013 was counting something else entirely: documents sent from the Sharing tab, which is for getting paperwork to an expeditor or a lender. So a job whose client portal had been shared sat on 9 of 10 for ever, and the only way to finish the checklist was to send somebody a file. It now reads the portal itself.',
+        text: 'The final item on a job\u2019s setup checklist - \u201CGive the client their link\u201D - was counting something else entirely: documents sent from the Sharing tab, which is for getting paperwork to an expeditor or a lender. So a job whose client portal had been shared sat on 9 of 10 for ever, and the only way to finish the checklist was to send somebody a file. It now reads the portal itself.',
         help: 'client-portal',
       },
       {
         kind: 'fixed',
         title: '\u201CShare the portal\u201D opened the wrong page',
-        text: 'Pressing it on the checklist took you to the Sharing tab \u2013 sending documents outside your company \u2013 rather than the client portal. It now opens the Share with Client box straight away, wherever you press it from.',
+        text: 'Pressing it on the checklist took you to the Sharing tab - sending documents outside your company - rather than the client portal. It now opens the Share with Client box straight away, wherever you press it from.',
         help: 'client-portal',
       },
       {
         kind: 'improved',
         title: 'Copying the link counts as sharing it',
-        text: 'Most people share the portal by copying the link into a text or their own email, and that used to leave no trace. Copy or Send now both count, and the checklist ticks on the spot. A link you have only looked at does not count \u2013 it says \u201Ca link exists, but nothing has been sent from here yet\u201D, which is a different thing from never having shared it.',
+        text: 'Most people share the portal by copying the link into a text or their own email, and that used to leave no trace. Copy or Send now both count, and the checklist ticks on the spot. A link you have only looked at does not count - it says \u201Ca link exists, but nothing has been sent from here yet\u201D, which is a different thing from never having shared it.',
         help: 'client-portal',
       },
     ],
@@ -201,32 +201,32 @@ const AUTHORED: Release[] = [
       {
         kind: 'fixed',
         title: 'Every clock-in was flagged, on every job',
-        text: 'The time clock compares where you are against where the job is \u2013 and it was reading the job\u2019s location out of the wrong place. Jobs have had a point on the map for months (it is what the Projects map draws), but the clock-in check was looking at a second, empty set of columns that nothing in SyteNav has ever filled in. So it always found nothing, always said \u201Cthis job has no map location\u201D, and always flagged the punch. It reads the real one now, so a punch on site comes back with the distance and no flag.',
+        text: 'The time clock compares where you are against where the job is - and it was reading the job\u2019s location out of the wrong place. Jobs have had a point on the map for months (it is what the Projects map draws), but the clock-in check was looking at a second, empty set of columns that nothing in SyteNav has ever filled in. So it always found nothing, always said \u201Cthis job has no map location\u201D, and always flagged the punch. It reads the real one now, so a punch on site comes back with the distance and no flag.',
         help: 'time-clock',
         href: '/projects',
       },
       {
         kind: 'new',
         title: 'Set a job\u2019s location on the map yourself',
-        text: 'Project Settings now shows whether the job is on the map, and lets you put it there: tap the map where the site entrance is, or press \u201CUse my current location\u201D if you are standing on the site. Use it for a site whose entrance is on a different road from its postal address, a long driveway, or new construction with no street number yet \u2013 anywhere the address alone puts the pin in the wrong spot.',
+        text: 'Project Settings now shows whether the job is on the map, and lets you put it there: tap the map where the site entrance is, or press \u201CUse my current location\u201D if you are standing on the site. Use it for a site whose entrance is on a different road from its postal address, a long driveway, or new construction with no street number yet - anywhere the address alone puts the pin in the wrong spot.',
         help: 'job-site-location',
       },
       {
         kind: 'fixed',
         title: 'Some jobs were pinned at an address they no longer have',
-        text: 'Changing a job\u2019s address without picking one of the suggestions left the old map pin behind \u2013 one job was showing in Maryland while its address said New Jersey. SyteNav now says so, names the address the pin is stuck on, and refuses to check clock-ins against it until it is corrected. The Projects map also puts these right on its own the next time you open it.',
+        text: 'Changing a job\u2019s address without picking one of the suggestions left the old map pin behind - one job was showing in Maryland while its address said New Jersey. SyteNav now says so, names the address the pin is stuck on, and refuses to check clock-ins against it until it is corrected. The Projects map also puts these right on its own the next time you open it.',
         help: 'job-site-location',
       },
       {
         kind: 'fixed',
         title: 'A wrong location is no longer stored as if it were right',
-        text: 'An address with no town and no ZIP \u2013 \u201C1 North St\u201D \u2013 was being looked up anyway, and a map service simply picked one of the many: a job of yours was pinned to a street in London. SyteNav now refuses to look up an address too vague to have one answer, and throws away any match that contradicts what you typed, saying which. A job with no pin says so; it no longer invents one.',
+        text: 'An address with no town and no ZIP - \u201C1 North St\u201D - was being looked up anyway, and a map service simply picked one of the many: a job of yours was pinned to a street in London. SyteNav now refuses to look up an address too vague to have one answer, and throws away any match that contradicts what you typed, saying which. A job with no pin says so; it no longer invents one.',
         help: 'job-site-location',
       },
       {
         kind: 'improved',
         title: 'The Time Clock tab says when a job is not mapped',
-        text: 'Rather than a column of flagged punches with nothing to explain them, the tab says the job has no usable location and \u2013 if you can edit the job \u2013 what to do about it. The line under the punch button reads \u201CLocation recorded, not checked\u201D instead of claiming a check that is not happening.',
+        text: 'Rather than a column of flagged punches with nothing to explain them, the tab says the job has no usable location and - if you can edit the job - what to do about it. The line under the punch button reads \u201CLocation recorded, not checked\u201D instead of claiming a check that is not happening.',
         help: 'time-clock',
       },
     ],
@@ -238,12 +238,12 @@ const AUTHORED: Release[] = [
       {
         kind: 'fixed',
         title: 'Company names broke into single letters',
-        text: 'Opening a company in the Directory on a phone could stack its name one or two letters per line \u2013 \u201CVol / t / Ele / ctri / c / Co\u201D. Edit, Delete and the close button were taking the width of the row and the name was left with about fifty pixels. The name now gets the room, and on a phone Edit and Delete sit on their own line underneath it, at equal width. Close stays where it always was, top right.',
+        text: 'Opening a company in the Directory on a phone could stack its name one or two letters per line - \u201CVol / t / Ele / ctri / c / Co\u201D. Edit, Delete and the close button were taking the width of the row and the name was left with about fifty pixels. The name now gets the room, and on a phone Edit and Delete sit on their own line underneath it, at equal width. Close stays where it always was, top right.',
       },
       {
         kind: 'fixed',
         title: 'The Projects tab could not be reached',
-        text: 'Overview, Documents, Payments and Projects do not fit across a phone, and the row did not scroll \u2013 so Projects was simply off the edge with no way to get to it. The row scrolls sideways now, and its right edge fades so you can see there is more.',
+        text: 'Overview, Documents, Payments and Projects do not fit across a phone, and the row did not scroll - so Projects was simply off the edge with no way to get to it. The row scrolls sideways now, and its right edge fades so you can see there is more.',
         help: 'directory',
       },
     ],
@@ -255,13 +255,13 @@ const AUTHORED: Release[] = [
       {
         kind: 'fixed',
         title: '\u201CNo GPS\u201D when your GPS was working fine',
-        text: 'Clocking in and out said your location was unavailable and flagged the punch for review \u2013 while storing your exact coordinates. Your phone was never the problem. What was missing was the JOB\u2019s location: SyteNav compares where you are against where the site is, and if the job\u2019s address cannot be found on a map there is nothing to compare to. It now says which it was: \u201Cthis job has no map location yet\u201D (fix the address in project settings) versus \u201Cyour phone did not provide a location\u201D \u2013 and if it really is the phone, it tells you whether location is switched off, has no signal, or just took too long. It also accepts a fix from the last few seconds instead of insisting on a brand-new one, which is what kept failing indoors.',
+        text: 'Clocking in and out said your location was unavailable and flagged the punch for review - while storing your exact coordinates. Your phone was never the problem. What was missing was the JOB\u2019s location: SyteNav compares where you are against where the site is, and if the job\u2019s address cannot be found on a map there is nothing to compare to. It now says which it was: \u201Cthis job has no map location yet\u201D (fix the address in project settings) versus \u201Cyour phone did not provide a location\u201D - and if it really is the phone, it tells you whether location is switched off, has no signal, or just took too long. It also accepts a fix from the last few seconds instead of insisting on a brand-new one, which is what kept failing indoors.',
         help: 'time-clock',
       },
       {
         kind: 'fixed',
         title: 'The app shrank to a band across the top while you typed',
-        text: 'Tapping \u201CAdd an update\u201D on a daily log \u2013 or any field, on any screen \u2013 could leave the app squeezed into the top third of the screen with bare background underneath, down to the keyboard. The app measures how much screen the keyboard leaves you, and it had learned that measurement WHILE a keyboard was already up, so it went on subtracting the keyboard from a screen it had already been subtracted from. It only takes that measurement when nothing is selected to type into now.',
+        text: 'Tapping \u201CAdd an update\u201D on a daily log - or any field, on any screen - could leave the app squeezed into the top third of the screen with bare background underneath, down to the keyboard. The app measures how much screen the keyboard leaves you, and it had learned that measurement WHILE a keyboard was already up, so it went on subtracting the keyboard from a screen it had already been subtracted from. It only takes that measurement when nothing is selected to type into now.',
       },
       {
         kind: 'fixed',
@@ -277,12 +277,12 @@ const AUTHORED: Release[] = [
       {
         kind: 'fixed',
         title: 'The X at the top of a task was under the status bar',
-        text: 'The panel that slides in when you open a task started at the very top of the screen, so its title and its close button spent their first half-inch underneath the clock and the notch \u2013 squished, and hard or impossible to tap. It now starts below them, and so does the bottom edge, clear of the home bar.',
+        text: 'The panel that slides in when you open a task started at the very top of the screen, so its title and its close button spent their first half-inch underneath the clock and the notch - squished, and hard or impossible to tap. It now starts below them, and so does the bottom edge, clear of the home bar.',
       },
       {
         kind: 'fixed',
         title: 'It no longer slides in twice',
-        text: 'Opening a task made the panel slide in, blink, and slide in again. The panel was being thrown away and rebuilt the moment the task\u2019s notes finished loading, which replayed its entrance. It is built once now \u2013 which also means an update you are halfway through typing no longer disappears when something else on the page refreshes.',
+        text: 'Opening a task made the panel slide in, blink, and slide in again. The panel was being thrown away and rebuilt the moment the task\u2019s notes finished loading, which replayed its entrance. It is built once now - which also means an update you are halfway through typing no longer disappears when something else on the page refreshes.',
       },
       {
         kind: 'new',
@@ -298,7 +298,7 @@ const AUTHORED: Release[] = [
       {
         kind: 'fixed',
         title: 'The login that worked, and bounced anyway',
-        text: 'Signing in could put you straight back on the sign-in screen, or leave the app blank and loading. Your password was never the problem \u2013 the sign-in itself was succeeding every time. Before showing you a page, SyteNav checks with the sign-in service who you are, and when that check failed to come back it was treated as \u201Cyou are not signed in\u201D and you were sent to sign in again. It now knows the difference between a no and no answer: a check that fails is retried, and if it still cannot get through you get a page that says so, with a Try again button, instead of the login form. Nothing to reinstall \u2013 it reaches you on the next load.',
+        text: 'Signing in could put you straight back on the sign-in screen, or leave the app blank and loading. Your password was never the problem - the sign-in itself was succeeding every time. Before showing you a page, SyteNav checks with the sign-in service who you are, and when that check failed to come back it was treated as \u201Cyou are not signed in\u201D and you were sent to sign in again. It now knows the difference between a no and no answer: a check that fails is retried, and if it still cannot get through you get a page that says so, with a Try again button, instead of the login form. Nothing to reinstall - it reaches you on the next load.',
         help: 'trouble-signing-in',
       },
     ],
@@ -958,13 +958,13 @@ const AUTHORED: Release[] = [
       {
         kind: 'fixed',
         title: 'Opening a dialog no longer throws the keyboard up and shoves the page',
-        text: 'On a phone, opening something like Add Milestone put the cursor in the first box straight away — so the keyboard appeared before you had chosen to type, and the whole dialog jumped as the phone scrolled to reach the field. It does not do that any more; tap the box when you want to type. On a computer the cursor still starts in the first box.',
+        text: 'On a phone, opening something like Add Milestone put the cursor in the first box straight away - so the keyboard appeared before you had chosen to type, and the whole dialog jumped as the phone scrolled to reach the field. It does not do that any more; tap the box when you want to type. On a computer the cursor still starts in the first box.',
         href: '/projects',
       },
       {
         kind: 'fixed',
         title: 'Dialogs stay above the keyboard instead of hiding behind it',
-        text: 'When the keyboard or a date wheel covered the bottom of the screen, dialogs carried on using the whole screen — so their buttons ended up underneath. Every dialog in the app now sits in the part of the screen you can actually see.',
+        text: 'When the keyboard or a date wheel covered the bottom of the screen, dialogs carried on using the whole screen - so their buttons ended up underneath. Every dialog in the app now sits in the part of the screen you can actually see.',
       },
     ],
   },
@@ -975,52 +975,52 @@ const AUTHORED: Release[] = [
       {
         kind: 'fixed',
         title: 'Save and Cancel stay put when the date picker covers the screen',
-        text: 'Adding or editing a milestone on the schedule, tapping a date field opens the phone\'s date wheel over the bottom half of the screen — and the Cancel and Add Milestone buttons went underneath it. The title and the buttons are now pinned to the dialog, and only the fields between them scroll, so you can always reach them.',
+        text: 'Adding or editing a milestone on the schedule, tapping a date field opens the phone\'s date wheel over the bottom half of the screen - and the Cancel and Add Milestone buttons went underneath it. The title and the buttons are now pinned to the dialog, and only the fields between them scroll, so you can always reach them.',
         href: '/projects',
       },
       {
         kind: 'fixed',
         title: 'Test notifications failed because of a pasted key, and blamed Apple for it',
-        text: 'Send test reported an error that looked like Apple turning us down. It was not — SyteNav could not read its own Apple key, because pasting it into a settings field strips the line breaks it needs, so nothing was ever sent. The key is now rebuilt on the way in, so it works however it was pasted, and a problem at our end says so instead of pointing at Apple.',
+        text: 'Send test reported an error that looked like Apple turning us down. It was not - SyteNav could not read its own Apple key, because pasting it into a settings field strips the line breaks it needs, so nothing was ever sent. The key is now rebuilt on the way in, so it works however it was pasted, and a problem at our end says so instead of pointing at Apple.',
         help: 'notification-preferences',
         href: '/settings',
       },
       {
         kind: 'fixed',
         title: 'The project sections menu no longer opens under the clock',
-        text: 'Tapping the project name on a phone opened the sections list so tall that its title and its X button ended up behind the status bar, where they could not be tapped — the only way out was to pick a section. It now always stops short of the top of the screen, so the X is somewhere you can actually reach.',
+        text: 'Tapping the project name on a phone opened the sections list so tall that its title and its X button ended up behind the status bar, where they could not be tapped - the only way out was to pick a section. It now always stops short of the top of the screen, so the X is somewhere you can actually reach.',
         href: '/projects',
       },
       {
         kind: 'improved',
         title: 'A failed test notification now says what Apple actually refused',
-        text: 'Settings → Notifications → Send test used to answer "Nothing was sent, and Apple gave no reason why" for every failure. Apple almost always gives a reason; SyteNav was computing it and then discarding it before anyone could read it. The answer now names it, and says which setting to change — or says plainly when it is Apple rate-limiting us, which fixes itself.',
+        text: 'Settings → Notifications → Send test used to answer "Nothing was sent, and Apple gave no reason why" for every failure. Apple almost always gives a reason; SyteNav was computing it and then discarding it before anyone could read it. The answer now names it, and says which setting to change - or says plainly when it is Apple rate-limiting us, which fixes itself.',
         help: 'notification-preferences',
         href: '/settings',
       },
       {
         kind: 'fixed',
         title: 'Dialogs and the header no longer slide off the left of the screen',
-        text: 'Opening something like Add Milestone could shove the whole screen sideways — half the dialog title, the search bar and the project name all cut off the left edge, with no way to scroll back. Two things caused it: the schedule\'s month grid was quietly wider than a phone, and opening a dialog turned that into something the screen could be dragged across. Both are fixed, and long labels anywhere in the app now shrink to fit rather than pushing their row off the side.',
+        text: 'Opening something like Add Milestone could shove the whole screen sideways - half the dialog title, the search bar and the project name all cut off the left edge, with no way to scroll back. Two things caused it: the schedule\'s month grid was quietly wider than a phone, and opening a dialog turned that into something the screen could be dragged across. Both are fixed, and long labels anywhere in the app now shrink to fit rather than pushing their row off the side.',
         href: '/projects',
       },
       {
         kind: 'improved',
         title: 'A failed test notification now says what Apple actually refused',
-        text: 'Settings → Notifications → Send test used to answer "Nothing was sent, and Apple gave no reason why" for every failure. Apple almost always gives a reason; SyteNav was computing it and then discarding it before anyone could read it. The answer now names it, and says which setting to change — or says plainly when it is Apple rate-limiting us, which fixes itself.',
+        text: 'Settings → Notifications → Send test used to answer "Nothing was sent, and Apple gave no reason why" for every failure. Apple almost always gives a reason; SyteNav was computing it and then discarding it before anyone could read it. The answer now names it, and says which setting to change - or says plainly when it is Apple rate-limiting us, which fixes itself.',
         help: 'notification-preferences',
         href: '/settings',
       },
       {
         kind: 'fixed',
         title: 'The top bar no longer jumps down when you open the menu',
-        text: 'On an iPhone the search bar sometimes sat jammed against the very top of the screen, under the clock, and then dropped into place the moment you opened the menu — and sometimes back again. Two different things were deciding where the top of the app should be, and which one won depended on what you had just tapped. Now one of them does, so it sits in the right place from the moment the app opens.',
+        text: 'On an iPhone the search bar sometimes sat jammed against the very top of the screen, under the clock, and then dropped into place the moment you opened the menu - and sometimes back again. Two different things were deciding where the top of the app should be, and which one won depended on what you had just tapped. Now one of them does, so it sits in the right place from the moment the app opens.',
         href: '/dashboard',
       },
       {
         kind: 'fixed',
         title: 'Notifications on the phone itself now actually register',
-        text: 'The app asked for permission, you allowed it, and then nothing — no phone was ever registered and nothing said why. The app build had no way to receive Apple\'s reply, so the answer was delivered to nobody, silently, in both the success and the failure case. That is fixed, and it needs the next TestFlight build to reach you. Settings → Notifications will also now name exactly which step failed if it ever happens again, instead of repeating advice you have already followed.',
+        text: 'The app asked for permission, you allowed it, and then nothing - no phone was ever registered and nothing said why. The app build had no way to receive Apple\'s reply, so the answer was delivered to nobody, silently, in both the success and the failure case. That is fixed, and it needs the next TestFlight build to reach you. Settings → Notifications will also now name exactly which step failed if it ever happens again, instead of repeating advice you have already followed.',
         help: 'notification-preferences',
         href: '/settings',
       },
@@ -1033,18 +1033,18 @@ const AUTHORED: Release[] = [
       {
         kind: 'fixed',
         title: 'Dialogs no longer open taller than the screen',
-        text: 'Adding a milestone to the schedule — and about seventy other dialogs — could open taller than the phone, with the Save button off the bottom and no way to reach it. Every dialog now fits inside the screen, clears the notch and the home indicator, and scrolls inside itself when it has more to show.',
+        text: 'Adding a milestone to the schedule - and about seventy other dialogs - could open taller than the phone, with the Save button off the bottom and no way to reach it. Every dialog now fits inside the screen, clears the notch and the home indicator, and scrolls inside itself when it has more to show.',
         href: '/projects',
       },
       {
         kind: 'fixed',
         title: 'The page behind a dialog or menu holds still',
-        text: 'Scrolling with a dialog, a drawer or a dropdown open used to move the page underneath it. It no longer does — which also means a dropdown stays attached to the field it belongs to instead of drifting off it.',
+        text: 'Scrolling with a dialog, a drawer or a dropdown open used to move the page underneath it. It no longer does - which also means a dropdown stays attached to the field it belongs to instead of drifting off it.',
       },
       {
         kind: 'fixed',
         title: 'Wide tables can be scrolled to instead of being cut off',
-        text: 'A few tables were wider than a phone and simply had their last columns chopped off, with no scrollbar and nothing to say anything was missing. They now scroll sideways. Long pasted text — reference numbers, links, anything without spaces — also wraps everywhere now rather than stretching a card off the side of the screen.',
+        text: 'A few tables were wider than a phone and simply had their last columns chopped off, with no scrollbar and nothing to say anything was missing. They now scroll sideways. Long pasted text - reference numbers, links, anything without spaces - also wraps everywhere now rather than stretching a card off the side of the screen.',
       },
     ],
   },
@@ -1055,14 +1055,14 @@ const AUTHORED: Release[] = [
       {
         kind: 'improved',
         title: '"No phone registered yet" now tells you what actually went wrong',
-        text: 'The phone card under Settings → Notifications used to give the same advice no matter what — "open SyteNav on your phone and allow notifications" — including to somebody standing inside the app on their phone who had already done exactly that. It now says which step failed: notifications switched off in the iPhone\'s own Settings, Apple refusing to register the phone (with Apple\'s reason), or the address arriving but not saving. It dates the last attempt too, so you can tell a fresh failure from one you have already retried.',
+        text: 'The phone card under Settings → Notifications used to give the same advice no matter what - "open SyteNav on your phone and allow notifications" - including to somebody standing inside the app on their phone who had already done exactly that. It now says which step failed: notifications switched off in the iPhone\'s own Settings, Apple refusing to register the phone (with Apple\'s reason), or the address arriving but not saving. It dates the last attempt too, so you can tell a fresh failure from one you have already retried.',
         help: 'notification-preferences',
         href: '/settings',
       },
       {
         kind: 'fixed',
         title: 'A long note with no spaces in it stretched the inspection card sideways',
-        text: 'Pasting something long and unbroken — a reference string, a URL, a wall of characters with no spaces — into an inspection note pushed the card wider than the screen. Normal prose was always fine. Long notes and failure reasons now wrap wherever they need to.',
+        text: 'Pasting something long and unbroken - a reference string, a URL, a wall of characters with no spaces - into an inspection note pushed the card wider than the screen. Normal prose was always fine. Long notes and failure reasons now wrap wherever they need to.',
         href: '/projects',
       },
     ],
@@ -1074,13 +1074,13 @@ const AUTHORED: Release[] = [
       {
         kind: 'fixed',
         title: 'A void that did not reach QuickBooks now says so',
-        text: 'Voiding a client invoice showed a green "Voided in QB" badge whether or not QuickBooks accepted it — so an invoice could sit as an open receivable over there while SyteNav looked settled. The badge now reports what actually happened, and a void that did not get through can be retried from Settings → QuickBooks → Retry voids.',
+        text: 'Voiding a client invoice showed a green "Voided in QB" badge whether or not QuickBooks accepted it - so an invoice could sit as an open receivable over there while SyteNav looked settled. The badge now reports what actually happened, and a void that did not get through can be retried from Settings → QuickBooks → Retry voids.',
         href: '/settings',
       },
       {
         kind: 'fixed',
         title: 'Voiding a paid invoice works',
-        text: 'QuickBooks refuses to void an invoice while a payment is attached to it, so voiding a paid invoice quietly failed every time. The payment is now voided first, then the invoice — the same order already used for subcontractor bills.',
+        text: 'QuickBooks refuses to void an invoice while a payment is attached to it, so voiding a paid invoice quietly failed every time. The payment is now voided first, then the invoice - the same order already used for subcontractor bills.',
         href: '/projects',
       },
       {
@@ -1104,7 +1104,7 @@ const AUTHORED: Release[] = [
       {
         kind: 'fixed',
         title: 'The QuickBooks page describes what it actually syncs',
-        text: 'It listed customers, subs, bills and payments — leaving out client invoices and bill payments, both of which sync, and describing applied payments as sales receipts.',
+        text: 'It listed customers, subs, bills and payments - leaving out client invoices and bill payments, both of which sync, and describing applied payments as sales receipts.',
         href: '/settings',
       },
     ],
@@ -1129,7 +1129,7 @@ const AUTHORED: Release[] = [
       {
         kind: 'improved',
         title: 'Job History records everything that happens to an inspection',
-        text: 'It used to record only passed and failed. It now records requests, edits, bookings, re-inspections, voids and restores — so the history of a compliance record is actually complete.',
+        text: 'It used to record only passed and failed. It now records requests, edits, bookings, re-inspections, voids and restores - so the history of a compliance record is actually complete.',
         href: '/projects',
       },
       {
@@ -1160,7 +1160,7 @@ const AUTHORED: Release[] = [
       {
         kind: 'fixed',
         title: 'Uploading the wrong kind of file says so',
-        text: 'Uploading something that was not a photo or PDF as an inspector card did nothing at all — no error, no attachment. It now tells you. Photos straight off an iPhone (HEIC) are accepted too.',
+        text: 'Uploading something that was not a photo or PDF as an inspector card did nothing at all - no error, no attachment. It now tells you. Photos straight off an iPhone (HEIC) are accepted too.',
         href: '/projects',
       },
     ],
@@ -1172,13 +1172,13 @@ const AUTHORED: Release[] = [
       {
         kind: 'fixed',
         title: 'Every date was showing one day early',
-        text: 'A date entered as January 15 could display as January 14, and an inspection marked passed in the evening could be stamped with the day before. It affected dates across the app — inspections, permits, compliance expiry, invoice due dates, daily logs, and the client portal your customers see. Every date in SyteNav now shows the day it actually is, in your own timezone.',
+        text: 'A date entered as January 15 could display as January 14, and an inspection marked passed in the evening could be stamped with the day before. It affected dates across the app - inspections, permits, compliance expiry, invoice due dates, daily logs, and the client portal your customers see. Every date in SyteNav now shows the day it actually is, in your own timezone.',
         href: '/projects',
       },
       {
         kind: 'improved',
         title: 'Dates look the same on every screen and every account',
-        text: 'Two people could open the same record and see 1/14/2020 and 2020-01-14. Dates are now written the same way everywhere — Jan 15, 2020 — so a month can never be mistaken for a day.',
+        text: 'Two people could open the same record and see 1/14/2020 and 2020-01-14. Dates are now written the same way everywhere - Jan 15, 2020 - so a month can never be mistaken for a day.',
         href: '/projects',
       },
     ],

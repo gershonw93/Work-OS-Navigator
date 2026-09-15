@@ -129,7 +129,7 @@ export function NotificationRouting() {
     <div className="space-y-6">
       <p className="text-sm text-muted-fg">
         Who on your team hears about each of these. Everyone still controls which of their own
-        notifications they want above — this decides who is told in the first place.
+        notifications they want above - this decides who is told in the first place.
       </p>
 
       {error && <p role="alert" className="text-sm text-danger">{error}</p>}
@@ -143,8 +143,8 @@ export function NotificationRouting() {
               const summary = ev.configured
                 ? [...ev.roles.map(r => ROLE_LABELS[r] ?? r), ...ev.userIds.map(nameOf)].join(', ')
                 : ev.defaultUserIds.length
-                  ? `${ev.defaultUserIds.length} ${ev.defaultUserIds.length === 1 ? 'person' : 'people'} — ${ev.defaultUserIds.slice(0, 3).map(nameOf).join(', ')}${ev.defaultUserIds.length > 3 ? '…' : ''}`
-                  : 'Nobody — set this up'
+                  ? `${ev.defaultUserIds.length} ${ev.defaultUserIds.length === 1 ? 'person' : 'people'} - ${ev.defaultUserIds.slice(0, 3).map(nameOf).join(', ')}${ev.defaultUserIds.length > 3 ? '…' : ''}`
+                  : 'Nobody - set this up'
 
               return (
                 <div key={ev.key} className="px-4 py-3">

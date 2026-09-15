@@ -442,6 +442,19 @@ Full detail: [`docs/postmortems/mobile.md`](docs/postmortems/mobile.md).
   page wrapper is `p-6` on every width - not `p-4 sm:p-6`. Both are pinned.
 - A badge or a button label NEVER wraps. `Badge` and `Button` set
   `whitespace-nowrap` centrally; a hand-rolled pill must too.
+- **A SENTENCE DASH IS ` - `, NEVER AN EM OR EN DASH.** Reported in three words
+  looking at the app, and there were 130 of them across 28 files. Every code
+  comment and every line of this file already writes a sentence dash as ` - `,
+  so the COPY was the only thing disagreeing with the house style, and an em
+  dash is the tell that a sentence was written somewhere other than here. The
+  en dashes go too, ranges included (`Sep 1 - Sep 7` reads fine), because a
+  rule with an exception nobody can see is a rule that comes back. A `-` also
+  replaces the one standing in for an empty table cell. Ratcheted at ZERO in
+  `layout-overflow.ts`, literal AND `\u2014`-escaped, over a file list of its
+  own: the emoji scan's `tsx` is .tsx under app/ and components/, which misses
+  `lib/whats-new.ts`, `lib/help/articles.ts` and every API route - 80 of the 130
+  lived there, and the first version of the scan reported green without reading
+  any of them.
 - **AN ICON IS A LUCIDE COMPONENT, NEVER A CHARACTER.** An emoji renders in the
   PLATFORM's emoji font - full colour, at a size and weight nothing here
   controls. Arrows and check marks (`→ ← ↑ ↓ ✓`) are NOT this: they render in
