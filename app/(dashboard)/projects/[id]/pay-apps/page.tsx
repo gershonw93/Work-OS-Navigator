@@ -303,7 +303,7 @@ function PayAppDetail({ projectId, appId, onBack, authHeaders }: { projectId: st
             </p>
             <p className="mt-0.5 text-xs text-warn">
               It was approved after this draft was started. Bringing it in raises the scheduled
-              values and the contract sum — the amounts you have already entered are left alone.
+              values and the contract sum - the amounts you have already entered are left alone.
             </p>
           </div>
           <Button variant="secondary" onClick={resync} disabled={saving}>

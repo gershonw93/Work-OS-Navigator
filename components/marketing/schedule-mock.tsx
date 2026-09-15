@@ -17,7 +17,7 @@ export function ScheduleMock() {
         <span className="inline-flex items-center gap-2 text-sm font-semibold text-ink">
           <CalendarDays className="h-4 w-4 text-accent-fg" /> My week · all jobs
         </span>
-        <span className="text-[11px] text-faint font-mono">Jun 29 – Jul 4</span>
+        <span className="text-[11px] text-faint font-mono">Jun 29 - Jul 4</span>
       </div>
 
       {/* Day headers */}

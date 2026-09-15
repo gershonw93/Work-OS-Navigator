@@ -124,7 +124,7 @@ export function whoToCall({ inspection, permits = [], contacts = [] }: {
       name: name ?? authority ?? 'Issuing authority',
       phone,
       source: authority && name
-        ? `${authority} — from the ${clean(p.permit_type) ?? 'permit'} permit`
+        ? `${authority} - from the ${clean(p.permit_type) ?? 'permit'} permit`
         : `From the ${clean(p.permit_type) ?? 'permit'} permit`,
     })
   }
@@ -139,7 +139,7 @@ export function whoToCall({ inspection, permits = [], contacts = [] }: {
     out.push({
       name,
       phone: cleanPhone(c.phone),
-      source: jurisdiction ? `Directory — ${jurisdiction}` : 'Directory',
+      source: jurisdiction ? `Directory - ${jurisdiction}` : 'Directory',
     })
   }
 

@@ -515,7 +515,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
         isVoid(insp.status) ? 'border-dashed border-line opacity-70' : 'border-line')}>
         {isVoid(insp.status) && (
           <p className="rounded-t-xl bg-muted px-5 py-2 text-xs text-muted-fg">
-            Voided{insp.voided_at ? ` on ${formatDate(insp.voided_at)}` : ''}. Kept for the record — Restore puts it back.
+            Voided{insp.voided_at ? ` on ${formatDate(insp.voided_at)}` : ''}. Kept for the record - Restore puts it back.
           </p>
         )}
         <button className={cn('w-full flex items-center gap-4 px-5 py-4 hover:bg-surface transition-colors text-left',
@@ -802,7 +802,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
                       )}
                       {booked && (
                         <MenuItem onClick={() => { updateStatus(insp, 'requested'); close() }}>
-                          <Undo2 className="h-3.5 w-3.5" /> Back to requested — clears the booking
+                          <Undo2 className="h-3.5 w-3.5" /> Back to requested - clears the booking
                         </MenuItem>
                       )}
                       {insp.ready_marked_by && !isVoid(insp.status) && (
@@ -868,7 +868,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
           <div className="bg-panel rounded-xl shadow-xl w-full max-w-sm p-5 space-y-3">
             <h2 className="font-semibold text-ink">Why did it fail?</h2>
             <p className="text-sm text-muted-fg">
-              {failing.type}{failing.trade ? ` (${failing.trade})` : ''} — what did the inspector call out?
+              {failing.type}{failing.trade ? ` (${failing.trade})` : ''} - what did the inspector call out?
             </p>
             <textarea
               value={failReason} onChange={e => setFailReason(e.target.value)} rows={3} autoFocus={autoFocusOnDesktop()}
@@ -905,7 +905,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
               <div className="px-4 sm:px-6 py-5 space-y-4">
                 <p className="rounded-lg bg-surface border border-line-soft px-3 py-2 text-xs text-muted-fg">
                   {booking.type}{booking.trade ? ` (${booking.trade})` : ''}
-                  {booking.requested_date ? ` — needed by ${formatDate(booking.requested_date)}.` : '.'}{' '}
+                  {booking.requested_date ? ` - needed by ${formatDate(booking.requested_date)}.` : '.'}{' '}
                   Fill this in after you have called. It is what makes the inspection appear on the calendar
                   as a real appointment.
                 </p>
@@ -921,7 +921,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
                 </div>
                 <div className="space-y-1.5">
                   <Label>Who you spoke to <span className="text-danger">*</span></Label>
-                  <Input placeholder="e.g. Newark Building Dept — Maria at the desk" value={bookWith} onChange={e => setBookWith(e.target.value)} />
+                  <Input placeholder="e.g. Newark Building Dept - Maria at the desk" value={bookWith} onChange={e => setBookWith(e.target.value)} />
                   <p className="text-xs text-faint">The office or the person. This is what tells everyone it was actually booked.</p>
                 </div>
                 <div className="space-y-1.5">
@@ -952,7 +952,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
               <div className="px-4 sm:px-6 py-5 pb-4 space-y-4">
                 {!editingInsp && (
                   <p className="rounded-lg bg-surface border border-line-soft px-3 py-2 text-xs text-muted-fg">
-                    This asks somebody here to book it — SyteNav does not contact the inspector. Whoever books it
+                    This asks somebody here to book it - SyteNav does not contact the inspector. Whoever books it
                     calls the jurisdiction and records the date they are given. Once it happens, upload the
                     inspector's card to record the result.
                   </p>
@@ -1114,7 +1114,7 @@ function WhoWillHear({ routedIds, schedulerId, myId, teammates }: {
   if (routedIds === null) {
     return (
       <p className="text-xs text-faint">
-        Assign the person who books inspections. We could not work out who else will be told —
+        Assign the person who books inspections. We could not work out who else will be told -
         check Settings → Notifications → Who gets told.
       </p>
     )
@@ -1142,7 +1142,7 @@ function WhoWillHear({ routedIds, schedulerId, myId, teammates }: {
 
   return (
     <p className="text-xs text-muted-fg">
-      {listed} will be told{names.length > 1 ? ` — ${names.length} people` : ''}.
+      {listed} will be told{names.length > 1 ? ` - ${names.length} people` : ''}.
       {schedulerId && ' Assigning somebody adds them; it does not replace the rest.'}
     </p>
   )

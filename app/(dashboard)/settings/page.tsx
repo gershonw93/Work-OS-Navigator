@@ -2018,7 +2018,7 @@ export default function SettingsPage() {
                     cheapest tier was missing something. */}
                 <div className="mt-4 rounded-xl border border-line bg-panel p-5">
                   <p className="mb-3 text-sm font-semibold text-ink">
-                    Every plan is the whole product — you are only buying project capacity.
+                    Every plan is the whole product - you are only buying project capacity.
                   </p>
                   <ul className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
                     {PLAN_FEATURES.map((f) => (

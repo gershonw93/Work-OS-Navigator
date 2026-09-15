@@ -239,7 +239,7 @@ export default async function PortalPage({ params }: { params: { token: string }
                     {(m.start_date || m.end_date) && (
                       <p className="text-xs text-faint mt-0.5">
                         {m.start_date && formatDate(m.start_date)}
-                        {m.start_date && m.end_date && ' – '}
+                        {m.start_date && m.end_date && ' - '}
                         {m.end_date && formatDate(m.end_date)}
                       </p>
                     )}

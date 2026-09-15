@@ -133,7 +133,7 @@ export default function PricingPage() {
               </h2>
               <p className="mx-auto mt-5 max-w-xl leading-relaxed text-muted-fg">
                 SyteNav is an invite-only beta. Ask for access, tell us how you work, and you
-                get the whole product on a real job — free while you are in the beta, with no
+                get the whole product on a real job - free while you are in the beta, with no
                 card and no cut-down plan.
               </p>
               <div className="mt-8 flex flex-wrap items-center justify-center gap-3">

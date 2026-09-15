@@ -193,7 +193,7 @@ export function NotificationSettings() {
                       <Switch
                         checked={!!p[ch]}
                         disabled={planned || saving === `${t.key}:${ch}`}
-                        label={`${t.label} — ${ch === 'inApp' ? 'in-app' : 'email'}`}
+                        label={`${t.label} - ${ch === 'inApp' ? 'in-app' : 'email'}`}
                         onChange={v => toggle(t.key, ch, v)}
                       />
                     </div>

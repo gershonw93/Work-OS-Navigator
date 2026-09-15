@@ -218,7 +218,7 @@ export function ClientInvoices({
       if (d?.quickbooks && d.quickbooks.voided === false) {
         setError(
           `Voided here, but QuickBooks did not confirm it${d.quickbooks.detail ? ` (${d.quickbooks.detail})` : ''}. `
-          + 'The invoice is still an open receivable there — retry from Settings → QuickBooks.',
+          + 'The invoice is still an open receivable there - retry from Settings → QuickBooks.',
         )
       }
       await load()

@@ -821,7 +821,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                       <span className={cn('whitespace-nowrap text-xs font-medium px-2 py-0.5 rounded-full border', lightColor(item))}>
                         {item.subcontract_id ? 'Sub Work' : 'Milestone'}
                       </span>
-                      <span>{formatDateShort(item.start_date)} – {formatDateShort(item.end_date)}</span>
+                      <span>{formatDateShort(item.start_date)} - {formatDateShort(item.end_date)}</span>
                       <span className="text-faint">{duration} day{duration !== 1 ? 's' : ''}</span>
                     </div>
                   </div>

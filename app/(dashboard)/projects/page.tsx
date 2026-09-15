@@ -73,8 +73,8 @@ type SortKey = 'created_desc' | 'created_asc' | 'name_asc' | 'name_desc' | 'star
 const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: 'created_desc', label: 'Newest first' },
   { value: 'created_asc', label: 'Oldest first' },
-  { value: 'name_asc', label: 'Name A–Z' },
-  { value: 'name_desc', label: 'Name Z–A' },
+  { value: 'name_asc', label: 'Name A-Z' },
+  { value: 'name_desc', label: 'Name Z-A' },
   { value: 'start_desc', label: 'Start date (latest)' },
   { value: 'start_asc', label: 'Start date (earliest)' },
 ]
@@ -354,7 +354,7 @@ export default function ProjectsPage() {
                     </SearchableSelect>
                     {(editProject?.status ?? 'planning') === 'planning' && (
                       <p className="text-xs text-faint">
-                        To set this job Active, open it and use the status badge in the header —
+                        To set this job Active, open it and use the status badge in the header -
                         it checks the budget and the price first.
                       </p>
                     )}

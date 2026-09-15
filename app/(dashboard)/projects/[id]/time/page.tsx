@@ -182,7 +182,7 @@ export default function TimeClockPage({ params }: { params: { id: string } }) {
   }
   const timesheet = Array.from(byWorker.values()).sort((a, b) => b.hours - a.hours)
   const weekTotal = timesheet.reduce((t, w) => t + w.hours, 0)
-  const weekLabel = `${formatDateShort(weekCursor)} – ${formatDateShort(new Date(weekEnd.getTime() - 1))}`
+  const weekLabel = `${formatDateShort(weekCursor)} - ${formatDateShort(new Date(weekEnd.getTime() - 1))}`
 
   return (
     <div className="space-y-6">
@@ -204,7 +204,7 @@ export default function TimeClockPage({ params }: { params: { id: string } }) {
               <p>{siteLabel(site)}</p>
               <p className="mt-0.5 text-xs text-muted-fg">
                 {canManage
-                  ? `${siteAdvice(site)} Project settings — the gear in the header.`
+                  ? `${siteAdvice(site)} Project settings - the gear in the header.`
                   : 'Punches are still recorded. Ask the office to set the job site location.'}
               </p>
             </div>
@@ -274,7 +274,7 @@ export default function TimeClockPage({ params }: { params: { id: string } }) {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-ink-soft truncate">{e.worker_name ?? 'Worker'}</p>
                   <p className="text-xs text-faint">
-                    {fmtDate(e.clock_in_at)} · {fmtTime(e.clock_in_at)}{e.clock_out_at ? ` – ${fmtTime(e.clock_out_at)}` : ''}
+                    {fmtDate(e.clock_in_at)} · {fmtTime(e.clock_in_at)}{e.clock_out_at ? ` - ${fmtTime(e.clock_out_at)}` : ''}
                     {` · ${punchFixLabel(e.clock_in_fix ?? (e.clock_in_distance_m != null ? 'ok' : 'no_fix'), e.clock_in_distance_m)}`}
                   </p>
                 </div>
@@ -386,7 +386,7 @@ export default function TimeClockPage({ params }: { params: { id: string } }) {
                     </div>
                     <p className="text-xs text-faint">
                       {fmtDate(e.clock_in_at)} · {fmtTime(e.clock_in_at)}
-                      {e.clock_out_at ? ` – ${fmtTime(e.clock_out_at)}` : ' – present'}
+                      {e.clock_out_at ? ` - ${fmtTime(e.clock_out_at)}` : ' - present'}
                       {e.clock_in_fix && ` · ${punchFixLabel(e.clock_in_fix, e.clock_in_distance_m)}`}
                     </p>
                   </div>

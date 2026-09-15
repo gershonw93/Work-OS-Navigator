@@ -108,7 +108,7 @@ export async function GET(request: Request, { params }: { params: { id: string; 
   })
 }
 
-// PATCH — update status, header fields, and/or edit line amounts.
+// PATCH - update status, header fields, and/or edit line amounts.
 export async function PATCH(request: Request, { params }: { params: { id: string; appId: string } }) {
   const gate = await requirePermission(admin(), request, 'pay-apps', 'edit')
   if (denied(gate)) return gate.denied

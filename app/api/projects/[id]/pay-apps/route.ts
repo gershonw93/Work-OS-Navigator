@@ -18,7 +18,7 @@ async function auth(request: Request) {
   return user
 }
 
-// GET — list this project's pay applications (both directions) plus the context
+// GET - list this project's pay applications (both directions) plus the context
 // needed to start a new one (contract sum, subcontract options).
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   // Reading the money needs permission to see it. The nav hid these
@@ -63,7 +63,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
   return NextResponse.json({ applications, contractSum, subOptions })
 }
 
-// POST — start a new pay application. Seeds its lines from the Schedule of
+// POST - start a new pay application. Seeds its lines from the Schedule of
 // Values and carries "previous completed" forward from earlier applications.
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   const gate = await requirePermission(admin(), request, 'pay-apps', 'edit')

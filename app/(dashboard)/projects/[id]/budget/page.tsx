@@ -1573,7 +1573,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
             <span className="text-xs font-medium text-muted-fg whitespace-nowrap">Sort by</span>
             <SearchableSelect className="rounded-lg border border-line px-3 py-2 text-sm bg-panel" value={sortBy} onChange={e => setSortBy(e.target.value)}>
               <option value="category">Category</option>
-              <option value="description">Description (A–Z)</option>
+              <option value="description">Description (A-Z)</option>
               <option value="budgeted">Budgeted (high → low)</option>
               <option value="committed">Committed (high → low)</option>
               <option value="actual">Actual (high → low)</option>
@@ -1887,7 +1887,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
             <p className="text-sm font-semibold text-warn">Not on a budget line</p>
             <p className="mt-0.5 text-xs text-warn">
               This money is counted in the totals above but belongs to no line, so the rows do not
-              add up to the headline. File each one against a line and the numbers close up — a
+              add up to the headline. File each one against a line and the numbers close up - a
               contract filed against a line you already typed a Committed amount on stops being
               counted twice.
             </p>

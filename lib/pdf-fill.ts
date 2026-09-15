@@ -69,7 +69,7 @@ export function sanitizeForPdf(input: string): string {
   const folded = input
     .replace(/[‘’‚‛′]/g, "'")
     .replace(/[“”„‟″]/g, '"')
-    .replace(/[–—−]/g, '-')
+    .replace(/[--−]/g, '-')
     .replace(/…/g, '...')
     .replace(/ /g, ' ')
     .replace(/[•·]/g, '-')
@@ -90,7 +90,7 @@ export function hasUnsupportedChars(input: string): boolean {
   return sanitizeForPdf(input).replace(/\n/g, '') !== input
     .replace(/[‘’‚‛′]/g, "'")
     .replace(/[“”„‟″]/g, '"')
-    .replace(/[–—−]/g, '-')
+    .replace(/[--−]/g, '-')
     .replace(/…/g, '...')
     .replace(/ /g, ' ')
     .replace(/[•·]/g, '-')

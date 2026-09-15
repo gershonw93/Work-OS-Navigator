@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 
 import { formatDate } from '@/lib/dates'
 const money = (n: number) => `$${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-const dt = (d: string | null) => d ? formatDate(d) : '—'
+const dt = (d: string | null) => d ? formatDate(d) : '-'
 
 export default function PayAppPrint({ params }: { params: { id: string; appId: string } }) {
   const [data, setData] = useState<any>(null)
@@ -39,7 +39,7 @@ export default function PayAppPrint({ params }: { params: { id: string; appId: s
           <div className="flex justify-between"><span className="text-gray-500">Application No.</span><span className="font-semibold">{app.application_number}</span></div>
           <div className="flex justify-between"><span className="text-gray-500">Billed to</span><span className="font-semibold">{app.bill_to}</span></div>
           <div className="flex justify-between"><span className="text-gray-500">Period ending</span><span className="font-semibold">{dt(app.period_end)}</span></div>
-          <div className="flex justify-between"><span className="text-gray-500">Owner / Client</span><span className="font-semibold">{project?.client ?? '—'}</span></div>
+          <div className="flex justify-between"><span className="text-gray-500">Owner / Client</span><span className="font-semibold">{project?.client ?? '-'}</span></div>
         </div>
         <table className="w-full border-t border-gray-400 text-[13px]">
           <tbody>

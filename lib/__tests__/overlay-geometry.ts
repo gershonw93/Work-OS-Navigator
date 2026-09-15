@@ -1150,7 +1150,7 @@ const ONE_ROW = `
   <span class="text-sm font-semibold text-ink-soft">Timesheet</span>
   <div class="flex items-center gap-1">
     <button class="p-1.5 rounded-lg"><span class="block h-4 w-4">&lt;</span></button>
-    <span class="text-xs font-medium text-muted-fg px-1 min-w-[110px] text-center">Sep 13 – Sep 19</span>
+    <span class="text-xs font-medium text-muted-fg px-1 min-w-[110px] text-center">Sep 13 - Sep 19</span>
     <button class="p-1.5 rounded-lg"><span class="block h-4 w-4">&gt;</span></button>
     <button id="export" class="ml-1 inline-flex items-center gap-1 whitespace-nowrap rounded-lg border px-3 h-9 text-sm"><span class="block h-3.5 w-3.5">v</span> Export</button>
   </div>
@@ -1162,7 +1162,7 @@ const TWO_ROWS = `
   <div class="row-even mt-2 gap-1 lg:mt-0 lg:flex lg:items-center lg:w-auto">
     <div class="flex min-w-0 items-center justify-center gap-1">
       <button class="shrink-0 p-1.5 rounded-lg"><span class="block h-4 w-4">&lt;</span></button>
-      <span class="min-w-0 flex-1 truncate text-center text-xs font-medium text-muted-fg px-1 lg:min-w-[110px] lg:flex-none">Sep 13 – Sep 19</span>
+      <span class="min-w-0 flex-1 truncate text-center text-xs font-medium text-muted-fg px-1 lg:min-w-[110px] lg:flex-none">Sep 13 - Sep 19</span>
       <button class="shrink-0 p-1.5 rounded-lg"><span class="block h-4 w-4">&gt;</span></button>
     </div>
     <button id="export" class="inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-lg border px-3 h-9 text-sm lg:ml-1"><span class="block h-3.5 w-3.5">v</span> Export</button>
