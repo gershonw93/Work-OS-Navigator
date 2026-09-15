@@ -93,9 +93,10 @@ export const guide: Guide = {
 
     { type: 'h2', text: 'Where SyteNav fits' },
     { type: 'p', text: 'SyteNav is built for contractors running roughly two to twenty live jobs who need the money and the field in one place: AI scanning for quotes, sub invoices and inspector cards; budgets that show committed, actual and remaining as costs land; change orders that raise the budget line and the sub contract together; client invoices built from costs already recorded, with markup applied per invoice; daily logs, time clock with a location check, permits, inspections and compliance tracking; and links rather than logins for subs and clients.' },
-    { type: 'p', text: 'It is an invite-only beta, free while you are in it. It does not do document control at enterprise scale, it does not run payroll, and its QuickBooks Online integration pushes one way - out of SyteNav. If you need any of those, say so on the call and we will tell you straight whether it is a fit.' },
+    { type: 'p', text: 'Plans start at $99 a month, with unlimited team members, subs and clients rather than per-seat licences, and it is an invite-only beta - free while you are in it. It does not do document control at enterprise scale, it does not run payroll, and its QuickBooks Online integration pushes one way - out of SyteNav. If you need any of those, say so on the call and we will tell you straight whether it is a fit.' },
   ],
   links: [
+    { text: 'Plans start at $99 a month, with unlimited team members, subs and clients rather than per-seat licences', href: '/pricing' },
     { text: 'AI scanning for quotes, sub invoices and inspector cards', href: '/ai' },
     { text: 'budgets that show committed, actual and remaining as costs land', href: '/money' },
     { text: 'daily logs, time clock with a location check, permits, inspections and compliance tracking', href: '/mobile' },

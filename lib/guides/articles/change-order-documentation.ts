@@ -6,7 +6,7 @@ export const guide: Guide = {
   cardTitle: 'Why your change orders will not hold up',
   metaTitle: 'Change Order Documentation: Why Yours Will Not Hold Up | SyteNav',
   description:
-    'Change order documentation that survives a dispute: why voice notes, texts and verbal approvals fail, and what a defensible record actually looks like.',
+    'Build change order documentation that holds up in a claim or dispute: contemporaneous, attributed, specific and retrievable records, photos, approvals and billing.',
   keyword: 'change order documentation',
   keywords: [
     'change order documentation', 'change order proof', 'verbal change order',
@@ -25,7 +25,7 @@ export const guide: Guide = {
   ],
   blocks: [
     { type: 'h2', text: 'Four properties, and where each one fails' },
-    { type: 'p', text: 'Whether a record helps you comes down to four things. Run your last disputed change order against them.' },
+    { type: 'p', text: 'Whether a record helps you comes down to four things. Run your last disputed change order against them. For the full capture-price-approve-bill process, see how to track change orders without losing money.' },
     { type: 'h3', text: 'Contemporaneous' },
     { type: 'p', text: 'Made at the time, not reconstructed afterwards. This is the property that carries the most weight and the one hardest to fake, which is exactly why it matters. A write-up assembled at the end of a job - however accurate - is a party’s account of events. A note made that afternoon is a record of them.' },
     { type: 'h3', text: 'Attributed' },
@@ -68,7 +68,7 @@ export const guide: Guide = {
       'The price, sent in writing, with the scope described in a sentence and the amount stated as a number.',
       'The response, in writing, that names the amount - "approved at $4,850" or a reply directly under a quote that states it.',
       'The performance: daily logs and photos showing the work being done, on the dates it was done.',
-      'The billing: the change order appearing as its own line on an invoice, with its number, not folded into a lump called "extras".',
+      'The billing: the change order appearing as its own line on an invoice, with its number, not folded into a lump called "extras". The construction invoice approval workflow shows where that record gets checked before approval.',
       'The status history: raised, priced, approved, and if it happened, rejected or withdrawn - each with a date and a name.',
     ] },
     { type: 'callout', tone: 'tip', title: 'The reply-under-the-number trick', text: 'Send the price in a short email with the amount on its own line, and ask for "approved" in reply. The reply then carries the number above it in the quoted text, which removes the entire class of argument about which figure was agreed. It costs nothing and it is the single most useful habit in this article after the daily ticket.' },
@@ -83,13 +83,13 @@ export const guide: Guide = {
     ] },
 
     { type: 'h2', text: 'Building the record without extra paperwork' },
-    { type: 'p', text: 'The reason documentation fails is not that people do not value it. It is that it is a separate act from doing the work, performed later, by somebody tired. The only durable fix is to make the record a by-product of the work itself.' },
+    { type: 'p', text: 'The reason documentation fails is not that people do not value it. It is that it is a separate act from doing the work, performed later, by somebody tired. The only durable fix is to make the record a by-product of the work itself. If you are evaluating software for this, use the GC change order software buyer’s guide.' },
     { type: 'list', items: [
       'Photos taken on site file themselves to the job, not to a camera roll.',
       'The daily log is written that day by whoever was there, from a phone, in under a minute.',
       'The change order is raised where the job lives, so the photo, the log and the approval are on the same record.',
       'Status changes are logged automatically with a name and a timestamp, because nobody maintains an audit trail by hand.',
-      'The billing draws from the approved change order, so what was invoiced and what was agreed cannot drift apart.',
+      'The billing draws from the approved change order, so what was invoiced and what was agreed cannot drift apart. See how construction invoice verification catches extra work with no approved change order behind it.',
     ] },
 
     { type: 'h2', text: 'How SyteNav handles it' },
@@ -98,6 +98,10 @@ export const guide: Guide = {
     { type: 'p', text: 'What it does not do: it is not a legal product. It does not generate contract notices, it cannot tell you whether your change clause has been complied with, and none of this is legal advice. It makes the contemporaneous record exist and stay retrievable, which is the part a contractor controls.' },
   ],
   links: [
+    { text: 'For the full capture-price-approve-bill process, see how to track change orders without losing money', href: '/guides/how-to-track-change-orders' },
+    { text: 'If you are evaluating software for this, use the GC change order software buyer’s guide', href: '/guides/change-order-management-software' },
+    { text: 'The construction invoice approval workflow shows where that record gets checked before approval', href: '/guides/construction-invoice-approval' },
+    { text: 'See how construction invoice verification catches extra work with no approved change order behind it', href: '/guides/construction-invoice-verification' },
     { text: 'the budget line and subcontract they raise', href: '/money' },
     { text: 'daily logs with photos filed to the job and tagged by sub, a time clock', href: '/mobile' },
     { text: 'plans you can pin a task to', href: '/features' },

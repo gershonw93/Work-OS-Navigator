@@ -5,7 +5,7 @@ export const guide: Guide = {
   title: 'How to track change orders without losing money',
   metaTitle: 'How to Track Change Orders Without Losing Money | SyteNav',
   description:
-    'A practical system for tracking change orders: what to capture, when to price it, how to get approval that counts, and how to make the extra reach the budget.',
+    'A practical change order tracking process for GCs: capture the ask, price it, get written approval, update the budget and contract, bill it, and reverse it correctly.',
   keyword: 'how to track change orders',
   keywords: [
     'how to track change orders', 'change order tracking', 'change order log',
@@ -50,7 +50,7 @@ export const guide: Guide = {
 
     { type: 'h2', text: 'Approval that counts' },
     { type: 'p', text: 'Whatever your contract says about written change orders, what protects you in practice is a record that shows three things together: an amount, a scope, and an affirmative response from somebody with authority. An email reply saying "ok go ahead" under a quoted number does that. A signature on a form does it better. A verbal yes on site does not do it at all, however sincere it was.' },
-    { type: 'p', text: 'Two practical rules. First, the approval must name the amount - "approved" under an email thread with three numbers in it is ambiguous by design. Second, approval and the record of the work are different acts: recording that a change happened is not the same as the client accepting it, and a system that collapses them into one step will eventually book an agreement nobody made.' },
+    { type: 'p', text: 'Two practical rules. First, the approval must name the amount - "approved" under an email thread with three numbers in it is ambiguous by design. Second, approval and the record of the work are different acts: recording that a change happened is not the same as the client accepting it, and a system that collapses them into one step will eventually book an agreement nobody made. Why the paperwork decides whether you get paid is a separate question from how to run the process.' },
 
     { type: 'h2', text: 'Make it flow through to the money' },
     { type: 'p', text: 'This is the step that spreadsheets almost never get right, because it is three edits in three places and a person has to remember all of them.' },
@@ -75,10 +75,10 @@ export const guide: Guide = {
     } },
     { type: 'p', text: 'The reversal half matters as much as the addition. A change order that is approved, folded into a budget, and then cancelled has to take its money back out of every one of those places. Anywhere this is done by hand, it is done once and remembered as done forever.' },
 
-    { type: 'callout', tone: 'warn', title: 'The line that goes red at the worst moment', text: 'A common pattern: the client approves a $12,000 extra on the electrical, you raise the sub’s contract, and the budget line stays at its original figure. The moment the extra is approved and funded, the budget tab shows the line over budget - so the report says you are losing money on the exact change that made you money. If your system derives the budget from approved change orders, this cannot happen.' },
+    { type: 'callout', tone: 'warn', title: 'The line that goes red at the worst moment', text: 'A common pattern: the client approves a $12,000 extra on the electrical, you raise the sub’s contract, and the budget line stays at its original figure. The moment the extra is approved and funded, the budget tab shows the line over budget - so the report says you are losing money on the exact change that made you money. If your system derives the budget from approved change orders, this cannot happen. See how approved change orders should feed real-time job cost tracking.' },
 
     { type: 'h2', text: 'A tracking system that works, with or without software' },
-    { type: 'p', text: 'If you are doing this on paper or in a sheet, these are the columns that earn their place. Anything else is decoration.' },
+    { type: 'p', text: 'If you are doing this on paper or in a sheet, these are the columns that earn their place. Anything else is decoration. If you are evaluating change order management software instead, use this GC buyer’s guide.' },
     { type: 'list', items: [
       'Number and date raised - sequential, never reused.',
       'Who requested it, by name.',
@@ -88,7 +88,7 @@ export const guide: Guide = {
       'Who approved it, and where that approval is recorded.',
       'Which budget line the change order raises.',
       'The sub contract it raises, if any.',
-      'The client invoice it went out on.',
+      'The client invoice it went out on. The construction invoice approval workflow shows the checks that should happen before that money moves.',
     ] },
     { type: 'p', text: 'The last three are what turn a log into a control. A log with only the first six tells you what was agreed; it does not tell you whether the money ever arrived where it was supposed to go.' },
 
@@ -97,6 +97,10 @@ export const guide: Guide = {
     { type: 'p', text: 'An approved change order that names neither a line nor a contract still counts in the job total, and the budget tab lists it under "Not on a budget line" with a picker to file it - because money in a total that is not on a row is exactly how a job stops adding up. And when a pay application refuses a line for being billed past its scheduled value, the words "change order" in that message open the form with the overage and the right line already filled in.' },
   ],
   links: [
+    { text: 'Why the paperwork decides whether you get paid', href: '/guides/change-order-documentation' },
+    { text: 'If you are evaluating change order management software instead, use this GC buyer’s guide', href: '/guides/change-order-management-software' },
+    { text: 'See how approved change orders should feed real-time job cost tracking', href: '/guides/construction-job-cost-tracking' },
+    { text: 'The construction invoice approval workflow shows the checks that should happen before that money moves', href: '/guides/construction-invoice-approval' },
     { text: 'budget line it raises', href: '/money' },
     { text: 'the budget tab lists it under "Not on a budget line" with a picker to file it', href: '/money' },
   ],
