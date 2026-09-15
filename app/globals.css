@@ -135,7 +135,8 @@
       font-size: 16px !important;
     }
 
-    /* And the box around that 16px has to be worth 16px. These fields were
+
+  /* And the box around that 16px has to be worth 16px. These fields were
        h-8 - 32px - so the forced text arrived crammed into a box built for
        14px, next to a 12px label, and read as enormous. 44px is the touch
        target this file already asks for everywhere else; 27 fields were under
@@ -688,6 +689,41 @@
       .app-content { transition: padding-left 180ms ease; }
     }
   }
+
+  /* ── iOS PAINTS AN AUTOFILLED FIELD ITSELF, AND `background-color` LOSES ──
+   Reported as "the login screen looks like it's fake", with a screenshot:
+   two WHITE boxes with dark text sitting on the dark sign-in card, while
+   every other pixel on the screen was correct. Nothing in this codebase asks
+   for that, and the classes on those inputs were right - `bg-panel text-ink`,
+   present in the built CSS, applied to the element.
+
+   It is WebKit. A field the password manager filled matches
+   `:-webkit-autofill`, and WebKit paints its own background for it in the
+   UA-shadow layer, where an author `background-color` does not reach. The
+   only thing that does is a huge inset box-shadow, and the only thing that
+   recolours the text is `-webkit-text-fill-color` - `color` loses there too.
+
+   So the two complaints in that message were one bug: it looked fake BECAUSE
+   the credentials had been remembered. An account with nothing saved never
+   sees it, which is why it survived this long.
+
+   Painted from the TOKENS, so it follows the theme - and so the sign-in card,
+   which is `.dark` whatever the device is set to, gets the dark fill rather
+   than a white one. `transition: background-color 0s 600000s` is the other
+   half of the trick: WebKit re-paints on focus, and only a transition longer
+   than the session outlasts it. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-box-shadow: inset 0 0 0 1000px rgb(var(--panel)) !important;
+  box-shadow: inset 0 0 0 1000px rgb(var(--panel)) !important;
+  -webkit-text-fill-color: rgb(var(--ink)) !important;
+  caret-color: rgb(var(--ink));
+  transition: background-color 0s 600000s, color 0s 600000s;
+}
 }
 
 /* Nothing behind an open overlay scrolls.

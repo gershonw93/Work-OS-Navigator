@@ -43,7 +43,7 @@ export default function LoginPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white">Sign in</h1>
+        <h1 className="text-2xl font-bold text-ink">Sign in</h1>
         <p className="mt-1 text-sm text-faint">Welcome back to SyteNav</p>
       </div>
 
@@ -52,6 +52,12 @@ export default function LoginPage() {
           <Label htmlFor="email" className="text-faint">
             Email address
           </Label>
+          {/* `username`, not `email`. This is the account IDENTIFIER of a
+              sign-in pair, and that is the token a password manager keys on to
+              decide which field belongs with the password below. With `email`
+              - a contact-details token - iOS fills the password and leaves
+              this one sitting on its placeholder, which is what the report's
+              screenshot showed. */}
           <Input
             id="email"
             type="email"
@@ -59,8 +65,7 @@ export default function LoginPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            autoComplete="email"
-            className="bg-slate-700 border-slate-600 text-white placeholder:text-muted-fg focus:border-accent"
+            autoComplete="username"
           />
         </div>
 
@@ -70,13 +75,12 @@ export default function LoginPage() {
           </Label>
           <PasswordInput
             id="password"
-            toggleClassName="text-slate-400 hover:text-white"
+            toggleClassName="text-muted-fg hover:text-ink"
             placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
             autoComplete="current-password"
-            className="bg-slate-700 border-slate-600 text-white placeholder:text-muted-fg focus:border-accent"
           />
           <div className="flex justify-end">
             <Link href="/forgot-password" className="text-sm text-accent-fg hover:text-accent">

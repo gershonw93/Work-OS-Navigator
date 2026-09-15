@@ -55,6 +55,22 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 const AUTHORED: Release[] = [
   {
     date: '2026-09-15',
+    title: 'The sign-in screen stops looking like a fake',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'Saved passwords turned the sign-in boxes white',
+        text: 'If your phone filled your password in for you, iOS painted those two boxes white with dark text - on a dark sign-in card, which made the whole screen look like something pretending to be SyteNav. It was the opposite: it only happened once your login had been remembered. The fields now stay the same colour whether they were filled for you or typed.',
+      },
+      {
+        kind: 'fixed',
+        title: 'Your email was not filled in with your password',
+        text: 'Your phone would fill the password and leave the email box empty, so signing in still meant typing half of it. The email box now tells the password manager what it is, so both arrive together.',
+      },
+    ],
+  },
+  {
+    date: '2026-09-15',
     title: 'What SyteNav will cost',
     items: [
       {

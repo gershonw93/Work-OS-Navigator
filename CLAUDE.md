@@ -381,6 +381,33 @@ which lays real markup out in headless Chromium.
 - The overlay scroll lock is `overflow-y: hidden`, NEVER the `overflow`
   shorthand - the shorthand replaces the `clip` on html/body with `hidden`, and
   clip cannot be scrolled while hidden can.
+- **WEBKIT PAINTS AN AUTOFILLED FIELD ITSELF, AND `background-color` LOSES.**
+  Reported as "the login screen looks like it's fake": two white boxes with
+  dark text on the dark sign-in card, every other pixel correct. A field the
+  password manager filled matches `:-webkit-autofill` and WebKit paints its
+  background in the UA-shadow layer, where an author background does not reach
+  - only a huge inset `box-shadow` covers it and only `-webkit-text-fill-color`
+  recolours the text. The rule is in `globals.css`, painted from `--panel` /
+  `--ink` so it follows the theme, and it is NOT inside the touch media query:
+  a desktop autofills too. It looked fake BECAUSE the credentials had been
+  remembered, so an account with nothing saved never sees it.
+- **AND A FIELD PAINTED FROM THE TOKENS NEEDS A CARD PAINTED FROM THEM TOO.**
+  The auth card hardcoded the dark palette as hex while everything inside it
+  followed the DOCUMENT theme, so `<Input>`'s `bg-panel` resolved light on a
+  light-theme phone and each of the four auth pages patched its own fields with
+  raw `slate`. No single autofill rule can be the right colour against that.
+  `.dark` is a bare class in globals.css, so it goes on the auth wrapper and the
+  whole subtree flips - card and fields then read the same tokens. The card is
+  `bg-muted`, one step LIGHTER than its `bg-panel` fields, because a card on
+  `panel` makes both #1F2227 and the fields vanish into it. Pinned and MEASURED
+  in `auth-screen.ts`, whose fixture is built from the layout's own class
+  strings: the first version hardcoded them and its colour assertions went on
+  passing against the reverted, broken layout.
+- **THE SIGN-IN IDENTIFIER IS `autocomplete="username"`, NOT `"email"`.** That
+  is the token a password manager keys on to pair a field with the password
+  below it; `email` is a contact-details token, and with it iOS fills the
+  password and leaves the address on its placeholder - which is what the same
+  screenshot showed.
 - NEVER `autoFocus` on a touch screen - `autoFocus={autoFocusOnDesktop()}`
   (`lib/auto-focus.ts`). iOS opens the keyboard unasked and scrolls the LAYOUT
   viewport, dragging the fixed dialog off with it.

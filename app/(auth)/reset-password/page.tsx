@@ -100,7 +100,7 @@ function ResetPasswordForm() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white">{isInvite ? 'Welcome! Set your password' : 'Reset password'}</h1>
+        <h1 className="text-2xl font-bold text-ink">{isInvite ? 'Welcome! Set your password' : 'Reset password'}</h1>
         <p className="mt-1 text-sm text-faint">
           {isInvite
             ? 'Create a password to activate your account'
@@ -109,7 +109,7 @@ function ResetPasswordForm() {
       </div>
 
       {linkState === 'checking' ? (
-        <div className="flex items-center gap-3 rounded-md border border-slate-700 bg-slate-800/40 px-4 py-3">
+        <div className="flex items-center gap-3 rounded-md border border-line bg-muted/40 px-4 py-3">
           <div className="h-4 w-4 rounded-full border-2 border-accent border-t-transparent animate-spin" />
           <p className="text-sm text-faint">Verifying your link…</p>
         </div>
@@ -134,13 +134,12 @@ function ResetPasswordForm() {
             </Label>
             <PasswordInput
               id="password"
-              toggleClassName="text-slate-400 hover:text-white"
+              toggleClassName="text-muted-fg hover:text-ink"
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
               autoComplete="new-password"
-              className="bg-slate-700 border-slate-600 text-white placeholder:text-muted-fg focus:border-accent"
             />
           </div>
 
@@ -150,13 +149,12 @@ function ResetPasswordForm() {
             </Label>
             <PasswordInput
               id="confirmPassword"
-              toggleClassName="text-slate-400 hover:text-white"
+              toggleClassName="text-muted-fg hover:text-ink"
               placeholder="••••••••"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
               autoComplete="new-password"
-              className="bg-slate-700 border-slate-600 text-white placeholder:text-muted-fg focus:border-accent"
             />
           </div>
 

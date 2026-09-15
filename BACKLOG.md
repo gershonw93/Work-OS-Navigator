@@ -53,6 +53,33 @@ account role). That is the sharp edge, not the whole surface. Still to do:
 ---
 
 
+## 🔐 "The app does not remember my logins" - the half still open
+
+The sign-in SCREEN is fixed (#459): iOS was painting autofilled fields white,
+and the email box was not being filled because it said
+`autocomplete="email"` rather than `username`. Both are shipped.
+
+What is NOT established is whether the SESSION itself is being lost - i.e.
+whether the app asks you to sign in again after it has been closed for a while,
+as opposed to simply presenting a login screen with a saved password in it.
+Ruled out from the code so far:
+
+- the company inactivity sign-out (`auto_logout_minutes` is 0 for every company);
+- middleware flattening an unknown auth outcome into a redirect to /login
+  (`treatAsSignedIn` already handles it);
+- a short cookie lifetime (`@supabase/ssr` defaults to a 400-day `maxAge`);
+- `WKAppBoundDomains` in Info.plist, which would restrict storage APIs (absent).
+
+What remains needs a DEVICE to answer, because none of it is visible from the
+repo: WKWebView writes cookies to `WKHTTPCookieStore` asynchronously, and a
+cold launch after a force-quit is the case where a remote-`server.url` Capacitor
+app is known to lose them. The next step is data, not code - how long after
+closing the app does it happen, and does it survive a normal background/resume
+but not a force-quit.
+
+---
+
+
 ## 💳 Self-serve: the trial and the demo the pricing page cannot offer
 
 Prices are published (#456) and the tiers meter ACTIVE PROJECTS - $99 / $199 /
