@@ -64,7 +64,7 @@ export default function GuidesIndexPage() {
               </Reveal>
               <div className="mt-7 grid gap-4 sm:gap-5 md:grid-cols-2 lg:grid-cols-3">
                 {guides.map(g => (
-                  <Reveal key={g.slug} className="h-full">
+                  <Reveal key={g.slug} className="h-full min-w-0">
                     <GuideCard guide={g} />
                   </Reveal>
                 ))}

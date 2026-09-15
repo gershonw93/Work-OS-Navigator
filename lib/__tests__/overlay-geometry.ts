@@ -1343,5 +1343,140 @@ ok(/overflow-x-auto scrollbar-hide scroll-fade/.test(dirPage),
 ok(/min-w-0 flex-1">\s*\n?\s*<h2/.test(dirPage.replace(/\s+/g, ' ').replace(/min-w-0 flex-1"> <h2/, 'min-w-0 flex-1">\n<h2')) || /min-w-0 flex-1/.test(dirPage),
   '...and the title sits in a box that is allowed to shrink')
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 8. A GUIDE CARD MUST NOT PIN THE PAGE OPEN.
+//
+// THE BUG, reported from a phone with a screenshot: the /guides index scrolled
+// sideways and every card's description was cut off mid-word at the right edge.
+//
+// The cause is the rule CLAUDE.md already states and this suite exists to catch
+// as a NUMBER: `white-space: nowrap` does not shrink min-content. The card's
+// eyebrow printed the article's target phrase - "construction management
+// software for small contractors", mono, uppercase, 0.2em tracking - with
+// `whitespace-nowrap` on it, because an eyebrow that wraps looks untidy. That
+// one line is wider than the phone. The card could not go below it, the grid
+// could not go below the card, and the DOCUMENT could not go below the grid.
+//
+// Both shapes are measured below, so the fix is checked against the number the
+// bug really produced rather than against an opinion about it.
+// ─────────────────────────────────────────────────────────────────────────────
+const KEYWORD = 'construction management software for small contractors'
+const guideCard = (eyebrow: string, eyebrowClass: string, cardClass: string, wrapClass = '') => `
+<div class="max-w-6xl mx-auto px-4 sm:px-6">
+  <div id="grid" class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+    <div id="wrap" class="h-full ${wrapClass}">
+      <a id="card" class="${cardClass}">
+        <p id="eyebrow" class="font-mono text-[10px] uppercase tracking-[0.2em] text-faint ${eyebrowClass}">${eyebrow}</p>
+        <h3 class="mt-2.5 text-lg font-bold text-ink leading-snug break-words">Best construction management software for small contractors</h3>
+        <p id="desc" class="mt-2.5 text-[15px] text-muted-fg leading-relaxed break-words">How to choose construction management software as a small contractor: what actually matters, the questions that expose a bad fit, and a buying checklist.</p>
+        <div class="mt-5 flex items-center justify-between gap-3 pt-1">
+          <span class="inline-flex items-center gap-1.5 text-xs text-faint whitespace-nowrap">7 min read</span>
+          <span class="inline-flex items-center gap-1.5 text-sm font-semibold text-accent-fg whitespace-nowrap">Read</span>
+        </div>
+      </a>
+    </div>
+  </div>
+</div>`
+
+const GUIDE_CARD_PROBE = `rect => {
+  const card = rect('#card'), desc = rect('#desc')
+  return {
+    docWidth: document.documentElement.scrollWidth,
+    vw: window.innerWidth,
+    cardW: Math.round(card.width),
+    cardRight: Math.round(card.right),
+    descRight: Math.round(desc.right),
+    eyebrowW: Math.round(rect('#eyebrow').width),
+  }
+}`
+
+const GUIDE_CARD_SHIPPED = 'group flex h-full flex-col rounded-2xl border border-line bg-panel p-5 sm:p-6'
+const GUIDE_CARD_CLASS = `${GUIDE_CARD_SHIPPED} min-w-0`
+
+// As it shipped: the target phrase, nowrap, in a card and a wrapper that both
+// take their automatic minimum size from it.
+const brokenCard = measure(guideCard(KEYWORD, 'whitespace-nowrap', GUIDE_CARD_SHIPPED), GUIDE_CARD_PROBE)
+// MEASURED AT THE CONTENT, NOT AT THE DOCUMENT. `html, body` carry
+// `overflow-x: clip` (globals.css), so a child wider than the screen does not
+// make the page scroll - it gets CUT, which is exactly what the report showed:
+// every description sliced off mid-word at the right edge with no way to see
+// the rest. `scrollWidth` stays at 390 through all of it, so asserting on the
+// document would have been a check that could never fail.
+ok(brokenCard.cardRight > brokenCard.vw,
+  `the reported bug, measured: the card ran to ${brokenCard.cardRight}px on a ${brokenCard.vw}px screen`)
+ok(brokenCard.descRight > brokenCard.vw,
+  `...so the description was cut off mid-word (its right edge at ${brokenCard.descRight}px)`)
+ok(brokenCard.docWidth === brokenCard.vw,
+  `...and the page still reported itself ${brokenCard.docWidth}px wide, because html/body clip - `
+  + 'which is why this is measured at the card')
+
+const fixedCard = measure(guideCard('Choosing software', '', GUIDE_CARD_CLASS, 'min-w-0'), GUIDE_CARD_PROBE)
+ok(fixedCard.docWidth <= fixedCard.vw,
+  `THE FIX: the guides page fits the screen (${fixedCard.docWidth} <= ${fixedCard.vw})`)
+ok(fixedCard.cardRight <= fixedCard.vw && fixedCard.descRight <= fixedCard.vw,
+  `...with the card and its text inside it (card ${fixedCard.cardRight}, text ${fixedCard.descRight})`)
+ok(fixedCard.cardW < fixedCard.vw,
+  `...and a gutter on both sides (card ${fixedCard.cardW}px of ${fixedCard.vw}px)`)
+
+// The card that ships carries the shape measured above: the eyebrow is the
+// category, and nothing in it is nowrap.
+const cardSrc = code('components/marketing/guide-card.tsx')
+ok(/categoryLabel\(guide\)/.test(cardSrc) && !/guide\.keyword/.test(cardSrc),
+  'the real card prints the category, not the unbreakable target phrase')
+ok(!/tracking-\[0\.2em\][^"]*whitespace-nowrap/.test(cardSrc),
+  '...and its eyebrow is allowed to wrap')
+ok(/min-w-0/.test(cardSrc), '...in a card that is allowed to shrink')
+ok(/<Reveal key=\{g\.slug\} className="h-full min-w-0">/.test(code('app/(marketing)/guides/page.tsx')),
+  '...and so is the grid cell it sits in, which is the element the column is sized from')
+
+
+// The article page itself, at the same width. The index was the half that was
+// reported; a guide body is the half a reader spends their time in, and it
+// carries the shapes most likely to blow out - a two-column comparison, a
+// numbered step whose bubble is a fixed 28px beside flowing text, and a long
+// unbroken keyword in a heading.
+const articleBody = `
+<div class="max-w-6xl mx-auto px-4 sm:px-6 py-10">
+  <article class="min-w-0 max-w-3xl">
+    <h2 id="head" class="mt-12 mb-4 text-2xl font-extrabold tracking-tight text-ink leading-[1.15]">Why your change orders will not hold up in a subcontractor dispute</h2>
+    <p id="para" class="mt-4 text-[17px] text-ink-soft leading-[1.75]">A change order priced after the work is done is not a price, it is an invoice with a story attached.</p>
+    <ol class="mt-5 space-y-4">
+      <li id="step" class="flex gap-3.5 text-[17px] text-ink-soft leading-[1.7]">
+        <span class="mt-0.5 h-7 w-7 shrink-0 rounded-full bg-accent-tint text-accent-fg font-mono text-xs font-bold flex items-center justify-center">1</span>
+        <span>Stop and name it on the spot, in front of the person asking, before the crew touches anything.</span>
+      </li>
+    </ol>
+    <figure class="my-9">
+      <figcaption class="font-mono text-[11px] uppercase tracking-[0.18em] text-faint mb-3">Two different shapes of problem</figcaption>
+      <div id="compare" class="grid gap-4 sm:grid-cols-2">
+        <div id="col" class="rounded-2xl border border-line bg-panel p-5">
+          <p class="text-sm font-bold text-muted-fg">Buy the enterprise platform</p>
+          <ul class="mt-3 space-y-2.5">
+            <li class="flex gap-2.5 text-[15px] text-muted-fg leading-relaxed"><span class="h-4 w-4 shrink-0 mt-1 text-danger">x</span><span>Owner-mandated system of record</span></li>
+          </ul>
+        </div>
+        <div class="rounded-2xl border border-accent-tint bg-panel p-5">
+          <p class="text-sm font-bold text-ink">Buy something lighter</p>
+        </div>
+      </div>
+    </figure>
+  </article>
+</div>`
+
+const article = measure(articleBody, `rect => {
+  const widest = Math.max(...['#head', '#para', '#step', '#compare', '#col']
+    .map(s => Math.round(rect(s).right)))
+  return { widest, vw: window.innerWidth, headH: Math.round(rect('#head').height),
+           colW: Math.round(rect('#col').width) }
+}`)
+ok(article.widest <= article.vw,
+  `a guide body fits the phone too - nothing reaches past ${article.vw}px (widest right edge ${article.widest})`)
+// 390 less the 16px gutter each side. A column at HALF that would mean the
+// two-up grid never collapsed and the comparison was being read in two
+// 170px-wide cells.
+ok(article.colW === article.vw - 32,
+  `...and a comparison column takes the full width, so the two-up grid stacked (${article.colW}px)`)
+
+
 rmSync(work, { recursive: true, force: true })
 done()
