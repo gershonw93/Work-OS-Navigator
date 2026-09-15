@@ -6,6 +6,8 @@
 // named trail still beats a slug, and "For general contractors" reads better
 // than "contractors".
 
+import { GUIDES, guidePath } from './guides'
+
 export interface Crumb { name: string; path: string }
 
 const ROOT: Crumb = { name: 'SyteNav', path: '/' }
@@ -28,6 +30,7 @@ const NAMES: Record<string, string> = {
   '/terms': 'Terms',
   '/cookies': 'Cookies',
   '/acceptable-use': 'Acceptable use',
+  '/guides': 'Guides',
 }
 
 /** The trail for a path, or null where there is nothing worth marking up. */
@@ -38,6 +41,14 @@ export function crumbsFor(pathname: string | null | undefined): Crumb[] | null {
   // are already on tells a reader nothing.
   if (clean === '/') return null
   const name = NAMES[clean]
-  if (!name) return null
-  return [ROOT, { name, path: clean }]
+  if (name) return [ROOT, { name, path: clean }]
+
+  // A guide is three deep, and its name is the article's own title rather than
+  // its slug - which is the entire point of marking a trail up at all. Read
+  // from the guide registry so a published article cannot be missing one, and
+  // an unpublished slug cannot invent one.
+  const guide = GUIDES.find(g => guidePath(g.slug) === clean)
+  if (guide) return [ROOT, { name: NAMES['/guides'], path: '/guides' }, { name: guide.title, path: clean }]
+
+  return null
 }

@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next'
 import { CANONICAL_ORIGIN } from '@/lib/canonical'
+import { GUIDES, guidePath } from '@/lib/guides'
 
 
 // Only the public marketing pages belong in the sitemap; the app itself is
@@ -25,10 +26,20 @@ const PAGES: { path: string; priority: number; changeFrequency: MetadataRoute.Si
   { path: '/terms', priority: 0.3, changeFrequency: 'yearly' },
   { path: '/cookies', priority: 0.3, changeFrequency: 'yearly' },
   { path: '/acceptable-use', priority: 0.3, changeFrequency: 'yearly' },
+  { path: '/guides', priority: 0.8, changeFrequency: 'weekly' },
 ]
 
+// The guides themselves are NOT listed by hand. A published article that nobody
+// told a search engine about is the failure /workflow already demonstrated
+// above, and a hand-kept list is exactly how that happens a second time.
+const GUIDE_PAGES: typeof PAGES = GUIDES.map(g => ({
+  path: guidePath(g.slug),
+  priority: 0.7,
+  changeFrequency: 'monthly',
+}))
+
 export default function sitemap(): MetadataRoute.Sitemap {
-  return PAGES.map(p => ({
+  return [...PAGES, ...GUIDE_PAGES].map(p => ({
     url: `${CANONICAL_ORIGIN}${p.path}`,
     lastModified: new Date(),
     changeFrequency: p.changeFrequency,

@@ -16,6 +16,7 @@ const LINKS = [
   { href: '/flows', label: 'Flows' },
   { href: '/ai', label: 'AI' },
   { href: '/mobile', label: 'On the go' },
+  { href: '/guides', label: 'Guides' },
   { href: '/pricing', label: 'Pricing' },
 ]
 
@@ -73,6 +74,9 @@ export function MarketingNav() {
           <Link href="/workflow" className={linkCls('/workflow')}>How it works</Link>
           <Link href="/ai" className={linkCls('/ai')}>AI</Link>
           <Link href="/mobile" className={linkCls('/mobile')}>On the go</Link>
+          {/* Hidden between md and lg on purpose: the row is full at that width.
+              A phone reaches it from the menu below, which reads LINKS. */}
+          <Link href="/guides" className={`hidden lg:inline ${linkCls('/guides')}`}>Guides</Link>
 
           {/* Audience dropdown */}
           <div className="relative" ref={dropRef} onMouseEnter={() => setDrop(true)} onMouseLeave={() => setDrop(false)}>

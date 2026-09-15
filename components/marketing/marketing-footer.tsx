@@ -14,6 +14,7 @@ const COLUMNS: { title: string; links: [string, string][] }[] = [
       ['Mobile & on the go', '/mobile'],
       ['Pricing', '/pricing'],
       ['Security', '/security'],
+      ['Guides', '/guides'],
     ],
   },
   {
