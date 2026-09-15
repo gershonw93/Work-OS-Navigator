@@ -6,7 +6,7 @@ export const guide: Guide = {
   cardTitle: 'Change order management software for general contractors',
   metaTitle: 'Change Order Management Software for General Contractors | SyteNav',
   description:
-    "A buyer's guide to change order management software for general contractors: what it should capture, how approvals should update job costs, and what to test before you buy.",
+    "A GC buyer's guide to change order management software: features that matter, budget and subcontract integrations, field capture, reversals, and a six-step demo test.",
   keyword: 'change order management software',
   keywords: [
     'change order management software', 'change order software', 'change order system',
@@ -27,7 +27,7 @@ export const guide: Guide = {
     { type: 'p', text: 'This guide is written for the general contractor doing the buying - the person who approves extras, carries the cost if one is missed, and has to explain the job’s margin at the end. It is published by SyteNav, which is one of the products in this category; the buyer’s checklist below is the one we would hand somebody who had never heard of us.' },
 
     { type: 'h2', text: 'What change order management software is actually for' },
-    { type: 'p', text: 'Change orders leak money in four places, and only one of them is a paperwork problem. Any product you are evaluating should be scored on how many of the four it closes.' },
+    { type: 'p', text: 'Change orders leak money in four places, and only one of them is a paperwork problem. Any product you are evaluating should be scored on how many of the four it closes. For the underlying change order tracking process, with or without software, start here.' },
     { type: 'list', items: [
       'NEVER CAPTURED. The ask happened on site, the work got done, nothing was written. There is nothing to bill and nothing to argue with. This is a capture problem, and it is solved on a phone or not at all.',
       'CAPTURED BUT NEVER PRICED. It sits on a list as "extra tile work, TBC" until nobody remembers the scope well enough to price it honestly.',
@@ -68,7 +68,7 @@ export const guide: Guide = {
         'Rejecting or deleting it takes all of that straight back out',
       ],
     } },
-    { type: 'callout', tone: 'warn', title: 'The line that goes red at the worst possible moment', text: 'The pattern to test for: the client approves a $12,000 electrical extra, the system raises the sub’s contract, and the budget line stays at its original figure. The moment the change is approved and funded, your budget tab shows that line over budget - so the report says you are losing money on the exact change that made you money. If the budget figure is DERIVED from approved change orders rather than copied across by a person, this cannot happen.' },
+    { type: 'callout', tone: 'warn', title: 'The line that goes red at the worst possible moment', text: 'The pattern to test for: the client approves a $12,000 electrical extra, the system raises the sub’s contract, and the budget line stays at its original figure. This is the change-order failure that breaks real-time job cost tracking. The moment the change is approved and funded, your budget tab shows that line over budget - so the report says you are losing money on the exact change that made you money. If the budget figure is DERIVED from approved change orders rather than copied across by a person, this cannot happen.' },
 
     { type: 'h2', text: 'The reversal is half the feature' },
     { type: 'p', text: 'Ask what happens when an approved change order is rejected, deleted or reset to pending. In a system that copies the amount into the budget on approval, the reversal is a second manual edit - one that gets done once and remembered as done for ever. In a system that derives the figure, there is nothing to undo and no way to count it twice.' },
@@ -86,7 +86,7 @@ export const guide: Guide = {
       'Price it, attach it to a budget line, and attach it to the subcontract of the trade doing the work.',
       'Record the approval, including who approved it and the amount they approved.',
       'Open the budget and confirm the line went up, the sub’s contract went up, and nothing was double counted.',
-      'Raise the client invoice and confirm the extra is on it, at the right number, without retyping.',
+      'Raise the client invoice and confirm the extra is on it, at the right number, without retyping. Then test the construction invoice approval workflow around that handoff.',
       'Now reject the change order, and watch all of that come back out.',
     ] },
     { type: 'checklist', title: 'Buyer’s checklist', items: [
@@ -112,10 +112,14 @@ export const guide: Guide = {
 
     { type: 'h2', text: 'How SyteNav handles it' },
     { type: 'p', text: 'A change order in SyteNav carries a title, an amount that can be positive or negative, a reason, who requested it, and the budget line and subcontract it raises. Approving it adds the amount to that line and folds it into that sub’s contract; un-approving, rejecting or deleting it takes the amount straight back out, because the budget figure is derived from the change order rather than copied from it. There is nothing to reverse by hand and no way to count it twice. An approved change order attached to neither a line nor a contract still counts in the job total, so it is listed under "Not on a budget line" with a picker to file it - money in a total that is not on a row is exactly how a job stops adding up.' },
-    { type: 'p', text: 'The field side is on the same record: daily logs with photos filed to the job, a time clock with a location check, and tasks - so the backup for an extra is being created as the work happens rather than reconstructed afterwards. On a job where you are the one under contract rather than the one awarding it, the budget screen changes to match: a contract amount, change orders against it, and billing that draws from both. Job Money shows what a job is contracted for, what has been billed, and what is left.' },
+    { type: 'p', text: 'The field side is on the same record: daily logs with photos filed to the job, a time clock with a location check, and tasks - so the backup for an extra is being created as the work happens rather than reconstructed afterwards. See what makes change order documentation hold up in a dispute. On a job where you are the one under contract rather than the one awarding it, the budget screen changes to match: a contract amount, change orders against it, and billing that draws from both. Job Money shows what a job is contracted for, what has been billed, and what is left.' },
     { type: 'p', text: 'What it does not do: it will not route an approval through three levels of your client’s organisation, it does not produce a formal notice under your contract’s change clause, and it cannot make a client answer. It makes the paperwork exist on time, with the photos attached, and makes sure the money lands where it belongs.' },
   ],
   links: [
+    { text: 'For the underlying change order tracking process, with or without software, start here', href: '/guides/how-to-track-change-orders' },
+    { text: 'See what makes change order documentation hold up in a dispute', href: '/guides/change-order-documentation' },
+    { text: 'Then test the construction invoice approval workflow around that handoff', href: '/guides/construction-invoice-approval' },
+    { text: 'This is the change-order failure that breaks real-time job cost tracking', href: '/guides/construction-job-cost-tracking' },
     { text: 'change orders against it, and billing that draws from both', href: '/money' },
     { text: 'daily logs with photos filed to the job, a time clock with a location check, and tasks', href: '/mobile' },
     { text: 'Job Money', href: '/money' },

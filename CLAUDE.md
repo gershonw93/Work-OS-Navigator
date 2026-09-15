@@ -129,6 +129,25 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
   The pin asserts every declared phrase occurs EXACTLY ONCE in its guide, which
   is what catches both a typo and an ambiguous anchor. It has caught one of each
   already.
+- **AND IT IS CHECKED AGAINST WHAT THE RENDERER LINKIFIES, NOT THE WHOLE PAGE.**
+  Every prose block goes through `Prose` - paragraphs, lists, steps, callouts,
+  comparison columns, checklists - plus the FAQ answers, which the PAGE renders
+  rather than the body. Headings are excluded on purpose (an h2 is an anchor
+  target and a contents entry). `linkableText()` is that set and the pin reads
+  it: five cross-links landed in comparison columns, checklists and FAQ answers
+  while those three rendered plain text, and a check against "is the phrase in
+  the text" passes for every one of them.
+- **A CROSS-LINK POINTS AT A GUIDE THAT EXISTS, AND NEVER AT ITSELF.** A dead
+  `/guides/...` link is a 404 served from inside our own prose - the same
+  failure `related` is checked for, one field over.
+- **THREE PAGES SHARE THE CHANGE-ORDER SUBJECT AND SPLIT IT BY INTENT**:
+  `how-to-track-change-orders` owns the PROCESS,
+  `change-order-management-software` owns BUYING (GC-side), and
+  `change-order-documentation` owns the EVIDENCE. They necessarily repeat the
+  four leak points and the money-flow model, so the split is only real if each
+  links to both others and the anchor text names the other page's job - never
+  "learn more". Pinned both ways, along with their descriptions being distinct.
+  Deliberately NOT merged or 301'd: one URL cannot hold three intents.
 - **THE H1 AND THE `<title>` BOTH CARRY THE TARGET PHRASE**, or the page is
   written for a phrase nobody is searching. An H1 may be long because of that,
   so a card and a breadcrumb print `cardTitle` instead - one short name, capped,

@@ -27,7 +27,7 @@ export const guide: Guide = {
     { type: 'h2', text: 'Four numbers, and only one of them is easy' },
     { type: 'p', text: 'Job costing in real time means knowing, per budget line and for the whole job:' },
     { type: 'list', items: [
-      'BUDGETED - what you estimated, plus approved change orders. Easy, provided change orders actually reach the line.',
+      'BUDGETED - what you estimated, plus approved change orders. Easy, provided change orders actually reach the line. See the full process for tracking change orders into the budget.',
       'COMMITTED - what you have promised to pay: signed subcontracts, purchase commitments, equipment hire. This is the number that makes costing real-time, and the one most systems handle worst.',
       'ACTUAL - what has been approved as a real cost. Always behind the work, because invoices arrive after the work is done.',
       'REMAINING - budgeted less the greater of committed and actual, per line. The forecast.',
@@ -72,7 +72,7 @@ export const guide: Guide = {
     { type: 'h2', text: 'Reading a job cost report properly' },
     { type: 'p', text: 'Three questions, in this order, on any line that looks wrong.' },
     { type: 'steps', items: [
-      'IS THE BUDGET RIGHT? A line over budget right after a change order was approved usually means the change order raised the sub’s contract and not the line. The overage is the change order.',
+      'IS THE BUDGET RIGHT? A line over budget right after a change order was approved usually means the change order raised the sub’s contract and not the line. The overage is the change order. If you are choosing software, test this exact money-flow failure before you buy.',
       'IS THE COMMITMENT COUNTED ONCE? A line at double its expected commitment is usually a contract and a manual commitment describing the same money.',
       'IS THE WORK AHEAD OF THE BILLING, OR BEHIND IT? A line at 40% cost and 70% complete is good news; at 70% cost and 40% complete you have found the problem while there is still budget left to manage.',
     ] },
@@ -87,6 +87,8 @@ export const guide: Guide = {
     { type: 'p', text: 'What it does not do: it is not a WIP schedule or a percentage-of-completion revenue recognition engine for your accountant, it does not run payroll, and it does not model a development pro-forma. It keeps the construction side honest while the job is running.' },
   ],
   links: [
+    { text: 'See the full process for tracking change orders into the budget', href: '/guides/how-to-track-change-orders' },
+    { text: 'If you are choosing software, test this exact money-flow failure before you buy', href: '/guides/change-order-management-software' },
     { text: 'The budget tab', href: '/money' },
     { text: 'sub invoices scanned from the PDF', href: '/ai' },
     { text: 'material receipts photographed in the field and assigned to a job, hours clocked from the site with a location check', href: '/mobile' },

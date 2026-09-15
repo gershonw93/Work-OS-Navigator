@@ -15,14 +15,21 @@ import { headingId, isExternal, linkify } from '@/lib/guides/schema'
 // a link and the heading it points at cannot disagree.
 //
 // Inline links are declared beside the body (see GuideLink) and applied here by
-// `linkify`, which is pure and unit-tested. Every text-bearing block goes
-// through it, so a phrase can be linked wherever it actually appears rather
-// than only in a paragraph - and the test that a phrase occurs exactly once
-// scans the same set of blocks this renders.
+// `linkify`, which is pure and unit-tested. EVERY text-bearing block goes
+// through it - paragraphs, lists, steps, callouts, comparison columns and
+// checklists - plus the FAQ answers, which the page renders with the same
+// `Prose`. A phrase can therefore be linked wherever it actually appears.
+//
+// HEADINGS ARE THE ONE EXCLUSION, on purpose: an h2 is an anchor target and a
+// contents-list entry, and a link inside one fights both. `linkableText()` in
+// the schema is the set this renders, and the test asserts every declared
+// phrase lives in THAT set and never in a heading - because a phrase matched
+// only by a heading would pass a naive "is it in the text" check and still
+// render as plain words.
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Prose with its declared links applied. */
-function Prose({ text, links }: { text: string; links?: GuideLink[] }) {
+/** Prose with its declared links applied. Exported for the FAQ list on the page. */
+export function Prose({ text, links }: { text: string; links?: GuideLink[] }) {
   const spans = linkify(text, links)
   return (
     <>
@@ -64,7 +71,7 @@ function Callout({ tone, title, text, links }: { tone: GuideTone; title: string;
   )
 }
 
-function Compare({ title, left, right }: Extract<GuideBlock, { type: 'compare' }>) {
+function Compare({ title, left, right, links }: Extract<GuideBlock, { type: 'compare' }> & { links?: GuideLink[] }) {
   // Two stacked columns of prose, never a grid of cells: at 390px a two-column
   // comparison laid out as rows gives each cell about seven characters, and the
   // repo counts anything that reaches a phone that way.
@@ -83,7 +90,7 @@ function Compare({ title, left, right }: Extract<GuideBlock, { type: 'compare' }
               {col.items.map(item => (
                 <li key={item} className="flex gap-2.5 text-[15px] text-muted-fg leading-relaxed">
                   <Icon className={`h-4 w-4 shrink-0 mt-1 ${mark}`} aria-hidden />
-                  <span>{item}</span>
+                  <span><Prose text={item} links={links} /></span>
                 </li>
               ))}
             </ul>
@@ -161,7 +168,7 @@ export function GuideBody({ blocks, links }: { blocks: GuideBlock[]; links?: Gui
                       >
                         <Check className="h-3.5 w-3.5 text-accent-fg" />
                       </span>
-                      <span>{item}</span>
+                      <span><Prose text={item} links={links} /></span>
                     </li>
                   ))}
                 </ul>
@@ -170,7 +177,7 @@ export function GuideBody({ blocks, links }: { blocks: GuideBlock[]; links?: Gui
           case 'callout':
             return <Callout key={i} tone={b.tone} title={b.title} text={b.text} links={links} />
           case 'compare':
-            return <Compare key={i} {...b} />
+            return <Compare key={i} {...b} links={links} />
         }
       })}
     </div>

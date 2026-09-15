@@ -186,6 +186,33 @@ export function headingId(text: string): string {
     .replace(/^-+|-+$/g, '')
 }
 
+/**
+ * The text the renderer APPLIES LINKS TO: every block except a heading, plus
+ * the FAQ answers.
+ *
+ * Kept beside `guideText` rather than folded into it because the two answer
+ * different questions. `guideText` is everything a reader sees, which is what
+ * read time and the keyword check want. This is the subset a declared link can
+ * actually land in - and a phrase that matches only a heading would pass a
+ * check against the former while rendering as plain words.
+ */
+export function linkableText(g: Guide): string[] {
+  const parts: string[] = [g.lede, ...g.takeaways]
+  for (const b of g.blocks) {
+    if (b.type === 'p') parts.push(b.text)
+    else if (b.type === 'list' || b.type === 'steps' || b.type === 'checklist') parts.push(...b.items)
+    else if (b.type === 'callout') parts.push(b.text)
+    else if (b.type === 'compare') parts.push(...b.left.items, ...b.right.items)
+  }
+  for (const f of g.faqs) parts.push(f.a)
+  return parts
+}
+
+/** Headings only - where a link may NOT go. */
+export function headingText(g: Guide): string[] {
+  return g.blocks.filter(b => b.type === 'h2' || b.type === 'h3').map(b => (b as { text: string }).text)
+}
+
 /** Every word a reader actually sees, in order. Used for read time and for search. */
 export function guideText(g: Guide): string[] {
   const parts: string[] = [g.title, g.lede, ...g.takeaways]

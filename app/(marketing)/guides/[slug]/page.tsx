@@ -6,7 +6,7 @@ import { marketingMeta } from '@/components/marketing/meta'
 import { Eyebrow } from '@/components/marketing/section'
 import { CtaBand } from '@/components/marketing/cta-band'
 import { BlueprintGrid } from '@/components/marketing/blueprint'
-import { GuideBody } from '@/components/marketing/guide-body'
+import { GuideBody, Prose } from '@/components/marketing/guide-body'
 import { GuideByline } from '@/components/marketing/guide-byline'
 import { GuideCard } from '@/components/marketing/guide-card'
 import { GUIDES, GUIDE_CATEGORIES, guideBySlug, guidePath, relatedTo } from '@/lib/guides'
@@ -180,7 +180,9 @@ export default function GuidePage({ params }: { params: { slug: string } }) {
                 {guide.faqs.map(f => (
                   <div key={f.q} className="py-5 first:pt-0">
                     <dt className="text-base sm:text-lg font-bold text-ink">{f.q}</dt>
-                    <dd className="mt-2 text-[17px] text-ink-soft leading-[1.75]">{f.a}</dd>
+                    <dd className="mt-2 text-[17px] text-ink-soft leading-[1.75]">
+                      <Prose text={f.a} links={guide.links} />
+                    </dd>
                   </div>
                 ))}
               </dl>
