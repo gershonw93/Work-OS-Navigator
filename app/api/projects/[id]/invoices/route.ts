@@ -35,6 +35,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     { data: projectRow },
     { data: clientBills },
     { data: allocations },
+    { data: scheduleItems },
   ] = await Promise.all([
     db
       .from('invoices')
@@ -51,10 +52,16 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .from('material_purchases')
       .select('budget_line_id, amount')
       .eq('project_id', params.id),
+    // The subs on this job, for the create form's picker as well as the
+    // budget rollup. This list used to be fetched from `/financials`, which is
+    // gated on a resource a Project Manager is deliberately denied - so the
+    // picker on a page they are allowed to use was empty, with the scan's
+    // "Matched to QA Concrete Sub." printed above it.
     db
       .from('subcontracts')
-      .select('id, trade, contract_amount, companies(name)')
-      .eq('project_id', params.id),
+      .select('id, trade, contract_amount, company_id, companies(id, name)')
+      .eq('project_id', params.id)
+      .order('created_at', { ascending: false }),
     db
       .from('change_orders')
       .select('amount, status, budget_line_item_id, subcontract_id')
@@ -75,6 +82,17 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .from('invoice_allocations')
       .select('id, invoice_id, budget_line_item_id, amount, note, invoices!inner(project_id)')
       .eq('invoices.project_id', params.id),
+    // The agreed payment schedule, so a bill can be filed against the milestone
+    // it settles. Reached through the subcontract in ONE trip rather than a
+    // second round after the sub ids come back - same shape as the allocations
+    // above. `order_index` is the column that exists: `/financials` ordered
+    // these by `due_date`, which does not exist on this table, so PostgREST
+    // refused the whole query and every caller got an empty schedule.
+    db
+      .from('payment_schedule_items')
+      .select('id, subcontract_id, label, amount, percentage, status, order_index, subcontracts!inner(project_id)')
+      .eq('subcontracts.project_id', params.id)
+      .order('order_index', { ascending: true }),
   ])
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -119,6 +137,21 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
   return NextResponse.json({
     invoices,
+    // THE SUBCONTRACTOR PICKER'S OPTIONS, from the route the page's own gate
+    // covers. `invoices: view` is the permission to be on this screen at all;
+    // sourcing half of it from `financials: view` meant a role holding one and
+    // not the other got a form it could not complete and no reason why.
+    subcontracts: (subs ?? []).map((s: any) => ({
+      id: s.id,
+      trade: s.trade,
+      contract_amount: s.contract_amount,
+      company_id: s.companies?.id ?? s.company_id ?? null,
+      companies: s.companies ? { id: s.companies.id, name: s.companies.name } : null,
+    })),
+    payment_schedule_items: (scheduleItems ?? []).map((p: any) => ({
+      id: p.id, subcontract_id: p.subcontract_id, label: p.label,
+      amount: p.amount, percentage: p.percentage, status: p.status,
+    })),
     // Keyed by subcontract so the create form can show the destination the
     // moment a sub is picked, before anything is saved.
     destinations: Object.fromEntries(dests),

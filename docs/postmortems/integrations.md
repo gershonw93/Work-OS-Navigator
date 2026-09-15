@@ -172,3 +172,75 @@ and the route answers.
 Pinned in `portal-gate.ts`, red-checked seven ways - including one where the
 route computes the refusal and then falls past it, which is the same as no
 guard and which the first version of the test did not catch.
+
+## A screen is only as usable as the narrowest permission it depends on
+
+Reported as a scan bug: "It says 'Matched to [sub]' at the top but doesn't
+actually fill in the sub - you still have to pick it yourself." Reproduced 2/2
+on production, as `qa.pm@sytenav.com`, a **Project Manager**.
+
+The trace through the page was right and led nowhere. The scan route returns
+`match.subcontract_id`; the handler does exactly what it should:
+
+```ts
+if (d.match?.subcontract_id) {
+  setSubId(d.match.subcontract_id)
+  ...
+}
+```
+
+`setSubId` fired with the correct id. The form mapping was not the bug.
+
+#453 had just shipped the thing that found it. Before that change, a failed
+load of the subcontractor list left the picker empty with nothing said; after
+it, the page names the reason in red beside the field. So the report came back
+with the missing half:
+
+```
+GET /api/projects/ec72d371-.../financials  ->  403
+[invoices] The subcontracts on this job: You do not have permission to view financials.
+```
+
+And the 403 is CORRECT. `lib/permissions.ts`:
+
+```ts
+project_manager: { ... invoices: VE, ... margin: N, financials: N, ... }
+```
+
+A PM runs the job and files its bills. They are deliberately not given the
+money overview, the same split that took `margin` out of `budget`. Nothing
+about that is wrong.
+
+What was wrong is that the **Invoices page**, gated on `invoices`, loaded half
+of itself from a route gated on `financials`. A role that legitimately holds
+one and not the other got a form it could not complete, and every individual
+piece behaved correctly on the way there: the route refused a permission the
+caller does not have, the page recorded the refusal, the scan set the value,
+the controlled `<select>` had no `<option>` with that id so it fell back to its
+placeholder. A green banner saying "Matched to QA Concrete Sub." sat above an
+empty picker, which is why it was reported as a matching bug.
+
+**The fix is to move the data, not to widen the role.** Granting a PM
+`financials` would hand them the screen the split exists to withhold, to fix a
+picker. `subcontracts` and `payment_schedule_items` now come off
+`GET /api/projects/[id]/invoices`, which is gated on `invoices` - the thing the
+page IS. It also collapses two round trips into one and leaves the page with a
+single failure to report instead of two.
+
+The general rule, and the reason this is worth a post-mortem rather than a
+commit message: **a screen is only as usable as the narrowest permission it
+quietly depends on, and nothing anywhere says which that is.** So
+`lib/__tests__/invoices-load.ts` works it out - it walks every `/api/` route the
+page fetches, reads the resource out of each route's `requirePermission`, and
+asserts that every role holding `invoices: view` also holds that one. Reinstating
+the `/financials` fetch fails it by name, on `project_manager`.
+
+Two things came out of writing that scan. The first time it ran it printed
+nothing at all: `requirePermission\([^)]*?,` cannot cross the `)` in `admin()`,
+so it matched no route and the whole loop asserted nothing while reporting
+green - a test that has never failed is a guess about what it covers. The
+second is `GET /api/directory`, which asks nothing but "are you signed in"
+although a `directory` resource exists. Not a leak (the answer is scoped to the
+caller's own company) and not fixed here, because gating it touches screens this
+change has no business touching. It is ratcheted at one in that suite and
+written down in BACKLOG.md.

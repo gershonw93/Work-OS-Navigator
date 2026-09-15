@@ -32,6 +32,23 @@ account role). That is the sharp edge, not the whole surface. Still to do:
 - the open question `api-guard.ts` already names: which writes a SUBCONTRACTOR
   may legitimately make on a job they do not own, which is why there is no
   blanket company check.
+- **`GET /api/directory` asks nothing but "are you signed in".** Found by the
+  route-parity scan in `lib/__tests__/invoices-load.ts` (#454), which walks every
+  `/api/` route a page fetches and reads its gate. This one has a `directory`
+  resource sitting in `RESOURCES` and never asks for it, so a `worker` (whose
+  role says `directory: N`) can read the company Directory by URL. It is not a
+  cross-company leak - the answer is scoped to the caller's own company and its
+  relationships - which is why it was left rather than fixed inside an invoices
+  PR. Gating it touches the phone screens that read it, so check those callers
+  first. Ratcheted at 1 in that suite; may only go DOWN.
+
+- **A ROUTE-PARITY SWEEP IS THE OTHER HALF OF THIS.** #454 was not a missing
+  guard, it was a guard that was too NARROW for the page relying on it: the
+  Invoices page sourced its subcontractor picker from `/financials`, gated on a
+  resource a Project Manager is deliberately denied. A screen is only as usable
+  as the narrowest permission it quietly depends on, and nothing said so. The
+  scan in `invoices-load.ts` does this for one page; doing it for every page
+  would find the rest.
 
 ---
 

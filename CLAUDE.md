@@ -77,12 +77,28 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
 - **A type that describes no table is checked by nothing.** An interface written
   from memory compiles perfectly and is wrong at runtime - check its fields
   against the migration, the same as for a `.select()`.
+- **`.order()` IS A COLUMN NAME TOO, and it takes the whole query down with it.**
+  `/financials` ordered `payment_schedule_items` by `due_date`, a column that
+  table has never had. PostgREST refuses the ENTIRE query for an unknown sort
+  key, so `data` came back null, the `?? []` swallowed it, and every caller got
+  an empty payment schedule with 211 rows sitting in the table. Same failure as
+  a mistyped `.select()`, one method along: it reads as "there aren't any",
+  never as an error. Keep the `error` and `console.error` it - a refused query
+  that nobody logs is indistinguishable from an empty one. Pinned in
+  `invoices-load.ts`.
 
 ## What's new (KEEP CURRENT)
 - User-facing release notes live in `lib/whats-new.ts`, shown at `/whats-new`.
 - IMPORTANT: when you ship something a user would NOTICE, add an entry in the
   SAME change. Internal refactors and build fixes do not belong there.
-- Newest first; `date` drives the unread badge in the sidebar, so keep it real.
+- **THE ORDER IS DERIVED, AND THE DATE IS THE COMMIT'S.** Entries are authored
+  into `AUTHORED` in any order; `RELEASES` is the sorted view and `LATEST_RELEASE`
+  reads `[0]` off that. "Newest first" as a convention lasted exactly as long as
+  one session shipping at a time: four entries dated two days into the FUTURE sat
+  above older ones, so the badge compared against the wrong date and a real entry
+  could publish already "read". `date` is the day the change actually ships -
+  check `git log` rather than guessing. Pinned in `whats-new-order.ts`, which
+  fails on an out-of-order list AND on any entry dated after today.
 
 ## Help Center (KEEP CURRENT)
 - User-facing support articles live in `lib/help/articles.ts`, shown at `/help`.
@@ -181,6 +197,18 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   `mark-ready-permission.ts`.
 - **AND THE ROUTE HAS TO ASK**, or the setting is decoration. Gate the narrow
   body on the narrow permission and everything else on the broad one.
+- **A SCREEN IS ONLY AS USABLE AS THE NARROWEST PERMISSION IT QUIETLY DEPENDS
+  ON.** The Invoices page is gated on `invoices`, and loaded its subcontractor
+  picker from `/financials` - a resource a Project Manager is DELIBERATELY
+  denied, the same split that took `margin` out of `budget`. So a PM opened a
+  form they are entitled to use, with a picker holding nothing, under a scan
+  banner reading "Matched to QA Concrete Sub.". Nothing errored: the assignment
+  fired and the controlled select had no option with that id. A page's own gate
+  has to COVER every route it loads from; when it does not, the fix is to move
+  the data onto the route the page's gate already covers, never to widen the
+  role - widening hands them the screen the split exists to withhold.
+  `invoices-load.ts` walks every `/api/` route the page fetches, reads each
+  gate, and asserts every role holding `invoices: view` holds that one too.
 - **WHOSE JOB IT IS IS A SECOND QUESTION, AND SOME ROUTES MUST ASK IT.**
   `requirePermission` deliberately does not check company ownership - subs
   legitimately write to jobs they do not own - so it is opt-in per route:

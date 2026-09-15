@@ -65,11 +65,18 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const subcontractIds = (subcontracts ?? []).map((s: any) => s.id)
   let paymentScheduleItems: any[] = []
   if (subcontractIds.length > 0) {
-    const { data: psi } = await db
+    // `order_index` is the column that exists. This ordered by `due_date`,
+    // which `payment_schedule_items` has never had - PostgREST refuses the
+    // whole query for an unknown column, so `psi` came back null and EVERY
+    // caller of this route got an empty payment schedule with 211 rows in the
+    // table. `data: null` reads as "there aren't any", which is the same trap
+    // as a `.select()` naming a column that is not there.
+    const { data: psi, error: psiError } = await db
       .from('payment_schedule_items')
       .select('*')
       .in('subcontract_id', subcontractIds)
-      .order('due_date', { ascending: true })
+      .order('order_index', { ascending: true })
+    if (psiError) console.error('[financials] payment schedule:', psiError.message)
     paymentScheduleItems = psi ?? []
   }
 

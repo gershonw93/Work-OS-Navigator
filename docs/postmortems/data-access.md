@@ -107,3 +107,20 @@ each one was written the day something shipped broken.*
   interface written from memory compiles perfectly and is wrong at runtime -
   check the columns against the migration, the same as for a `.select()`.
 
+- **`.order()` IS A COLUMN NAME TOO.** `/api/projects/[id]/financials` fetched
+  the payment schedule with `.order('due_date', { ascending: true })`.
+  `payment_schedule_items` has `id, subcontract_id, label, type, percentage,
+  amount, milestone_description, status, order_index` - and has had exactly that
+  since migration 001. There is no `due_date`. PostgREST refuses the ENTIRE
+  query for an unknown sort key, so `data` came back null, `psi ?? []` turned
+  that into an empty array, and every caller of the route - the Financials
+  summary and, through it, the Invoices form's "bill against a scheduled
+  payment" option - was told the job had no payment schedule. 211 rows were in
+  the table. Nobody reported it, because an empty milestone list looks exactly
+  like a subcontract nobody wrote a schedule for; you would only notice on a job
+  where you had typed the schedule yourself, and then you would assume you had
+  not saved it. The fix is two things and the second matters more: order by
+  `order_index`, the column that exists, and KEEP THE ERROR - `const { data,
+  error }` and a `console.error`, because `?? []` is the same swallow as a
+  truthiness guard over an `undefined` key. It was found while moving these
+  rows onto a different route, not by anybody using the app.
