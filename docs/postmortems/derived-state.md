@@ -211,3 +211,72 @@ is convenient; `RELEASES` is a stable sort of it by date descending, and
 `lib/__tests__/whats-new-order.ts` fails on an out-of-order list and on any entry
 dated after today, which is what found #430's. Same shape as the read time on a
 guide: a stored "6 min read" is a claim that stops being true on the next edit.
+
+## Copy is a spec, and it described a product that does not exist
+
+The pricing page copy arrived finished - hero, three cards, FAQ, closing block -
+and read like a page you could paste straight in. Four of its buttons said:
+
+> **Start free trial** - 14 days. No card.
+
+and three more offered:
+
+> Poke around the live demo - No signup.
+
+Neither exists. `/signup` renders `RequestAccessForm`: SyteNav is an invite-only
+beta and the door is a waitlist, so a button carrying that verb opens something
+else entirely. And the only thing in this repository called a demo is
+`/api/dev/seed-demo`, which seeds a database.
+
+This is the checklist bug - a step labelled "Share the portal" whose `href` was
+the document-sending page - pointed at strangers instead of customers, on a
+public page a search engine will index. The difference in blast radius is the
+whole reason to check: an internal control that lies gets reported by a tester
+in an afternoon; a marketing page that lies gets believed, and the person who
+finds out is a prospect who has already decided you are careless.
+
+Two further things the copy asserted that the product contradicted, neither of
+them visible from the copy itself:
+
+- **The prices.** `lib/plans.ts` existed *because* the website and Settings ->
+  Billing had once disagreed about the tiers and the price; its header comment
+  said prices were deliberately absent and would "arrive once, in this file".
+  Publishing them anywhere else would have recreated the exact bug that file was
+  written to end.
+- **What they mean today.** The product is free while the beta is on. An
+  unqualified "$199/month" printed inside a product nobody is being charged for
+  is the $49 bug wearing a different hat, so `PRICING_STATUS` is one sentence,
+  in one place, printed wherever a number is.
+
+And the annual figures are arithmetic, not copy. "$82.50/month" and "Save $198 a
+year" both fall out of the monthly price and the ten-months-for-twelve rule;
+typed in, they are three numbers per tier that stop being true the first time a
+price moves, in a file nobody re-reads. `annualTotal`, `annualPerMonth` and
+`annualSaving` compute them, and the help article builds its price list from
+`PLANS` for the same reason - help text is plain data with no compiler watching
+it, which makes it the copy most likely to be quietly wrong.
+
+### The test that could not fail, twice
+
+Worth recording because it happened twice in the same file, in the same hour.
+
+The first version of the no-false-promise check was `!/No card|no card required/`.
+It passed. The built page was then rendered and grepped, and it *does* say "no
+card" - lower-case, mid-sentence. The assertion had never been able to catch the
+string it named, and only rendering the real HTML found that out.
+
+The second version fixed the casing and asked whether "card" appeared within 120
+characters of "trial". It went red immediately - on this sentence:
+
+> There is no card on file and no trial clock running.
+
+Which is the honest sentence, denying both claims at once. The check was
+measuring adjacency when the rule is about ASSERTION: an offer is forbidden, a
+denial is exactly what should be there.
+
+The third version lists the affirmative phrases (`free trial`, `start your
+trial`, `14-day`, `live demo`, `no signup`), red-checked one at a time, and is
+paired with a positive assertion that the page still says "no card" and
+"invite-only beta" - so the suite cannot be passed by deleting every mention of
+what the beta costs. Three attempts to write down one rule, and only the last
+one says what was actually meant.

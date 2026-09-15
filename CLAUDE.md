@@ -597,6 +597,28 @@ Full detail: [`docs/postmortems/derived-state.md`](docs/postmortems/derived-stat
   the statuses a click can set rather than the classes on the buttons.
 - A UNIQUE CONSTRAINT AND THE SEND SHIP TOGETHER. The moment the button really
   sends, a double press is two identical emails to one sub.
+- **COPY IS A SPEC, AND IT DESCRIBES A PRODUCT THAT MAY NOT EXIST.** The pricing
+  copy arrived carrying "Start free trial - 14 days. No card." four times and
+  "Poke around the live demo. No signup." three. There is no trial: `/signup` is
+  a Request Access form behind a waitlist. There is no demo: the only thing in
+  this repo called one is `/api/dev/seed-demo`, which seeds a database. Shipping
+  it verbatim would have put a button on a public, indexed page whose verb the
+  product cannot honour - the same bug as "Share the portal" opening the
+  document-sending page, but aimed at strangers. CHECK EVERY PROMISE IN SUPPLIED
+  COPY AGAINST THE CODE before building it, and when one does not hold, say so
+  and offer the door that exists rather than quietly narrowing the ask. Pinned
+  in `plans-and-landing.ts`, which forbids the AFFIRMATIVE claims only: the page
+  may still say "no card on file and no trial clock running", because that is
+  true and is what the draft was reaching for.
+- **A PUBLISHED PRICE AND WHAT IT MEANS TODAY TRAVEL TOGETHER.** Prices are in
+  `lib/plans.ts` and the product is free in an invite-only beta, so an
+  unqualified "$199/month" is a charge nobody is making - `PRICING_STATUS` is
+  the one sentence that says which, and every screen printing a number prints
+  it. The ANNUAL figures are derived (`annualTotal`, `annualPerMonth`,
+  `annualSaving`): "$82.50/month" and "Save $198 a year" are arithmetic, and a
+  stored copy of either goes stale silently on the next price change. Help
+  articles are plain data with no compiler watching them, so they build their
+  prices from `PLANS` too.
 
 ## Menus, pickers and the tail of a tap (IMPORTANT)
 Full detail: [`docs/postmortems/mobile.md`](docs/postmortems/mobile.md).

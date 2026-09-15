@@ -55,6 +55,37 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 const AUTHORED: Release[] = [
   {
     date: '2026-09-15',
+    title: 'What SyteNav will cost',
+    items: [
+      {
+        kind: 'new',
+        title: 'Plans and prices are published',
+        text: 'Settings \u2192 Billing and the pricing page now show what each plan will cost: $99, $199 or $399 a month, depending on how many projects you have running at once. Paying annually is ten months for twelve. Every plan is the whole product \u2013 you are only buying project capacity, so there is no feature locked behind a higher tier.',
+        help: 'plans-and-pricing',
+        href: '/settings',
+      },
+      {
+        kind: 'improved',
+        title: 'Finished jobs do not count toward your limit',
+        text: 'Only active projects use your plan. Close a job out and it stays fully readable forever \u2013 budget, invoices, daily logs, photos, documents and Job History all stay where they are.',
+        help: 'plans-and-pricing',
+      },
+      {
+        kind: 'fixed',
+        title: 'Billing showed three plans that did not exist',
+        text: 'Settings \u2192 Billing was offering Starter, Pro and Enterprise with $49 a month on the middle one, which was never a real price or a real set of tiers. It now shows the same three plans as the website, from one list, so the two can never disagree again.',
+        href: '/settings',
+      },
+      {
+        kind: 'improved',
+        title: 'You are still not paying anything',
+        text: 'SyteNav is an invite-only beta and free while you are in it. The prices are published so nobody finds out later what this will cost \u2013 there is no card on file and no trial clock running.',
+        help: 'plans-and-pricing',
+      },
+    ],
+  },
+  {
+    date: '2026-09-15',
     title: 'Project managers can file a bill again',
     items: [
       {
