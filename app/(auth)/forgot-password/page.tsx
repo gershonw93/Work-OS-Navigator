@@ -48,7 +48,7 @@ export default function ForgotPasswordPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white">Forgot password</h1>
+        <h1 className="text-2xl font-bold text-ink">Forgot password</h1>
         <p className="mt-1 text-sm text-faint">
           Enter your email and we&apos;ll send you a reset link
         </p>
@@ -72,7 +72,6 @@ export default function ForgotPasswordPage() {
               onChange={(e) => setEmail(e.target.value)}
               required
               autoComplete="email"
-              className="bg-slate-700 border-slate-600 text-white placeholder:text-muted-fg focus:border-accent"
             />
           </div>
 

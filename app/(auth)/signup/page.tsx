@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { useCanSignUp } from '@/lib/use-native'
 
-const inputCls = 'bg-slate-700 border-slate-600 text-white placeholder:text-muted-fg focus:border-accent'
+const inputCls = 'bg-panel border-muted2 text-ink placeholder:text-muted-fg focus:border-accent'
 
 // Gated beta: /signup is a Request Access form. The real account-creation form
 // only unlocks with an approved invite link (/signup?invite=<token>).
@@ -74,7 +74,7 @@ function RequestAccessForm() {
   if (ready && !canSignUp) {
     return (
       <div className="text-center py-8">
-        <h1 className="text-2xl font-bold text-white">Accounts are set up on the web</h1>
+        <h1 className="text-2xl font-bold text-ink">Accounts are set up on the web</h1>
         <p className="mt-3 text-sm text-faint max-w-sm mx-auto">
           Head to sytenav.com on a computer or in your browser to get started. Once you have an
           account, sign in here.
@@ -89,7 +89,7 @@ function RequestAccessForm() {
   if (sent) {
     return (
       <div className="text-center py-8">
-        <h1 className="text-2xl font-bold text-white">Request received</h1>
+        <h1 className="text-2xl font-bold text-ink">Request received</h1>
         <p className="mt-3 text-sm text-faint max-w-sm mx-auto">
           Thanks - we review every request personally. You&apos;ll get an email with your invite link as soon as you&apos;re approved.
         </p>
@@ -104,28 +104,28 @@ function RequestAccessForm() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white">Request access</h1>
+        <h1 className="text-2xl font-bold text-ink">Request access</h1>
         <p className="mt-1 text-sm text-faint">SyteNav is in an invite-only beta. Tell us about your company and we&apos;ll get you in.</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
           <Label htmlFor="name" className="text-faint">Your Name</Label>
-          <Input id="name" placeholder="Jane Smith" value={name} onChange={e => setName(e.target.value)} required className={inputCls} />
+          <Input id="name" placeholder="Jane Smith" value={name} onChange={e => setName(e.target.value)} required  />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="email" className="text-faint">Email address</Label>
-          <Input id="email" type="email" placeholder="you@company.com" value={email} onChange={e => setEmail(e.target.value)} required className={inputCls} />
+          <Input id="email" type="email" placeholder="you@company.com" value={email} onChange={e => setEmail(e.target.value)} required  />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="companyName" className="text-faint">Company</Label>
-            <Input id="companyName" placeholder="Smith Construction" value={companyName} onChange={e => setCompanyName(e.target.value)} className={inputCls} />
+            <Input id="companyName" placeholder="Smith Construction" value={companyName} onChange={e => setCompanyName(e.target.value)}  />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="companyType" className="text-faint">You are a…</Label>
             <Select id="companyType" value={companyType} onChange={e => setCompanyType(e.target.value as 'gc' | 'subcontractor')}
-              className="bg-slate-700 border-slate-600 text-white focus:border-accent">
+              className="bg-panel border-muted2 text-ink focus:border-accent">
               <option value="gc">General Contractor</option>
               <option value="subcontractor">Subcontractor</option>
             </Select>
@@ -133,13 +133,13 @@ function RequestAccessForm() {
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="phone" className="text-faint">Phone <span className="font-normal">(optional)</span></Label>
-          <Input id="phone" type="tel" placeholder="(555) 123-4567" value={phone} onChange={e => setPhone(e.target.value)} className={inputCls} />
+          <Input id="phone" type="tel" placeholder="(555) 123-4567" value={phone} onChange={e => setPhone(e.target.value)}  />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="message" className="text-faint">What are you hoping to use SyteNav for? <span className="font-normal">(optional)</span></Label>
           <textarea id="message" rows={2} value={message} onChange={e => setMessage(e.target.value)}
             placeholder="e.g. Residential remodels, 5-person crew, drowning in spreadsheets"
-            className="w-full rounded-md border border-slate-600 bg-slate-700 px-3 py-2 text-sm text-white placeholder:text-muted-fg focus:border-accent focus:outline-none resize-none" />
+            className="w-full rounded-md border border-muted2 bg-panel px-3 py-2 text-sm text-ink placeholder:text-muted-fg focus:border-accent focus:outline-none resize-none" />
         </div>
 
         {error && (
@@ -209,35 +209,35 @@ function CreateAccountForm({ inviteToken, prefill }: { inviteToken: string; pref
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white">You&apos;re in - create your account</h1>
+        <h1 className="text-2xl font-bold text-ink">You&apos;re in - create your account</h1>
         <p className="mt-1 text-sm text-faint">Your access request was approved. Welcome to SyteNav.</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
           <Label htmlFor="fullName" className="text-faint">Full Name</Label>
-          <Input id="fullName" placeholder="Jane Smith" value={fullName} onChange={e => setFullName(e.target.value)} required className={inputCls} />
+          <Input id="fullName" placeholder="Jane Smith" value={fullName} onChange={e => setFullName(e.target.value)} required  />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="companyName" className="text-faint">Company Name</Label>
-          <Input id="companyName" placeholder="Smith Construction Co." value={companyName} onChange={e => setCompanyName(e.target.value)} required className={inputCls} />
+          <Input id="companyName" placeholder="Smith Construction Co." value={companyName} onChange={e => setCompanyName(e.target.value)} required  />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="companyType" className="text-faint">Company Type</Label>
           <Select id="companyType" value={companyType} onChange={e => setCompanyType(e.target.value as 'gc' | 'subcontractor')}
-            className="bg-slate-700 border-slate-600 text-white focus:border-accent">
+            className="bg-panel border-muted2 text-ink focus:border-accent">
             <option value="gc">General Contractor</option>
             <option value="subcontractor">Subcontractor</option>
           </Select>
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="email" className="text-faint">Email address</Label>
-          <Input id="email" type="email" placeholder="you@company.com" value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email" className={inputCls} />
+          <Input id="email" type="email" placeholder="you@company.com" value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email"  />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="password" className="text-faint">Password</Label>
-          <PasswordInput id="password" toggleClassName="text-slate-400 hover:text-white" placeholder="••••••••"
-            value={password} onChange={e => setPassword(e.target.value)} required minLength={6} autoComplete="new-password" className={inputCls} />
+          <PasswordInput id="password" toggleClassName="text-muted-fg hover:text-ink" placeholder="••••••••"
+            value={password} onChange={e => setPassword(e.target.value)} required minLength={6} autoComplete="new-password"  />
         </div>
 
         {error && (

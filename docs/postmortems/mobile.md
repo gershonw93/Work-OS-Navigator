@@ -315,3 +315,83 @@ Pinned: `swipe-dismiss.ts` (travel, the left-hand drawer, the reset),
 `swipe-sheet.ts` (the scroll gate, every sheet, the entrance animation both
 ways, and the geometry harness measuring at rest), `swipe-back.ts` (the rules,
 the refusals, the single mount, and the native half end to end).
+
+## The login screen looked fake because the password had been remembered
+
+Two questions in one message, with a screenshot:
+
+> Why does the app not remember my logins? The login screen looks like it's fake.
+
+The screenshot showed two white boxes with dark text sitting on the dark sign-in
+card, every other pixel on the screen correct, and eight dots in the password
+field.
+
+### What it was not
+
+The inputs carried `bg-slate-700 border-slate-600 text-white`. The obvious
+theory was that `slate` had been dropped when the Field palette landed, leaving
+dead classes and letting `<Input>`'s own `bg-panel` win. That was checked rather
+than assumed, three ways, and it was wrong every time: `tailwind.config.ts` uses
+`theme.extend.colors`, so the default palette is intact; the rendered HTML
+carried the slate classes with `bg-panel` correctly stripped by tailwind-merge;
+and `.bg-slate-700` was present in the built CSS. The classes worked.
+
+Two other theories were ruled out the same way. The company-wide inactivity
+sign-out (`IdleLogout`) is real and would look exactly like this - but
+`auto_logout_minutes` is `0` for every company in the database. And middleware
+flattening an unknown auth outcome into "signed out" is the bug that once caused
+this precise complaint, but `treatAsSignedIn` already fixed it.
+
+### What it was
+
+WebKit. A field the password manager has filled matches `:-webkit-autofill`, and
+WebKit paints its own background for it in the UA-shadow layer, where an author
+`background-color` does not reach. The only thing that covers it is a large
+inset `box-shadow`; the only thing that recolours the text is
+`-webkit-text-fill-color`, because `color` loses there too. There was no such
+rule anywhere in `globals.css`.
+
+So the two halves of the message were one bug facing in opposite directions: the
+screen looked fake *because* the credentials had been remembered. An account
+with nothing saved never sees it, which is how it survived this long.
+
+### Why no single rule could have fixed it before
+
+`app/(auth)/layout.tsx` hardcoded the dark palette as hex - `bg-[#0F1113]`,
+`bg-[#1F2227]`, `border-[#2A2E34]` - so the chrome was always dark while
+everything inside it followed the document theme. On a light-theme phone
+`<Input>`'s own `bg-panel text-ink` resolved to white-on-dark-text, and each of
+the four auth pages worked around that by overriding every field with raw
+`slate`, in four files, drifting between them.
+
+An autofill rule painted from the tokens would therefore have been the wrong
+colour on the one screen that needed it most. `.dark` is a bare class in
+globals.css, so it goes on the auth wrapper and the whole subtree flips: card
+and fields read the same tokens, the per-field overrides delete, and one rule is
+correct everywhere. The card moves to `bg-muted`, one step lighter than its
+`bg-panel` fields - the first attempt put the card on `panel` too, and the
+measurement showed card and field both `rgb(31, 34, 39)`, which would have
+traded white boxes for invisible ones.
+
+The other half of the first question: the address field said
+`autocomplete="email"`. That is a contact-details token. A sign-in pair wants
+`username`, which is what a password manager keys on to decide which field
+belongs with the password - and with `email`, iOS fills the password and leaves
+the address on its placeholder. Which is exactly what the screenshot showed.
+
+### The measurement that measured itself
+
+`lib/__tests__/auth-screen.ts` lays the card out in headless Chromium and reads
+the computed colours back. Its first version hardcoded the two class strings in
+the fixture - and every colour assertion passed, then went on passing when the
+layout was reverted to the hex-and-`bg-panel` version that produced the
+screenshot. The browser was measuring the fixture, not the app. The red-check is
+what caught it: the source assertions went red and the measured ones did not
+move. The fixture now reads its classes out of `app/(auth)/layout.tsx` and
+`components/ui/input.tsx`, and reverting the layout reports
+`rgb(255, 255, 255)` - the white box from the report.
+
+Extracting them took a second correction too: the first `classOf` searched a
+400-character window around a marker and returned the first `className` it
+found, which was the wrapper's, so the browser measured a transparent box and
+said so. It now returns the class string that *contains* the marker.
