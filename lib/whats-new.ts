@@ -48,6 +48,27 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    date: '2026-09-15',
+    title: 'The invoices page says when it could not load',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'An empty subcontractor list with no explanation',
+        text: 'On the Invoices tab, the subcontractors come from a separate request to the server. If that request failed \u2013 a bad moment of signal \u2013 the page carried on looking normal, but the Subcontractor dropdown on a new invoice was empty, on a job with subs on it, and nothing said why. It now says so at the top of the page AND on the field itself, with a Try again.',
+      },
+      {
+        kind: 'fixed',
+        title: '\u201CNo invoices yet\u201D on a job that has them',
+        text: 'If the invoice list failed to load, the page printed its empty state \u2013 telling you a job had no bills on it when what it actually knew was that it could not ask. It reports the failure instead, and an invoice list already on screen is no longer wiped by a refresh that fails.',
+      },
+      {
+        kind: 'fixed',
+        title: 'The page could sit on \u201CLoading\u2026\u201D for ever',
+        text: 'If the request threw outright \u2013 offline, or the connection dropped mid-flight \u2013 nothing ever turned the loading state off. It always ends now, and tells you what happened.',
+      },
+    ],
+  },
+  {
     date: '2026-09-17',
     title: 'The client portal link is a permission now',
     items: [

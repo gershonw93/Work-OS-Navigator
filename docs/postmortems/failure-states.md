@@ -158,3 +158,48 @@ each one was written the day something shipped broken.*
   printed three different things. `equipment/page.tsx` keeps its own on purpose
   ("today"/"yesterday", 30 days), which is different wording, not a copy.
 
+### And again, on the Invoices tab (Sep 2026)
+
+Reported while testing the invoice scan: *"it says Matched to [sub] at the top
+but doesn't actually fill in the sub."* Chasing that turned up a different
+defect sitting right next to it.
+
+The page loads from two routes at once - `/invoices` for the list, `/financials`
+for the subcontracts the create form picks from - and both halves were written
+the same way:
+
+```ts
+if (finRes.ok) { setSubcontracts(...) }
+// no else
+```
+
+A financials fetch that failed left `subcontracts` at `[]`. The page looks fine.
+The scan works. The form opens. And the Subcontractor picker holds nothing but
+"Select subcontractor…" on a job with six subs on it, with nothing anywhere
+saying why. It is the Plans Upload button again: **a check that FAILED renders
+exactly like an answer of "none"**, and the difference is invisible.
+
+Three things came out of one function:
+
+- **Two failures, not one.** The halves fail at different things and mean
+  different things to the person reading the screen, so they are two flags. The
+  financials one has to appear **on the field**, not only in a page banner - the
+  create form opens over the banner, so the empty picker is where somebody is
+  standing when they find out.
+- **The empty state was a claim.** A failed list fetch printed "No invoices
+  yet", which asserts a job has no bills on it when what the app knows is that
+  it could not ask. The guard sits in FRONT of the empty state, so a list
+  already on screen survives a refresh that fails - taking those away would be a
+  second wrong answer on top of the first.
+- **`setLoading(false)` was the last statement of the function**, outside any
+  try. A fetch that threw never reached it and the page said "Loading..." until
+  it was closed. `finally`, always.
+
+Pinned in `invoices-load.ts`, red-checked five ways.
+
+The scan complaint that started it is NOT fixed, and is not this: `scanInvoice`
+does call `setSubId(d.match.subcontract_id)`, the picker is controlled off that
+state, and the scan route and the financials route select subcontracts with the
+identical filter - so the matched id is in the list. Either it is
+environment-specific or the symptom is something adjacent, and guessing at a fix
+for a path that reads correct is how a working thing gets broken.
