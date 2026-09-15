@@ -320,6 +320,20 @@ which lays real markup out in headless Chromium.
   tooltip is the exception: `InfoHint` measures, floats as a fixed portal
   (`lib/hint-position.ts`, pure and tested) and CLOSES on scroll. Never hide one
   with `visibility` - hidden is not gone: it still has a width.
+- **A MENU THAT COVERS THE PAGE IS AN OVERLAY, WHATEVER IT IS CALLED.**
+  Reported against the marketing nav: "when the menu is open, I can still
+  scroll on mobile". It is not a dialog, so it used neither `.overlay` nor
+  `.overlay-full` - and the overlay scan could not see it, because that scan
+  asks which panels DECLARE themselves overlays and then checks those carry
+  `data-overlay`. A panel that declares nothing is invisible to it. The CSS is
+  not so fussy: `html:has([data-overlay])` only cares that a panel says it is
+  one. AND THE TWO SURFACES FAIL DIFFERENTLY - inside the app the document
+  never scrolls (`h-app` + `overflow-hidden`, only `[data-app-scroll]` moves),
+  so the `[data-app-scroll]` line does the work; marketing is an ordinary
+  scrolling document, so the `html` line is its ONLY lock and a missing
+  attribute is the whole bug. `layout-overflow.ts` now also scans for a panel
+  rendered from an `open` state that hides at a breakpoint - a phone menu -
+  and demands `data-overlay` on it.
 - **THE DESKTOP SIDEBAR'S WIDTH IS ONE VARIABLE, NOT TWO CLASSES.** Both the
   aside and the content column read `--sidebar-w` off `.app-shell`
   (globals.css). The collapsed state is a class on `<html>`, set by a pre-paint

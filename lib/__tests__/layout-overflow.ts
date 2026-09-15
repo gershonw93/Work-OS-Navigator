@@ -217,6 +217,61 @@ ok(unmarked.length === 0,
 ok(vhCapped.length === 0,
   `no panel re-caps itself in vh${vhCapped.length ? ` - ${vhCapped[0]}` : ''}`)
 
+// ── 3b. A MENU THAT COVERS THE PAGE IS AN OVERLAY, WHATEVER IT IS CALLED ────
+//
+// "When the menu is open, I can still scroll on mobile" - the marketing nav's
+// phone menu, which opens under a `sticky` header and covers the page.
+//
+// It is not a dialog, so it uses neither `.overlay` nor `.overlay-full`, and
+// the scan above therefore could not see it: that scan asks which panels
+// declare themselves overlays and then checks those carry `data-overlay`. A
+// panel that declares nothing is invisible to it. But
+// `html:has([data-overlay]) { overflow-y: hidden }` in globals.css does not
+// care what a panel is called - only that it says it is one. The app's own
+// phone nav has said so since #388 (sidebar.tsx, `overlay-full ...
+// data-overlay`); the marketing nav was simply never given it.
+//
+// THE SURFACES DIFFER, WHICH IS WHY THIS ONE WAS DIFFERENT. Inside the app the
+// DOCUMENT never scrolls - the shell is `h-app` + `overflow-hidden` and only
+// `[data-app-scroll]` moves - so the second line of that rule is the one doing
+// the work and the first is belt-and-braces. Marketing is an ordinary
+// scrolling document, so the first line is the ONLY lock it has, and a missing
+// attribute is the whole bug.
+{
+  const covering: string[] = []
+  for (const f of tsx) {
+    const lines = read(f).split('\n')
+    lines.forEach((line, i) => {
+      // A panel rendered from an "open" state, that hides itself at a
+      // breakpoint - which is what a phone menu is.
+      if (!/\{\s*open\s*&&\s*\(/.test(line)) return
+      const panel = lines.slice(i, i + 8).join('\n')
+      if (!/(md|lg):hidden/.test(panel)) return
+      if (/data-overlay/.test(panel)) return
+      covering.push(`${f}:${i + 1}`)
+    })
+  }
+  ok(covering.length === 0,
+    `THE REPORT: a phone menu that covers the page locks the background${covering.length ? ` - ${covering[0]} (+${covering.length - 1})` : ''}`)
+}
+
+// `code()`, not `read()`: the comment beside the fix quotes the old
+// `max-h-[calc(100vh-4rem)]` to say what it replaced, and a raw scan found the
+// prose and failed on it. This is the whole reason that helper exists.
+const nav = code('components/marketing/marketing-nav.tsx')
+ok(/data-overlay/.test(nav), 'the marketing phone menu carries it by name')
+ok(/if \(e\.key === 'Escape'\) setOpen\(false\)/.test(nav),
+  '...and Escape closes it, which only the dropdown beside it used to do')
+// vh knows nothing about the browser chrome that collapses as you scroll, so
+// the menu was taller than the screen. The existing vh scan below only reads
+// the line after a `data-overlay`, and only a bare `max-h-[NNvh]` - this one
+// hid inside a calc().
+// `[^dsl]vh` and not `\dvh`: the first draft of this matched the "0dvh" inside
+// `100dvh` and failed on the fix it was written to protect. dvh/svh/lvh are the
+// units that DO track the browser chrome, so they are the answer, not the bug.
+ok(!/max-h-\[[^\]]*[^dsl]vh/.test(nav),
+  '...and does not cap itself in bare vh, calc() included (dvh is fine - it is the unit that tracks the chrome)')
+
 // The reported one, by name.
 const schedule = code('app/(dashboard)/projects/[id]/schedule/page.tsx')
 ok((schedule.match(/className="overlay /g) ?? []).length === 2,
