@@ -95,19 +95,24 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
   const [paymentItems, setPaymentItems] = useState<PaymentItem[]>([])
   const [loading, setLoading] = useState(true)
   /**
-   * The two halves of this page load from two routes, and they fail at
-   * DIFFERENT things - so they are two facts, not one.
+   * ONE ROUTE, ONE FACT.
    *
-   * THE BUG: both were `if (res.ok) { ... }` with no else. A financials fetch
-   * that failed left `subcontracts` at `[]`, which renders as a Subcontractor
-   * picker containing nothing but "Select subcontractor..." - a form you cannot
-   * complete, on a page that otherwise looks fine, with nothing anywhere saying
-   * why. Same shape as the Upload button that vanished off the Plans tab on a
-   * bad minute of signal. And an invoices fetch that failed printed "No
-   * invoices yet", which is a page asserting something it does not know.
+   * This page used to load from two: `/invoices` for the list and
+   * `/financials` for the subcontracts its create form picks from. Both were
+   * `if (res.ok) { ... }` with no else, so a failed financials fetch left
+   * `subcontracts` at `[]` and the picker held nothing but "Select
+   * subcontractor..." with nothing saying why. #453 made that failure speak -
+   * and what it said was the real bug: `/financials` is gated on the
+   * `financials` resource, which a Project Manager is DELIBERATELY denied (the
+   * same split that took `margin` out of `budget`). A PM has `invoices`, so
+   * they are meant to be on this screen; half of it was asking a permission
+   * their being here does not imply. The scan matched the sub correctly and
+   * `setSubId` fired; the picker simply had no option with that id in it.
+   *
+   * The subs and the payment schedule now come from `/invoices`, which is
+   * gated on what this page IS. One request, one failure, one reason.
    */
   const [loadError, setLoadError] = useState('')
-  const [subsError, setSubsError] = useState('')
   const [expanded, setExpanded] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -232,17 +237,15 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
   }
 
   async function fetchData() {
-    setLoadError(''); setSubsError('')
+    setLoadError('')
     try {
       const token = await getToken()
-      const [invRes, finRes] = await Promise.all([
-        fetch(`/api/projects/${params.id}/invoices`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`/api/projects/${params.id}/financials`, { headers: { Authorization: `Bearer ${token}` } }),
-      ])
-      if (!invRes.ok) setLoadError(await whyFailed(invRes, 'The invoices on this job'))
-      if (!finRes.ok) setSubsError(await whyFailed(finRes, 'The subcontracts on this job'))
-      if (invRes.ok) {
-      const d = await invRes.json()
+      const res = await fetch(`/api/projects/${params.id}/invoices`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) { setLoadError(await whyFailed(res, 'This job\u2019s bills and subcontractors')); return }
+
+      const d = await res.json()
       setInvoices(d.invoices)
       setDestinations(d.destinations ?? {})
       setBillingMode(d.billing_mode ?? 'simple')
@@ -256,22 +259,18 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
           budget_line_item_id: a.budget_line_item_id, amount: toAmountInput(a.amount),
         })),
       ])))
-    }
-    if (finRes.ok) {
-      const d = await finRes.json()
       setSubcontracts((d.subcontracts ?? []).map((s: any) => ({
         id: s.id, trade: s.trade, contract_amount: Number(s.contract_amount) || 0,
         company_id: s.companies?.id ?? s.company_id, companies: s.companies,
       })))
       setPaymentItems(d.payment_schedule_items ?? [])
-      }
     } catch (e: any) {
-      // A THROWN fetch never reached either `if`, so `setLoading(false)` as the
+      // A THROWN fetch never reached the `if`, so `setLoading(false)` as the
       // last statement was never reached either - the page said "Loading..."
       // for ever. finally, always.
       const why = e?.message ? `Could not reach SyteNav: ${e.message}` : 'Could not reach SyteNav.'
       console.error(`[invoices] load failed: ${why}`)
-      setLoadError(why); setSubsError(why)
+      setLoadError(why)
     } finally {
       setLoading(false)
     }
@@ -1195,7 +1194,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
                       it, so the one place you find out has to be the field
                       itself - an empty picker with no explanation is
                       indistinguishable from a job with no subs on it. */}
-                  {subsError && (
+                  {loadError && (
                     <p className="text-xs text-danger">
                       The subcontractors on this job did not load, so this list is empty.{' '}
                       <button type="button" onClick={() => fetchData()} className="font-semibold underline underline-offset-2">
@@ -1406,16 +1405,14 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
         </div>
       </div>
 
-      {/* Said once, at the top, for whichever half failed. A page that renders
-          its empty state over a failed load is asserting something it does not
-          know. */}
-      {(loadError || subsError) && (
+      {/* Said once, at the top. A page that renders its empty state over a
+          failed load is asserting something it does not know. */}
+      {loadError && (
         <div className="rounded-lg border border-danger/30 bg-danger-tint px-4 py-3 text-sm text-danger">
           <div className="flex items-start gap-2">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <div className="min-w-0 space-y-1">
-              {loadError && <p>{loadError}</p>}
-              {subsError && <p>{subsError} You can still read this page, but a new invoice cannot be filed until it loads.</p>}
+              <p>{loadError}</p>
               <button type="button" onClick={() => { setLoading(true); fetchData() }}
                 className="font-semibold underline underline-offset-2">Try again</button>
             </div>

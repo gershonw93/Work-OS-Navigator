@@ -46,7 +46,31 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
   fixed: 'bg-success-tint text-success',
 }
 
-export const RELEASES: Release[] = [
+// The order is DERIVED, not authored. `RELEASES[0]` was the newest release by
+// convention, and a convention is a claim that stops being true the moment two
+// sessions add an entry each - which is exactly what happened: four entries
+// dated 2026-09-16/17 sat below one dated 09-15, the badge compared against the
+// wrong date, and a genuinely new entry could be published already "read".
+// Author entries anywhere in this list; the app reads the sorted view.
+const AUTHORED: Release[] = [
+  {
+    date: '2026-09-15',
+    title: 'Project managers can file a bill again',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'The subcontractor dropdown was empty for project managers',
+        text: 'On the Invoices tab, the list of subcontractors was being loaded from the Financials summary – a screen project managers are deliberately not given. So a PM got a Subcontractor dropdown with nothing in it, and a scanned invoice would say “Matched to Ridgeline Framing” at the top while the field underneath stayed blank. The subcontractors now come from the Invoices tab’s own data, so anyone who can open the tab can fill in the form. Scanning a bill fills the sub in for you again.',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
+        title: 'Payment schedules were never showing up',
+        text: 'If a subcontract had an agreed payment schedule – deposit, rough-in, final – the “bill against a scheduled payment” option showed nothing to pick, on every job. The schedule was there the whole time; the app was asking for it the wrong way round and getting an empty answer back. Those milestones are now where they should be, on the Invoices tab and on the Financials summary.',
+        href: '/projects',
+      },
+    ],
+  },
   {
     date: '2026-09-15',
     title: 'The invoices page says when it could not load',
@@ -69,7 +93,7 @@ export const RELEASES: Release[] = [
     ],
   },
   {
-    date: '2026-09-17',
+    date: '2026-09-14',
     title: 'The client portal link is a permission now',
     items: [
       {
@@ -93,7 +117,7 @@ export const RELEASES: Release[] = [
     ],
   },
   {
-    date: '2026-09-17',
+    date: '2026-09-14',
     title: 'Swipe, like a real app',
     items: [
       {
@@ -116,7 +140,7 @@ export const RELEASES: Release[] = [
     ],
   },
   {
-    date: '2026-09-16',
+    date: '2026-09-14',
     title: 'The setup checklist knows you shared the client portal',
     items: [
       {
@@ -140,7 +164,7 @@ export const RELEASES: Release[] = [
     ],
   },
   {
-    date: '2026-09-16',
+    date: '2026-09-14',
     title: 'Clock-in location checks actually work, and you can place a job yourself',
     items: [
       {
@@ -444,7 +468,7 @@ export const RELEASES: Release[] = [
     ],
   },
   {
-    date: '2026-09-16',
+    date: '2026-09-10',
     title: 'The client portal showed a sun on every daily log',
     items: [
       {
@@ -2638,6 +2662,15 @@ export const RELEASES: Release[] = [
     ],
   },
 ]
+
+/**
+ * Newest first, whatever order they were written in. A stable sort, so two
+ * releases on one day keep the order the file gives them.
+ */
+export const RELEASES: Release[] = AUTHORED
+  .map((r, i) => [r, i] as const)
+  .sort((a, b) => (a[0].date === b[0].date ? a[1] - b[1] : (a[0].date < b[0].date ? 1 : -1)))
+  .map(([r]) => r)
 
 /** The newest release date, used for the "something new" badge. */
 export const LATEST_RELEASE = RELEASES[0]?.date ?? ''

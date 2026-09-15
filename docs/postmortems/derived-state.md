@@ -176,3 +176,38 @@ each one was written the day something shipped broken.*
   untidy while nothing sent; the moment the button really sends, the same double
   press is two identical emails to one sub.
 
+
+## "Newest first" was a convention, and a convention is a claim
+
+`lib/whats-new.ts` said it at the top - *Newest first; `date` drives the unread
+badge in the sidebar, so keep it real* - and the badge took it at its word:
+
+```ts
+export const LATEST_RELEASE = RELEASES[0]?.date ?? ''
+```
+
+That held while one session shipped at a time. In a week where several did, the
+top of the list read 09-15, 09-17, 09-17, 09-16, 09-16 - and today was the 15th.
+Two separate faults, each enough on its own:
+
+- **The order.** `RELEASES[0]` was not the newest, so `hasUnread` compared the
+  reader's last-seen date against a release three entries down. Somebody up to
+  date on the 17th would never be shown the 15th's entry; somebody who had seen
+  nothing was badged about the wrong batch.
+- **The dates.** Every one of those was written ahead of the commit that shipped
+  it. #446, #448, #449 and #450 all landed on the 14th and announced themselves
+  as the 16th and 17th; #430's entry said the 16th for a change that shipped on
+  the 10th. A release dated in the future pins `LATEST_RELEASE` there, so
+  everything that really ships in between is published already "read" - the
+  badge is quietly off for days, which is the one thing this file exists to do.
+
+Most of those wrong dates were written by the same agent that wrote the rule.
+That is the point: a hand-maintained invariant is not kept by restating it, and
+an instruction to sort a list is a worse version of sorting the list.
+
+So the order is derived. Entries are authored into `AUTHORED` in whatever order
+is convenient; `RELEASES` is a stable sort of it by date descending, and
+`LATEST_RELEASE` still reads `[0]` - which is now a fact rather than a promise.
+`lib/__tests__/whats-new-order.ts` fails on an out-of-order list and on any entry
+dated after today, which is what found #430's. Same shape as the read time on a
+guide: a stored "6 min read" is a claim that stops being true on the next edit.
