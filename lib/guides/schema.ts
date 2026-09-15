@@ -77,6 +77,11 @@ export const GUIDE_CATEGORIES: GuideCategory[] = [
   { key: 'field', label: 'The field', description: 'Daily logs, inspections and the record the site actually produces.' },
 ]
 
+/** What a guide's category is CALLED. Asked by the card and by the article hero. */
+export function categoryLabel(g: Guide): string {
+  return GUIDE_CATEGORIES.find(c => c.key === g.category)?.label ?? ''
+}
+
 /** The URL a guide lives at. One answer, asked by the page, the sitemap and the trail. */
 export function guidePath(slug: string): string {
   return `/guides/${slug}`
