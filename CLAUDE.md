@@ -90,6 +90,23 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
   article (or add a new one) in the SAME change so Help never drifts from the app.
 - Search is client-side; keep each article's `keywords` list rich so it's findable.
 
+## Guides, the public article library (KEEP CURRENT)
+- Marketing articles live in `lib/guides/` - one file per article under
+  `articles/`, listed once in `index.ts` - and are rendered at `/guides` by ONE
+  template. The page holds no copy.
+- A NEW GUIDE IS ONE IMPORT AND ONE ENTRY. The sitemap, the breadcrumb trail
+  and the index all derive from `GUIDES`; a page nobody told a search engine
+  about is the failure `/workflow` already demonstrated.
+- `lib/hosts.ts` is the one thing that does NOT derive from the registry - it is
+  imported by middleware, which runs on the edge, and would carry every article
+  body. It matches the `/guides` prefix instead, and `lib/__tests__/guides.ts`
+  pins the two together.
+- Every guide ends by saying WHAT SYTENAV DOES NOT DO. When a feature lands that
+  changes one of those answers, fix the guide in the SAME change - the same rule
+  as the Help Center and the product brief, and for the same reason.
+- Read time, the contents list and heading anchors are DERIVED (`schema.ts`).
+  A stored "6 min read" is a claim that stops being true on the next edit.
+
 ## Product brief for non-developers (KEEP CURRENT)
 - A prospect/customer-facing brief is published as an Artifact - what SyteNav
   does, how billing works, the QuickBooks answers, and an honest "what it does

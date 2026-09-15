@@ -257,6 +257,34 @@ Shipped in #218: bulk creation makes a site + a job per unit/floor/house, with a
 
 ---
 
+## 📚 Guides (the /guides library)
+
+Ten articles shipped, one per target phrase, rendered from `lib/guides` by one
+template. Parked, in rough order of value:
+
+- **The next ten articles.** Candidates already implied by the first ten: lien
+  waivers and what to hold, retainage, AIA G702/G703 explained for a small GC,
+  cost-plus vs fixed price, sub prequalification and COI tracking, what a
+  schedule of values should look like, and "your first week on construction
+  software". Same shape: one keyword, a body, FAQs, and an honest section on
+  where SyteNav stops.
+- **The guides link is missing between `md` and `lg`.** The desktop nav row is
+  already full at 768px - six links, the audience dropdown and two buttons - so
+  `Guides` is `hidden lg:inline` there. Below `md` the phone menu carries it and
+  from `lg` up the row does; in between, only the footer does. The real fix is
+  to rethink that nav row, not to squeeze a ninth item into it.
+- **Screenshots and diagrams.** The block union has no `image` type yet. Worth
+  adding once there are real screenshots to use - the Help Center schema already
+  has one to copy.
+- **Author and reviewed-by.** The Article structured data credits the
+  organisation. If we ever want a named author, that is a field on the guide and
+  a Person node in the graph, not a line of prose.
+- **A guide has no updated date until something changes it.** `updated` is
+  optional and unset on all ten; when we revise one, set it - it is what
+  `dateModified` reads.
+
+---
+
 ## ⚡ Performance
 - **Middleware still pays a network auth round trip on every page request.** Removing `supabase.auth.getUser()` from `/api/*` cut one off every API call; pages still have theirs, and it is the single biggest source of the gateway blips that caused #442. Middleware routing is UX by its own admission - every page, route and query verifies for itself - so the decision could come from the session cookie (a local `exp` read, no network) and leave verification to the page. That would take the hop off the hot path AND make the front door immune to the auth gateway entirely. Not done in #442 because the failure mode was already closed there and this changes the front door for everybody.
 - ~~**The 3s auth timeout in middleware fails OPEN** - on timeout `user` is null, so the convenience redirects do not fire and the page renders.~~ **THIS WAS WRONG, and it was the bug in #442.** `!user && isProtectedRoute` is one of "the convenience redirects", and it fires on exactly that null - so the timeout failed CLOSED and signed people out. Fixed: the check reports `signed-in` / `signed-out` / `unknown` (`lib/auth-outcome.ts`) and only a verdict routes.

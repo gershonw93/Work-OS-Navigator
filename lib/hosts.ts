@@ -57,9 +57,28 @@ export const MARKETING_PATHS = [
   '/', '/features', '/money', '/flows', '/workflow', '/ai', '/mobile',
   '/contractors', '/subcontractors', '/why', '/pricing', '/security',
   '/about', '/contact', '/privacy', '/terms', '/cookies', '/acceptable-use',
+  '/guides',
 ]
+
+/**
+ * Marketing namespaces matched by PREFIX, which the list above deliberately is
+ * not.
+ *
+ * The reason the list is exact is that marketing shares the root namespace with
+ * the product, so a prefix test would claim /projects and /settings for the
+ * marketing domain and redirect somebody out of the app mid-session. That
+ * argument does not apply to a segment the product does not own: /guides is a
+ * marketing directory, nothing in APP_PATH_PREFIXES starts with it, and a guide
+ * is one page per article - so listing them here would mean this file (and
+ * therefore middleware, which runs on the edge) importing every article body.
+ *
+ * `lib/__tests__/guides.ts` pins the two facts this depends on: that every
+ * published guide path is matched here, and that no app prefix collides with it.
+ */
+const MARKETING_PREFIXES = ['/guides']
 
 export function isMarketingPath(pathname: string): boolean {
   const clean = pathname.replace(/\/+$/, '') || '/'
-  return MARKETING_PATHS.includes(clean)
+  if (MARKETING_PATHS.includes(clean)) return true
+  return MARKETING_PREFIXES.some(p => clean.startsWith(`${p}/`))
 }
