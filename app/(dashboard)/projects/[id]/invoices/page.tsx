@@ -94,6 +94,20 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
   const [subcontracts, setSubcontracts] = useState<Subcontract[]>([])
   const [paymentItems, setPaymentItems] = useState<PaymentItem[]>([])
   const [loading, setLoading] = useState(true)
+  /**
+   * The two halves of this page load from two routes, and they fail at
+   * DIFFERENT things - so they are two facts, not one.
+   *
+   * THE BUG: both were `if (res.ok) { ... }` with no else. A financials fetch
+   * that failed left `subcontracts` at `[]`, which renders as a Subcontractor
+   * picker containing nothing but "Select subcontractor..." - a form you cannot
+   * complete, on a page that otherwise looks fine, with nothing anywhere saying
+   * why. Same shape as the Upload button that vanished off the Plans tab on a
+   * bad minute of signal. And an invoices fetch that failed printed "No
+   * invoices yet", which is a page asserting something it does not know.
+   */
+  const [loadError, setLoadError] = useState('')
+  const [subsError, setSubsError] = useState('')
   const [expanded, setExpanded] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -207,13 +221,27 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
     }
   }
 
+  /** The route's own reason, or a sentence naming the status. Never a shrug. */
+  async function whyFailed(res: Response, what: string) {
+    const d = await res.json().catch(() => null)
+    const why = d?.error ?? `${what} could not be loaded (${res.status}).`
+    // Read in the UI AND logged - otherwise the reason exists nowhere a person
+    // looking into it afterwards can find.
+    console.error(`[invoices] ${what}: ${why}`)
+    return why
+  }
+
   async function fetchData() {
-    const token = await getToken()
-    const [invRes, finRes] = await Promise.all([
-      fetch(`/api/projects/${params.id}/invoices`, { headers: { Authorization: `Bearer ${token}` } }),
-      fetch(`/api/projects/${params.id}/financials`, { headers: { Authorization: `Bearer ${token}` } }),
-    ])
-    if (invRes.ok) {
+    setLoadError(''); setSubsError('')
+    try {
+      const token = await getToken()
+      const [invRes, finRes] = await Promise.all([
+        fetch(`/api/projects/${params.id}/invoices`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/projects/${params.id}/financials`, { headers: { Authorization: `Bearer ${token}` } }),
+      ])
+      if (!invRes.ok) setLoadError(await whyFailed(invRes, 'The invoices on this job'))
+      if (!finRes.ok) setSubsError(await whyFailed(finRes, 'The subcontracts on this job'))
+      if (invRes.ok) {
       const d = await invRes.json()
       setInvoices(d.invoices)
       setDestinations(d.destinations ?? {})
@@ -236,8 +264,17 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
         company_id: s.companies?.id ?? s.company_id, companies: s.companies,
       })))
       setPaymentItems(d.payment_schedule_items ?? [])
+      }
+    } catch (e: any) {
+      // A THROWN fetch never reached either `if`, so `setLoading(false)` as the
+      // last statement was never reached either - the page said "Loading..."
+      // for ever. finally, always.
+      const why = e?.message ? `Could not reach SyteNav: ${e.message}` : 'Could not reach SyteNav.'
+      console.error(`[invoices] load failed: ${why}`)
+      setLoadError(why); setSubsError(why)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   useEffect(() => { fetchData() }, [params.id])
@@ -1154,6 +1191,18 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
                 )}
                 <div className="space-y-1.5">
                   <Label>Subcontractor</Label>
+                  {/* The page banner is above the fold and this form opens over
+                      it, so the one place you find out has to be the field
+                      itself - an empty picker with no explanation is
+                      indistinguishable from a job with no subs on it. */}
+                  {subsError && (
+                    <p className="text-xs text-danger">
+                      The subcontractors on this job did not load, so this list is empty.{' '}
+                      <button type="button" onClick={() => fetchData()} className="font-semibold underline underline-offset-2">
+                        Try again
+                      </button>
+                    </p>
+                  )}
                   <SearchableSelect value={subId} onChange={e => { chooseSub(e.target.value) }} required
                     className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
                     <option value="">Select subcontractor...</option>
@@ -1357,8 +1406,33 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
         </div>
       </div>
 
+      {/* Said once, at the top, for whichever half failed. A page that renders
+          its empty state over a failed load is asserting something it does not
+          know. */}
+      {(loadError || subsError) && (
+        <div className="rounded-lg border border-danger/30 bg-danger-tint px-4 py-3 text-sm text-danger">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <div className="min-w-0 space-y-1">
+              {loadError && <p>{loadError}</p>}
+              {subsError && <p>{subsError} You can still read this page, but a new invoice cannot be filed until it loads.</p>}
+              <button type="button" onClick={() => { setLoading(true); fetchData() }}
+                className="font-semibold underline underline-offset-2">Try again</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <div className="text-sm text-faint py-12 text-center">Loading...</div>
+      ) : invoices.length === 0 && loadError ? (
+        /* NOT the empty state. "No invoices yet" over a failed fetch is the app
+           telling somebody their job has no bills on it, which it does not
+           know. Nothing here - the banner above has already said what happened.
+           Ordered this way round on purpose: a refresh that fails AFTER a good
+           load still shows the invoices already on screen, because taking them
+           away would be a second wrong answer on top of the first. */
+        null
       ) : invoices.length === 0 ? (
         <div className="rounded-xl border-2 border-dashed border-line py-12 px-6 text-center">
           <Receipt className="h-8 w-8 text-faint mx-auto mb-3" />
