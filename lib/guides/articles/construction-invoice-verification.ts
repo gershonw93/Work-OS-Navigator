@@ -42,7 +42,7 @@ export const guide: Guide = {
     { type: 'steps', items: [
       'DOES IT ADD UP? Lines plus tax minus retainage should equal the total. A breakdown that does not reconcile is not detail, it is an invitation to trust something that is wrong - and the difference is where a quiet extra sits.',
       'DO THE RATES MATCH THE QUOTE? Line by line against the awarded quote or the priced contract. This is the check that finds money.',
-      'IS EVERY LINE ON THE QUOTE? Anything that is not needs a change order behind it before it is approved, not after.',
+      'IS EVERY LINE ON THE QUOTE? Anything that is not needs a change order behind it before it is approved, not after. Use the change order tracking process to capture, price and approve it.',
       'DOES THE RUNNING TOTAL STILL FIT THE CONTRACT? This invoice plus everything already billed by this sub, against their contract as revised by approved change orders.',
       'IS THE PERCENT COMPLETE REAL? Compare it to the daily logs, the photos and the schedule. On progress billing this is the whole check.',
     ] },
@@ -86,13 +86,15 @@ export const guide: Guide = {
     { type: 'p', text: 'It never blocks the invoice. It puts the discrepancy in front of you before you approve, which is the moment it is still a question.' },
   ],
   links: [
+    { text: 'Use the change order tracking process to capture, price and approve it', href: '/guides/how-to-track-change-orders' },
+    { text: 'Build the evidence record so the late documentation can still hold up', href: '/guides/change-order-documentation' },
     { text: '"Scan an invoice"', href: '/ai' },
     { text: 'which budget line the money will land on, what is budgeted, what has been billed, and what is left', href: '/money' },
   ],
   faqs: [
     { q: 'How do I verify an invoice when the sub never gave a line-item quote?', a: 'You cannot, properly - which is the argument for insisting on priced lines at bid stage. In the meantime, verify against the schedule of values in their contract and against what is physically built. And make line pricing a condition of the next award: the cost of that conversation is one awkward email.' },
     { q: 'Is retainage the same as holding money back for a bad invoice?', a: 'No, and mixing them up causes disputes. Retainage is a contractual percentage held on all billing until completion. Disputing a line is a separate act with its own reason, and it should be communicated separately so the sub can correct the invoice rather than assume you are short-paying.' },
-    { q: 'What if a sub bills for extra work that we did ask for?', a: 'Then it is a change order that never got written. Write it now, get it approved on your side, attach it to the right budget line and the sub’s contract, and let the invoice land against it. The point is not to refuse the money - it is that it stops being an unexplained overage in your numbers.' },
+    { q: 'What if a sub bills for extra work that we did ask for?', a: 'Then it is a change order that never got written. Write it now, get it approved on your side, attach it to the right budget line and the sub’s contract, and let the invoice land against it. Build the evidence record so the late documentation can still hold up. The point is not to refuse the money - it is that it stops being an unexplained overage in your numbers.' },
     { q: 'How much does overbilling actually cost a small GC?', a: 'It varies too much to put a number on honestly, and any published figure you see is somebody’s estimate. The useful measure is your own: take the last completed job, pull every sub invoice, and check the rates against the quotes. Whatever you find there is your annual number, multiplied by how many jobs you run.' },
   ],
   related: ['construction-invoice-approval', 'construction-job-cost-tracking', 'how-to-track-change-orders'],

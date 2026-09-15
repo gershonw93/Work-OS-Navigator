@@ -23,7 +23,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { GUIDES, GUIDE_CATEGORIES, guideBySlug, guidePath, relatedTo } from '../guides'
-import { cardLabel, headingId, isExternal, linkify, readMinutes, tocFor, guideText, type Guide } from '../guides/schema'
+import {
+  cardLabel, headingId, headingText, isExternal, linkableText, linkify, readMinutes, tocFor,
+  guideText, type Guide,
+} from '../guides/schema'
 import { GUIDE_AUTHOR, authorNode } from '../guides/author'
 import { isMarketingPath, isAppPath, MARKETING_PATHS } from '../hosts'
 import { crumbsFor } from '../breadcrumbs'
@@ -107,19 +110,59 @@ ok(GUIDES.some(g => g.cardTitle && g.cardTitle !== g.title),
 // all. No error, no warning - the page just renders without the link somebody
 // asked for. So every declared phrase must occur exactly once in the guide it
 // belongs to, and every internal href must be a real marketing path.
+//
+// AND IT IS CHECKED AGAINST WHAT THE RENDERER LINKIFIES, not against the whole
+// page. Five of the cross-links landed in comparison columns, checklist items
+// and FAQ answers - none of which went through `Prose` when they were written.
+// A check against "is this phrase in the text" passes for every one of them
+// while the words render plain, which is the same silent failure one level
+// further in.
 const badLinks: string[] = []
 for (const g of GUIDES) {
-  const prose = guideText(g).join('\n')
+  const prose = linkableText(g).join('\n')
+  const headings = headingText(g).join('\n')
   for (const link of g.links ?? []) {
     const hits = prose.split(link.text).length - 1
-    if (hits === 0) badLinks.push(`${g.slug}: "${link.text}" is not in the text`)
+    if (hits === 0) badLinks.push(`${g.slug}: "${link.text}" is not in any block the renderer links`)
     else if (hits > 1) badLinks.push(`${g.slug}: "${link.text}" appears ${hits} times, so which one is the link?`)
+    if (headings.includes(link.text)) badLinks.push(`${g.slug}: "${link.text}" is in a heading, which is never linked`)
     if (!isExternal(link.href) && !isMarketingPath(link.href)) badLinks.push(`${g.slug}: ${link.href} is not a marketing page`)
+    // A cross-link to a guide that does not exist is a 404 served from inside
+    // our own prose - the same failure `related` is checked for, one field over.
+    if (link.href.startsWith('/guides/')) {
+      const target = link.href.slice('/guides/'.length)
+      if (!guideBySlug(target)) badLinks.push(`${g.slug}: links to /guides/${target}, which is not published`)
+      if (target === g.slug) badLinks.push(`${g.slug}: links to itself`)
+    }
   }
 }
 ok(badLinks.length === 0,
   `every inline link matches its prose exactly once${badLinks.length ? ` - ${badLinks[0]}` : ''}`)
 ok(GUIDES.every(g => (g.links ?? []).length > 0), 'every guide links out to the product pages it describes')
+
+// THE CLUSTER. Three pages share the change-order subject and split it by what
+// the reader is trying to do: the process, the software, and the evidence. That
+// split is only real if the pages point at each other and say WHY - so each of
+// the three carries a link to both of the others, and the anchor text names the
+// other page's job rather than reading "learn more".
+const CLUSTER = ['how-to-track-change-orders', 'change-order-management-software', 'change-order-documentation']
+const clusterGaps: string[] = []
+for (const slug of CLUSTER) {
+  const g = guideBySlug(slug)!
+  for (const other of CLUSTER.filter(s2 => s2 !== slug)) {
+    if (!(g.links ?? []).some(l => l.href === `/guides/${other}`)) clusterGaps.push(`${slug} -> ${other}`)
+  }
+}
+ok(clusterGaps.length === 0,
+  `the change-order cluster is joined up both ways${clusterGaps.length ? ` - missing ${clusterGaps[0]}` : ''}`)
+const vague = GUIDES.flatMap(g => (g.links ?? []).filter(l => /^(read more|learn more|click here|here|this)$/i.test(l.text.trim())))
+ok(vague.length === 0, 'no cross-link is anchored on "learn more" or "click here"')
+
+// The three share a subject, so their descriptions must not share a pitch -
+// two results with the same summary compete with each other.
+const clusterDescs = CLUSTER.map(s2 => guideBySlug(s2)!.description)
+ok(new Set(clusterDescs).size === 3, 'the three change-order pages describe themselves differently')
+ok(clusterDescs.every(d => /change order/i.test(d)), '...while all naming the subject they share')
 ok(GUIDES.some(g => (g.links ?? []).some(l => isExternal(l.href))),
   '...and a claim about somebody else\u2019s pricing cites its source')
 
@@ -262,6 +305,19 @@ const unrendered = Array.from(new Set(declared)).filter(t => !new RegExp(`case '
 ok(unrendered.length === 0,
   `every block type has a case in the renderer${unrendered.length ? ` - ${unrendered[0]}` : ''}`)
 ok(!/case 'video'/.test(body), '...and the scan is matching cases, not just any text (fault check)')
+
+// Every block type that holds prose renders through `Prose`, or a link declared
+// against it is silently plain text. Headings are excluded deliberately and the
+// link check above enforces the other half of that.
+const PROSE_BLOCKS = ['p', 'list', 'steps', 'callout', 'compare', 'checklist']
+const bodyProse = body.split('<Prose').length - 1
+ok(bodyProse >= PROSE_BLOCKS.length,
+  `every prose block type is linkified (${bodyProse} <Prose> sites for ${PROSE_BLOCKS.length} block types)`)
+ok(/<span><Prose text=\{item\}/.test(body), '...including list, step, comparison and checklist items')
+ok(/<Prose text=\{f\.a\} links=\{guide\.links\} \/>/.test(code('app/(marketing)/guides/[slug]/page.tsx')),
+  '...and the FAQ answers, which the page renders rather than the body')
+ok(!/id=\{headingId\(b\.text\)\}[^]*?<Prose/.test(body.slice(body.indexOf("case 'h2'"), body.indexOf("case 'h3'"))),
+  'a heading is NOT linkified - it is an anchor target and a contents entry')
 
 // ── 11. the phone rules the rest of the site is held to ──────────────────────
 const pages = ['app/(marketing)/guides/page.tsx', 'app/(marketing)/guides/[slug]/page.tsx']
