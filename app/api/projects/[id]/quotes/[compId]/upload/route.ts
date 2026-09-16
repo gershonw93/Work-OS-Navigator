@@ -1,6 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { comparisonTitle, isUntitled } from '@/lib/quote-comparison'
+import { friendlyDbError } from '@/lib/db-error'
 
 export const runtime = 'nodejs'
 
@@ -115,6 +117,35 @@ export async function POST(request: Request, { params }: { params: { id: string;
     .select()
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    // Not the raw Postgres sentence - that is not a thing to put on a screen.
+    console.error('[quotes/upload] insert failed:', error.message)
+    return NextResponse.json({ error: friendlyDbError(error) }, { status: 500 })
+  }
+
+  // NAME IT FROM WHAT WE JUST READ.
+  //
+  // The comparison is created before any file is uploaded, so it is born
+  // "Untitled comparison" - and nothing ever replaced that, even though the
+  // vendor's name came back out of the PDF moments ago. "Upload quote doesn't
+  // do anything" was a collapsed row wearing that placeholder.
+  //
+  // Only while it is STILL the placeholder: a name somebody typed is theirs,
+  // and a second upload must not rename the comparison out from under them.
+  // Best-effort for the same reason the storage write is - a quote that is
+  // saved and badly named is a far smaller problem than a failed upload.
+  try {
+    const { data: comp } = await db
+      .from('quote_comparisons').select('title').eq('id', params.compId).maybeSingle()
+    if (isUntitled((comp as any)?.title)) {
+      const { data: all } = await db
+        .from('quotes').select('vendor_name').eq('comparison_id', params.compId)
+      const name = comparisonTitle((all ?? []) as any)
+      if (name) await db.from('quote_comparisons').update({ title: name }).eq('id', params.compId)
+    }
+  } catch (e) {
+    console.error('[quotes/upload] could not name the comparison:', e)
+  }
+
   return NextResponse.json({ quote: data })
 }

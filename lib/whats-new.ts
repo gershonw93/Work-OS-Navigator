@@ -54,6 +54,23 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 // Author entries anywhere in this list; the app reads the sorted view.
 const AUTHORED: Release[] = [
   {
+    date: '2026-09-16',
+    title: 'Uploaded quotes say what they are',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'Uploading a quote looked like it did nothing',
+        text: 'Dropping a quote PDF on the Quotes tab read it correctly - the vendor, the total, the scope, what is excluded - and then showed you a closed row called "Untitled comparison", which looks exactly like nothing having happened. The comparison is now named after whoever sent the quote (or "3 quotes - Electrical" when there are several), and it opens so you can see what was read.',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
+        title: 'A quote file that could not be read said nothing',
+        text: 'If one of the files you dropped was refused - the wrong kind of file, or a bad moment of signal - it was skipped silently and you were left with an empty comparison. It now says which file and why.',
+      },
+    ],
+  },
+  {
     date: '2026-09-15',
     title: 'The website menu holds still',
     items: [

@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { isUntitled } from '@/lib/quote-comparison'
 import { logActivity } from '@/lib/log-activity'
 import { notify } from '@/lib/notify'
 import { awardEmail, sendEmail, isEmailAddress } from '@/lib/email'
@@ -32,7 +33,8 @@ export async function POST(request: Request, { params }: { params: { id: string;
   const { data: profile } = await db.from('profiles').select('full_name, company_id').eq('id', user.id).single()
   const myCompanyId = (profile as any)?.company_id ?? null
   const vendorName = quote.vendor_name || comp.title || 'Vendor'
-  const niceTitle = comp.title && comp.title !== 'Untitled comparison' ? comp.title : null
+  // `isUntitled` rather than a third file spelling the placeholder itself.
+  const niceTitle = isUntitled(comp.title) ? null : comp.title
   const scope = niceTitle || vendorName
   const trade = comp.trade || niceTitle || (companyType === 'supplier' ? 'Materials' : 'General')
   const contact = (quote.data?.contact ?? {}) as { name?: string | null; email?: string | null; phone?: string | null }
