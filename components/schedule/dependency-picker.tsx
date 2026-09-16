@@ -2,19 +2,32 @@
 
 import { useState } from 'react'
 import { Link2, Loader2, Plus, Trash2, X } from 'lucide-react'
+import { formatDateShort } from '@/lib/dates'
 
 // "Depends on another trade?" - asked after the dates, never before them.
 //
-// TWO RULES FROM THE SPEC, both of which are about not stopping somebody:
+// THE THREE THINGS REPORTED, all of them fair:
 //
-//   - If the trade they need has no line yet, they can make a PLACEHOLDER from
-//     right here. Sending somebody off to create a line and come back is how a
-//     dependency never gets recorded at all.
-//   - The whole thing is optional and collapsed. A schedule line that waits for
-//     nothing is the common case.
+//   "why is it a 2 step"
+//       Adding a link used to save itself immediately, through its own route,
+//       while "Save Changes" saved the label and dates - so one dialog had two
+//       buttons that each saved a different half, and pressing Cancel after
+//       Link had already written something. NOTHING here saves on its own now.
+//       Everything is staged and "Save Changes" commits the lot; Cancel really
+//       does cancel. Removing a link somebody saved earlier is staged too, or
+//       the dialog would be honest in one direction and not the other.
 //
-// The Add button OPENS; it does not toggle. After a failed save the form is
-// already open, which is exactly when somebody presses the button again.
+//   "it doesnt say %"
+//       A number box labelled "How far along?" is a number with no unit. The
+//       sign is IN the row now, after the field, where the value is.
+//
+//   "how far along between needs a or between the 2 options or something"
+//       Two optional boxes side by side with no statement of how they relate.
+//       They are not alternatives and they are not a pair - each finishes a
+//       different sentence about the same link, so each is written as one:
+//       "Don't start until they are [80] % done" and "Then wait [0] days
+//       before starting". The heading above them says what leaving both blank
+//       means, which is the common case and was never stated anywhere.
 
 export interface PickableLine {
   id: string
@@ -32,60 +45,96 @@ export interface ExistingDependency {
   predecessorName: string
 }
 
+/** A link somebody has built here but not saved yet. */
+export interface PendingDependency {
+  predecessor_task_id: string
+  min_predecessor_progress: number | null
+  lag_days: number
+  predecessorName: string
+}
+
 export function DependencyPicker({
-  lines, existing, selfId, onAdd, onRemove, onAddPlaceholder,
+  lines, existing, pending, removing, selfId,
+  onStage, onUnstage, onStageRemoval, onUndoRemoval, onAddPlaceholder,
 }: {
   /** Every line on this project except this one. Placeholders included. */
   lines: PickableLine[]
+  /** Links already saved against this line. */
   existing: ExistingDependency[]
+  /** Links built here and waiting for Save Changes. */
+  pending: PendingDependency[]
+  /** Ids of saved links marked for removal on save. */
+  removing: string[]
   selfId: string | null
-  onAdd: (input: { predecessor_task_id: string; min_predecessor_progress: number | null; lag_days: number }) => Promise<string | null>
-  onRemove: (dependencyId: string) => Promise<void>
+  onStage: (d: PendingDependency) => void
+  onUnstage: (predecessorTaskId: string) => void
+  onStageRemoval: (dependencyId: string) => void
+  onUndoRemoval: (dependencyId: string) => void
   onAddPlaceholder: (trade: string) => Promise<PickableLine | null>
 }) {
   const [open, setOpen] = useState(false)
   const [predecessor, setPredecessor] = useState('')
   const [progress, setProgress] = useState('')
-  const [lag, setLag] = useState('0')
+  const [lag, setLag] = useState('')
   const [problem, setProblem] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
 
   const [addingPlaceholder, setAddingPlaceholder] = useState(false)
   const [placeholderTrade, setPlaceholderTrade] = useState('')
+  const [savingPlaceholder, setSavingPlaceholder] = useState(false)
 
-  const available = lines.filter(l => l.id !== selfId && !existing.some(e => e.predecessor_task_id === l.id))
+  const taken = new Set([
+    ...existing.map(e => e.predecessor_task_id),
+    ...pending.map(p => p.predecessor_task_id),
+  ])
+  // A picker must not offer to add what it is already showing you.
+  const available = lines.filter(l => l.id !== selfId && !taken.has(l.id))
 
-  async function add() {
-    // Asked at the FIELD with the same rule the route uses. A server's answer
-    // can only arrive as a message about a whole request that did not happen.
-    if (!predecessor) { setProblem('Pick the trade this one waits for.') ; return }
+  function add() {
+    // Asked at the FIELD, with our own words.
+    if (!predecessor) { setProblem('Pick the trade this one waits for.'); return }
     const pct = progress.trim() === '' ? null : Number(progress)
     if (pct != null && (!Number.isFinite(pct) || pct < 0 || pct > 100)) {
-      setProblem('How far along has to be between 0 and 100.'); return
+      setProblem('How far along has to be a number between 0 and 100.'); return
     }
-    const lagDays = Number(lag || 0)
-    if (!Number.isInteger(lagDays) || lagDays < 0) { setProblem('Lag has to be a whole number of days.'); return }
+    const lagDays = lag.trim() === '' ? 0 : Number(lag)
+    if (!Number.isInteger(lagDays) || lagDays < 0) {
+      setProblem('Days to wait has to be a whole number, 0 or more.'); return
+    }
 
-    setProblem(null); setSaving(true)
-    try {
-      const err = await onAdd({ predecessor_task_id: predecessor, min_predecessor_progress: pct, lag_days: lagDays })
-      if (err) { setProblem(err); return }
-      setPredecessor(''); setProgress(''); setLag('0'); setOpen(false)
-    } finally { setSaving(false) }
+    setProblem(null)
+    onStage({
+      predecessor_task_id: predecessor,
+      min_predecessor_progress: pct,
+      lag_days: lagDays,
+      predecessorName: lines.find(l => l.id === predecessor)?.name ?? 'that line',
+    })
+    setPredecessor(''); setProgress(''); setLag(''); setOpen(false)
   }
 
   async function addPlaceholder() {
     const trade = placeholderTrade.trim()
     if (!trade) { setProblem('Give the trade a name.'); return }
-    setProblem(null); setSaving(true)
+    setProblem(null); setSavingPlaceholder(true)
     try {
       const line = await onAddPlaceholder(trade)
       if (line) { setPredecessor(line.id); setPlaceholderTrade(''); setAddingPlaceholder(false) }
       else setProblem('Could not add that line.')
-    } finally { setSaving(false) }
+    } finally { setSavingPlaceholder(false) }
   }
 
-  const field = 'w-full rounded-lg border border-muted2 bg-panel px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none'
+  /** "until Framing is 80% done, then 2 days" - the link in one sentence. */
+  function describe(d: { predecessorName: string; min_predecessor_progress: number | null; lag_days: number }) {
+    const bits = [
+      d.min_predecessor_progress != null
+        ? `until ${d.predecessorName} is ${d.min_predecessor_progress}% done`
+        : `until ${d.predecessorName} finishes`,
+    ]
+    if (d.lag_days > 0) bits.push(`then ${d.lag_days} ${d.lag_days === 1 ? 'day' : 'days'} later`)
+    return bits.join(', ')
+  }
+
+  const field = 'rounded-lg border border-muted2 bg-panel px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none'
+  const nothingLinked = existing.length === 0 && pending.length === 0
 
   return (
     <div className="rounded-xl border border-line bg-surface p-3">
@@ -94,29 +143,44 @@ export function DependencyPicker({
           <Link2 className="h-4 w-4 text-muted-fg" />
           Depends on another trade?
         </h3>
-        {!open && (
-          <button type="button" onClick={() => setOpen(true)}
-            className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-line px-2.5 py-1.5 text-xs font-medium text-ink hover:bg-panel">
+        {!open && available.length > 0 && (
+          <button type="button" onClick={() => { setOpen(true); setProblem(null) }}
+            className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg border border-line bg-panel px-2.5 py-1.5 text-xs font-medium text-ink hover:bg-surface">
             <Plus className="h-3.5 w-3.5" /> Add
           </button>
         )}
       </div>
 
-      {existing.length > 0 && (
+      {(existing.length > 0 || pending.length > 0) && (
         <ul className="mt-2 divide-y divide-line-soft rounded-lg border border-line bg-panel">
-          {existing.map(d => (
-            <li key={d.id} className="flex min-w-0 items-center justify-between gap-2 px-3 py-2">
-              <div className="min-w-0">
-                <p className="truncate text-sm text-ink">Waits for {d.predecessorName}</p>
-                <p className="text-xs text-muted-fg">
-                  {d.min_predecessor_progress != null ? `until it is ${d.min_predecessor_progress}% along` : 'until it finishes'}
-                  {d.lag_days > 0 && `, then ${d.lag_days} ${d.lag_days === 1 ? 'day' : 'days'} later`}
+          {existing.map(d => {
+            const marked = removing.includes(d.id)
+            return (
+              <li key={d.id} className="flex min-w-0 items-center justify-between gap-2 px-3 py-2">
+                <p className={`min-w-0 truncate text-sm ${marked ? 'text-faint line-through' : 'text-ink'}`}>
+                  Waits {describe(d)}
                 </p>
-              </div>
-              {/* No hover-reveal: there is no hover on a phone, and invisible
-                  is indistinguishable from absent. */}
-              <button type="button" onClick={() => onRemove(d.id)} aria-label={`Unlink ${d.predecessorName}`} title="Unlink"
-                className="shrink-0 rounded-lg p-2 text-muted-fg hover:bg-surface hover:text-danger">
+                {marked ? (
+                  <button type="button" onClick={() => onUndoRemoval(d.id)}
+                    className="shrink-0 whitespace-nowrap rounded-lg px-2 py-1 text-xs font-medium text-accent-fg hover:bg-surface">
+                    Undo
+                  </button>
+                ) : (
+                  <button type="button" onClick={() => onStageRemoval(d.id)}
+                    aria-label={`Remove the link to ${d.predecessorName}`} title="Remove"
+                    className="shrink-0 rounded-lg p-2 text-muted-fg hover:bg-surface hover:text-danger">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
+              </li>
+            )
+          })}
+          {pending.map(d => (
+            <li key={d.predecessor_task_id} className="flex min-w-0 items-center justify-between gap-2 bg-surface px-3 py-2">
+              <p className="min-w-0 truncate text-sm text-ink">Waits {describe(d)}</p>
+              <button type="button" onClick={() => onUnstage(d.predecessor_task_id)}
+                aria-label={`Remove the link to ${d.predecessorName}`} title="Remove"
+                className="shrink-0 rounded-lg p-2 text-muted-fg hover:bg-panel hover:text-danger">
                 <Trash2 className="h-4 w-4" />
               </button>
             </li>
@@ -125,39 +189,40 @@ export function DependencyPicker({
       )}
 
       {open && (
-        <div className="mt-3 space-y-2">
-          <div>
-            <label htmlFor="dep-pred" className="mb-1 block text-sm font-medium text-muted-fg lg:text-xs">
-              Waits for *
+        <div className="mt-3 space-y-3">
+          <div className="space-y-1.5">
+            <label htmlFor="dep-pred" className="block text-sm font-medium text-muted-fg lg:text-xs">
+              Waits for <span className="text-danger">*</span>
             </label>
-            {/* Starts EMPTY. A useState default on a required select is a claim,
-                and it disarms the `required` beside it. */}
-            <select id="dep-pred" className={field} value={predecessor} onChange={e => setPredecessor(e.target.value)}>
+            {/* Starts EMPTY. A useState default on a required select is a claim. */}
+            <select id="dep-pred" className={`w-full ${field}`} value={predecessor}
+              onChange={e => setPredecessor(e.target.value)}>
               <option value="">-- Select --</option>
               {available.map(l => (
                 <option key={l.id} value={l.id}>
-                  {l.name} ({l.start_date} to {l.end_date}){l.hasSub ? '' : ' - no sub yet'}
+                  {l.name} ({formatDateShort(l.start_date)} to {formatDateShort(l.end_date)}){l.hasSub ? '' : ' - no sub yet'}
                 </option>
               ))}
             </select>
           </div>
 
           {!addingPlaceholder ? (
-            <button type="button" onClick={() => setAddingPlaceholder(true)}
-              className="text-xs font-medium text-accent-fg hover:underline">
-              The trade I need has no line yet
+            <button type="button" onClick={() => { setAddingPlaceholder(true); setProblem(null) }}
+              className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-line bg-panel px-2.5 py-1.5 text-xs font-medium text-ink hover:bg-surface">
+              <Plus className="h-3.5 w-3.5" /> The trade I need is not in the list
             </button>
           ) : (
             <div className="rounded-lg border border-line bg-panel p-2">
               <label htmlFor="dep-placeholder" className="mb-1 block text-sm font-medium text-muted-fg lg:text-xs">
-                Trade name * (dates TBD - you can set them later)
+                Trade name <span className="text-danger">*</span>
+                <span className="font-normal"> - dates TBD, you can set them later</span>
               </label>
               <div className="flex gap-2">
-                <input id="dep-placeholder" className={field} value={placeholderTrade} placeholder="Sheetrock"
+                <input id="dep-placeholder" className={`w-full ${field}`} value={placeholderTrade} placeholder="Sheetrock"
                   onChange={e => setPlaceholderTrade(e.target.value)} />
-                <button type="button" onClick={addPlaceholder} disabled={saving}
+                <button type="button" onClick={addPlaceholder} disabled={savingPlaceholder}
                   className="shrink-0 whitespace-nowrap rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-accent-ink hover:opacity-90 disabled:opacity-60">
-                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add line'}
+                  {savingPlaceholder ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add line'}
                 </button>
                 <button type="button" onClick={() => { setAddingPlaceholder(false); setPlaceholderTrade('') }}
                   aria-label="Cancel adding a line" title="Cancel"
@@ -168,42 +233,62 @@ export function DependencyPicker({
             </div>
           )}
 
-          <div className="row-even lg:flex lg:gap-2">
-            <div>
-              <label htmlFor="dep-progress" className="mb-1 block text-sm font-medium text-muted-fg lg:text-xs">
-                How far along? (optional)
-              </label>
-              <input id="dep-progress" type="number" min={0} max={100} className={field}
-                value={progress} placeholder="e.g. 80" onChange={e => setProgress(e.target.value)} />
-            </div>
-            <div>
-              <label htmlFor="dep-lag" className="mb-1 block text-sm font-medium text-muted-fg lg:text-xs">
-                Days in between (optional)
-              </label>
-              <input id="dep-lag" type="number" min={0} className={field}
-                value={lag} onChange={e => setLag(e.target.value)} />
+          {/* THE TWO OPTIONAL FIELDS, each finishing its own sentence, under a
+              heading that says what leaving them alone means. */}
+          <div className="rounded-lg border border-line-soft bg-panel p-2.5">
+            <p className="text-xs text-muted-fg">
+              Leave these alone and this line simply waits for that one to finish.
+            </p>
+            <div className="mt-2 space-y-2">
+              <div className="flex flex-wrap items-center gap-2 text-sm text-ink">
+                <label htmlFor="dep-progress" className="whitespace-nowrap">Do not start until they are</label>
+                <span className="inline-flex items-center gap-1">
+                  <input id="dep-progress" type="number" min={0} max={100} inputMode="numeric"
+                    className={`w-20 ${field}`} value={progress} placeholder="80"
+                    onChange={e => setProgress(e.target.value)} />
+                  <span className="text-muted-fg">%</span>
+                </span>
+                <span className="whitespace-nowrap">done</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-sm text-ink">
+                <label htmlFor="dep-lag" className="whitespace-nowrap">Then wait</label>
+                <input id="dep-lag" type="number" min={0} inputMode="numeric"
+                  className={`w-20 ${field}`} value={lag} placeholder="0"
+                  onChange={e => setLag(e.target.value)} />
+                <span className="whitespace-nowrap">days before starting</span>
+              </div>
             </div>
           </div>
 
           {problem && <p className="text-xs text-danger">{problem}</p>}
 
           <div className="row-even lg:flex lg:justify-end lg:gap-2">
-            {/* Disabled only for IN FLIGHT. A greyed-out button explains
-                nothing; let it fire and answer with the missing field. */}
-            <button type="button" onClick={add} disabled={saving}
-              className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink hover:opacity-90 disabled:opacity-60">
-              {saving && <Loader2 className="h-4 w-4 animate-spin" />} Link
+            {/* Not a save. It adds the link to the list above; "Save Changes"
+                at the bottom of the dialog is what writes anything. */}
+            <button type="button" onClick={add}
+              className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink hover:opacity-90">
+              Add this link
             </button>
-            <button type="button" onClick={() => { setOpen(false); setProblem(null) }} disabled={saving}
-              className="whitespace-nowrap rounded-lg border border-line px-4 py-2.5 text-sm font-medium text-ink hover:bg-panel disabled:opacity-60">
+            <button type="button" onClick={() => { setOpen(false); setProblem(null) }}
+              className="whitespace-nowrap rounded-lg border border-line bg-panel px-4 py-2.5 text-sm font-medium text-ink hover:bg-surface">
               Cancel
             </button>
           </div>
         </div>
       )}
 
-      {!open && existing.length === 0 && (
-        <p className="mt-1 text-xs text-muted-fg">Nothing - it can start whenever it is scheduled.</p>
+      {!open && nothingLinked && (
+        <p className="mt-1 text-xs text-muted-fg">
+          {available.length === 0
+            ? 'There is nothing else on this schedule to wait for yet.'
+            : 'Nothing - it can start whenever it is scheduled.'}
+        </p>
+      )}
+
+      {(pending.length > 0 || removing.length > 0) && (
+        <p className="mt-2 text-xs text-muted-fg">
+          Not saved yet - press Save Changes below.
+        </p>
       )}
     </div>
   )

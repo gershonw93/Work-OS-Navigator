@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { CascadeReview, type CascadeMove, type CascadeSkip, type AffectedSub } from '@/components/schedule/cascade-review'
-import { DependencyPicker, type PickableLine, type ExistingDependency } from '@/components/schedule/dependency-picker'
+import { DependencyPicker, type PickableLine, type ExistingDependency, type PendingDependency } from '@/components/schedule/dependency-picker'
 import { useRouter } from 'next/navigation'
 import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { Plus, X, CalendarDays, Pencil, Trash2, Building2, Flag, ChevronLeft, ChevronRight, GanttChartSquare, List, CalendarRange, AlertCircle } from 'lucide-react'
@@ -164,6 +164,11 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
   // stands between a date change and a sub's inbox.
   const guardDelete = useDeleteGuard()
   const [deps, setDeps] = useState<ExistingDependency[]>([])
+  // NOTHING in the dependency picker saves on its own. Links built there are
+  // staged here and written by Save Changes, and a saved link somebody removes
+  // is staged too - one dialog, one save, and Cancel really cancels.
+  const [pendingDeps, setPendingDeps] = useState<PendingDependency[]>([])
+  const [removingDeps, setRemovingDeps] = useState<string[]>([])
   const [pending, setPending] = useState<
     { moves: CascadeMove[]; skipped: CascadeSkip[]; affected: AffectedSub[]; start: string; end: string } | null
   >(null)
@@ -396,6 +401,11 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     setEditSaving(true)
     setEditError(null)
     const token = await getToken()
+
+    // Links first: a cascade preview computed before they exist would show the
+    // wrong set of lines moving, and the review screen is the whole point.
+    const depProblem = await commitDependencies(editItem.id)
+    if (depProblem) { setEditSaving(false); setEditError(depProblem); return }
     // A DATE CHANGE IS NOT A FIELD EDIT. If the dates moved, ask what else
     // moves with them and show it BEFORE anything is written - the review
     // screen is the only thing standing between a slipped trade and a batch of
@@ -451,36 +461,51 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     })))
   }
 
-  /** Returns the route's own reason, or null when it worked. */
-  async function addDependency(input: { predecessor_task_id: string; min_predecessor_progress: number | null; lag_days: number }) {
-    if (!editItem) return 'Save this line first.'
+  /**
+   * Write the staged links. Returns the first reason it could not, or null.
+   *
+   * Run from `saveEdit`, never from the picker - the picker is a form, not a
+   * save button. Removals go first so freeing a pair cannot collide with the
+   * unique index when somebody swaps one link for another in a single sitting.
+   */
+  async function commitDependencies(itemId: string): Promise<string | null> {
+    if (!pendingDeps.length && !removingDeps.length) return null
     const token = await getToken()
-    const res = await fetch(`/api/projects/${params.id}/schedule/${editItem.id}/dependencies`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify(input),
-    })
-    if (!res.ok) {
-      const d = await res.json().catch(() => null)
-      // The route names the loop when it refuses one; showing its own sentence
-      // is the difference between "circular dependency" and knowing which link
-      // to cut.
-      const why = d?.error ?? `Could not link that (${res.status}).`
-      console.error('[schedule/deps]', why)
-      return why
-    }
-    await loadDeps(editItem.id)
-    return null
-  }
 
-  async function removeDependency(dependencyId: string) {
-    if (!editItem) return
-    const token = await getToken()
-    await fetch(`/api/projects/${params.id}/schedule/${editItem.id}/dependencies?dependency_id=${dependencyId}`, {
-      method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
-    })
-    // Unlinking changes no dates, per the spec - just reload the links.
-    await loadDeps(editItem.id)
+    for (const id of removingDeps) {
+      const res = await fetch(`/api/projects/${params.id}/schedule/${itemId}/dependencies?dependency_id=${id}`, {
+        method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => null)
+      if (!res || !res.ok) {
+        console.error('[schedule/deps] could not unlink', id)
+        return 'Could not remove one of the links. Nothing else was changed.'
+      }
+    }
+
+    for (const d of pendingDeps) {
+      const res = await fetch(`/api/projects/${params.id}/schedule/${itemId}/dependencies`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          predecessor_task_id: d.predecessor_task_id,
+          min_predecessor_progress: d.min_predecessor_progress,
+          lag_days: d.lag_days,
+        }),
+      }).catch(() => null)
+      if (!res || !res.ok) {
+        // The route NAMES the loop when it refuses one - showing its own
+        // sentence is the difference between "circular dependency" and knowing
+        // which link to cut.
+        const why = res ? (await res.json().catch(() => null))?.error : null
+        const reason = why ?? `Could not link ${d.predecessorName}.`
+        console.error('[schedule/deps]', reason)
+        return reason
+      }
+    }
+
+    setPendingDeps([]); setRemovingDeps([])
+    await loadDeps(itemId)
+    return null
   }
 
   /** A placeholder line: a trade and rough dates, nobody assigned yet. */
@@ -560,6 +585,9 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
   function openEdit(item: ScheduleItem) {
     setEditItem(item)
     setDeps([])
+    // Clearing these is what makes Cancel mean cancel: staged links from the
+    // last line opened would otherwise be written against this one.
+    setPendingDeps([]); setRemovingDeps([])
     loadDeps(item.id)
     setEditLabel(getLabel(item))
     setEditStart(item.start_date)
@@ -713,7 +741,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
           <div className="flex max-h-full w-full max-w-md min-w-0 flex-col overflow-hidden rounded-xl bg-panel shadow-xl">
             <div className="shrink-0 px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between">
               <h2 className="text-lg font-semibold text-ink">Edit Item</h2>
-              <button onClick={() => setEditItem(null)} className="text-faint hover:text-muted-fg"><X className="h-5 w-5" /></button>
+              <button onClick={() => { setEditItem(null); setPendingDeps([]); setRemovingDeps([]) }} aria-label="Close" title="Close" className="text-faint hover:text-muted-fg"><X className="h-5 w-5" /></button>
             </div>
             <form onSubmit={saveEdit} className="flex min-h-0 flex-1 flex-col">
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6 py-5 space-y-4">
@@ -737,9 +765,13 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                 <DependencyPicker
                   lines={pickableLines}
                   existing={deps}
+                  pending={pendingDeps}
+                  removing={removingDeps}
                   selfId={editItem?.id ?? null}
-                  onAdd={addDependency}
-                  onRemove={removeDependency}
+                  onStage={d => setPendingDeps(p => [...p, d])}
+                  onUnstage={id => setPendingDeps(p => p.filter(x => x.predecessor_task_id !== id))}
+                  onStageRemoval={id => setRemovingDeps(r => [...r, id])}
+                  onUndoRemoval={id => setRemovingDeps(r => r.filter(x => x !== id))}
                   onAddPlaceholder={addPlaceholder}
                 />
                 {!editItem.subcontract_id && (
@@ -773,7 +805,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                     of the dialog each and "Save Changes", which may not wrap,
                     ran out of both sides of its own button. */}
                 <div className="row-even lg:flex lg:flex-wrap gap-2 justify-end">
-                  <Button type="button" variant="secondary" onClick={() => { setEditItem(null); setEditError(null) }}>Cancel</Button>
+                  <Button type="button" variant="secondary" onClick={() => { setEditItem(null); setEditError(null); setPendingDeps([]); setRemovingDeps([]) }}>Cancel</Button>
                   <Button type="submit" disabled={editSaving}>{editSaving ? 'Saving...' : 'Save Changes'}</Button>
                 </div>
               </div>

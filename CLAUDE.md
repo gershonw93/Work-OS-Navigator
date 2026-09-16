@@ -617,6 +617,21 @@ Full detail: [`docs/postmortems/mobile.md`](docs/postmortems/mobile.md).
   unlabelled box. It is the same dialog as Add Milestone now, with marked
   labels and `missingSchedule` beside `missingMilestone` - one shape for every
   way a line reaches the schedule. Pinned in `schedule-cascade.ts`.
+- **ONE DIALOG, ONE SAVE - AND A NUMBER CARRIES ITS UNIT.** Reported in three
+  parts, all fair. "Why is it a 2 step": the dependency picker's Link button
+  wrote through its own route while Save Changes wrote the label and dates, so
+  one dialog had two buttons each saving a different half and Cancel after Link
+  left something behind. NOTHING in an embedded panel saves on its own now -
+  links are STAGED and Save Changes commits them, removals included, or the
+  dialog is honest in one direction and not the other. They commit BEFORE the
+  cascade preview, which would otherwise compute against links that do not
+  exist yet. "It doesn't say %": a number box labelled "How far along?" is a
+  number with no unit - the sign sits in the row, right after the field.
+  "Needs an or between the 2 options": two bare optional boxes side by side
+  state nothing about how they relate, so each FINISHES ITS OWN SENTENCE ("Do
+  not start until they are [80] % done", "Then wait [0] days before starting")
+  under a heading saying what leaving both alone means. Pinned in
+  `schedule-cascade.ts`.
 - A VALUE THE APP WRITES, SUBMITS AND READS BACK MUST HAVE A CONTROL SOMEWHERE.
   A field with no box is not a hidden implementation detail; it is a fact about
   the job that only a machine may write.

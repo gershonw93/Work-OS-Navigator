@@ -238,6 +238,63 @@ console.log('\nschedule-cascade')
     '...and nothing opens the bare POST row')
 }
 
+// ── one dialog, one save ─────────────────────────────────────────────────────
+{
+  const picker = code('components/schedule/dependency-picker.tsx')
+  const page = code('app/(dashboard)/projects/[id]/schedule/page.tsx')
+
+  // REPORTED: "why is it a 2 step". Adding a link wrote itself immediately
+  // through its own route while "Save Changes" saved the label and dates - two
+  // buttons in one dialog each saving a different half, and Cancel after Link
+  // left something written.
+  ok(!/fetch\(/.test(picker),
+    'THE REPORT: the picker makes NO request of its own - it is a form, not a save button')
+  ok(/onStage/.test(picker) && /onStageRemoval/.test(picker),
+    '...adding and removing are both STAGED, so the dialog is honest in both directions')
+  ok(/async function commitDependencies/.test(page),
+    '...and one function writes them, run from saveEdit')
+
+  // Links before the cascade preview, or the review screen shows the wrong set.
+  const save = page.slice(page.indexOf('async function saveEdit'))
+  const commitAt = save.indexOf('commitDependencies')
+  const previewAt = save.indexOf('/cascade')
+  ok(commitAt > -1 && previewAt > commitAt,
+    '...committed BEFORE the cascade preview, which would otherwise miss them')
+
+  // Cancel has to actually cancel now that things are staged.
+  ok((page.match(/setPendingDeps\(\[\]\); setRemovingDeps\(\[\]\)/g) ?? []).length >= 3,
+    'Cancel, the close button and opening another line all discard the staging')
+}
+
+// ── the unit is on the screen, and the two options read as sentences ─────────
+{
+  const picker = read('components/schedule/dependency-picker.tsx')
+
+  // REPORTED: "it doesnt say %". A number box labelled "How far along?" is a
+  // number with no unit anywhere near the value.
+  ok(/<span className="text-muted-fg">%<\/span>/.test(picker),
+    'THE REPORT: the % sign is in the row, right after the field')
+
+  // REPORTED: "how far along between needs a or between the 2 options". Two
+  // bare boxes side by side state nothing about how they relate.
+  ok(/Do not start until they are/.test(picker) && /done/.test(picker),
+    'the progress gate finishes its own sentence')
+  ok(/Then wait/.test(picker) && /days before starting/.test(picker),
+    '...and the lag finishes a different one')
+  ok(/Leave these alone and this line simply waits for that one to finish/.test(picker),
+    '...under a heading that says what leaving both blank means')
+  ok(!/How far along\? \(optional\)/.test(picker) && !/Days in between \(optional\)/.test(picker),
+    '...and neither is a bare "(optional)" label with no unit and no sentence')
+
+  // A saved link reads back as the same sentence rather than a field dump.
+  ok(/function describe\(/.test(code('components/schedule/dependency-picker.tsx')),
+    'a link in the list is described in words, not as its columns')
+
+  // The dates in the select were raw ISO, truncated mid-string by the control.
+  ok(/formatDateShort\(l\.start_date\)/.test(picker),
+    'the predecessor options print friendly dates, not 2026-07-06')
+}
+
 // ── the picker ───────────────────────────────────────────────────────────────
 {
   const picker = code('components/schedule/dependency-picker.tsx')
@@ -245,8 +302,14 @@ console.log('\nschedule-cascade')
     'the predecessor select starts EMPTY - a useState default on a required select is a claim')
   ok(/onAddPlaceholder/.test(picker),
     'THE SPEC: a trade with no line yet can be added inline rather than blocking')
-  ok(/disabled=\{saving\}/.test(picker) && !/disabled=\{!predecessor/.test(picker),
-    'the button is disabled only for in-flight, and answers with the missing field')
+  // "Add this link" does no network work any more - it stages - so there is
+  // nothing to be in flight for and it is never disabled. The one button that
+  // DOES make a request (adding a placeholder line) still guards itself, and
+  // nothing anywhere greys out over a field somebody has not filled in yet.
+  ok(!/disabled=\{!predecessor/.test(picker) && !/disabled=\{!progress/.test(picker),
+    'nothing is greyed out over an empty field - it fires and answers with what is missing')
+  ok(/disabled=\{savingPlaceholder\}/.test(picker),
+    '...and the one button that does make a request guards against a double press')
   ok(/aria-label=/.test(picker), 'the icon-only buttons are labelled')
   ok(!/opacity-0 group-hover/.test(picker), 'nothing is hover-revealed - there is no hover on a phone')
 }
