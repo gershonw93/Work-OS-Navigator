@@ -455,3 +455,50 @@ the gate cannot lock out the people it is for.
 - A batch that produced nothing deletes what it speculatively created, and says so.
 - A directory of routes is audited as a directory. Five of six missing the same
   guard is not five mistakes, it is one missing scan.
+
+## Replace was the only control, so a wrong upload was permanent
+
+> "Uploaded a appliance quote by finance. How do I remove it"
+
+They couldn't. Finance → Estimate takes a quote as a PDF, AI-scans it into
+`budget_line_items`, and from then on showed exactly one control: **Replace**.
+
+- `app/api/projects/[id]/quote/route.ts` exported `GET`, `POST` and `PATCH`.
+  No `DELETE`.
+- `projects.quote_file_url` was written in exactly one place and cleared in
+  none.
+- The generated lines render read-only — no edit, no per-row delete — under a
+  header that says they "also feed Budget & Progress".
+
+So an appliance quote uploaded against the wrong job sat in that job's budget
+permanently, and the only thing resembling an undo made it worse.
+
+**Replace was not an undo.** POST ran
+
+```js
+await db.from('budget_line_items').delete().eq('project_id', params.id)
+```
+
+— every budget line on the job — beneath a comment reading "Replace existing
+quote-derived line items". The comment described the intent; the code was
+wider. Hand-entered budget lines were collateral on every re-upload, which is
+the sort of thing nobody notices until the totals are wrong.
+
+**Why removal needed a guard rather than just a DELETE.** Six tables point at
+`budget_line_items`. Five are `ON DELETE SET NULL` — tasks, materials, pay-app
+lines, selections, client-invoice lines — and merely lose their link, which is
+recoverable by re-linking. `invoice_allocations` (migration 077) is
+**`ON DELETE CASCADE`**: money off a sub's bill that somebody mapped to a line
+would be destroyed with it, leaving nothing to say the mapping ever existed.
+That is the Budget page's unlinked change order again — money that reached
+nothing and was never named.
+
+So `estimateRemovalProblem` refuses on an allocation, on recorded cost, and on
+a commitment, and names the line and the amount rather than saying "cannot be
+removed" about a job with forty rows. The page asks the same function, so the
+reason sits on the control instead of arriving as a refused request — and the
+button is never merely greyed out, because a rule enforced by a disabled button
+is a rule nobody is told.
+
+Shipped with the `category = 'Quote'` scope applied to **both** deletes, so
+Replace stops taking hand-entered lines with it.

@@ -3,11 +3,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { Upload, FileText, Loader2, Sparkles, CheckCircle2, ExternalLink, Rocket } from 'lucide-react'
+import { Upload, FileText, Loader2, Sparkles, CheckCircle2, ExternalLink, Rocket, Trash2, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useNotice } from '@/components/ui/notice'
+import { useDeleteGuard } from '@/components/ui/delete-guard'
+import { estimateRemovalProblem, estimateRemovalSummary } from '@/lib/estimate-removal'
 
-interface Line { id: string; description: string; budgeted_amount: number; progress_pct: number; quantity: number | null; unit_price: number | null; section: string | null }
+interface Line { id: string; description: string; budgeted_amount: number; progress_pct: number; quantity: number | null; unit_price: number | null; section: string | null
+  category: string | null; committed_amount: number | null; actual_amount: number | null; allocation_count?: number | null }
 interface Stage { label: string; percent: number | null; amount: number | null; trigger?: string | null }
 interface QProject { status: string; quote_file_url: string | null; quote_file_name: string | null; quote_total: number | null; payment_terms: string | null; payment_stages: Stage[] | null }
 
@@ -15,6 +18,8 @@ const money = (n: number | null) => n == null ? '-' : `$${Number(n).toLocaleStri
 
 export default function QuotePage({ params }: { params: { id: string } }) {
   const notify = useNotice()
+  const guardDelete = useDeleteGuard()
+  const [removing, setRemoving] = useState(false)
   const supabase = createClient()
   const [project, setProject] = useState<QProject | null>(null)
   const [lines, setLines] = useState<Line[]>([])
@@ -62,6 +67,25 @@ export default function QuotePage({ params }: { params: { id: string } }) {
     else notify((await res.json().catch(() => ({}))).error ?? 'Could not read the quote')
   }
 
+  function removeEstimate() {
+    // The refusal is computed at the control too (see below), so this is the
+    // second half of the same answer rather than the first anyone hears.
+    guardDelete(async () => {
+      setRemoving(true)
+      const t = await token()
+      const res = await fetch(`/api/projects/${params.id}/quote`, {
+        method: 'DELETE', headers: { Authorization: `Bearer ${t}` },
+      })
+      setRemoving(false)
+      if (res.ok) load()
+      else notify((await res.json().catch(() => ({}))).error ?? 'Could not remove the estimate')
+    }, {
+      title: 'Remove this estimate?',
+      body: <>This removes {estimateRemovalSummary(lines, !!(project?.payment_stages?.length))}. Anything you added to the budget by hand stays. This can&apos;t be undone.</>,
+      confirmLabel: 'Remove estimate',
+    })
+  }
+
   async function convert() {
     setConverting(true)
     const t = await token()
@@ -77,6 +101,9 @@ export default function QuotePage({ params }: { params: { id: string } }) {
   if (loading) return <div className="text-sm text-faint py-12 text-center">Loading…</div>
 
   const isPending = project?.status === 'planning'
+  // Asked BEFORE the button is pressed. A server's refusal can only ever
+  // arrive as a message about a whole request that did not happen.
+  const removalProblem = estimateRemovalProblem(lines)
   const total = project?.quote_total ?? lines.reduce((s, l) => s + Number(l.budgeted_amount || 0), 0)
   const stages = project?.payment_stages ?? null
 
@@ -110,11 +137,25 @@ export default function QuotePage({ params }: { params: { id: string } }) {
           <a href={project.quote_file_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-sm text-accent-fg hover:underline">
             <FileText className="h-4 w-4" /> {project.quote_file_name ?? 'Quote'} <ExternalLink className="h-3 w-3" />
           </a>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-fg">Total <span className="font-bold text-ink">{money(total)}</span></span>
+          {/* The Total is a LABEL beside the controls, so the button GROUP is
+              the row - `.row-even` on the pair, not on the three together. */}
+          <div className="flex w-full items-center gap-3 sm:w-auto">
+            <span className="shrink-0 text-sm text-muted-fg">Total <span className="font-bold text-ink">{money(total)}</span></span>
+            <div className="row-even w-full flex-1 gap-2 lg:flex lg:w-auto lg:flex-none">
             <Button size="sm" variant="outline" disabled={uploading} onClick={() => fileRef.current?.click()}>
               {uploading ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Reading…</> : <><Upload className="h-3.5 w-3.5" /> Replace</>}
             </Button>
+            {/* THE CONTROL THAT WAS NEVER HERE. Replace was the only one, so a
+                quote uploaded to the wrong job could not be taken off it -
+                reported as "uploaded a appliance quote by finance, how do I
+                remove it". Not disabled when it cannot run: a greyed-out
+                button is a rule nobody is ever told. */}
+            <Button size="sm" variant="outline" disabled={removing || uploading}
+              onClick={() => removalProblem ? notify(removalProblem) : removeEstimate()}
+              className="text-danger border-danger/30 hover:bg-danger-tint">
+              {removing ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Removing…</> : <><Trash2 className="h-3.5 w-3.5" /> Remove</>}
+            </Button>
+            </div>
           </div>
         </div>
       ) : (
@@ -124,6 +165,16 @@ export default function QuotePage({ params }: { params: { id: string } }) {
           <p className="text-sm font-medium text-ink-soft">{uploading ? 'Reading your quote…' : 'Upload your quote (PDF or photo)'}</p>
           <p className="text-xs text-faint mt-1 inline-flex items-center gap-1"><Sparkles className="h-3 w-3" /> AI scans it into line items automatically</p>
         </button>
+      )}
+
+      {project?.quote_file_url && (
+        removalProblem
+          ? <p className="flex items-start gap-1.5 text-xs text-warn -mt-3">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-px" /> {removalProblem}
+            </p>
+          : <p className="text-xs text-faint -mt-3">
+              Replacing re-reads the file and rewrites the line items below. Budget lines you added by hand are not touched.
+            </p>
       )}
 
       {/* Line items - grouped by section, with Qty / Unit / Amount columns */}

@@ -634,6 +634,23 @@ export const HELP_ARTICLES: HelpArticle[] = [
     related: ['add-project-budget', 'estimate-proposal', 'budget-templates', 'project-tabs-explained'],
   },
   {
+    slug: 'estimate-upload',
+    title: 'Upload an estimate - and remove one you uploaded by mistake',
+    category: 'money',
+    keywords: ['estimate', 'quote', 'upload', 'scan', 'ai', 'line items', 'remove', 'remove estimate',
+      'delete estimate', 'delete quote', 'wrong file', 'wrong quote', 'uploaded by mistake', 'undo upload',
+      'replace quote', 'take it off', 'appliance quote'],
+    summary: 'Upload a quote on the Estimate tab, and how to take it back off if it was the wrong one.',
+    blocks: [
+      { type: 'text', text: 'Finance > Estimate takes a quote as a PDF or a photo and reads it into line items automatically - descriptions, quantities, unit prices and the payment schedule. Those line items are the job\'s budget: they feed the Budget and Progress tabs, so an estimate uploaded to the wrong job shows up in that job\'s money.' },
+      { type: 'text', text: 'REMOVING ONE. Press Remove next to the file. It asks you to confirm, and tells you exactly what goes: the file, the line items it created, and the payment schedule. Budget lines you typed in yourself are not touched.' },
+      { type: 'warn', text: 'Remove will refuse if money is already attached to one of those line items - a bill allocated against it, or cost recorded on it. It names the line so you can move that somewhere else first. This is deliberate: deleting the line would take the allocation with it and there would be no record left that the money was ever mapped.' },
+      { type: 'text', text: 'REPLACING ONE. If you just have a newer version of the same quote, use Replace instead - it re-reads the file and rewrites the line items it had created before. Anything you added to the budget by hand stays where it is.' },
+      { type: 'tip', text: 'Removing an estimate does not change the job\'s status. A job you already marked Active stays active - you are taking the paperwork off, not un-winning the work.' },
+    ],
+    related: ['estimate-proposal', 'add-project-budget'],
+  },
+  {
     slug: 'estimate-proposal',
     title: 'Turn a budget into a client proposal (estimate)',
     category: 'money',

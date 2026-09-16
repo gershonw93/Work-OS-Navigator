@@ -82,6 +82,28 @@ const AUTHORED: Release[] = [
   },
   {
     date: '2026-09-16',
+    title: 'Remove an estimate you uploaded by mistake',
+    items: [
+      {
+        kind: 'new',
+        title: 'The Estimate tab has a Remove button',
+        text: 'Uploading a quote to Finance > Estimate used to be one-way: the only control afterwards was Replace, so a quote sent to the wrong job stayed there - and its line items went on feeding that job\u2019s Budget and Progress. There is a Remove beside Replace now. It tells you what it is about to take (the file, the line items, the payment schedule) and leaves budget lines you typed in yourself alone.',
+        help: 'estimate-upload',
+      },
+      {
+        kind: 'improved',
+        title: 'Remove says no when money is attached',
+        text: 'If a bill has been allocated against one of the estimate\u2019s line items, or cost has been recorded on it, Remove refuses and names the line. Deleting it would have taken the allocation with it and left nothing to show the money was ever mapped there.',
+      },
+      {
+        kind: 'fixed',
+        title: 'Replacing a quote no longer wipes budget lines you added yourself',
+        text: 'Uploading a new quote deleted every line on the job\u2019s budget before writing the scanned ones - including lines you had typed in by hand, which the quote knows nothing about. It now replaces only the lines the previous scan created.',
+      },
+    ],
+  },
+  {
+    date: '2026-09-16',
     title: 'Uploaded quotes say what they are',
     items: [
       {
@@ -152,7 +174,7 @@ const AUTHORED: Release[] = [
       {
         kind: 'new',
         title: 'Plans and prices are published',
-        text: 'Settings \u2192 Billing and the pricing page now show what each plan will cost: $99, $199 or $399 a month, depending on how many projects you have running at once. Paying annually is ten months for twelve. Every plan is the whole product - you are only buying project capacity, so there is no feature locked behind a higher tier.',
+        text: 'Settings > Billing and the pricing page now show what each plan will cost: $99, $199 or $399 a month, depending on how many projects you have running at once. Paying annually is ten months for twelve. Every plan is the whole product - you are only buying project capacity, so there is no feature locked behind a higher tier.',
         help: 'plans-and-pricing',
         href: '/settings',
       },
@@ -165,7 +187,7 @@ const AUTHORED: Release[] = [
       {
         kind: 'fixed',
         title: 'Billing showed three plans that did not exist',
-        text: 'Settings \u2192 Billing was offering Starter, Pro and Enterprise with $49 a month on the middle one, which was never a real price or a real set of tiers. It now shows the same three plans as the website, from one list, so the two can never disagree again.',
+        text: 'Settings > Billing was offering Starter, Pro and Enterprise with $49 a month on the middle one, which was never a real price or a real set of tiers. It now shows the same three plans as the website, from one list, so the two can never disagree again.',
         href: '/settings',
       },
       {
@@ -227,7 +249,7 @@ const AUTHORED: Release[] = [
       },
       {
         kind: 'new',
-        title: 'Client Portal Link in Settings \u2192 Permissions',
+        title: 'Client Portal Link in Settings > Permissions',
         text: 'A new row you can grant or take away per role or per person, with three levels: see the link, create one on a job that has none, and replace an existing one. Admins, managers, project managers and office staff have all three by default.',
         href: '/settings',
       },
@@ -436,7 +458,7 @@ const AUTHORED: Release[] = [
       {
         kind: 'new',
         title: 'Told two days before, when the work is not ready',
-        text: 'Until now nothing warned you: an inspection booked for Friday that nobody had marked ready was silent right up to the morning the inspector turned up. Two days out you get told, with time to finish the work or ring the jurisdiction and move the trip. Marking it ready silences it. Who hears is yours to set in Settings \u2192 Notifications \u2192 Who gets told, and each person has their own bell and email switches for it.',
+        text: 'Until now nothing warned you: an inspection booked for Friday that nobody had marked ready was silent right up to the morning the inspector turned up. Two days out you get told, with time to finish the work or ring the jurisdiction and move the trip. Marking it ready silences it. Who hears is yours to set in Settings > Notifications > Who gets told, and each person has their own bell and email switches for it.',
         help: 'inspections',
       },
       {
@@ -697,7 +719,7 @@ const AUTHORED: Release[] = [
       {
         kind: 'improved',
         title: '\u201cView as\u201d moved to Settings',
-        text: 'The role preview was a strip in the top bar of every page, which is a lot of room for something most people never touch. It now lives at the top of Settings \u2192 Permissions, beside the grid it demonstrates. It works exactly as it did, and the orange banner still tells you when you are previewing and gets you back out.',
+        text: 'The role preview was a strip in the top bar of every page, which is a lot of room for something most people never touch. It now lives at the top of Settings > Permissions, beside the grid it demonstrates. It works exactly as it did, and the orange banner still tells you when you are previewing and gets you back out.',
         help: 'permissions',
         href: '/settings?tab=permissions',
       },

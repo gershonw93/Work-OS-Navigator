@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server'
 import { requirePermission, denied } from '@/lib/api-guard'
 import { guardActivation } from '@/lib/activation-check'
 import { budgetAmount } from '@/lib/validate'
+import { estimateRemovalProblem, QUOTE_CATEGORY } from '@/lib/estimate-removal'
 
 export const runtime = 'nodejs'
 
@@ -96,6 +97,21 @@ export async function GET(request: Request, { params }: { params: { id: string }
     const byLine = new Map((tasks ?? []).map((t: any) => [t.budget_line_item_id, t]))
     for (const l of lines ?? []) (l as any).task = byLine.get((l as any).id) ?? null
   }
+  // How much of somebody else's money is pinned to each line. The page needs
+  // this to say WHY the estimate cannot be removed at the control, instead of
+  // only after a request comes back refused. Same shape as the task attach
+  // above. `invoice_allocations` is ON DELETE CASCADE - see lib/estimate-removal.
+  if (lineIds.length) {
+    const { data: allocs } = await db.from('invoice_allocations')
+      .select('budget_line_item_id').in('budget_line_item_id', lineIds)
+    const n = new Map<string, number>()
+    for (const a of allocs ?? []) {
+      const k = (a as any).budget_line_item_id
+      n.set(k, (n.get(k) ?? 0) + 1)
+    }
+    for (const l of lines ?? []) (l as any).allocation_count = n.get((l as any).id) ?? 0
+  }
+
   // Backfill structured stages from the raw terms text for quotes scanned before stages existed.
   if (project && !(project as any).payment_stages && (project as any).payment_terms) {
     ;(project as any).payment_stages = parseTerms((project as any).payment_terms)
@@ -199,7 +215,12 @@ export async function POST(request: Request, { params }: { params: { id: string 
         error: `"${misread.description ?? 'A line'}" was read as ${lineAmount(misread)}. Check that line on the quote and try again.`,
       }, { status: 400 })
     }
-    await db.from('budget_line_items').delete().eq('project_id', params.id)
+    // `.eq('category', QUOTE_CATEGORY)` - the comment above has always said
+    // "quote-derived", and the code took every budget line on the job. A
+    // re-upload destroyed hand-entered lines that this scan knows nothing
+    // about, and Replace was the only control there was, so that was also the
+    // only way anyone had to undo a wrong upload.
+    await db.from('budget_line_items').delete().eq('project_id', params.id).eq('category', QUOTE_CATEGORY)
     const rows = items.map((it, idx) => ({
       project_id: params.id,
       category: 'Quote',
@@ -274,4 +295,69 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     return NextResponse.json({ ok: true })
   }
   return NextResponse.json({ error: 'Nothing to do' }, { status: 400 })
+}
+
+// DELETE - take the uploaded estimate back off the job.
+//
+// THE GAP THIS FILLS. This route had GET, POST and PATCH, and
+// `projects.quote_file_url` was written in exactly one place and cleared in
+// none - so an estimate uploaded by mistake could only ever be REPLACED, and
+// the line items it scanned in went on feeding Budget and Progress for ever.
+// Reported as "uploaded a appliance quote by finance - how do I remove it".
+//
+// Same gate as POST and PATCH. Replace already rewrites the job's
+// quote-derived budget lines, so removal is not a heavier power than the one
+// next to it; inventing a resource for it would be drawing a distinction the
+// existing controls do not make.
+//
+// The project's STATUS is deliberately untouched. A job that was won and made
+// active did not become un-won because the paperwork was filed wrong.
+export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+  const gate = await requirePermission(admin(), request, 'quotes', 'edit')
+  if (denied(gate)) return gate.denied
+
+  const user = await authUser(request)
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const db = admin()
+
+  // The rows the scan wrote, and whether anyone's money is pinned to them.
+  const { data: lines } = await db.from('budget_line_items')
+    .select('id, description, category, committed_amount, actual_amount')
+    .eq('project_id', params.id).eq('category', QUOTE_CATEGORY)
+
+  const ids = (lines ?? []).map((l: any) => l.id)
+  const counts = new Map<string, number>()
+  if (ids.length) {
+    // invoice_allocations is ON DELETE CASCADE, so these would go silently.
+    const { data: allocs } = await db.from('invoice_allocations')
+      .select('budget_line_item_id').in('budget_line_item_id', ids)
+    for (const a of allocs ?? []) {
+      const k = (a as any).budget_line_item_id
+      counts.set(k, (counts.get(k) ?? 0) + 1)
+    }
+  }
+
+  const problem = estimateRemovalProblem(
+    (lines ?? []).map((l: any) => ({ ...l, allocation_count: counts.get(l.id) ?? 0 })),
+  )
+  if (problem) return NextResponse.json({ error: problem }, { status: 400 })
+
+  // The file itself, not just the row that points at it. The stored URL is
+  // signed for ten years, so clearing the column alone leaves the document
+  // readable by anyone who kept the link. Everything under the folder goes -
+  // each Replace left its predecessor behind.
+  const { data: files } = await db.storage.from('submittals').list(`${params.id}/quote`)
+  if (files?.length) {
+    await db.storage.from('submittals').remove(files.map(f => `${params.id}/quote/${f.name}`))
+  }
+
+  if (ids.length) await db.from('budget_line_items').delete().in('id', ids)
+
+  const { error } = await db.from('projects').update({
+    quote_file_url: null, quote_file_name: null, quote_total: null,
+    payment_terms: null, payment_stages: null,
+  }).eq('id', params.id)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  return NextResponse.json({ removed: true, lines_removed: ids.length })
 }

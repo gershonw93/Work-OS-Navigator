@@ -611,6 +611,24 @@ Full detail: [`docs/postmortems/mobile.md`](docs/postmortems/mobile.md).
 - A VALUE THE APP WRITES, SUBMITS AND READS BACK MUST HAVE A CONTROL SOMEWHERE.
   A field with no box is not a hidden implementation detail; it is a fact about
   the job that only a machine may write.
+- **AND REPLACE IS NOT REMOVE.** An upload that can only be overwritten cannot
+  be undone: Finance -> Estimate scanned a quote into budget line items and
+  offered nothing but Replace, so a quote uploaded to the wrong job stayed on
+  it for ever, feeding Budget and Progress. The route had `GET`/`POST`/`PATCH`
+  and no `DELETE`, and `projects.quote_file_url` was written in one place and
+  cleared in none. A destructive rewrite offered as the only control is not a
+  control - it is the same act with no way back. Clearing the column is not
+  enough either: the file's URL is signed for ten years, so the object goes
+  too. Story in `docs/postmortems/derived-state.md`, pinned in
+  `estimate-remove.ts`.
+- WHAT A DELETE CASCADES INTO DECIDES WHETHER IT MAY RUN AT ALL. Removing those
+  line items detaches five things harmlessly (`ON DELETE SET NULL`) and
+  DESTROYS one: `invoice_allocations` is `ON DELETE CASCADE`, so money off a
+  sub's bill that somebody mapped to a line would go with it, silently.
+  `estimateRemovalProblem` (`lib/estimate-removal.ts`) refuses and NAMES the
+  line and the amount - and the screen asks it too, so the refusal is on the
+  control rather than arriving as a failed request. Check the `ON DELETE` rule
+  of everything pointing at a row before writing the delete that removes it.
 - A record that a client will read must not be blank. Guard on the ROUTE as well
   as the form, since the field app posts to the same route, and count evidence
   (a photo, who was there) as a report, not just words.
