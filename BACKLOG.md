@@ -557,3 +557,23 @@ belongs in its own pass rather than buried in this one.
 - Budget categories: 49 trades in build order + custom categories that persist across jobs (#217)
 - Project Settings: address-dropdown fix, billing method + square footage editable after setup (#216)
 - Preconstruction: hard/soft cost split on the budget (own section + subtotals + standard soft-cost starter list) and a planning-stage project menu that hides the site/billing tabs until the job goes Active
+
+## Schedule dependencies - deliberately out of V1
+
+Shipped in the dependencies change; these were named as out of scope and are
+not built:
+
+- **Auto progress tracking.** A percent is typed by hand or rolled up from
+  budget lines. Nothing watches the site and updates it.
+- **Gantt drag UI.** Dependencies are set in a dialog, not by dragging arrows
+  between bars.
+- **SMS.** Subs are told by email and the in-app bell only.
+
+Also noticed while building it and NOT done:
+
+- The cascade writes moved lines one at a time. A single RPC would make it
+  atomic; today a failure part-way leaves some lines moved and reports how many
+  failed, which is honest but not transactional.
+- `min_predecessor_progress` clearing does not fire the "you're unblocked"
+  email on its own - somebody has to open the schedule and send from the review
+  screen. A cron that notices cleared gates would close that loop.

@@ -55,6 +55,33 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 const AUTHORED: Release[] = [
   {
     date: '2026-09-16',
+    title: 'Schedule dependencies',
+    items: [
+      {
+        kind: 'new',
+        title: 'One trade slips, everything behind it moves',
+        text: 'A schedule line can now say what it waits for. When you move a date, everything that depends on it shifts by the same number of days - and everything behind that, all the way down. You get a "these moved" screen first, showing old dates, new dates and which subs are affected, and nothing is saved until you choose.',
+        href: '/projects',
+      },
+      {
+        kind: 'new',
+        title: 'Tell the subs, or move things quietly',
+        text: 'From that screen you can email every affected sub - one email each, listing all of their dates that moved and which trade pushed them - or shift silently. No email ever goes out without you pressing the button. Replies go straight to you.',
+      },
+      {
+        kind: 'new',
+        title: 'Depend on a trade you have not hired yet',
+        text: 'If the trade you need has no line yet, add a placeholder ("Sheetrock, dates TBD") without leaving the dialog. Other work can depend on it right away, and when you award the job to a real sub later, the link stays.',
+      },
+      {
+        kind: 'new',
+        title: 'Hold a trade until the one ahead is far enough along',
+        text: 'A dependency can say "not until framing is 80% done". You can type the percent yourself, or let it come from the budget lines. When it clears, the sub gets a "you are clear to start" email - after the same review screen.',
+      },
+    ],
+  },
+  {
+    date: '2026-09-16',
     title: 'Remove an estimate you uploaded by mistake',
     items: [
       {

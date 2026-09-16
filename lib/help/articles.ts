@@ -1474,10 +1474,21 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'schedule-milestones',
     title: 'Build a project schedule',
     category: 'field',
-    keywords: ['schedule', 'milestone', 'timeline', 'dates', 'gantt', 'plan', 'calendar', 'month view', 'inspection not on calendar', 'why cant i see', 'booked inspection missing', 'tasks on calendar', 'tap a day', 'day summary', 'dots', 'calendar on phone', 'text overflow', 'cant read the calendar'],
+    keywords: ['schedule', 'milestone', 'timeline', 'dates', 'gantt', 'plan', 'calendar', 'month view', 'inspection not on calendar', 'why cant i see', 'booked inspection missing', 'tasks on calendar', 'tap a day', 'day summary', 'dots', 'calendar on phone', 'text overflow', 'cant read the calendar', 'dependency', 'depends on', 'waits for', 'cascade', 'shift dates', 'trade moved', 'notify subs', 'placeholder', 'phases', 'blocked', 'percent complete', 'lag', 'chain'],
     summary: 'Lay out milestones and see when each phase happens.',
     blocks: [
       { type: 'text', text: 'The Schedule tab auto-populates from awarded bids, and you can add milestones by hand.' },
+      { type: 'text', text: 'WHEN ONE TRADE SLIPS, EVERYTHING BEHIND IT MOVES. Open a schedule line and, under the dates, answer "Depends on another trade?". Pick the line it waits for. From then on, moving that line by three days moves this one by three days - and anything waiting on THIS one, all the way down the chain.' },
+      { type: 'steps', items: [
+        'Open the line and change its dates.',
+        'A screen lists everything that moves: each trade, its old dates, its new dates, and which sub is on it.',
+        'Choose "Notify subs" to email everyone affected, or "Shift silently" to move the dates without telling anyone.',
+        'Cancel moves nothing at all.',
+      ] },
+      { type: 'text', text: 'ONE EMAIL PER SUB, NOT PER LINE. A sub with two phases on your job - electrical rough-in and finish - gets one email listing both, saying what moved and which trade pushed it. Replies come straight back to you.' },
+      { type: 'text', text: 'THE TRADE YOU NEED HAS NO LINE YET? Add a placeholder from inside the dialog - a trade name and rough dates, nobody assigned. Other work can depend on it immediately, and when you award that trade to a real sub the link stays put.' },
+      { type: 'text', text: 'A TRADE CAN ALSO WAIT ON PROGRESS, not just a finish date: "not until framing is 80% done". Type the percent on the framing line as it goes, or let it come from that sub\'s budget lines. Until somebody says how far along it is, the trade behind stays blocked and says so - SyteNav will not tell a crew to turn up based on a number nobody has entered.' },
+      { type: 'warn', text: 'A LINE YOU EDIT BY HAND STOPS FOLLOWING. Once you set a date yourself, later cascades leave that line alone and tell you they did - your decision beats the arithmetic. Re-link it from its own row when you want it following again.' },
       { type: 'steps', items: [
         'Open the project and go to the Schedule tab.',
         'Click Add Milestone.',

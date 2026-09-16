@@ -219,6 +219,29 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
 
   // ── Compliance ────────────────────────────────────────────────────────────
   {
+    // The sub is the one whose van has to be somewhere on a different day, so
+    // this is 'direct' - it goes to them, not to a configurable team audience.
+    // Email ON by default: a date change somebody finds out about at their next
+    // login is a crew standing on a site, which is the whole thing this feature
+    // exists to stop.
+    //
+    // AND IT IS IN THIS CATALOG BECAUSE IT HAS TO BE. A cron or a route sending
+    // under a type the catalog has never heard of is a notification nobody can
+    // turn off or redirect, and `notify()` refuses an unknown type outright.
+    key: 'schedule_shifted', label: 'My dates moved', group: 'Work',
+    description: 'A trade you are waiting on moved, so your start moved with it.',
+    // No `alsoTold`: a 'direct' event's recipient IS the event - the sub whose
+    // dates moved. The pin in inspection-audience.ts caught this one.
+    audience: 'direct',
+    defaults: { inApp: true, email: true }, push: true, status: 'live',
+  },
+  {
+    key: 'schedule_unblocked', label: "I'm unblocked", group: 'Work',
+    description: 'The trade ahead of you reached the point you were waiting for.',
+    audience: 'direct',
+    defaults: { inApp: true, email: true }, push: true, status: 'live',
+  },
+  {
     key: 'compliance_expiring', label: 'Document expiring', group: 'Compliance',
     description: 'An insurance certificate, licence or W-9 is within 30 days of expiry.',
     audience: 'team', defaultAudience: ['compliance', 'edit'],
