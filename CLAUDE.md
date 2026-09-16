@@ -707,7 +707,6 @@ Full detail: [`docs/postmortems/derived-state.md`](docs/postmortems/derived-stat
   the loop ("Drywall waits for Paint waits for Drywall"), because "circular
   dependency" tells nobody which link to cut. Pinned in
   `schedule-dependencies.ts` and `schedule-cascade.ts`.
-<<<<<<< HEAD
 - **AND A FEATURE REACHABLE FROM ONE DOOR IS UNREACHABLE FROM THE JOB THAT HAS
   NOT STARTED.** Reported as "i just see this / nothing republished", over the
   "vendors not yet scheduled" strip. The deploy was correct; the dependency
@@ -719,8 +718,6 @@ Full detail: [`docs/postmortems/derived-state.md`](docs/postmortems/derived-stat
   never the one the POST returns: that row carries no `subcontracts` join, and
   `scheduleLabel` reads the join, so the dialog would have said "Untitled".
   Pinned in `schedule-cascade.ts`, which asserts every creator reaches it.
-=======
->>>>>>> origin/main
 - **AND PROGRESS IS THREE ANSWERS, NOT A NUMBER.** `lineProgress` returns a
   percent AND its source: `entered` (somebody typed it), `budget` (rolled up
   from the subcontract's budget lines, weighted by AMOUNT - $90k at 10% beside
@@ -971,6 +968,16 @@ Full detail: [`docs/postmortems/failure-states.md`](docs/postmortems/failure-sta
   shipped past a clean tsc and a clean build and blanked the whole Pay Apps
   screen. The config is deliberately narrow (hooks + jsx-key, everything else
   off) so it never fails for a reason nobody would act on.
+- **A VERIFICATION SCOPED TO WHERE YOU EXPECT THE PROBLEM CANNOT FIND IT
+  ANYWHERE ELSE.** Git conflict markers shipped to main and to production,
+  sitting in THIS FILE. The resolution was right; the check was
+  `grep -rn "<<<<<<<" app components lib` - three directories, and CLAUDE.md is
+  at the repo ROOT. It reported clean, and the markers went out past a green
+  tsc, a green build and sixty passing suites, none of which read markdown.
+  `merge-markers.ts` now walks the WHOLE repo, every extension, and names
+  CLAUDE.md explicitly so a future narrowing of the walk cannot quietly stop
+  covering the root. After resolving any conflict, run `npm test` - not a grep
+  you typed from memory over the directories you happened to touch.
 - **Tests live in `lib/__tests__/` and run with `npm test`.** They used to be
   written into a session scratch directory, which meant nobody but the agent
   could run them, they were never in CI, and sixty-five of them vanished the
