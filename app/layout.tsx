@@ -50,6 +50,16 @@ export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: 'SyteNav',
   description,
+  // `<meta name="application-name">`, the Android and Windows-tile counterpart
+  // to `appleWebApp.title` below. The app is installable, so it should have
+  // one - and it now matches the manifest's `name` and the Apple title rather
+  // than being the one place with nothing.
+  //
+  // IT IS NOT A GOOGLE SITE-NAME SIGNAL, whatever a checklist says. Those are
+  // the WebSite node, og:site_name, the homepage <title> and its h1, all four
+  // of which are set and pinned in `lib/__tests__/site-name.ts`. Written down
+  // because this is the second time that advice has come round.
+  applicationName: 'SyteNav',
   openGraph: {
     type: 'website',
     siteName: 'SyteNav',

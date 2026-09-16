@@ -159,6 +159,20 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
 - `dateModified` is CONTENT DATA (`updated ?? published`), never `new Date()`.
   A build-time date restamps all ten articles on every deploy and tells a
   crawler the library was rewritten because a dependency changed.
+- **THE SITE NAME GOOGLE PRINTS COMES FROM FOUR SIGNALS ON THE HOMEPAGE**, and
+  nothing else: the `WebSite` node's `name`, `og:site_name`, the homepage
+  `<title>`, and its `h1`. With none of them Google guesses from what it has
+  crawled - it had crawled `work-os-navigator.vercel.app`, so it printed
+  "Vercel" beside the favicon. All four are set, and pinned in `site-name.ts`
+  along with the half that made the guess possible: the canonical origin cannot
+  fall back to a deployment URL, robots refuses every non-canonical host, and
+  the permanent production alias 301s rather than merely carrying a noindex -
+  with `/google<hex>.html` exempt, because a redirect on the verification file
+  makes it impossible to prove the duplicate is yours. `application-name` is NOT
+  one of the four, whatever a checklist says; it is set because the app is
+  installable. AND NONE OF IT IS INSTANT - the name changes when Google
+  re-crawls the homepage, days to weeks later, so the fix and the result are
+  separated by long enough that somebody will be tempted to "fix" it twice.
 - A factual claim about another product carries a LINK TO ITS OWN SOURCE and is
   worded as what that source says. If the source cannot be checked, the claim
   does not ship - `with implementation on top` was removed from the Procore
