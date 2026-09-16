@@ -123,4 +123,21 @@ ok(/alternates: \{ canonical: canonicalUrl\(path\) \}/.test(meta),
 ok(/ABSOLUTE/.test(read('components/marketing/meta.ts')),
   '...absolutely, because metadataBase falls back to the deployment URL when the env var is missing')
 
+// ── the sitemap does not lie about when things changed ──────────────────────
+// `lastmod` is content data. Every URL used to carry `new Date()`, so a deploy
+// that changed one dependency told Google the privacy policy and all ten guides
+// had just been rewritten - and Google says plainly that it ignores `lastmod`
+// once it stops matching reality, which costs the honest dates too. Exactly the
+// rule the guide pages already follow for `dateModified`; the sitemap was the
+// one place still stamping the clock, on everything at once.
+{
+  const sitemap = code('app/sitemap.ts')
+  ok(!/lastModified: new Date\(\)/.test(sitemap),
+    'THE BUILD CLOCK: no URL is stamped with the time the build happened to run')
+  ok(/lastModified: g\.updated \?\? g\.published/.test(sitemap),
+    'a guide sends its real content date, the same pair its own dateModified reads')
+  ok(/\.\.\.\(p\.lastModified \? \{ lastModified/.test(sitemap),
+    '...and a page with no real date sends NO lastmod, rather than an invented one')
+}
+
 done()

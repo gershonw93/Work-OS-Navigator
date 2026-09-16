@@ -158,7 +158,14 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
   different authors. The Organization stays the publisher.
 - `dateModified` is CONTENT DATA (`updated ?? published`), never `new Date()`.
   A build-time date restamps all ten articles on every deploy and tells a
-  crawler the library was rewritten because a dependency changed.
+  crawler the library was rewritten because a dependency changed. **AND THAT
+  RULE IS ABOUT `app/sitemap.ts` TOO**, which is where it was being broken for
+  every URL at once: `lastModified: new Date()` told Google the privacy policy,
+  the pricing page and all ten guides had changed on every deploy. Google
+  ignores `lastmod` once it stops matching reality, and it does not go back to
+  trusting the honest ones. A guide sends `updated ?? published`; a page with no
+  real date sends NO lastmod at all, because "we are not telling you" is a fact
+  a crawler handles and an invented date is not. Pinned in `site-name.ts`.
 - **THE SITE NAME GOOGLE PRINTS COMES FROM FOUR SIGNALS ON THE HOMEPAGE**, and
   nothing else: the `WebSite` node's `name`, `og:site_name`, the homepage
   `<title>`, and its `h1`. With none of them Google guesses from what it has
