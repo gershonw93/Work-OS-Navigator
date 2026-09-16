@@ -694,6 +694,18 @@ Full detail: [`docs/postmortems/derived-state.md`](docs/postmortems/derived-stat
 - **A DEFAULT IS A CLAIM.** A state that means "we did X" must be written by the
   code that does X, never by a column default. `pending` is the state a row
   starts in; only a confirmed send moves it.
+- **AND A PLACEHOLDER NOTHING EVER REPLACES IS THE SAME CLAIM.** "Upload quote
+  doesn't do anything" was a PDF read perfectly - vendor, $317,750, scope,
+  exclusions - shown as a COLLAPSED row called "Untitled comparison". The
+  client hardcoded that string at create time and nothing wrote over it, though
+  the route pulls a vendor name out of the document seconds later. Name a record
+  from what was read as soon as it is known, on the ROUTE so every caller gets
+  it, and only while the placeholder is still there - a name somebody typed is
+  theirs. `lib/quote-comparison.ts` is the one home for the string and the
+  naming rule; the award route used to carry a second spelling of it. AND THE
+  RESULT OF PRESSING A BUTTON BELONGS ON THE SCREEN: the row rendered collapsed,
+  which is indistinguishable from nothing having happened. Pinned in
+  `quote-upload.ts`.
 - Sending is what the send BUTTON does. A verb on a button is a promise about
   what happens when it is pressed.
 - ONE PRIMARY ACTION PER ROW, and the rest behind `RowMenu`

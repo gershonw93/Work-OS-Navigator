@@ -280,3 +280,67 @@ paired with a positive assertion that the page still says "no card" and
 "invite-only beta" - so the suite cannot be passed by deleting every mention of
 what the beta costs. Three attempts to write down one rule, and only the last
 one says what was actually meant.
+
+## "Upload quote doesn't do anything" - it did all of it
+
+Reported against the Quotes tab with a screenshot: the Upload Quotes button, and
+below it a thin white strip with a delete icon on the end. Nothing else.
+
+Then the reporter attached the file and a second screenshot, and the second one
+settles it. The upload had worked completely: **Liberty Power & Lighting LLC,
+$317,750, valid until Oct 16 2026**, the Division 26 scope summarised, six
+exclusions found (fire alarm, data/telecom, security, utility charges, premium
+labour, fixture allowances), and a recommendation naming the permit allowance as
+a cost-overrun risk. The AI read the PDF and read it well.
+
+What the button produced on screen was a **collapsed row labelled "Untitled
+comparison"**. That strip in the first screenshot IS the successful upload.
+
+### Three things, none of them the upload
+
+**1. A placeholder nothing ever replaced.** The comparison is created before any
+file is read, so the client posted a hardcoded `title: 'Untitled comparison'`.
+Nothing ever wrote over it - although the upload route pulls `vendor_name` out
+of the document moments later and had it sitting in a variable. A default that
+nothing replaces is a claim, and this one claims "we do not know what this is"
+about a document just read in full.
+
+The tell that it had already leaked: `award/route.ts` carried
+`comp.title !== 'Untitled comparison' ? comp.title : null` - a special case for
+a string a third file happened to spell the same way. Three spellings of one
+placeholder is how the fourth quietly stops matching.
+
+**2. It rendered collapsed.** `expanded` starts as an empty `Set`, so every
+comparison is closed on arrival. The result of pressing a button belongs on the
+screen; a closed row is indistinguishable from nothing having happened.
+
+**3. Every file's answer was thrown away.** The per-file upload was
+`await fetch(...)` with no `res.ok` check. A refused file - wrong type, a 500,
+an expired token - left the comparison created, empty, and silent. That is the
+case where "nothing happened" would have been literally true, and it would have
+looked exactly the same as this did.
+
+### What changed
+
+The route names the comparison from what it just read, inside an `isUntitled`
+guard so a name somebody typed is never overwritten, and server-side so any
+caller gets it. `comparisonTitle` decides: one quote is named after who sent it,
+several are "3 quotes" plus the trade when they agree on one - and it returns
+null when there is nothing better than the placeholder, so a caller writes
+nothing rather than something worse. The page opens the new comparison, and
+reads every upload's answer.
+
+### A model ID that looked wrong and was not
+
+The upload route calls `model: 'claude-opus-4-8'`, which did not look like a
+model that exists. It is Claude Opus 4.8 and it is current - checked against the
+model table rather than "fixed" on a hunch. A confident correction to a working
+model ID would have broken every scan in the product.
+
+### An assertion that could not fail, again
+
+The first version of the guard check was `/only while it is STILL the
+placeholder|isUntitled/.test(upload.toLowerCase()) && ...` - an `||` over the
+text of a COMMENT, which `code()` strips before the test ever sees it. It now
+compares the index of the `isUntitled(` guard against the index of the
+`update({ title: name })` write, which is the thing the rule is actually about.

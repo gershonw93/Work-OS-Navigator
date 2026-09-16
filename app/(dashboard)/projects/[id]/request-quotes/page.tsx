@@ -18,6 +18,7 @@ import { LineComparison } from '@/components/quotes/line-comparison'
 import type { ItemLine } from '@/lib/item-list'
 import { MATERIAL_BY_LABEL, PACKAGE_TYPE_LABEL, type MaterialBy, type PackageType } from '@/lib/trade-scopes'
 import { ACCEPT_DOCS } from '@/lib/file-accept'
+import { UNTITLED_COMPARISON } from '@/lib/quote-comparison'
 import { SendLinkBox } from '@/components/ui/send-link-box'
 import { clientAppOrigin } from '@/lib/app-url'
 
@@ -223,6 +224,23 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
   }
 
   // Standalone comparison from manually-collected quote files (no RFQ)
+  /**
+   * Read one or more quote files into a new comparison.
+   *
+   * REPORTED AS "UPLOAD QUOTE DOESN'T DO ANYTHING". It did all of it - the PDF
+   * was read, the vendor, the total, the scope and the exclusions all came
+   * back. What appeared was a COLLAPSED row called "Untitled comparison",
+   * which looks exactly like nothing having happened. Two things were missing:
+   * the comparison is now named from what was read (server-side, so any caller
+   * gets it), and it is OPENED here, because the result of pressing a button
+   * belongs on the screen.
+   *
+   * AND EVERY FILE'S ANSWER IS READ. The per-file upload was `await fetch(...)`
+   * with no `res.ok` - so a refused file (the wrong type, a 500, an expired
+   * token) left the comparison created, empty, and silent. That is the same
+   * shape as the report: work appears to have happened and nothing says
+   * otherwise. A file that fails now says which file and why.
+   */
   async function uploadNewSet(fileList: FileList | File[]) {
     const list = Array.from(fileList)
     if (!list.length) return
@@ -231,16 +249,41 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
       const t = await token()
       const res = await fetch(`/api/projects/${params.id}/quotes`, {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
-        body: JSON.stringify({ title: 'Untitled comparison' }),
+        body: JSON.stringify({ title: UNTITLED_COMPARISON }),
       })
-      if (!res.ok) throw new Error('Could not start a comparison')
+      if (!res.ok) {
+        const d = await res.json().catch(() => null)
+        throw new Error(d?.error ?? `Could not start a comparison (${res.status}).`)
+      }
       const { comparison } = await res.json()
+
+      const failed: string[] = []
       for (const f of list) {
         const form = new FormData(); form.append('file', f)
-        await fetch(`/api/projects/${params.id}/quotes/${comparison.id}/upload`, { method: 'POST', headers: { Authorization: `Bearer ${t}` }, body: form })
+        const up = await fetch(`/api/projects/${params.id}/quotes/${comparison.id}/upload`, {
+          method: 'POST', headers: { Authorization: `Bearer ${t}` }, body: form,
+        })
+        if (!up.ok) {
+          const d = await up.json().catch(() => null)
+          const why = d?.error ?? `could not be read (${up.status})`
+          console.error(`[quotes] ${f.name}: ${why}`)
+          failed.push(`${f.name} - ${why}`)
+        }
+      }
+
+      // Open it. A collapsed row is why this read as "nothing happened".
+      setExpanded(prev => new Set(prev).add(comparison.id))
+      if (failed.length) {
+        notify(failed.length === list.length
+          ? `Nothing could be read. ${failed[0]}`
+          : `${failed.length} of ${list.length} could not be read. ${failed[0]}`)
       }
       load()
-    } catch (e: any) { notify(e?.message ?? 'Upload failed'); load() }
+    } catch (e: any) {
+      console.error('[quotes] upload failed:', e?.message ?? e)
+      notify(e?.message ?? 'Upload failed')
+      load()
+    }
     finally { setNewUploading(false) }
   }
 
