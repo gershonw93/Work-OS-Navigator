@@ -418,7 +418,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'compare-quotes',
     title: 'Compare quotes (with AI analysis)',
     category: 'quotes',
-    keywords: ['compare', 'analyze', 'ai', 'level', 'quotes', 'quote comparison', 'valid until', 'expired quote', 'expiry', 'out of date', 'stale price', 'upload quotes', 'upload does nothing', 'untitled comparison', 'nothing happened', 'drag pdf'],
+    keywords: ['compare', 'analyze', 'ai', 'level', 'quotes', 'quote comparison', 'valid until', 'expired quote', 'expiry', 'out of date', 'stale price', 'upload quotes', 'upload does nothing', 'untitled comparison', 'nothing happened', 'drag pdf', 'failed to fetch', 'connection dropped', 'timed out', 'stuck uploading', 'red box', 'error message'],
     summary: 'Line quotes up side by side - the AI checks each against your requirements automatically.',
     blocks: [
       { type: 'steps', items: [
@@ -429,6 +429,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       ] },
       { type: 'tip', text: 'Comparing already runs the analysis - you no longer click a separate "Analyze" button. Use Re-analyze after you change the requirements.' },
       { type: 'text', text: 'WHERE AN UPLOADED QUOTE GOES. Press Upload Quotes, pick one or more files, and a new comparison appears already open, named after whoever sent the quote - or "3 quotes - Electrical" when you drop several. If a file cannot be read it says which one and why, rather than skipping it quietly.' },
+      { type: 'text', text: 'IF THE CONNECTION DROPS WHILE IT IS READING. A long PDF takes a few seconds to read. If your signal goes in the middle of that, you will see a message saying the connection dropped and that we do not know whether it finished - because we genuinely do not. Reload the page before you upload the same file again: the quote is often already there, and uploading it twice gives you two of it.' },
       { type: 'warn', text: 'WATCH THE VALID-UNTIL DATE. A quote that carries one is flagged amber inside 30 days and red once it has passed, saying how long ago it lapsed. Awarding an expired quote is awarding a price nobody is holding any more - go back to the vendor before you do.' },
     ],
     related: ['request-quotes', 'award-quote'],

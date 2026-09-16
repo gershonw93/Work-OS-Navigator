@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { X, Plus, Trash2, Loader2, ChevronLeft, ChevronRight, Type, AlertTriangle, Move } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { fetchProblem } from '@/lib/fetch-error'
 import {
   baselineFor, leftFor, sanitizeForPdf, hasUnsupportedChars, filledName, ensurePdfExt,
   LINE_HEIGHT_RATIO, type FillBox,
@@ -85,7 +86,7 @@ export function PdfFiller({
         setPageCount(doc.numPages)
         setLoading(false)
       } catch (e: any) {
-        if (!cancelled) { setError(e?.message ?? 'Could not open this PDF'); setLoading(false) }
+        if (!cancelled) { setError(fetchProblem(e, 'opening this PDF')); setLoading(false) }
       }
     })()
     return () => { cancelled = true }
@@ -232,7 +233,7 @@ export function PdfFiller({
       const out = await pdf.save()
       await onSave(out, ensurePdfExt(saveName))
     } catch (e: any) {
-      setError(e?.message ?? 'Could not save the filled copy')
+      setError(fetchProblem(e, 'saving the filled copy'))
       setSaving(false)
       setNaming(false)
     }

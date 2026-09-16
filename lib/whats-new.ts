@@ -68,6 +68,16 @@ const AUTHORED: Release[] = [
         title: 'A quote file that could not be read said nothing',
         text: 'If one of the files you dropped was refused - the wrong kind of file, or a bad moment of signal - it was skipped silently and you were left with an empty comparison. It now says which file and why.',
       },
+      {
+        kind: 'fixed',
+        title: 'Big documents no longer time out mid-scan',
+        text: 'Reading a long PDF - a quote, a permit, a submittal, a proposal, a compliance certificate - could run past the time limit the server allowed and get cut off part way through. Every one of those scans now has the full minute the invoice scan already had.',
+      },
+      {
+        kind: 'fixed',
+        title: 'Red "Failed to fetch" boxes',
+        text: 'When a scan was cut off, the red box you got was the browser\'s own words rather than ours, and it said the upload had failed even when the quote had actually landed and was sitting right behind it. If the connection drops we now say so honestly - that we do not know whether it finished, and to reload before trying again - and the list refreshes either way.',
+      },
     ],
   },
   {

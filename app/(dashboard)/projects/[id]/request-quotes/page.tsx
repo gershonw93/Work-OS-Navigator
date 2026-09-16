@@ -19,6 +19,7 @@ import type { ItemLine } from '@/lib/item-list'
 import { MATERIAL_BY_LABEL, PACKAGE_TYPE_LABEL, type MaterialBy, type PackageType } from '@/lib/trade-scopes'
 import { ACCEPT_DOCS } from '@/lib/file-accept'
 import { UNTITLED_COMPARISON } from '@/lib/quote-comparison'
+import { fetchProblem } from '@/lib/fetch-error'
 import { SendLinkBox } from '@/components/ui/send-link-box'
 import { clientAppOrigin } from '@/lib/app-url'
 
@@ -259,16 +260,22 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
 
       const failed: string[] = []
       for (const f of list) {
-        const form = new FormData(); form.append('file', f)
-        const up = await fetch(`/api/projects/${params.id}/quotes/${comparison.id}/upload`, {
-          method: 'POST', headers: { Authorization: `Bearer ${t}` }, body: form,
-        })
-        if (!up.ok) {
-          const d = await up.json().catch(() => null)
-          const why = d?.error ?? `could not be read (${up.status})`
-          console.error(`[quotes] ${f.name}: ${why}`)
-          failed.push(`${f.name} - ${why}`)
+        // Each file's own try: a dropped connection on one of them must not
+        // abandon the rest silently, which is what an uncaught throw here did.
+        let why: string | null = null
+        try {
+          const form = new FormData(); form.append('file', f)
+          const up = await fetch(`/api/projects/${params.id}/quotes/${comparison.id}/upload`, {
+            method: 'POST', headers: { Authorization: `Bearer ${t}` }, body: form,
+          })
+          if (!up.ok) {
+            const d = await up.json().catch(() => null)
+            why = d?.error ?? `could not be read (${up.status})`
+          }
+        } catch (e) {
+          why = fetchProblem(e, `reading ${f.name}`)
         }
+        if (why) { console.error(`[quotes] ${f.name}: ${why}`); failed.push(`${f.name} - ${why}`) }
       }
 
       // Open it. A collapsed row is why this read as "nothing happened".
@@ -281,7 +288,7 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
       load()
     } catch (e: any) {
       console.error('[quotes] upload failed:', e?.message ?? e)
-      notify(e?.message ?? 'Upload failed')
+      notify(fetchProblem(e, 'starting that comparison'))
       load()
     }
     finally { setNewUploading(false) }

@@ -11,6 +11,7 @@ import { useDeleteGuard } from '@/components/ui/delete-guard'
 import { formatDate } from '@/lib/dates'
 import { expiryState, daysExpired } from '@/lib/expiry'
 import { useNotice } from '@/components/ui/notice'
+import { fetchProblem } from '@/lib/fetch-error'
 export interface Quote {
   id: string
   comparison_id: string
@@ -110,17 +111,46 @@ export function ComparisonBlock({ comp, projectId, onChanged }: { comp: Comparis
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [comp.id, comp.quotes, comp.analysis, uploadingFor])
 
-  async function uploadOne(file: File) {
-    const token = await getToken()
-    const form = new FormData(); form.append('file', file)
-    const res = await fetch(`/api/projects/${projectId}/quotes/${comp.id}/upload`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form })
-    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? 'Upload failed')
+  // Returns why this file could not be read, or null when it was.
+  //
+  // It answers rather than throwing, because a throw inside the loop below
+  // abandoned every file after the first bad one WITHOUT saying it had - the
+  // same shape as the report this whole area came from. `uploadNewSet` on the
+  // Request Quotes page is the other door onto this route and already reads
+  // every file's answer; this one has to as well.
+  async function uploadOne(file: File): Promise<string | null> {
+    try {
+      const token = await getToken()
+      const form = new FormData(); form.append('file', file)
+      const res = await fetch(`/api/projects/${projectId}/quotes/${comp.id}/upload`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form })
+      if (res.ok) return null
+      return (await res.json().catch(() => ({}))).error ?? `could not be read (${res.status})`
+    } catch (e) {
+      return fetchProblem(e, `reading ${file.name}`)
+    }
   }
+
   async function uploadQuotes(files: FileList | File[]) {
+    const list = Array.from(files)
+    if (!list.length) return
     setUploadingFor(true)
-    try { for (const f of Array.from(files)) await uploadOne(f); onChanged() }
-    catch (e: any) { notify(e?.message ?? 'Upload failed'); onChanged() }
-    finally { setUploadingFor(false) }
+    try {
+      const failed: string[] = []
+      for (const f of list) {
+        const why = await uploadOne(f)
+        if (why) { console.error(`[quotes] ${f.name}: ${why}`); failed.push(`${f.name} - ${why}`) }
+      }
+      if (failed.length) {
+        notify(failed.length === list.length
+          ? `Nothing could be read. ${failed[0]}`
+          : `${failed.length} of ${list.length} could not be read. ${failed[0]}`)
+      }
+    } finally {
+      // Always refresh: a request that did not come back says nothing about
+      // whether the quote landed, so the list is the only thing that knows.
+      onChanged()
+      setUploadingFor(false)
+    }
   }
 
   async function award() {

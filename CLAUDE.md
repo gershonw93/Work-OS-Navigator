@@ -803,6 +803,31 @@ Full detail: [`docs/postmortems/failure-states.md`](docs/postmortems/failure-sta
   per request (a stored signed URL is only as good as the key that signed it)
   and streams anything else from our origin. The URL comes off the ROW, never
   the request.
+- **AND NEITHER IS THE BROWSER'S. A REQUEST THAT DID NOT COME BACK IS NOT A
+  VERDICT.** Three red "Failed to fetch" bubbles over a Compare Responses panel
+  that was, underneath them, completely correct - both quotes read, both totals
+  right, the recommendation written. Sent as "cosmetic I think"; neither half
+  of that was true. The quote-upload route reads a PDF with the model and
+  declared no `maxDuration`, so the platform cut the request off mid-read while
+  the invoice scan NEXT DOOR - the same work, reported once already - has
+  carried 60 the whole time. Eleven of the twelve routes calling the model were
+  in the first group: a rule that exists on one door has to exist on the others.
+  Every one now declares `runtime = 'nodejs'` and `maxDuration = 60`, ratcheted
+  in `scan-timeout.ts`. The second half is the wording: a `catch` handing
+  `e.message` to a user makes Chrome's string the app's string, and WebKit - the
+  native shell - says "Load failed" for the identical event, so matching one
+  spelling shows a phone something different from a laptop. `lib/fetch-error.ts`
+  (`isNetworkError`, `fetchProblem`) is the one reader, and it MUST NOT announce
+  a failure it did not observe: the bubble said the upload had failed while the
+  quote it produced was on screen behind it. Same rule as `lib/auth-outcome.ts`
+  - a failure to ASK says nothing - so the sentence says we do not know and to
+  reload before retrying, and the caller refreshes in `finally`.
+- **A LOOP THAT THROWS ABANDONS THE REST IN SILENCE.** `uploadOne` returned a
+  reason instead of throwing, because one bad file used to take every file after
+  it down with no message. Fixed on the Request Quotes page one change and left
+  in `comparison-block.tsx`, one file over, which is the pattern this repo keeps
+  paying for. Both doors now collect every file's answer, say whether it was all
+  of them or some, and log each.
 - **A POSTGRES MESSAGE IS NOT A USER-FACING MESSAGE.** `friendlyDbError`
   (`lib/db-error.ts`) names the FIELD; a route hands that back and
   `console.error`s the raw text so the log still has it. A route that ends
