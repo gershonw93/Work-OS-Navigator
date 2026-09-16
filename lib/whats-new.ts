@@ -70,6 +70,17 @@ const AUTHORED: Release[] = [
       },
       {
         kind: 'fixed',
+        title: 'Uploading several quotes at once names the set properly',
+        text: 'Dropping two or three quote PDFs in one go left the card called "Untitled comparison" even though every quote inside had been read correctly. A set is now named after the vendors in it - "Harborline Plumbing and Apex Mechanical", or "Harborline Plumbing + 2 others" - with the trade after it when the set has one.',
+        href: '/projects',
+      },
+      {
+        kind: 'fixed',
+        title: 'A failed batch no longer leaves an empty card behind',
+        text: 'If none of the files you dropped could be read, you were left with an empty "Untitled comparison" - and uploading again left a second one next to it. Nothing read now means no card at all, and it says so.',
+      },
+      {
+        kind: 'fixed',
         title: 'Big documents no longer time out mid-scan',
         text: 'Reading a long PDF - a quote, a permit, a submittal, a proposal, a compliance certificate - could run past the time limit the server allowed and get cut off part way through. Every one of those scans now has the full minute the invoice scan already had.',
       },

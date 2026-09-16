@@ -4,6 +4,7 @@ import { isUntitled } from '@/lib/quote-comparison'
 import { logActivity } from '@/lib/log-activity'
 import { notify } from '@/lib/notify'
 import { awardEmail, sendEmail, isEmailAddress } from '@/lib/email'
+import { requirePermission, denied } from '@/lib/api-guard'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -13,6 +14,12 @@ const admin = () => createClient(
 // Award a winning quote: create (or reuse) a vendor company and a subcontract,
 // so it flows into Financials, Schedule, Budget, and Compliance.
 export async function POST(request: Request, { params }: { params: { id: string; compId: string } }) {
+  // THE ROUTE HAS TO ASK. `middleware.ts` returns early for every `/api/` path,
+  // so nothing else gates this: the GET beside it was guarded and every write in
+  // the family answered anybody with a login.
+  const gate = await requirePermission(admin(), request, 'quotes', 'edit')
+  if (denied(gate)) return gate.denied
+
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()

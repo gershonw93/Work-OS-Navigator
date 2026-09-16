@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { requirePermission, denied } from '@/lib/api-guard'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -7,6 +8,12 @@ const admin = () => createClient(
 )
 
 export async function DELETE(request: Request, { params }: { params: { id: string; compId: string; quoteId: string } }) {
+  // THE ROUTE HAS TO ASK. `middleware.ts` returns early for every `/api/` path,
+  // so nothing else gates this: the GET beside it was guarded and every write in
+  // the family answered anybody with a login.
+  const gate = await requirePermission(admin(), request, 'quotes', 'delete')
+  if (denied(gate)) return gate.denied
+
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

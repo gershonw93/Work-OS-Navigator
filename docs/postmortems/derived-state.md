@@ -344,3 +344,114 @@ placeholder|isUntitled/.test(upload.toLowerCase()) && ...` - an `||` over the
 text of a COMMENT, which `code()` strips before the test ever sees it. It now
 compares the index of the `isUntitled(` guard against the index of the
 `update({ title: name })` write, which is the thing the rule is actually about.
+
+---
+
+## "2 quotes": a namer reading a column that does not exist
+
+Two bug reports, one day after the quote-upload naming was supposedly fixed:
+
+> **Bug 2** - the single-quote path names the comparison after the trade (e.g.
+> 'Harborline Plumbing'), but bulk uploads leave every card as 'Untitled
+> comparison' even with correctly parsed quotes inside.
+
+The single-file path worked. The multi-file path did not, and the reason was one
+identifier:
+
+```ts
+const trades = Array.from(new Set(quotes.map(q => q.trade?.trim()).filter(Boolean)))
+```
+
+**`quotes` has never had a `trade` column.** It is on `quote_comparisons`, one
+table over:
+
+```sql
+CREATE TABLE IF NOT EXISTS quote_comparisons (
+  ...
+  trade TEXT,          -- here
+);
+CREATE TABLE IF NOT EXISTS quotes (
+  ...
+  vendor_name TEXT,    -- and NOT here
+  scope_summary TEXT,
+);
+```
+
+So `q.trade` was `undefined` on every row, `trades` was always empty, and every
+multi-quote comparison fell through to the count - `"2 quotes"`. One file named
+itself correctly because that branch returns the vendor and never looks at a
+trade at all. A field that describes no table is checked by nothing: it
+compiles, it runs, and it is wrong in exactly one branch.
+
+### The test asserted the same wrong shape
+
+```ts
+ok(comparisonTitle([
+  { vendor_name: 'A', trade: 'Electrical' },
+  { vendor_name: 'B', trade: 'Electrical' },
+]) === '2 quotes - Electrical', '...plus the trade when they agree on one')
+```
+
+That passed. It was written from the same misunderstanding as the code, so it
+confirmed the misunderstanding rather than catching it - a fixture is not
+evidence that the shape it describes exists. **When a test hands a function an
+object it built itself, check the object against the migration, exactly as for a
+`.select()`.** The interface `NamedQuote` made it worse: it declared `trade`, so
+TypeScript endorsed the fixture too.
+
+The trade is now an argument, read off the comparison by the route:
+
+```ts
+.from('quote_comparisons').select('title, trade')...
+const name = comparisonTitle((all ?? []) as any, (comp as any)?.trade)
+```
+
+And several quotes are named after their vendors - `A and B`,
+`A + 2 others` - because a title that counts the rows tells a reader what the
+row already shows them.
+
+### Bug 1 was the timeout, twice
+
+> uploading 2 quote PDFs in one bulk action shows red 'Failed to fetch' toasts
+> and creates two separate 'Untitled comparison' cards instead of one.
+
+The batch never split. `uploadNewSet` has always created ONE comparison and
+posted every file into it. What produced two cards was the scan timeout: the
+comparison must exist before the files can go into it, so when the uploads died
+the empty comparison stayed, and pressing the button again made a second one.
+Both empty, both "Untitled", while the server - which had finished the scans
+regardless - saved the quotes.
+
+So the false toast and the second card had one cause, already fixed one change
+earlier. What was left to do here was the wreckage: **a batch that produced
+nothing must not leave a record saying it did.** The batch now deletes the
+comparison it created when nothing landed, and says no comparison was made.
+
+### Found in passing: the family did not ask
+
+Auditing the routes for this fix turned up something worse than either report.
+`GET /api/projects/[id]/quotes` was gated on `quotes: view`. Every write beside
+it was gated on nothing:
+
+| route | before |
+| --- | --- |
+| `POST /quotes` (create a comparison) | no gate |
+| `POST /quotes/[compId]/upload` | no gate |
+| `POST /quotes/[compId]/analyze` | no gate |
+| `POST /quotes/[compId]/award` (**creates a subcontract**) | no gate |
+| `PATCH` / `DELETE /quotes/[compId]` | no gate |
+| `DELETE /quotes/[compId]/[quoteId]` | no gate |
+
+`middleware.ts` returns early for every `/api/` path, so nothing else was going
+to. Anybody with a login could award a subcontract on any project. All six now
+ask, and the pin asserts every handler in the directory has a
+`requirePermission` - plus, in the shape `invoices-load.ts` established, that
+every role holding `quotes: view` also holds the actions the screen needs, so
+the gate cannot lock out the people it is for.
+
+### Rules this produced
+
+- A fixture in a test is checked against the migration, the same as a `.select()`.
+- A batch that produced nothing deletes what it speculatively created, and says so.
+- A directory of routes is audited as a directory. Five of six missing the same
+  guard is not five mistakes, it is one missing scan.

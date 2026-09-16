@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { requirePermission, denied } from '@/lib/api-guard'
 
 export const runtime = 'nodejs'
 
@@ -16,6 +17,12 @@ const admin = () => createClient(
 )
 
 export async function POST(request: Request, { params }: { params: { id: string; compId: string } }) {
+  // THE ROUTE HAS TO ASK. `middleware.ts` returns early for every `/api/` path,
+  // so nothing else gates this: the GET beside it was guarded and every write in
+  // the family answered anybody with a login.
+  const gate = await requirePermission(admin(), request, 'quotes', 'edit')
+  if (denied(gate)) return gate.denied
+
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()

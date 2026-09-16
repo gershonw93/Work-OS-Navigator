@@ -33,6 +33,12 @@ export async function GET(request: Request, { params }: { params: { id: string }
 }
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
+  // THE ROUTE HAS TO ASK. `middleware.ts` returns early for every `/api/` path,
+  // so nothing else gates this: the GET beside it was guarded and every write in
+  // the family answered anybody with a login.
+  const gate = await requirePermission(admin(), request, 'quotes', 'create')
+  if (denied(gate)) return gate.denied
+
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

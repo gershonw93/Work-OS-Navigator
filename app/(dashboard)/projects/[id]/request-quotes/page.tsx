@@ -278,12 +278,28 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
         if (why) { console.error(`[quotes] ${f.name}: ${why}`); failed.push(`${f.name} - ${why}`) }
       }
 
+      // ONE BATCH IS ONE CARD, AND A BATCH THAT READ NOTHING IS NO CARD.
+      //
+      // The comparison has to exist before the files can be posted into it, so
+      // a batch where every file failed used to leave an empty "Untitled
+      // comparison" behind - and the natural next move, pressing Upload Quotes
+      // again, left a second one beside it. That is what "creates two separate
+      // Untitled comparison cards" was: not one batch splitting, but two
+      // batches, one of them wreckage from a failure. Clear it up here rather
+      // than leave the user to.
+      if (failed.length === list.length) {
+        await fetch(`/api/projects/${params.id}/quotes/${comparison.id}`, {
+          method: 'DELETE', headers: { Authorization: `Bearer ${t}` },
+        }).catch(() => {})
+        notify(`Nothing could be read, so no comparison was made. ${failed[0]}`)
+        load()
+        return
+      }
+
       // Open it. A collapsed row is why this read as "nothing happened".
       setExpanded(prev => new Set(prev).add(comparison.id))
       if (failed.length) {
-        notify(failed.length === list.length
-          ? `Nothing could be read. ${failed[0]}`
-          : `${failed.length} of ${list.length} could not be read. ${failed[0]}`)
+        notify(`${failed.length} of ${list.length} could not be read. ${failed[0]}`)
       }
       load()
     } catch (e: any) {
