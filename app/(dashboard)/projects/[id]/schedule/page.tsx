@@ -180,18 +180,31 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     return session?.access_token ?? ''
   }
 
-  async function load() {
+  /**
+   * Returns the fresh list as well as setting it.
+   *
+   * A caller that has just created a line cannot read `items` for it - the
+   * state update is not visible in the same closure - and the row the POST
+   * hands back is the BARE row, with no `subcontracts` join. `scheduleLabel`
+   * reads that join to name a sub's line, so opening the POST row directly
+   * titles the dialog "Untitled". The loaded list is the shape the rest of
+   * this page already uses.
+   */
+  async function load(): Promise<ScheduleItem[]> {
     const token = await getToken()
     const res = await fetch(`/api/projects/${params.id}/schedule`, {
       headers: { Authorization: `Bearer ${token}` },
     })
+    let fresh: ScheduleItem[] = []
     if (res.ok) {
       const data = await res.json()
-      setItems(data.items)
+      fresh = data.items ?? []
+      setItems(fresh)
       setInspections(data.inspections ?? [])
       setDueTasks(data.tasks ?? [])
     }
     setLoading(false)
+    return fresh
   }
 
   async function loadUnscheduled() {
@@ -217,7 +230,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
    * AbortController gives it a ceiling. 20s is well past a healthy save and
    * well short of a person deciding the app is broken.
    */
-  async function saveRequest(url: string, init: RequestInit): Promise<{ ok: true } | { ok: false; error: string }> {
+  async function saveRequest(url: string, init: RequestInit): Promise<{ ok: true; data: any } | { ok: false; error: string }> {
     const ctrl = new AbortController()
     const timer = setTimeout(() => ctrl.abort(), 20_000)
     try {
@@ -226,7 +239,10 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
         const body = await res.json().catch(() => ({} as any))
         return { ok: false, error: body?.error ?? `Save failed (${res.status}). Nothing was saved.` }
       }
-      return { ok: true }
+      // The created row comes back with it. Without this a caller that has
+      // just made a line has no id for it, which is what left "depends on
+      // another trade?" unreachable from both Add flows.
+      return { ok: true, data: await res.json().catch(() => null) }
     } catch (err: any) {
       return {
         ok: false,
@@ -254,7 +270,13 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     setSchedSaving(false)
     if (!r.ok) { setSchedError(r.error); return }
     setSchedulingSubId(null); setSchedStart(''); setSchedEnd('')
-    load(); loadUnscheduled()
+    // THE SPEC SAYS CREATING **OR** EDITING. The picker lived only in the edit
+    // dialog, so on a job with nothing scheduled yet - which is exactly what
+    // the "vendors not yet scheduled" strip means - there was no line to open
+    // and the whole feature was unreachable. Dates first, then the prompt.
+    const fresh = await load(); loadUnscheduled()
+    const created = fresh.find(i => i.id === r.data?.item?.id)
+    if (created) openEdit(created)
   }
 
   useEffect(() => { load(); loadUnscheduled() }, [params.id])
@@ -332,7 +354,9 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     if (!r.ok) { setAddError(r.error); return }
     setShowAdd(false)
     setAddLabel(''); setAddStart(''); setAddEnd(''); setAddColor('blue')
-    load(); loadUnscheduled()
+    const fresh = await load(); loadUnscheduled()
+    const created = fresh.find(i => i.id === r.data?.item?.id)
+    if (created) openEdit(created)
   }
 
   async function saveEdit(e: React.FormEvent) {
