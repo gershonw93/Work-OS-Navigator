@@ -241,7 +241,7 @@ export function firstName(fullName: string | null | undefined): string {
   return n || 'there'
 }
 
-// ── Three invites, because there are three people ────────────────────────────
+// ── Four invites, because there are four people ──────────────────────────────
 //
 // THE BUG. Inviting a subcontractor from the Directory sent them this:
 // "YOU'RE APPROVED · Welcome to the SyteNav beta · your access request is
@@ -261,6 +261,13 @@ export function firstName(fullName: string | null | undefined): string {
 //             approval because the invite IS the approval.
 //
 // So: one template per audience, and each says which door you came through.
+//
+// AND THEN A FOURTH PERSON APPEARED: a stranger the platform OWNER invites out
+// of the blue. They come through the waitlist door mechanically - same table,
+// same token, same signup unlock - and they did not ask, so "your access
+// request is approved" asks them to remember something that never happened.
+// Same sentence, same table, different truth, which is why the split is by
+// AUDIENCE and not by code path.
 
 /**
  * The waitlist approval - and ONLY the waitlist approval.
@@ -301,6 +308,58 @@ export function inviteEmail({ name, inviteUrl }: { name: string | null | undefin
   })
 
   return { subject: 'Your SyteNav invite', text, html }
+}
+
+/**
+ * A stranger the PLATFORM OWNER invited, who never asked for anything.
+ *
+ * Mechanically identical to the waitlist approval above - an `access_requests`
+ * row, a token, the same `/signup?invite=` link - and a different thing said,
+ * because nothing was approved. They did not apply. Telling them their request
+ * went through is the `inviteEmail`-for-everybody bug in a new place, which is
+ * the whole reason these are split by audience rather than by code path.
+ *
+ * `app/api/admin/access-requests/route.ts` POST is the sole caller, and it sets
+ * `source: 'invite'` on the row so the console can tell the two apart later.
+ */
+export function platformInviteEmail({
+  name, inviteUrl,
+}: { name: string | null | undefined; inviteUrl: string }) {
+  const hi = firstName(name)
+
+  const text = [
+    `Hi ${hi},`,
+    '',
+    "I'd like to invite you to SyteNav - it's construction management software for",
+    'general contractors: the estimate, the subs, the schedule, and every dollar in',
+    'and out of a job, in one place.',
+    '',
+    'Create your account here:',
+    inviteUrl,
+    '',
+    'It is free while we are in beta, and there is no card to put in.',
+    '',
+    'The link is personal to you and only works once.',
+    '',
+    'If you have any questions, just reply to this email.',
+    '',
+    'Gershon',
+    'SyteNav',
+  ].join('\n')
+
+  const html = emailLayout({
+    preheader: 'Your personal invite to create a SyteNav account.',
+    eyebrow: 'You\u2019re invited',
+    heading: 'An invitation to SyteNav',
+    paragraphs: [
+      `Hi ${hi}, I\u2019d like to invite you to SyteNav - construction management for general contractors, with the estimate, the subs, the schedule and the money on one page.`,
+      'It is free while we are in beta, and there is no card to put in. Create your account and you can put a real job in straight away.',
+    ],
+    cta: { label: 'Create your account', url: inviteUrl },
+    footNote: 'This link is personal to you and only works once. If you have any questions, just reply to this email.',
+  })
+
+  return { subject: 'An invitation to SyteNav', text, html }
 }
 
 /**

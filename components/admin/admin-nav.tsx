@@ -3,12 +3,19 @@
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 
+// NO PROJECTS TAB. It was a flat list of every project on the platform, which
+// answers nothing anybody acts on - "it's nothing for me" was the report, and
+// at any real size it is unreadable rather than merely useless. The Overview
+// now answers who has actually been here instead.
+//
+// `/api/admin/projects` is deliberately LEFT IN PLACE: removing a tab is a
+// decision about this console, and deleting a working route on the way past is
+// a different change nobody asked for.
 const TABS = [
   { href: '/admin', label: 'Overview' },
   { href: '/admin/users', label: 'Users' },
-  { href: '/admin/access-requests', label: 'Access Requests' },
+  { href: '/admin/access-requests', label: 'Access & invites' },
   { href: '/admin/companies', label: 'Companies' },
-  { href: '/admin/projects', label: 'Projects' },
   { href: '/admin/audit', label: 'Audit Log' },
 ]
 

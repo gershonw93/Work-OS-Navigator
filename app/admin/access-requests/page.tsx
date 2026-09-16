@@ -7,6 +7,7 @@ import { clientAppOrigin } from '@/lib/app-url'
 import { Check, X, Copy, Mail, RotateCcw, Send } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { timeAgo } from '@/lib/time-ago'
+import { InvitePersonForm } from '@/components/admin/invite-person-form'
 
 import { formatDate } from '@/lib/dates'
 interface AccessRequest {
@@ -14,6 +15,8 @@ interface AccessRequest {
   company_type: string | null; phone: string | null; message: string | null
   status: string; invite_token: string | null; created_at: string
   invite_sent_at: string | null
+  /** Which door: 'request' = they asked, 'invite' = the owner started it. */
+  source?: string | null
   account: { exists: boolean; last_sign_in_at: string | null }
 }
 
@@ -138,11 +141,17 @@ export default function AccessRequestsPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-bold text-ink">Access Requests</h1>
+        <h1 className="text-xl font-bold text-ink">Access &amp; invites</h1>
         <p className="text-sm text-faint mt-0.5">
           {pending.length ? `${pending.length} waiting for review.` : 'No pending requests.'} Approving emails the invite automatically - the link is there to copy if it doesn&apos;t send.
         </p>
       </div>
+
+      {/* Reload rather than splice the new row in: GET assembles `account`
+          from auth.users, which POST does not return, and a hand-merged row
+          would read "No account yet" for a person who has one. The same trap
+          the PATCH handler above already fell into once. */}
+      <InvitePersonForm onInvited={() => load()} />
 
       {loading ? (
         <p className="py-12 text-center text-sm text-faint">Loading…</p>
@@ -152,13 +161,19 @@ export default function AccessRequestsPage() {
           <p className="mt-1 text-xs text-muted-fg">{error}</p>
         </div>
       ) : requests.length === 0 ? (
-        <p className="py-12 text-center text-sm text-faint">No requests yet - they&apos;ll appear here when someone fills the Request Access form.</p>
+        <p className="py-12 text-center text-sm text-faint">Nobody yet - invite someone above, or wait for a Request Access form to come in.</p>
       ) : (
         <div className="space-y-2">
           {requests.map(r => (
             <div key={r.id} className="rounded-xl border border-line bg-panel px-4 py-3">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <span className="font-semibold text-ink">{r.name}</span>
+                {/* WHICH DOOR. They mean different things and get different
+                    emails, so the list says which rather than making them
+                    look like one queue. */}
+                {r.source === 'invite' && (
+                  <span className="whitespace-nowrap rounded-full bg-info-tint px-2 py-0.5 text-xs font-medium text-info">Invited</span>
+                )}
                 <span className="text-sm text-faint">{r.email}</span>
                 {r.company_name && <span className="text-sm text-faint">· {r.company_name}</span>}
                 <AccountNote r={r} />
