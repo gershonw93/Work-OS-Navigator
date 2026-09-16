@@ -27,28 +27,37 @@ export function isUntitled(title: string | null | undefined): boolean {
 
 export interface NamedQuote {
   vendor_name?: string | null
-  /** The trade, when the quote or its request knows one. */
-  trade?: string | null
 }
 
 /**
  * What to call a comparison, given the quotes read into it.
  *
  * One quote is named after who sent it, because that is what somebody scanning
- * the list is looking for. Several are named by how many, plus the trade when
- * every quote agrees on one - "3 quotes" is more useful than any one vendor's
- * name, and a trade nobody agrees on is not a fact about the comparison.
+ * the list is looking for. Several are named after the vendors too - two by
+ * both names, three or more by the first plus a count - because "2 quotes" is
+ * a description of the row's own shape and tells a reader nothing they cannot
+ * already see.
+ *
+ * `trade` is the COMPARISON's trade (the `trade` column on `quote_comparisons`),
+ * passed in by the caller. THE BUG THIS ARGUMENT REPLACES: the first version
+ * read `q.trade` off each quote, and `quotes` has never had a `trade` column -
+ * it is on the comparison, one table over. A field that describes no table is
+ * checked by nothing: it compiled, every read was `undefined`, and so every
+ * bulk upload fell through to the count and landed on "2 quotes" while the
+ * single-file path looked perfect. Reported as bulk uploads keeping a useless
+ * name, two days after the naming was supposedly fixed.
  *
  * Returns null when there is nothing better than the placeholder, so the caller
  * writes nothing rather than writing a worse name over a real one.
  */
-export function comparisonTitle(quotes: NamedQuote[]): string | null {
-  const named = quotes.map(q => q.vendor_name?.trim()).filter((v): v is string => !!v)
+export function comparisonTitle(quotes: NamedQuote[], trade?: string | null): string | null {
+  const named = quotes
+    .map(q => q.vendor_name?.trim())
+    .filter((v): v is string => !!v)
   if (!named.length) return null
 
+  const suffix = trade?.trim() ? ` - ${trade.trim()}` : ''
   if (named.length === 1) return named[0]
-
-  const trades = Array.from(new Set(quotes.map(q => q.trade?.trim()).filter(Boolean)))
-  const trade = trades.length === 1 ? trades[0] : null
-  return trade ? `${named.length} quotes - ${trade}` : `${named.length} quotes`
+  if (named.length === 2) return `${named[0]} and ${named[1]}${suffix}`
+  return `${named[0]} + ${named.length - 1} others${suffix}`
 }

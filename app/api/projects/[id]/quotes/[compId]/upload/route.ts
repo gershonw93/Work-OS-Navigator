@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { comparisonTitle, isUntitled } from '@/lib/quote-comparison'
 import { friendlyDbError } from '@/lib/db-error'
+import { requirePermission, denied } from '@/lib/api-guard'
 
 export const runtime = 'nodejs'
 
@@ -35,6 +36,12 @@ const PROMPT = `This is a contractor/vendor price quote (bid/estimate/proposal).
 Return ONLY the JSON object, no other text.`
 
 export async function POST(request: Request, { params }: { params: { id: string; compId: string } }) {
+  // THE ROUTE HAS TO ASK. `middleware.ts` returns early for every `/api/` path,
+  // so nothing else gates this: the GET beside it was guarded and every write in
+  // the family answered anybody with a login.
+  const gate = await requirePermission(admin(), request, 'quotes', 'create')
+  if (denied(gate)) return gate.denied
+
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -141,12 +148,17 @@ export async function POST(request: Request, { params }: { params: { id: string;
   // Best-effort for the same reason the storage write is - a quote that is
   // saved and badly named is a far smaller problem than a failed upload.
   try {
+    // `trade` comes off the COMPARISON. It is not a column on `quotes`, which
+    // is what the first version of this read - silently undefined, so every
+    // multi-file upload fell through to a generic name.
     const { data: comp } = await db
-      .from('quote_comparisons').select('title').eq('id', params.compId).maybeSingle()
+      .from('quote_comparisons').select('title, trade').eq('id', params.compId).maybeSingle()
     if (isUntitled((comp as any)?.title)) {
-      const { data: all } = await db
+      const { data: all, error: readErr } = await db
         .from('quotes').select('vendor_name').eq('comparison_id', params.compId)
-      const name = comparisonTitle((all ?? []) as any)
+      // A refused query and an empty one are the same `[]` otherwise.
+      if (readErr) console.error('[quotes/upload] could not read the set to name it:', readErr.message)
+      const name = comparisonTitle((all ?? []) as any, (comp as any)?.trade)
       if (name) await db.from('quote_comparisons').update({ title: name }).eq('id', params.compId)
     }
   } catch (e) {

@@ -705,7 +705,15 @@ Full detail: [`docs/postmortems/derived-state.md`](docs/postmortems/derived-stat
   naming rule; the award route used to carry a second spelling of it. AND THE
   RESULT OF PRESSING A BUTTON BELONGS ON THE SCREEN: the row rendered collapsed,
   which is indistinguishable from nothing having happened. Pinned in
-  `quote-upload.ts`.
+  `quote-upload.ts`. **AND THE SECOND REPORT WAS THE NAMER READING A COLUMN THAT
+  DOES NOT EXIST**: `comparisonTitle` took `trade` off each QUOTE, and `quotes`
+  has never had one - it is on `quote_comparisons`, one table over. Undefined
+  every time, so the single-file path looked perfect while every bulk upload
+  fell through to "2 quotes". The TEST asserted the same wrong shape as the
+  code and went green: a test written from the same misunderstanding confirms
+  the misunderstanding. The trade is now an ARGUMENT the route reads off the
+  comparison, and several quotes are named after their vendors, because a title
+  that counts the rows describes what the reader can already see.
 - Sending is what the send BUTTON does. A verb on a button is a promise about
   what happens when it is pressed.
 - ONE PRIMARY ACTION PER ROW, and the rest behind `RowMenu`
@@ -822,6 +830,14 @@ Full detail: [`docs/postmortems/failure-states.md`](docs/postmortems/failure-sta
   quote it produced was on screen behind it. Same rule as `lib/auth-outcome.ts`
   - a failure to ASK says nothing - so the sentence says we do not know and to
   reload before retrying, and the caller refreshes in `finally`.
+- **AND A BATCH THAT PRODUCED NOTHING MUST NOT LEAVE A RECORD SAYING IT DID.**
+  Reported as "bulk upload creates two separate Untitled comparison cards". The
+  batch never split: a comparison has to EXIST before files can be posted into
+  it, so a batch where every file died left an empty one behind, and the natural
+  next move - pressing the button again - left a second beside it. Two cards,
+  neither of them a thing anybody made on purpose. The batch deletes the
+  comparison it created when nothing landed in it, and SAYS that no comparison
+  was made. Pinned in `quote-upload.ts`.
 - **A LOOP THAT THROWS ABANDONS THE REST IN SILENCE.** `uploadOne` returned a
   reason instead of throwing, because one bad file used to take every file after
   it down with no message. Fixed on the Request Quotes page one change and left
