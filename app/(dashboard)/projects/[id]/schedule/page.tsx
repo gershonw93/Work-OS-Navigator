@@ -170,6 +170,10 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
 
   const [unscheduled, setUnscheduled] = useState<{ id: string; scope: string; trade: string | null; companies: { id: string; name: string; type?: string } | null }[]>([])
   const [schedulingSubId, setSchedulingSubId] = useState<string | null>(null)
+  // The dialog needs the vendor's NAME for its heading and whether this is a
+  // delivery (one date) or a span (two) - neither is derivable from the id.
+  const [schedSubName, setSchedSubName] = useState('')
+  const [schedIsDelivery, setSchedIsDelivery] = useState(false)
   const [schedStart, setSchedStart] = useState('')
   const [schedEnd, setSchedEnd] = useState('')
   const [schedSaving, setSchedSaving] = useState(false)
@@ -259,6 +263,10 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
   async function scheduleSubcontract(e: React.FormEvent) {
     e.preventDefault()
     if (!schedulingSubId) return
+    // Asked at the field, with our own words. A server's answer can only ever
+    // arrive as a message about a whole request that did not happen.
+    const missing = missingSchedule({ start: schedStart, end: schedEnd, delivery: schedIsDelivery })
+    if (missing) { setSchedError(missing); return }
     setSchedSaving(true)
     setSchedError(null)
     const token = await getToken()
@@ -330,6 +338,27 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     // Not asked for, but the pair is right here and a backwards milestone draws
     // a bar with no width.
     if (m.end < m.start) return 'The end date is before the start date.'
+    return null
+  }
+
+  /**
+   * What a vendor's dates are still missing, in words.
+   *
+   * Beside `missingMilestone` on purpose: the two ways of putting a line on the
+   * schedule answer to the same shape, and a rule written into only one of them
+   * is a rule half the app has never heard of.
+   *
+   * The inline row this replaces had NO validation of its own - it leaned on
+   * `required`, so the answer was the browser's grey "Please fill out this
+   * field" bubble, pointing at an unlabelled box. Our own sentence names the
+   * field the way the form does.
+   */
+  function missingSchedule(m: { start: string; end: string; delivery: boolean }): string | null {
+    if (!m.start) return m.delivery ? 'Pick the delivery date.' : 'Pick the start date.'
+    if (!m.delivery) {
+      if (!m.end) return 'Pick the end date.'
+      if (m.end < m.start) return 'The end date is before the start date.'
+    }
     return null
   }
 
@@ -569,6 +598,57 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
   return (
     <div className="space-y-6">
 
+      {schedulingSubId && (
+        <div className="overlay items-center justify-center bg-black/50" data-overlay>
+          <div className="flex max-h-full w-full max-w-md min-w-0 flex-col overflow-hidden rounded-xl bg-panel shadow-xl">
+            <div className="shrink-0 px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between gap-2">
+              {/* min-w-0 on the title and only the CLOSE button beside it - a
+                  dialog's exit is the one control that may never move. */}
+              <div className="min-w-0">
+                <h2 className="truncate text-lg font-semibold text-ink">{schedSubName}</h2>
+                <p className="text-xs text-muted-fg">{schedIsDelivery ? 'When is it being delivered?' : 'When are they on site?'}</p>
+              </div>
+              <button onClick={() => { setSchedulingSubId(null); setSchedError(null) }}
+                aria-label="Close" title="Close" className="shrink-0 text-faint hover:text-muted-fg">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <form onSubmit={scheduleSubcontract} className="flex min-h-0 flex-1 flex-col">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6 py-5 space-y-4">
+                <div className={schedIsDelivery ? 'space-y-1.5' : 'grid grid-cols-1 sm:grid-cols-2 gap-4'}>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="sstart">
+                      {schedIsDelivery ? 'Delivery Date' : 'Start Date'} <span className="text-danger">*</span>
+                    </Label>
+                    <Input id="sstart" type="date" value={schedStart}
+                      onChange={e => setSchedStart(e.target.value)} autoFocus={autoFocusOnDesktop()} />
+                  </div>
+                  {!schedIsDelivery && (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="send">End Date <span className="text-danger">*</span></Label>
+                      <Input id="send" type="date" value={schedEnd} onChange={e => setSchedEnd(e.target.value)} />
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-muted-fg">
+                  Once it is on the schedule you can say what it waits for.
+                </p>
+              </div>
+              {schedError && <ErrorNote message={schedError} className="mx-4 sm:mx-6 mb-1" />}
+              <div className="row-even shrink-0 px-4 sm:px-6 py-4 border-t border-line-soft lg:flex lg:flex-wrap gap-2 justify-end">
+                <Button type="button" variant="secondary"
+                  onClick={() => { setSchedulingSubId(null); setSchedError(null) }}>Cancel</Button>
+                {/* Disabled ONLY for in-flight. Let it fire and answer with the
+                    field that is missing. */}
+                <Button type="submit" disabled={schedSaving}>
+                  {schedSaving ? 'Saving…' : schedIsDelivery ? 'Set Delivery' : 'Set Dates'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {showAdd && (
         <div className="overlay items-center justify-center bg-black/50" data-overlay>
           {/* A COLUMN, so the title and the buttons are pinned and only the
@@ -744,21 +824,21 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                     {isSupplier ? 'Supplier · schedule delivery' : (sub.trade ? `${sub.trade} · ` : '') + sub.scope}
                   </p>
                 </div>
-                {schedulingSubId === sub.id ? (
-                  <form onSubmit={scheduleSubcontract} className="flex items-center gap-2 flex-wrap">
-                    <Input type="date" className="w-36 h-8 text-xs" value={schedStart} onChange={e => setSchedStart(e.target.value)} required />
-                    {!isSupplier && <><span className="text-faint text-xs">to</span>
-                    <Input type="date" className="w-36 h-8 text-xs" value={schedEnd} onChange={e => setSchedEnd(e.target.value)} required /></>}
-                    <Button size="sm" type="submit" disabled={schedSaving} className="h-8">{schedSaving ? 'Saving…' : 'Add'}</Button>
-                    <button type="button" onClick={() => { setSchedulingSubId(null); setSchedError(null) }} className="text-faint hover:text-muted-fg"><X className="h-4 w-4" /></button>
-                    {schedError && <ErrorNote message={schedError} className="w-full" />}
-                  </form>
-                ) : (
-                  <Button size="sm" variant="secondary" className="h-8 shrink-0" disabled={!canEditSchedule}
-                    onClick={() => { setSchedulingSubId(sub.id); setSchedStart(''); setSchedEnd('') }}>
-                    <CalendarDays className="h-3.5 w-3.5" /> {isSupplier ? 'Set Delivery' : 'Set Dates'}
-                  </Button>
-                )}
+                {/* THE ROW IS A BUTTON, NOT A FORM. Two unlabelled `h-8 text-xs`
+                    date boxes used to live here: 32px tall against the 44px
+                    rule, no <Label> on either, "to" as the only hint which was
+                    which, and `required` so the only validation anybody saw was
+                    the browser's own grey bubble. It opens the same dialog as
+                    every other way of putting a line on the schedule. */}
+                <Button size="sm" variant="secondary" className="shrink-0" disabled={!canEditSchedule}
+                  onClick={() => {
+                    setSchedulingSubId(sub.id)
+                    setSchedSubName(sub.companies?.name ?? sub.scope ?? 'this vendor')
+                    setSchedIsDelivery(isSupplier)
+                    setSchedStart(''); setSchedEnd(''); setSchedError(null)
+                  }}>
+                  <CalendarDays className="h-3.5 w-3.5" /> {isSupplier ? 'Set Delivery' : 'Set Dates'}
+                </Button>
               </div>
             )})}
           </div>
