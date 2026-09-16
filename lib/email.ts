@@ -715,6 +715,121 @@ export function awardEmail({
   }
 }
 
+export interface ShiftedLine {
+  /** What the sub knows this work as. */
+  trade: string
+  oldStart: string
+  newStart: string
+  /** The trade that pushed it, when one did. */
+  because?: string | null
+}
+
+/**
+ * "Your dates moved."
+ *
+ * ONE EMAIL PER SUB, not per line - a sub with rough-in and finish on the same
+ * job gets one letter listing both. Two letters about one slip is how somebody
+ * decides the app is noise and stops opening it.
+ *
+ * Reply-to is the GC, because the first thing a sub does on reading this is
+ * answer it, and an answer that lands in a no-reply mailbox is the phone tag
+ * this feature exists to end.
+ */
+export function scheduleShiftEmail({
+  vendorName, projectName, lines, fromName, companyName,
+}: {
+  vendorName: string | null | undefined
+  projectName: string | null
+  lines: ShiftedLine[]
+  fromName?: string | null
+  companyName?: string | null
+}) {
+  const hi = firstName(vendorName)
+  const where = projectName ? ` on ${projectName}` : ''
+  const sig = [(fromName ?? '').trim(), (companyName ?? '').trim()].filter(Boolean)
+  const one = lines.length === 1
+
+  const bullets = lines.map(l => {
+    const why = l.because ? ` (${l.because} moved)` : ''
+    return `${l.trade}: ${l.oldStart} is now ${l.newStart}${why}`
+  })
+
+  const opener = one
+    ? `Your start${where} has moved.`
+    : `${lines.length} of your dates${where} have moved.`
+
+  const paragraphs = [
+    opener,
+    ...bullets,
+    'Nothing else about the job has changed. Reply to this email if that does not work for you.',
+  ]
+
+  const text = [
+    `Hi ${hi},`, '',
+    opener, '',
+    ...bullets.map(b => `- ${b}`), '',
+    'Nothing else about the job has changed. Reply to this email if that does not work for you.',
+    ...(sig.length ? ['', ...sig] : []),
+  ].join('\n')
+
+  return {
+    subject: one
+      ? `Your start${where} moved to ${lines[0].newStart}`
+      : `Your dates${where} have moved`,
+    text,
+    html: emailLayout({
+      preheader: one ? `${lines[0].oldStart} is now ${lines[0].newStart}.` : `${lines.length} dates changed.`,
+      eyebrow: 'SCHEDULE CHANGE',
+      heading: one ? 'Your start moved' : 'Your dates moved',
+      subheading: projectName ?? undefined,
+      paragraphs: sig.length ? [...paragraphs, sig.join(' - ')] : paragraphs,
+    }),
+  }
+}
+
+/**
+ * "You're clear to go."
+ *
+ * The other half of a progress gate. A gate that only ever tells somebody they
+ * are blocked leaves them ringing the GC to ask whether they can start, which
+ * is the same phone call from the other end.
+ */
+export function scheduleUnblockedEmail({
+  vendorName, projectName, trade, predecessorTrade, startDate, fromName, companyName,
+}: {
+  vendorName: string | null | undefined
+  projectName: string | null
+  trade: string
+  predecessorTrade: string
+  startDate: string
+  fromName?: string | null
+  companyName?: string | null
+}) {
+  const hi = firstName(vendorName)
+  const where = projectName ? ` on ${projectName}` : ''
+  const sig = [(fromName ?? '').trim(), (companyName ?? '').trim()].filter(Boolean)
+
+  const paragraphs = [
+    `${predecessorTrade} is far enough along, so your ${trade} work${where} is clear to start.`,
+    `You are down for ${startDate}.`,
+    'Reply to this email if that does not work for you.',
+  ]
+
+  const text = [`Hi ${hi},`, '', ...paragraphs, ...(sig.length ? ['', ...sig] : [])].join('\n')
+
+  return {
+    subject: `You're clear to start${where}`,
+    text,
+    html: emailLayout({
+      preheader: `${predecessorTrade} is far enough along.`,
+      eyebrow: 'CLEAR TO START',
+      heading: "You're unblocked",
+      subheading: projectName ?? undefined,
+      paragraphs: sig.length ? [...paragraphs, sig.join(' - ')] : paragraphs,
+    }),
+  }
+}
+
 export function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')

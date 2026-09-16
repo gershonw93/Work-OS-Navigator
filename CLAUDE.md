@@ -38,7 +38,7 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-107.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-108.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - **Verify every column you `.select()` actually exists.** Supabase returns
   `data: null` for an unknown column, so a typo reads as "not found" rather than
@@ -671,6 +671,32 @@ Full detail: [`docs/postmortems/derived-state.md`](docs/postmortems/derived-stat
   A gate column (`ready_reminder_sent_at`) makes it fire once per BOOKING, not
   once per row - so the PATCH route has to clear it whenever `scheduled_date`
   changes (`BOOKING_DERIVED_COLUMNS`).
+- **A CASCADE IS ARITHMETIC; TELLING SOMEBODY IS A DECISION.** Schedule
+  dependencies live in `lib/schedule-dependencies.ts` (pure: `cascade`,
+  `findCycle`, `lineProgress`, `blockedBy`) and the routes under
+  `schedule/[itemId]/`. THE RULES THAT COST SOMETHING IF BROKEN:
+  the preview (`POST .../cascade`) writes NOTHING and the apply (`PUT`) takes a
+  `notify` boolean with NO DEFAULT - false would make an un-updated caller stop
+  telling anybody, true would make one start emailing, and both halves are
+  computed by the same `plan()` so the screen somebody approved and the thing
+  that happens cannot drift. ONE EMAIL PER SUB, not per line: `scheduleShiftEmail`
+  takes a LIST. A line whose dates a human edited carries
+  `dates_overridden_at` and is SKIPPED and REPORTED, never moved silently, and
+  the cascade stops there rather than computing off dates the line no longer
+  has. A diamond takes the LARGEST push and each line keeps its LENGTH - the
+  second push measures from where the line already moved to, not from where it
+  started, which is the bug a start-only assertion cannot see. `findCycle` names
+  the loop ("Drywall waits for Paint waits for Drywall"), because "circular
+  dependency" tells nobody which link to cut. Pinned in
+  `schedule-dependencies.ts` and `schedule-cascade.ts`.
+- **AND PROGRESS IS THREE ANSWERS, NOT A NUMBER.** `lineProgress` returns a
+  percent AND its source: `entered` (somebody typed it), `budget` (rolled up
+  from the subcontract's budget lines, weighted by AMOUNT - $90k at 10% beside
+  $10k at 100% is 19%, not 55%), or `unknown`. `schedule_items.progress_pct` is
+  NULLABLE on purpose, unlike `budget_line_items.progress_pct`: an unknown
+  compared against a gate as zero leaves the gate shut for ever while looking
+  like it works. An unknown predecessor BLOCKS and says it is blocking because
+  nobody has said - a wrong "go" puts a crew on a site.
 - A RETRACTION IS AN EVENT TOO. An audit trail that records a claim and not its
   withdrawal is half a record.
 - A VIEW THAT GATHERS A DAY MUST BE OPENABLE BY THE PEOPLE LIVING IT.

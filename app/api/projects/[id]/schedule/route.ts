@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { requirePermission, denied } from '@/lib/api-guard'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -7,6 +8,11 @@ const admin = () => createClient(
 )
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
+  // middleware.ts returns early for every /api/ path, so nothing else gates
+  // this. The whole schedule family was answering anybody with a login.
+  const gate = await requirePermission(admin(), request, 'schedule', 'view')
+  if (denied(gate)) return gate.denied
+
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -47,6 +53,11 @@ export async function GET(request: Request, { params }: { params: { id: string }
 }
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
+  // middleware.ts returns early for every /api/ path, so nothing else gates
+  // this. The whole schedule family was answering anybody with a login.
+  const gate = await requirePermission(admin(), request, 'schedule', 'create')
+  if (denied(gate)) return gate.denied
+
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

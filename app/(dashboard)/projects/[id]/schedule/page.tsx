@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { CascadeReview, type CascadeMove, type CascadeSkip, type AffectedSub } from '@/components/schedule/cascade-review'
+import { DependencyPicker, type PickableLine, type ExistingDependency } from '@/components/schedule/dependency-picker'
 import { useRouter } from 'next/navigation'
 import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { Plus, X, CalendarDays, Pencil, Trash2, Building2, Flag, ChevronLeft, ChevronRight, GanttChartSquare, List, CalendarRange, AlertCircle } from 'lucide-react'
@@ -18,8 +20,9 @@ import {
 import { useViewerContext } from '@/lib/use-viewer-context'
 import { SubSchedule } from '@/components/projects/sub-schedule'
 import { DayDetailSheet } from '@/components/calendar/day-detail-sheet'
+import { useDeleteGuard } from '@/components/ui/delete-guard'
 
-import { formatDate, formatDateShort } from '@/lib/dates'
+import { formatDate, formatDateShort, todayDateInput } from '@/lib/dates'
 const MILESTONE_COLORS = [
   { label: 'Blue',   value: 'blue',   bg: 'bg-info-solid',   light: 'bg-info-tint text-info border-info/30' },
   { label: 'Green',  value: 'green',  bg: 'bg-success-solid',  light: 'bg-success-tint text-success border-success/30' },
@@ -156,6 +159,14 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
   const [editColor, setEditColor] = useState('blue')
   const [editSaving, setEditSaving] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
+
+  // The dependency picker inside the edit dialog, and the review screen that
+  // stands between a date change and a sub's inbox.
+  const guardDelete = useDeleteGuard()
+  const [deps, setDeps] = useState<ExistingDependency[]>([])
+  const [pending, setPending] = useState<
+    { moves: CascadeMove[]; skipped: CascadeSkip[]; affected: AffectedSub[]; start: string; end: string } | null
+  >(null)
 
   const [unscheduled, setUnscheduled] = useState<{ id: string; scope: string; trade: string | null; companies: { id: string; name: string; type?: string } | null }[]>([])
   const [schedulingSubId, setSchedulingSubId] = useState<string | null>(null)
@@ -332,10 +343,38 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     setEditSaving(true)
     setEditError(null)
     const token = await getToken()
+    // A DATE CHANGE IS NOT A FIELD EDIT. If the dates moved, ask what else
+    // moves with them and show it BEFORE anything is written - the review
+    // screen is the only thing standing between a slipped trade and a batch of
+    // emails, and it is worth nothing if the write has already happened.
+    const datesMoved = editStart !== editItem.start_date || editEnd !== editItem.end_date
+    if (datesMoved) {
+      const preview = await fetch(`/api/projects/${params.id}/schedule/${editItem.id}/cascade`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ start_date: editStart, end_date: editEnd }),
+      })
+      setEditSaving(false)
+      if (!preview.ok) {
+        const d = await preview.json().catch(() => null)
+        setEditError(d?.error ?? `Could not work out what would move (${preview.status}).`)
+        return
+      }
+      const p = await preview.json()
+      // Save the label and colour now; the dates go through the review.
+      await saveRequest(`/api/projects/${params.id}/schedule/${editItem.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ label: editLabel, color: editColor }),
+      })
+      setPending({ moves: p.moves ?? [], skipped: p.skipped ?? [], affected: p.affected ?? [], start: editStart, end: editEnd })
+      return
+    }
+
     const r = await saveRequest(`/api/projects/${params.id}/schedule/${editItem.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ label: editLabel, start_date: editStart, end_date: editEnd, color: editColor }),
+      body: JSON.stringify({ label: editLabel, color: editColor }),
     })
     setEditSaving(false)
     if (!r.ok) { setEditError(r.error); return }
@@ -343,17 +382,132 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     load(); loadUnscheduled()
   }
 
+  async function loadDeps(itemId: string) {
+    const token = await getToken()
+    const res = await fetch(`/api/projects/${params.id}/schedule/${itemId}/dependencies`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!res.ok) { setDeps([]); return }
+    const d = await res.json()
+    setDeps((d.dependencies ?? []).map((x: any) => ({
+      id: x.id,
+      predecessor_task_id: x.predecessor_task_id,
+      min_predecessor_progress: x.min_predecessor_progress,
+      lag_days: x.lag_days ?? 0,
+      predecessorName: x.predecessor?.trade || x.predecessor?.label || 'an unnamed line',
+    })))
+  }
+
+  /** Returns the route's own reason, or null when it worked. */
+  async function addDependency(input: { predecessor_task_id: string; min_predecessor_progress: number | null; lag_days: number }) {
+    if (!editItem) return 'Save this line first.'
+    const token = await getToken()
+    const res = await fetch(`/api/projects/${params.id}/schedule/${editItem.id}/dependencies`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(input),
+    })
+    if (!res.ok) {
+      const d = await res.json().catch(() => null)
+      // The route names the loop when it refuses one; showing its own sentence
+      // is the difference between "circular dependency" and knowing which link
+      // to cut.
+      const why = d?.error ?? `Could not link that (${res.status}).`
+      console.error('[schedule/deps]', why)
+      return why
+    }
+    await loadDeps(editItem.id)
+    return null
+  }
+
+  async function removeDependency(dependencyId: string) {
+    if (!editItem) return
+    const token = await getToken()
+    await fetch(`/api/projects/${params.id}/schedule/${editItem.id}/dependencies?dependency_id=${dependencyId}`, {
+      method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
+    })
+    // Unlinking changes no dates, per the spec - just reload the links.
+    await loadDeps(editItem.id)
+  }
+
+  /** A placeholder line: a trade and rough dates, nobody assigned yet. */
+  async function addPlaceholder(trade: string): Promise<PickableLine | null> {
+    const token = await getToken()
+    const start = editStart || todayDateInput()
+    const res = await fetch(`/api/projects/${params.id}/schedule`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ label: trade, trade, start_date: start, end_date: start, color: 'slate' }),
+    })
+    if (!res.ok) {
+      console.error('[schedule/placeholder]', (await res.json().catch(() => null))?.error ?? res.status)
+      return null
+    }
+    const { item } = await res.json()
+    await load()
+    return { id: item.id, name: trade, start_date: item.start_date, end_date: item.end_date, hasSub: false }
+  }
+
+  /** Everything on this project that could be waited for. */
+  const pickableLines: PickableLine[] = items.map(i => ({
+    id: i.id,
+    name: (i as any).trade || getLabel(i),
+    start_date: i.start_date,
+    end_date: i.end_date,
+    hasSub: !!i.subcontract_id,
+  }))
+
+  /**
+   * Apply the move the review screen was shown, and tell the subs or not.
+   *
+   * The screen and this call name the same dates, so what somebody approved is
+   * what happens.
+   */
+  async function applyCascade(notify: boolean) {
+    if (!editItem || !pending) return
+    const token = await getToken()
+    const r = await saveRequest(`/api/projects/${params.id}/schedule/${editItem.id}/cascade`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ start_date: pending.start, end_date: pending.end, notify }),
+    })
+    if (!r.ok) { setEditError(r.error); setPending(null); return }
+    setPending(null); setEditItem(null)
+    load(); loadUnscheduled()
+  }
+
   async function deleteItem(itemId: string) {
     const token = await getToken()
-    await fetch(`/api/projects/${params.id}/schedule/${itemId}`, {
+    const res = await fetch(`/api/projects/${params.id}/schedule/${itemId}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     })
+    // The route REFUSES while other lines wait on this one, and names them.
+    // Confirming is a second, explicit request - not a flag on the first.
+    if (res.status === 409) {
+      const d = await res.json().catch(() => null)
+      const dependents: { name: string }[] = d?.dependents ?? []
+      guardDelete(async () => {
+        const t2 = await getToken()
+        await fetch(`/api/projects/${params.id}/schedule/${itemId}?confirm=1`, {
+          method: 'DELETE', headers: { Authorization: `Bearer ${t2}` },
+        })
+        load(); loadUnscheduled()
+      }, {
+        label: 'this schedule line',
+        title: 'Other trades wait on this',
+        body: d?.error ?? `${dependents.length} other lines wait on this one.`,
+        confirmLabel: 'Delete and unlink',
+      })
+      return
+    }
     load(); loadUnscheduled()
   }
 
   function openEdit(item: ScheduleItem) {
     setEditItem(item)
+    setDeps([])
+    loadDeps(item.id)
     setEditLabel(getLabel(item))
     setEditStart(item.start_date)
     setEditEnd(item.end_date)
@@ -473,6 +627,17 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                     <Input id="eend" type="date" value={editEnd} onChange={e => setEditEnd(e.target.value)} required />
                   </div>
                 </div>
+
+                {/* AFTER the dates, never before: the spec asks "depends on
+                    another trade?" once somebody has said when this one is. */}
+                <DependencyPicker
+                  lines={pickableLines}
+                  existing={deps}
+                  selfId={editItem?.id ?? null}
+                  onAdd={addDependency}
+                  onRemove={removeDependency}
+                  onAddPlaceholder={addPlaceholder}
+                />
                 {!editItem.subcontract_id && (
                   <div className="space-y-1.5">
                     <Label>Color</Label>
@@ -876,6 +1041,16 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
 
         </div>
       )}
-    </div>
+          {pending && editItem && (
+        <CascadeReview
+          moves={pending.moves}
+          skipped={pending.skipped}
+          affected={pending.affected}
+          editedName={(editItem as any).trade || getLabel(editItem)}
+          onConfirm={applyCascade}
+          onCancel={() => { setPending(null); load() }}
+        />
+      )}
+</div>
   )
 }
