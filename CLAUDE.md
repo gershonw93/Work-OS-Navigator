@@ -707,6 +707,17 @@ Full detail: [`docs/postmortems/derived-state.md`](docs/postmortems/derived-stat
   the loop ("Drywall waits for Paint waits for Drywall"), because "circular
   dependency" tells nobody which link to cut. Pinned in
   `schedule-dependencies.ts` and `schedule-cascade.ts`.
+- **AND A FEATURE REACHABLE FROM ONE DOOR IS UNREACHABLE FROM THE JOB THAT HAS
+  NOT STARTED.** Reported as "i just see this / nothing republished", over the
+  "vendors not yet scheduled" strip. The deploy was correct; the dependency
+  picker rendered only inside the EDIT dialog, and a project whose lines are all
+  still unscheduled has nothing to edit - so the whole feature was invisible,
+  which is indistinguishable from a deploy that never happened. The spec said
+  creating OR editing and only editing was built. Every path that CREATES a
+  schedule line now hands straight to the prompt. And it opens the LOADED row,
+  never the one the POST returns: that row carries no `subcontracts` join, and
+  `scheduleLabel` reads the join, so the dialog would have said "Untitled".
+  Pinned in `schedule-cascade.ts`, which asserts every creator reaches it.
 - **AND PROGRESS IS THREE ANSWERS, NOT A NUMBER.** `lineProgress` returns a
   percent AND its source: `entered` (somebody typed it), `budget` (rolled up
   from the subcontract's budget lines, weighted by AMOUNT - $90k at 10% beside

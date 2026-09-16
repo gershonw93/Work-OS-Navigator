@@ -1478,7 +1478,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     summary: 'Lay out milestones and see when each phase happens.',
     blocks: [
       { type: 'text', text: 'The Schedule tab auto-populates from awarded bids, and you can add milestones by hand.' },
-      { type: 'text', text: 'WHEN ONE TRADE SLIPS, EVERYTHING BEHIND IT MOVES. Open a schedule line and, under the dates, answer "Depends on another trade?". Pick the line it waits for. From then on, moving that line by three days moves this one by three days - and anything waiting on THIS one, all the way down the chain.' },
+      { type: 'text', text: 'WHEN ONE TRADE SLIPS, EVERYTHING BEHIND IT MOVES. As soon as you set dates on a vendor - or add a milestone - SyteNav asks "Depends on another trade?". You can also open any existing line and answer it there. Pick the line it waits for. From then on, moving that line by three days moves this one by three days - and anything waiting on THIS one, all the way down the chain.' },
       { type: 'steps', items: [
         'Open the line and change its dates.',
         'A screen lists everything that moves: each trade, its old dates, its new dates, and which sub is on it.',

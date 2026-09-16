@@ -166,6 +166,34 @@ console.log('\nschedule-cascade')
     'notify and silent are BOTH buttons, so the choice has to be made')
 }
 
+// ── the picker is reachable from EVERY way a line gets made ──────────────────
+{
+  const page = code('app/(dashboard)/projects/[id]/schedule/page.tsx')
+
+  // THE REPORT: "i just see this / nothing republished", with the "vendors not
+  // yet scheduled" strip on screen. The deploy was fine. The picker rendered
+  // only inside the EDIT dialog, so on a job with no schedule lines yet there
+  // was nothing to open and the whole feature was unreachable - which looks
+  // exactly like a deploy that did not happen. The spec says creating OR
+  // editing, and only editing was wired.
+  const creators = ['async function scheduleSubcontract', 'async function addItem']
+  for (const fn of creators) {
+    const at = page.indexOf(fn)
+    ok(at > -1, `found ${fn.replace('async function ', '')}`)
+    const body = page.slice(at, at + 1600)
+    ok(/openEdit\(created\)/.test(body),
+      `...and it hands straight to the dependency prompt after the dates`)
+  }
+
+  // It must open the LOADED row, not the one the POST hands back: that row
+  // carries no `subcontracts` join, and `scheduleLabel` reads the join to name
+  // a sub's line, so the dialog would say "Untitled".
+  ok(/async function load\(\): Promise<ScheduleItem\[\]>/.test(page),
+    'load() returns the fresh list, because state is not readable in the same closure')
+  ok(!/openEdit\(r\.data/.test(page),
+    '...and nothing opens the bare POST row')
+}
+
 // ── the picker ───────────────────────────────────────────────────────────────
 {
   const picker = code('components/schedule/dependency-picker.tsx')
