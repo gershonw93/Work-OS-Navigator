@@ -7,6 +7,12 @@ import { budgetAmount } from '@/lib/validate'
 
 export const runtime = 'nodejs'
 
+// This route reads a document with an AI model. Without this it gets the
+// platform default, which is far too short for a scan - the request is cut off
+// mid-read and the browser reports a network failure for work the user watched
+// start. 60 is what the invoice scan next door has always used.
+export const maxDuration = 60
+
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,

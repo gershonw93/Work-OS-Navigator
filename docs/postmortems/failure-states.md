@@ -203,3 +203,115 @@ state, and the scan route and the financials route select subcontracts with the
 identical filter - so the matched id is in the list. Either it is
 environment-specific or the symptom is something adjacent, and guessing at a fix
 for a path that reads correct is how a working thing gets broken.
+
+---
+
+## "Failed to fetch", three times, over a screen that had worked
+
+**Reported as:** *"Works awesome there's just warning bubbles - cosmetic I think
+that gotta go"*, with a screenshot of three red bubbles reading **Failed to
+fetch** stacked over a Compare Responses panel.
+
+Behind the bubbles the panel was perfect. Two quotes read - Harborline Plumbing
+at $312,950 and Apex Now Mechanical at $329,700 - both filenames linked, the
+spread computed at $16,750, and a written recommendation naming the shared gaps
+(gas piping, excavation/backfill, commissioning). Nothing on that screen was
+wrong except the three things telling the user it had gone wrong.
+
+### It was not cosmetic
+
+`POST /api/projects/[id]/quotes/[compId]/upload` reads a PDF with an AI model.
+It declared `runtime = 'nodejs'` and nothing else, so it got the platform's
+default duration - a few seconds - for work that takes tens of them. The
+platform severed the request mid-read and the browser rejected the `fetch` with
+a `TypeError`.
+
+The route next door had already been through this:
+
+```ts
+// app/api/projects/[id]/invoices/scan/route.ts
+export const runtime = 'nodejs'
+export const maxDuration = 60
+```
+
+Same work. Same model. Same kind of document. That line was added the last time
+somebody reported a scan dying, and it was never carried to the eleven other
+routes doing the identical thing. An audit found exactly one of twelve
+model-calling routes declaring a duration, and five declaring no `runtime`
+either - which matters, because `maxDuration` means nothing on the edge.
+
+This is the `ACCEPTED_STATUSES` rule in a new place: **a rule that exists on one
+door has to exist on the others**, and the only reliable way to make that true
+is a scan that walks the doors rather than a memory of which ones were fixed.
+
+### The message was the browser's, not ours
+
+```ts
+catch (e: any) { notify(e?.message ?? 'Upload failed'); onChanged() }
+```
+
+`e.message` on a severed `fetch` is `"Failed to fetch"`. That is Chrome's
+wording. WebKit - which **is** the native shell - says `"Load failed"`, Firefox
+says `"NetworkError when attempting to fetch resource."`, and an aborted request
+says `"The user aborted a request."`. One event, four sentences, none of them
+written by us and none of them telling a builder what to do.
+
+This is `friendlyDbError` one layer out. A Postgres constraint sentence is not a
+user-facing message for the same reason: every word true, none of it usable.
+
+### The part that made it a lie
+
+The bubble said the upload had failed. The quote it produced was **on the screen
+behind it**.
+
+A request that does not come back says *nothing* about whether the work
+happened. The connection can die after the server committed; the response can be
+lost on the way home; the platform can kill the function at any point in
+between. The client cannot tell these apart, and there is no status to read
+because there was no response.
+
+This is exactly `lib/auth-outcome.ts` - *a failure to ASK is not a verdict about
+the answer* - arriving at a different door. So `fetchProblem` refuses to
+announce an outcome it did not observe:
+
+> The connection dropped while reading Liberty_Power_Electrical_Proposal.pdf, so
+> we do not know whether it finished. Give it a moment and reload before trying
+> again - it may already be there.
+
+And the caller refreshes in `finally`, on the failure path as much as the happy
+one, because the list is the only thing that actually knows.
+
+### The loop, again
+
+```ts
+try { for (const f of Array.from(files)) await uploadOne(f); onChanged() }
+catch (e: any) { notify(e?.message ?? 'Upload failed'); onChanged() }
+```
+
+`uploadOne` threw, so the first bad file abandoned every file after it - with
+one message that named none of them. This had already been fixed on the Request
+Quotes page in the change immediately before, and left standing in
+`comparison-block.tsx`, one file over, on the other door onto the same route.
+Both now collect every file's answer and say whether it was all of them or some.
+
+### What the test nearly missed
+
+The first version of the spelling check asked whether the source *contained*
+`'load failed'`. During the red check it stayed green while the line was
+deleted - because the red-check edit had left the words **"upload failed"** in
+the fallback sentence, and `up|load failed` contains the substring.
+
+An assertion that passes for the wrong reason is worth less than no assertion,
+because it is also a claim that the thing is covered. It now matches the call -
+`includes('load failed')` - and goes red when the line goes.
+
+### Rules this produced
+
+- Every route that calls the model declares `runtime = 'nodejs'` and
+  `maxDuration = 60`. Ratcheted by walking `app/api` for the model call, not by
+  listing the routes.
+- A raw thrown `.message` never reaches a user. `lib/fetch-error.ts` is the one
+  reader, and it matches every browser's spelling, not Chrome's.
+- A dropped request is reported as *unknown*, never as *failed*, and whatever
+  the caller refreshes, it refreshes in `finally`.
+- A loop over files answers for each file.

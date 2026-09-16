@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 
 import { formatDate } from '@/lib/dates'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
+import { fetchProblem } from '@/lib/fetch-error'
 interface Connection {
   realm_id: string
   qbo_company_name: string | null
@@ -84,7 +85,7 @@ export function QuickBooksCard() {
         return
       }
       window.location.href = data.url
-    } catch (e: any) { setMsg({ ok: false, text: e.message }); setBusy('') }
+    } catch (e: any) { setMsg({ ok: false, text: fetchProblem(e, 'connecting to QuickBooks') }); setBusy('') }
   }
 
   function disconnect() {
@@ -94,7 +95,7 @@ export function QuickBooksCard() {
       const res = await fetch('/api/quickbooks/disconnect', { method: 'POST', headers: await authHeaders() })
       if (!res.ok) throw new Error((await res.json()).error || 'Failed')
       await load(); setMsg({ ok: true, text: 'Disconnected.' })
-    } catch (e: any) { setMsg({ ok: false, text: e.message }) } finally { setBusy('') }
+    } catch (e: any) { setMsg({ ok: false, text: fetchProblem(e, 'talking to QuickBooks') }) } finally { setBusy('') }
     }, {
       label: 'this QuickBooks connection',
       title: 'Disconnect QuickBooks?',
@@ -129,7 +130,7 @@ export function QuickBooksCard() {
       }
       setMsg({ ok: errors === 0, text: `Formatting updated on ${done} record${done === 1 ? '' : 's'} in QuickBooks${errors ? `, ${errors} error${errors === 1 ? '' : 's'} (see the log)` : ''}.` })
       await load()
-    } catch (e: any) { setMsg({ ok: false, text: e.message }) } finally { setBusy('') }
+    } catch (e: any) { setMsg({ ok: false, text: fetchProblem(e, 'talking to QuickBooks') }) } finally { setBusy('') }
   }
 
   async function sync(entity: 'customers' | 'vendors' | 'bills' | 'bill-payments' | 'payments' | 'client-invoices' | 'voids') {
@@ -143,7 +144,7 @@ export function QuickBooksCard() {
       const s = data.summary
       setMsg({ ok: s.errors === 0, text: `${entity}: ${s.synced} synced, ${s.skipped} already there, ${s.errors} error${s.errors === 1 ? '' : 's'}.` })
       await load()
-    } catch (e: any) { setMsg({ ok: false, text: e.message }) } finally { setBusy('') }
+    } catch (e: any) { setMsg({ ok: false, text: fetchProblem(e, 'talking to QuickBooks') }) } finally { setBusy('') }
   }
 
   if (loading) return <div className="flex h-32 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-fg" /></div>

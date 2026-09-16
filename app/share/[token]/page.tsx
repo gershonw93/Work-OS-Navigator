@@ -12,6 +12,7 @@ import { DocumentViewer } from '@/components/ui/image-lightbox'
 import { ACCEPT_DOCS } from '@/lib/file-accept'
 
 import { formatDate } from '@/lib/dates'
+import { fetchProblem } from '@/lib/fetch-error'
 interface SharedFile { name: string; url: string; type?: string | null; size?: number | null; added_at?: string | null }
 interface Data {
   name: string
@@ -103,7 +104,7 @@ export default function SharePage({ params }: { params: { token: string } }) {
       const refreshed = await fetch(`/api/share/${params.token}`)
       if (refreshed.ok) setData(await refreshed.json())
     } catch (e: any) {
-      setError(e?.message ?? 'Upload failed')
+      setError(fetchProblem(e, 'sending those files'))
     } finally {
       setSending(false); setProgress('')
     }
