@@ -608,6 +608,15 @@ Full detail: [`docs/postmortems/mobile.md`](docs/postmortems/mobile.md).
   or "(optional)", and a parenthetical that says something ELSE ("(adds to
   schedule)") is a hint under the field, not a stand-in for the marker. Pinned
   in `add-sub-form.ts`.
+- **AN INLINE ROW OF BARE INPUTS IS NOT A FORM, IT IS A FORM'S SILHOUETTE.**
+  Reported as "still get this basic date picker": setting a vendor's dates was
+  two `h-8 text-xs` date boxes wedged into the "not yet scheduled" strip - 32px
+  against the 44px rule, 12px against the 16px one, NO `<Label>` on either with
+  "to" as the only clue which was which, and `required` doing the validating so
+  the only message anybody saw was the browser's grey bubble pointing at an
+  unlabelled box. It is the same dialog as Add Milestone now, with marked
+  labels and `missingSchedule` beside `missingMilestone` - one shape for every
+  way a line reaches the schedule. Pinned in `schedule-cascade.ts`.
 - A VALUE THE APP WRITES, SUBMITS AND READS BACK MUST HAVE A CONTROL SOMEWHERE.
   A field with no box is not a hidden implementation detail; it is a fact about
   the job that only a machine may write.

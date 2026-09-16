@@ -166,6 +166,50 @@ console.log('\nschedule-cascade')
     'notify and silent are BOTH buttons, so the choice has to be made')
 }
 
+// ── every date field on this page is a real, labelled field ─────────────────
+{
+  const page = code('app/(dashboard)/projects/[id]/schedule/page.tsx')
+
+  // REPORTED: "still get this basic date picker". Setting a vendor's dates was
+  // an inline form wedged into the amber strip - two `h-8 text-xs` date boxes
+  // with NO <Label> on either, "to" as the only clue which was which, and
+  // `required` doing the validating, so the only message anybody ever saw was
+  // the browser's own grey bubble pointing at an unlabelled box.
+  ok(!/type="date"[^>]*className="w-36 h-8/.test(page),
+    'no 32px unlabelled date box - a form control is 44px on a phone')
+  ok(!/className="w-36 h-8 text-xs"/.test(page),
+    '...and nothing sets a 12px control, which makes iOS zoom the page on focus')
+
+  // Every date input is now inside a dialog with a Label pointing at it.
+  const ids = Array.from(page.matchAll(/<Input id="([a-z]+)" type="date"/g)).map(m => m[1])
+  ok(ids.length >= 4, `found the date fields (${ids.length})`)
+  for (const id of ids) {
+    ok(new RegExp(`<Label htmlFor="${id}">`).test(page), `${id} has a Label pointing at it`)
+  }
+
+  // A field is MARKED or it is guessed at.
+  const setDates = page.slice(page.indexOf('{schedulingSubId && ('))
+  ok((setDates.match(/text-danger">\*<\/span>/g) ?? []).length >= 1,
+    'the required fields carry their asterisk')
+
+  // The guard is a shared function, not `required`, so the message is ours and
+  // names the field - the same shape as missingMilestone beside it.
+  ok(/function missingSchedule\(/.test(page),
+    'there is a missingSchedule, beside missingMilestone so the two cannot drift')
+  ok(/const missing = missingSchedule\(/.test(page),
+    '...and the submit asks it at the FIELD before sending')
+  ok(!/id="sstart"[^>]*required/.test(page) && !/id="send"[^>]*required/.test(page),
+    '...rather than leaning on `required` and the browser\'s own bubble')
+  ok(/disabled=\{schedSaving\}/.test(page),
+    'the button is disabled only for in-flight')
+
+  // And it is a real overlay, like every other dialog on this page.
+  ok(/\{schedulingSubId && \(\s*<div className="overlay/.test(page),
+    'setting dates opens .overlay, not an inline row')
+  ok(setDates.slice(0, 400).includes('data-overlay'),
+    '...carrying data-overlay so the page behind it freezes')
+}
+
 // ── the picker is reachable from EVERY way a line gets made ──────────────────
 {
   const page = code('app/(dashboard)/projects/[id]/schedule/page.tsx')

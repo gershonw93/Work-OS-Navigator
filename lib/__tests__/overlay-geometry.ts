@@ -285,12 +285,19 @@ ok(block.submitBottom > SHORT,
 
 // The dialogs this is actually about.
 const schedule = code('app/(dashboard)/projects/[id]/schedule/page.tsx')
-ok((schedule.match(/flex max-h-full w-full max-w-md min-w-0 flex-col overflow-hidden/g) ?? []).length === 2,
-  'both schedule dialogs are columns - Add Milestone and Edit Item')
-ok((schedule.match(/flex min-h-0 flex-1 flex-col/g) ?? []).length === 2,
-  '...with the form as the flexible middle, so the footer travels with it')
-ok((schedule.match(/shrink-0 px-4 sm:px-6 py-4 border-t/g) ?? []).length === 2,
-  '...and both footers pinned')
+// Counted against EACH OTHER rather than against a hardcoded 2. There were two
+// (Add Milestone, Edit Item); Set Dates became a third when the inline row of
+// unlabelled date boxes was replaced. A literal count turns every new dialog
+// into a failure whether or not it has the right shape, which teaches whoever
+// hits it to edit the number - and the number was never the rule. The rule is
+// that EVERY schedule dialog is a column with a pinned footer.
+const panels = (schedule.match(/flex max-h-full w-full max-w-md min-w-0 flex-col overflow-hidden/g) ?? []).length
+const middles = (schedule.match(/flex min-h-0 flex-1 flex-col/g) ?? []).length
+const footers = (schedule.match(/shrink-0 px-4 sm:px-6 py-4 border-t/g) ?? []).length
+ok(panels >= 3, `every schedule dialog is a column (${panels}) - Add Milestone, Edit Item, Set Dates`)
+ok(middles === panels,
+  `...each with the form as the flexible middle, so the footer travels with it (${middles} of ${panels})`)
+ok(footers === panels, `...and every footer pinned (${footers} of ${panels})`)
 // Budget's Add Line was an inline card two screens down a phone; it is a
 // dialog of the same shape now, on the desktop too.
 const budget = code('app/(dashboard)/projects/[id]/budget/page.tsx')

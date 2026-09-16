@@ -274,8 +274,8 @@ ok(!/max-h-\[[^\]]*[^dsl]vh/.test(nav),
 
 // The reported one, by name.
 const schedule = code('app/(dashboard)/projects/[id]/schedule/page.tsx')
-ok((schedule.match(/className="overlay /g) ?? []).length === 2,
-  'both schedule dialogs - Add Milestone is the one that would not fit')
+ok((schedule.match(/className="overlay /g) ?? []).length >= 3,
+  'every schedule dialog is a real overlay - Add Milestone, Edit Item, and Set Dates')
 
 // ── 4. a wide table can be reached, not just clipped ─────────────────────────
 const clipped: string[] = []
