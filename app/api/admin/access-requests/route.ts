@@ -3,7 +3,9 @@ import { NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
 import { isSuperAdmin } from '@/lib/super-admin'
 import { appOrigin } from '@/lib/app-url'
-import { inviteEmail, sendEmail, type SendResult } from '@/lib/email'
+import { inviteEmail, platformInviteEmail, sendEmail, type SendResult } from '@/lib/email'
+import { friendlyDbError } from '@/lib/db-error'
+import { invitePersonProblem, inviteFullName } from '@/lib/invite-person'
 
 export const runtime = 'nodejs'
 
@@ -82,7 +84,7 @@ export async function GET(request: Request) {
  */
 async function deliverInvite(
   db: ReturnType<typeof admin>,
-  row: { id: string; name: string; email: string; invite_token: string | null },
+  row: { id: string; name: string; email: string; invite_token: string | null; source?: string | null },
   requestOrigin: string | null,
 ): Promise<SendResult> {
   if (!row.invite_token) return { sent: false, reason: 'invalid', detail: 'no invite token' }
@@ -93,7 +95,14 @@ async function deliverInvite(
   // best-effort.
   try {
     const inviteUrl = `${appOrigin(requestOrigin)}/signup?invite=${row.invite_token}`
-    const { subject, text, html } = inviteEmail({ name: row.name, inviteUrl })
+    // WHICH DOOR THEY CAME THROUGH DECIDES WHAT IS TRUE. Somebody who applied
+    // is told their request was approved; somebody the owner invited out of
+    // the blue never applied, and being told otherwise asks them to remember
+    // a request they never made. Resend goes through here too, so a resent
+    // invite cannot quietly change its story.
+    const { subject, text, html } = row.source === 'invite'
+      ? platformInviteEmail({ name: row.name, inviteUrl })
+      : inviteEmail({ name: row.name, inviteUrl })
     const result = await sendEmail({ to: row.email, subject, text, html })
 
     if (result.sent) {
@@ -145,7 +154,12 @@ export async function PATCH(request: Request) {
       : { status: 'pending', invite_token: null, invite_sent_at: null, reviewed_at: null }
 
   const { data, error } = await db.from('access_requests').update(updates).eq('id', id).select().single()
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  // Not `error.message`. A not-null or check-constraint sentence is not
+  // something to put on a screen, and the raw text still reaches the log.
+  if (error) {
+    console.error('[admin/access-requests] update failed:', error.message)
+    return NextResponse.json({ error: friendlyDbError(error) }, { status: 500 })
+  }
 
   if (action !== 'approve') return NextResponse.json({ request: data })
 
@@ -154,4 +168,82 @@ export async function PATCH(request: Request) {
   const email = await deliverInvite(db, data, origin)
   const { data: fresh } = await db.from('access_requests').select('*').eq('id', id).single()
   return NextResponse.json({ request: fresh ?? data, email })
+}
+
+/**
+ * Invite somebody who never asked - first name, last name, email.
+ *
+ * The whole point is that this is the SAME machinery as approving a waitlist
+ * request: one `access_requests` row, one token, the same `/signup?invite=`
+ * unlock, and the same resend and revoke controls afterwards. What differs is
+ * that nobody applied, so the row is born approved (`reviewed_at` stamped, a
+ * token minted) and carries `source: 'invite'`, which is what picks the
+ * truthful email.
+ *
+ * ONE FACT, ONE HOME: the form asks for a first and a last name because that is
+ * how a person types one, and they are composed into `name` here. A second pair
+ * of columns holding the same fact is how two spellings of a person's name end
+ * up in one table.
+ */
+export async function POST(request: Request) {
+  if (!(await requireSuperAdmin(request))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  const body = await request.json().catch(() => ({}))
+  const firstName = String((body as any)?.first_name ?? '').trim()
+  const lastName = String((body as any)?.last_name ?? '').trim()
+  const email = String((body as any)?.email ?? '').trim().toLowerCase()
+
+  // Asked HERE, with the same set the form uses, so the answer names the field
+  // rather than arriving as "a request did not happen".
+  const problem = invitePersonProblem({ firstName, lastName, email })
+  if (problem) return NextResponse.json({ error: problem }, { status: 400 })
+
+  const db = admin()
+
+  // A row already exists for this address. The unique index on lower(email)
+  // would refuse the insert, and a Postgres duplicate-key sentence is not a
+  // thing to put in front of somebody - say which of the three cases it is and
+  // what to do instead.
+  const { data: existing } = await db
+    .from('access_requests').select('*').ilike('email', email).maybeSingle()
+  if (existing) {
+    const where = existing.source === 'invite' ? 'invited' : 'on the waitlist'
+    return NextResponse.json({
+      error: existing.status === 'approved'
+        ? `${email} is already ${where} and approved. Use Resend on their row to send the link again.`
+        : `${email} is already ${where} (${existing.status}). Open their row below rather than inviting them twice.`,
+      existingId: existing.id,
+    }, { status: 409 })
+  }
+
+  // And an address that already has an ACCOUNT does not need an invite at all -
+  // the link would hand them a signup form for an account they can just log
+  // into. accountsByEmail already knows; asking it costs one call we make.
+  const accounts = await accountsByEmail(db)
+  if (accounts.has(email)) {
+    return NextResponse.json({
+      error: `${email} already has a SyteNav account. They can sign in - there is nothing to invite them to.`,
+    }, { status: 409 })
+  }
+
+  // Born approved: nobody applied, so there is nothing to review. The token is
+  // minted here for the same reason the approve path mints one - it IS the
+  // access, and the email is only how it travels.
+  const { data, error } = await db.from('access_requests').insert({
+    name: inviteFullName({ firstName, lastName }),
+    email,
+    source: 'invite',
+    status: 'approved',
+    invite_token: randomUUID().replace(/-/g, ''),
+    reviewed_at: new Date().toISOString(),
+  }).select().single()
+
+  if (error) {
+    console.error('[admin/invite] insert failed:', error.message)
+    return NextResponse.json({ error: friendlyDbError(error) }, { status: 500 })
+  }
+
+  const emailResult = await deliverInvite(db, data, request.headers.get('origin'))
+  const { data: fresh } = await db.from('access_requests').select('*').eq('id', data.id).single()
+  return NextResponse.json({ request: fresh ?? data, email: emailResult }, { status: 201 })
 }

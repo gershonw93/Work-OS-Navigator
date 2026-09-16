@@ -2664,3 +2664,28 @@ ALTER TABLE projects DROP COLUMN IF EXISTS longitude;
 ALTER TABLE projects
   ADD COLUMN IF NOT EXISTS portal_shared_at  timestamptz,
   ADD COLUMN IF NOT EXISTS portal_shared_how text;
+
+-- ── 107: which door they came through ───────────────────────────────────────
+-- The super admin can now START an invite rather than only approving one that
+-- somebody asked for. Both land in `access_requests` - same token, same signup
+-- unlock, same resend and revoke - but they are NOT the same event, and the two
+-- doors get different EMAILS. Somebody who applied is told "you're approved",
+-- which is true; somebody the owner invited out of the blue never applied, and
+-- telling them their request was approved asks them to remember a request they
+-- never made. That is the bug that split one template into three already.
+--
+-- Default 'request', because every row that existed before this came through
+-- the waitlist.
+ALTER TABLE access_requests
+  ADD COLUMN IF NOT EXISTS source text NOT NULL DEFAULT 'request';
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'access_requests_source_check'
+  ) THEN
+    ALTER TABLE access_requests
+      ADD CONSTRAINT access_requests_source_check
+      CHECK (source IN ('request', 'invite'));
+  END IF;
+END $$;

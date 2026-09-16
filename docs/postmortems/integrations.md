@@ -244,3 +244,74 @@ although a `directory` resource exists. Not a leak (the answer is scoped to the
 caller's own company) and not fixed here, because gating it touches screens this
 change has no business touching. It is ratcheted at one in that suite and
 written down in BACKLOG.md.
+
+## A fourth person, and the sentence that came with the machinery
+
+> I wanna make a spot where I can send an invite, so I'll put in first name,
+> last name, and email address, and they'll get a nice email saying that they're
+> invited, and they just sign up from there.
+
+Everything needed for that already existed. The waitlist flow is: a stranger
+fills the Request Access form, a row lands in `access_requests`, a super admin
+approves it, a token is minted, and `inviteEmail` carries a
+`/signup?invite=<token>` link that unlocks the real account-creation form.
+Starting that from the console instead of from the form is the same row, the
+same token, the same unlock, and the same resend and revoke afterwards.
+
+Which is exactly the trap. **Reusing the machinery quietly reuses the
+sentence.** `inviteEmail` opens:
+
+> YOU'RE APPROVED · Welcome to the SyteNav beta · your access request is approved
+
+True of somebody who applied. Meaningless to somebody the owner invited out of
+the blue, who is being asked to remember a request they never made - and this
+file already carries the post-mortem for the identical failure one audience
+over, where a subcontractor invited from the Directory was told they were
+approved for a beta they had never applied to.
+
+So the split is by AUDIENCE, not by code path, and a fourth audience needs a
+fourth template. `platformInviteEmail` says what is actually true: here is an
+invitation, it is free while we are in beta, here is your link.
+
+`access_requests.source` ('request' | 'invite') is what makes that decidable
+later, and `deliverInvite` reads it off the ROW rather than taking a flag from
+its caller. That matters for **resend**: the resend path goes through the same
+function, so an invite cannot say one thing on the first send and another on the
+second.
+
+### Do they need approving afterwards?
+
+No, and the row says so: it is born `status: 'approved'` with a token and a
+`reviewed_at` stamp. The working agreement already settled this - *"the invite
+IS the approval"* - and a second approval would mean the owner approving the
+same person twice, once when they chose to invite them and again when the
+invitee did as they were asked.
+
+### One name, composed at the edge
+
+The form asks for a first and a last name because that is how a person types
+one. `access_requests.name` stays the single home, and `inviteFullName` composes
+them in one place. A `first_name`/`last_name` pair beside `name` would be three
+columns holding two facts, and the one the next reader picks decides whether the
+greeting says "Hi Dana" or "Hi Dana Whitfield".
+
+### Three assertions that could not fail
+
+The suite was written before the red-check, and two of its checks went green
+against deliberately broken code.
+
+`/status: 'approved'/` and `/invite_token: randomUUID/` were run over the whole
+route file - and the PATCH handler's approve branch contains both. Gutting the
+POST handler entirely left them passing. A scan over a file that holds a second,
+correct copy of what it is looking for cannot fail for the thing it names, so it
+now slices from `export async function POST` first.
+
+The third was smaller and the same shape: `/invite/i` against a subject line of
+"An invitation to SyteNav". "invitation" does not contain "invite".
+
+### One thing fixed in passing
+
+The PATCH handler ended `NextResponse.json({ error: error.message })` - a raw
+Postgres sentence on its way to a screen, which is a named rule in the working
+agreement. One line, in a file already being changed, and now `friendlyDbError`
+with the raw text kept in the log.

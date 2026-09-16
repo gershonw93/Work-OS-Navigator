@@ -38,7 +38,7 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-106.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-107.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - **Verify every column you `.select()` actually exists.** Supabase returns
   `data: null` for an unknown column, so a typo reads as "not found" rather than
@@ -275,6 +275,20 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   `inviteEmail` (waitlist, approvals screen only), `teamInviteEmail`,
   `vendorInviteEmail`. `/api/invite` takes an `audience`, defaulting to `team`
   so an un-updated caller cannot silently get the beta text.
+- **AND A FOURTH PERSON APPEARED: a stranger the OWNER invites, who never
+  asked.** The admin console can now start an invite (first name, last name,
+  email) instead of only approving one. It is the same machinery as the waitlist
+  - one `access_requests` row, one token, the same `/signup?invite=` unlock -
+  and reusing the machinery quietly reuses the SENTENCE, which is the trap.
+  `inviteEmail` says "your access request is approved", true of somebody who
+  applied and false of somebody who did not. So `platformInviteEmail` is the
+  fourth template, `access_requests.source` ('request' | 'invite') is what the
+  row remembers, and `deliverInvite` picks off the ROW rather than off the
+  caller - so a RESEND cannot change its story either. The invite IS the
+  approval: the row is born `approved` with a token and a `reviewed_at`, because
+  there is nothing left to review. First and last name are composed into the one
+  `name` column at the edge (`lib/invite-person.ts`), never stored as a second
+  pair. Pinned in `admin-invite.ts`.
 - **A ROLE OR A COMPANY OUT OF A REQUEST BODY IS AN ESCALATION.**
   `middleware.ts` returns early for every `/api/` path, so nothing else gates
   it. Use `requirePermission` (`settings_team` for a teammate, `directory` for a
