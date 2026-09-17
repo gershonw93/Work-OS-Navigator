@@ -17,6 +17,7 @@ const TABS = [
   { href: '/admin/access-requests', label: 'Access & invites' },
   { href: '/admin/companies', label: 'Companies' },
   { href: '/admin/audit', label: 'Audit Log' },
+  { href: '/admin/demo', label: 'Demo' },
 ]
 
 export function AdminNav() {

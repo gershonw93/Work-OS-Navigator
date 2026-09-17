@@ -38,7 +38,7 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-109.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-110.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - **Verify every column you `.select()` actually exists.** Supabase returns
   `data: null` for an unknown column, so a typo reads as "not found" rather than
@@ -242,6 +242,34 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
 - IMPORTANT: republish it in the SAME change as What's New and the Help
   article whenever something a user would notice ships - especially anything
   that changes an answer in the "what it does not do yet" list.
+
+## The demo control board (IMPORTANT)
+- `/admin/demo` sends ANY live notification to ANY user, with sample copy dated
+  from today. Asked for to run live demos: waiting for a real inspection to fall
+  two business days out is not a demo, it is a stakeout.
+- **IT SENDS A REAL EMAIL AND A REAL BELL TO A REAL PERSON**, with wording
+  written to look genuine. So: SUPER ADMIN ONLY, gated BEFORE the body is read
+  (no field in it is a permission), and every send is written to
+  `demo_notification_log` with the sender's name against it - six weeks later
+  somebody can ask why they got mail about a change order that never existed,
+  and that table is the only thing that can answer. `ON DELETE SET NULL`, because
+  the record has to outlive the account that sent it, which is exactly when the
+  question arrives. The SCREEN says what it is in red; the copy is meant to be
+  convincing and the console must not be.
+- **IT GOES THROUGH `notify()`**, never its own insert - a demo that bypassed
+  preferences would be demonstrating a product that does not exist. Which means
+  a recipient with email off for that type gets the bell and nothing else, so
+  the route REPORTS what actually went out and names the reason when the email
+  did not: a silent missing email on a stage is the worst place to find that out.
+- **THE PICKER IS THE CATALOG** (`NOTIFICATION_TYPES`, filtered to `live`), not
+  a second list that drifts the first time somebody adds a type, and
+  `lib/demo-notification.ts` has copy for every one of them - pinned, so a new
+  live type fails the suite until it has a sample.
+- **THE DATES ARE COMPUTED, NOT TYPED.** "makeshift text that looks real based
+  on the current date" - a sample reading "due Sep 12" in November is the one
+  detail an audience notices. The pin re-renders every sample on a second date
+  and demands the text change, per sample rather than in aggregate: one frozen
+  date passes an aggregate check as long as something else moved.
 
 ## Back burner (KEEP CURRENT)
 - Parked / future ideas live in `BACKLOG.md` at the repo root.
