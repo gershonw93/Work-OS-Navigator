@@ -6,11 +6,12 @@ import {
   LayoutDashboard, FolderKanban, Building2, CheckSquare,
   Settings, LogOut, ClipboardList, Briefcase, FolderOpen, X, UsersRound,
   CalendarDays, DollarSign, Wrench, HelpCircle, ShoppingCart, Sparkles,
-  ChevronsLeft,
+  ChevronsLeft, HardHat,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { usePermissions } from '@/lib/use-permissions'
+import { isFieldRole, FIELD_HOME } from '@/lib/permissions'
 import { useSwipeDismiss } from '@/lib/use-swipe-dismiss'
 import { unregisterThisDevice } from '@/lib/use-push'
 import { SEEN_KEY, unreadCount } from '@/lib/whats-new'
@@ -132,9 +133,23 @@ export function Sidebar() {
   // overview both check the real role from the database and 403 anybody else,
   // so a real supervisor is refused the data whatever the nav renders.
   const isAdmin = role === 'admin' || role === 'manager'
+  // A field worker's home is Field Mode, so their first entry says so and goes
+  // there. "Dashboard" would redirect them back to /field - a control that
+  // does not lead to the thing it names, and it was also their only way home
+  // once they followed a link into the office app.
+  const gcNav = GC_NAV_ITEMS.filter(item => item.resource === null || (!permsLoading && can(item.resource, 'view')))
+  // NOTE FOR THE NEXT READER: the Field Mode entry below is prepended AFTER
+  // this filter and is deliberately not subject to it. Field Mode is the
+  // worker's own shell - the /field layout asks for the ROLE and no permission
+  // at all - so a company that unticks Dashboard for Worker must not thereby
+  // delete their only way back out of the office app. Do not "tidy" this by
+  // moving the filter below the prepend.
   const navItems = isSubcontractor
     ? SUB_NAV
-    : GC_NAV_ITEMS.filter(item => item.resource === null || (!permsLoading && can(item.resource, 'view')))
+    : isFieldRole(role)
+      ? [{ label: FIELD_HOME.label, href: FIELD_HOME.href, icon: HardHat, resource: null as string | null },
+         ...gcNav.filter(i => i.href !== '/dashboard')]
+      : gcNav
 
   async function handleLogout() {
     // Before signOut, not after: releasing this phone needs the session that

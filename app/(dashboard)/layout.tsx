@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { ReactNode } from 'react'
-import { currentAuth, currentProfile } from '@/lib/supabase/current-user'
+import { currentAuth } from '@/lib/supabase/current-user'
 import { Sidebar } from '@/components/layout/sidebar'
 import { TopNav } from '@/components/layout/top-nav'
 import { MobileTabBar } from '@/components/layout/mobile-tab-bar'
@@ -10,8 +10,6 @@ import { ImpersonationBanner } from '@/components/layout/impersonate-switcher'
 import { IdleLogout } from '@/components/layout/idle-logout'
 import { NativeShell } from '@/components/layout/native-shell'
 import { AuthUnavailable } from '@/components/layout/auth-unavailable'
-import { FieldPreviewGate } from '@/components/layout/field-preview'
-import { FIELD_ROLES } from '@/lib/permissions'
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   // Resolved once per request and shared with the project layout nested inside
@@ -31,17 +29,35 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     return <AuthUnavailable />
   }
 
-  // Field workers get the dedicated Field Mode shell, not the office app.
-  const profile = await currentProfile()
-  if (profile?.role && FIELD_ROLES.includes(profile.role)) {
-    redirect('/field')
-  }
+  // NO ROLE REDIRECT HERE, AND THAT IS THE FIX.
+  //
+  // This layout used to bounce every field role to /field, from every screen
+  // under it. Field Mode is where a worker LANDS; it is not the limit of where
+  // they may go, and writing the landing rule here made it both. Role Defaults
+  // gave Field Worker `view` on Plans, Projects, Files, Equipment, Materials
+  // and Approvals, and all six were unreachable - nine routes, every one of
+  // them bouncing. AN ENABLED PERMISSION THAT PRODUCES NO REACHABLE SURFACE IS
+  // FALSE CONFIGURATION: the checkbox is in the grid, a company ticks it, and
+  // nothing happens.
+  //
+  // It was also a ROLE check standing on top of PERMISSION checks that already
+  // do this properly, one level down and per screen:
+  //   - ProjectTabGuard refuses a project tab the role does not hold and SAYS
+  //     so, rather than showing an empty one;
+  //   - Sidebar and MobileTabBar filter their destinations through the same
+  //     can();
+  //   - every route under /api/ gates on requirePermission.
+  // So the office app already degrades correctly for a narrow role - it is
+  // what a Field Supervisor has always seen. The redirect was the only thing
+  // stopping a worker from getting the same treatment.
+  //
+  // The landing rule now lives on the office HOME, where it belongs and where
+  // it can be true without being a wall: app/(dashboard)/dashboard/layout.tsx.
 
   return (
     <>
       <IdleLogout />
       <NativeShell />
-      <FieldPreviewGate />
       {/* An app shell, not a document: exactly one screen tall, and the only
           thing inside it that scrolls is <main>. It used to be `min-h-screen`,
           which let the page itself grow and carried the top bar away with it.
