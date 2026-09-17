@@ -1,3 +1,4 @@
+import { SUPPORT_EMAIL } from '@/lib/support-email'
 import type { Metadata } from 'next'
 import { LegalDoc } from '@/components/marketing/legal-doc'
 import { marketingMeta } from '@/components/marketing/meta'
@@ -25,7 +26,7 @@ export default function AcceptableUsePage() {
           'Interfere with other customers’ use of the Service',
         ] },
         { h: 'Enforcement', body: ['We may investigate suspected violations and may suspend or terminate access to protect the Service and our users. Serious violations may be reported to authorities.'] },
-        { h: 'Reporting abuse', body: ['To report misuse of the Service, contact legal@sytenav.com.'] },
+        { h: 'Reporting abuse', body: [`To report misuse of the Service, contact ${SUPPORT_EMAIL}.`] },
       ]}
     />
   )

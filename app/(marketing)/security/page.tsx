@@ -1,3 +1,4 @@
+import { SUPPORT_EMAIL } from '@/lib/support-email'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import {
@@ -108,7 +109,7 @@ export default function SecurityPage() {
             </p>
             <p>
               Found something we should know about? We take reports seriously and respond fast. Write to{' '}
-              <a href="mailto:security@sytenav.com" className="text-accent-fg font-semibold hover:underline">security@sytenav.com</a>{' '}
+              <a href={`mailto:${SUPPORT_EMAIL}`} className="text-accent-fg font-semibold hover:underline">{SUPPORT_EMAIL}</a>{' '}
               and include enough detail to reproduce. For everything else, our{' '}
               <Link href="/privacy" className="text-accent-fg font-semibold hover:underline">Privacy Policy</Link>{' '}
               and <Link href="/terms" className="text-accent-fg font-semibold hover:underline">Terms of Service</Link>{' '}

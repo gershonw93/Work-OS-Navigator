@@ -1,5 +1,6 @@
 'use client'
 
+import { SUPPORT_EMAIL, supportMailto } from '@/lib/support-email'
 import { useState } from 'react'
 
 // A contact form that opens the visitor's email client with the message
@@ -19,7 +20,7 @@ export function ContactForm() {
     if (company) lines.push(`Company: ${company}`)
     lines.push('', message)
     const body = lines.join('\n')
-    window.location.href = `mailto:hello@sytenav.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+    window.location.href = supportMailto(subject, body)
   }
 
   return (
@@ -75,7 +76,7 @@ export function ContactForm() {
       <button type="submit" className="w-full rounded-xl bg-accent text-accent-ink font-bold py-3.5 hover:bg-accent/90 transition-colors">
         Send message
       </button>
-      <p className="text-xs text-faint text-center">Opens your email app. Prefer to write us directly? hello@sytenav.com</p>
+      <p className="text-xs text-faint text-center">Opens your email app. Prefer to write us directly? {SUPPORT_EMAIL}</p>
     </form>
   )
 }

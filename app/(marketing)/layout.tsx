@@ -1,3 +1,4 @@
+import { SUPPORT_EMAIL } from '@/lib/support-email'
 import { ReactNode } from 'react'
 import { headers } from 'next/headers'
 import { Breadcrumbs } from '@/components/marketing/breadcrumbs'
@@ -43,7 +44,7 @@ const jsonLd = {
       name: 'SyteNav',
       url: `${CANONICAL_ORIGIN}/`,
       description: 'Construction management software built for the field, for general contractors, subcontractors, and remodelers.',
-      email: 'hello@sytenav.com',
+      email: SUPPORT_EMAIL,
       address: { '@type': 'PostalAddress', addressRegion: 'NJ', addressCountry: 'US' },
     },
     {
