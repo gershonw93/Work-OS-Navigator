@@ -4,10 +4,11 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, FolderKanban, CheckSquare, Briefcase,
-  ClipboardList, Menu,
+  ClipboardList, Menu, HardHat,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePermissions } from '@/lib/use-permissions'
+import { isFieldRole, FIELD_HOME } from '@/lib/permissions'
 import { OPEN_SIDEBAR_EVENT } from './sidebar'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -59,7 +60,7 @@ const SUB_TABS: Tab[] = [
 
 export function MobileTabBar() {
   const pathname = usePathname()
-  const { can, companyType, loading, error } = usePermissions()
+  const { can, role, companyType, loading, error } = usePermissions()
 
   // Field Mode has its own bar. Two of them would sit on top of each other.
   if (pathname.startsWith('/field')) return null
@@ -70,8 +71,17 @@ export function MobileTabBar() {
   // stranded. Loading, failed and answered are three different facts.
   if (loading || error) return null
 
-  const tabs = (companyType === 'subcontractor' ? SUB_TABS : GC_TABS)
-    .filter(t => !t.resource || can(t.resource, 'view'))
+  const gcTabs = GC_TABS.filter(t => !t.resource || can(t.resource, 'view'))
+  // Same swap the sidebar makes, and for the same reason: Home would bounce a
+  // field worker to /field, so the tab says Field Mode and goes straight there.
+  const tabs = companyType === 'subcontractor'
+    ? SUB_TABS.filter(t => !t.resource || can(t.resource, 'view'))
+    : isFieldRole(role)
+      // Prepended after the filter above on purpose - see sidebar.tsx. Field
+      // Mode is the worker's own shell and is never permission-gated.
+      ? [{ href: FIELD_HOME.href, label: FIELD_HOME.label, icon: HardHat, exact: false },
+         ...gcTabs.filter(t => t.href !== '/dashboard')]
+      : gcTabs
 
   return (
     <nav

@@ -128,6 +128,21 @@ export const ASSIGNED_ONLY_ROLES = ['field_supervisor', 'worker', 'member', 'rea
 // dashboard for now (they need budgets/compliance breadth).
 export const FIELD_ROLES = ['worker', 'member']
 
+export function isFieldRole(role: string | null | undefined): boolean {
+  return FIELD_ROLES.includes(role ?? '')
+}
+
+// WHERE "HOME" IS, for a role that has one somewhere other than /dashboard.
+//
+// A field worker lands in Field Mode, so their nav's first entry has to SAY
+// Field Mode and go there. It used to read "Dashboard" and point at
+// /dashboard, which bounces them - a control that leads somewhere other than
+// the thing it names, and the only route back to their own shell.
+//
+// One home for the pair so the sidebar and the phone bar cannot drift, the
+// same reason they already share `can()`.
+export const FIELD_HOME = { href: '/field', label: 'Field Mode' } as const
+
 export const ROLE_DEFAULTS: Record<string, PermMap> = {
   admin: buildAllFull(),
 
@@ -191,7 +206,13 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
     team: N, bids: N, rfis: N,
     invoices: N, payments: N, budget: N, margin: N, quotes: N, 'request-quotes': N, financials: N, 'change-orders': N,
     permits: N, inspections: N, 'mark-ready': VE, submittals: N, compliance: N, reports: N,
-    dashboard: V, projects: V, customers: N, directory: N, files: V, equipment: VC, materials: VC, approvals: V,
+    // APPROVALS IS A WINDOW ONTO INVOICES AND RFIs, and this role is denied
+    // both - so `view` here granted a screen that could only ever be empty for
+    // them, which reads as "nothing needs approving" rather than as "not
+    // yours". Every other resource on this row now has a surface a worker can
+    // actually open; this one was the checkbox that was simply wrong, and the
+    // honest fix is to untick it rather than to build somewhere for it to go.
+    dashboard: V, projects: V, customers: N, directory: N, files: V, equipment: VC, materials: VC, approvals: N,
     'client-portal': N,
     settings_company: N, settings_team: N, settings_billing: N,
   },

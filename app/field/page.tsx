@@ -6,6 +6,7 @@ import { CheckSquare, Camera, ChevronRight, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { ClockCard } from './clock-card'
 import { TaskRow, type FieldTask } from './task-row'
+import { ReadyCard } from './ready-card'
 
 import { formatDate } from '@/lib/dates'
 interface FieldData {
@@ -56,6 +57,11 @@ export default function FieldHome() {
       </p>
 
       <ClockCard projects={data?.projects ?? []} openEntry={data?.openEntry ?? null} onChange={load} />
+
+      {/* Above the task list on purpose: an inspector is coming on a date
+          somebody else booked, and it is the one thing on this screen with a
+          deadline attached that the person holding the phone can settle. */}
+      <ReadyCard workerName={data?.me?.name ?? 'Field worker'} />
 
       <div className="mt-6 mb-2 flex items-center justify-between">
         <h2 className="flex items-center gap-2 text-lg font-semibold text-ink">

@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { myJobs } from '@/lib/my-jobs'
 
 export const runtime = 'nodejs'
 
@@ -22,27 +23,10 @@ export async function GET(request: Request) {
   const { data: profile } = await db
     .from('profiles').select('email, full_name, role').eq('id', user.id).single()
 
-  // --- 1. Which projects is this worker on? Match team-member rows by
-  // profile_id, then email, then name (same fallback chain the rest of the app uses).
-  const memberRows: { id: string; project_id: string }[] = []
-
-  const { data: byProfileId } = await db
-    .from('project_team_members').select('id, project_id').eq('profile_id', user.id)
-  if (byProfileId?.length) memberRows.push(...byProfileId as any)
-
-  if (!memberRows.length && profile) {
-    const conditions: string[] = []
-    if (profile.email) conditions.push(`email.eq.${profile.email}`)
-    if (profile.full_name) conditions.push(`name.eq.${profile.full_name}`)
-    if (conditions.length) {
-      const { data: byNameEmail } = await db
-        .from('project_team_members').select('id, project_id').or(conditions.join(','))
-      if (byNameEmail?.length) memberRows.push(...byNameEmail as any)
-    }
-  }
-
-  const projectIds = Array.from(new Set(memberRows.map(m => m.project_id).filter(Boolean)))
-  const memberIds = memberRows.map(m => m.id)
+  // --- 1. Which projects is this worker on? `myJobs` is the one home for that
+  // chain - the inspections feed asks the same question and must get the same
+  // answer.
+  const { memberIds, projectIds } = await myJobs(db, user.id, profile)
 
   if (!projectIds.length) {
     return NextResponse.json({ projects: [], tasks: [], openEntry: null })

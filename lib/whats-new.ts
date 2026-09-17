@@ -55,6 +55,24 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 const AUTHORED: Release[] = [
   {
     date: '2026-09-17',
+    title: 'What your crew can reach',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'A permission you grant a field worker now opens the screen',
+        text: 'Field workers land in Field Mode, and until now that was as far as they could go - a screen ticked for them in the permission grid still bounced them back. Plans, Files, Equipment, Materials and a job\'s own pages now open for whoever their role allows, and a link somebody texts them works. Field Mode is still their home, and the first item in their menu goes straight back to it. If you do not want the crew in a screen, untick it.',
+        help: 'field-mode',
+      },
+      {
+        kind: 'improved',
+        title: 'The crew can mark work ready from their phone',
+        text: 'When an inspector is booked and nobody has said the work is finished, it shows on the worker\'s home screen with the date and how long is left - one tap marks it ready. That is what the 7:30am reminder has been asking for, and the people it emails can now answer it without a laptop.',
+        help: 'field-mode',
+      },
+    ],
+  },
+  {
+    date: '2026-09-17',
     title: 'The not-ready inspection warning',
     items: [
       {
