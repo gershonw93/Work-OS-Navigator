@@ -135,4 +135,28 @@ const TODAY = '2026-09-17'
   ok(/'\/admin\/demo'/.test(nav), 'it is in the admin nav')
 }
 
+// ── which inbox to open ──────────────────────────────────────────────────────
+//
+// "perfect but can we show the email addres somewhere". The picker read
+// "Admin User (admin)" - and on a stage the thing you need is which inbox to
+// have open on the other screen. Two people called Admin User are one company
+// apart and the name alone cannot tell them apart either.
+{
+  const page = code('app/admin/demo/page.tsx')
+
+  ok(/u\.email \? ` - \$\{u\.email\}`/.test(page),
+    'THE ASK: the address is in the option itself')
+  ok(/Email goes to/.test(page),
+    '...and again once chosen, because an option list closes')
+  ok(/\{result\.recipient\.email\}/.test(page),
+    '...and on the confirmation, so the record of what happened names the inbox')
+
+  // A profile with no address is the case worth catching BEFORE the send, not
+  // after: it is the difference between "the email is slow" and "there was
+  // never going to be one".
+  ok(/No email address on this profile/.test(page),
+    'a profile with no address says so up front, rather than after a silent send')
+  ok(/' - no email'/.test(page), '...and is visible in the list before it is picked')
+}
+
 done()
