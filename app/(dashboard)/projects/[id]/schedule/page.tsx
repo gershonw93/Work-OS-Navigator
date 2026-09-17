@@ -430,7 +430,21 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ label: editLabel, color: editColor }),
       })
-      setPending({ moves: p.moves ?? [], skipped: p.skipped ?? [], affected: p.affected ?? [], start: editStart, end: editEnd })
+
+      const moves = p.moves ?? []
+      const skipped = p.skipped ?? []
+      // NOTHING TO REVIEW IS NOT A REVIEW. A line with no links is most lines,
+      // and the screen was stopping on "Nothing else moves / Moving
+      // Electrical" with two buttons about emailing nobody - reported, fairly,
+      // as a step that does nothing. The review exists to stand between a
+      // cascade and a sub's inbox; with no other line touched there is neither.
+      // Notify is FALSE and not a guess: there is nobody on the list.
+      if (!moves.length && !skipped.length) {
+        await applyCascade(false, { start: editStart, end: editEnd })
+        return
+      }
+
+      setPending({ moves, skipped, affected: p.affected ?? [], start: editStart, end: editEnd })
       return
     }
 
@@ -541,13 +555,17 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
    * The screen and this call name the same dates, so what somebody approved is
    * what happens.
    */
-  async function applyCascade(notify: boolean) {
-    if (!editItem || !pending) return
+  async function applyCascade(notify: boolean, dates?: { start: string; end: string }) {
+    // `dates` is for the no-review path, which applies before `pending` is
+    // ever set. Taking them as an argument rather than reading state keeps the
+    // dates the screen showed and the dates that get written the same pair.
+    const when = dates ?? (pending ? { start: pending.start, end: pending.end } : null)
+    if (!editItem || !when) return
     const token = await getToken()
     const r = await saveRequest(`/api/projects/${params.id}/schedule/${editItem.id}/cascade`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ start_date: pending.start, end_date: pending.end, notify }),
+      body: JSON.stringify({ start_date: when.start, end_date: when.end, notify }),
     })
     if (!r.ok) { setEditError(r.error); setPending(null); return }
     setPending(null); setEditItem(null)
@@ -729,7 +747,11 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
         </div>
       )}
 
-      {editItem && (
+      {/* `!pending` because the review stacks OVER this one otherwise. Two
+          overlays open at once left the edit dialog showing through the
+          review's backdrop, and Cancel on the review dropped you back into a
+          form whose dates had already been decided somewhere else. */}
+      {editItem && !pending && (
         <div className="overlay items-center justify-center bg-black/50" data-overlay>
           {/* A COLUMN, so the title and the buttons are pinned and only the
               fields between them scroll.

@@ -15,6 +15,9 @@ import { AlertTriangle, ArrowRight, Loader2, Lock, Mail, MailX } from 'lucide-re
 // `fixed inset-0` knows nothing about the notch, and a panel that does not
 // declare itself an overlay leaves the page scrolling underneath it.
 
+/** Straight off the edited line, or further down the chain from it. */
+export type LinkKind = 'direct' | 'downstream'
+
 export interface CascadeMove {
   id: string
   name: string
@@ -22,14 +25,41 @@ export interface CascadeMove {
   to: { start: string; end: string }
   shiftDays: number
   because: string | null
+  link: LinkKind
   sub: { id: string; name: string; email: string | null } | null
 }
 
 export interface CascadeSkip {
   id: string
   name: string
-  reason: string
+  reason: 'manually_overridden' | 'no_shift' | 'chain_stopped' | string
   because: string
+  link: LinkKind
+}
+
+/**
+ * Why a linked line is sitting still. THE REPORT THIS ANSWERS: linked rows
+ * were missing from the review entirely, which reads as "that row is not
+ * linked" - the one thing this screen exists to disprove. Every linked line
+ * the edit reaches is now in one list or the other, and a line that is not
+ * moving says which of the three reasons it is.
+ */
+function whyStill(s: CascadeSkip): string {
+  switch (s.reason) {
+    case 'manually_overridden':
+      return `dates were set by hand, so ${s.because} moving does not move it`
+    case 'no_shift':
+      return `${s.because} still finishes on the same day, so there is nothing to pass on`
+    case 'chain_stopped':
+      return `${s.because} is not moving, so where this one lands is not worked out`
+    default:
+      return `${s.because} moving does not move it`
+  }
+}
+
+/** The one place the two kinds of link are put into words. */
+function linkWords(link: LinkKind, editedName: string): string {
+  return link === 'direct' ? `waits on ${editedName}` : 'further down the chain'
 }
 
 export interface AffectedSub {
@@ -71,6 +101,8 @@ export function CascadeReview({
           <p className="mt-0.5 text-sm text-muted-fg">
             Moving {editedName}
             {moves.length > 0 && ' pushes everything that waits on it.'}
+            {moves.length === 0 && skipped.length > 0
+              && ` - ${skipped.length} linked ${skipped.length === 1 ? 'line stays' : 'lines stay'} put. Here is why.`}
           </p>
         </div>
 
@@ -93,6 +125,8 @@ export function CascadeReview({
                   <p className="mt-0.5 text-xs text-muted-fg">
                     {m.because ? `because ${m.because} moved` : 'you edited this'}
                     {' · '}
+                    {linkWords(m.link, editedName)}
+                    {' · '}
                     {m.sub ? m.sub.name : 'no sub on this line yet'}
                   </p>
                 </li>
@@ -104,18 +138,22 @@ export function CascadeReview({
             <div className="border-t border-line bg-surface px-5 py-3">
               <p className="flex items-center gap-1.5 text-xs font-semibold text-warn">
                 <Lock className="h-3.5 w-3.5" />
-                {skipped.length} left alone
+                {skipped.length} linked {skipped.length === 1 ? 'line is' : 'lines are'} not moving
               </p>
               <ul className="mt-1 space-y-0.5">
                 {skipped.map(s => (
                   <li key={s.id} className="text-xs text-muted-fg">
-                    <span className="text-ink">{s.name}</span> - dates were set by hand, so {s.because} moving does not move it.
+                    <span className="text-ink">{s.name}</span>
+                    {' ('}{linkWords(s.link, editedName)}{') - '}
+                    {whyStill(s)}.
                   </li>
                 ))}
               </ul>
-              <p className="mt-1.5 text-xs text-faint">
-                Re-link it from its own row when you want it following again.
-              </p>
+              {skipped.some(s => s.reason === 'manually_overridden') && (
+                <p className="mt-1.5 text-xs text-faint">
+                  A line follows again the moment you link it from its own row.
+                </p>
+              )}
             </div>
           )}
         </div>
