@@ -17,6 +17,7 @@ import {
 } from '../inspection-status'
 import { NOTIFICATION_TYPES } from '../notifications'
 import { ok, done, code, read } from './_helpers'
+import { inspectorContactId, contactCardHref } from '../inspector-link'
 
 const TODAY = '2026-09-14'
 const booked = (over: any = {}) => ({
@@ -198,8 +199,15 @@ ok(/ready_reminder_sent_at: new Date\(\)\.toISOString\(\)/.test(cron),
   ok(inspectionCountdown(booked({ scheduled_date: MON }), THU)?.label === 'In 4 days', '...and further out, the count')
 
   // The cases where saying nothing is the honest answer.
-  ok(inspectionCountdown(booked({ scheduled_date: '2026-09-16' }), THU) === null,
-    'a visit that has been and gone gets NO countdown - it is a result, not a plan')
+  // THE REPORT: "booked sep 11 for march 24 - 6 months ago... doesnt make
+  // sense". It was worse than odd data - the row said NOTHING. A past-dated
+  // open inspection sat under PENDING wearing a calm blue "Scheduled" badge.
+  const gone = inspectionCountdown(booked({ scheduled_date: '2026-09-16' }), THU)
+  ok(gone?.label === 'Overdue', 'THE REPORT: a date that has passed says Overdue')
+  ok(gone?.tone === 'overdue', '...in its own tone, not dressed as an upcoming one')
+  ok(!/-/.test(gone?.label ?? ''), '...and never "In -177 days", which is what a raw count would print')
+  ok(inspectionCountdown(booked({ scheduled_date: '2026-03-24' }), THU)?.label === 'Overdue',
+    '...the reporter\'s own March row included, six months out')
   ok(inspectionCountdown(booked({ scheduled_date: addDaysIso(THU, COUNTDOWN_HORIZON_DAYS + 1) }), THU) === null,
     '...and neither does one past the horizon, where the date says it better')
   ok(inspectionCountdown(booked({ scheduled_date: null }), THU) === null, '...nor one nobody has booked')
@@ -208,17 +216,17 @@ ok(/ready_reminder_sent_at: new Date\(\)\.toISOString\(\)/.test(cron),
 
   // COLOUR MEANS SOMETHING. Amber is exactly the set the 7:30am email would
   // fire on, so the screen and the letter cannot disagree.
-  ok(inspectionCountdown(booked({ scheduled_date: MON }), THU)?.urgent === true,
+  ok(inspectionCountdown(booked({ scheduled_date: MON }), THU)?.tone === 'urgent',
     'a Monday inspection with nobody having marked it ready is urgent on Thursday')
-  ok(inspectionCountdown(booked({ scheduled_date: MON, ready_marked_by: 'u1' }), THU)?.urgent === false,
+  ok(inspectionCountdown(booked({ scheduled_date: MON, ready_marked_by: 'u1' }), THU)?.tone === 'quiet',
     '...and stops being urgent the moment somebody marks it ready')
-  ok(inspectionCountdown(booked({ scheduled_date: addDaysIso(THU, 9) }), THU)?.urgent === false,
+  ok(inspectionCountdown(booked({ scheduled_date: addDaysIso(THU, 9) }), THU)?.tone === 'quiet',
     '...and a visit still nine days out is not urgent, only upcoming')
 
   // The two must not drift: whatever the reminder fires on, the row colours.
   for (const d of [MON, FRI, THU]) {
     const row = booked({ scheduled_date: d })
-    ok(inspectionCountdown(row, THU)?.urgent === needsReadyReminder(row, THU),
+    ok((inspectionCountdown(row, THU)?.tone === 'urgent') === needsReadyReminder(row, THU),
       `urgent and the reminder rule agree for ${d}`)
   }
 }
@@ -245,8 +253,75 @@ ok(/ready_reminder_sent_at: new Date\(\)\.toISOString\(\)/.test(cron),
 
   const page = code('app/(dashboard)/projects/[id]/inspections/page.tsx')
   ok(/\.sort\(bySoonest\)/.test(page), 'and the page actually sorts with it')
-  ok(/countdown\.urgent/.test(page) && /bg-warn-tint/.test(page),
-    'the row colours on urgent, and only on urgent')
+  ok(/countdown\.tone === 'urgent'/.test(page) && /bg-warn-tint/.test(page),
+    'the row colours amber on urgent')
+  ok(/countdown\.tone === 'overdue'/.test(page) && /bg-danger-tint/.test(page),
+    '...and red on overdue, which is a different fact and reads as one')
+}
+
+// ── the three things that made one card hard to read ────────────────────────
+{
+  const page = code('app/(dashboard)/projects/[id]/inspections/page.tsx')
+
+  // "the confirmed for date should stand out better". Nine facts in one grid,
+  // every one the same weight, and the appointment lost among them.
+  const grid = page.slice(page.indexOf('Confirmed for'), page.indexOf('Booked with'))
+  ok(/text-base font-semibold text-ink/.test(grid),
+    'THE ASK: the confirmed date is bigger and bolder than the facts beside it')
+  ok(!/text-base font-semibold text-ink<\/p>/.test(page.replace(grid, '')),
+    '...and is the only one wearing that, or it stands out from nothing')
+
+  // "booked sep 11 for march 24". Half of that confusion is the LABEL: "Booked"
+  // beside a date reads as a second appointment, when it is the day the booking
+  // was written down.
+  ok(/Booking recorded/.test(page), 'the booked_at field says what it is - when the booking was RECORDED')
+  ok(!/>Booked<\/p>/.test(page), '...and no longer just "Booked", which read as a second date')
+}
+
+// ── an inspector links to their card, or does not pretend to ────────────────
+{
+  const ok1 = inspectorContactId('Paul Klink', [
+    { id: 'c1', name: 'Paul Klink', type: 'inspector' },
+    { id: 'c2', name: 'City Inspections Bureau', type: 'inspector' },
+  ])
+  ok(ok1 === 'c1', 'THE ASK: a name that IS a contact links to that contact')
+  ok(inspectorContactId('  paul   klink ', [{ id: 'c1', name: 'Paul Klink' }]) === 'c1',
+    '...through stray case and whitespace, which is how a name gets typed twice')
+
+  // `inspector_name` is FREE TEXT - the real rows read "TW". A fuzzy match
+  // would put a card under somebody's initials, and a wrong contact is worse
+  // than no link. Same rule as geocode-match refusing a vague question.
+  ok(inspectorContactId('TW', [{ id: 'c1', name: 'Township of Maplewood' }]) === null,
+    'initials do NOT resolve to the contact they might have meant')
+  // A PARTIAL name is the fuzzy match that would actually fire, and it is the
+  // one that puts the wrong card behind a link.
+  ok(inspectorContactId('Paul', [{ id: 'c1', name: 'Paul Klink' }]) === null,
+    'half a name is not that contact')
+  ok(inspectorContactId('Paul Klink Jr', [{ id: 'c1', name: 'Paul Klink' }]) === null,
+    '...and neither is a name with something extra on the end')
+  ok(inspectorContactId('Paul Klink', [
+    { id: 'c1', name: 'Paul Klink' }, { id: 'c2', name: 'Paul Klink' },
+  ]) === null, 'and two contacts sharing a name cannot be told apart, so neither is offered')
+  ok(inspectorContactId('', [{ id: 'c1', name: '' }]) === null, 'an empty name matches nothing')
+  ok(inspectorContactId('Paul Klink', [{ name: 'Paul Klink' }]) === null,
+    'a contact with no id is not linkable, however well the name matches')
+
+  ok(contactCardHref('c1') === '/directory?contact=c1', 'the link points at the contact card')
+
+  // The link is worth nothing if the Directory ignores it.
+  const dir = code('app/(dashboard)/directory/page.tsx')
+  ok(/urlParams\?\.get\('contact'\)/.test(dir), 'and the Directory READS it')
+  ok(/openProfile\(wanted\)/.test(dir), '...and opens that card rather than landing you in a list')
+  ok(/openedFromUrl\.current/.test(dir),
+    '...once, or the card could never be closed')
+
+  // The id has to survive the trip: `callTargets` is phone numbers and drops it.
+  const route = code('app/api/projects/[id]/inspections/route.ts')
+  ok(/select\('id, name, type, phone, extra'\)/.test(route), 'the route selects the id')
+  ok(/directoryContacts/.test(route), '...and sends the contacts, not only the numbers')
+  const insp = code('app/(dashboard)/projects/[id]/inspections/page.tsx')
+  ok(/inspectorContactId\(insp\.inspector_name, directoryContacts\)/.test(insp),
+    '...and the card asks the shared matcher')
 }
 
 done()

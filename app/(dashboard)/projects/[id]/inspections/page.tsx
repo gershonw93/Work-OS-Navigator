@@ -17,7 +17,9 @@ import {
   OPEN, CLOSED, isVoid, requestProblem, scheduleProblem, inspectionDate,
   inspectionCountdown, bySoonest,
 } from '@/lib/inspection-status'
+import Link from 'next/link'
 import { callTargetsFor, type CallTarget } from '@/lib/inspection-contacts'
+import { inspectorContactId, contactCardHref, type LinkableContact } from '@/lib/inspector-link'
 import { RowMenu, MenuItem } from '@/components/ui/row-menu'
 import { ACCEPT_SCAN } from '@/lib/file-accept'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
@@ -122,6 +124,10 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
   // than retyped into every request. Sent with the list by the same route, so
   // the card and the notification cannot offer two different numbers.
   const [callTargets, setCallTargets] = useState<CallTarget[]>([])
+  // The Directory inspectors, carried for the one purpose of turning a typed
+  // name into a link. `callTargets` cannot do it - it is a list of NUMBERS and
+  // deliberately drops the id.
+  const [directoryContacts, setDirectoryContacts] = useState<LinkableContact[]>([])
 
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -138,6 +144,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
       const d = await res.json()
       setInspections(d.inspections ?? [])
       setCallTargets(d.callTargets ?? [])
+      setDirectoryContacts(d.directoryContacts ?? [])
     }
     setLoading(false)
   }
@@ -492,6 +499,8 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
     // `todayDateInput()` is the BROWSER's day - which is the right clock here,
     // because "in 3 days" is counted from where the reader is standing.
     const countdown = inspectionCountdown(insp as any, todayDateInput())
+    const inspectorId = inspectorContactId(insp.inspector_name, directoryContacts)
+    const inspectorHref = inspectorId ? contactCardHref(inspectorId) : null
     const needsBookingCall = !dates.confirmed && !isVoid(insp.status) && insp.status !== 'passed' && insp.status !== 'failed'
     // The numbers this card offers: what the inspection itself carries, then
     // the job's permits and Directory, deduped. ONE list - the details grid
@@ -565,8 +574,8 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
           {countdown && (
             <span className={cn(
               'shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-medium',
-              countdown.urgent
-                ? 'border-warn/30 bg-warn-tint text-warn'
+              countdown.tone === 'overdue' ? 'border-danger/30 bg-danger-tint text-danger'
+                : countdown.tone === 'urgent' ? 'border-warn/30 bg-warn-tint text-warn'
                 : 'border-line bg-muted text-muted-fg',
             )}>
               {countdown.label}
@@ -601,8 +610,19 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
               {insp.requested_date && (
                 <div><p className="text-xs text-faint">Needed by</p><p className="font-medium text-ink-soft">{formatDate(insp.requested_date)}</p></div>
               )}
+              {/* THE ONE DATE SOMEBODY OPENED THE CARD FOR, and it was set in
+                  the same weight as "Booked" and "Requested by" beside it -
+                  nine facts of equal loudness, the appointment lost among
+                  them. Bigger, bolder, full `ink`; every sibling stays
+                  `ink-soft`, which is the half that makes this one carry. */}
               {insp.scheduled_date && (
-                <div><p className="text-xs text-faint">Confirmed for</p><p className="font-medium text-ink-soft">{formatDate(insp.scheduled_date)}{insp.scheduled_time ? ` · ${insp.scheduled_time}` : ''}</p></div>
+                <div>
+                  <p className="text-xs text-faint">Confirmed for</p>
+                  <p className="text-base font-semibold text-ink">
+                    {formatDate(insp.scheduled_date)}
+                    {insp.scheduled_time ? <span className="font-medium text-ink-soft"> · {insp.scheduled_time}</span> : null}
+                  </p>
+                </div>
               )}
               {insp.booked_with && (
                 <div><p className="text-xs text-faint">Booked with</p><p className="font-medium text-ink-soft">{insp.booked_with}</p></div>
@@ -611,7 +631,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
                 <div><p className="text-xs text-faint">Confirmation no.</p><p className="font-medium text-ink-soft">{insp.booking_reference}</p></div>
               )}
               {insp.booked_at && (
-                <div><p className="text-xs text-faint">Booked</p><p className="font-medium text-ink-soft">{formatDate(insp.booked_at)}{insp.booked_by_name ? ` by ${insp.booked_by_name}` : ''}</p></div>
+                <div><p className="text-xs text-faint">Booking recorded</p><p className="font-medium text-ink-soft">{formatDate(insp.booked_at)}{insp.booked_by_name ? ` by ${insp.booked_by_name}` : ''}</p></div>
               )}
               {insp.failure_reason && (
                 <div className="col-span-full"><p className="text-xs text-faint">Why it failed</p><p className="font-medium text-danger break-words wrap-anywhere">{insp.failure_reason}</p></div>
@@ -642,7 +662,14 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
               {!needsBookingCall && insp.inspector_name && (
                 <div>
                   <p className="text-xs text-faint">Inspector</p>
-                  <p className="font-medium text-ink-soft">{insp.inspector_name}</p>
+                  {/* A LINK ONLY WHEN THE NAME IS ACTUALLY A CONTACT.
+                      `inspector_name` is free text - the real rows read "TW"
+                      and "Paul Klink" - so there is no key to follow, and a
+                      fuzzy match would put a card under somebody's initials.
+                      Exact and unambiguous, or plain text. */}
+                  {inspectorHref
+                    ? <Link href={inspectorHref} className="font-medium text-accent-fg hover:underline">{insp.inspector_name}</Link>
+                    : <p className="font-medium text-ink-soft">{insp.inspector_name}</p>}
                   {insp.inspector_phone && (
                     <a href={`tel:${insp.inspector_phone}`} className="flex items-center gap-1 text-xs text-accent-fg hover:underline mt-0.5">
                       <Phone className="h-3 w-3" />{insp.inspector_phone}

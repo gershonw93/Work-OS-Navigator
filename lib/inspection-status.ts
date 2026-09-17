@@ -313,25 +313,39 @@ export function daysUntilIso(from: string, to: string): number {
 /** Past this, the row's own date says it better than a countdown can. */
 export const COUNTDOWN_HORIZON_DAYS = 14
 
-export interface Countdown {
-  /** "Today", "Tomorrow", "In 3 days". */
-  label: string
+export type CountdownTone =
+  /** Upcoming. Nothing to do about it yet. */
+  | 'quiet'
   /**
-   * True when the 7:30am reminder would fire on this row - somebody has to act.
-   * Computed from the SAME rule the email uses, so the screen and the letter
-   * cannot tell a reader two different things.
+   * The 7:30am reminder would fire on this row - somebody has to act. Computed
+   * from the SAME rule the email uses, so the screen and the letter cannot tell
+   * a reader two different things.
    */
-  urgent: boolean
+  | 'urgent'
+  /** The day came and went and no result was ever recorded. */
+  | 'overdue'
+
+export interface Countdown {
+  /** "Today", "Tomorrow", "In 3 days", "Overdue". */
+  label: string
+  tone: CountdownTone
 }
 
 /**
  * How soon a booked inspection is, in words - or null when saying nothing is
  * the honest answer.
  *
- * NULL FOR A DATE IN THE PAST. "In -5 days" is not a countdown, and a visit
- * that has been and gone is a result waiting to be recorded, not something
- * coming up. Null too beyond the horizon: the row already prints the date, and
- * "in 96 days" is noise dressed as information.
+ * A DATE IN THE PAST IS **OVERDUE**, NOT A COUNTDOWN. The first version
+ * returned null for it, reasoning that a visit which has been and gone is a
+ * result waiting to be recorded rather than a plan. True, and it made the
+ * screen say NOTHING: reported as "booked sep 11 for march 24 - 6 months ago,
+ * doesn't make sense" - a Foundation inspection under PENDING wearing a calm
+ * blue "Scheduled" badge with a date six months gone, and not one pixel
+ * admitting the day had passed. "In -177 days" would be absurd, so the label is
+ * the WORD and the row's own date says which day it was.
+ *
+ * Still null beyond the horizon: the row already prints the date, and "in 96
+ * days" is noise dressed as information.
  */
 export function inspectionCountdown(
   i: ReminderCandidate,
@@ -342,11 +356,13 @@ export function inspectionCountdown(
   if (!booked) return null
 
   const days = daysUntilIso(today, booked)
-  if (days < 0 || days > COUNTDOWN_HORIZON_DAYS) return null
+  if (days < 0) return { label: 'Overdue', tone: 'overdue' }
+  if (days > COUNTDOWN_HORIZON_DAYS) return null
 
   const label = days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : `In ${days} days`
   const ready = !!(i.ready_marked_by && String(i.ready_marked_by).trim())
-  return { label, urgent: !ready && booked <= addBusinessDaysIso(today, READY_REMINDER_DAYS) }
+  const urgent = !ready && booked <= addBusinessDaysIso(today, READY_REMINDER_DAYS)
+  return { label, tone: urgent ? 'urgent' : 'quiet' }
 }
 
 /**

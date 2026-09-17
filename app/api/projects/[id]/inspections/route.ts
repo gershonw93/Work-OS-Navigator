@@ -34,7 +34,7 @@ const admin = () => createClient(
 async function directoryInspectors(db: ReturnType<typeof admin>, projectId: string) {
   const { data: proj } = await db.from('projects').select('gc_company_id').eq('id', projectId).maybeSingle()
   const owner = (proj as any)?.gc_company_id
-  let q = db.from('companies').select('name, type, phone, extra').eq('type', 'inspector')
+  let q = db.from('companies').select('id, name, type, phone, extra').eq('type', 'inspector')
   if (owner) q = q.or(`added_by_company_id.eq.${owner},added_by_company_id.is.null`)
   const { data } = await q.order('name')
   return (data ?? []) as any[]
@@ -75,7 +75,15 @@ export async function GET(request: Request, { params }: { params: { id: string }
     contacts: contactsRes,
   })
 
-  return NextResponse.json({ inspections: inspections ?? [], callTargets })
+  // The contacts go out too, id and name only. `callTargets` is a list of
+  // NUMBERS and drops the id on purpose, so it cannot answer "is this typed
+  // inspector name one of our contacts" - which is what the card needs to
+  // offer a link to the contact's card.
+  const directoryContacts = (contactsRes ?? []).map((c: any) => ({
+    id: c.id, name: c.name, type: c.type,
+  }))
+
+  return NextResponse.json({ inspections: inspections ?? [], callTargets, directoryContacts })
 }
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
