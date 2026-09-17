@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { StatStrip } from '@/components/ui/stat-strip'
 import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import Link from 'next/link'
@@ -97,6 +98,12 @@ export default function DirectoryPage() {
   const notify = useNotice()
   const supabase = createClient()
   const [companies, setCompanies] = useState<Company[]>([])
+  // Deep link. An inspection card links here NAMING a contact, so the page has
+  // to open that card - landing somebody at the top of a list to find it
+  // themselves is the "a control must lead to the thing it names" failure the
+  // setup checklist was fixed for.
+  const urlParams = useSearchParams()
+  const openedFromUrl = useRef<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [activeTab, setActiveTab] = useState<'all' | ContactType>('all')
@@ -235,6 +242,18 @@ export default function DirectoryPage() {
       </span>
     )
   }
+
+  // Once, and only after the list exists - `openProfile` reads from it. The
+  // guard is a REF, not state: re-opening the card on every render would make
+  // it impossible to close.
+  useEffect(() => {
+    const wanted = urlParams?.get('contact')
+    if (!wanted || openedFromUrl.current === wanted || !companies.length) return
+    if (!companies.some(c => c.id === wanted)) return
+    openedFromUrl.current = wanted
+    openProfile(wanted)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlParams, companies])
 
   async function openProfile(companyId: string) {
     setProfileCompanyId(companyId)

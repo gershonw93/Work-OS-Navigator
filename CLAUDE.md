@@ -814,13 +814,25 @@ Full detail: [`docs/postmortems/derived-state.md`](docs/postmortems/derived-stat
   Pinned in `inspection-reminders.ts`, anchored on the days the two rules
   DISAGREE.
   **AND THE SCREEN SAYS WHAT THE LETTER WILL SAY.** A date on a row is a
-  lookup; "In 4 days" is an answer. `inspectionCountdown` puts it there and
-  computes `urgent` from the SAME rule the 7:30am email fires on, so a row
-  cannot be amber while the reminder stays silent, or quiet while it sends. It
-  returns NULL rather than counting backwards for a visit that has been and
-  gone - that is a result waiting to be recorded, not a plan - and null past a
+  lookup; "In 4 days" is an answer. `inspectionCountdown` puts it there and its
+  `tone` comes from the SAME rule the 7:30am email fires on, so a row cannot be
+  amber while the reminder stays silent, or quiet while it sends. Null past a
   fortnight, where the printed date says it better than "in 96 days". A colour
   that means "soon" on every row means nothing on any of them.
+  **AND A DATE THAT HAS PASSED IS OVERDUE, NOT SILENCE.** The first version
+  returned null for a past date, reasoning that a visit which has been and gone
+  is a result waiting to be recorded rather than a plan. True, and it made the
+  screen say NOTHING - reported one release later as "booked sep 11 for march
+  24 - 6 months ago, doesnt make sense", a Foundation inspection under PENDING
+  wearing a calm blue "Scheduled" badge six months after the day. A REASON FOR
+  SAYING NOTHING IS NOT A REASON THE READER CAN SEE. Three tones now, and
+  "Overdue" is the word rather than "In -177 days".
+  **AND HALF THAT CONFUSION WAS A LABEL.** `booked_at` was printed under
+  "Booked", which beside a date reads as a second appointment; it is the day the
+  booking was WRITTEN DOWN, and it says "Booking recorded".
+  **AND NINE FACTS OF EQUAL LOUDNESS HIDE THE ONE SOMEBODY CAME FOR.**
+  "Confirmed for" is `text-base font-semibold text-ink` and every sibling in
+  that grid stays `ink-soft` - the second half is what makes the first work.
   **AND A LIST WITH A COUNTDOWN ON IT HAS TO BE IN ORDER.** The pending list
   was a bare `filter` with no sort, so it rendered Sep 21, Sep 16, MARCH, Sep
   23 - tolerable as four dates to read, nonsense beside "In 4 days". `bySoonest`
@@ -929,6 +941,21 @@ Full detail: [`docs/postmortems/derived-state.md`](docs/postmortems/derived-stat
 - An activity feed row links to the record it is ABOUT (`lib/activity-href.ts`).
   The tab is not derivable from the type string, so it is a table pinned against
   the icon table it mirrors.
+- **A NAME IS NOT A KEY, SO A LINK BUILT ON ONE IS EXACT OR IT IS NOTHING.**
+  "inspector should link to the inspectors contact card" - except
+  `inspections.inspector_name` is FREE TEXT and the real rows read "TW", "Paul
+  Klink", "City Inspections Bureau". There is no foreign key to follow, so
+  `lib/inspector-link.ts` asks whether that exact name IS a Directory contact:
+  trimmed, case-folded, whitespace-collapsed, and NULL for a partial match, for
+  initials, and for two contacts sharing one name. Same rule as
+  `lib/geocode-match.ts` refusing a question too vague to have one answer - a
+  link to the WRONG card is worse than no link, and the fuzzy version is the one
+  that fires. The id has to survive the trip: `callTargets` is a list of numbers
+  and drops it, so the route sends the contacts separately. **AND THE PAGE AT
+  THE OTHER END HAS TO READ THE LINK** - `/directory?contact=<id>` opens that
+  card, guarded by a REF so it opens once and can still be closed. A link that
+  lands somebody at the top of a list to find the thing themselves is the
+  failure the setup checklist's "Share the portal" already demonstrated.
 
 ## A button that claims to have done something (IMPORTANT)
 Full detail: [`docs/postmortems/derived-state.md`](docs/postmortems/derived-state.md).
