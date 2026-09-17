@@ -17,6 +17,7 @@ import { ItemListEditor } from '@/components/projects/item-list-editor'
 import { LineComparison } from '@/components/quotes/line-comparison'
 import type { ItemLine } from '@/lib/item-list'
 import { MATERIAL_BY_LABEL, PACKAGE_TYPE_LABEL, type MaterialBy, type PackageType } from '@/lib/trade-scopes'
+import { tradeOptions, subsInTrade, tradeOptionLabel, NO_TRADE } from '@/lib/sub-trades'
 import { ACCEPT_DOCS } from '@/lib/file-accept'
 import { UNTITLED_COMPARISON } from '@/lib/quote-comparison'
 import { fetchProblem } from '@/lib/fetch-error'
@@ -43,7 +44,9 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
   const guardDelete = useDeleteGuard()
   const [requests, setRequests] = useState<any[]>([])
   const [comparisons, setComparisons] = useState<Comparison[]>([])
-  const [subs, setSubs] = useState<{ id: string; name: string; email?: string }[]>([])
+  const [subs, setSubs] = useState<{ id: string; name: string; email?: string; trade?: string | null }[]>([])
+  // Who to invite, ticked before the request even exists. Keyed by company id.
+  const [inviteNow, setInviteNow] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [showNew, setShowNew] = useState(false)
   const [origin, setOrigin] = useState('')
@@ -92,12 +95,20 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
       fetch(`/api/projects/${params.id}/quotes`, { headers: { Authorization: `Bearer ${t}` } }),
     ])
     if (r.ok) setRequests((await r.json()).requests ?? [])
-    if (d.ok) setSubs(((await d.json()).companies ?? []).filter((c: any) => c.type === 'subcontractor' || c.type === 'supplier').map((c: any) => ({ id: c.id, name: c.name, email: c.contact_email })))
+    // `trade` comes along now - it was dropped here, which is why nothing
+    // downstream could group a directory by it.
+    if (d.ok) setSubs(((await d.json()).companies ?? []).filter((c: any) => c.type === 'subcontractor' || c.type === 'supplier').map((c: any) => ({ id: c.id, name: c.name, email: c.contact_email, trade: c.trade })))
     if (p.ok) setSavedPlans(((await p.json()).plans ?? []).map((pl: any) => ({ id: pl.id, name: pl.name, file_url: pl.file_url })))
     if (c.ok) setComparisons((await c.json()).comparisons ?? [])
     setLoading(false)
   }
   useEffect(() => { setOrigin(clientAppOrigin()); load() }, [params.id])
+
+  // The subs the picked trade holds, and whether they are all ticked. Both
+  // derived from the list ON SCREEN rather than from a count: `size === length`
+  // is true when both are zero, which would offer to clear an empty selection.
+  const tradeSubs = subsInTrade(subs, trade)
+  const allTradeSubsPicked = tradeSubs.length > 0 && tradeSubs.every(v => inviteNow.has(v.id))
 
   async function createRequest() {
     if (!title.trim()) return
@@ -120,9 +131,42 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
     if (chosen.length) form.append('existing_attachments', JSON.stringify(chosen))
     files.forEach(f => form.append('attachments', f))
     const res = await fetch(`/api/projects/${params.id}/bid-requests`, { method: 'POST', headers: { Authorization: `Bearer ${t}` }, body: form })
+    if (!res.ok) {
+      setCreating(false)
+      notify((await res.json().catch(() => ({}))).error ?? 'Could not create')
+      return
+    }
+
+    // ONE CLICK MEANS THE INVITES GO WITH IT. The route already takes a LIST
+    // and already de-duplicates and emails each one, so five electricians are
+    // one request, not five.
+    //
+    // It is a SECOND call because the invites hang off the request's id, which
+    // does not exist until the line above returns. So the request is created
+    // either way and a failure here is reported against the invites alone -
+    // never as "could not create", which would be false and would have people
+    // making the request twice.
+    // `{ request: req }` - the route's own key, read once. A `??` chaining two
+    // guesses is the tell that nobody checked: the wrong key is `undefined`,
+    // which a truthiness guard swallows, and the invites would silently never
+    // be sent while the request appeared to work.
+    const created = await res.json().catch(() => ({} as any))
+    const newId = created?.request?.id
+    const picked = tradeSubs.filter(v => inviteNow.has(v.id))
+    if (newId && picked.length) {
+      const inviteRes = await fetch(`/api/projects/${params.id}/bid-requests/${newId}/invites`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+        body: JSON.stringify({ invitees: picked.map(v => ({ company_id: v.id, name: v.name, email: v.email })) }),
+      })
+      if (!inviteRes.ok) {
+        const why = (await inviteRes.json().catch(() => ({}))).error
+        notify(`The request was created, but the invites did not go out: ${why ?? 'try inviting them from the request below.'}`)
+      }
+    }
+
     setCreating(false)
-    if (res.ok) { setTitle(''); setTrade(''); setDescription(''); setDueDate(''); setFiles([]); setSelectedPlans(new Set()); setScopeValue(EMPTY_SCOPE); setItemList([]); setShowNew(false); load() }
-    else notify((await res.json().catch(() => ({}))).error ?? 'Could not create')
+    setTitle(''); setTrade(''); setDescription(''); setDueDate(''); setFiles([]); setSelectedPlans(new Set()); setScopeValue(EMPTY_SCOPE); setItemList([]); setInviteNow(new Set()); setShowNew(false); load()
   }
 
   async function addInvite(reqId: string) {
@@ -376,8 +420,80 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
         <div className="bg-panel rounded-xl border border-accent/40 p-4 sm:p-5 space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5"><Label>Title <span className="text-danger">*</span></Label><Input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Electrical rough-in" autoFocus={autoFocusOnDesktop()} /></div>
-            <div className="space-y-1.5"><Label>Trade</Label><Input value={trade} onChange={e => setTrade(e.target.value)} placeholder="e.g. Electrical" /></div>
+            <div className="space-y-1.5">
+              <Label>Trade</Label>
+              {/* A DROPDOWN, NOT FREE TEXT. "I'm creating a bid. I'm trying to
+                  price out electrical. So it's trade based" - and a box with
+                  "e.g. Electrical" in it grouped nothing and could not find a
+                  single electrician. The list is standard trades UNION whatever
+                  your directory actually uses, and every option carries how
+                  many subs you have, so a typo like "Elecric (1)" sitting under
+                  "Electrical (13)" is visible before it costs somebody a bid. */}
+              <select
+                value={trade}
+                onChange={e => { setTrade(e.target.value); setInviteNow(new Set()) }}
+                className="w-full rounded-md border border-muted2 bg-panel px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+              >
+                <option value="">-- Select a trade --</option>
+                {tradeOptions(subs).map(o => (
+                  <option key={o.trade} value={o.trade}>{tradeOptionLabel(o)}</option>
+                ))}
+              </select>
+            </div>
           </div>
+
+          {/* PICK THE TRADE, GET THE SUBS. Five electricians, one click - the
+              invites go out with the request, rather than being a second job
+              you do one row at a time afterwards. */}
+          {trade && (
+            <div className="rounded-lg border border-line bg-surface p-3 space-y-2">
+              {tradeSubs.length === 0 ? (
+                <p className="text-xs text-muted-fg">
+                  {trade === NO_TRADE
+                    ? 'Nobody in your directory is missing a trade.'
+                    : <>Nobody in your directory is filed under <span className="font-semibold text-ink">{trade}</span> yet. Create the request and invite somebody by name, or add them on the Directory page.</>}
+                </p>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold text-muted-fg uppercase tracking-wide">
+                      Invite with this request
+                    </p>
+                    <button type="button"
+                      onClick={() => setInviteNow(allTradeSubsPicked ? new Set() : new Set(tradeSubs.map(v => v.id)))}
+                      className="min-h-11 whitespace-nowrap px-2 text-xs font-semibold text-accent-fg hover:underline lg:min-h-0">
+                      {allTradeSubsPicked ? 'Clear all' : `Select all ${tradeSubs.length}`}
+                    </button>
+                  </div>
+                  <div className="max-h-48 divide-y divide-line-soft overflow-y-auto rounded-lg border border-line bg-panel">
+                    {tradeSubs.map(v => (
+                      <label key={v.id} className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-surface">
+                        <input type="checkbox" className="accent-[#C9F24A] shrink-0"
+                          checked={inviteNow.has(v.id)}
+                          onChange={e => setInviteNow(p => {
+                            const n = new Set(p)
+                            if (e.target.checked) n.add(v.id); else n.delete(v.id)
+                            return n
+                          })} />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm text-ink">{v.name}</span>
+                          {/* The address is the fact that decides whether an
+                              invite can actually be sent, so it is in the row
+                              rather than found out afterwards. */}
+                          <span className="block truncate text-[11px] text-faint">
+                            {v.email || 'No email on file - add one in the Directory to invite them'}
+                          </span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-fg tabular-nums">
+                    {inviteNow.size} of {tradeSubs.length} selected
+                  </p>
+                </>
+              )}
+            </div>
+          )}
           {/* THE BUILT SCOPE COMES FIRST. Type a trade and the scope below fills
               itself in - which makes a big empty "Scope / instructions" box
               ABOVE it read as the thing you have to write, so people wrote out
