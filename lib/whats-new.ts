@@ -55,6 +55,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 const AUTHORED: Release[] = [
   {
     date: '2026-09-17',
+    title: 'Invite a whole trade at once',
+    items: [
+      {
+        kind: 'improved',
+        title: 'Pick the trade, tick the subs, invite them with the request',
+        text: 'Pricing out electrical? The Trade field on a new quote request is a dropdown now, and picking Electrical lists every electrician in your Directory with a tick box - select five and they are all invited the moment you create the request, instead of adding them one at a time afterwards. Each trade shows how many subs you have for it, so a sub whose trade is spelled differently is easy to spot.',
+        help: 'request-quotes',
+      },
+    ],
+  },
+  {
+    date: '2026-09-17',
     title: 'Plans: go straight to a page',
     items: [
       {
