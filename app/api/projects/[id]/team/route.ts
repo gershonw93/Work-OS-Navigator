@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { profileIdForEmail } from '@/lib/my-jobs'
 import { logActivity } from '@/lib/log-activity'
 
 const admin = () => createClient(
@@ -61,12 +62,11 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const { name, role, phone, email } = await request.json()
   if (!name || !role) return NextResponse.json({ error: 'Name and role are required' }, { status: 400 })
 
-  // Auto-link to a real profile if email matches a company member
-  let profileId: string | null = null
-  if (email) {
-    const { data: matchedProfile } = await db.from('profiles').select('id').eq('email', email).maybeSingle()
-    profileId = matchedProfile?.id ?? null
-  }
+  // Auto-link to a real profile so the row carries a foreign key rather than a
+  // string somebody typed. Case-insensitively: this was `.eq('email', email)`,
+  // so "Jay@..." against an account stored as "jay@..." wrote a NULL link and
+  // left the person resolving by string match for ever.
+  const profileId = await profileIdForEmail(db, email)
 
   const { data, error } = await db
     .from('project_team_members')
