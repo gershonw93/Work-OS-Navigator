@@ -42,7 +42,7 @@ export async function GET(request: Request) {
   if (denied(gate)) return gate.denied
 
   const { data: profile } = await db
-    .from('profiles').select('email, full_name').eq('id', gate.actor.userId).single()
+    .from('profiles').select('email, full_name, company_id').eq('id', gate.actor.userId).single()
 
   const { projectIds } = await myJobs(db, gate.actor.userId, profile)
   if (!projectIds.length) return NextResponse.json({ inspections: [] })

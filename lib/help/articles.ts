@@ -1326,6 +1326,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: 'text', text: 'WHO CAN SEND ONE. Inviting a teammate is an admin job, the same as the rest of Team & Users. Inviting a subcontractor or supplier out of your Directory needs Directory edit, which admins and managers have - if you want a project manager to be able to, turn Directory edit on for that role in Permissions.' },
       { type: 'text', text: 'Only an admin can invite another admin. Anyone else inviting a teammate can hand out any role below that.' },
       { type: 'tip', text: 'A sub or supplier you invite from the Directory gets a different email from a teammate - it explains what the login is for on their side: the jobs they are on, quoting work you send them, sending in bills, and keeping their insurance current. They are read-only on your side and always land on their own company, never inside yours.' },
+      { type: 'text', text: 'USE THE SAME EMAIL ON THE JOB. You will often add somebody to a project team - by name and email - before they have a login. When they accept their invite, we join the two up using the email address, so use the same one in both places. That link is what a field supervisor or worker\'s "only the jobs I am assigned to" is built on, and it survives them changing their name later.' },
     ],
     related: ['permissions', 'delete-protection', 'directory'],
   },

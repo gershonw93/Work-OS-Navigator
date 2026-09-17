@@ -21,7 +21,7 @@ export async function GET(request: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data: profile } = await db
-    .from('profiles').select('email, full_name, role').eq('id', user.id).single()
+    .from('profiles').select('email, full_name, role, company_id').eq('id', user.id).single()
 
   // --- 1. Which projects is this worker on? `myJobs` is the one home for that
   // chain - the inspections feed asks the same question and must get the same

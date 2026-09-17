@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { myJobs } from './my-jobs'
 import {
   getEffectivePermissions, resolveRoleBase, can,
   type Action, type OverrideMap, type PermMap,
@@ -134,26 +135,10 @@ export async function getAssignment(
   userId: string,
 ): Promise<{ projectIds: string[]; memberIds: string[] }> {
   const { data: profile } = await db
-    .from('profiles').select('email, full_name').eq('id', userId).single()
+    .from('profiles').select('email, full_name, company_id').eq('id', userId).single()
 
-  const { data: byProfileId } = await db
-    .from('project_team_members').select('id, project_id').eq('profile_id', userId)
-
-  let rows = byProfileId ?? []
-
-  if (rows.length === 0 && profile) {
-    const conditions: string[] = []
-    if (profile.email) conditions.push(`email.eq.${profile.email}`)
-    if (profile.full_name) conditions.push(`name.eq.${profile.full_name}`)
-    if (conditions.length > 0) {
-      const { data: byNameEmail } = await db
-        .from('project_team_members').select('id, project_id').or(conditions.join(','))
-      rows = byNameEmail ?? []
-    }
-  }
-
-  return {
-    projectIds: Array.from(new Set(rows.map((r: any) => r.project_id).filter(Boolean))),
-    memberIds: Array.from(new Set(rows.map((r: any) => r.id).filter(Boolean))),
-  }
+  // `myJobs` is the one home for the profile_id -> email -> name chain. This
+  // copy resolved a NAME against the whole table, so it could return another
+  // company's project to the permission layer itself.
+  return myJobs(db, userId, profile)
 }
