@@ -812,6 +812,26 @@ export const HELP_ARTICLES: HelpArticle[] = [
     related: ['approve-invoice'],
   },
   {
+    slug: 'bill-the-client',
+    title: 'Bill your client for several approved costs at once',
+    category: 'money',
+    keywords: ['client invoice', 'bill client', 'bill the client', 'combine', 'combined', 'batch', 'group', 'several', 'multiple', 'one invoice', 'markup', 'cost plus', 'approved costs', 'four subs', 'roll up', 'invoice my customer', 'customer invoice'],
+    summary: 'Tick several approved sub bills and material costs and turn them into one invoice to your client, with your markup on.',
+    blocks: [
+      { type: 'text', text: 'Four subs send you bills on the same job. You approve them, then bill your client ONCE for all four - not four times. That is what this does, and it is on the Payments tab.' },
+      { type: 'steps', items: [
+        'Open the project and go to the Payments tab, under "Invoices to your client".',
+        'Press "Create client invoice from approved costs".',
+        'Tick the bills and material costs you want on this invoice - as many as you like. "Select all" takes every one of them.',
+        'Decide whether the client sees your markup (see below), set a due date, and create it.',
+      ] },
+      { type: 'text', text: 'WHAT IS IN THE LIST. Only costs you have already approved, and only ones not already billed. A sub\'s bill still waiting for approval does not appear, and neither does anything that is already on another client invoice - so you cannot bill the same cost twice by accident. Void an invoice and its costs come back to the list.' },
+      { type: 'text', text: 'YOUR MARKUP. Each line carries your contractor fee, and there is one switch for whether the client sees the working. ON, each line reads cost + your percentage = amount, which is the open-book presentation a cost-plus contract usually asks for. OFF, they see one amount per line and one total, and your margin is not on the document. It starts OFF, because a client who was never shown your margin cannot be un-shown it. You can change it on a draft before you send.' },
+      { type: 'tip', text: 'A line can be marked at cost with no markup - useful for a permit fee or anything you are passing straight through.' },
+    ],
+    related: ['record-client-payment', 'approve-invoice', 'money-overview'],
+  },
+  {
     slug: 'record-client-payment',
     title: 'Record a client payment & set your fee',
     category: 'money',

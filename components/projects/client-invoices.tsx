@@ -173,6 +173,10 @@ export function ClientInvoices({
 
   const key = (b: Billable) => `${b.kind}:${b.source_id}`
   const chosen = billable.filter(b => picked.has(key(b)))
+  // Asked of the list ACTUALLY on screen, not of a count: with nothing
+  // billable, `picked.size === billable.length` is 0 === 0, and the control
+  // would offer to clear a selection that does not exist.
+  const allPicked = billable.length > 0 && billable.every(b => picked.has(key(b)))
   const totals = chosen.reduce(
     (t, b) => ({ cost: t.cost + b.cost, markup: t.markup + b.markup, total: t.total + b.clientPrice }),
     { cost: 0, markup: 0, total: 0 },
@@ -305,14 +309,27 @@ export function ClientInvoices({
             Built from costs you have already approved, with your markup applied.
           </p>
         </div>
-        {!building && (
-          <Button size="sm" onClick={() => setBuilding(true)} disabled={billable.length === 0}>
-            <Plus className="h-4 w-4" /> Bill the client
-          </Button>
+        {/* REPORTED AS A DISCOVERY PROBLEM, NOT A CLICKS ONE: "the feature
+            exists but I couldn't find it". Combining four subs' bills into one
+            client invoice was already here, behind a button reading "Bill the
+            client" - a verb that describes the outcome and not the thing you
+            get to do, with nothing anywhere saying you could pick several. A
+            control is only as findable as its label, so the label names the
+            job and the line above it names the first move. */}
+        {!building && billable.length > 0 && (
+          <div className="flex flex-col items-stretch gap-1.5 sm:items-end">
+            <p className="text-xs text-muted-fg">Select one or several approved bills and costs.</p>
+            <Button size="sm" onClick={() => setBuilding(true)}>
+              <Plus className="h-4 w-4" /> Create client invoice from approved costs
+            </Button>
+          </div>
         )}
       </div>
 
-      {billable.length === 0 && !building && bills.length === 0 && (
+      {/* Nothing to bill is a REASON, not a greyed-out button. It used to need
+          `bills.length === 0` as well, so a project with invoices already sent
+          and nothing new approved showed a dead control and no explanation. */}
+      {billable.length === 0 && !building && (
         <p className="text-sm text-faint">
           Nothing to bill yet. Approve a sub&apos;s invoice or add a material receipt and it shows up here,
           with your markup on it.
@@ -349,6 +366,24 @@ export function ClientInvoices({
           ) : billable.length === 0 ? (
             <p className="text-sm text-faint">Every recorded cost is already on an invoice.</p>
           ) : (
+            <>
+            {/* SELECT ALL. Four subs submit and you group them into one
+                invoice - that was four ticks, and the whole ask was the
+                fewest clicks possible. It says which way it will go and how
+                many are on, because "Select all" on a list that is already
+                all on is a control whose effect you cannot predict. */}
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs text-muted-fg tabular-nums">
+                {picked.size} of {billable.length} selected
+              </span>
+              <button
+                type="button"
+                onClick={() => setPicked(allPicked ? new Set() : new Set(billable.map(key)))}
+                className="min-h-11 whitespace-nowrap px-2 text-xs font-semibold text-accent-fg hover:underline lg:min-h-0"
+              >
+                {allPicked ? 'Clear all' : `Select all ${billable.length}`}
+              </button>
+            </div>
             <div className="max-h-64 overflow-y-auto rounded-lg border border-line divide-y divide-line-soft bg-panel">
               {billable.map(b => (
                 <label key={key(b)} className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-surface">
@@ -370,6 +405,7 @@ export function ClientInvoices({
                 </label>
               ))}
             </div>
+            </>
           )}
 
           {/* The whole question: does the client see what it cost you? */}
