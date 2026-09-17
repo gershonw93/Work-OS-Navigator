@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { isAssignedOnly } from '@/lib/permissions'
+import { myJobs } from '@/lib/my-jobs'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -21,17 +22,9 @@ export async function GET(request: Request) {
   // Determine which projects this user can see
   let projectIds: string[] = []
   if (isAssignedOnly(profile.role)) {
-    const { data: byProfileId } = await db.from('project_team_members').select('project_id').eq('profile_id', user.id)
-    projectIds = (byProfileId ?? []).map((a: any) => a.project_id).filter(Boolean)
-    if (projectIds.length === 0) {
-      const conds: string[] = []
-      if (profile.email) conds.push(`email.eq.${profile.email}`)
-      if (profile.full_name) conds.push(`name.eq.${profile.full_name}`)
-      if (conds.length > 0) {
-        const { data: byNE } = await db.from('project_team_members').select('project_id').or(conds.join(','))
-        projectIds = (byNE ?? []).map((a: any) => a.project_id).filter(Boolean)
-      }
-    }
+    // One home for this - see lib/my-jobs.ts. The name fallback here was
+    // unscoped too, so the stats strip could count another company's job.
+    projectIds = (await myJobs(db, user.id, profile)).projectIds
   } else {
     const { data: projs } = await db.from('projects').select('id').eq('gc_company_id', profile.company_id)
     projectIds = (projs ?? []).map((p: any) => p.id)

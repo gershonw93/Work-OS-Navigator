@@ -32,13 +32,13 @@ console.log('\nschedule-cascade')
     'every foreign key states its ON DELETE rule explicitly')
 
   // The fallback for a fresh environment has to carry it too.
-  ok(exists('supabase/migrations/_combined_008-110.sql'), 'the combined file is bumped to 110')
-  ok(/schedule_dependencies/.test(read('supabase/migrations/_combined_008-110.sql')),
+  ok(exists('supabase/migrations/_combined_008-111.sql'), 'the combined file is bumped to 111')
+  ok(/schedule_dependencies/.test(read('supabase/migrations/_combined_008-111.sql')),
     '...and contains the new tables')
   ok(!exists('supabase/migrations/_combined_008-107.sql'), '...and the old name is gone, not left beside it')
   ok(!exists('supabase/migrations/_combined_008-109.sql'),
     '...nor the one before this bump - a fresh environment built from a stale file is the whole risk')
-  ok(/_combined_008-110\.sql/.test(read('CLAUDE.md')), '...and CLAUDE.md points at the new name')
+  ok(/_combined_008-111\.sql/.test(read('CLAUDE.md')), '...and CLAUDE.md points at the new name')
   ok(!/_combined_008-109\.sql/.test(read('CLAUDE.md')), '...and not at the old one as well')
 
   // 109 is a DATA REPAIR, not a schema change, and the combined file is
@@ -48,9 +48,9 @@ console.log('\nschedule-cascade')
   ok(/dates_overridden_at = NULL/.test(repair), 'the repair clears the flag')
   ok(/INTERVAL '2 minutes'/.test(repair),
     '...only where ONE SAVE wrote both statements, never a deliberate override days later')
-  ok(/109/.test(read('supabase/migrations/_combined_008-110.sql')),
+  ok(/109/.test(read('supabase/migrations/_combined_008-111.sql')),
     '...and it is in the combined file too, or a fresh environment is born with the bug')
-  ok(/demo_notification_log/.test(read('supabase/migrations/_combined_008-110.sql')),
+  ok(/demo_notification_log/.test(read('supabase/migrations/_combined_008-111.sql')),
     'and 110 is in it as well - the bump is the easy half to forget')
 }
 

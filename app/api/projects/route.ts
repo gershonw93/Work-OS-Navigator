@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { myJobs } from '@/lib/my-jobs'
 import { getActor, actorCan } from '@/lib/server-permissions'
 import { asContractType } from '@/lib/contract-type'
 
@@ -55,32 +56,15 @@ export async function GET(request: Request) {
     return NextResponse.json({ projects: ownProjects ?? [] })
   }
 
-  // Restricted roles only see projects they are explicitly assigned to
+  // Restricted roles only see projects they are explicitly assigned to.
+  // `myJobs` is the one home for that resolution - the name half used to run
+  // against the whole table with no company filter, which handed somebody
+  // another company's project when two people shared a name.
   if (profile.role && RESTRICTED_ROLES.includes(profile.role)) {
-    const { data: profile2 } = await db.from('profiles').select('email, full_name').eq('id', user.id).single()
+    const { data: profile2 } = await db
+      .from('profiles').select('email, full_name, company_id').eq('id', user.id).single()
 
-    // Try profile_id match first (needs SQL migration), then fall back to email/name match
-    const { data: byProfileId } = await db
-      .from('project_team_members')
-      .select('project_id')
-      .eq('profile_id', user.id)
-
-    let projectIds = (byProfileId ?? []).map((a: any) => a.project_id).filter(Boolean)
-
-    // Fallback: match by email or name in project_team_members
-    if (projectIds.length === 0 && profile2) {
-      const conditions: string[] = []
-      if (profile2.email) conditions.push(`email.eq.${profile2.email}`)
-      if (profile2.full_name) conditions.push(`name.eq.${profile2.full_name}`)
-
-      if (conditions.length > 0) {
-        const { data: byNameEmail } = await db
-          .from('project_team_members')
-          .select('project_id')
-          .or(conditions.join(','))
-        projectIds = (byNameEmail ?? []).map((a: any) => a.project_id).filter(Boolean)
-      }
-    }
+    const { projectIds } = await myJobs(db, user.id, profile2)
 
     if (projectIds.length === 0) return NextResponse.json({ projects: [] })
 

@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { linkTeamRows } from '@/lib/my-jobs'
 
 export const runtime = 'nodejs'
 
@@ -61,6 +62,21 @@ export async function POST(request: Request) {
     })
   }
 
+  // CLAIM THE TEAM ROWS SOMEBODY TYPED FOR THEM BEFORE THEY HAD AN ACCOUNT.
+  //
+  // A GC builds a project team by typing a name and an email, usually well
+  // before the person signs in. Nothing ever wrote `profile_id` back, so the
+  // assigned-only screens were resolving people by string match for ever -
+  // which is fragile (a capital letter in the address was enough to show a
+  // field supervisor no projects at all) and was the reason the name fallback
+  // existed to leak through. This is the moment the account and the rows are
+  // both known, so it is the moment to join them.
+  //
+  // Never fatal: the invite has been accepted and the profile is written, and
+  // the string match still resolves them meanwhile. Logged, not thrown.
+  const linked = await linkTeamRows(db, user.id, email)
+  if (linked) console.log(`[invite/accept] linked ${linked} team row(s) to ${user.id}`)
+
   // Mark every pending invite for this email+company accepted (covers resends).
   await db.from('company_invites')
     .update({ status: 'accepted' })
@@ -68,5 +84,5 @@ export async function POST(request: Request) {
     .eq('email', email)
     .eq('status', 'pending')
 
-  return NextResponse.json({ accepted: true, company_id: invite.company_id, role })
+  return NextResponse.json({ accepted: true, company_id: invite.company_id, role, linked })
 }
