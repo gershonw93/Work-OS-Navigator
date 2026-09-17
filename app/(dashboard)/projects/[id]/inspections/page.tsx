@@ -13,7 +13,10 @@ import { ContactPicker } from '@/components/contact-picker'
 import { withStructural } from '@/lib/notification-routing'
 
 import { formatDate, todayDateInput } from '@/lib/dates'
-import { OPEN, CLOSED, isVoid, requestProblem, scheduleProblem, inspectionDate } from '@/lib/inspection-status'
+import {
+  OPEN, CLOSED, isVoid, requestProblem, scheduleProblem, inspectionDate,
+  inspectionCountdown, bySoonest,
+} from '@/lib/inspection-status'
 import { callTargetsFor, type CallTarget } from '@/lib/inspection-contacts'
 import { RowMenu, MenuItem } from '@/components/ui/row-menu'
 import { ACCEPT_SCAN } from '@/lib/file-accept'
@@ -473,7 +476,11 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
   // From the shared sets, so this and the project Overview cannot disagree
   // about what is outstanding. They already had: the Overview counted only
   // 'requested' while this counted four statuses.
-  const pending = inspections.filter(i => (OPEN as readonly string[]).includes(i.status))
+  // Sorted, not just filtered. Unordered it rendered Sep 21, Sep 16, MARCH,
+  // Sep 23 - which nobody could read as "what is coming up".
+  const pending = inspections
+    .filter(i => (OPEN as readonly string[]).includes(i.status))
+    .sort(bySoonest)
   const completed = inspections.filter(i => (CLOSED as readonly string[]).includes(i.status))
   const voided = inspections.filter(i => isVoid(i.status))
 
@@ -482,6 +489,9 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
     const cfg = STATUS_CONFIG[insp.status] ?? STATUS_CONFIG.not_scheduled
     const Icon = cfg.icon
     const dates = inspectionDate(insp)
+    // `todayDateInput()` is the BROWSER's day - which is the right clock here,
+    // because "in 3 days" is counted from where the reader is standing.
+    const countdown = inspectionCountdown(insp as any, todayDateInput())
     const needsBookingCall = !dates.confirmed && !isVoid(insp.status) && insp.status !== 'passed' && insp.status !== 'failed'
     // The numbers this card offers: what the inspection itself carries, then
     // the job's permits and Directory, deduped. ONE list - the details grid
@@ -545,6 +555,23 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
               {insp.status === 'requested' && insp.scheduler_name && ` · ${insp.scheduler_name} to book`}
             </p>
           </div>
+          {/* HOW SOON, in the dead space this row already had. The date is on
+              the line below, but "Sep 21" is a lookup and "In 4 days" is an
+              answer. Amber ONLY when the 7:30am reminder would fire on it -
+              booked inside two business days with nobody having marked the
+              work ready - because a colour that means "soon" on every row
+              means nothing on any of them. Same rule as the email, so the
+              screen cannot contradict the letter. */}
+          {countdown && (
+            <span className={cn(
+              'shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-medium',
+              countdown.urgent
+                ? 'border-warn/30 bg-warn-tint text-warn'
+                : 'border-line bg-muted text-muted-fg',
+            )}>
+              {countdown.label}
+            </span>
+          )}
           {isExpanded ? <ChevronUp className="h-4 w-4 text-faint shrink-0" /> : <ChevronDown className="h-4 w-4 text-faint shrink-0" />}
         </button>
 

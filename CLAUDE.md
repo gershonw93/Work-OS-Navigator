@@ -813,6 +813,19 @@ Full detail: [`docs/postmortems/derived-state.md`](docs/postmortems/derived-stat
   Monday, where two business days and two plain days are the same Wednesday.
   Pinned in `inspection-reminders.ts`, anchored on the days the two rules
   DISAGREE.
+  **AND THE SCREEN SAYS WHAT THE LETTER WILL SAY.** A date on a row is a
+  lookup; "In 4 days" is an answer. `inspectionCountdown` puts it there and
+  computes `urgent` from the SAME rule the 7:30am email fires on, so a row
+  cannot be amber while the reminder stays silent, or quiet while it sends. It
+  returns NULL rather than counting backwards for a visit that has been and
+  gone - that is a result waiting to be recorded, not a plan - and null past a
+  fortnight, where the printed date says it better than "in 96 days". A colour
+  that means "soon" on every row means nothing on any of them.
+  **AND A LIST WITH A COUNTDOWN ON IT HAS TO BE IN ORDER.** The pending list
+  was a bare `filter` with no sort, so it rendered Sep 21, Sep 16, MARCH, Sep
+  23 - tolerable as four dates to read, nonsense beside "In 4 days". `bySoonest`
+  sorts it, and an undated row goes LAST: an empty string sorts before every
+  real date, so the naive comparator puts "no date yet" at the top.
 - **A CASCADE IS ARITHMETIC; TELLING SOMEBODY IS A DECISION.** Schedule
   dependencies live in `lib/schedule-dependencies.ts` (pure: `cascade`,
   `findCycle`, `lineProgress`, `blockedBy`) and the routes under
