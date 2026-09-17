@@ -277,12 +277,39 @@ console.log('\nschedule-cascade')
 
   // REPORTED: "how far along between needs a or between the 2 options". Two
   // bare boxes side by side state nothing about how they relate.
-  ok(/Do not start until they are/.test(picker) && /done/.test(picker),
+  ok(/Wait till they&apos;re/.test(picker) && /done/.test(picker),
     'the progress gate finishes its own sentence')
-  ok(/Then wait/.test(picker) && /days before starting/.test(picker),
+  ok(/>Plus</.test(picker) && /extra days/.test(picker),
     '...and the lag finishes a different one')
-  ok(/Leave these alone and this line simply waits for that one to finish/.test(picker),
+  ok(/Leave these blank and it starts when they&apos;re done/.test(picker),
     '...under a heading that says what leaving both blank means')
+
+  // FIELD LANGUAGE, asked for by name. These are the words a GC uses; the
+  // earlier set read like a form written by somebody who does not build.
+  // The "not" half reads the COMMENT-STRIPPED source. A file that explains why
+  // a phrase was replaced necessarily contains the old phrase, and a raw scan
+  // finds its own explanation - this repo has paid for that twice already.
+  const pickerCode = code('components/schedule/dependency-picker.tsx')
+  for (const [was, now] of [
+    ['Depends on another trade?', "Can&apos;t start till another trade finishes?"],
+    ['Waits for', 'After:'],
+    ['The trade I need is not in the list', 'My trade&apos;s not here'],
+  ] as const) {
+    ok(picker.includes(now), `says "${now}"`)
+    ok(!pickerCode.includes(was), `...and not "${was}"`)
+  }
+
+  // THE ONE ANSWER MOST PEOPLE WANT IS "after the sheetrock guy". The percent
+  // gate and the extra days are real and they were in everybody's way - two
+  // boxes on the main path for a question almost nobody asks.
+  ok(/const \[showMore, setShowMore\] = useState\(false\)/.test(code('components/schedule/dependency-picker.tsx')),
+    'the extra options start COLLAPSED - the default path is a trade and nothing else')
+  ok(/More options - wait for a %, or leave extra days/.test(picker),
+    '...and the tap says what is behind it, so nobody opens it to find out')
+  const progressAt = picker.indexOf('id="dep-progress"')
+  const moreAt = picker.indexOf('showMore ? (')
+  ok(progressAt > moreAt && moreAt > -1,
+    '...with both fields INSIDE it, not merely styled as secondary')
   ok(!/How far along\? \(optional\)/.test(picker) && !/Days in between \(optional\)/.test(picker),
     '...and neither is a bare "(optional)" label with no unit and no sentence')
 
