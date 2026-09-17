@@ -113,6 +113,37 @@ export async function myJobs(
 }
 
 /**
+ * The account that owns an address, if exactly one does.
+ *
+ * Adding somebody to a project team looks their address up so the row can
+ * carry a real foreign key from the start. That lookup was `.eq('email', ...)`
+ * - case-sensitive - so typing "Jay@..." for an account stored as "jay@..."
+ * found nothing and wrote a NULL link, which is the same capital-letter bug
+ * this module exists to end, one door earlier.
+ *
+ * Returns null when two accounts share an address: a guess about WHICH person
+ * is meant is worse than leaving the row to match by string, and it is the
+ * same refusal migration 111 makes. `.maybeSingle()` used to throw there.
+ */
+export async function profileIdForEmail(
+  db: SupabaseClient,
+  email: string | null | undefined,
+): Promise<string | null> {
+  const folded = fold(email)
+  if (!folded) return null
+
+  const { data, error } = await db
+    .from('profiles').select('id, email').ilike('email', escapeLike(folded))
+  if (error) {
+    console.error('[profileIdForEmail] lookup failed:', error.message)
+    return null
+  }
+  const exact = ((data ?? []) as { id: string; email?: string | null }[])
+    .filter(r => fold(r.email) === folded)
+  return exact.length === 1 ? exact[0].id : null
+}
+
+/**
  * Attach a person to the team rows that were typed for them before they had an
  * account.
  *

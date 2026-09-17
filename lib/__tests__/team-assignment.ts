@@ -21,7 +21,7 @@
 //
 // Same rule as lib/inspector-link.ts, one table over: A NAME IS NOT A KEY.
 
-import { myJobs, linkTeamRows } from '../my-jobs'
+import { myJobs, linkTeamRows, profileIdForEmail } from '../my-jobs'
 import { ok, done, code, exists, read, readCombined } from './_helpers'
 
 // ── a Supabase stub, only the calls myJobs makes ────────────────────────────
@@ -195,6 +195,37 @@ void (async () => {
     ok(await linkTeamRows(db, 'user-1', null) === 0 && log.updates.length === 0,
       'no address means no linking, and no blind write')
    })()
+
+  // ── THE LINK IS WRITTEN AT ADD TIME TOO ─────────────────────────────────────
+  // Adding somebody to a project team looks their address up so the row starts
+  // with a foreign key. That lookup was case-sensitive, so it wrote NULL for a
+  // typed "Jay@..." and left the person on string matching for ever - the same
+  // capital-letter bug, one door earlier than the read path.
+  await (async () => {
+    const { db } = fakeDb({ profiles: [{ id: 'p-1', email: 'jay@26realtygroup.com' }] })
+    ok(await profileIdForEmail(db, 'Jay@26RealtyGroup.com') === 'p-1',
+      'adding to a job finds the account whatever the capitalisation')
+    ok(await profileIdForEmail(db, 'someone@else.com') === null,
+      '...and nothing when no account owns the address')
+    ok(await profileIdForEmail(db, null) === null, '...and nothing with no address at all')
+  })()
+
+  await (async () => {
+    // Two accounts on one address cannot be resolved to a person. Guessing is
+    // worse than leaving the row to match by string - the same refusal the
+    // back-fill migration makes.
+    const { db } = fakeDb({ profiles: [
+      { id: 'p-1', email: 'shared@x.com' },
+      { id: 'p-2', email: 'Shared@x.com' },
+    ] })
+    ok(await profileIdForEmail(db, 'shared@x.com') === null,
+      'an address two accounts share links to NEITHER, rather than to a guess')
+  })()
+
+  ok(/profileIdForEmail/.test(code('app/api/projects/[id]/team/route.ts')),
+    'the add-to-team route asks the shared lookup')
+  ok(!/\.eq\('email', email\)/.test(code('app/api/projects/[id]/team/route.ts')),
+    '...and no longer matches an address case-sensitively')
 
   // ── ONE HOME: no copy of the chain left anywhere ────────────────────────────
   const CALLERS = [
