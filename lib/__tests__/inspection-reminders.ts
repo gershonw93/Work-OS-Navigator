@@ -13,6 +13,7 @@
 
 import {
   needsReadyReminder, addDaysIso, addBusinessDaysIso, isWeekend, READY_REMINDER_DAYS,
+  inspectionCountdown, bySoonest, daysUntilIso, COUNTDOWN_HORIZON_DAYS,
 } from '../inspection-status'
 import { NOTIFICATION_TYPES } from '../notifications'
 import { ok, done, code, read } from './_helpers'
@@ -174,6 +175,78 @@ ok(/ready_reminder_sent_at: new Date\(\)\.toISOString\(\)/.test(cron),
   ok(job?.schedule === '30 11 * * *',
     'THE REPORT: 7:30am Eastern, not 3:22 in the middle of the night')
   ok(!/^\d+ [0-7] /.test(job?.schedule ?? ''), '...and nothing before 8am UTC, which is the small hours in the US')
+}
+
+// ── HOW SOON, on the row ────────────────────────────────────────────────────
+//
+// Asked for looking at the Inspections list: "maybe add here if its upcoming -
+// coming up in x days or something". The date was already on the row; a date is
+// a lookup and "In 4 days" is an answer.
+{
+  const THU = '2026-09-17'
+  const FRI = '2026-09-18'
+  const MON = '2026-09-21'
+
+  ok(daysUntilIso(THU, MON) === 4, 'four days from Thursday to Monday')
+  ok(daysUntilIso(THU, THU) === 0, '...and none to itself')
+  ok(daysUntilIso(MON, THU) === -4, '...and it signs a date that has passed')
+  // Parsed locally, a pair either side of a DST boundary is 0.958 days apart.
+  ok(daysUntilIso('2026-03-07', '2026-03-09') === 2, 'a spring-forward weekend is still two days')
+
+  ok(inspectionCountdown(booked({ scheduled_date: THU }), THU)?.label === 'Today', 'today says Today')
+  ok(inspectionCountdown(booked({ scheduled_date: FRI }), THU)?.label === 'Tomorrow', '...and tomorrow, Tomorrow')
+  ok(inspectionCountdown(booked({ scheduled_date: MON }), THU)?.label === 'In 4 days', '...and further out, the count')
+
+  // The cases where saying nothing is the honest answer.
+  ok(inspectionCountdown(booked({ scheduled_date: '2026-09-16' }), THU) === null,
+    'a visit that has been and gone gets NO countdown - it is a result, not a plan')
+  ok(inspectionCountdown(booked({ scheduled_date: addDaysIso(THU, COUNTDOWN_HORIZON_DAYS + 1) }), THU) === null,
+    '...and neither does one past the horizon, where the date says it better')
+  ok(inspectionCountdown(booked({ scheduled_date: null }), THU) === null, '...nor one nobody has booked')
+  ok(inspectionCountdown(booked({ scheduled_date: MON, status: 'void' }), THU) === null, '...nor a voided one')
+  ok(inspectionCountdown(booked({ scheduled_date: MON, status: 'passed' }), THU) === null, '...nor one already passed')
+
+  // COLOUR MEANS SOMETHING. Amber is exactly the set the 7:30am email would
+  // fire on, so the screen and the letter cannot disagree.
+  ok(inspectionCountdown(booked({ scheduled_date: MON }), THU)?.urgent === true,
+    'a Monday inspection with nobody having marked it ready is urgent on Thursday')
+  ok(inspectionCountdown(booked({ scheduled_date: MON, ready_marked_by: 'u1' }), THU)?.urgent === false,
+    '...and stops being urgent the moment somebody marks it ready')
+  ok(inspectionCountdown(booked({ scheduled_date: addDaysIso(THU, 9) }), THU)?.urgent === false,
+    '...and a visit still nine days out is not urgent, only upcoming')
+
+  // The two must not drift: whatever the reminder fires on, the row colours.
+  for (const d of [MON, FRI, THU]) {
+    const row = booked({ scheduled_date: d })
+    ok(inspectionCountdown(row, THU)?.urgent === needsReadyReminder(row, THU),
+      `urgent and the reminder rule agree for ${d}`)
+  }
+}
+
+// ── and the list is in date order ───────────────────────────────────────────
+{
+  // It was a plain filter with no sort, so it rendered Sep 21, Sep 16, MARCH,
+  // Sep 23 - tolerable as four dates to read, nonsense beside a countdown.
+  const rows = [
+    { id: 'sep21', scheduled_date: '2026-09-21' },
+    { id: 'none', scheduled_date: null },
+    { id: 'mar24', scheduled_date: '2026-03-24' },
+    { id: 'sep16', scheduled_date: '2026-09-16' },
+  ]
+  const order = [...rows].sort(bySoonest).map(r => r.id)
+  ok(order.join() === 'mar24,sep16,sep21,none', `soonest first, undated LAST (${order.join(' ')})`)
+
+  // An undated row sorting first is what a naive comparator does - an empty
+  // string sorts before every real date.
+  ok(order[order.length - 1] === 'none', 'a row with no date at all is not the top of the list')
+
+  ok(bySoonest({ scheduled_date: null, requested_date: '2026-01-01' }, { scheduled_date: '2026-02-01' }) < 0,
+    'a requested date counts when there is no booking - it is still a plan with a day on it')
+
+  const page = code('app/(dashboard)/projects/[id]/inspections/page.tsx')
+  ok(/\.sort\(bySoonest\)/.test(page), 'and the page actually sorts with it')
+  ok(/countdown\.urgent/.test(page) && /bg-warn-tint/.test(page),
+    'the row colours on urgent, and only on urgent')
 }
 
 done()

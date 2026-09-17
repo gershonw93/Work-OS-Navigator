@@ -295,6 +295,83 @@ export function addBusinessDaysIso(iso: string, days: number): string {
   return out
 }
 
+// ── how soon is it ──────────────────────────────────────────────────────────
+
+/**
+ * Whole days from one calendar day to another.
+ *
+ * BOTH sides parsed as UTC so the offset cancels and the answer is a whole
+ * number. Parsed locally, a pair either side of a DST boundary comes out as
+ * 0.9583 days and `Math.round` hides it until it does not - the same trap
+ * `daysBetween` in schedule-dependencies.ts documents.
+ */
+export function daysUntilIso(from: string, to: string): number {
+  const ms = Date.parse(`${to.slice(0, 10)}T00:00:00Z`) - Date.parse(`${from.slice(0, 10)}T00:00:00Z`)
+  return Math.round(ms / 86_400_000)
+}
+
+/** Past this, the row's own date says it better than a countdown can. */
+export const COUNTDOWN_HORIZON_DAYS = 14
+
+export interface Countdown {
+  /** "Today", "Tomorrow", "In 3 days". */
+  label: string
+  /**
+   * True when the 7:30am reminder would fire on this row - somebody has to act.
+   * Computed from the SAME rule the email uses, so the screen and the letter
+   * cannot tell a reader two different things.
+   */
+  urgent: boolean
+}
+
+/**
+ * How soon a booked inspection is, in words - or null when saying nothing is
+ * the honest answer.
+ *
+ * NULL FOR A DATE IN THE PAST. "In -5 days" is not a countdown, and a visit
+ * that has been and gone is a result waiting to be recorded, not something
+ * coming up. Null too beyond the horizon: the row already prints the date, and
+ * "in 96 days" is noise dressed as information.
+ */
+export function inspectionCountdown(
+  i: ReminderCandidate,
+  today: string,
+): Countdown | null {
+  if (!isInspectionStatus(i.status) || CLOSED.includes(i.status) || isVoid(i.status)) return null
+  const booked = i.scheduled_date ? String(i.scheduled_date).slice(0, 10) : ''
+  if (!booked) return null
+
+  const days = daysUntilIso(today, booked)
+  if (days < 0 || days > COUNTDOWN_HORIZON_DAYS) return null
+
+  const label = days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : `In ${days} days`
+  const ready = !!(i.ready_marked_by && String(i.ready_marked_by).trim())
+  return { label, urgent: !ready && booked <= addBusinessDaysIso(today, READY_REMINDER_DAYS) }
+}
+
+/**
+ * Soonest first, undated last.
+ *
+ * The pending list was a plain `filter` with no order at all, so it rendered in
+ * whatever order the query happened to return: Sep 21, then Sep 16, then MARCH,
+ * then Sep 23. Tolerable while every row was just a date to read; nonsense
+ * beside a countdown, which is the whole reason this shipped with one.
+ */
+export function bySoonest(
+  a: { scheduled_date?: string | null; requested_date?: string | null },
+  b: { scheduled_date?: string | null; requested_date?: string | null },
+): number {
+  const key = (x: typeof a) => (x.scheduled_date || x.requested_date || '').slice(0, 10)
+  const ka = key(a)
+  const kb = key(b)
+  // A row with no date at all goes last rather than first: an empty string
+  // sorts before every real date, which would put "no date yet" at the top.
+  if (!ka && !kb) return 0
+  if (!ka) return 1
+  if (!kb) return -1
+  return ka.localeCompare(kb)
+}
+
 /** Date-only arithmetic that never goes through UTC. */
 export function addDaysIso(iso: string, days: number): string {
   const [y, m, d] = iso.slice(0, 10).split('-').map(Number)
