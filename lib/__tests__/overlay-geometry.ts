@@ -1484,6 +1484,127 @@ ok(article.widest <= article.vw,
 ok(article.colW === article.vw - 32,
   `...and a comparison column takes the full width, so the two-up grid stacked (${article.colW}px)`)
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 22. A TASK BOARD COLUMN MUST NOT CLIP THE MENU THAT MOVES A TASK.
+//
+// Reported over a screenshot of the In Progress column: "the dropdown here gets
+// cut off so i cant complete a task". The status picker on the LAST card opens
+// downward, past the bottom of the column, and the column carried
+// `overflow-hidden` - put there to keep the tinted header and body inside its
+// rounded corners. So "Completed", the third item, was painted outside the box
+// and was not on the screen at all. The one thing a task board is for.
+//
+// CLIPPING IS A PAINT OPERATION, which is the whole reason this is measured
+// rather than read: the clipped menu still reports its full bounding rectangle,
+// every class on it is individually correct, and nothing in the DOM looks
+// wrong. Only `elementFromPoint` can tell you whether a click would land on it.
+// Same trap as a RowMenu inside an `overflow-x-auto`, one component over.
+//
+// THE FIX IS NOT A z-index and not a portal: round the CHILDREN that touch an
+// edge and let the column overflow visibly.
+// ─────────────────────────────────────────────────────────────────────────────
+// THE FIXTURE IS BUILT FROM THE PAGE'S OWN CLASS STRINGS, not from a copy of
+// them. auth-screen.ts records why: its first version hardcoded the layout's
+// classes, so its assertions went on passing against a layout that had since
+// been reverted. Pull the real ones, and putting `overflow-hidden` back on the
+// column makes the MEASUREMENT below fail, not merely a regex.
+const tasksPage = read('app/(dashboard)/projects/[id]/tasks/page.tsx')
+
+function classLiteral(after: string, label: string): string {
+  const at = tasksPage.indexOf(after)
+  if (at < 0) throw new Error(`overlay-geometry: could not find ${label} in the tasks page`)
+  const open = tasksPage.indexOf("'", at)
+  const close = tasksPage.indexOf("'", open + 1)
+  return tasksPage.slice(open + 1, close)
+}
+
+// `col.lg.border` is interpolated after this literal; it is only a border
+// colour, so the fixture supplies one.
+const COL_CLASS = classLiteral('<div key={col.value} className={cn(', 'the board column') + ' lg:border-info/30'
+const BODY_CLASS = classLiteral("'flex-1 divide-y divide-line-soft min-h-[120px]", 'the board column body') + ' lg:bg-info-tint/40'
+
+const BOARD = (colClass: string) => `
+<div class="p-6">
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+    <div id="col" class="${colClass}">
+      <div class="flex items-center justify-between rounded-t-2xl border-b border-line-soft px-4 py-3 lg:rounded-t-xl lg:border-b-0 lg:px-3 lg:py-2.5 lg:bg-info-tint">
+        <span class="text-sm font-semibold">In Progress</span>
+      </div>
+      <div class="${BODY_CLASS}">
+        <div class="rounded-lg border border-line bg-panel p-3">
+          <div class="flex items-start gap-2">
+            <div class="min-w-0 flex-1"><p class="text-sm">Task 2</p></div>
+          </div>
+        </div>
+        <div class="rounded-lg border border-line bg-panel p-3">
+          <div class="flex items-start gap-2">
+            <div class="min-w-0 flex-1"><p class="text-sm">email test</p></div>
+            <div class="relative shrink-0">
+              <button id="btn" class="inline-flex h-7 w-7 items-center justify-center rounded-lg">o</button>
+              <div id="menu" role="menu" class="absolute right-0 z-20 mt-1 min-w-[10rem] overflow-hidden rounded-lg border border-line bg-panel py-1 shadow-lg">
+                <button class="flex w-full items-center px-3 py-2 text-left text-xs">Open</button>
+                <button class="flex w-full items-center px-3 py-2 text-left text-xs">In Progress</button>
+                <button id="done" class="flex w-full items-center px-3 py-2 text-left text-xs">Completed</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>`
+
+const BOARD_PROBE = `(rect) => {
+  const b = s => { const r = rect(s); return { t: Math.round(r.top), b: Math.round(r.bottom),
+    l: Math.round(r.left), r: Math.round(r.right), h: Math.round(r.height) } }
+  const done = document.querySelector('#done').getBoundingClientRect()
+  const at = document.elementFromPoint(done.left + done.width / 2, done.top + done.height / 2)
+  return { col: b('#col'), menu: b('#menu'), done: b('#done'),
+           doneReachable: !!(at && at.closest('#menu')),
+           landedOn: at ? (at.id ? '#' + at.id : at.tagName.toLowerCase() + '.' + String(at.className || '').split(' ')[0]) : 'nothing' }
+}`
+
+// Desktop width: the board is three columns from `sm` up, which is where this
+// was reported.
+const boardFixed = measure(BOARD(COL_CLASS), BOARD_PROBE, 900, '', 1280)
+ok(boardFixed.done.b > boardFixed.col.b,
+  `fixture sanity: the last item really does hang below the column (${boardFixed.done.b} vs ${boardFixed.col.b})`)
+ok(boardFixed.doneReachable,
+  'THE POINT: a click on "Completed" lands on the menu, so a task can be completed')
+
+// The shape it must never go back to, measured beside it - otherwise the
+// assertion above could be passing for some entirely unrelated reason.
+const boardClipped = measure(BOARD(COL_CLASS + ' overflow-hidden'), BOARD_PROBE, 900, '', 1280)
+ok(!boardClipped.doneReachable,
+  `THE BUG: with overflow-hidden back on the column that same click hits ${boardClipped.landedOn} instead`)
+ok(boardClipped.done.t === boardFixed.done.t,
+  `...and it is not a layout difference - the item is in the same place either way (${boardClipped.done.t})`)
+
+// The corners the overflow was there for. Rounding a box does not clip what is
+// painted inside it, so the last row carries its own radius below `lg`.
+const tasksSrc = read('app/(dashboard)/projects/[id]/tasks/page.tsx')
+ok(!/flex flex-col overflow-hidden rounded-2xl border border-line bg-panel/.test(tasksSrc),
+  'the column no longer clips its own contents')
+ok(/rounded-t-2xl[^"']*lg:rounded-t-xl/.test(tasksSrc),
+  '...the header rounds its own top instead, at both sizes')
+ok(/rounded-b-2xl[^"']*lg:rounded-b-xl/.test(tasksSrc),
+  '...and the body its own bottom')
+ok(/\[&>\*:last-child\]:rounded-b-2xl/.test(tasksSrc),
+  '...with the last row rounded too, so a selected one cannot square the corner')
+
+// THE LIST VIEW HAS THE SAME CONTROL AND HAD THE SAME CLIP, plus one of its
+// own: there the trigger is the row's FIRST child, so a menu pinned `right-0`
+// hangs off the left edge of the screen instead of opening into the row.
+const LIST_CLASS = classLiteral('<div className="divide-y divide-line-soft', 'a list section')
+ok(!/overflow-hidden/.test(LIST_CLASS),
+  'the list sections do not clip the same status menu either')
+ok(/\[&>\*:last-child\]:rounded-b-2xl/.test(LIST_CLASS) && /\[&>\*:first-child\]:rounded-t-2xl/.test(LIST_CLASS),
+  '...rounding their first and last rows instead, since a row carries its own background')
+ok(/align="left"/.test(tasksPage),
+  'THE SECOND BUG: the list row opens its menu from the LEFT, where its trigger is')
+ok(/align === 'left' \? 'left-0' : 'right-0'/.test(code('app/(dashboard)/projects/[id]/tasks/page.tsx')),
+  "...and the board keeps right-0, because its trigger sits at the card's right edge")
+
 
 rmSync(work, { recursive: true, force: true })
 done()

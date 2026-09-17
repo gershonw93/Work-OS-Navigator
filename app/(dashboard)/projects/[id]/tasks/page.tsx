@@ -105,11 +105,18 @@ function dueSoon(task: Task) {
  * it. Icon-only, so it says what it is.
  */
 function StatusPicker({
-  status, onPick, className,
+  status, onPick, className, align = 'right',
 }: {
   status: string
   onPick: (next: string) => void
   className?: string
+  /**
+   * Which edge the panel hangs from. The board puts this trigger at the RIGHT
+   * of a card, so the menu hangs right and opens leftward into the card. The
+   * LIST puts it at the far left of the row, where that same `right-0` walks
+   * the menu off the left edge of the screen. The trigger's side decides it.
+   */
+  align?: 'left' | 'right'
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -144,7 +151,10 @@ function StatusPicker({
       </button>
       {open && (
         <div role="menu"
-          className="absolute right-0 z-20 mt-1 min-w-[10rem] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-line bg-panel py-1 shadow-lg lg:rounded-lg">
+          className={cn(
+            'absolute z-20 mt-1 min-w-[10rem] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-line bg-panel py-1 shadow-lg lg:rounded-lg',
+            align === 'left' ? 'left-0' : 'right-0',
+          )}>
           {STATUSES.map(st => {
             const isCurrent = st.value === status
             return (
@@ -986,7 +996,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
       >
         {/* Was a state readout. It is the control now - one tiny status icon,
             the same one the board card has, from one definition. */}
-        <StatusPicker status={task.status} onPick={next => updateStatus(task.id, next)} className="mt-0.5" />
+        <StatusPicker status={task.status} onPick={next => updateStatus(task.id, next)} className="mt-0.5" align="left" />
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -1061,8 +1071,23 @@ export default function TasksPage({ params }: { params: { id: string } }) {
               // that were boxes of their own. Three columns, three colours, a
               // box in a box. The status icon is the one thing in colour; the
               // rest is ink on panel, and the tasks are rows in a list.
-              <div key={col.value} className={cn('flex flex-col overflow-hidden rounded-2xl border border-line bg-panel lg:rounded-xl', col.lg.border)}>
-                <div className={cn('flex items-center justify-between border-b border-line-soft px-4 py-3 lg:border-b-0 lg:px-3 lg:py-2.5', col.lg.headerBg)}>
+              // NO `overflow-hidden` HERE, AND THAT IS THE FIX.
+              //
+              // It was on this div to keep the tinted header and body inside
+              // the rounded corners, and it CLIPPED THE STATUS MENU: the
+              // picker on the last card opens downward past the bottom of the
+              // column, so "Completed" was painted outside the box and simply
+              // not there. Reported as "the dropdown here gets cut off so i
+              // cant complete a task" - the one thing the board exists to do.
+              //
+              // `overflow-hidden` establishes a clipping box on BOTH axes, and
+              // clipping is a PAINT operation: the menu still reported its
+              // full rectangle, so nothing in the DOM looked wrong. Same trap
+              // as a RowMenu inside an `overflow-x-auto`, which this file's
+              // working agreement already names - round the CHILDREN that
+              // touch an edge instead, which is what the two below now do.
+              <div key={col.value} className={cn('flex flex-col rounded-2xl border border-line bg-panel lg:rounded-xl', col.lg.border)}>
+                <div className={cn('flex items-center justify-between rounded-t-2xl border-b border-line-soft px-4 py-3 lg:rounded-t-xl lg:border-b-0 lg:px-3 lg:py-2.5', col.lg.headerBg)}>
                   <div className="flex min-w-0 items-center gap-2">
                     <col.icon className={cn('h-4 w-4 shrink-0', col.color)} />
                     <span className={cn('truncate text-sm font-semibold text-ink', col.lg.headerText)}>{col.label}</span>
@@ -1077,7 +1102,12 @@ export default function TasksPage({ params }: { params: { id: string } }) {
                   </button>
                 </div>
 
-                <div className={cn('flex-1 divide-y divide-line-soft min-h-[120px] lg:divide-y-0 lg:space-y-2 lg:p-2', col.lg.col)}>
+                {/* Rounded at the bottom for the same reason, and the LAST
+                    CHILD is rounded too: rounding a box does not clip what is
+                    painted inside it, so a selected last row would otherwise
+                    square the corner off again. At `lg` the cards sit inside
+                    `lg:p-2` and touch no edge, so it is turned back off. */}
+                <div className={cn('flex-1 divide-y divide-line-soft min-h-[120px] rounded-b-2xl [&>*:last-child]:rounded-b-2xl lg:divide-y-0 lg:space-y-2 lg:rounded-b-xl lg:p-2 lg:[&>*:last-child]:rounded-b-none', col.lg.col)}>
                   {colTasks.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-8 gap-1">
                       <p className="text-xs text-faint">No tasks</p>
@@ -1111,7 +1141,9 @@ export default function TasksPage({ params }: { params: { id: string } }) {
               <span className="whitespace-nowrap text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{generalTasks.length}</span>
               <GroupProgressBar tasks={generalTasks} />
             </div>
-            <div className="divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-panel lg:rounded-xl">
+            {/* No `overflow-hidden`: the same status menu lives in these rows
+                and the last row's opens below them. See the board column. */}
+            <div className="divide-y divide-line-soft rounded-2xl border border-line bg-panel [&>*:first-child]:rounded-t-2xl [&>*:last-child]:rounded-b-2xl lg:rounded-xl lg:[&>*:first-child]:rounded-t-xl lg:[&>*:last-child]:rounded-b-xl">
               {generalTasks.map(task => <ListCard key={task.id} task={task} />)}
             </div>
           </div>
@@ -1124,7 +1156,9 @@ export default function TasksPage({ params }: { params: { id: string } }) {
               <span className="whitespace-nowrap text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{group.tasks.length}</span>
               <GroupProgressBar tasks={group.tasks} />
             </div>
-            <div className="divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-panel lg:rounded-xl">
+            {/* No `overflow-hidden`: the same status menu lives in these rows
+                and the last row's opens below them. See the board column. */}
+            <div className="divide-y divide-line-soft rounded-2xl border border-line bg-panel [&>*:first-child]:rounded-t-2xl [&>*:last-child]:rounded-b-2xl lg:rounded-xl lg:[&>*:first-child]:rounded-t-xl lg:[&>*:last-child]:rounded-b-xl">
               {group.tasks.map(task => <ListCard key={task.id} task={task} />)}
             </div>
           </div>
@@ -1163,7 +1197,9 @@ export default function TasksPage({ params }: { params: { id: string } }) {
               <span className="whitespace-nowrap text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{group.tasks.length}</span>
               <GroupProgressBar tasks={group.tasks} />
             </div>
-            <div className="divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-panel lg:rounded-xl">
+            {/* No `overflow-hidden`: the same status menu lives in these rows
+                and the last row's opens below them. See the board column. */}
+            <div className="divide-y divide-line-soft rounded-2xl border border-line bg-panel [&>*:first-child]:rounded-t-2xl [&>*:last-child]:rounded-b-2xl lg:rounded-xl lg:[&>*:first-child]:rounded-t-xl lg:[&>*:last-child]:rounded-b-xl">
               {group.tasks.map(task => <ListCard key={task.id} task={task} />)}
             </div>
           </div>
