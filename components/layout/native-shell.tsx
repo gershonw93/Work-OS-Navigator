@@ -5,6 +5,7 @@ import { usePush } from '@/lib/use-push'
 import { useVisualViewport } from '@/lib/use-visual-viewport'
 import { useNativePlatform } from '@/lib/use-native'
 import { SwipeBack } from './swipe-back'
+import { PullRefresh } from './pull-refresh'
 
 /**
  * Everything the phone app needs that the website does not.
@@ -30,7 +31,16 @@ export function NativeShell() {
   // native shell has WKWebView's own gesture (AppDelegate.swift), and this is
   // the same gesture for the home-screen app, Android, and a phone still on an
   // older build. Mounted here so every screen answers to it and none can forget.
-  return <SwipeBack />
+  // Mounted beside the back gesture and for the same reason: both are phone
+  // gestures that every screen must answer to, and neither can be left to the
+  // twenty screens to remember. They share `swipeAxis`, so a sideways drag is
+  // the back gesture's and a downward one is this one's - never both.
+  return (
+    <>
+      <SwipeBack />
+      <PullRefresh />
+    </>
+  )
 }
 
 /**
