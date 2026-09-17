@@ -14,8 +14,6 @@
 // looked" badge, so keep it accurate.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { SUPPORT_EMAIL } from '@/lib/support-email'
-
 export type ReleaseKind = 'new' | 'improved' | 'fixed'
 
 export interface ReleaseItem {
@@ -57,86 +55,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 const AUTHORED: Release[] = [
   {
     date: '2026-09-17',
-    title: `One address to reach us: ${SUPPORT_EMAIL}`,
-    items: [
-      {
-        kind: 'improved',
-        // Built from the constant, not typed out: a release note naming the
-        // wrong address is the bug it is announcing the fix for. Same rule as
-        // the Help articles building their prices from PLANS.
-        title: `Every "email us" now goes to ${SUPPORT_EMAIL}`,
-        text: `Help, the contact page and form, the security page and the legal documents were pointing at four different addresses - one of them a Gmail account. They all go to ${SUPPORT_EMAIL} now, and so does a reply to any email SyteNav sends you.`,
-      },
-    ],
-  },
-  {
-    date: '2026-09-17',
-    title: 'Percent gates actually work, and the edit panel stops hiding links',
+    title: 'Schedule links',
     items: [
       {
         kind: 'fixed',
-        title: 'A "wait till they\'re __% done" gate now actually holds a trade back',
-        text: 'The percent you set was being read in a way that made it invisible to the code checking it, so a gate never blocked anybody and the review screen printed the link without its threshold. Percent gates now block as written, "waits on Sheetrock at 80%" shows on the review, and a trade\'s percent complete feeds through to everything that reads it - including the roll-up from that sub\'s budget lines.',
-        help: 'schedule-milestones',
-      },
-      {
-        kind: 'fixed',
-        title: 'Opening a linked row no longer says it has no links',
-        text: 'Open Edit Item on a trade that follows another and the panel could say "Nothing - it can start whenever it is scheduled." for a moment, because it could not tell "still loading" from "there are none". It now says it is checking, and if it genuinely cannot load them it says THAT rather than reporting an empty list.',
-        help: 'schedule-milestones',
-      },
-    ],
-  },
-  {
-    date: '2026-09-17',
-    title: 'Percent links follow the chain, and the date email reads like a date',
-    items: [
-      {
-        kind: 'fixed',
-        title: 'A trade linked at a percent follows the cascade like any other',
-        text: 'A row linked with "wait till they\'re 80% done" was being left behind when the trade ahead moved, while plainly linked rows shifted correctly - the review said its dates had been set by hand. Linking says "this follows", changing a date yourself says "leave it alone", and now whichever you did LAST is the one that counts. Rows already stuck have been released.',
+        title: 'Schedule links now do what the screen says they do',
+        text: 'A trade behind another moves by exactly what the trade ahead moved, a "wait till they\'re __% done" gate holds a crew back as written, and the review screen lists every linked trade - the ones moving and the ones sitting still, with the reason. Linking a trade is what puts it in the chain, so a date you typed before linking no longer leaves it behind.',
         help: 'schedule-milestones',
       },
       {
         kind: 'improved',
-        title: 'The review says what each link actually says',
-        text: 'A row now reads "waits on Sheetrock at 80%" or "waits on Sheetrock plus 2 days" instead of just "waits on Sheetrock", so two trades behind the same one under different conditions no longer look identical.',
-        help: 'schedule-milestones',
-      },
-      {
-        kind: 'improved',
-        title: 'The date-change email reads like a date',
-        text: 'The subject is your job and their new date - "Your start on QA Ground-Up 2026 moved to Oct 24" - so it reads in a phone\'s inbox list without being opened. Each line says "was Wed Oct 21, now Tue Oct 24 (+3 days)", old date struck out, new date in green. Weekdays rather than ISO dates, and the days are signed: three days early is as much of a problem as three days late.',
-        help: 'schedule-milestones',
-      },
-    ],
-  },
-  {
-    date: '2026-09-17',
-    title: 'Schedule links: four fixes',
-    items: [
-      {
-        kind: 'fixed',
-        title: 'A linked trade moves by the days the trade ahead moved',
-        text: 'Sheetrock slipping three days was pushing the trade behind it by thirty-four - onto sheetrock\'s new finish date rather than three days along. Everything now moves by exactly what the trade ahead moved, keeps its own length, and keeps whatever gap the two already had. Pulling a trade earlier pulls the ones behind it earlier too.',
-        help: 'schedule-milestones',
-      },
-      {
-        kind: 'fixed',
-        title: 'Linking a trade puts it back in the chain',
-        text: 'Setting a vendor\'s dates marked the line as hand-dated, which takes it out of the cascade for good - so a line you dated and then linked never followed anything. Linking a line is now the decision that counts, and it clears that mark. Re-saving the same dates no longer marks it at all.',
-        help: 'schedule-milestones',
-      },
-      {
-        kind: 'improved',
-        title: 'Every linked trade is on the review screen',
-        text: 'A trade that is not moving used to be missing from the list, which reads exactly like a trade that was never linked. Now every linked trade is there, saying which of three reasons it is sitting still, and whether it waits on the line you changed or on something further down the chain.',
-        help: 'schedule-milestones',
-      },
-      {
-        kind: 'fixed',
-        title: 'No review screen when there is nothing to review',
-        text: 'Changing dates on a line with nothing waiting on it used to stop on a screen reading "Nothing else moves", with two buttons about emailing nobody, sitting over the dialog you were still in. It just saves now.',
+        title: 'The email a sub gets when their dates move',
+        text: 'The subject is your job and their new date - "Your start on QA Ground-Up 2026 moved to Oct 24" - so it reads in a phone\'s inbox without being opened. Inside: "was Wed Oct 21, now Tue Oct 24 (+3 days)", old date struck out, new date in green. Weekdays rather than ISO dates, and the days are signed - three days early is as much of a problem as three days late.',
         help: 'schedule-milestones',
       },
     ],

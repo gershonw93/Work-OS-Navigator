@@ -120,6 +120,26 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
 - User-facing release notes live in `lib/whats-new.ts`, shown at `/whats-new`.
 - IMPORTANT: when you ship something a user would NOTICE, add an entry in the
   SAME change. Internal refactors and build fixes do not belong there.
+- **AND THE BAR IS HIGHER THAN "a user could observe it".** Reported in six
+  words - "Not everything needs to be public for what's new! This is
+  irrelevant" - over an entry announcing that the support address had changed
+  to `info@sytenav.com`. True, observable, and of no interest to anybody: it is
+  housekeeping, and it went in past a rule that already said so.
+  TWO QUESTIONS BEFORE AN ENTRY:
+  (1) Would somebody who never reported this have NOTICED the old behaviour and
+  been bothered by it? A contact address nobody had written to, a column read
+  the wrong way, a panel that was briefly wrong - no.
+  (2) Is it news to anybody OUTSIDE the conversation that produced it? Fixing
+  what a tester told you about yesterday is a REPLY to them, not an
+  announcement to everybody.
+  **AND A FEATURE'S TEETHING FIXES ARE THE FEATURE'S ENTRY, NOT FOUR MORE.**
+  Three entries and nine items landed the day after schedule dependencies
+  shipped, each describing a way that feature had been broken in the twenty-four
+  hours nobody but the tester had used it. That is a commit log wearing release
+  notes. One entry saying what the feature does now, and the rest is a git
+  history somebody can read if they want one. A changelog nobody trusts to be
+  worth reading gets read by nobody, which costs the entries that WERE worth
+  publishing.
 - **THE ORDER IS DERIVED, AND THE DATE IS THE COMMIT'S.** Entries are authored
   into `AUTHORED` in any order; `RELEASES` is the sorted view and `LATEST_RELEASE`
   reads `[0]` off that. "Newest first" as a convention lasted exactly as long as
