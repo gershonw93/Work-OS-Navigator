@@ -170,7 +170,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
   const [pendingDeps, setPendingDeps] = useState<PendingDependency[]>([])
   const [removingDeps, setRemovingDeps] = useState<string[]>([])
   const [pending, setPending] = useState<
-    { moves: CascadeMove[]; skipped: CascadeSkip[]; affected: AffectedSub[]; start: string; end: string } | null
+    { moves: CascadeMove[]; skipped: CascadeSkip[]; affected: AffectedSub[]; start: string; end: string; justLinked: boolean } | null
   >(null)
 
   const [unscheduled, setUnscheduled] = useState<{ id: string; scope: string; trade: string | null; companies: { id: string; name: string; type?: string } | null }[]>([])
@@ -404,6 +404,8 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
 
     // Links first: a cascade preview computed before they exist would show the
     // wrong set of lines moving, and the review screen is the whole point.
+    // Read BEFORE committing - `commitDependencies` clears the staging lists.
+    const justLinked = pendingDeps.length > 0
     const depProblem = await commitDependencies(editItem.id)
     if (depProblem) { setEditSaving(false); setEditError(depProblem); return }
     // A DATE CHANGE IS NOT A FIELD EDIT. If the dates moved, ask what else
@@ -440,11 +442,11 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
       // cascade and a sub's inbox; with no other line touched there is neither.
       // Notify is FALSE and not a guess: there is nobody on the list.
       if (!moves.length && !skipped.length) {
-        await applyCascade(false, { start: editStart, end: editEnd })
+        await applyCascade(false, { start: editStart, end: editEnd, justLinked })
         return
       }
 
-      setPending({ moves, skipped, affected: p.affected ?? [], start: editStart, end: editEnd })
+      setPending({ moves, skipped, affected: p.affected ?? [], start: editStart, end: editEnd, justLinked })
       return
     }
 
@@ -555,17 +557,29 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
    * The screen and this call name the same dates, so what somebody approved is
    * what happens.
    */
-  async function applyCascade(notify: boolean, dates?: { start: string; end: string }) {
+  async function applyCascade(
+    notify: boolean,
+    dates?: { start: string; end: string; justLinked: boolean },
+  ) {
     // `dates` is for the no-review path, which applies before `pending` is
     // ever set. Taking them as an argument rather than reading state keeps the
     // dates the screen showed and the dates that get written the same pair.
-    const when = dates ?? (pending ? { start: pending.start, end: pending.end } : null)
+    const when = dates ?? (pending
+      ? { start: pending.start, end: pending.end, justLinked: pending.justLinked }
+      : null)
     if (!editItem || !when) return
     const token = await getToken()
     const r = await saveRequest(`/api/projects/${params.id}/schedule/${editItem.id}/cascade`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ start_date: when.start, end_date: when.end, notify }),
+      body: JSON.stringify({
+        start_date: when.start,
+        end_date: when.end,
+        notify,
+        // A save that just linked this line is not a decision to ignore that
+        // link. Without this the dialog writes both and the later one wins.
+        dates_overridden: !when.justLinked,
+      }),
     })
     if (!r.ok) { setEditError(r.error); setPending(null); return }
     setPending(null); setEditItem(null)

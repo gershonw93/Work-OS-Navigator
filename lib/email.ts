@@ -25,6 +25,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { CANONICAL_ORIGIN } from '@/lib/canonical'
+import { dateWords, dayDelta } from '@/lib/dates'
 
 const SENDGRID_ENDPOINT = 'https://api.sendgrid.com/v3/mail/send'
 
@@ -144,6 +145,28 @@ const BRAND = {
   font: "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif",
 }
 
+/**
+ * One date moving, for a reader who has to act on it.
+ *
+ * THE REPORT: "old date struck through or gray, new date bold in the SyteNav
+ * green - eye should land on the new date first", and "add the delta and
+ * weekdays: field guys think in weekdays, not ISO dates". Two dates in the
+ * same weight, both in ISO, is a sentence somebody has to parse rather than
+ * read - and the ONE thing they need off it is the day they now turn up.
+ */
+export interface EmailDateChange {
+  /** What moved - "Electrical - finishing". */
+  label: string
+  /** Where it was: "Wed Oct 21". */
+  from: string
+  /** Where it is now: "Tue Oct 24". */
+  to: string
+  /** "+3 days", signed. */
+  delta: string
+  /** The trade that pushed it, when one did. */
+  because?: string | null
+}
+
 export interface EmailLayout {
   /** The grey line the inbox shows after the subject. */
   preheader: string
@@ -154,6 +177,14 @@ export interface EmailLayout {
   subheading?: string
   /** Body paragraphs. Plain strings; escaped for you. */
   paragraphs: string[]
+  /**
+   * Date changes, rendered between the paragraphs and the CTA.
+   *
+   * TYPED, not HTML. A block of markup passed through data is a thing every
+   * caller then has to be trusted to escape; this is four strings the layout
+   * paints itself, which is the same rule the guides follow for inline links.
+   */
+  dateChanges?: EmailDateChange[]
   cta?: { label: string; url: string }
   /** Small print under the card. */
   footNote?: string
@@ -190,6 +221,20 @@ export function emailLayout(l: EmailLayout): string {
     .map(p => `<p style="margin:0 0 14px;color:${BRAND.inkSoft};font-size:15px;line-height:1.55">${e(p)}</p>`)
     .join('')
 
+  // The new date is the only thing on this card somebody has to remember, so it
+  // is the only thing wearing the accent and a bold weight. Outlook renders
+  // through Word: <s> and <strong> survive, a CSS-only line-through does not,
+  // so the strike is the ELEMENT with the colour on top of it.
+  const dates = (l.dateChanges ?? []).length
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 18px">${
+      (l.dateChanges ?? []).map(d => `<tr><td style="padding:10px 0;border-top:1px solid ${BRAND.line}">
+<p style="margin:0 0 4px;font-size:13px;font-weight:700;color:${BRAND.ink}">${e(d.label)}</p>
+<p style="margin:0;font-size:15px;line-height:1.5;color:${BRAND.inkSoft}">was <s style="color:${BRAND.faint}">${e(d.from)}</s>, now <strong style="color:${BRAND.accentFg};font-weight:800">${e(d.to)}</strong> <span style="color:${BRAND.mutedFg}">(${e(d.delta)})</span></p>
+${d.because ? `<p style="margin:4px 0 0;font-size:12px;color:${BRAND.mutedFg}">${e(d.because)} moved</p>` : ''}
+</td></tr>`).join('')
+    }</table>`
+    : ''
+
   const cta = l.cta
     ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:22px 0 10px">
 <tr><td style="border-radius:10px;background:${BRAND.accent}">
@@ -221,7 +266,7 @@ export function emailLayout(l: EmailLayout): string {
 <p style="margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:${BRAND.accentFg}">${e(l.eyebrow)}</p>
 <h1 style="margin:0 0 ${l.subheading ? '6px' : '16px'};font-size:22px;line-height:1.3;font-weight:800;color:${BRAND.ink}">${e(l.heading)}</h1>
 ${l.subheading ? `<p style="margin:0 0 18px;font-size:14px;color:${BRAND.mutedFg}">${e(l.subheading)}</p>` : ''}
-${body}${cta}
+${body}${dates}${cta}
 </td></tr>
 
 ${l.footNote ? `<tr><td style="padding:16px 6px 0;font-family:${BRAND.font};font-size:12px;line-height:1.5;color:${BRAND.faint}">${e(l.footNote)}</td></tr>` : ''}
@@ -720,6 +765,8 @@ export interface ShiftedLine {
   trade: string
   oldStart: string
   newStart: string
+  /** Signed days. The template says which way rather than making them count. */
+  shiftDays: number
   /** The trade that pushed it, when one did. */
   because?: string | null
 }
@@ -749,40 +796,59 @@ export function scheduleShiftEmail({
   const sig = [(fromName ?? '').trim(), (companyName ?? '').trim()].filter(Boolean)
   const one = lines.length === 1
 
-  const bullets = lines.map(l => {
-    const why = l.because ? ` (${l.because} moved)` : ''
-    return `${l.trade}: ${l.oldStart} is now ${l.newStart}${why}`
+  // A DATE IN A LETTER IS WORDS, NOT ISO. `2026-10-24` is a database value; a
+  // sub reads "Tue Oct 24" and knows whether that is this week. The weekday is
+  // load-bearing, not decoration - it is how the day is checked against a diary.
+  const say = (d: string) => dateWords(d)?.withWeekday ?? d
+
+  const changes: EmailDateChange[] = lines.map(l => ({
+    label: l.trade,
+    from: say(l.oldStart),
+    to: say(l.newStart),
+    delta: dayDelta(l.shiftDays),
+    because: l.because ?? null,
+  }))
+
+  const bullets = changes.map(c => {
+    const why = c.because ? ` (${c.because} moved)` : ''
+    return `${c.label}: was ${c.from}, now ${c.to} (${c.delta})${why}`
   })
 
   const opener = one
     ? `Your start${where} has moved.`
     : `${lines.length} of your dates${where} have moved.`
 
-  const paragraphs = [
-    opener,
-    ...bullets,
-    'Nothing else about the job has changed. Reply to this email if that does not work for you.',
-  ]
+  const closing = 'Nothing else about the job has changed. Reply to this email if that does not work for you.'
 
   const text = [
     `Hi ${hi},`, '',
     opener, '',
     ...bullets.map(b => `- ${b}`), '',
-    'Nothing else about the job has changed. Reply to this email if that does not work for you.',
+    closing,
     ...(sig.length ? ['', ...sig] : []),
   ].join('\n')
 
+  // THE SUBJECT IS THE PROJECT AND THE NEW DATE, AND NOTHING ELSE. It arrived
+  // as "Your start on QA Ground-Up 2026 moved to 2026-10-24" and was clipped in
+  // the list to "2026 moved to 2026-10-24" - two numbers, neither of them the
+  // one that matters. The date goes in words, and the tail of the line is the
+  // day itself, which is what survives a narrow inbox column.
+  const subject = one
+    ? `Your start${where} moved to ${dateWords(lines[0].newStart)?.short ?? lines[0].newStart}`
+    : `${lines.length} of your dates${where} moved`
+
   return {
-    subject: one
-      ? `Your start${where} moved to ${lines[0].newStart}`
-      : `Your dates${where} have moved`,
+    subject,
     text,
     html: emailLayout({
-      preheader: one ? `${lines[0].oldStart} is now ${lines[0].newStart}.` : `${lines.length} dates changed.`,
+      preheader: one
+        ? `Was ${changes[0].from}, now ${changes[0].to}.`
+        : `${lines.length} dates changed.`,
       eyebrow: 'SCHEDULE CHANGE',
       heading: one ? 'Your start moved' : 'Your dates moved',
       subheading: projectName ?? undefined,
-      paragraphs: sig.length ? [...paragraphs, sig.join(' - ')] : paragraphs,
+      paragraphs: sig.length ? [opener, closing, sig.join(' - ')] : [opener, closing],
+      dateChanges: changes,
     }),
   }
 }

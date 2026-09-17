@@ -91,3 +91,50 @@ export function toDateInput(value: string | Date | null | undefined): string {
 export function todayDateInput(): string {
   return toDateInput(new Date())
 }
+
+// ── Dates in words, without a locale ─────────────────────────────────────────
+//
+// `formatDate` above asks `toLocaleDateString`, which is right in a browser -
+// it is the reader's own machine answering. IT IS THE WRONG QUESTION ON A
+// SERVER: an email is rendered in whatever region the function woke up in, so
+// the same date could reach two subs spelled two ways, and a test asserting the
+// output would pass or fail on the runner's environment variables.
+//
+// These are built from fixed tables and parsed as UTC, so the answer is the
+// same everywhere and can be pinned exactly.
+
+const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const MONTH_NAMES = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+]
+
+export interface DateWords {
+  /** "Oct 24" - for a subject line, where the weekday is noise. */
+  short: string
+  /** "Tue Oct 24" - FIELD GUYS THINK IN WEEKDAYS, not in ISO dates. */
+  withWeekday: string
+}
+
+/** A bare `YYYY-MM-DD` in words. Null for anything that is not one. */
+export function dateWords(value: string | null | undefined): DateWords | null {
+  if (!value || !DATE_ONLY.test(String(value).trim())) return null
+  const t = Date.parse(`${String(value).trim()}T00:00:00Z`)
+  if (Number.isNaN(t)) return null
+  const d = new Date(t)
+  const short = `${MONTH_NAMES[d.getUTCMonth()]} ${d.getUTCDate()}`
+  return { short, withWeekday: `${WEEKDAY_NAMES[d.getUTCDay()]} ${short}` }
+}
+
+/**
+ * "+3 days" / "-1 day" / "same day", for a move somebody has to act on.
+ *
+ * The sign is kept. "3 days" alone does not say which way, and a crew that
+ * turns up three days early has the same wasted morning as one that turns up
+ * three days late.
+ */
+export function dayDelta(days: number): string {
+  if (!Number.isFinite(days) || days === 0) return 'same day'
+  const n = Math.abs(Math.round(days))
+  return `${days > 0 ? '+' : '-'}${n} ${n === 1 ? 'day' : 'days'}`
+}

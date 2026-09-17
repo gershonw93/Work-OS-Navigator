@@ -32,11 +32,23 @@ console.log('\nschedule-cascade')
     'every foreign key states its ON DELETE rule explicitly')
 
   // The fallback for a fresh environment has to carry it too.
-  ok(exists('supabase/migrations/_combined_008-108.sql'), 'the combined file is bumped to 108')
-  ok(/schedule_dependencies/.test(read('supabase/migrations/_combined_008-108.sql')),
+  ok(exists('supabase/migrations/_combined_008-109.sql'), 'the combined file is bumped to 109')
+  ok(/schedule_dependencies/.test(read('supabase/migrations/_combined_008-109.sql')),
     '...and contains the new tables')
   ok(!exists('supabase/migrations/_combined_008-107.sql'), '...and the old name is gone, not left beside it')
-  ok(/_combined_008-108\.sql/.test(read('CLAUDE.md')), '...and CLAUDE.md points at the new name')
+  ok(!exists('supabase/migrations/_combined_008-108.sql'),
+    '...nor the one before this bump - a fresh environment built from a stale file is the whole risk')
+  ok(/_combined_008-109\.sql/.test(read('CLAUDE.md')), '...and CLAUDE.md points at the new name')
+
+  // 109 is a DATA REPAIR, not a schema change, and the combined file is
+  // replayed whole on a fresh environment - so it has to be idempotent and it
+  // has to be narrow.
+  const repair = read('supabase/migrations/109_unstick_linked_schedule_rows.sql')
+  ok(/dates_overridden_at = NULL/.test(repair), 'the repair clears the flag')
+  ok(/INTERVAL '2 minutes'/.test(repair),
+    '...only where ONE SAVE wrote both statements, never a deliberate override days later')
+  ok(/109/.test(read('supabase/migrations/_combined_008-109.sql')),
+    '...and it is in the combined file too, or a fresh environment is born with the bug')
 }
 
 // ── the notification catalog ─────────────────────────────────────────────────
@@ -124,6 +136,66 @@ console.log('\nschedule-cascade')
     '...and a failure to clear is logged rather than failing the link that already landed')
 }
 
+// ── and clearing it at WRITE time was only ever half the fix ─────────────────
+//
+// SECOND REPORT: "a row with a saved explicit 80% link is excluded when the
+// predecessor moves - the general-linked rows shift correctly." Clearing the
+// flag as a link is written helps a link written after that code ships, and
+// nothing else: every row already linked stayed stuck for ever, with no way out
+// but to unlink and link again. So the rule is READ at cascade time.
+{
+  const pure = code('lib/schedule-dependencies.ts')
+  ok(/export function handEditWins/.test(pure),
+    'the cascade weighs the two statements rather than letting the flag always win')
+  ok(/handEditWins\(child, dep\)/.test(pure),
+    '...and pass one skips on that, not on the bare flag')
+  ok(!/if \(child\.dates_overridden_at\) continue/.test(pure),
+    '...with the bare test gone, so it cannot come back by being the shorter line')
+  ok(/created_at/.test(pure), 'a link carries WHEN it was made, which is what decides it')
+
+  // The two passes must agree about one row, or the screen explains a skip
+  // that did not happen.
+  ok(/const vetoed = /.test(pure) && /vetoed\) \{/.test(pure),
+    'and the report asks the SAME question the skip asked')
+
+  // The other contradiction: the dialog commits links and then saves dates, so
+  // one save said "this follows Sheetrock" and "ignore Sheetrock" a second
+  // apart, with the second winning.
+  const cascade = code('app/api/projects/[id]/schedule/[itemId]/cascade/route.ts')
+  ok(/body\?\.dates_overridden !== false/.test(cascade),
+    'the apply takes an explicit "this is not a hand override", defaulting to the protective answer')
+  ok(/markOverridden \?/.test(cascade),
+    '...and only stamps the flag when it is true')
+  const page = code('app/(dashboard)/projects/[id]/schedule/page.tsx')
+  ok(/const justLinked = pendingDeps\.length > 0/.test(page),
+    'the dialog knows whether it just linked this row')
+  ok(/dates_overridden: !when\.justLinked/.test(page),
+    '...and a save that just linked it does not also mark it hand-dated')
+}
+
+// ── a percent link never prints as a plain one ───────────────────────────────
+//
+// REPORTED in the same breath: the review "shortens its label to 'waits on
+// Sheetrock', hiding that it's an 80% link". Two rows waiting on one trade
+// under different conditions read identically, so the screen could not be used
+// to check the thing it was showing.
+{
+  const pure = code('lib/schedule-dependencies.ts')
+  ok(/export function gateOf/.test(pure), 'what a link SAYS is one function')
+  ok(/gate: LinkGate \| null/.test(pure), '...and it travels on every reported row')
+
+  const route = code('app/api/projects/[id]/schedule/[itemId]/cascade/route.ts')
+  ok(/gate: m\.gate/.test(route) && /gate: s\.gate/.test(route),
+    'the route carries it to the screen for both buckets')
+
+  const review = code('components/schedule/cascade-review.tsx')
+  ok(/at \$\{gate\.pct\}%/.test(review), 'the label names the percent')
+  ok(/plus \$\{gate\.lagDays\}/.test(review), '...and the extra days')
+  ok(/linkWords\(m\.link, editedName, m\.gate\)/.test(review)
+    && /linkWords\(s\.link, editedName, s\.gate\)/.test(review),
+    '...in both lists, from the one function')
+}
+
 // ── every linked line is in one bucket or the other ──────────────────────────
 //
 // REPORTED: "the review screen drops linked rows - every linked row should
@@ -162,7 +234,7 @@ console.log('\nschedule-cascade')
   const page = code('app/(dashboard)/projects/[id]/schedule/page.tsx')
   ok(/if \(!moves\.length && !skipped\.length\)/.test(page),
     'with nothing else touched the review is SKIPPED, not shown empty')
-  ok(/applyCascade\(false, \{ start: editStart, end: editEnd \}\)/.test(page),
+  ok(/applyCascade\(false, \{ start: editStart, end: editEnd, justLinked \}\)/.test(page),
     '...and it applies with notify FALSE - there is nobody on the list, not a guess')
   ok(/\{editItem && !pending && \(/.test(page),
     'and the editor is not left open underneath the review - two overlays at once')
