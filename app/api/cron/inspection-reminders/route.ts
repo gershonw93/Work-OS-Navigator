@@ -4,7 +4,7 @@ import { audienceFor } from '@/lib/notification-audience'
 import { withStructural } from '@/lib/notification-routing'
 import { notify } from '@/lib/notify'
 import { checkCronAuth } from '@/lib/cron-auth'
-import { needsReadyReminder, addDaysIso, READY_REMINDER_DAYS } from '@/lib/inspection-status'
+import { needsReadyReminder, addBusinessDaysIso, READY_REMINDER_DAYS } from '@/lib/inspection-status'
 import { formatDate, todayDateInput } from '@/lib/dates'
 
 export const runtime = 'nodejs'
@@ -39,7 +39,10 @@ export async function GET(request: Request) {
 
   const db = admin()
   const today = todayDateInput()
-  const horizon = addDaysIso(today, READY_REMINDER_DAYS)
+  // The SAME function the rule uses. A calendar horizon here would filter a
+  // Monday inspection out of the query on a Thursday, and `needsReadyReminder`
+  // would never get to say yes.
+  const horizon = addBusinessDaysIso(today, READY_REMINDER_DAYS)
 
   // Narrowed in SQL to the window, then decided in one place by the shared
   // rule - the query is an optimisation, `needsReadyReminder` is the answer.

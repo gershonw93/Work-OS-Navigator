@@ -792,6 +792,27 @@ Full detail: [`docs/postmortems/derived-state.md`](docs/postmortems/derived-stat
   A gate column (`ready_reminder_sent_at`) makes it fire once per BOOKING, not
   once per row - so the PATCH route has to clear it whenever `scheduled_date`
   changes (`BOOKING_DERIVED_COLUMNS`).
+  **AND A WARNING COUNTS BUSINESS DAYS, ARRIVES IN THE MORNING, AND REACHES THE
+  PEOPLE WHO CAN ACT ON IT.** All three were wrong at once on the not-ready
+  reminder. `READY_REMINDER_DAYS` counted plain days, so a MONDAY inspection
+  warned on SATURDAY - unread, and too late by Monday to finish the work or ring
+  the jurisdiction. `addBusinessDaysIso` is the counter now, and THE SQL WINDOW
+  IN THE ROUTE MUST USE THE SAME FUNCTION: a calendar horizon filters the Monday
+  row out of the query before `needsReadyReminder` is ever asked, so the fix
+  would look right and do nothing. The cron ran at 07:22 UTC, which is 3:22am
+  where the crews are; Vercel cron is UTC and does NOT follow daylight saving,
+  so `30 11` is 7:30am Eastern in summer and drifts to 6:30 in winter - a
+  one-character change in November, not a bug to rediscover. And the audience
+  was `inspections: edit`, the OFFICE permission for booking a visit: `mark-ready`
+  was split out of it precisely because saying the work is finished is a report
+  from the SITE, so routing "nobody has marked it ready" on `inspections` told
+  everyone except the field supervisor and the worker - the only people who
+  could do anything about it. **A NOTIFICATION'S AUDIENCE IS THE PERMISSION FOR
+  THE ACTION IT IS ASKING FOR, not the permission for the record it is about.**
+  Every one of these passed sixty-five suites: the fixture's `TODAY` was a
+  Monday, where two business days and two plain days are the same Wednesday.
+  Pinned in `inspection-reminders.ts`, anchored on the days the two rules
+  DISAGREE.
 - **A CASCADE IS ARITHMETIC; TELLING SOMEBODY IS A DECISION.** Schedule
   dependencies live in `lib/schedule-dependencies.ts` (pure: `cascade`,
   `findCycle`, `lineProgress`, `blockedBy`) and the routes under

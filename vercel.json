@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/inspection-reminders",
-      "schedule": "22 7 * * *"
+      "schedule": "30 11 * * *"
     }
   ]
 }
