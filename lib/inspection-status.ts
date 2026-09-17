@@ -235,6 +235,7 @@ export const BOOKING_DERIVED_COLUMNS = ['ready_reminder_sent_at'] as const
  *
  * Pure, so the cron and the tests ask one function.
  */
+/** How far ahead to warn. BUSINESS days - see `addBusinessDaysIso`. */
 export const READY_REMINDER_DAYS = 2
 
 export interface ReminderCandidate {
@@ -254,7 +255,44 @@ export function needsReadyReminder(i: ReminderCandidate, today: string): boolean
   // Once per booking. Re-booking clears the stamp, which re-arms it.
   if (i.ready_reminder_sent_at) return false
   if (booked < today) return false
-  return booked <= addDaysIso(today, READY_REMINDER_DAYS)
+  // BUSINESS days. The route's SQL window must use the same function or it
+  // filters the row out before this rule ever sees it - a business-day horizon
+  // is always at least as far out as a calendar one.
+  return booked <= addBusinessDaysIso(today, READY_REMINDER_DAYS)
+}
+
+/**
+ * Saturday or Sunday.
+ *
+ * NO HOLIDAY CALENDAR, deliberately. A jurisdiction's holidays are not ours to
+ * guess at, and a wrong one moves the warning to the wrong day while looking
+ * authoritative. Thanksgiving counts as a business day here; the warning simply
+ * arrives a day early relative to a crew that is not working, which is the safe
+ * direction to be wrong in.
+ */
+export function isWeekend(iso: string): boolean {
+  const [y, m, d] = iso.slice(0, 10).split('-').map(Number)
+  const day = new Date(y, (m ?? 1) - 1, d ?? 1).getDay()
+  return day === 0 || day === 6
+}
+
+/**
+ * The day `n` BUSINESS days after `iso`.
+ *
+ * WHY THIS EXISTS: `READY_REMINDER_DAYS` was counted in plain days, so an
+ * inspection booked for MONDAY warned on SATURDAY morning - nobody reads that,
+ * and by Monday there is no time left to finish the work or ring the
+ * jurisdiction to move the trip. Two business days puts the same warning on
+ * Thursday, which is a day somebody can act on.
+ */
+export function addBusinessDaysIso(iso: string, days: number): string {
+  let out = iso.slice(0, 10)
+  let left = Math.max(0, Math.round(days))
+  while (left > 0) {
+    out = addDaysIso(out, 1)
+    if (!isWeekend(out)) left--
+  }
+  return out
 }
 
 /** Date-only arithmetic that never goes through UTC. */

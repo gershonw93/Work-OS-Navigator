@@ -55,6 +55,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 const AUTHORED: Release[] = [
   {
     date: '2026-09-17',
+    title: 'The not-ready inspection warning',
+    items: [
+      {
+        kind: 'improved',
+        title: 'It reaches the crew now, and it arrives in the morning',
+        text: 'The warning that a booked inspection has not been marked ready was only going to the office. It now goes to everyone who can mark work ready - your field supervisors and workers included - and it counts BUSINESS days, so a Monday inspection warns you on Thursday instead of Saturday. It sends at 7:30am rather than overnight. Change who hears it on Settings > Notifications > Who gets told.',
+        help: 'inspections',
+      },
+    ],
+  },
+  {
+    date: '2026-09-17',
     title: 'Schedule links',
     items: [
       {

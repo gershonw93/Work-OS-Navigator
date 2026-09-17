@@ -263,8 +263,14 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
   },
   {
     key: 'inspection_not_ready', label: 'Inspection coming up and not ready', group: 'Compliance',
-    description: 'An inspection is booked within two days and nobody has marked the work ready.',
-    audience: 'team', defaultAudience: ['inspections', 'edit'],
+    description: 'An inspection is booked within two business days and nobody has marked the work ready.',
+    // `mark-ready`, NOT `inspections`. Booking a visit is an office job and
+    // `inspections` is its permission; saying THE WORK IS FINISHED is a report
+    // from the site, which is why `mark-ready` was split out in the first place.
+    // Routing the "nobody has marked it ready" warning on the office permission
+    // told the office and left out the field supervisor and the worker - the
+    // only two people who can actually do anything about it.
+    audience: 'team', defaultAudience: ['mark-ready', 'edit'],
     alsoTold: 'whoever requested it, and whoever is assigned to book it',
     // Email ON by default, like a document about to expire: finding out at your
     // next login is too late for a visit two days away, and the whole point of
