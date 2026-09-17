@@ -7,7 +7,7 @@
 import { ok, done } from './_helpers'
 import {
   addDays, daysBetween, findCycle, cascade, lineProgress, blockedBy, lineName,
-  handEditWins, gateOf,
+  handEditWins, gateOf, toPct, toAmount, pctLabel,
   type ScheduleLine, type Dependency,
 } from '../schedule-dependencies'
 
@@ -332,6 +332,86 @@ const HAND_EDIT = '2026-03-01T00:00:00Z'
     "...and the cascade stops there - C's dates cannot be computed from dates B no longer has")
   ok(r.skipped.some(s => s.id === 'C' && s.reason === 'chain_stopped'),
     '...but C is still on the screen, saying why it is not moving')
+}
+
+// ── A NUMERIC COLUMN COMES BACK AS A STRING ─────────────────────────────────
+//
+// Reported as a nit - "the review still says just 'waits on Sheetrock' for the
+// 80% row" - and it was the only visible edge of a much bigger one.
+// `min_predecessor_progress` and both `progress_pct` columns are NUMERIC(5,2),
+// and PostgREST serialises those QUOTED: the API hands back "80.00", not 80.
+// Every guard in this file asked `Number.isFinite(value)`, which is FALSE for a
+// string.
+//
+// EVERY FIXTURE BELOW USED TO WRITE `80`, because a hand writes 80. That is the
+// whole lesson: a test written from what you would have typed confirms what you
+// would have typed. These use the shape the database actually returns.
+{
+  ok(toPct('80.00') === 80, 'THE BUG: "80.00" off a NUMERIC column reads as 80')
+  ok(toPct(80) === 80, '...and a real number still reads as itself')
+  ok(toPct(null) === null, 'null is nobody has said')
+  ok(toPct(undefined) === null, '...and so is an absent field')
+  ok(toPct('') === null, '...and an empty string, which is what a cleared box sends')
+  ok(toPct('not a number') === null, 'and junk is not silently 0 - zero is a CLAIM')
+  ok(toPct('0') === 0, '...but a real zero survives, which is why junk cannot map to it')
+  ok(toPct('150') === 100 && toPct('-5') === 0, 'out of range is clamped, not believed')
+
+  ok(toAmount('12500.00') === 12500, 'money off a NUMERIC column reads too')
+  ok(toAmount('') === null && toAmount(null) === null, '...and absent money is absent')
+
+  ok(pctLabel('80.00') === '80', 'and it PRINTS as 80 - a trailing .00 is the database showing through')
+  ok(pctLabel(null) === null, 'with nothing to print when there is no gate')
+}
+
+// ── the gate, read the way the database returns it ──────────────────────────
+{
+  ok(gateOf({ min_predecessor_progress: '80.00', lag_days: 0 }).pct === 80,
+    'THE REPORTED NIT: the review gets the 80 it needs to print')
+  ok(gateOf({ min_predecessor_progress: null, lag_days: 0 }).pct === null,
+    '...and a plain link still has no percent')
+
+  // The invisible half. A gate that never blocks looks EXACTLY like a gate
+  // whose condition has been met, so nobody would ever report this directly.
+  const pred = line('Framing', '2026-01-01', '2026-01-05')
+  const behind = blockedBy({ min_predecessor_progress: '80.00' }, pred, { pct: 50, source: 'entered' })
+  ok(behind.blocked === true,
+    'THE INVISIBLE HALF: a gate set to 80% actually blocks at 50%, which it never has')
+  ok(/80%/.test(behind.reason ?? ''), '...and the sentence names the bar')
+  const clear = blockedBy({ min_predecessor_progress: '80.00' }, pred, { pct: 80, source: 'entered' })
+  ok(clear.blocked === false, '...and lets go at the bar')
+  const nobody = blockedBy({ min_predecessor_progress: '80.00' }, pred, { pct: null, source: 'unknown' })
+  ok(nobody.blocked && nobody.unknown, '...and still blocks when nobody has said')
+}
+
+// ── progress, read the way the database returns it ──────────────────────────
+{
+  const typed = lineProgress(line('A', '2026-01-01', '2026-01-05', { progress_pct: '40.00' }))
+  ok(typed.pct === 40 && typed.source === 'entered',
+    'a typed percent off the column wins - it never used to, so the roll-up always ran instead')
+
+  const rolled = lineProgress(
+    line('A', '2026-01-01', '2026-01-05'),
+    [{ progress_pct: '10.00', amount: '90000.00' }, { progress_pct: '100.00', amount: '10000.00' }],
+  )
+  ok(rolled.pct === 19 && rolled.source === 'budget',
+    '...and the budget roll-up weights by money off string columns: 19%, not 55%')
+  ok(lineProgress(line('A', '2026-01-01', '2026-01-05')).source === 'unknown',
+    'with neither, nobody has said - which is what EVERY line used to answer')
+}
+
+// ── and it reaches the screen through the cascade ───────────────────────────
+{
+  const lines = [
+    line('Sheetrock', '2026-10-15', '2026-10-19'),
+    line('Volt', '2026-10-20', '2026-10-24'),
+  ]
+  const r = cascade(
+    lines,
+    [dep('Volt', 'Sheetrock', { min_predecessor_progress: '80.00' })],
+    'Sheetrock', '2026-10-18', '2026-10-22',
+  )
+  ok(r.moves.find(m => m.id === 'Volt')!.gate?.pct === 80,
+    'the row the review prints carries 80, straight off the string the API returned')
 }
 
 // ── progress: typed, derived, or nobody knows ────────────────────────────────

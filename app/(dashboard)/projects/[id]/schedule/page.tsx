@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { CascadeReview, type CascadeMove, type CascadeSkip, type AffectedSub } from '@/components/schedule/cascade-review'
 import { DependencyPicker, type PickableLine, type ExistingDependency, type PendingDependency } from '@/components/schedule/dependency-picker'
 import { useRouter } from 'next/navigation'
@@ -164,6 +164,12 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
   // stands between a date change and a sub's inbox.
   const guardDelete = useDeleteGuard()
   const [deps, setDeps] = useState<ExistingDependency[]>([])
+  // An empty list is not an answer until this says so - see the picker.
+  const [depsState, setDepsState] = useState<'loading' | 'ready' | 'failed'>('loading')
+  // Which line the in-flight request is FOR. Opening one row, closing it and
+  // opening another lets the first response land last and paint the wrong
+  // line's links - which is the same bug wearing different clothes.
+  const depsFor = useRef<string | null>(null)
   // NOTHING in the dependency picker saves on its own. Links built there are
   // staged here and written by Save Changes, and a saved link somebody removes
   // is staged too - one dialog, one save, and Cancel really cancels.
@@ -462,19 +468,38 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
   }
 
   async function loadDeps(itemId: string) {
-    const token = await getToken()
-    const res = await fetch(`/api/projects/${params.id}/schedule/${itemId}/dependencies`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    if (!res.ok) { setDeps([]); return }
-    const d = await res.json()
-    setDeps((d.dependencies ?? []).map((x: any) => ({
-      id: x.id,
-      predecessor_task_id: x.predecessor_task_id,
-      min_predecessor_progress: x.min_predecessor_progress,
-      lag_days: x.lag_days ?? 0,
-      predecessorName: x.predecessor?.trade || x.predecessor?.label || 'an unnamed line',
-    })))
+    depsFor.current = itemId
+    setDepsState('loading')
+    /** False once this request is no longer the one the dialog is waiting for. */
+    const current = () => depsFor.current === itemId
+
+    try {
+      const token = await getToken()
+      const res = await fetch(`/api/projects/${params.id}/schedule/${itemId}/dependencies`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!current()) return
+      if (!res.ok) {
+        // A FAILED READ IS NOT AN EMPTY ONE. Saying "nothing" here is how a
+        // stale token tells somebody their links are gone.
+        console.error('[schedule/deps] could not load', itemId, res.status)
+        setDeps([]); setDepsState('failed'); return
+      }
+      const d = await res.json()
+      if (!current()) return
+      setDeps((d.dependencies ?? []).map((x: any) => ({
+        id: x.id,
+        predecessor_task_id: x.predecessor_task_id,
+        min_predecessor_progress: x.min_predecessor_progress,
+        lag_days: x.lag_days ?? 0,
+        predecessorName: x.predecessor?.trade || x.predecessor?.label || 'an unnamed line',
+      })))
+      setDepsState('ready')
+    } catch (e) {
+      // try/catch/finally, always - a throw here used to leave nothing at all.
+      console.error('[schedule/deps] load threw', e)
+      if (current()) { setDeps([]); setDepsState('failed') }
+    }
   }
 
   /**
@@ -616,7 +641,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
 
   function openEdit(item: ScheduleItem) {
     setEditItem(item)
-    setDeps([])
+    setDeps([]); setDepsState('loading')
     // Clearing these is what makes Cancel mean cancel: staged links from the
     // last line opened would otherwise be written against this one.
     setPendingDeps([]); setRemovingDeps([])
@@ -801,6 +826,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                 <DependencyPicker
                   lines={pickableLines}
                   existing={deps}
+                  existingState={depsState}
                   pending={pendingDeps}
                   removing={removingDeps}
                   selfId={editItem?.id ?? null}

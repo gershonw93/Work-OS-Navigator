@@ -77,6 +77,21 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
 - **A type that describes no table is checked by nothing.** An interface written
   from memory compiles perfectly and is wrong at runtime - check its fields
   against the migration, the same as for a `.select()`.
+- **AND A `NUMERIC` COLUMN COMES BACK AS A STRING.** PostgREST serialises
+  `numeric` QUOTED - `"80.00"`, not `80` - and **`Number.isFinite` DOES NOT
+  COERCE**, so `Number.isFinite(row.progress_pct)` is false for every real row
+  while being true for every hand-written fixture. It cost four bugs at once in
+  `lib/schedule-dependencies.ts`: a typed percent never beat the budget
+  roll-up, the roll-up filtered every row out and answered `unknown`,
+  `blockedBy` never blocked a single progress gate, and the review printed
+  "waits on Sheetrock" for an 80% link. ONLY THE LAST WAS VISIBLE, and it was
+  reported as a nit - a gate that never fires looks exactly like a gate whose
+  condition is met. Read every `numeric` through `toPct` / `toAmount`, print it
+  through `pctLabel` (or "80.00" reaches the screen), and declare the field
+  `number | string | null` so the next reader is forced through them. Pinned in
+  `schedule-dependencies.ts`, which RATCHETS the count of `Number.isFinite`
+  calls in that module. Same family as the rules above: check the shape against
+  the migration, never against what you would have typed.
 - **`.order()` IS A COLUMN NAME TOO, and it takes the whole query down with it.**
   `/financials` ordered `payment_schedule_items` by `due_date`, a column that
   table has never had. PostgREST refuses the ENTIRE query for an unknown sort
@@ -968,6 +983,21 @@ Full detail: [`docs/postmortems/failure-states.md`](docs/postmortems/failure-sta
 - "Loading" and "failed" are different facts. Collapsing them into one falsy
   value renders a menu with four links and no explanation. Callers need `error`
   as well as `loading`.
+- **AND AN EMPTY LIST IS A THIRD FACT, WHICH IS WHY IT MUST NOT BE THE DEFAULT.**
+  Reported as intermittent: opening a linked row's Edit Item showed "Nothing -
+  it can start whenever it is scheduled." over a link that existed. The dialog
+  fetches the links on open and `existing` is `[]` until they land, so ONE empty
+  array meant "still asking" and "there are none" - and the panel stated the
+  second. Pressing Add appeared to fix it, because Add hides that sentence and
+  by then the fetch had landed; a fast request makes the window a blink, which
+  is the whole reason it reads as intermittent. The picker takes
+  `existingState: 'loading' | 'ready' | 'failed'` and only says "nothing" on
+  `ready`. A FAILED read is the worse half: rendering the same sentence lets a
+  stale token tell somebody their links are gone. **AND A RESPONSE THAT IS NO
+  LONGER WANTED IS DROPPED** - open one row, close it, open another, and the
+  first response lands last and paints the wrong line's links. `depsFor` holds
+  the id being waited for and every `setState` after an await checks it. Pinned
+  in `schedule-cascade.ts`.
 - A loading state must have a WAY TO END. `setLoading(false)` as the last
   statement of an async function ends only on the happy path - use
   try/catch/finally, always.
