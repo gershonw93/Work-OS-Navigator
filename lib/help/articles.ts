@@ -320,7 +320,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'plan-pins',
     title: 'Pin a task right on the plan',
     category: 'projects',
-    keywords: ['pin', 'plan', 'blueprint', 'task', 'drop', 'marker', 'assign', 'drawing'],
+    keywords: ['pin', 'plan', 'blueprint', 'task', 'drop', 'marker', 'assign', 'drawing', 'page', 'go to page', 'jump to page', 'page number', 'multi-page', 'sheet'],
     summary: 'Open a plan, drop a pin where the work is, and assign it as a task.',
     blocks: [
       { type: 'steps', items: [
@@ -331,6 +331,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'Use the list button to see every pin on the file - tap one and the viewer jumps to its exact spot. On a task created from a pin, "View pinned spot on the plan" links back the other way.',
         'On a phone, use the full-screen button for a bigger canvas while dropping or reading pins.',
       ] },
+      { type: 'text', text: 'JUMPING TO A PAGE. On a multi-page set the page number between the arrows is a box: type the page you want and press Enter (or tap away) and it goes straight there, rather than stepping forty-odd times. Ask for a page past the end and it takes you to the last one. Opening a pin from the list moves the box too, so it always agrees with the sheet on screen.' },
       { type: 'tip', text: 'Removing a pin keeps its task - nothing gets lost. Very large sheets render at a capped resolution so they stay fast; use the file button to open the raw PDF at native quality.' },
     ],
     related: ['tasks-assign', 'project-tabs-explained'],

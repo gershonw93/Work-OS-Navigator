@@ -55,6 +55,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 const AUTHORED: Release[] = [
   {
     date: '2026-09-17',
+    title: 'Plans: go straight to a page',
+    items: [
+      {
+        kind: 'improved',
+        title: 'Type the page number instead of tapping through',
+        text: 'On a multi-page plan set the page number is now a box. Type 30, press Enter, and you are on sheet 30 - rather than tapping the arrow twenty-nine times to get there. Ask for a page past the end and it takes you to the last one.',
+        help: 'plan-pins',
+      },
+    ],
+  },
+  {
+    date: '2026-09-17',
     title: 'What your crew can reach',
     items: [
       {
