@@ -757,7 +757,41 @@ Full detail: [`docs/postmortems/derived-state.md`](docs/postmortems/derived-stat
   the cascade stops there rather than computing off dates the line no longer
   has. A diamond takes the LARGEST push and each line keeps its LENGTH - the
   second push measures from where the line already moved to, not from where it
-  started, which is the bug a start-only assertion cannot see. `findCycle` names
+  started, which is the bug a start-only assertion cannot see.
+  **A DEPENDENT SHIFTS BY THE SAME DELTA, AND THE DELTA IS THE PREDECESSOR'S
+  FINISH.** The first version snapped a dependent to `predecessorEnd + lag + 1`,
+  so Sheetrock moving 3 days (Oct 12 -> Oct 15) moved a line sitting back on
+  Sep 16 by THIRTY-FOUR, landing exactly on the new boundary. Every fixture had
+  the dependent starting the day after its predecessor ended, where the snap and
+  the shift are the same number: A FIXTURE THAT ONLY EXERCISES THE CASE WHERE
+  TWO RULES AGREE CANNOT TELL YOU WHICH ONE YOU IMPLEMENTED. `lag_days` takes no
+  part - shifting by the delta PRESERVES the gap, lag included, and a lag
+  re-applied per cascade is a floor. The delta is measured on the END date,
+  because the screen says "can't start till another trade finishes": a line that
+  starts on time and runs three days long HAS taken three days.
+  **AND EVERY LINKED LINE IS IN ONE BUCKET OR THE OTHER.** A linked row missing
+  from the review reads as a row that was never linked, which is the one thing
+  that screen exists to disprove. `cascade` walks twice: pass one computes what
+  moves, pass two reports EVERY line the links reach - `manually_overridden`,
+  `no_shift` (nothing pushed it) or `chain_stopped` (something between it and
+  the edit was left alone, so where it lands is not worked out). Reporting off
+  pass one alone is how the rows behind a hand-dated line vanished. Each row
+  carries `direct` or `downstream`, and a link whose two ends are not both on
+  the board reports NOTHING - a row the reader cannot find is worse than one
+  left out.
+  **AND A REVIEW WITH NOTHING TO REVIEW IS NOT A STEP**: with no other line
+  touched the screen is skipped and the dates just save (`notify: false` is a
+  fact there, not a guess - there is nobody on the list). It never renders over
+  the editor either; two overlays at once left Cancel dropping you back into a
+  form whose dates had been decided elsewhere.
+  **`dates_overridden_at` TAKES A LINE OUT OF THE CASCADE FOR EVER, so what
+  SETS it matters more than what reads it.** Two bugs, one flag: every dialog
+  posts both dates whether or not they were edited, so a save that moved nothing
+  was marking the line hand-dated - it is only set when a date ACTUALLY changes.
+  And LINKING A LINE CLEARS IT: setting a vendor's dates is how a line gets
+  dates at all, and a date typed before the link was never a decision to ignore
+  the trade ahead. Nothing else clears it, so without that the only way back was
+  to re-type the dates. `findCycle` names
   the loop ("Drywall waits for Paint waits for Drywall"), because "circular
   dependency" tells nobody which link to cut. Pinned in
   `schedule-dependencies.ts` and `schedule-cascade.ts`.

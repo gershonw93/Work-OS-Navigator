@@ -90,6 +90,7 @@ async function plan(db: ReturnType<typeof admin>, projectId: string, itemId: str
       to: m.to,
       shiftDays: m.shiftDays,
       because,
+      link: m.link,
       sub: company ? { id: company.id, name: company.name, email: company.contact_email ?? null } : null,
     }
   })
@@ -97,10 +98,14 @@ async function plan(db: ReturnType<typeof admin>, projectId: string, itemId: str
   return {
     moves: result.moves,
     rows,
+    // EVERY linked line the edit reaches is in one list or the other. A row
+    // that is simply absent reads as a row that was never linked, which is the
+    // one thing this screen exists to disprove.
     skipped: result.skipped.map(s => ({
       id: s.id,
       name: lineName(byId.get(s.id)),
       reason: s.reason,
+      link: s.link,
       because: lineName(byId.get(s.becauseOf)),
     })),
     affected: Array.from(affected.values()),

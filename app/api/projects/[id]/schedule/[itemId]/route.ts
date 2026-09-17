@@ -74,8 +74,24 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   // cascade leave it alone. Set here rather than in the cascade route so it is
   // true however the dates were changed - the flag is about the act, not about
   // which screen did it.
+  //
+  // BUT ONLY WHEN THEY ACTUALLY CHANGED. Every dialog that touches a line
+  // submits both dates whether or not they were edited, so a save that moved
+  // nothing was marking the line hand-dated and taking it out of the cascade -
+  // reported as the cascade ignoring rows nobody had knowingly pinned. A
+  // resubmitted date is not a decision about the date.
   if ('start_date' in update || 'end_date' in update) {
-    update.dates_overridden_at = new Date().toISOString()
+    const { data: before, error: beforeErr } = await db
+      .from('schedule_items').select('start_date, end_date')
+      .eq('id', params.itemId).eq('project_id', params.id).maybeSingle()
+    if (beforeErr) {
+      console.error('[schedule/item] could not read the current dates:', beforeErr.message)
+      return NextResponse.json({ error: friendlyDbError(beforeErr) }, { status: 500 })
+    }
+    const changed =
+      ('start_date' in update && update.start_date !== before?.start_date) ||
+      ('end_date' in update && update.end_date !== before?.end_date)
+    if (changed) update.dates_overridden_at = new Date().toISOString()
   }
 
   const { data, error } = await db

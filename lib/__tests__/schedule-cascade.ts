@@ -94,6 +94,80 @@ console.log('\nschedule-cascade')
     'editing dates by hand sets the override flag, whatever screen did it')
 }
 
+// ── the hand-edit flag, and the two ways it was wrong ────────────────────────
+//
+// REPORTED: "the cascade ignores linked rows - auto-created rows count as
+// hand-set dates". Both halves are the same flag. `dates_overridden_at` takes
+// a line OUT of the cascade for ever and nothing was clearing it, so a line
+// that was dated and then linked never followed anything.
+{
+  const item = code('app/api/projects/[id]/schedule/[itemId]/route.ts')
+
+  // Half one: a save that resubmits the same dates is not a decision about
+  // them. Every dialog that touches a line posts both dates whether or not
+  // they were edited.
+  const flagBlock = item.slice(item.indexOf("if ('start_date' in update"))
+  ok(/select\('start_date, end_date'\)/.test(flagBlock),
+    'the PATCH reads the dates it is about to replace')
+  ok(/const changed =/.test(flagBlock) && /if \(changed\) update\.dates_overridden_at/.test(flagBlock),
+    '...and only flags the line when they ACTUALLY changed')
+
+  // Half two: linking is the statement that this line follows from now on.
+  const deps = code('app/api/projects/[id]/schedule/[itemId]/dependencies/route.ts')
+  const afterInsert = deps.slice(deps.indexOf("from('schedule_dependencies').insert"))
+  ok(/dates_overridden_at: null/.test(afterInsert),
+    'LINKING CLEARS THE FLAG - the link is the decision, and a date typed before it was not')
+  ok(/\.eq\('id', params\.itemId\)/.test(afterInsert),
+    '...on the line that now waits, which is the one the cascade was skipping')
+  // The link is written by this point. A 500 here would strand it.
+  ok(/console\.error\(.*clear the hand-edit flag/.test(afterInsert),
+    '...and a failure to clear is logged rather than failing the link that already landed')
+}
+
+// ── every linked line is in one bucket or the other ──────────────────────────
+//
+// REPORTED: "the review screen drops linked rows - every linked row should
+// appear, in one bucket or the other, labeled with its link type." A linked
+// line missing from the review reads as a line that was never linked, which is
+// the single thing the screen exists to show.
+{
+  const pure = code('lib/schedule-dependencies.ts')
+  for (const reason of ['manually_overridden', 'no_shift', 'chain_stopped']) {
+    ok(new RegExp(`'${reason}'`).test(pure), `${reason} is one of the reasons a line is not moving`)
+  }
+  // Pass one walks only what it can compute; anything behind a hand-dated line
+  // never appears in it, and reporting off pass one alone is how rows vanished.
+  ok(/const walk: string\[\] = \[movedId\]/.test(pure) && /const queue: string\[\] = \[movedId\]/.test(pure),
+    'the report is built by a SECOND walk over every line the links reach')
+  ok(/linkOf|LinkKind/.test(pure), 'and each one is labelled direct or downstream')
+
+  const route = code('app/api/projects/[id]/schedule/[itemId]/cascade/route.ts')
+  ok(/link: s\.link/.test(route) && /link: m\.link/.test(route),
+    'the route carries the link kind through to the screen for both buckets')
+
+  const review = code('components/schedule/cascade-review.tsx')
+  ok(/function whyStill/.test(review),
+    'the screen has ONE place each reason is put into words')
+  for (const reason of ['manually_overridden', 'no_shift', 'chain_stopped']) {
+    ok(new RegExp(`case '${reason}'`).test(review), `...including ${reason}`)
+  }
+  ok(/function linkWords/.test(review), '...and one place the link kind is')
+}
+
+// ── a review with nothing to review is not a step ────────────────────────────
+//
+// REPORTED: the screen stopped on "Nothing else moves / Moving Electrical"
+// with two buttons about emailing nobody, and the modal sat over the editor.
+{
+  const page = code('app/(dashboard)/projects/[id]/schedule/page.tsx')
+  ok(/if \(!moves\.length && !skipped\.length\)/.test(page),
+    'with nothing else touched the review is SKIPPED, not shown empty')
+  ok(/applyCascade\(false, \{ start: editStart, end: editEnd \}\)/.test(page),
+    '...and it applies with notify FALSE - there is nobody on the list, not a guess')
+  ok(/\{editItem && !pending && \(/.test(page),
+    'and the editor is not left open underneath the review - two overlays at once')
+}
+
 // ── no email without the review screen ───────────────────────────────────────
 {
   const cascade = code('app/api/projects/[id]/schedule/[itemId]/cascade/route.ts')

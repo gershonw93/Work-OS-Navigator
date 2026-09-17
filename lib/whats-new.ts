@@ -55,6 +55,36 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 const AUTHORED: Release[] = [
   {
     date: '2026-09-17',
+    title: 'Schedule links: four fixes',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'A linked trade moves by the days the trade ahead moved',
+        text: 'Sheetrock slipping three days was pushing the trade behind it by thirty-four - onto sheetrock\'s new finish date rather than three days along. Everything now moves by exactly what the trade ahead moved, keeps its own length, and keeps whatever gap the two already had. Pulling a trade earlier pulls the ones behind it earlier too.',
+        help: 'schedule-milestones',
+      },
+      {
+        kind: 'fixed',
+        title: 'Linking a trade puts it back in the chain',
+        text: 'Setting a vendor\'s dates marked the line as hand-dated, which takes it out of the cascade for good - so a line you dated and then linked never followed anything. Linking a line is now the decision that counts, and it clears that mark. Re-saving the same dates no longer marks it at all.',
+        help: 'schedule-milestones',
+      },
+      {
+        kind: 'improved',
+        title: 'Every linked trade is on the review screen',
+        text: 'A trade that is not moving used to be missing from the list, which reads exactly like a trade that was never linked. Now every linked trade is there, saying which of three reasons it is sitting still, and whether it waits on the line you changed or on something further down the chain.',
+        help: 'schedule-milestones',
+      },
+      {
+        kind: 'fixed',
+        title: 'No review screen when there is nothing to review',
+        text: 'Changing dates on a line with nothing waiting on it used to stop on a screen reading "Nothing else moves", with two buttons about emailing nobody, sitting over the dialog you were still in. It just saves now.',
+        help: 'schedule-milestones',
+      },
+    ],
+  },
+  {
+    date: '2026-09-17',
     title: 'Pull down to refresh',
     items: [
       {

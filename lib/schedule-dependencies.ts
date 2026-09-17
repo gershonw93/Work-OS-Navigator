@@ -241,6 +241,9 @@ export function blockedBy(
 
 // ── The cascade ──────────────────────────────────────────────────────────────
 
+/** Whether a line waits on the edited line itself, or further down the chain. */
+export type LinkKind = 'direct' | 'downstream'
+
 export interface Move {
   id: string
   from: { start: DateString; end: DateString }
@@ -249,13 +252,30 @@ export interface Move {
   shiftDays: number
   /** The line whose move caused this one. Null for the line the user edited. */
   becauseOf: string | null
+  link: LinkKind
 }
+
+/**
+ * Why a linked line is not moving. THREE reasons, not one:
+ *
+ *   - `manually_overridden` - somebody dated it by hand, so it is not computed
+ *     from, and the chain stops there.
+ *   - `no_shift`            - the thing it waits for did not actually finish
+ *     any later, so there is nothing to pass on.
+ *   - `chain_stopped`       - something between it and the edited line was
+ *     left alone, so where this one lands cannot be worked out.
+ *
+ * The last two used to be nothing at all: they were simply absent from the
+ * review, which reads exactly like "these are not linked".
+ */
+export type SkipReason = 'manually_overridden' | 'no_shift' | 'chain_stopped'
 
 export interface Skipped {
   id: string
-  reason: 'manually_overridden'
+  reason: SkipReason
   /** The line that would have moved it. */
   becauseOf: string
+  link: LinkKind
 }
 
 export interface CascadeResult {
@@ -264,22 +284,42 @@ export interface CascadeResult {
 }
 
 /**
- * Everything that moves when one line moves.
+ * Everything that moves when one line moves - AND EVERY LINKED LINE THAT DOES
+ * NOT, because a linked row missing from the review reads as an unlinked one.
  *
- * Breadth-first over dependents, which is what makes a diamond behave: if D
- * waits for both B and C and both moved, D is visited once and takes the
- * LARGEST push, because a task cannot start until the last thing it waits for
- * is done. Taking the first answer found would schedule it against whichever
- * predecessor happened to be walked first.
+ * A DEPENDENT SHIFTS BY THE SAME NUMBER OF DAYS ITS PREDECESSOR DID. Nothing
+ * else. That is what the spec asked for and it is the only rule that keeps a
+ * schedule's shape.
  *
- * A line whose dates a human edited by hand is SKIPPED and reported, not moved
- * silently - and skipping it stops the cascade there, because moving its
- * dependents off dates it no longer has would be arithmetic about a number
- * nobody agreed to.
+ * THE BUG THIS REPLACES, reported with the arithmetic attached: the first
+ * version computed `predecessorEnd + lag + 1` and SNAPPED the dependent to it.
+ * Sheetrock moved three days, Oct 12 to Oct 15, and a line sitting back on
+ * Sep 16 jumped to Oct 20 - thirty-four days, landing exactly on Sheetrock's
+ * new boundary. Every test passed, because every fixture had the dependent
+ * starting the day after its predecessor ended, where the snap and the shift
+ * are the same number. A fixture that only exercises the case where two rules
+ * agree cannot tell you which one you implemented.
  *
- * `lagDays` is honoured as a floor: a dependent never starts before its
- * predecessor's new end plus the lag. A line already sitting later than that
- * does not get dragged backwards by a predecessor moving earlier.
+ * `lag_days` takes no part in this, and that is the point: shifting by the same
+ * delta PRESERVES whatever gap the two lines already had, lag included. A lag
+ * re-applied on every cascade is a floor, and a floor is what produced the
+ * thirty-four days.
+ *
+ * THE DELTA A DEPENDENT TAKES IS ITS PREDECESSOR'S **END** DELTA, not its
+ * start's. The screen says "can't start till another trade finishes", so what
+ * a follower waits on is the FINISH: a line whose start holds and whose end
+ * slips three days has taken three days longer, and everything behind it moves
+ * three days. Measuring the start would report "nothing else moves" for the
+ * most ordinary slip there is. For a cascaded line the two are the same number
+ * - it moves whole - so only the edited line can tell them apart.
+ *
+ * The shift is SIGNED. A predecessor pulled three days earlier pulls its
+ * dependents three days earlier too - "shifts by the same number of days" has
+ * no direction in it, and a chain that only ever moves later drifts.
+ *
+ * A line whose dates a human edited carries `dates_overridden_at`; it is
+ * SKIPPED and REPORTED, never moved silently, and the cascade stops there
+ * rather than computing off dates the line no longer has.
  */
 export function cascade(
   lines: ScheduleLine[],
@@ -292,79 +332,102 @@ export function cascade(
   const root = byId.get(movedId)
   if (!root) return { moves: [], skipped: [] }
 
+  const rootShift = daysBetween(root.end_date, newEnd)
+
   const dependentsOf = new Map<string, Dependency[]>()
   for (const d of deps) {
+    // A link whose two ends are not both on this project's board would put a
+    // row in the review that the reader cannot see anywhere.
+    if (!byId.has(d.task_id) || !byId.has(d.predecessor_task_id)) continue
     const list = dependentsOf.get(d.predecessor_task_id) ?? []
     list.push(d)
     dependentsOf.set(d.predecessor_task_id, list)
   }
 
-  const moves = new Map<string, Move>()
-  const skipped = new Map<string, Skipped>()
+  const directIds = new Set((dependentsOf.get(movedId) ?? []).map(d => d.task_id))
+  const linkOf = (id: string): LinkKind => (directIds.has(id) ? 'direct' : 'downstream')
 
-  moves.set(movedId, {
-    id: movedId,
-    from: { start: root.start_date, end: root.end_date },
-    to: { start: newStart, end: newEnd },
-    shiftDays: daysBetween(root.start_date, newStart),
-    becauseOf: null,
-  })
-
-  // Current dates for a line, taking a move already decided over the stored row.
-  const endOf = (id: string) => moves.get(id)?.to.end ?? byId.get(id)?.end_date ?? null
+  // ── Pass one: how far does each line move ──────────────────────────────────
+  /** How far each line ended up moving, so its own dependents can follow. */
+  const shiftOf = new Map<string, number>([[movedId, rootShift]])
+  /** What pushed it, for the sentence the review prints. */
+  const causeOf = new Map<string, string>()
 
   const queue: string[] = [movedId]
-  // A cycle should be impossible (findCycle guards every write), but a loop
-  // that slipped in must not hang the request - every id is enqueued once.
   const enqueued = new Set<string>([movedId])
 
   while (queue.length) {
     const currentId = queue.shift()!
-    const currentEnd = endOf(currentId)
-    if (!currentEnd) continue
+    const currentShift = shiftOf.get(currentId) ?? 0
 
     for (const dep of dependentsOf.get(currentId) ?? []) {
-      const child = byId.get(dep.task_id)
-      if (!child) continue
+      const child = byId.get(dep.task_id)!
+      if (child.id === movedId) continue
+      // Not computed from, and not computed THROUGH - pass two reports it and
+      // everything standing behind it.
+      if (child.dates_overridden_at) continue
 
-      if (child.dates_overridden_at) {
-        skipped.set(child.id, { id: child.id, reason: 'manually_overridden', becauseOf: currentId })
-        continue
-      }
+      // A diamond takes the BIGGEST push. D waiting on both B and C cannot
+      // start until the last of them is done, so the larger delta wins - and
+      // "larger" is by magnitude in the direction of travel, which for a
+      // forward move is the greater number and for a backward one the lesser.
+      const already = shiftOf.get(child.id)
+      const next = already == null ? currentShift
+        : currentShift > 0 ? Math.max(already, currentShift)
+        : Math.min(already, currentShift)
+      if (already != null && next === already) continue
 
-      const lag = Number(dep.lag_days) || 0
-      const earliestStart = addDays(currentEnd, lag + 1)
-      const existing = moves.get(child.id)
-      const childStart = existing?.to.start ?? child.start_date
-
-      // The floor only pushes forward. A dependent already later than the
-      // earliest it could start is not pulled back by a predecessor that moved
-      // earlier - its own dates were a decision, not a consequence.
-      const shift = daysBetween(childStart, earliestStart)
-      if (shift <= 0) continue
-
-      const nextStart = addDays(childStart, shift)
-      const nextEnd = addDays(existing?.to.end ?? child.end_date, shift)
-
-      moves.set(child.id, {
-        id: child.id,
-        from: { start: child.start_date, end: child.end_date },
-        to: { start: nextStart, end: nextEnd },
-        shiftDays: daysBetween(child.start_date, nextStart),
-        becauseOf: currentId,
-      })
+      shiftOf.set(child.id, next)
+      causeOf.set(child.id, currentId)
 
       if (!enqueued.has(child.id)) { enqueued.add(child.id); queue.push(child.id) }
-      // Re-walk a line that took a bigger push, so its own dependents follow.
       else if (!queue.includes(child.id)) queue.push(child.id)
     }
   }
 
-  moves.delete(movedId)
-  return {
-    moves: Array.from(moves.values()),
-    skipped: Array.from(skipped.values()),
+  // ── Pass two: EVERY line the links reach, in one bucket or the other ───────
+  //
+  // Pass one walks only what it can compute; anything behind a hand-dated line
+  // never appears in it. Reporting off pass one alone is how linked rows went
+  // missing from a screen whose whole job is to say what this edit touches.
+  const moves: Move[] = []
+  const skipped: Skipped[] = []
+  const seen = new Set<string>([movedId])
+  const walk: string[] = [movedId]
+
+  while (walk.length) {
+    const currentId = walk.shift()!
+
+    for (const dep of dependentsOf.get(currentId) ?? []) {
+      const childId = dep.task_id
+      if (seen.has(childId)) continue
+      seen.add(childId)
+      walk.push(childId)
+
+      const child = byId.get(childId)!
+      const shift = shiftOf.get(childId)
+      const link = linkOf(childId)
+
+      if (shift != null && shift !== 0) {
+        moves.push({
+          id: childId,
+          from: { start: child.start_date, end: child.end_date },
+          to: { start: addDays(child.start_date, shift), end: addDays(child.end_date, shift) },
+          shiftDays: shift,
+          becauseOf: causeOf.get(childId) ?? currentId,
+          link,
+        })
+      } else if (child.dates_overridden_at) {
+        skipped.push({ id: childId, reason: 'manually_overridden', becauseOf: currentId, link })
+      } else if (shift === 0) {
+        skipped.push({ id: childId, reason: 'no_shift', becauseOf: causeOf.get(childId) ?? currentId, link })
+      } else {
+        skipped.push({ id: childId, reason: 'chain_stopped', becauseOf: currentId, link })
+      }
+    }
   }
+
+  return { moves, skipped }
 }
 
 /**

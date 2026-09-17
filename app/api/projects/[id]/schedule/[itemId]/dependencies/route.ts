@@ -120,6 +120,24 @@ export async function POST(request: Request, { params }: { params: { id: string;
     console.error('[schedule/dependencies] insert failed:', error.message)
     return NextResponse.json({ error: friendlyDbError(error) }, { status: 500 })
   }
+
+  // LINKING A LINE IS THE STATEMENT THAT IT FOLLOWS FROM NOW ON, so it clears
+  // the hand-edit flag.
+  //
+  // THE BUG: `dates_overridden_at` is set by any date edit, and setting a
+  // vendor's dates is how a line gets dates at all. So a line was dated, then
+  // linked, and the cascade skipped it for ever - reported as "the cascade
+  // ignores linked rows", which is exactly what it looked like. The flag means
+  // "a human dated this AFTER deciding what it follows"; a date typed BEFORE
+  // the link was never that decision. Nothing else clears it, so without this
+  // the only way back was to re-type the dates.
+  const { error: clearErr } = await db.from('schedule_items')
+    .update({ dates_overridden_at: null })
+    .eq('id', params.itemId).eq('project_id', params.id)
+  // The link is written and is the thing that was asked for; a stale flag is
+  // recoverable and a 500 here would strand it. Logged, not swallowed.
+  if (clearErr) console.error('[schedule/dependencies] could not clear the hand-edit flag:', clearErr.message)
+
   return NextResponse.json({ dependency: data })
 }
 
