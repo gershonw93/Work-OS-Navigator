@@ -632,6 +632,19 @@ Full detail: [`docs/postmortems/mobile.md`](docs/postmortems/mobile.md).
   not start until they are [80] % done", "Then wait [0] days before starting")
   under a heading saying what leaving both alone means. Pinned in
   `schedule-cascade.ts`.
+- **WRITE IT THE WAY A GC SAYS IT, AND PUT THE RARE ANSWER BEHIND A TAP.**
+  The dependency picker was correct English and the wrong language: "Depends on
+  another trade?", "Waits for", "Do not start until they are 80% done". It says
+  "Can't start till another trade finishes?", "After:", "Wait till they're __%
+  done", "Plus __ extra days" - and a saved link reads back as "After Framing
+  hits 80%, plus 2 days". Structure follows the same rule: ninety percent of
+  the answer is "after the sheetrock guy", so the percent gate and the extra
+  days sit behind "More options", COLLAPSED, with the tap naming what is inside
+  so nobody opens it to find out. Two boxes on the main path for a question
+  almost nobody asks is a tax on everybody else. Pinned in
+  `schedule-cascade.ts`, whose "does not say the old phrase" half reads the
+  COMMENT-STRIPPED source - a file explaining why a phrase was replaced
+  contains that phrase, and a raw scan finds its own explanation.
 - A VALUE THE APP WRITES, SUBMITS AND READS BACK MUST HAVE A CONTROL SOMEWHERE.
   A field with no box is not a hidden implementation detail; it is a fact about
   the job that only a machine may write.

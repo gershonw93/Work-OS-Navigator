@@ -1478,7 +1478,9 @@ export const HELP_ARTICLES: HelpArticle[] = [
     summary: 'Lay out milestones and see when each phase happens.',
     blocks: [
       { type: 'text', text: 'The Schedule tab auto-populates from awarded bids, and you can add milestones by hand.' },
-      { type: 'text', text: 'WHEN ONE TRADE SLIPS, EVERYTHING BEHIND IT MOVES. Press Set Dates on a vendor waiting to be scheduled, fill in the start and end dates, and SyteNav asks "Depends on another trade?" as soon as the line exists. Adding a milestone does the same. You can also open any existing line and answer it there. Pick the line it waits for. From then on, moving that line by three days moves this one by three days - and anything waiting on THIS one, all the way down the chain.' },
+      { type: 'text', text: 'WHEN ONE TRADE SLIPS, EVERYTHING BEHIND IT MOVES. Press Set Dates on a vendor waiting to be scheduled, fill in the start and end dates, and SyteNav asks "Can\'t start till another trade finishes?" as soon as the line exists. Adding a milestone does the same, and you can open any existing line and answer it there. Pick the trade under "After:" and press Save. From then on, moving that line by three days moves this one by three days - and anything waiting on THIS one, all the way down the chain.' },
+      { type: 'text', text: 'THAT IS THE WHOLE THING FOR MOST JOBS - "after the sheetrock guy" and nothing else. If you need more, "More options" holds two extras: "Wait till they\'re __% done" holds this trade until the one ahead is far enough along, and "Plus __ extra days" leaves clear days in between. Leave both blank and it simply starts when they finish.' },
+      { type: 'text', text: 'NOTHING IN THAT PANEL SAVES ON ITS OWN. Save inside the panel puts the link in the list; Save Changes at the bottom of the dialog is what writes it. Cancel throws the lot away.' },
       { type: 'steps', items: [
         'Open the line and change its dates.',
         'A screen lists everything that moves: each trade, its old dates, its new dates, and which sub is on it.',
@@ -1486,9 +1488,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'Cancel moves nothing at all.',
       ] },
       { type: 'text', text: 'ONE EMAIL PER SUB, NOT PER LINE. A sub with two phases on your job - electrical rough-in and finish - gets one email listing both, saying what moved and which trade pushed it. Replies come straight back to you.' },
-      { type: 'text', text: 'THE TRADE YOU NEED HAS NO LINE YET? Add a placeholder from inside the dialog - a trade name and rough dates, nobody assigned. Other work can depend on it immediately, and when you award that trade to a real sub the link stays put.' },
-      { type: 'text', text: 'A TRADE CAN ALSO WAIT ON PROGRESS, not just a finish date. Inside the link there are two optional lines, and leaving both alone means "wait for them to finish". Fill the first - "Do not start until they are 80% done" - to hold this trade until the one ahead is far enough along. Fill the second - "Then wait 2 days before starting" - to leave clear days in between. Type the percent on the framing line as it goes, or let it come from that sub\'s budget lines. Until somebody says how far along it is, the trade behind stays blocked and says so.' },
-      { type: 'text', text: 'NOTHING IN THAT PANEL SAVES ON ITS OWN. "Add this link" puts it in the list; Save Changes at the bottom of the dialog is what writes it. Cancel throws the lot away.' },
+      { type: 'text', text: 'THE TRADE YOU NEED HAS NO LINE YET? Press "My trade\'s not here" inside the panel and add a placeholder - a trade name and rough dates, nobody assigned. Other work can depend on it immediately, and when you award that trade to a real sub the link stays put.' },
+      { type: 'text', text: 'A TRADE HELD ON A PERCENT STAYS BLOCKED UNTIL SOMEBODY SAYS HOW FAR ALONG THE ONE AHEAD IS. Type the percent on that line as it goes, or let it come from that sub\'s budget lines. SyteNav will not tell a crew to turn up based on a number nobody has entered.' },
       { type: 'warn', text: 'A LINE YOU EDIT BY HAND STOPS FOLLOWING. Once you set a date yourself, later cascades leave that line alone and tell you they did - your decision beats the arithmetic. Re-link it from its own row when you want it following again.' },
       { type: 'steps', items: [
         'Open the project and go to the Schedule tab.',

@@ -1,10 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { Link2, Loader2, Plus, Trash2, X } from 'lucide-react'
+import { ChevronDown, ChevronUp, Link2, Loader2, Plus, Trash2, X } from 'lucide-react'
 import { formatDateShort } from '@/lib/dates'
 
-// "Depends on another trade?" - asked after the dates, never before them.
+// "Can't start till another trade finishes?" - asked after the dates.
 //
 // THE THREE THINGS REPORTED, all of them fair:
 //
@@ -77,6 +77,8 @@ export function DependencyPicker({
   const [progress, setProgress] = useState('')
   const [lag, setLag] = useState('')
   const [problem, setProblem] = useState<string | null>(null)
+  // Collapsed on purpose - see the comment beside it.
+  const [showMore, setShowMore] = useState(false)
 
   const [addingPlaceholder, setAddingPlaceholder] = useState(false)
   const [placeholderTrade, setPlaceholderTrade] = useState('')
@@ -91,7 +93,7 @@ export function DependencyPicker({
 
   function add() {
     // Asked at the FIELD, with our own words.
-    if (!predecessor) { setProblem('Pick the trade this one waits for.'); return }
+    if (!predecessor) { setProblem('Pick the trade this one comes after.'); return }
     const pct = progress.trim() === '' ? null : Number(progress)
     if (pct != null && (!Number.isFinite(pct) || pct < 0 || pct > 100)) {
       setProblem('How far along has to be a number between 0 and 100.'); return
@@ -108,7 +110,7 @@ export function DependencyPicker({
       lag_days: lagDays,
       predecessorName: lines.find(l => l.id === predecessor)?.name ?? 'that line',
     })
-    setPredecessor(''); setProgress(''); setLag(''); setOpen(false)
+    setPredecessor(''); setProgress(''); setLag(''); setShowMore(false); setOpen(false)
   }
 
   async function addPlaceholder() {
@@ -122,15 +124,13 @@ export function DependencyPicker({
     } finally { setSavingPlaceholder(false) }
   }
 
-  /** "until Framing is 80% done, then 2 days" - the link in one sentence. */
+  /** "After Framing hits 80%, plus 2 days" - how a link reads back. */
   function describe(d: { predecessorName: string; min_predecessor_progress: number | null; lag_days: number }) {
-    const bits = [
-      d.min_predecessor_progress != null
-        ? `until ${d.predecessorName} is ${d.min_predecessor_progress}% done`
-        : `until ${d.predecessorName} finishes`,
-    ]
-    if (d.lag_days > 0) bits.push(`then ${d.lag_days} ${d.lag_days === 1 ? 'day' : 'days'} later`)
-    return bits.join(', ')
+    const head = d.min_predecessor_progress != null
+      ? `After ${d.predecessorName} hits ${d.min_predecessor_progress}%`
+      : `After ${d.predecessorName}`
+    if (d.lag_days > 0) return `${head}, plus ${d.lag_days} ${d.lag_days === 1 ? 'day' : 'days'}`
+    return head
   }
 
   const field = 'rounded-lg border border-muted2 bg-panel px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none'
@@ -141,7 +141,7 @@ export function DependencyPicker({
       <div className="flex min-w-0 items-center justify-between gap-2">
         <h3 className="flex items-center gap-1.5 text-sm font-medium text-ink">
           <Link2 className="h-4 w-4 text-muted-fg" />
-          Depends on another trade?
+          Can&apos;t start till another trade finishes?
         </h3>
         {!open && available.length > 0 && (
           <button type="button" onClick={() => { setOpen(true); setProblem(null) }}
@@ -158,7 +158,7 @@ export function DependencyPicker({
             return (
               <li key={d.id} className="flex min-w-0 items-center justify-between gap-2 px-3 py-2">
                 <p className={`min-w-0 truncate text-sm ${marked ? 'text-faint line-through' : 'text-ink'}`}>
-                  Waits {describe(d)}
+                  {describe(d)}
                 </p>
                 {marked ? (
                   <button type="button" onClick={() => onUndoRemoval(d.id)}
@@ -177,7 +177,7 @@ export function DependencyPicker({
           })}
           {pending.map(d => (
             <li key={d.predecessor_task_id} className="flex min-w-0 items-center justify-between gap-2 bg-surface px-3 py-2">
-              <p className="min-w-0 truncate text-sm text-ink">Waits {describe(d)}</p>
+              <p className="min-w-0 truncate text-sm text-ink">{describe(d)}</p>
               <button type="button" onClick={() => onUnstage(d.predecessor_task_id)}
                 aria-label={`Remove the link to ${d.predecessorName}`} title="Remove"
                 className="shrink-0 rounded-lg p-2 text-muted-fg hover:bg-panel hover:text-danger">
@@ -192,7 +192,7 @@ export function DependencyPicker({
         <div className="mt-3 space-y-3">
           <div className="space-y-1.5">
             <label htmlFor="dep-pred" className="block text-sm font-medium text-muted-fg lg:text-xs">
-              Waits for <span className="text-danger">*</span>
+              After: <span className="text-danger">*</span>
             </label>
             {/* Starts EMPTY. A useState default on a required select is a claim. */}
             <select id="dep-pred" className={`w-full ${field}`} value={predecessor}
@@ -209,7 +209,7 @@ export function DependencyPicker({
           {!addingPlaceholder ? (
             <button type="button" onClick={() => { setAddingPlaceholder(true); setProblem(null) }}
               className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-line bg-panel px-2.5 py-1.5 text-xs font-medium text-ink hover:bg-surface">
-              <Plus className="h-3.5 w-3.5" /> The trade I need is not in the list
+              <Plus className="h-3.5 w-3.5" /> My trade&apos;s not here
             </button>
           ) : (
             <div className="rounded-lg border border-line bg-panel p-2">
@@ -233,41 +233,60 @@ export function DependencyPicker({
             </div>
           )}
 
-          {/* THE TWO OPTIONAL FIELDS, each finishing its own sentence, under a
-              heading that says what leaving them alone means. */}
-          <div className="rounded-lg border border-line-soft bg-panel p-2.5">
-            <p className="text-xs text-muted-fg">
-              Leave these alone and this line simply waits for that one to finish.
-            </p>
-            <div className="mt-2 space-y-2">
-              <div className="flex flex-wrap items-center gap-2 text-sm text-ink">
-                <label htmlFor="dep-progress" className="whitespace-nowrap">Do not start until they are</label>
-                <span className="inline-flex items-center gap-1">
-                  <input id="dep-progress" type="number" min={0} max={100} inputMode="numeric"
-                    className={`w-20 ${field}`} value={progress} placeholder="80"
-                    onChange={e => setProgress(e.target.value)} />
-                  <span className="text-muted-fg">%</span>
-                </span>
-                <span className="whitespace-nowrap">done</span>
+          {/* NINETY PERCENT OF THE JOB IS "after the sheetrock guy".
+              The percent gate and the extra days are real, and they were in
+              everybody's way: two boxes on the main path for a question almost
+              nobody is asking. Behind a tap, off by default, and the summary
+              on the tap says what they do so nobody has to open it to find out. */}
+          {!showMore ? (
+            <button type="button" onClick={() => setShowMore(true)}
+              className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg px-1 py-1.5 text-xs font-medium text-accent-fg hover:underline">
+              <ChevronDown className="h-3.5 w-3.5" /> More options - wait for a %, or leave extra days
+            </button>
+          ) : (
+            <div className="rounded-lg border border-line-soft bg-panel p-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs text-muted-fg">Leave these blank and it starts when they&apos;re done.</p>
+                <button type="button" onClick={() => setShowMore(false)}
+                  aria-label="Hide the extra options" title="Hide"
+                  className="shrink-0 rounded-lg p-1 text-muted-fg hover:bg-surface">
+                  <ChevronUp className="h-4 w-4" />
+                </button>
               </div>
-              <div className="flex flex-wrap items-center gap-2 text-sm text-ink">
-                <label htmlFor="dep-lag" className="whitespace-nowrap">Then wait</label>
-                <input id="dep-lag" type="number" min={0} inputMode="numeric"
-                  className={`w-20 ${field}`} value={lag} placeholder="0"
-                  onChange={e => setLag(e.target.value)} />
-                <span className="whitespace-nowrap">days before starting</span>
+              <div className="mt-2 space-y-2">
+                <div className="flex flex-wrap items-center gap-2 text-sm text-ink">
+                  <label htmlFor="dep-progress" className="whitespace-nowrap">Wait till they&apos;re</label>
+                  <span className="inline-flex items-center gap-1">
+                    <input id="dep-progress" type="number" min={0} max={100} inputMode="numeric"
+                      className={`w-20 ${field}`} value={progress} placeholder="80"
+                      onChange={e => setProgress(e.target.value)} />
+                    <span className="text-muted-fg">%</span>
+                  </span>
+                  <span className="whitespace-nowrap">done</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-sm text-ink">
+                  <label htmlFor="dep-lag" className="whitespace-nowrap">Plus</label>
+                  <input id="dep-lag" type="number" min={0} inputMode="numeric"
+                    className={`w-20 ${field}`} value={lag} placeholder="0"
+                    onChange={e => setLag(e.target.value)} />
+                  <span className="whitespace-nowrap">extra days</span>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {problem && <p className="text-xs text-danger">{problem}</p>}
 
           <div className="row-even lg:flex lg:justify-end lg:gap-2">
-            {/* Not a save. It adds the link to the list above; "Save Changes"
-                at the bottom of the dialog is what writes anything. */}
+            {/* Labelled "Save" because that is the word asked for, but it
+                still WRITES NOTHING - it puts the link in the list above, and
+                "Save Changes" at the foot of the dialog is the only thing that
+                reaches the database. Two buttons reading Save is a real risk of
+                the same "why is it a 2 step" confusion; flagged to the owner
+                rather than quietly overruled. */}
             <button type="button" onClick={add}
               className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink hover:opacity-90">
-              Add this link
+              Save
             </button>
             <button type="button" onClick={() => { setOpen(false); setProblem(null) }}
               className="whitespace-nowrap rounded-lg border border-line bg-panel px-4 py-2.5 text-sm font-medium text-ink hover:bg-surface">
