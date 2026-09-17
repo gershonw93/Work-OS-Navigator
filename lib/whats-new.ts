@@ -14,6 +14,8 @@
 // looked" badge, so keep it accurate.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { SUPPORT_EMAIL } from '@/lib/support-email'
+
 export type ReleaseKind = 'new' | 'improved' | 'fixed'
 
 export interface ReleaseItem {
@@ -53,6 +55,20 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 // wrong date, and a genuinely new entry could be published already "read".
 // Author entries anywhere in this list; the app reads the sorted view.
 const AUTHORED: Release[] = [
+  {
+    date: '2026-09-17',
+    title: `One address to reach us: ${SUPPORT_EMAIL}`,
+    items: [
+      {
+        kind: 'improved',
+        // Built from the constant, not typed out: a release note naming the
+        // wrong address is the bug it is announcing the fix for. Same rule as
+        // the Help articles building their prices from PLANS.
+        title: `Every "email us" now goes to ${SUPPORT_EMAIL}`,
+        text: `Help, the contact page and form, the security page and the legal documents were pointing at four different addresses - one of them a Gmail account. They all go to ${SUPPORT_EMAIL} now, and so does a reply to any email SyteNav sends you.`,
+      },
+    ],
+  },
   {
     date: '2026-09-17',
     title: 'Percent gates actually work, and the edit panel stops hiding links',

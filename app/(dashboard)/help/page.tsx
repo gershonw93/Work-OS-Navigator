@@ -1,5 +1,6 @@
 'use client'
 
+import { SUPPORT_EMAIL, supportMailto } from '@/lib/support-email'
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { useSearchParams } from 'next/navigation'
@@ -7,7 +8,7 @@ import { cn } from '@/lib/utils'
 import Link from 'next/link'
 import { Search, ChevronRight, ArrowLeft, Lightbulb, AlertTriangle, BookOpen, Mail, Sparkles } from 'lucide-react'
 
-const SUPPORT_EMAIL = 'sytenav@gmail.com'
+
 import {
   HELP_CATEGORIES, HELP_ARTICLES, searchArticles, getArticle, articlesByCategory,
   type HelpArticle, type HelpBlock,
@@ -200,7 +201,7 @@ function HelpPageInner() {
         <p className="mt-2 text-sm font-semibold text-ink">Still need help?</p>
         <p className="mt-0.5 text-sm text-muted-fg">Email our team and we'll get back to you.</p>
         <a
-          href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('SyteNav support')}`}
+          href={supportMailto('SyteNav support')}
           className="mt-3 inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-ink"
         >
           <Mail className="h-4 w-4" /> {SUPPORT_EMAIL}

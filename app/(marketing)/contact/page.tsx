@@ -1,3 +1,4 @@
+import { SUPPORT_EMAIL } from '@/lib/support-email'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Mail, MapPin, MessageSquare, Rocket, ArrowRight } from 'lucide-react'
@@ -27,12 +28,12 @@ export default function ContactPage() {
           </p>
 
           <div className="mt-10 space-y-5">
-            <a href="mailto:hello@sytenav.com" className="flex items-center gap-4 text-ink-soft hover:text-ink transition-colors">
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="flex items-center gap-4 text-ink-soft hover:text-ink transition-colors">
               <span className="h-11 w-11 rounded-xl bg-accent-tint flex items-center justify-center shrink-0">
                 <Mail className="h-5 w-5 text-accent-fg" />
               </span>
               <span>
-                <span className="block font-semibold text-ink">hello@sytenav.com</span>
+                <span className="block font-semibold text-ink">{SUPPORT_EMAIL}</span>
                 <span className="block text-sm text-muted-fg">Sales, support, and everything else</span>
               </span>
             </a>

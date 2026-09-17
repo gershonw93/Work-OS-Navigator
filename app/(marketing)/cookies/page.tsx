@@ -1,3 +1,4 @@
+import { SUPPORT_EMAIL } from '@/lib/support-email'
 import type { Metadata } from 'next'
 import { LegalDoc } from '@/components/marketing/legal-doc'
 import { marketingMeta } from '@/components/marketing/meta'
@@ -27,7 +28,7 @@ export default function CookiesPage() {
         ] },
         { h: 'Managing cookies', body: ['You can control or delete cookies through your browser settings. Blocking essential cookies may prevent parts of the Service from working.'] },
         { h: 'Changes', body: ['We may update this Cookie Policy from time to time. Changes will be posted here with an updated date.'] },
-        { h: 'Contact', body: ['Questions about cookies? Contact legal@sytenav.com.'] },
+        { h: 'Contact', body: [`Questions about cookies? Contact ${SUPPORT_EMAIL}.`] },
       ]}
     />
   )

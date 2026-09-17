@@ -1,3 +1,4 @@
+import { SUPPORT_EMAIL } from '@/lib/support-email'
 import type { Metadata } from 'next'
 import { LegalDoc } from '@/components/marketing/legal-doc'
 import { marketingMeta } from '@/components/marketing/meta'
@@ -26,7 +27,7 @@ export default function PrivacyPage() {
         { h: 'Cookies', body: ['We use cookies and similar technologies as described in our Cookie Policy.'] },
         { h: 'Children', body: ['The Service is not directed to children under 16, and we do not knowingly collect their personal information.'] },
         { h: 'Changes to this policy', body: ['We may update this policy from time to time. Material changes will be posted here with an updated date.'] },
-        { h: 'Contact', body: ['For privacy questions or requests, contact legal@sytenav.com.'] },
+        { h: 'Contact', body: [`For privacy questions or requests, contact ${SUPPORT_EMAIL}.`] },
       ]}
     />
   )

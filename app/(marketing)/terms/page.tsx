@@ -1,3 +1,4 @@
+import { SUPPORT_EMAIL } from '@/lib/support-email'
 import type { Metadata } from 'next'
 import { LegalDoc } from '@/components/marketing/legal-doc'
 import { marketingMeta } from '@/components/marketing/meta'
@@ -27,7 +28,7 @@ export default function TermsPage() {
         { h: 'Termination', body: ['You may stop using the Service at any time. We may suspend or terminate access for violation of these Terms or to protect the Service. On termination, your right to use the Service ends; you may request an export of Customer Data for a limited period.'] },
         { h: 'Governing law', body: ['These Terms are governed by the laws of the State of New Jersey, USA, without regard to its conflict-of-laws rules.'] },
         { h: 'Changes to these Terms', body: ['We may update these Terms from time to time. Material changes will be posted here with an updated date; continued use means you accept the changes.'] },
-        { h: 'Contact', body: ['Questions about these Terms? Contact legal@sytenav.com.'] },
+        { h: 'Contact', body: [`Questions about these Terms? Contact ${SUPPORT_EMAIL}.`] },
       ]}
     />
   )

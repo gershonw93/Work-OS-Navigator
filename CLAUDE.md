@@ -63,7 +63,21 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
   you can grep for: both names exist, both compile, and the one you pick decides
   whether the feature has ever worked. Project coordinates are
   `lat`/`lng`/`geocoded_address`, never `latitude`/`longitude` (dropped in 105);
-  `lib/project-site.ts` is the one reader.
+  `lib/project-site.ts` is the one reader. **AND THAT RULE IS NOT ONLY ABOUT
+  COLUMNS.** The address SyteNav tells a person to write to was FOUR addresses
+  hardcoded in FOURTEEN places - `sytenav@gmail.com` on the in-app Help card,
+  `hello@` on the contact page, in the contact form twice, as the reply-to on
+  every email the app sends and in the Organization JSON-LD (the copy Google
+  prints), `legal@` in four legal documents plus the shared legal footer, and
+  `security@` on the security page. The ask was three words - "change all to
+  info@sytenav.com" - and "all" was the whole job. `lib/support-email.ts` is
+  the one home; `supportMailto()` builds the link, because with four inboxes
+  collapsed into one the SUBJECT is all that separates a security report from a
+  cookie question. `EMAIL_FROM` stays `noreply@`: that is the envelope sender,
+  not somewhere to write. Pinned in `support-email.ts`, which scans every .ts
+  and .tsx under app/, components/ and lib/ for a literal `@sytenav.com` or
+  `@gmail.com` - a scan of the marketing pages alone reported clean while the
+  Gmail address sat on the Help page, and vice versa.
 - **A value that is present and WRONG is worse than one that is missing.**
   `projectSite()` returns `coords: null` for a STALE pin as well as an absent
   one, because a caller handed a number WILL measure against it. Same rule going

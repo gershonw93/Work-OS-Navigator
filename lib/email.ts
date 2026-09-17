@@ -26,6 +26,7 @@
 
 import { CANONICAL_ORIGIN } from '@/lib/canonical'
 import { dateWords, dayDelta } from '@/lib/dates'
+import { SUPPORT_EMAIL } from '@/lib/support-email'
 
 const SENDGRID_ENDPOINT = 'https://api.sendgrid.com/v3/mail/send'
 
@@ -56,7 +57,7 @@ export function emailConfig(env: NodeJS.ProcessEnv = process.env): EmailConfig {
     fromName: (env.EMAIL_FROM_NAME ?? '').trim() || 'SyteNav',
     // Replies to a noreply@ address are a small act of rudeness. Point them at
     // an inbox somebody actually reads.
-    replyTo: (env.EMAIL_REPLY_TO ?? '').trim() || 'hello@sytenav.com',
+    replyTo: (env.EMAIL_REPLY_TO ?? '').trim() || SUPPORT_EMAIL,
   }
 }
 
