@@ -196,6 +196,80 @@ console.log('\nschedule-cascade')
     '...in both lists, from the one function')
 }
 
+// ── and the percent has to SURVIVE the trip out of the database ─────────────
+//
+// The nit that followed: "the review still says just 'waits on Sheetrock' for
+// the 80% row - the threshold only shows in the edit panel." The columns are
+// NUMERIC(5,2) and PostgREST returns those QUOTED, so every
+// `Number.isFinite(value)` in the pure module was false for real data. The
+// label was the only VISIBLE symptom; the progress gate silently never fired.
+{
+  const pure = code('lib/schedule-dependencies.ts')
+  ok(/export function toPct/.test(pure), 'one reader coerces a percent off a NUMERIC column')
+
+  // The ratchet that matters: nothing may go back to asking isFinite of a
+  // value that came out of the database.
+  const finite = pure.match(/Number\.isFinite\([^)]*\)/g) ?? []
+  ok(finite.length === 2,
+    `only toPct and toAmount ask Number.isFinite, and they ask it of a coerced number (${finite.length})`)
+  ok(!/Number\.isFinite\((need|typed|pct|r\.progress_pct)/.test(pure),
+    '...never of a column value straight off a row')
+
+  // The picker prints it through the same reader, or a saved link reads
+  // "hits 80.00%" - a trailing .00 nobody typed.
+  const picker = code('components/schedule/dependency-picker.tsx')
+  ok(/pctLabel\(d\.min_predecessor_progress\)/.test(picker),
+    'the edit panel prints the percent through pctLabel')
+  ok(/min_predecessor_progress: number \| string \| null/.test(picker),
+    '...and its type admits the string, so the next reader is forced through it')
+}
+
+// ── an empty list is not an answer until it is one ──────────────────────────
+//
+// REPORTED: "open a linked row's Edit Item and the dependency section says
+// 'Nothing - it can start whenever it is scheduled.' even though a link
+// exists; clicking Add or reopening makes the link appear."
+//
+// The links are fetched when the dialog opens, and `existing` is `[]` until
+// they land - so one empty array meant "still asking" AND "there are none",
+// and the panel stated the second confidently. Add only appeared to fix it: it
+// hides that sentence, and by then the fetch had landed.
+{
+  const picker = code('components/schedule/dependency-picker.tsx')
+  ok(/existingState: 'loading' \| 'ready' \| 'failed'/.test(picker),
+    'the panel is told which of the three it is looking at')
+  ok(/existingState === 'ready' && !open && nothingLinked/.test(picker),
+    'THE FIX: "nothing is linked" is only said once that is KNOWN')
+  ok(/existingState === 'loading'/.test(picker), '...with something to see while it asks')
+  // A failed read saying "nothing" is worse than the original bug: a stale
+  // token would tell somebody their links were gone.
+  ok(/existingState === 'failed'/.test(picker),
+    '...and a FAILED read says so rather than reporting an empty list')
+
+  const page = code('app/(dashboard)/projects/[id]/schedule/page.tsx')
+  // Read the !res.ok branch SPECIFICALLY. Asserting the string appears
+  // anywhere passes on the catch block alone, which is the half that was
+  // already there - a pin that cannot tell the two apart is not pinning this.
+  // Anchored INSIDE loadDeps. `indexOf` from the top of the file finds another
+  // route's `if (!res.ok)` first and slices an empty string, which passes
+  // everything - the pin looked right and read nothing.
+  const loadDepsSrc = page.slice(page.indexOf('async function loadDeps'))
+  const notOk = loadDepsSrc.slice(loadDepsSrc.indexOf('if (!res.ok) {'), loadDepsSrc.indexOf('const d = await res.json()'))
+  ok(notOk.length > 0, 'the !res.ok branch of loadDeps is actually being read')
+  ok(/setDepsState\('failed'\)/.test(notOk),
+    'a non-OK response is reported as FAILED, never as an empty list')
+  ok(!/setDepsState\('ready'\)/.test(notOk), '...and never as a ready answer of none')
+  ok(/setDeps\(\[\]\); setDepsState\('loading'\)/.test(page),
+    '...and opening a row goes back to loading, not to "none"')
+  ok(/catch \(e\)/.test(page.slice(page.indexOf('async function loadDeps'))),
+    '...and a throw lands somewhere rather than leaving it loading for ever')
+
+  // The other shape of the same bug: open one row, close it, open another, and
+  // the first response lands last and paints the wrong line's links.
+  ok(/depsFor\.current = itemId/.test(page) && /depsFor\.current === itemId/.test(page),
+    'a response that is no longer the one being waited for is DROPPED')
+}
+
 // ── every linked line is in one bucket or the other ──────────────────────────
 //
 // REPORTED: "the review screen drops linked rows - every linked row should

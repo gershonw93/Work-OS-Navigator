@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronUp, Link2, Loader2, Plus, Trash2, X } from 'lucide-react'
 import { formatDateShort } from '@/lib/dates'
+import { pctLabel } from '@/lib/schedule-dependencies'
 
 // "Can't start till another trade finishes?" - asked after the dates.
 //
@@ -40,7 +41,8 @@ export interface PickableLine {
 export interface ExistingDependency {
   id: string
   predecessor_task_id: string
-  min_predecessor_progress: number | null
+  /** A NUMERIC column comes back QUOTED - "80.00". Read it with `pctLabel`. */
+  min_predecessor_progress: number | string | null
   lag_days: number
   predecessorName: string
 }
@@ -48,19 +50,35 @@ export interface ExistingDependency {
 /** A link somebody has built here but not saved yet. */
 export interface PendingDependency {
   predecessor_task_id: string
-  min_predecessor_progress: number | null
+  min_predecessor_progress: number | string | null
   lag_days: number
   predecessorName: string
 }
 
 export function DependencyPicker({
-  lines, existing, pending, removing, selfId,
+  lines, existing, existingState, pending, removing, selfId,
   onStage, onUnstage, onStageRemoval, onUndoRemoval, onAddPlaceholder,
 }: {
   /** Every line on this project except this one. Placeholders included. */
   lines: PickableLine[]
   /** Links already saved against this line. */
   existing: ExistingDependency[]
+  /**
+   * Whether `existing` is an ANSWER yet.
+   *
+   * THE REPORT: "open a linked row's Edit Item and the dependency section says
+   * 'Nothing - it can start whenever it is scheduled.' even though a link
+   * exists; clicking Add or reopening makes it appear." The links are fetched
+   * when the dialog opens and `existing` is `[]` until they land - so an empty
+   * array meant BOTH "still asking" and "there are none", and the panel stated
+   * the second one confidently. Pressing Add only appeared to fix it: Add hides
+   * that sentence, and by then the fetch had landed.
+   *
+   * Intermittent for the obvious reason - on a fast request the window is a
+   * blink. A 'failed' load renders the same sentence, which is worse: a stale
+   * token would tell somebody their links were gone.
+   */
+  existingState: 'loading' | 'ready' | 'failed'
   /** Links built here and waiting for Save Changes. */
   pending: PendingDependency[]
   /** Ids of saved links marked for removal on save. */
@@ -124,10 +142,16 @@ export function DependencyPicker({
     } finally { setSavingPlaceholder(false) }
   }
 
-  /** "After Framing hits 80%, plus 2 days" - how a link reads back. */
-  function describe(d: { predecessorName: string; min_predecessor_progress: number | null; lag_days: number }) {
-    const head = d.min_predecessor_progress != null
-      ? `After ${d.predecessorName} hits ${d.min_predecessor_progress}%`
+  /**
+   * "After Framing hits 80%, plus 2 days" - how a link reads back.
+   *
+   * `pctLabel` rather than the raw value: the column is NUMERIC and comes back
+   * as the string "80.00", which prints a trailing .00 nobody typed.
+   */
+  function describe(d: { predecessorName: string; min_predecessor_progress: number | string | null; lag_days: number }) {
+    const pct = pctLabel(d.min_predecessor_progress)
+    const head = pct != null
+      ? `After ${d.predecessorName} hits ${pct}%`
       : `After ${d.predecessorName}`
     if (d.lag_days > 0) return `${head}, plus ${d.lag_days} ${d.lag_days === 1 ? 'day' : 'days'}`
     return head
@@ -296,7 +320,22 @@ export function DependencyPicker({
         </div>
       )}
 
-      {!open && nothingLinked && (
+      {/* Three states, not one. "Loading" and "failed" are different facts
+          from "there are none", and only the last of them may be stated. */}
+      {existingState === 'loading' && pending.length === 0 && (
+        <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-fg">
+          <Loader2 className="h-3 w-3 animate-spin" /> Checking what this waits for...
+        </p>
+      )}
+
+      {existingState === 'failed' && (
+        <p className="mt-1 text-xs text-warn">
+          Could not load this line&apos;s links - this is not the same as it having none.
+          Reload the page before changing anything here.
+        </p>
+      )}
+
+      {existingState === 'ready' && !open && nothingLinked && (
         <p className="mt-1 text-xs text-muted-fg">
           {available.length === 0
             ? 'There is nothing else on this schedule to wait for yet.'

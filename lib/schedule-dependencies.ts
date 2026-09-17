@@ -34,8 +34,13 @@ export interface ScheduleLine {
   subcontract_id?: string | null
   /** Set when a human edited the dates by hand - see `skipped` below. */
   dates_overridden_at?: string | null
-  /** A percent somebody TYPED. Null means nobody has, which is not zero. */
-  progress_pct?: number | null
+  /**
+   * A percent somebody TYPED. Null means nobody has, which is not zero.
+   *
+   * `number | string` is not sloppiness - see `toPct` below. The column is
+   * NUMERIC and PostgREST hands it back QUOTED.
+   */
+  progress_pct?: number | string | null
 }
 
 export interface Dependency {
@@ -45,7 +50,7 @@ export interface Dependency {
   /** The line it waits for. */
   predecessor_task_id: string
   /** How far along the predecessor must be. Null means "just the dates". */
-  min_predecessor_progress?: number | null
+  min_predecessor_progress?: number | string | null
   /** Days of breathing room after the predecessor ends. */
   lag_days?: number | null
   /** When the link was made. Decides which of two statements is the later one. */
@@ -155,8 +160,49 @@ export interface Progress {
 }
 
 export interface BudgetProgressRow {
-  progress_pct?: number | null
-  amount?: number | null
+  progress_pct?: number | string | null
+  amount?: number | string | null
+}
+
+/**
+ * A percent off a row, whatever shape the database handed it over in.
+ *
+ * **A NUMERIC COLUMN COMES BACK AS A STRING, AND `Number.isFinite` DOES NOT
+ * COERCE.** `min_predecessor_progress`, `schedule_items.progress_pct` and
+ * `budget_line_items.progress_pct` are all `NUMERIC(5,2)`, and PostgREST
+ * serialises those QUOTED - `"80.00"`, not `80`. Every guard in this file read
+ * `Number.isFinite(value)`, which is `false` for a string, so:
+ *
+ *   - a typed percent never won over the budget roll-up,
+ *   - the budget roll-up filtered every row out and answered `unknown`,
+ *   - `blockedBy` returned "not blocked" for every gate ever set, and
+ *   - the review printed "waits on Sheetrock" for an 80% link.
+ *
+ * Only the last of those is visible, and it was reported as a nit. The other
+ * three fail SILENTLY AND SAFELY-LOOKING: a gate that never blocks looks
+ * exactly like a gate whose condition is met.
+ *
+ * Every unit test passed throughout, because a fixture is written by hand and
+ * a hand writes `80`. THE SAME RULE AS A `.select()` - check the shape against
+ * the migration, not against what you would have typed.
+ */
+export function toPct(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null
+  const n = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(n) ? clampPct(n) : null
+}
+
+/** The same, for money: an amount off a NUMERIC column is a string too. */
+export function toAmount(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null
+  const n = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(n) ? n : null
+}
+
+/** "80", never "80.00" - a trailing .00 is the database showing through. */
+export function pctLabel(value: unknown): string | null {
+  const n = toPct(value)
+  return n == null ? null : String(n)
 }
 
 /**
@@ -172,27 +218,25 @@ export interface BudgetProgressRow {
  * with the number so the screen can say "nobody has said" instead of "0%".
  */
 export function lineProgress(line: ScheduleLine, budgetRows: BudgetProgressRow[] = []): Progress {
-  const typed = line.progress_pct
-  if (typed != null && Number.isFinite(typed)) {
-    return { pct: clampPct(typed), source: 'entered' }
-  }
+  const typed = toPct(line.progress_pct)
+  if (typed != null) return { pct: typed, source: 'entered' }
 
-  const rows = budgetRows.filter(r => r.progress_pct != null && Number.isFinite(r.progress_pct as number))
+  const rows = budgetRows.filter(r => toPct(r.progress_pct) != null)
   if (!rows.length) return { pct: null, source: 'unknown' }
 
   const weight = (r: BudgetProgressRow) => {
-    const a = Number(r.amount)
-    return Number.isFinite(a) && a > 0 ? a : 0
+    const a = toAmount(r.amount)
+    return a != null && a > 0 ? a : 0
   }
   const total = rows.reduce((sum, r) => sum + weight(r), 0)
 
   // Every row weightless (no amounts) - a plain mean is the only honest answer.
   if (total <= 0) {
-    const mean = rows.reduce((s, r) => s + clampPct(Number(r.progress_pct)), 0) / rows.length
+    const mean = rows.reduce((s, r) => s + (toPct(r.progress_pct) ?? 0), 0) / rows.length
     return { pct: round2(mean), source: 'budget' }
   }
 
-  const weighted = rows.reduce((s, r) => s + clampPct(Number(r.progress_pct)) * weight(r), 0) / total
+  const weighted = rows.reduce((s, r) => s + (toPct(r.progress_pct) ?? 0) * weight(r), 0) / total
   return { pct: round2(weighted), source: 'budget' }
 }
 
@@ -220,8 +264,8 @@ export function blockedBy(
   predecessor: ScheduleLine,
   progress: Progress,
 ): BlockedVerdict {
-  const need = dep.min_predecessor_progress
-  if (need == null || !Number.isFinite(need)) return { blocked: false, reason: null, unknown: false }
+  const need = toPct(dep.min_predecessor_progress)
+  if (need == null) return { blocked: false, reason: null, unknown: false }
 
   const name = lineName(predecessor)
   if (progress.pct == null) {
@@ -255,9 +299,8 @@ export interface LinkGate {
 }
 
 export function gateOf(dep: Pick<Dependency, 'min_predecessor_progress' | 'lag_days'>): LinkGate {
-  const pct = dep.min_predecessor_progress
   return {
-    pct: pct != null && Number.isFinite(pct) ? pct : null,
+    pct: toPct(dep.min_predecessor_progress),
     lagDays: Number(dep.lag_days ?? 0) || 0,
   }
 }

@@ -55,6 +55,24 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 const AUTHORED: Release[] = [
   {
     date: '2026-09-17',
+    title: 'Percent gates actually work, and the edit panel stops hiding links',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'A "wait till they\'re __% done" gate now actually holds a trade back',
+        text: 'The percent you set was being read in a way that made it invisible to the code checking it, so a gate never blocked anybody and the review screen printed the link without its threshold. Percent gates now block as written, "waits on Sheetrock at 80%" shows on the review, and a trade\'s percent complete feeds through to everything that reads it - including the roll-up from that sub\'s budget lines.',
+        help: 'schedule-milestones',
+      },
+      {
+        kind: 'fixed',
+        title: 'Opening a linked row no longer says it has no links',
+        text: 'Open Edit Item on a trade that follows another and the panel could say "Nothing - it can start whenever it is scheduled." for a moment, because it could not tell "still loading" from "there are none". It now says it is checking, and if it genuinely cannot load them it says THAT rather than reporting an empty list.',
+        help: 'schedule-milestones',
+      },
+    ],
+  },
+  {
+    date: '2026-09-17',
     title: 'Percent links follow the chain, and the date email reads like a date',
     items: [
       {
