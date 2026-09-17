@@ -54,6 +54,17 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 // Author entries anywhere in this list; the app reads the sorted view.
 const AUTHORED: Release[] = [
   {
+    date: '2026-09-17',
+    title: 'Pull down to refresh',
+    items: [
+      {
+        kind: 'new',
+        title: 'Pull down at the top of a screen to reload it',
+        text: 'Somebody submits a permit and the screen in your hand is a minute old. Pull down from the top of any screen on your phone and it reloads - the same gesture as every other app. It only works at the very top, so it never steals a normal scroll, and it does nothing while a dialog is open so you cannot lose something half typed.',
+      },
+    ],
+  },
+  {
     date: '2026-09-16',
     title: 'Schedule dependencies',
     items: [

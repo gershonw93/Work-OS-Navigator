@@ -1471,6 +1471,25 @@ export const HELP_ARTICLES: HelpArticle[] = [
 
   // ── Field: Schedule / Tasks / Time ─────────────────────────────────────────
   {
+    slug: 'pull-to-refresh',
+    title: 'Refresh a screen on your phone',
+    category: 'field',
+    keywords: ['refresh', 'reload', 'pull to refresh', 'pull down', 'stale', 'out of date', 'not updating', 'old data', 'permit submitted', 'swipe down', 'update screen'],
+    summary: 'Pull down from the top to reload what you are looking at.',
+    blocks: [
+      { type: 'text', text: 'Somebody submits a permit, marks work ready or sends a bill while you are looking at the screen, and what is in your hand is a minute old. Pull down from the TOP of the screen and it reloads - the same gesture as every other app on your phone.' },
+      { type: 'steps', items: [
+        'Scroll all the way to the top of the screen.',
+        'Put your finger on the screen and drag down.',
+        'When it says "Let go to refresh", let go.',
+      ] },
+      { type: 'text', text: 'IT ONLY WORKS AT THE VERY TOP. A pixel down the page, dragging down is just scrolling, and taking that over would make the app feel broken in the most ordinary thing you do. So if nothing happens, scroll up first.' },
+      { type: 'warn', text: 'IT DOES NOTHING WHILE A DIALOG IS OPEN. That is on purpose - reloading would throw away whatever you had half typed in it. Close the dialog first.' },
+      { type: 'text', text: 'On a computer there is no pull gesture; use your browser\'s reload button.' },
+    ],
+    related: ['schedule-milestones'],
+  },
+  {
     slug: 'schedule-milestones',
     title: 'Build a project schedule',
     category: 'field',

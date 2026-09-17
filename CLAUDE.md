@@ -427,6 +427,23 @@ which lays real markup out in headless Chromium.
   a NATIVE setting that reaches a phone only after an iOS rebuild; the JS
   gesture is for everyone else and the system one takes the edge touch first,
   so they never fight. Pinned in `swipe-sheet.ts` and `swipe-back.ts`.
+- **PULL DOWN AT THE TOP TO RELOAD, AND IT SHARES THE BACK GESTURE'S AXIS
+  RULE.** Asked for because a permit gets submitted on somebody else's phone and
+  the screen in your hand is a minute old, with no browser bar in the installed
+  app. `lib/pull-refresh.ts` is pure (`canStartPull`, `pullTravel`, `pullState`)
+  and `lib/use-pull-refresh.ts` holds the DOM; mounted ONCE from `NativeShell`
+  beside `SwipeBack`, never in a layout - two listeners on one scroller doubles
+  every reading. THE AXIS COMES FROM `swipeAxis`, not from a second rule of its
+  own: a sideways drag is the back gesture's, a downward one is this, and two
+  modules with two ideas of "horizontal" is how one fires during the other. It
+  starts ONLY at `scrollTop <= 0` (a pixel down the page that drag is a scroll),
+  never with a `[data-overlay]` open (a reload takes a half-typed note with it),
+  and never at `lg`. `touchmove` is NOT passive - it stands in for the scroll,
+  so it has to be able to preventDefault it. AND IT RELOADS rather than calling
+  `router.refresh()`: eighteen of the twenty project screens are client
+  components fetching in a `useEffect`, which `router.refresh()` does not re-run,
+  so the cheap call would be a refresh gesture that refreshes nothing almost
+  everywhere it is offered. Pinned in `pull-refresh.ts` and `pull-to-refresh.ts`.
 - The overlay scroll lock is `overflow-y: hidden`, NEVER the `overflow`
   shorthand - the shorthand replaces the `clip` on html/body with `hidden`, and
   clip cannot be scrolled while hidden can.
