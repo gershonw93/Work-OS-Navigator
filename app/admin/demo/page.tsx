@@ -60,6 +60,8 @@ export default function DemoConsolePage() {
   // first time somebody added one.
   const sendable = NOTIFICATION_TYPES.filter(t => t.status === 'live')
 
+  const selected = users.find(u => u.id === recipientId) ?? null
+
   // Live preview, computed with the same function the route uses - so what is
   // on the screen before you press send is what lands.
   const preview = type ? demoNotification(type, todayDateInput()) : null
@@ -132,11 +134,27 @@ export default function DemoConsolePage() {
               {users.map(u => (
                 <option key={u.id} value={u.id}>
                   {u.full_name || u.email || 'Unnamed'}
-                  {u.companies?.name ? ` - ${u.companies.name}` : ''}
+                  {/* THE ADDRESS IS IN THE OPTION. Two people called Admin User
+                      are one company apart and indistinguishable by name, and
+                      the thing you actually need on a stage is which inbox to
+                      open. */}
+                  {u.email ? ` - ${u.email}` : ' - no email'}
                   {u.role ? ` (${u.role})` : ''}
                 </option>
               ))}
             </select>
+
+            {/* And again once chosen, because an option list closes. */}
+            {selected && (
+              selected.email
+                ? <p className="text-xs text-muted-fg">
+                    Email goes to <span className="font-medium text-ink">{selected.email}</span>
+                    {selected.companies?.name ? ` - ${selected.companies.name}` : ''}
+                  </p>
+                : <p className="text-xs text-warn">
+                    No email address on this profile, so only the bell will fire.
+                  </p>
+            )}
           </div>
 
           <div className="space-y-1.5">
@@ -178,6 +196,9 @@ export default function DemoConsolePage() {
           <p className="text-sm font-semibold text-success">
             Sent to {result.recipient.name || result.recipient.email || 'them'}
           </p>
+          {result.recipient.email && (
+            <p className="mt-0.5 text-sm text-ink-soft">{result.recipient.email}</p>
+          )}
           <div className="mt-3 flex flex-wrap gap-4 text-sm text-ink-soft">
             <span className="inline-flex items-center gap-1.5">
               <Bell className="h-4 w-4" /> Bell: {result.result.inApp}

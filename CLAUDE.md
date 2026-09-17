@@ -265,6 +265,13 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
   a second list that drifts the first time somebody adds a type, and
   `lib/demo-notification.ts` has copy for every one of them - pinned, so a new
   live type fails the suite until it has a sample.
+- **AND IT NAMES THE INBOX.** The picker read "Admin User (admin)", which on a
+  stage does not tell you which mailbox to have open on the other screen - and
+  two people called Admin User are one company apart, so the name alone cannot
+  tell them apart either. The address is in the option, under the picker once
+  chosen, and on the confirmation. A profile with NO address says so BEFORE the
+  send: that is the difference between "the email is slow" and "there was never
+  going to be one".
 - **THE DATES ARE COMPUTED, NOT TYPED.** "makeshift text that looks real based
   on the current date" - a sample reading "due Sep 12" in November is the one
   detail an audience notices. The pin re-renders every sample on a second date
