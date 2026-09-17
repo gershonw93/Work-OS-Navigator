@@ -23,7 +23,7 @@ interface AffectedSub {
   companyName: string
   email: string | null
   /** Every line of theirs that moved. One email covers all of them. */
-  lines: { id: string; trade: string; from: string; to: string; because: string | null }[]
+  lines: { id: string; trade: string; from: string; to: string; shiftDays: number; because: string | null }[]
 }
 
 /**
@@ -79,7 +79,10 @@ async function plan(db: ReturnType<typeof admin>, projectId: string, itemId: str
         email: isEmailAddress(company.contact_email) ? company.contact_email : null,
         lines: [],
       }
-      entry.lines.push({ id: m.id, trade: lineName(line), from: m.from.start, to: m.to.start, because })
+      entry.lines.push({
+        id: m.id, trade: lineName(line),
+        from: m.from.start, to: m.to.start, shiftDays: m.shiftDays, because,
+      })
       affected.set(company.id, entry)
     }
 
@@ -91,6 +94,7 @@ async function plan(db: ReturnType<typeof admin>, projectId: string, itemId: str
       shiftDays: m.shiftDays,
       because,
       link: m.link,
+      gate: m.gate,
       sub: company ? { id: company.id, name: company.name, email: company.contact_email ?? null } : null,
     }
   })
@@ -106,6 +110,7 @@ async function plan(db: ReturnType<typeof admin>, projectId: string, itemId: str
       name: lineName(byId.get(s.id)),
       reason: s.reason,
       link: s.link,
+      gate: s.gate,
       because: lineName(byId.get(s.becauseOf)),
     })),
     affected: Array.from(affected.values()),
@@ -170,6 +175,17 @@ export async function PUT(request: Request, { params }: { params: { id: string; 
   }
   const shouldNotify: boolean = body.notify
 
+  // WHETHER THIS EDIT IS A HAND OVERRIDE, and the one caller allowed to say it
+  // is not. The flag takes a line out of every future cascade, so the default
+  // is the protective one - an un-updated caller keeps today's behaviour.
+  //
+  // THE CONTRADICTION IT RESOLVES: the dialog commits staged links and then
+  // saves the dates, so one save was writing "this line follows Sheetrock" and
+  // "this line's dates are hand-set, ignore Sheetrock" a second apart, with the
+  // second winning. A save that just linked this line is not a decision to
+  // ignore the link it just made.
+  const markOverridden: boolean = body?.dates_overridden !== false
+
   const db = admin()
   let p
   try { p = await plan(db, params.id, params.itemId, newStart, newEnd) }
@@ -181,7 +197,11 @@ export async function PUT(request: Request, { params }: { params: { id: string; 
   // The edited line first. `dates_overridden_at` marks it as a human decision,
   // so a later cascade from further upstream leaves it alone and says so.
   const { error: rootErr } = await db.from('schedule_items')
-    .update({ start_date: newStart, end_date: newEnd, dates_overridden_at: new Date().toISOString() })
+    .update({
+      start_date: newStart,
+      end_date: newEnd,
+      ...(markOverridden ? { dates_overridden_at: new Date().toISOString() } : {}),
+    })
     .eq('id', params.itemId).eq('project_id', params.id)
   if (rootErr) {
     console.error('[schedule/cascade] root update failed:', rootErr.message)
@@ -223,7 +243,8 @@ export async function PUT(request: Request, { params }: { params: { id: string; 
         vendorName: sub.companyName,
         projectName,
         lines: moved.map((l): ShiftedLine => ({
-          trade: l.trade, oldStart: l.from, newStart: l.to, because: l.because,
+          trade: l.trade, oldStart: l.from, newStart: l.to,
+          shiftDays: l.shiftDays, because: l.because,
         })),
       })
       const res = await sendEmail({ to: sub.email, ...mail })

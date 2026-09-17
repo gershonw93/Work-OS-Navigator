@@ -18,6 +18,12 @@ import { AlertTriangle, ArrowRight, Loader2, Lock, Mail, MailX } from 'lucide-re
 /** Straight off the edited line, or further down the chain from it. */
 export type LinkKind = 'direct' | 'downstream'
 
+/** What the link says. An 80% gate is not the same link as a plain one. */
+export interface LinkGate {
+  pct: number | null
+  lagDays: number
+}
+
 export interface CascadeMove {
   id: string
   name: string
@@ -26,6 +32,7 @@ export interface CascadeMove {
   shiftDays: number
   because: string | null
   link: LinkKind
+  gate: LinkGate | null
   sub: { id: string; name: string; email: string | null } | null
 }
 
@@ -35,6 +42,7 @@ export interface CascadeSkip {
   reason: 'manually_overridden' | 'no_shift' | 'chain_stopped' | string
   because: string
   link: LinkKind
+  gate: LinkGate | null
 }
 
 /**
@@ -47,7 +55,7 @@ export interface CascadeSkip {
 function whyStill(s: CascadeSkip): string {
   switch (s.reason) {
     case 'manually_overridden':
-      return `dates were set by hand, so ${s.because} moving does not move it`
+      return `its dates were changed by hand AFTER it was linked, so ${s.because} moving does not move it`
     case 'no_shift':
       return `${s.because} still finishes on the same day, so there is nothing to pass on`
     case 'chain_stopped':
@@ -57,9 +65,21 @@ function whyStill(s: CascadeSkip): string {
   }
 }
 
-/** The one place the two kinds of link are put into words. */
-function linkWords(link: LinkKind, editedName: string): string {
-  return link === 'direct' ? `waits on ${editedName}` : 'further down the chain'
+/**
+ * The one place a link is put into words - AND IT NAMES THE GATE.
+ *
+ * REPORTED: the review "shortens its label to 'waits on Sheetrock', hiding
+ * that it's an 80% link". Two rows waiting on the same trade under different
+ * conditions printed the same sentence, so the screen could not be used to
+ * check the thing it was showing you.
+ */
+function linkWords(link: LinkKind, editedName: string, gate: LinkGate | null): string {
+  const head = link === 'direct' ? `waits on ${editedName}` : 'further down the chain'
+  if (!gate) return head
+  const parts: string[] = []
+  if (gate.pct != null) parts.push(`at ${gate.pct}%`)
+  if (gate.lagDays > 0) parts.push(`plus ${gate.lagDays} ${gate.lagDays === 1 ? 'day' : 'days'}`)
+  return parts.length ? `${head} ${parts.join(', ')}` : head
 }
 
 export interface AffectedSub {
@@ -125,7 +145,7 @@ export function CascadeReview({
                   <p className="mt-0.5 text-xs text-muted-fg">
                     {m.because ? `because ${m.because} moved` : 'you edited this'}
                     {' · '}
-                    {linkWords(m.link, editedName)}
+                    {linkWords(m.link, editedName, m.gate)}
                     {' · '}
                     {m.sub ? m.sub.name : 'no sub on this line yet'}
                   </p>
@@ -144,14 +164,14 @@ export function CascadeReview({
                 {skipped.map(s => (
                   <li key={s.id} className="text-xs text-muted-fg">
                     <span className="text-ink">{s.name}</span>
-                    {' ('}{linkWords(s.link, editedName)}{') - '}
+                    {' ('}{linkWords(s.link, editedName, s.gate)}{') - '}
                     {whyStill(s)}.
                   </li>
                 ))}
               </ul>
               {skipped.some(s => s.reason === 'manually_overridden') && (
                 <p className="mt-1.5 text-xs text-faint">
-                  A line follows again the moment you link it from its own row.
+                  Link it again from its own row and it follows from then on.
                 </p>
               )}
             </div>

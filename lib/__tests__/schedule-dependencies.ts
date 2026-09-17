@@ -7,6 +7,7 @@
 import { ok, done } from './_helpers'
 import {
   addDays, daysBetween, findCycle, cascade, lineProgress, blockedBy, lineName,
+  handEditWins, gateOf,
   type ScheduleLine, type Dependency,
 } from '../schedule-dependencies'
 
@@ -16,6 +17,11 @@ const line = (id: string, start: string, end: string, extra: Partial<ScheduleLin
   ({ id, start_date: start, end_date: end, trade: id, ...extra })
 const dep = (task: string, pred: string, extra: Partial<Dependency> = {}): Dependency =>
   ({ task_id: task, predecessor_task_id: pred, lag_days: 0, ...extra })
+/** A link made BEFORE the hand edit below - so the hand had the last word. */
+const LINKED_FIRST = '2026-01-01T00:00:00Z'
+/** ...and one made AFTER it, which is the reported case. */
+const LINKED_LAST = '2026-06-01T00:00:00Z'
+const HAND_EDIT = '2026-03-01T00:00:00Z'
 // The semicolon is load-bearing. This file has no others, but the next
 // statement is a BARE BLOCK, and `({...})` followed by `{` on the next line is
 // not something ASI separates - tsc reads them as one expression and reports a
@@ -171,10 +177,14 @@ const dep = (task: string, pred: string, extra: Partial<Dependency> = {}): Depen
   const lines = [
     line('A', '2026-04-01', '2026-04-05'),
     line('Moves', '2026-04-06', '2026-04-10'),
-    line('ByHand', '2026-04-06', '2026-04-10', { dates_overridden_at: '2026-03-01T00:00:00Z' }),
+    line('ByHand', '2026-04-06', '2026-04-10', { dates_overridden_at: HAND_EDIT }),
     line('Behind', '2026-04-11', '2026-04-15'),
   ]
-  const deps = [dep('Moves', 'A'), dep('ByHand', 'A'), dep('Behind', 'ByHand')]
+  const deps = [
+    dep('Moves', 'A'),
+    dep('ByHand', 'A', { created_at: LINKED_FIRST }),
+    dep('Behind', 'ByHand'),
+  ]
   const r = cascade(lines, deps, 'A', '2026-04-03', '2026-04-07')
 
   const reported = new Set([...r.moves.map(m => m.id), ...r.skipped.map(s => s.id)])
@@ -189,6 +199,79 @@ const dep = (task: string, pred: string, extra: Partial<Dependency> = {}): Depen
   // and reporting off pass one alone is why it was missing.
   ok(!!behind && behind.reason === 'chain_stopped',
     'and the line BEHIND the hand-dated one is reported too, saying the chain stopped')
+}
+
+// ── LINKING SAYS "FOLLOW", DATING SAYS "LEAVE IT", THE LAST ONE WINS ────────
+{
+  // THE SECOND REPORT: "a row with a saved explicit 80% link is excluded when
+  // the predecessor moves - the review says 'dates were set by hand' while the
+  // two general-linked rows shift correctly". Clearing the flag AS a link is
+  // written only ever helps a link written after that code ships; every row
+  // linked before it stayed stuck with no way out but to unlink and link again.
+  // So the rule is read at cascade time, and it covers the rows already stored.
+  const lines = [
+    line('Sheetrock', '2026-10-15', '2026-10-19'),
+    line('Volt', '2026-10-20', '2026-10-24', { dates_overridden_at: HAND_EDIT }),
+    line('Plumb', '2026-10-21', '2026-10-25', { dates_overridden_at: HAND_EDIT }),
+  ]
+
+  // Volt was dated and THEN linked: the link is the later word, so it follows.
+  const followed = cascade(
+    lines,
+    [dep('Volt', 'Sheetrock', { created_at: LINKED_LAST, min_predecessor_progress: 80 })],
+    'Sheetrock', '2026-10-18', '2026-10-22',
+  )
+  ok(followed.moves.some(m => m.id === 'Volt'),
+    'THE BUG: a row linked AFTER its dates were typed follows the cascade')
+  ok(followed.moves.find(m => m.id === 'Volt')!.shiftDays === 3, '...by the same 3 days')
+  ok(!followed.skipped.some(s => s.id === 'Volt'),
+    '...and is not reported as left alone, which is what the screen was saying')
+
+  // ...and a percent gate is not a different kind of link. The report was
+  // against an 80% row precisely because the general rows had been re-linked
+  // and it had not.
+  const gated = followed.moves.find(m => m.id === 'Volt')!
+  ok(gated.gate?.pct === 80, 'the move carries the 80% the link actually says')
+
+  // The other direction still holds, or the flag would mean nothing at all.
+  const vetoed = cascade(
+    lines,
+    [dep('Plumb', 'Sheetrock', { created_at: LINKED_FIRST })],
+    'Sheetrock', '2026-10-18', '2026-10-22',
+  )
+  ok(!vetoed.moves.some(m => m.id === 'Plumb'),
+    'a row dated by hand AFTER it was linked is still left alone')
+  ok(vetoed.skipped.find(s => s.id === 'Plumb')!.reason === 'manually_overridden',
+    '...and says so')
+}
+
+// ── the rule itself, at the boundary ────────────────────────────────────────
+{
+  const dated = { dates_overridden_at: HAND_EDIT }
+  ok(handEditWins(dated, { created_at: LINKED_FIRST }) === true,
+    'hand edit after the link: the hand wins')
+  ok(handEditWins(dated, { created_at: LINKED_LAST }) === false,
+    'hand edit before the link: the link wins')
+  ok(handEditWins({ dates_overridden_at: null }, { created_at: LINKED_FIRST }) === false,
+    'never dated by hand: nothing to weigh')
+  // A link with no timestamp is the older rows in the table. The link wins,
+  // because re-asserting the flag is one date edit away and un-sticking a row
+  // that nothing will ever move again is not.
+  ok(handEditWins(dated, {}) === false,
+    'a link with no timestamp is taken as the later word')
+  ok(handEditWins(dated, { created_at: 'not a date' }) === false,
+    '...and so is one whose timestamp cannot be read')
+  ok(handEditWins(dated, { created_at: HAND_EDIT }) === false,
+    'the same instant is not LATER - a tie goes to the link')
+}
+
+// ── a gate travels with the row it gates ────────────────────────────────────
+{
+  ok(gateOf({ min_predecessor_progress: 80, lag_days: 2 }).pct === 80, 'the percent comes through')
+  ok(gateOf({ min_predecessor_progress: 80, lag_days: 2 }).lagDays === 2, '...and the lag')
+  ok(gateOf({ min_predecessor_progress: null, lag_days: null }).pct === null,
+    'a plain link has no percent - null, not zero, which would read as a gate at 0%')
+  ok(gateOf({}).lagDays === 0, '...and no lag reads as none')
 }
 
 // ── a linked line says whether it waits on the edit or on the chain ─────────
@@ -232,10 +315,14 @@ const dep = (task: string, pred: string, extra: Partial<Dependency> = {}): Depen
 {
   const lines = [
     line('A', '2026-01-01', '2026-01-05'),
-    line('B', '2026-01-06', '2026-01-10', { dates_overridden_at: '2026-01-02T10:00:00Z' }),
+    line('B', '2026-01-06', '2026-01-10', { dates_overridden_at: HAND_EDIT }),
     line('C', '2026-01-11', '2026-01-15'),
   ]
-  const r = cascade(lines, [dep('B', 'A'), dep('C', 'B')], 'A', '2026-01-04', '2026-01-08')
+  const r = cascade(
+    lines,
+    [dep('B', 'A', { created_at: LINKED_FIRST }), dep('C', 'B')],
+    'A', '2026-01-04', '2026-01-08',
+  )
 
   ok(r.moves.length === 0, 'a line somebody edited by hand does not move')
   const b = r.skipped.find(s => s.id === 'B')!

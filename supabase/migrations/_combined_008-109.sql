@@ -2799,3 +2799,22 @@ CREATE INDEX IF NOT EXISTS idx_schedule_shift_notices_project ON schedule_shift_
 
 ALTER TABLE schedule_dependencies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE schedule_shift_notices ENABLE ROW LEVEL SECURITY;
+
+-- ── 109: release the rows one save marked hand-dated a second after linking ──
+--
+-- The dialog commits staged links and THEN saves the dates, so a save that did
+-- both wrote "this line follows Sheetrock" and, a second later, "this line's
+-- dates are hand-set, ignore Sheetrock" - and the second won. Reported as an
+-- 80% row sitting still while rows linked the same afternoon moved. The code
+-- fix stops it recurring; this clears the rows it already produced, and ONLY
+-- those: a flag stamped within two minutes of one of that line's own links.
+-- A deliberate override is a separate sitting and is left alone. Idempotent.
+UPDATE schedule_items si
+SET dates_overridden_at = NULL
+WHERE si.dates_overridden_at IS NOT NULL
+  AND EXISTS (
+    SELECT 1 FROM schedule_dependencies sd
+    WHERE sd.task_id = si.id
+      AND si.dates_overridden_at >= sd.created_at
+      AND si.dates_overridden_at < sd.created_at + INTERVAL '2 minutes'
+  );

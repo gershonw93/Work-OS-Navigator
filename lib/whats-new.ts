@@ -55,6 +55,30 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 const AUTHORED: Release[] = [
   {
     date: '2026-09-17',
+    title: 'Percent links follow the chain, and the date email reads like a date',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'A trade linked at a percent follows the cascade like any other',
+        text: 'A row linked with "wait till they\'re 80% done" was being left behind when the trade ahead moved, while plainly linked rows shifted correctly - the review said its dates had been set by hand. Linking says "this follows", changing a date yourself says "leave it alone", and now whichever you did LAST is the one that counts. Rows already stuck have been released.',
+        help: 'schedule-milestones',
+      },
+      {
+        kind: 'improved',
+        title: 'The review says what each link actually says',
+        text: 'A row now reads "waits on Sheetrock at 80%" or "waits on Sheetrock plus 2 days" instead of just "waits on Sheetrock", so two trades behind the same one under different conditions no longer look identical.',
+        help: 'schedule-milestones',
+      },
+      {
+        kind: 'improved',
+        title: 'The date-change email reads like a date',
+        text: 'The subject is your job and their new date - "Your start on QA Ground-Up 2026 moved to Oct 24" - so it reads in a phone\'s inbox list without being opened. Each line says "was Wed Oct 21, now Tue Oct 24 (+3 days)", old date struck out, new date in green. Weekdays rather than ISO dates, and the days are signed: three days early is as much of a problem as three days late.',
+        help: 'schedule-milestones',
+      },
+    ],
+  },
+  {
+    date: '2026-09-17',
     title: 'Schedule links: four fixes',
     items: [
       {

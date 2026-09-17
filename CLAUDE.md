@@ -38,7 +38,7 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-108.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-109.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - **Verify every column you `.select()` actually exists.** Supabase returns
   `data: null` for an unknown column, so a typo reads as "not found" rather than
@@ -791,7 +791,30 @@ Full detail: [`docs/postmortems/derived-state.md`](docs/postmortems/derived-stat
   And LINKING A LINE CLEARS IT: setting a vendor's dates is how a line gets
   dates at all, and a date typed before the link was never a decision to ignore
   the trade ahead. Nothing else clears it, so without that the only way back was
-  to re-type the dates. `findCycle` names
+  to re-type the dates.
+  **AND CLEARING IT AT WRITE TIME WAS HALF A FIX - THE RULE HAS TO BE READ AT
+  CASCADE TIME.** Reported again a day later: a row on an explicit 80% link sat
+  still while two rows linked the same afternoon moved. A clear that happens AS
+  a link is written can only ever help a link written after it ships; every row
+  already linked stayed stuck for ever, with no way out but to unlink and link
+  again, which nobody would think of. So `handEditWins(line, dep)` weighs the
+  two statements - LINKING SAYS "FOLLOW", DATING SAYS "LEAVE IT", THE ONE SAID
+  LAST WINS - and covers every row already in the table. A link with no
+  `created_at` is taken as the later word: re-asserting the flag is one date
+  edit away, and un-sticking a row nothing will ever move again is not. THE
+  PERCENT ROWS FAILED FIRST BECAUSE OF WHAT A GATE IMPLIES: setting one is when
+  somebody also fixes that line's dates, so `saveEdit` committed the link and
+  then the cascade PUT stamped the flag a second later - one dialog saying both
+  things, the second winning. The apply takes an explicit `dates_overridden`
+  (default TRUE, the protective answer) and the one caller that knows it just
+  linked sends false. Migration 109 clears the rows the contradiction already
+  made, and only those: a flag stamped within two minutes of one of that line's
+  own links.
+  **AND A LINK'S CONDITIONS TRAVEL WITH THE ROW THAT REPORTS IT.** The review
+  printed "waits on Sheetrock" for an 80% link and for a plain one, so two rows
+  under different conditions read identically and the screen could not be used
+  to check what it was showing. `gateOf(dep)` is that fact and every move and
+  skip carries it. `findCycle` names
   the loop ("Drywall waits for Paint waits for Drywall"), because "circular
   dependency" tells nobody which link to cut. Pinned in
   `schedule-dependencies.ts` and `schedule-cascade.ts`.
@@ -1037,6 +1060,23 @@ Full detail: [`docs/postmortems/failure-states.md`](docs/postmortems/failure-sta
   and "ten seconds was not enough" are not one value. It asks TWICE -
   `enableHighAccuracy: true` with no `maximumAge` refuses a perfectly good fix
   from thirty seconds ago - except `denied`, which no second prompt can change.
+- **A DATE IN A LETTER IS WORDS, AND THE SERVER MUST NOT ASK ITS OWN MACHINE
+  WHAT DAY IT IS.** `formatDate` asks `toLocaleDateString`, which is right in a
+  browser - the reader's own machine answering - and wrong on a server, where
+  the same date could reach two subs spelled two ways and a test would pass or
+  fail on the runner's TZ. `dateWords()` / `dayDelta()` in `lib/dates.ts` are
+  built from fixed tables and parsed as UTC. A sub reads "Tue Oct 24", not
+  `2026-10-24`: THE WEEKDAY IS LOAD-BEARING, it is how a day gets checked
+  against a diary, and the delta is SIGNED because a crew three days early has
+  the same wasted morning as one three days late. The shift email's subject is
+  the project and the new date and nothing else - it arrived as "...moved to
+  2026-10-24" and clipped in the inbox to "2026 moved to 2026-10-24", two
+  numbers, neither of them the one that matters. Old date struck and grey, new
+  date bold in the accent: ONE thing on the card has to be remembered. The
+  block is TYPED (`EmailDateChange`), never HTML passed through data - same
+  rule as a guide's inline links. `<s>`/`<strong>` are elements on purpose:
+  Outlook renders through Word, where a CSS-only line-through is unreliable.
+  Pinned in `shift-email.ts`.
 - A RELATIVE TIME CARRIES THE ABSOLUTE ONE ON HOVER (`absoluteTime`,
   `lib/time-ago.ts`) - when the stored value and the arithmetic are both right,
   what is left is the READER's clock, and nothing server-side can see that.

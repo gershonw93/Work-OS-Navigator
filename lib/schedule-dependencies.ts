@@ -48,6 +48,8 @@ export interface Dependency {
   min_predecessor_progress?: number | null
   /** Days of breathing room after the predecessor ends. */
   lag_days?: number | null
+  /** When the link was made. Decides which of two statements is the later one. */
+  created_at?: string | null
 }
 
 // ── Dates ────────────────────────────────────────────────────────────────────
@@ -244,6 +246,56 @@ export function blockedBy(
 /** Whether a line waits on the edited line itself, or further down the chain. */
 export type LinkKind = 'direct' | 'downstream'
 
+/** What the link that pushed a line actually says, for the screen to print. */
+export interface LinkGate {
+  /** The percent the predecessor must reach. Null for a plain "after them". */
+  pct: number | null
+  /** Clear days left in between. */
+  lagDays: number
+}
+
+export function gateOf(dep: Pick<Dependency, 'min_predecessor_progress' | 'lag_days'>): LinkGate {
+  const pct = dep.min_predecessor_progress
+  return {
+    pct: pct != null && Number.isFinite(pct) ? pct : null,
+    lagDays: Number(dep.lag_days ?? 0) || 0,
+  }
+}
+
+/**
+ * Which of two statements about a line is the later one: the link, or the hand.
+ *
+ * THE REPORT THIS ANSWERS, in the reporter's words: "an explicitly linked row
+ * follows the cascade - the manually-overridden flag should only come from date
+ * edits made AFTER the link exists". Clearing the flag when a link is written
+ * was half a fix: it can only ever help a link made after that code shipped,
+ * and every row linked before it stayed stuck for ever with no way out but to
+ * unlink and link again - which is exactly what the second report was, a row
+ * on an 80% link sitting still while two rows linked the same afternoon moved.
+ *
+ * So the rule is READ at cascade time and covers every row already in the
+ * table: LINKING SAYS "THIS FOLLOWS", DATING SAYS "LEAVE IT", AND THE ONE SAID
+ * LAST WINS.
+ *
+ * A link with no `created_at` is treated as the later word. The flag is
+ * re-asserted by editing the dates, which stamps a fresh timestamp - so the
+ * recoverable mistake is the one this default makes, and the unrecoverable one
+ * is the one it avoids.
+ */
+export function handEditWins(
+  line: Pick<ScheduleLine, 'dates_overridden_at'>,
+  dep: Pick<Dependency, 'created_at'>,
+): boolean {
+  const edited = line.dates_overridden_at
+  if (!edited) return false
+  const linked = dep.created_at
+  if (!linked) return false
+  const e = Date.parse(edited)
+  const l = Date.parse(linked)
+  if (Number.isNaN(e) || Number.isNaN(l)) return false
+  return e > l
+}
+
 export interface Move {
   id: string
   from: { start: DateString; end: DateString }
@@ -253,6 +305,8 @@ export interface Move {
   /** The line whose move caused this one. Null for the line the user edited. */
   becauseOf: string | null
   link: LinkKind
+  /** What the link that pushed it says. Null when nothing pushed it. */
+  gate: LinkGate | null
 }
 
 /**
@@ -276,6 +330,7 @@ export interface Skipped {
   /** The line that would have moved it. */
   becauseOf: string
   link: LinkKind
+  gate: LinkGate | null
 }
 
 export interface CascadeResult {
@@ -352,6 +407,16 @@ export function cascade(
   const shiftOf = new Map<string, number>([[movedId, rootShift]])
   /** What pushed it, for the sentence the review prints. */
   const causeOf = new Map<string, string>()
+  /** And what that link SAYS, so an 80% gate is not printed as a plain link. */
+  const gateVia = new Map<string, LinkGate>()
+  /** Every link pointing AT a line, for classifying one pass one never reached. */
+  const linksTo = new Map<string, Dependency[]>()
+  for (const d of deps) {
+    if (!byId.has(d.task_id) || !byId.has(d.predecessor_task_id)) continue
+    const list = linksTo.get(d.task_id) ?? []
+    list.push(d)
+    linksTo.set(d.task_id, list)
+  }
 
   const queue: string[] = [movedId]
   const enqueued = new Set<string>([movedId])
@@ -363,9 +428,11 @@ export function cascade(
     for (const dep of dependentsOf.get(currentId) ?? []) {
       const child = byId.get(dep.task_id)!
       if (child.id === movedId) continue
-      // Not computed from, and not computed THROUGH - pass two reports it and
-      // everything standing behind it.
-      if (child.dates_overridden_at) continue
+      // The hand edit only wins when it came AFTER this link. Otherwise the
+      // link is the later word and the line follows - not computed from, and
+      // not computed THROUGH, only when the hand had the last say. Pass two
+      // reports it and everything standing behind it.
+      if (handEditWins(child, dep)) continue
 
       // A diamond takes the BIGGEST push. D waiting on both B and C cannot
       // start until the last of them is done, so the larger delta wins - and
@@ -379,6 +446,7 @@ export function cascade(
 
       shiftOf.set(child.id, next)
       causeOf.set(child.id, currentId)
+      gateVia.set(child.id, gateOf(dep))
 
       if (!enqueued.has(child.id)) { enqueued.add(child.id); queue.push(child.id) }
       else if (!queue.includes(child.id)) queue.push(child.id)
@@ -407,6 +475,13 @@ export function cascade(
       const child = byId.get(childId)!
       const shift = shiftOf.get(childId)
       const link = linkOf(childId)
+      // The gate the cascade came through, else this walk's own link - a row
+      // pass one never reached still has to print what its link says.
+      const gate = gateVia.get(childId) ?? gateOf(dep)
+      // Asked with the SAME function pass one skipped on, or the two halves
+      // can disagree about one row and the screen explains a skip that did not
+      // happen.
+      const vetoed = (linksTo.get(childId) ?? []).some(d => handEditWins(child, d))
 
       if (shift != null && shift !== 0) {
         moves.push({
@@ -416,13 +491,14 @@ export function cascade(
           shiftDays: shift,
           becauseOf: causeOf.get(childId) ?? currentId,
           link,
+          gate,
         })
-      } else if (child.dates_overridden_at) {
-        skipped.push({ id: childId, reason: 'manually_overridden', becauseOf: currentId, link })
+      } else if (vetoed) {
+        skipped.push({ id: childId, reason: 'manually_overridden', becauseOf: currentId, link, gate })
       } else if (shift === 0) {
-        skipped.push({ id: childId, reason: 'no_shift', becauseOf: causeOf.get(childId) ?? currentId, link })
+        skipped.push({ id: childId, reason: 'no_shift', becauseOf: causeOf.get(childId) ?? currentId, link, gate })
       } else {
-        skipped.push({ id: childId, reason: 'chain_stopped', becauseOf: currentId, link })
+        skipped.push({ id: childId, reason: 'chain_stopped', becauseOf: currentId, link, gate })
       }
     }
   }
