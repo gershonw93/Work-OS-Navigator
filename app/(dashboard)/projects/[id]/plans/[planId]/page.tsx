@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { canvasScale } from '@/lib/canvas-limits'
+import { parsePageInput, stepPage } from '@/lib/plan-page'
 import {
   ArrowLeft, MapPin, Plus, Minus, X, Loader2, ChevronLeft, ChevronRight, Trash2, ExternalLink,
   Maximize2, Minimize2, List,
@@ -48,9 +49,34 @@ export default function PlanViewerPage({ params }: { params: { id: string; planI
   const [zoom, setZoom] = useState(1)
   const [page, setPage] = useState(1)
   const [numPages, setNumPages] = useState(1)
+  // What is TYPED in the page box, which is not the page being shown. They
+  // separate because a jump on every keystroke renders page 4 on the way to
+  // page 44 - a whole PDF decode for a page nobody asked for.
+  const [pageInput, setPageInput] = useState('1')
   const [rendering, setRendering] = useState(false)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const isPdf = plan ? /\.pdf(\?|$)/i.test(plan.file_url) : false
+
+  // THE BOX FOLLOWS THE PAGE, whatever moved it - the arrows, a pin in the
+  // list, or the document loading. Without this the reader jumps to page 30 by
+  // pin and the box still reads 1, which is a control disagreeing with what is
+  // on the screen.
+  useEffect(() => { setPageInput(String(page)) }, [page])
+
+  /**
+   * Take what was typed, or put back what is on screen.
+   *
+   * `parsePageInput` returns null for an empty or junk box, and null means
+   * LEAVE THE READER WHERE THEY ARE - blanking the field is not a request to
+   * go to page 1. Either way the box is rewritten from the committed page, so
+   * a clamped "99" visibly becomes the last page rather than silently
+   * disagreeing with the drawing.
+   */
+  function commitPage() {
+    const next = parsePageInput(pageInput, numPages)
+    if (next !== null) setPage(next)
+    setPageInput(String(next ?? page))
+  }
 
   // Pin state
   const [pinMode, setPinMode] = useState(false)
@@ -242,10 +268,41 @@ export default function PlanViewerPage({ params }: { params: { id: string; planI
         </div>
         <div className="flex flex-wrap items-center gap-1.5 lg:ml-auto">
           {isPdf && numPages > 1 && (
+            /* THE PAGE NUMBER IS A BOX, NOT A READOUT. It was `{page}/{numPages}`
+               between two arrows, so the last sheet of a 44-page set was
+               forty-three taps away. Typing the number is the whole ask. */
             <div className="flex items-center gap-1 rounded-lg border border-line px-1 py-1">
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1} className="p-1 text-muted-fg hover:text-ink disabled:opacity-40"><ChevronLeft className="h-4 w-4" /></button>
-              <span className="text-xs text-muted-fg px-1">{page}/{numPages}</span>
-              <button onClick={() => setPage(p => Math.min(numPages, p + 1))} disabled={page >= numPages} className="p-1 text-muted-fg hover:text-ink disabled:opacity-40"><ChevronRight className="h-4 w-4" /></button>
+              <button onClick={() => setPage(p => stepPage(p, -1, numPages))} disabled={page <= 1}
+                aria-label="Previous page" title="Previous page"
+                className="p-1 text-muted-fg hover:text-ink disabled:opacity-40"><ChevronLeft className="h-4 w-4" /></button>
+              <form
+                onSubmit={e => { e.preventDefault(); commitPage() }}
+                className="flex items-center gap-1"
+              >
+                <input
+                  type="text"
+                  /* `inputMode` rather than type="number": a number input on
+                     iOS still shows the full keyboard, and its spinners and
+                     scroll-to-change are a liability on a drawing. */
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  aria-label={`Page number, 1 to ${numPages}`}
+                  value={pageInput}
+                  onChange={e => setPageInput(e.target.value)}
+                  onFocus={e => e.currentTarget.select()}
+                  /* Committed when the reader is finished, never per keystroke. */
+                  onBlur={commitPage}
+                  className="w-12 rounded border border-line bg-panel px-1 py-0.5 text-center text-xs tabular-nums text-ink"
+                />
+                <span className="px-0.5 text-xs text-muted-fg">/ {numPages}</span>
+                {/* Submits the form on a phone, where there is no Enter key in
+                    a numeric keypad. Hidden from the desktop, where Enter and
+                    clicking away both already work. */}
+                <button type="submit" className="sr-only">Go to page</button>
+              </form>
+              <button onClick={() => setPage(p => stepPage(p, 1, numPages))} disabled={page >= numPages}
+                aria-label="Next page" title="Next page"
+                className="p-1 text-muted-fg hover:text-ink disabled:opacity-40"><ChevronRight className="h-4 w-4" /></button>
             </div>
           )}
           <button onClick={() => setZoom(z => Math.max(0.5, Math.round((z - 0.25) * 100) / 100))} className="rounded-lg border border-line p-2 text-muted-fg hover:bg-surface"><Minus className="h-4 w-4" /></button>
