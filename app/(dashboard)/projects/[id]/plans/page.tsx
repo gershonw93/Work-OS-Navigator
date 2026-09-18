@@ -1,9 +1,10 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { NotifyTeamDialog } from '@/components/projects/notify-team-dialog'
 import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import Link from 'next/link'
-import { FileText, Folder, FolderPlus, Upload, X, ChevronRight, ArrowLeft, Trash2, FolderInput, Search, ExternalLink, UploadCloud, AlertTriangle, Check, Loader2 } from 'lucide-react'
+import { FileText, Folder, FolderPlus, Upload, X, ChevronRight, ArrowLeft, Trash2, FolderInput, Search, ExternalLink, UploadCloud, AlertTriangle, Check, Loader2, Megaphone } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { usePermissions } from '@/lib/use-permissions'
 import { PageHeader } from '@/components/ui/page-header'
@@ -83,6 +84,7 @@ export default function PlansPage({ params }: { params: { id: string } }) {
   const [folderError, setFolderError] = useState<string | null>(null)
 
   const [movingPlan, setMovingPlan] = useState<Plan | null>(null)
+  const [notifyPlan, setNotifyPlan] = useState<Plan | null>(null)
   const [moveTargetFolderId, setMoveTargetFolderId] = useState<string>('__root__')
   const [moveLoading, setMoveLoading] = useState(false)
 
@@ -417,6 +419,17 @@ export default function PlansPage({ params }: { params: { id: string } }) {
       )}
 
       {/* Move to Folder Modal */}
+
+      {/* One tap from the row that changed. No thread, no inbox - it sends
+          through notify() and is gone. */}
+      {notifyPlan && (
+        <NotifyTeamDialog
+          projectId={params.id}
+          planId={notifyPlan.id}
+          planName={notifyPlan.name}
+          onClose={() => setNotifyPlan(null)}
+        />
+      )}
       {movingPlan && (
         <div className="overlay items-center justify-center bg-black/50" data-overlay>
           <div className="bg-panel rounded-xl shadow-xl w-full max-w-sm mx-4 px-6 py-6">
@@ -564,6 +577,19 @@ export default function PlansPage({ params }: { params: { id: string } }) {
                       </Link>
 
                       <div className="flex shrink-0 items-center gap-0.5">
+                        {/* ATTACHED TO THE PLAN ITSELF, as asked: the moment a
+                            drawing changes is the moment the other trades need
+                            telling, and making them go somewhere else to do it
+                            is how "nobody told the electrician" happens. Gated
+                            on the same permission as changing plans. */}
+                        {canAdd && (
+                          <button onClick={() => setNotifyPlan(plan)}
+                            className="rounded-md p-1.5 text-faint transition-colors hover:bg-accent-tint hover:text-accent-fg"
+                            aria-label={`Notify the team about ${plan.name}`}
+                            title="Notify team about a change">
+                            <Megaphone className="h-4 w-4" />
+                          </button>
+                        )}
                         <a href={plan.file_url} target="_blank" rel="noopener noreferrer"
                           className="rounded-md p-1.5 text-faint transition-colors hover:bg-accent-tint hover:text-accent-fg"
                           title="Open the original file">

@@ -144,6 +144,24 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
     status: 'live',
   },
   {
+    key: 'scope_change', label: 'Scope or plans changed', group: 'Work',
+    description: 'Somebody on a job tells you the plans or the scope have moved.',
+    // DIRECT, because the sender picks who needs to know. A routed audience
+    // would decide FOR them, and the whole point is that the person who made
+    // the change knows which trades it lands on - concrete moving half an inch
+    // is the electrician's problem, not everybody's.
+    audience: 'direct',
+    // ON by default, both channels. This is the case the help text already
+    // names: finding out at your next login is too late. A crew sets heights
+    // off yesterday's drawing exactly once.
+    defaults: { inApp: true, email: true },
+    // "one tap, selected people get the push" - asked for in those words, and
+    // it is the right answer here for the same reason email is on: this is
+    // rare, specific and time-critical, which is what a buzz is for.
+    push: true,
+    status: 'live',
+  },
+  {
     key: 'signoff_requested', label: 'Sign-off requested', group: 'Work',
     description: 'Someone needs you to sign off on a task before it can close.',
     audience: 'direct',

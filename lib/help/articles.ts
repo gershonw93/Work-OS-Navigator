@@ -320,7 +320,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'plan-pins',
     title: 'Pin a task right on the plan',
     category: 'projects',
-    keywords: ['pin', 'plan', 'blueprint', 'task', 'drop', 'marker', 'assign', 'drawing', 'page', 'go to page', 'jump to page', 'page number', 'multi-page', 'sheet'],
+    keywords: ['pin', 'plan', 'blueprint', 'task', 'drop', 'marker', 'assign', 'drawing', 'notify team', 'scope change', 'plans changed', 'revision', 'tell the team', 'broadcast', 'page', 'go to page', 'jump to page', 'page number', 'multi-page', 'sheet'],
     summary: 'Open a plan, drop a pin where the work is, and assign it as a task.',
     blocks: [
       { type: 'steps', items: [
@@ -332,6 +332,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'On a phone, use the full-screen button for a bigger canvas while dropping or reading pins.',
       ] },
       { type: 'text', text: 'JUMPING TO A PAGE. On a multi-page set the page number between the arrows is a box: type the page you want and press Enter (or tap away) and it goes straight there, rather than stepping forty-odd times. Ask for a page past the end and it takes you to the last one. Opening a pin from the list moves the box too, so it always agrees with the sheet on screen.' },
+      { type: 'text', text: 'TELLING THE OTHER TRADES. When a drawing changes, the megaphone button on that plan\'s row opens "Notify team": say what moved, tick who it lands on, send. They get it in the bell, by email and on their phone, following whatever each of them has set. This is the case it exists for - concrete switches from one centre pour to floor-by-floor, the slab height drops half an inch, and the electrician sets his rough-in heights off yesterday\'s drawing because nobody told him. Anyone on the job\'s team who has a SyteNav account can be picked; the ones who do not are listed greyed out saying so, rather than quietly left off the list. It is not a chat - there is no thread and no reply.' },
       { type: 'tip', text: 'Removing a pin keeps its task - nothing gets lost. Very large sheets render at a capped resolution so they stay fast; use the file button to open the raw PDF at native quality.' },
     ],
     related: ['tasks-assign', 'project-tabs-explained'],

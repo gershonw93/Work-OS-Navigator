@@ -63,6 +63,12 @@ const AUTHORED: Release[] = [
         text: 'A new switch in Settings > Notifications tells you whenever a task on your jobs changes - status, due date, priority, or who has it. It is OFF for everybody until you turn it on, because it can fire on every edit of every task, and it never tells you about a change you made yourself.',
         help: 'notification-preferences',
       },
+      {
+        kind: 'new',
+        title: 'Notify team when the plans change',
+        text: 'A megaphone button on each plan opens "Notify team": say what moved, tick who needs to know, send. They get it in the bell, by email and on their phone. It is for the change in one trade that silently moves another - the slab drops half an inch and the electrician\'s rough-in heights are wrong. Anyone on the job without a SyteNav account is shown greyed out rather than quietly left off.',
+        help: 'plan-pins',
+      },
     ],
   },
   {
