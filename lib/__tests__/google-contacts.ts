@@ -174,4 +174,35 @@ ok(/status\.googleEmail/.test(card), 'the card NAMES the connected account')
 ok(/href="\/directory\/imported"/.test(card),
   '...and sends you to the one place that does the work, rather than being a second set of the same buttons')
 
+// ── THE SELECTION SURVIVES A LABEL ──────────────────────────────────────────
+// Reported as "when i select a contact then choose the label and trade it
+// unchecks the contact". The page cleared `picked` after EVERY bulk update, so
+// labelling five people as subs dropped the selection and setting their trade
+// meant ticking all five again. The three pickers are meant to be used one
+// after another on the SAME people - label, trade, job - and clearing between
+// them turns one job into three.
+ok(/keepSelection = true/.test(page),
+  'THE FIX: a bulk update keeps the selection by default')
+ok(/if \(!keepSelection\) setPicked\(new Set\(\)\)/.test(page),
+  '...and only clears it when told to')
+
+// Cleared only when the rows LEAVE the list - a selection pointing at rows that
+// are no longer on screen is worse than none.
+ok(/patch\(\{ status: 'dismissed' \}, 'dismissed', false\)/.test(page),
+  'dismissing DOES clear it, because those rows leave the list')
+// The three label pickers must not pass false.
+const labelCalls = page.match(/patch\(\{ (contact_type|trade|assigned_project_id):[^)]*\)/g) ?? []
+ok(labelCalls.length === 3, 'all three pickers go through the same call')
+ok(labelCalls.every(c => !/,\s*false\s*\)/.test(c)),
+  '...and not one of them clears the selection')
+
+// Importing clears it too - those rows become directory contacts and are gone.
+const importAt = page.indexOf('async function importPicked')
+ok(importAt > 0 && /setPicked\(new Set\(\)\)/.test(page.slice(importAt, importAt + 1400)),
+  'importing clears it, for the same reason')
+
+// And the message says the selection is still there, so it is not a surprise.
+ok(/still selected/.test(page),
+  '...and the confirmation says they are still selected, rather than leaving you to notice')
+
 done()

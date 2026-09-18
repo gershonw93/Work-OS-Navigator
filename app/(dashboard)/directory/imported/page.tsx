@@ -161,8 +161,23 @@ export default function ImportedContactsPage() {
     })
   }
 
-  /** Bulk label / assign / dismiss. Only what is SENT gets written. */
-  async function patch(payload: Record<string, unknown>, said: string) {
+  /**
+   * Bulk label / assign / dismiss. Only what is SENT gets written.
+   *
+   * THE SELECTION SURVIVES A LABEL, AND THAT IS THE WHOLE POINT.
+   *
+   * Reported as "when i select a contact then choose the label and trade it
+   * unchecks the contact": this cleared `picked` after every update, so
+   * labelling five people as subs dropped the selection and setting their trade
+   * meant ticking all five again. The three pickers are meant to be used one
+   * after another ON THE SAME PEOPLE - label, trade, job - and clearing between
+   * them turns one job into three.
+   *
+   * It is only cleared when the rows LEAVE the list, because a selection
+   * pointing at rows that are no longer on screen is worse than none:
+   * dismissing and importing do that, labelling does not.
+   */
+  async function patch(payload: Record<string, unknown>, said: string, keepSelection = true) {
     if (!ids.length) { notify('Pick at least one contact.'); return }
     setBusy('patch')
     try {
@@ -173,8 +188,8 @@ export default function ImportedContactsPage() {
       })
       const body = await res.json().catch(() => ({}))
       if (!res.ok) { notify(body?.error ?? 'Could not update those.'); return }
-      notify(`${body.updated} ${said}.`, { tone: 'success' })
-      setPicked(new Set())
+      notify(`${body.updated} ${said}${keepSelection ? ' - still selected' : ''}.`, { tone: 'success' })
+      if (!keepSelection) setPicked(new Set())
       load()
     } catch (e) { notify(fetchProblem(e, 'updating those contacts')) } finally { setBusy(null) }
   }
@@ -306,7 +321,7 @@ export default function ImportedContactsPage() {
           </div>
 
           <div className="row-even lg:flex lg:justify-end gap-2">
-            <Button variant="outline" onClick={() => patch({ status: 'dismissed' }, 'dismissed')} disabled={busy === 'patch'}>
+            <Button variant="outline" onClick={() => patch({ status: 'dismissed' }, 'dismissed', false)} disabled={busy === 'patch'}>
               Not a work contact
             </Button>
             <Button onClick={importPicked} disabled={busy === 'import'}>
