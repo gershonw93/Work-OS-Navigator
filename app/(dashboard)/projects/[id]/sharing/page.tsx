@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { Send, Copy, Check, Ban, Inbox, Share2, RotateCcw, Plus, Megaphone, AlertTriangle } from 'lucide-react'
+import { Send, Copy, Check, Ban, Inbox, Share2, RotateCcw, Plus, Megaphone, AlertTriangle, FileText } from 'lucide-react'
 import { ShareFilesModal, type ShareableFile } from '@/components/files/share-files-modal'
 import { NotifyTeamDialog } from '@/components/projects/notify-team-dialog'
 import { shareContentsLabel } from '@/lib/share-contents'
@@ -48,11 +48,12 @@ type Row =
  *   - Broadcasts are LISTED HERE TOO, read back out of the job history. No
  *     second table - one fact, one home; this page just reads it.
  *
- * TWO BUTTONS, NAMED BY WHO THEY REACH, because two controls answering the
- * same question is worse than one control in the wrong place. "Send" goes to
- * ONE person outside the company on a link. "Tell everyone on this job" goes
- * to the team and the trades through the bell and their inbox, with no link
- * at all.
+ * TWO BUTTONS, AND THEY ARE DIFFERENT ACTS, because two controls answering the
+ * same question is worse than one control in the wrong place. "Send to
+ * someone" goes to ONE person outside the company on a link. "Send scope
+ * update" goes to the team and the trades through the bell and their inbox -
+ * and it can carry the revised sheet with it, so the notice and the drawing
+ * arrive together.
  */
 export default function SharingPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
@@ -129,15 +130,15 @@ export default function SharingPage({ params }: { params: { id: string } }) {
         <div>
           <h1 className="text-2xl font-bold text-ink">Sharing</h1>
           <p className="text-sm text-muted-fg mt-0.5">
-            Everything that has gone out on this job, and who it went to. Documents are optional - you can
-            send a plain update with nothing attached.
+            Everything that has gone out on this job, and who it went to. Documents are optional on both -
+            send a plain update with nothing attached, or a scope update with the revised sheet on it.
           </p>
         </div>
         {/* A row of controls reaches both edges on a phone and sits right on a
             desktop. Two buttons share the row at equal width below lg. */}
         <div className="row-even lg:flex lg:flex-wrap lg:justify-end gap-2">
           <Button variant="secondary" onClick={() => setTelling(true)} className="gap-1.5">
-            <Megaphone className="h-4 w-4" /> Tell everyone on this job
+            <Megaphone className="h-4 w-4" /> Send scope update
           </Button>
           <Button onClick={() => setOpen(true)} className="gap-1.5">
             <Send className="h-4 w-4" /> Send to someone
@@ -247,8 +248,9 @@ function NoticeRow({ notice }: { notice: NoticeRecord }) {
           <p className="text-xs text-muted-fg mt-0.5">
             {[
               `${notice.actorName} told ${reached} ${reached === 1 ? 'person' : 'people'}`,
+              notice.files.length > 0 && `${notice.files.length} attached`,
               `Sent ${formatDate(notice.sentAt)}`,
-            ].join(' · ')}
+            ].filter(Boolean).join(' · ')}
           </p>
         </div>
         <span className="shrink-0 rounded-full bg-warn-tint px-2.5 py-1 text-[11px] font-semibold text-warn">
@@ -259,6 +261,20 @@ function NoticeRow({ notice }: { notice: NoticeRecord }) {
       <p className="mt-3 rounded-lg border border-line bg-surface px-3 py-2.5 text-sm text-ink-soft whitespace-pre-wrap">
         {notice.message}
       </p>
+
+      {/* WHAT WENT WITH IT. A record that names the message and not the sheet
+          it carried answers half of "what did we actually send them". */}
+      {notice.files.length > 0 && (
+        <div className="mt-2 space-y-1">
+          {notice.files.map(f => (
+            <a key={f.url} href={f.url} target="_blank" rel="noreferrer"
+              className="flex items-center gap-1.5 text-sm text-ink-soft hover:underline">
+              <FileText className="h-3.5 w-3.5 shrink-0 text-faint" />
+              <span className="min-w-0 truncate">{f.name}</span>
+            </a>
+          ))}
+        </div>
+      )}
 
       {notice.told.length > 0 && (
         <p className="mt-2 text-xs text-muted-fg">

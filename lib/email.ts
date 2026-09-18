@@ -186,6 +186,12 @@ export interface EmailLayout {
    * paints itself, which is the same rule the guides follow for inline links.
    */
   dateChanges?: EmailDateChange[]
+  /**
+   * Documents to hand the reader, as a label and a URL - same rule as
+   * `dateChanges` and as a guide's inline links: TYPED, never HTML passed
+   * through data. The layout paints and escapes both halves itself.
+   */
+  attachments?: EmailAttachment[]
   cta?: { label: string; url: string }
   /** Small print under the card. */
   footNote?: string
@@ -216,6 +222,13 @@ export interface EmailLayout {
  * Showing the URL costs one line and is the single cheapest thing that makes a
  * branded mail trustworthy.
  */
+export interface EmailAttachment {
+  /** What the reader sees. The file's own name, not "Document 1". */
+  label: string
+  /** Where it lives. Stored file URLs are signed long, so they survive a send. */
+  url: string
+}
+
 export function emailLayout(l: EmailLayout): string {
   const e = escapeHtml
   const body = l.paragraphs
@@ -232,6 +245,19 @@ export function emailLayout(l: EmailLayout): string {
 <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:${BRAND.ink}">${e(d.label)}</p>
 <p style="margin:0;font-size:15px;line-height:1.5;color:${BRAND.inkSoft}">was <s style="color:${BRAND.faint}">${e(d.from)}</s>, now <strong style="color:${BRAND.accentFg};font-weight:800">${e(d.to)}</strong> <span style="color:${BRAND.mutedFg}">(${e(d.delta)})</span></p>
 ${d.because ? `<p style="margin:4px 0 0;font-size:12px;color:${BRAND.mutedFg}">${e(d.because)} moved</p>` : ''}
+</td></tr>`).join('')
+    }</table>`
+    : ''
+
+  // ATTACHMENTS ARE LINKS, NOT FILES. A revised drawing is tens of megabytes
+  // and a mail server will refuse it; the URL is already signed for years, so
+  // the letter carries the link and the sub downloads it the same way the
+  // Sharing tab's recipients do.
+  const attachments = (l.attachments ?? []).length
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 18px">
+<tr><td style="padding:0 0 8px;font-size:12px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:${BRAND.mutedFg}">Attached</td></tr>${
+      (l.attachments ?? []).map(a => `<tr><td style="padding:10px 0;border-top:1px solid ${BRAND.line}">
+<a href="${e(a.url)}" style="color:${BRAND.accentFg};font-size:15px;font-weight:700;text-decoration:underline;word-break:break-word">${e(a.label)}</a>
 </td></tr>`).join('')
     }</table>`
     : ''
@@ -267,7 +293,7 @@ ${d.because ? `<p style="margin:4px 0 0;font-size:12px;color:${BRAND.mutedFg}">$
 <p style="margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:${BRAND.accentFg}">${e(l.eyebrow)}</p>
 <h1 style="margin:0 0 ${l.subheading ? '6px' : '16px'};font-size:22px;line-height:1.3;font-weight:800;color:${BRAND.ink}">${e(l.heading)}</h1>
 ${l.subheading ? `<p style="margin:0 0 18px;font-size:14px;color:${BRAND.mutedFg}">${e(l.subheading)}</p>` : ''}
-${body}${dates}${cta}
+${body}${dates}${attachments}${cta}
 </td></tr>
 
 ${l.footNote ? `<tr><td style="padding:16px 6px 0;font-family:${BRAND.font};font-size:12px;line-height:1.5;color:${BRAND.faint}">${e(l.footNote)}</td></tr>` : ''}
@@ -918,13 +944,15 @@ export function escapeHtml(s: string): string {
  * heading and the preheader carry.
  */
 export function scopeChangeEmail({
-  projectName, planName, changedBy, message, recipientName,
+  projectName, planName, changedBy, message, recipientName, files,
 }: {
   projectName: string
   planName?: string | null
   changedBy: string
   message: string
   recipientName?: string | null
+  /** Documents sent with the notice - the revised sheet, usually. */
+  files?: EmailAttachment[] | null
 }): { subject: string; text: string; html: string } {
   const plan = String(planName ?? '').trim()
   const who = String(changedBy ?? '').trim() || 'The contractor'
@@ -937,6 +965,7 @@ export function scopeChangeEmail({
     : `${projectName}: scope changed`
 
   const hello = String(recipientName ?? '').trim()
+  const docs = (files ?? []).filter(f => f?.label && f?.url)
 
   return {
     subject,
@@ -950,6 +979,10 @@ export function scopeChangeEmail({
       '',
       what,
       '',
+      // The plain-text part is what some people genuinely receive, so the
+      // documents have to be in it too - a notice whose attachment exists only
+      // in the HTML half reaches those readers as a change with no drawing.
+      ...(docs.length ? ['Attached:', ...docs.map(d => `- ${d.label}: ${d.url}`), ''] : []),
       'If this affects what you have already set out or ordered, reply to this email and speak to them before you carry on.',
     ].join('\n'),
     html: emailLayout({
@@ -963,6 +996,7 @@ export function scopeChangeEmail({
         what,
         'If this affects what you have already set out or ordered, reply to this email and speak to them before you carry on.',
       ],
+      attachments: docs,
       footNote: 'You are getting this because you are on this job. No account or login is needed.',
     }),
   }

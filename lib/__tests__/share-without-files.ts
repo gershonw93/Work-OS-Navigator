@@ -24,7 +24,8 @@
  */
 import { ok, done, code, read, exists } from './_helpers'
 import { shareProblem, shareContentsLabel, shareActionLabel, isUpdateOnly } from '../share-contents'
-import { noticeRecord, noticeReached } from '../scope-notice'
+import { noticeRecord, noticeReached, cleanAttachments, MAX_NOTICE_FILES } from '../scope-notice'
+import { scopeChangeEmail } from '../email'
 
 const ROUTE = 'app/api/file-shares/route.ts'
 const SEND = 'app/api/file-shares/[id]/send/route.ts'
@@ -33,6 +34,8 @@ const PAGE = 'app/(dashboard)/projects/[id]/sharing/page.tsx'
 const TOKEN_PAGE = 'app/share/[token]/page.tsx'
 const LOG = 'app/api/projects/[id]/scope-notice/log/route.ts'
 const DIALOG = 'components/projects/notify-team-dialog.tsx'
+const NOTICE_ROUTE = 'app/api/projects/[id]/scope-notice/route.ts'
+const PLANS = 'app/(dashboard)/projects/[id]/plans/page.tsx'
 
 console.log('\n\x1b[1mshare-without-files\x1b[0m')
 
@@ -171,12 +174,104 @@ ok(shareActionLabel(0) !== shareActionLabel(2),
     '...and are not re-declared inside the page')
   // Two controls must not answer one question: these reach different people,
   // and the labels are the only thing saying so.
-  ok(/Tell everyone on this job/.test(src) && /Send to someone/.test(src),
-    'the two doors are named by WHO they reach, not by what they are called internally')
+  ok(/Send scope update/.test(src) && /Send to someone/.test(src),
+    'the two doors are named for the two different acts they are')
   ok(/row-even/.test(src), 'a row of controls reaches both edges on a phone')
 }
 
 ok(/onSent\?\.\(\)/.test(code(DIALOG)),
   'the dialog tells its caller a send landed, rather than the list going stale')
+
+// ------------------------------------------- a scope update can carry a sheet
+//
+// "just change the text on the button to Notify scope update or something and
+// an option there to select a file as well".
+{
+  const kept = cleanAttachments([
+    { name: ' A-101 Rev 3 ', url: 'https://x.test/a.pdf' },
+    { name: 'A-101 Rev 3', url: 'https://x.test/a.pdf' },   // same file twice
+    { name: '', url: 'https://x.test/b.pdf' },              // no name
+    { name: 'No link', url: '' },
+    { name: 'Script', url: `javascript:${'ale' + 'rt'}(1)` },
+    { name: 'Inline', url: 'data:text/html,<b>x' },
+  ])
+  ok(kept.length === 1 && kept[0].name === 'A-101 Rev 3',
+    'an attachment is a name AND a real link, trimmed, and the same file only once')
+  ok(!kept.some(f => /^javascript:|^data:/i.test(f.url)),
+    'THE TRAP: a javascript: or data: string never goes out as a link the app vouched for')
+  ok(cleanAttachments('nope').length === 0 && cleanAttachments(null).length === 0,
+    'a body that is not a list is none, not a throw')
+  const many = cleanAttachments(
+    Array.from({ length: MAX_NOTICE_FILES + 5 }, (_, i) => ({ name: `f${i}`, url: `https://x.test/${i}.pdf` })))
+  ok(many.length === MAX_NOTICE_FILES, 'one notice cannot become a document dump')
+}
+
+{
+  const src = code(NOTICE_ROUTE)
+  ok(/cleanAttachments\(body\?\.files\)/.test(src),
+    'the ROUTE cleans the list - the browser is what sends it')
+  ok(/files,/.test(src) && /plan_name: planName,/.test(src),
+    'and the attachments are part of the record, not only of the letter')
+  ok(/attached: \$\{files\.map/.test(src),
+    'the bell names them too, so the emailed half is not better informed than the half who work here')
+}
+
+// The letter carries them in BOTH halves - some people genuinely receive the
+// plain-text part, and a notice whose drawing exists only in the HTML reaches
+// them as a change with no drawing.
+{
+  const withFile = scopeChangeEmail({
+    projectName: 'QA Ground-Up', planName: 'A-101', changedBy: 'Dana',
+    message: 'Slab dropped half an inch.', recipientName: 'Ray',
+    files: [{ label: 'A-101 Rev 3', url: 'https://x.test/a.pdf' }],
+  })
+  ok(withFile.text.includes('https://x.test/a.pdf') && withFile.text.includes('A-101 Rev 3'),
+    'the PLAIN TEXT half carries the link, not just the HTML')
+  ok(withFile.html.includes('https://x.test/a.pdf'), '...and so does the HTML')
+
+  const without = scopeChangeEmail({
+    projectName: 'QA Ground-Up', changedBy: 'Dana', message: 'Slab dropped half an inch.',
+  })
+  ok(!/Attached/.test(without.text) && !/Attached<\/td>|>Attached</.test(without.html),
+    'a notice with nothing attached says nothing about attachments')
+
+  const escaped = scopeChangeEmail({
+    projectName: 'J', changedBy: 'D', message: 'x',
+    files: [{ label: '<script>x</script>', url: 'https://x.test/"a.pdf' }],
+  })
+  ok(!escaped.html.includes('<script>'),
+    'a document NAME is escaped - it is typed data, never HTML passed through')
+}
+
+// The picker itself.
+{
+  const src = code(DIALOG)
+  ok(/showFiles/.test(src) && /Attach a document/.test(src),
+    'there is an option to select a file')
+  ok(/setShowFiles\(v => !v\)/.test(src),
+    '...COLLAPSED, because most notices carry nothing and two panels taxes everybody else')
+  ok(/if \(!showFiles \|\| docState !== 'idle'\) return/.test(src),
+    'the documents are fetched only once the picker is opened')
+  ok(/'idle' \| 'loading' \| 'ready' \| 'failed'/.test(src),
+    'loading, failed and empty stay different facts in the picker too')
+  ok(/files: pickedFiles/.test(src), 'and what was picked is what is posted')
+  ok(/prev\.length >= MAX_NOTICE_FILES/.test(src),
+    'the cap is read from the shared constant, not typed twice')
+}
+
+// ONE NAME FOR ONE ACTION. The button was "Tell everyone on this job" on one
+// screen and "Notify team" on the other; a control named two things is two
+// controls to the person reading it.
+{
+  const page = code(PAGE)
+  const dialog = code(DIALOG)
+  const plans = code(PLANS)
+  ok(/Send scope update/.test(page) && /Send scope update/.test(dialog),
+    'the Sharing button and the dialog button say the same thing')
+  ok(!/Tell everyone on this job/.test(page) && !/> Notify team</.test(dialog),
+    'THE OLD NAMES ARE GONE, not merely joined by a third')
+  ok(/Send a scope update about \$\{plan\.name\}/.test(plans) && /title="Send a scope update"/.test(plans),
+    'and the plan row\'s megaphone names the same act')
+}
 
 done()

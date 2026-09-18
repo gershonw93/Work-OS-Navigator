@@ -1,13 +1,15 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { Megaphone, Loader2, X } from 'lucide-react'
+import { Megaphone, Loader2, X, Paperclip, Search, FileText } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { useNotice } from '@/components/ui/notice'
 import { fetchProblem } from '@/lib/fetch-error'
-import { scopeNoticeProblem, scopeNoticeTitle } from '@/lib/scope-notice'
+import { Input } from '@/components/ui/input'
+import { scopeNoticeProblem, scopeNoticeTitle, MAX_NOTICE_FILES } from '@/lib/scope-notice'
+import type { NoticeAttachment } from '@/lib/scope-notice'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // "NOTIFY TEAM" - one tap from the plan that changed.
@@ -17,6 +19,14 @@ import { scopeNoticeProblem, scopeNoticeTitle } from '@/lib/scope-notice'
 // what moved, tick who it lands on, send. It rides `notify()`, which is what
 // makes it reach the bell, the inbox and the phone without being a second
 // messaging product.
+//
+// A DOCUMENT CAN GO WITH IT: "an option there to select a file as well". The
+// sentence is usually "here is the revised sheet", and a notice that describes
+// a drawing without carrying it sends the reader hunting for it. It is a LINK
+// rather than an attachment - a revised sheet is tens of megabytes and a mail
+// server will refuse it - and the picker is COLLAPSED, because most notices
+// carry nothing and two panels on the main path taxes everybody who does not
+// need the second one.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { NoticeRecipient } from '@/lib/scope-notice'
@@ -46,6 +56,15 @@ export function NotifyTeamDialog({
   const [sending, setSending] = useState(false)
   const notify = useNotice()
 
+  // The job's paperwork, fetched only when the picker is opened - most notices
+  // carry nothing, and this is a second round trip on a dialog that is
+  // frequently opened and closed without sending.
+  const [showFiles, setShowFiles] = useState(false)
+  const [docs, setDocs] = useState<{ id: string; name: string; file_url: string; source?: string | null }[]>([])
+  const [docState, setDocState] = useState<'idle' | 'loading' | 'ready' | 'failed'>('idle')
+  const [pickedFiles, setPickedFiles] = useState<NoticeAttachment[]>([])
+  const [fileQ, setFileQ] = useState('')
+
   const load = useCallback(async () => {
     try {
       const res = await fetch(`/api/projects/${projectId}/scope-notice`, {
@@ -59,6 +78,21 @@ export function NotifyTeamDialog({
 
   useEffect(() => { load() }, [load])
 
+  useEffect(() => {
+    if (!showFiles || docState !== 'idle') return
+    setDocState('loading')
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/projects/${projectId}/documents`, {
+          headers: { Authorization: `Bearer ${await token()}` },
+        })
+        if (!res.ok) { setDocState('failed'); return }
+        setDocs((await res.json()).documents ?? [])
+        setDocState('ready')
+      } catch { setDocState('failed') }
+    })()
+  }, [showFiles, docState, projectId])
+
   // AN ADDRESS IS ENOUGH. Reported as "this should go to anyone via email -
   // subs too": the first version only offered people with a SyteNav account,
   // which excludes exactly the electrician the feature exists to warn.
@@ -69,13 +103,33 @@ export function NotifyTeamDialog({
   // rather than arriving as a message about a whole request that did not happen.
   const problem = scopeNoticeProblem({ message, recipientIds })
 
+  const shownDocs = docs.filter(d => {
+    const q = fileQ.trim().toLowerCase()
+    if (!q) return true
+    return d.name.toLowerCase().includes(q) || (d.source ?? '').toLowerCase().includes(q)
+  })
+
+  function toggleFile(d: { name: string; file_url: string }) {
+    setPickedFiles(prev => {
+      const has = prev.some(f => f.url === d.file_url)
+      if (has) return prev.filter(f => f.url !== d.file_url)
+      // Capped, so one notice cannot become a document dump. The ROUTE caps it
+      // too - this one is only so the count on screen is the truth.
+      if (prev.length >= MAX_NOTICE_FILES) return prev
+      return [...prev, { name: d.name, url: d.file_url }]
+    })
+  }
+
   async function send() {
     setSending(true)
     try {
       const res = await fetch(`/api/projects/${projectId}/scope-notice`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await token()}` },
-        body: JSON.stringify({ message, recipient_keys: recipientIds, plan_id: planId, plan_name: planName }),
+        body: JSON.stringify({
+          message, recipient_keys: recipientIds, plan_id: planId, plan_name: planName,
+          files: pickedFiles,
+        }),
       })
       const body = await res.json().catch(() => ({}))
       if (!res.ok) { notify(body?.error ?? 'Could not send that.'); return }
@@ -194,6 +248,81 @@ export function NotifyTeamDialog({
             )}
           </div>
 
+          {/* SEND THE SHEET WITH IT.
+              COLLAPSED, and the tap says what is inside so nobody opens it to
+              find out - most notices carry nothing, and a second picker on the
+              main path is a tax on everybody who does not need it. */}
+          <div className="rounded-lg border border-line">
+            <button type="button" onClick={() => setShowFiles(v => !v)}
+              className="flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-ink-soft hover:bg-surface">
+              <Paperclip className="h-4 w-4 shrink-0 text-faint" />
+              <span className="min-w-0 flex-1 truncate">
+                Attach a document {pickedFiles.length > 0
+                  ? <span className="font-semibold text-accent-fg">({pickedFiles.length} picked)</span>
+                  : <span className="font-normal text-faint">(optional)</span>}
+              </span>
+              <span className="shrink-0 text-xs text-faint">{showFiles ? 'Hide' : 'Show'}</span>
+            </button>
+
+            {showFiles && (
+              <div className="space-y-2 border-t border-line-soft p-3">
+                <p className="text-xs text-muted-fg">
+                  They get a link to it in the email - no account needed. Pick the revised sheet so nobody
+                  has to go looking for what changed.
+                </p>
+
+                {docs.length > 4 && (
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-faint" />
+                    <Input className="h-9 pl-8 text-xs" placeholder="Find a document…"
+                      value={fileQ} onChange={e => setFileQ(e.target.value)} />
+                  </div>
+                )}
+
+                {/* Loading, failed and empty stay three different facts. */}
+                {docState === 'loading' ? (
+                  <p className="py-3 text-center text-sm text-faint">Loading the job&apos;s documents…</p>
+                ) : docState === 'failed' ? (
+                  <p className="rounded-lg border border-line bg-surface p-3 text-sm text-muted-fg">
+                    Could not load this job&apos;s documents. You can still send the notice without one.
+                  </p>
+                ) : docs.length === 0 ? (
+                  <p className="rounded-lg border border-line bg-surface p-3 text-sm text-muted-fg">
+                    Nothing on this job to attach yet - upload the drawing on the Plans tab first.
+                  </p>
+                ) : (
+                  <div className="max-h-44 divide-y divide-line-soft overflow-y-auto rounded-lg border border-line">
+                    {shownDocs.map(d => {
+                      const on = pickedFiles.some(f => f.url === d.file_url)
+                      const full = !on && pickedFiles.length >= MAX_NOTICE_FILES
+                      return (
+                        <label key={d.id}
+                          className={full
+                            ? 'flex items-center gap-2.5 px-3 py-2 opacity-50'
+                            : 'flex cursor-pointer items-center gap-2.5 px-3 py-2 hover:bg-surface'}>
+                          <input type="checkbox" className="accent-[#C9F24A] shrink-0"
+                            disabled={full} checked={on} onChange={() => toggleFile(d)} />
+                          <FileText className="h-4 w-4 shrink-0 text-faint" />
+                          <span className="min-w-0 flex-1 truncate text-sm text-ink-soft">{d.name}</span>
+                          <span className="shrink-0 text-[10px] text-faint">{d.source}</span>
+                        </label>
+                      )
+                    })}
+                    {shownDocs.length === 0 && (
+                      <p className="px-3 py-4 text-center text-sm text-faint">Nothing matches that.</p>
+                    )}
+                  </div>
+                )}
+
+                {pickedFiles.length >= MAX_NOTICE_FILES && (
+                  <p className="text-xs text-muted-fg">
+                    That is the most that can go on one notice. Untick one to swap it.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* The reason is on screen BEFORE the press, not after a refused
               request. The button itself is only disabled while in flight. */}
           {problem && <p className="text-xs text-muted-fg">{problem}</p>}
@@ -202,7 +331,7 @@ export function NotifyTeamDialog({
         <div className="row-even lg:flex lg:justify-end gap-2 border-t border-line-soft px-4 py-3">
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
           <Button onClick={() => { if (problem) { notify(problem); return } send() }} disabled={sending}>
-            {sending ? <><Loader2 className="h-4 w-4 animate-spin" /> Sending…</> : <><Megaphone className="h-4 w-4" /> Notify team</>}
+            {sending ? <><Loader2 className="h-4 w-4 animate-spin" /> Sending…</> : <><Megaphone className="h-4 w-4" /> Send scope update</>}
           </Button>
         </div>
       </div>

@@ -16,6 +16,51 @@ export interface ScopeNoticeDraft {
   recipientIds?: (string | null | undefined)[] | null
 }
 
+/**
+ * A DOCUMENT SENT WITH THE NOTICE.
+ *
+ * "an option there to select a file as well" - because the sentence that
+ * matters is usually "here is the revised sheet", and a notice that describes
+ * a drawing without carrying it sends the reader hunting for it.
+ *
+ * It is a LINK, not a file. A revised sheet is tens of megabytes and a mail
+ * server will refuse it; every stored `file_url` in this app is signed for ten
+ * years, so the letter carries the URL and a sub downloads it exactly the way
+ * the Sharing tab's recipients already do.
+ */
+export interface NoticeAttachment {
+  name: string
+  url: string
+}
+
+/** At most this many, so one notice cannot become a document dump. */
+export const MAX_NOTICE_FILES = 10
+
+/**
+ * Clean a list of attachments off a request body.
+ *
+ * ASKED BY THE ROUTE, because the browser sends this. A row with no name or no
+ * URL is dropped rather than rendered as a blank link in somebody's inbox -
+ * and a value that is present and WRONG is worse than one that is missing.
+ */
+export function cleanAttachments(raw: unknown): NoticeAttachment[] {
+  if (!Array.isArray(raw)) return []
+  const out: NoticeAttachment[] = []
+  const seen = new Set<string>()
+  for (const item of raw) {
+    const name = String((item as any)?.name ?? '').trim()
+    const url = String((item as any)?.url ?? '').trim()
+    // Only a real web URL. A `javascript:` or `data:` string reaching an inbox
+    // as a link the app vouched for is not a document.
+    if (!name || !/^https?:\/\//i.test(url)) continue
+    if (seen.has(url)) continue
+    seen.add(url)
+    out.push({ name, url })
+    if (out.length >= MAX_NOTICE_FILES) break
+  }
+  return out
+}
+
 /** The shortest a change can be described in and still be worth sending. */
 export const MIN_SCOPE_MESSAGE = 8
 
@@ -135,6 +180,8 @@ export interface NoticeRecord {
   told: string[]
   /** Named, not counted - "6 of 8" leaves somebody hunting for the two. */
   failed: string[]
+  /** What went with it. The record is thinner than the letter without these. */
+  files: NoticeAttachment[]
   sentAt: string
 }
 
@@ -153,6 +200,9 @@ export function noticeRecord(row: any): NoticeRecord {
     planId: String(meta.plan_id ?? '').trim() || null,
     told: list(meta.told),
     failed: list(meta.failed),
+    // Read through the same cleaner the route writes with, so a row stored
+    // before attachments existed reads as none rather than as undefined.
+    files: cleanAttachments(meta.files),
     sentAt: String(row?.created_at ?? ''),
   }
 }

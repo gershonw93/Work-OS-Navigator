@@ -585,8 +585,8 @@ export default function PlansPage({ params }: { params: { id: string } }) {
                         {canAdd && (
                           <button onClick={() => setNotifyPlan(plan)}
                             className="rounded-md p-1.5 text-faint transition-colors hover:bg-accent-tint hover:text-accent-fg"
-                            aria-label={`Notify the team about ${plan.name}`}
-                            title="Notify team about a change">
+                            aria-label={`Send a scope update about ${plan.name}`}
+                            title="Send a scope update">
                             <Megaphone className="h-4 w-4" />
                           </button>
                         )}
