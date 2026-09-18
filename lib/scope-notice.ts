@@ -43,6 +43,69 @@ export function scopeNoticeProblem(draft: ScopeNoticeDraft): string | null {
 }
 
 /**
+ * WHO CAN BE TOLD, and by which channel.
+ *
+ * "this should go to anyone via email - subs too" - and that is the whole point
+ * of the feature restated. The first version only offered people with a SyteNav
+ * account, because `notify()` works off user ids. But the electrician in the
+ * story - the one whose rough-in heights are now wrong - is precisely the
+ * person who does not have a login. AN ADDRESS IS ENOUGH.
+ *
+ * So there are two channels and the split is not cosmetic:
+ *   - somebody with an ACCOUNT goes through `notify()`, which gives them the
+ *     bell, their phone and their own email preference.
+ *   - somebody with only an ADDRESS gets an email, full stop. They have no
+ *     preferences to express and no bell to ring.
+ *
+ * ONE EVENT, ONE EMAIL: the two sets are disjoint by construction, so nobody
+ * is both notified and emailed for the same notice.
+ */
+export interface NoticeRecipient {
+  /** Stable id for the checkbox: a profile id, or `email:<address>`. */
+  key: string
+  name: string
+  email: string | null
+  /** Set when they have a SyteNav account. */
+  profileId: string | null
+  /** Where they came from, so the picker can say why they are on the list. */
+  source: 'team' | 'subcontractor'
+  role?: string | null
+}
+
+/** Reachable at all? An address is enough; a login is not required. */
+export function canBeTold(r: { profileId?: string | null; email?: string | null }): boolean {
+  return !!(r.profileId || String(r.email ?? '').trim())
+}
+
+/**
+ * Split a chosen set into the two channels.
+ *
+ * An account wins: it carries the bell and the phone as well, and sending both
+ * would be the duplicate letter the house rule forbids.
+ */
+export function splitChannels(chosen: NoticeRecipient[]): {
+  notifyIds: string[]
+  emailOnly: { name: string; email: string }[]
+} {
+  const notifyIds: string[] = []
+  const emailOnly: { name: string; email: string }[] = []
+  const seenEmail = new Set<string>()
+
+  for (const r of chosen) {
+    if (r.profileId) { notifyIds.push(r.profileId); continue }
+    const email = String(r.email ?? '').trim()
+    if (!email) continue
+    const key = email.toLowerCase()
+    // The same address can arrive twice - once off the job's team and once off
+    // a subcontract. One notice, one letter.
+    if (seenEmail.has(key)) continue
+    seenEmail.add(key)
+    emailOnly.push({ name: r.name, email })
+  }
+  return { notifyIds: Array.from(new Set(notifyIds)), emailOnly }
+}
+
+/**
  * The headline. Names the plan when there is one, because "scope changed" on
  * its own sends somebody looking through a job for what.
  */

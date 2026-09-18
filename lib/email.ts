@@ -904,3 +904,66 @@ export function escapeHtml(s: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
 }
+
+/**
+ * THE SCOPE / PLANS CHANGED NOTICE, for somebody with no SyteNav account.
+ *
+ * A sub does not have a login and does not need one - this reaches them the way
+ * everything else does, by email. It carries no token and no link into the app:
+ * there is nothing for them to do in SyteNav, and a login wall on a warning
+ * about their own work is how a warning gets ignored.
+ *
+ * The CHANGE ITSELF is the whole message. The project and the person who said
+ * it are context; what moved is the reason the letter exists, so it is what the
+ * heading and the preheader carry.
+ */
+export function scopeChangeEmail({
+  projectName, planName, changedBy, message, recipientName,
+}: {
+  projectName: string
+  planName?: string | null
+  changedBy: string
+  message: string
+  recipientName?: string | null
+}): { subject: string; text: string; html: string } {
+  const plan = String(planName ?? '').trim()
+  const who = String(changedBy ?? '').trim() || 'The contractor'
+  const what = String(message ?? '').trim()
+
+  // The SUBJECT carries the job and that something changed - an inbox clips at
+  // about sixty characters, and "Update" tells nobody anything.
+  const subject = plan
+    ? `${projectName}: plans changed - ${plan}`
+    : `${projectName}: scope changed`
+
+  const hello = String(recipientName ?? '').trim()
+
+  return {
+    subject,
+    // PLAIN TEXT TOO. Some clients render only this, and a scope change that
+    // arrives blank is worse than one that never arrived - at least the second
+    // gets chased.
+    text: [
+      hello ? `${hello},` : 'Hello,',
+      '',
+      `${who} has flagged a change on ${projectName}${plan ? ` (${plan})` : ''}:`,
+      '',
+      what,
+      '',
+      'If this affects what you have already set out or ordered, reply to this email and speak to them before you carry on.',
+    ].join('\n'),
+    html: emailLayout({
+      preheader: what.slice(0, 140),
+      eyebrow: 'Scope change',
+      heading: plan ? `Plans changed: ${plan}` : 'The scope changed on this job',
+      subheading: projectName,
+      paragraphs: [
+        hello ? `${hello},` : 'Hello,',
+        `${who} has flagged a change on ${projectName}${plan ? ` (${plan})` : ''}:`,
+        what,
+        'If this affects what you have already set out or ordered, reply to this email and speak to them before you carry on.',
+      ],
+      footNote: 'You are getting this because you are on this job. No account or login is needed.',
+    }),
+  }
+}
