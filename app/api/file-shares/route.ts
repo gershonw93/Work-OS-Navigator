@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { randomBytes } from 'crypto'
 import { getActor, actorCan } from '@/lib/server-permissions'
+import { shareProblem } from '@/lib/share-contents'
 
 export const runtime = 'nodejs'
 
@@ -49,7 +50,7 @@ export async function GET(request: Request) {
   })
 }
 
-// POST - share a set of documents with one person.
+// POST - send one person a set of documents, an update, or both.
 export async function POST(request: Request) {
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -70,9 +71,16 @@ export async function POST(request: Request) {
 
   const body = await request.json()
   const files = Array.isArray(body.files) ? body.files.filter((f: any) => f?.url && f?.name) : []
-  if (files.length === 0) return NextResponse.json({ error: 'Pick at least one document to send' }, { status: 400 })
+  const message = String(body.message ?? '').trim()
 
-  const name = String(body.name ?? '').trim() || 'Shared documents'
+  // DOCUMENTS OR WORDS, NEVER NEITHER. A share with no files is an UPDATE -
+  // the way to tell an architect the slab height moved without having to
+  // attach something to say it. What it may not be is empty: a link that opens
+  // on nothing is indistinguishable from a send that went wrong.
+  const problem = shareProblem({ files, message })
+  if (problem) return NextResponse.json({ error: problem }, { status: 400 })
+
+  const name = String(body.name ?? '').trim() || (files.length ? 'Shared documents' : 'Job update')
   const expiresDays = Number(body.expires_days)
 
   const { data, error } = await db.from('file_shares').insert({
@@ -80,7 +88,7 @@ export async function POST(request: Request) {
     project_id: body.project_id || null,
     token: randomBytes(24).toString('base64url'),
     name,
-    message: body.message || null,
+    message: message || null,
     files,
     recipient_name: body.recipient_name || null,
     recipient_email: body.recipient_email || null,

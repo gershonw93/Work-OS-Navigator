@@ -113,3 +113,51 @@ export function scopeNoticeTitle(planName?: string | null): string {
   const name = String(planName ?? '').trim()
   return name ? `Plans changed: ${name}` : 'Scope changed on this job'
 }
+
+/**
+ * A NOTICE, READ BACK OUT OF THE JOB HISTORY.
+ *
+ * The record of a broadcast is one `project_activity` row, and its `metadata`
+ * carries the part that matters six weeks later - WHO was told and whether the
+ * letter actually left. This turns that row into something a list can render.
+ *
+ * DEFENSIVE ON EVERY FIELD, because `metadata` is jsonb: nothing checks its
+ * shape, rows written by an older version of the route are still in the table,
+ * and a list that throws on one bad row shows none of the good ones.
+ */
+export interface NoticeRecord {
+  id: string
+  actorName: string
+  message: string
+  planName: string | null
+  planId: string | null
+  /** The names of everybody who was told, in the order they were picked. */
+  told: string[]
+  /** Named, not counted - "6 of 8" leaves somebody hunting for the two. */
+  failed: string[]
+  sentAt: string
+}
+
+export function noticeRecord(row: any): NoticeRecord {
+  const meta = (row?.metadata ?? {}) as Record<string, unknown>
+  const list = (v: unknown): string[] =>
+    Array.isArray(v) ? v.map(x => String(x ?? '').trim()).filter(Boolean) : []
+
+  return {
+    id: String(row?.id ?? ''),
+    actorName: String(row?.actor_name ?? '').trim() || 'Someone',
+    // The typed message is the point of the record. Falling back to the
+    // history sentence keeps an older row readable rather than blank.
+    message: String(meta.message ?? '').trim() || String(row?.message ?? '').trim(),
+    planName: String(meta.plan_name ?? '').trim() || null,
+    planId: String(meta.plan_id ?? '').trim() || null,
+    told: list(meta.told),
+    failed: list(meta.failed),
+    sentAt: String(row?.created_at ?? ''),
+  }
+}
+
+/** How many people this notice actually reached. */
+export function noticeReached(n: { told: string[]; failed: string[] }): number {
+  return Math.max(0, n.told.length - n.failed.length)
+}

@@ -30,8 +30,8 @@ interface Data {
 const prettySize = (n?: number | null) =>
   !n ? '' : n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`
 
-// What the person on the other end sees: the documents, who sent them, and a
-// way to send documents back. No account, no sign-up, nothing but this.
+// What the person on the other end sees: the documents or the update, who sent
+// it, and a way to send documents back. No account, no sign-up, nothing but this.
 export default function SharePage({ params }: { params: { token: string } }) {
   const [data, setData] = useState<Data | null>(null)
   const [loading, setLoading] = useState(true)
@@ -146,7 +146,12 @@ export default function SharePage({ params }: { params: { token: string } }) {
               </div>
             )}
 
-            {/* The documents */}
+            {/* The documents - WHEN THERE ARE ANY.
+                A share with no files is an update: the message above is the
+                whole thing. Rendering "0 documents" over an empty box tells the
+                reader something went missing, which is the opposite of what
+                happened. */}
+            {data.files.length > 0 && <>
             <h2 className="mt-9 text-sm font-bold uppercase tracking-wide text-muted-fg">
               {data.files.length} document{data.files.length !== 1 ? 's' : ''}
             </h2>
@@ -179,6 +184,7 @@ export default function SharePage({ params }: { params: { token: string } }) {
             {data.files.length > 1 && (
               <p className="mt-2 text-xs text-faint">Open one and swipe to move through the rest.</p>
             )}
+            </>}
 
             {/* Send something back */}
             {data.allow_upload && (

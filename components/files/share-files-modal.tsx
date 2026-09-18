@@ -9,6 +9,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select'
 import { cn } from '@/lib/utils'
 import { X, Check, Copy, Mail, Search, FileText, Send } from 'lucide-react'
 import { SendLinkBox } from '@/components/ui/send-link-box'
+import { shareProblem, shareActionLabel, isUpdateOnly } from '@/lib/share-contents'
 
 export interface ShareableFile {
   id: string
@@ -24,12 +25,17 @@ export interface ShareableFile {
 interface Contact { id: string; name: string; email: string | null; company?: string | null; kind: string }
 
 /**
- * Send a set of documents to one person outside the company.
+ * Send a set of documents - or just an update - to one person outside the company.
  *
  * The case this exists for: pulling permits. You send the expeditor the plans
  * and forms, and they send the approved permit back - all with someone who is
  * never going to have an account. So it produces a link, not an invitation, and
  * the return trip is on the same link.
+ *
+ * DOCUMENTS ARE OPTIONAL. Picking none makes it an UPDATE: the message is the
+ * whole thing, which is how you tell an architect the slab height moved half an
+ * inch without having to attach a file to say it. `shareProblem` is the one
+ * rule for what a share must carry, and the ROUTE asks it too.
  */
 export function ShareFilesModal({
   files, preselected, projectId, defaultTitle, addTo, onClose, onShared,
@@ -123,6 +129,10 @@ export function ShareFilesModal({
   }, [shown])
   const grouped = groups.length > 1
 
+  // Nothing picked means this send is words rather than paperwork, and several
+  // labels on this screen change because of it.
+  const updateOnly = !addTo && isUpdateOnly(picked.size)
+
   function toggle(id: string) {
     setPicked(p => {
       const n = new Set(p)
@@ -153,13 +163,17 @@ export function ShareFilesModal({
 
   async function share() {
     const chosen = files.filter(f => picked.has(f.id))
-    if (!chosen.length) { setError('Pick at least one document'); return }
+    // ASKED AT THE FIELD, using the same function the route asks - a server's
+    // answer can only ever arrive as a message about a whole request that did
+    // not happen.
+    const problem = shareProblem({ files: chosen, message })
+    if (problem) { setError(problem); return }
     setSaving(true); setError('')
     const res = await fetch('/api/file-shares', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await token()}` },
       body: JSON.stringify({
-        name: title.trim() || `Documents for ${name || 'you'}`,
+        name: title.trim() || (chosen.length ? `Documents for ${name || 'you'}` : `Update for ${name || 'you'}`),
         message: message.trim() || null,
         project_id: projectId ?? null,
         recipient_name: name.trim() || null,
@@ -181,13 +195,13 @@ export function ShareFilesModal({
 
   const mailto = () => {
     const body = [
-      message.trim() || `Here are the documents you need.`,
+      message.trim() || (picked.size ? 'Here are the documents you need.' : 'An update on the job.'),
       '',
       url,
       '',
       allowUpload ? 'You can send documents back on the same link.' : '',
     ].filter(Boolean).join('\n')
-    return `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(title || 'Documents')}&body=${encodeURIComponent(body)}`
+    return `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(title || (picked.size ? 'Documents' : 'Job update'))}&body=${encodeURIComponent(body)}`
   }
 
   return (
@@ -195,7 +209,9 @@ export function ShareFilesModal({
       <div className="w-full max-w-2xl rounded-xl bg-panel shadow-xl overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-line-soft px-5 py-4">
           <h2 className="text-base font-semibold text-ink">
-            {addTo ? 'Add documents to this link' : step === 'compose' ? 'Share documents' : 'Link ready'}
+            {addTo ? 'Add documents to this link'
+              : step === 'done' ? 'Link ready'
+              : updateOnly ? 'Send an update' : 'Share documents'}
           </h2>
           <button onClick={onClose} className="text-faint hover:text-ink"><X className="h-5 w-5" /></button>
         </div>
@@ -234,7 +250,7 @@ export function ShareFilesModal({
             {/* What */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between gap-2">
-                <Label>Documents <span className="text-faint font-normal">({picked.size} selected)</span></Label>
+                <Label>Documents <span className="text-faint font-normal">(optional · {picked.size} selected)</span></Label>
                 {files.length > 4 && (
                   <div className="relative w-48">
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-faint" />
@@ -277,12 +293,24 @@ export function ShareFilesModal({
               <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Permit package - 19 Shady Nook Ave" />
             </div>
             <div className="space-y-1.5">
-              <Label>Message <span className="text-faint font-normal">(optional)</span></Label>
+              {/* A FIELD IS MARKED OR IT IS GUESSED AT - and which marker this
+                  one carries depends on whether any documents are going with
+                  it. With none picked the message IS the share. */}
+              <Label>
+                Message {updateOnly
+                  ? <span className="text-danger font-normal">*</span>
+                  : <span className="text-faint font-normal">(optional)</span>}
+              </Label>
               <textarea
                 value={message} onChange={e => setMessage(e.target.value)} rows={3}
-                placeholder="Anything they need to know."
+                placeholder={updateOnly ? 'What changed, and what they need to do about it.' : 'Anything they need to know.'}
                 className="w-full rounded-lg border border-line bg-panel px-3 py-2 text-sm text-ink placeholder:text-faint focus:outline-none focus:ring-2 focus:ring-accent resize-none"
               />
+              {updateOnly && (
+                <p className="text-xs text-muted-fg">
+                  No documents picked, so this goes out as an update - they get a link that opens on what you write here.
+                </p>
+              )}
             </div>
 
             {/* Return trip */}
@@ -312,18 +340,25 @@ export function ShareFilesModal({
 
             <div className="row-even lg:flex justify-end gap-2">
               <Button variant="secondary" onClick={onClose} disabled={saving}>Cancel</Button>
-              <Button onClick={addTo ? addToExisting : share} disabled={saving || picked.size === 0} className="gap-1.5">
+              {/* A DISABLED BUTTON EXPLAINS NOTHING. Adding documents to an
+                  existing link genuinely needs a selection, so that one still
+                  guards - but the new-share button fires and answers with what
+                  is missing, because "nothing picked" is now a legitimate
+                  send rather than a mistake. */}
+              <Button onClick={addTo ? addToExisting : share} disabled={saving || (!!addTo && picked.size === 0)} className="gap-1.5">
                 <Send className="h-4 w-4" />
                 {saving
                   ? (addTo ? 'Adding…' : 'Creating…')
-                  : addTo ? `Add ${picked.size || ''} to link` : 'Create link'}
+                  : addTo ? `Add ${picked.size || ''} to link` : shareActionLabel(picked.size)}
               </Button>
             </div>
           </div>
         ) : (
           <div className="p-5 space-y-4">
             <p className="text-sm text-muted-fg">
-              Anyone with this link can see {picked.size} document{picked.size !== 1 ? 's' : ''}
+              {picked.size === 0
+                ? 'Anyone with this link can read your update'
+                : `Anyone with this link can see ${picked.size} document${picked.size !== 1 ? 's' : ''}`}
               {allowUpload ? ' and send documents back' : ''}. No account needed.
             </p>
             {shareId ? (

@@ -28,12 +28,14 @@ async function token() {
 }
 
 export function NotifyTeamDialog({
-  projectId, planId, planName, onClose,
+  projectId, planId, planName, onClose, onSent,
 }: {
   projectId: string
   planId?: string | null
   planName?: string | null
   onClose: () => void
+  /** Fired after a send lands, so a list showing the record can refresh. */
+  onSent?: () => void
 }) {
   const [people, setPeople] = useState<NoticeRecipient[]>([])
   // Loading, failed and empty are three different facts, and "nobody is on this
@@ -91,6 +93,7 @@ export function NotifyTeamDialog({
       } else {
         notify(`Told ${body.sent}: ${bits.join(', ')}.`, { tone: 'success' })
       }
+      onSent?.()
       onClose()
     } catch (e) {
       notify(fetchProblem(e, 'sending the notice'))

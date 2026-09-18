@@ -55,7 +55,7 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 const AUTHORED: Release[] = [
   {
     date: '2026-09-18',
-    title: 'Hear about task changes, if you want to',
+    title: 'Tell people things, without the paperwork',
     items: [
       {
         kind: 'new',
@@ -70,9 +70,15 @@ const AUTHORED: Release[] = [
         help: 'google-contacts',
       },
       {
+        kind: 'improved',
+        title: 'Share without attaching anything',
+        text: 'The Sharing tab no longer makes you attach a file to say something. Tick no documents and the message is the whole send - a plain update on a link, which is how you tell an architect the slab moved without digging up a file to hang it on. They can still send documents back on it, and it is listed with everything else that has gone out on that job.',
+        help: 'share-documents',
+      },
+      {
         kind: 'new',
         title: 'Notify team when the plans change',
-        text: 'A megaphone button on each plan opens "Notify team": say what moved, tick who needs to know, send. They get it in the bell, by email and on their phone. It is for the change in one trade that silently moves another - the slab drops half an inch and the electrician\'s rough-in heights are wrong. Anyone on the job without a SyteNav account is shown greyed out rather than quietly left off.',
+        text: 'A megaphone button on each plan - and on the job\'s Sharing tab - opens "Notify team": say what moved, tick who needs to know, send. They get it in the bell, by email and on their phone; a sub with no SyteNav login just gets the email. It is for the change in one trade that silently moves another - the slab drops half an inch and the electrician\'s rough-in heights are wrong. Every notice is listed on the Sharing tab afterwards with what was said and who was told, so "did anyone tell the electrician?" has an answer.',
         help: 'plan-pins',
       },
     ],
