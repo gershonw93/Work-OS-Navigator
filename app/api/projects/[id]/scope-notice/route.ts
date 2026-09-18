@@ -2,7 +2,10 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { requirePermission, denied } from '@/lib/api-guard'
 import { notify } from '@/lib/notify'
-import { scopeNoticeProblem, scopeNoticeTitle, splitChannels, type NoticeRecipient } from '@/lib/scope-notice'
+import {
+  scopeNoticeProblem, scopeNoticeTitle, splitChannels, cleanAttachments,
+  type NoticeRecipient,
+} from '@/lib/scope-notice'
 import { scopeChangeEmail } from '@/lib/email'
 import { logActivity } from '@/lib/log-activity'
 import { sendEmail } from '@/lib/email'
@@ -120,6 +123,10 @@ export async function POST(request: Request, { params }: { params: { id: string 
     : []
   const planName = body?.plan_name ? String(body.plan_name) : null
   const planId = body?.plan_id ? String(body.plan_id) : null
+  // THE REVISED SHEET ITSELF, optional. Links, not files - see
+  // `cleanAttachments`, which is also what drops anything that is not a real
+  // http(s) URL before it reaches somebody's inbox wearing our name.
+  const files = cleanAttachments(body?.files)
 
   const problem = scopeNoticeProblem({ message, recipientIds: keys })
   if (problem) return NextResponse.json({ error: problem }, { status: 400 })
@@ -155,13 +162,21 @@ export async function POST(request: Request, { params }: { params: { id: string 
   // would be the duplicate letter the house rule forbids.
   const { notifyIds, emailOnly } = splitChannels(chosen)
 
+  // The bell carries the names, not the links - the recipient has an account
+  // and the documents are already on the job in front of them. Saying nothing
+  // about them would leave the emailed half of one notice better informed
+  // than the half who work here.
+  const attached = files.length
+    ? ` (attached: ${files.map(f => f.name).join(', ')})`
+    : ''
+
   const result = notifyIds.length
     ? await notify({
         db,
         userIds: notifyIds,
         type: 'scope_change',
         title: scopeNoticeTitle(planName),
-        message: `${who}: ${String(message).trim()}`,
+        message: `${who}: ${String(message).trim()}${attached}`,
         link: planId ? `/projects/${params.id}/plans/${planId}` : `/projects/${params.id}/plans`,
       })
     : { inApp: 0, emailed: 0, pushed: 0, skipped: null as null }
@@ -175,6 +190,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     try {
       const { subject, text, html } = scopeChangeEmail({
         projectName, planName, changedBy: who, message: String(message).trim(), recipientName: person.name,
+        files: files.map(f => ({ label: f.name, url: f.url })),
       })
       const sent = await sendEmail({ to: person.email, subject, text, html })
       if (sent.sent) mailed++
@@ -207,6 +223,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
       plan_id: planId,
       plan_name: planName,
       message: String(message).trim(),
+      files,
       told: toldNames,
       in_app: result.inApp,
       emailed: result.emailed + mailed,

@@ -77,8 +77,8 @@ const AUTHORED: Release[] = [
       },
       {
         kind: 'new',
-        title: 'Notify team when the plans change',
-        text: 'A megaphone button on each plan - and on the job\'s Sharing tab - opens "Notify team": say what moved, tick who needs to know, send. They get it in the bell, by email and on their phone; a sub with no SyteNav login just gets the email. It is for the change in one trade that silently moves another - the slab drops half an inch and the electrician\'s rough-in heights are wrong. Every notice is listed on the Sharing tab afterwards with what was said and who was told, so "did anyone tell the electrician?" has an answer.',
+        title: 'Send a scope update when the plans change',
+        text: 'A megaphone button on each plan - and Send scope update on the job\'s Sharing tab - opens it: say what moved, tick who needs to know, attach the revised sheet if there is one, and send. They get it in the bell, by email and on their phone; a sub with no SyteNav login just gets the email. It is for the change in one trade that silently moves another - the slab drops half an inch and the electrician\'s rough-in heights are wrong. Every notice is listed on the Sharing tab afterwards with what was said and who was told, so "did anyone tell the electrician?" has an answer.',
         help: 'plan-pins',
       },
     ],

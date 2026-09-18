@@ -95,7 +95,7 @@ ok(/Select all \$\{reachable\.length\}/.test(dialog), 'select all counts only wh
 // Attached to the plan itself.
 const plans = code('app/(dashboard)/projects/[id]/plans/page.tsx')
 ok(/setNotifyPlan\(plan\)/.test(plans), 'ATTACHED TO THE PLAN: the button is on the row that changed')
-ok(/aria-label=\{`Notify the team about \$\{plan\.name\}`\}/.test(plans),
+ok(/aria-label=\{`Send a scope update about \$\{plan\.name\}`\}/.test(plans),
   '...and the icon-only button says which plan it is about')
 // Anchored on the CALL, not the name: `plans.indexOf('setNotifyPlan')` finds
 // the useState declaration at the top of the file, and a window measured back
