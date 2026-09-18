@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { StatStrip } from '@/components/ui/stat-strip'
 import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import Link from 'next/link'
-import { Building2, Plus, X, Search, Phone, Mail, MapPin, Globe, BadgeCheck, Send, ExternalLink, Pencil, Trash2 } from 'lucide-react'
+import { Building2, Plus, X, Search, Phone, Mail, MapPin, Globe, BadgeCheck, Send, ExternalLink, Pencil, Trash2, Users} from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -621,10 +621,19 @@ export default function DirectoryPage() {
           <h1 className="text-2xl font-bold text-ink">Contacts Directory</h1>
           <p className="text-sm text-muted-fg mt-0.5">GCs, subs, inspectors, suppliers, and workers.</p>
         </div>
-        <Button onClick={() => setShowAdd(true)} className="self-start sm:self-auto">
-          <Plus className="h-4 w-4" />
-          Add Contact
-        </Button>
+        <div className="row-even sm:flex sm:items-center gap-2 self-start sm:self-auto">
+          {/* The staging area is a separate PLACE on purpose - contacts from a
+              phone book are not directory contacts until somebody says they
+              are. The door to it belongs here, beside adding one by hand. */}
+          <Link href="/directory/imported"
+            className="inline-flex min-h-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-line px-3 text-sm font-medium text-muted-fg hover:bg-surface lg:min-h-0 lg:py-2">
+            <Users className="h-4 w-4" /> Imported contacts
+          </Link>
+          <Button onClick={() => setShowAdd(true)}>
+            <Plus className="h-4 w-4" />
+            Add Contact
+          </Button>
+        </div>
       </div>
 
       {/* ── Tabs ── */}

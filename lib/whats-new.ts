@@ -65,6 +65,12 @@ const AUTHORED: Release[] = [
       },
       {
         kind: 'new',
+        title: 'Import your Google Contacts',
+        text: 'Directory > Imported contacts connects a Google account and reads its address book into a staging list. Tick people, label them Sub / Supplier / Delivery, set a trade and a job - all in bulk - and only the ones you pick become Directory contacts. Your phone book never gets mixed into your subs.',
+        help: 'google-contacts',
+      },
+      {
+        kind: 'new',
         title: 'Notify team when the plans change',
         text: 'A megaphone button on each plan opens "Notify team": say what moved, tick who needs to know, send. They get it in the bell, by email and on their phone. It is for the change in one trade that silently moves another - the slab drops half an inch and the electrician\'s rough-in heights are wrong. Anyone on the job without a SyteNav account is shown greyed out rather than quietly left off.',
         help: 'plan-pins',

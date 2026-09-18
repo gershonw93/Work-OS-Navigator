@@ -1778,6 +1778,30 @@ export const HELP_ARTICLES: HelpArticle[] = [
 
   // ── Workspace: Directory / Customers / Files ───────────────────────────────
   {
+    slug: 'google-contacts',
+    title: 'Import your Google Contacts',
+    category: 'workspace',
+    keywords: ['google', 'contacts', 'import', 'sync', 'address book', 'phone book', 'gmail', 'bulk', 'label', 'staging', 'connect google'],
+    summary: 'Read your Google address book into a staging list, label who matters, and add only those to your Directory.',
+    blocks: [
+      { type: 'text', text: 'YOUR PHONE BOOK IS NOT YOUR DIRECTORY. It has your dentist, your brother-in-law and four numbers for the same electrician. So contacts from Google do NOT go straight into your Directory - they land in a separate list where you decide who is a sub, who is a supplier, and who is nobody you work with.' },
+      { type: 'steps', items: [
+        'Go to Directory, then "Imported contacts".',
+        'Press Connect Google Contacts and sign in with the Google account whose address book you want. We only ever READ it - nothing is changed on Google\'s side.',
+        'Press Read contacts. Everything comes into the list below.',
+        'Tick the ones you want - or Select all - then use the three pickers to label them: Sub, Supplier, Delivery or Inspector; a trade; and a job if they belong to one. Each picker applies to everything you have ticked.',
+        'Press "Add to Directory". Only those become real contacts.',
+        'For the ones you do not work with, tick them and press "Not a work contact" - they stop being offered.',
+      ] },
+      { type: 'tip', text: 'Labelling five people at once only changes what you picked. Setting them all to Supplier will not wipe a trade you already set on one of them.' },
+      { type: 'warn', text: 'A contact has to be labelled before it can be added. If you press Add and something is not labelled, it tells you which ones by name rather than refusing the whole batch silently.' },
+      { type: 'text', text: 'READING AGAIN LATER. Press Read contacts any time. Anyone you already added or dismissed is not offered again, so the list only ever shows what you have not dealt with. Changes to a contact you have not dealt with yet (a new phone number, say) come through on the next read.' },
+      { type: 'text', text: 'DISCONNECTING. Disconnect stops us reading your address book. It does NOT throw away the list or the labels you have given - those stay until you deal with them.' },
+      { type: 'tip', text: 'Only an admin can connect or disconnect the Google account, and it is connected for the whole company rather than for one person - so it keeps working if whoever set it up leaves.' },
+    ],
+    related: ['directory', 'invite-team-member'],
+  },
+  {
     slug: 'directory',
     title: 'Add contacts to your Directory',
     category: 'workspace',
