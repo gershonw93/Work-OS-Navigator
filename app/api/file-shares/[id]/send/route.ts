@@ -11,7 +11,7 @@ const admin = () => createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
-/** Email somebody the link to a set of shared documents. */
+/** Email somebody the link to what was shared - documents, an update, or both. */
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   const auth = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -33,18 +33,23 @@ export async function POST(request: Request, { params }: { params: { id: string 
   }
 
   const count = Array.isArray(share.files) ? share.files.length : 0
-  const lines = [
-    `${share.created_by_name ?? 'Your contractor'} has shared ${count ? `${count} document${count === 1 ? '' : 's'}` : 'some documents'} with you${share.name ? `: ${share.name}` : ''}.`,
-  ]
+  // A SHARE WITH NO DOCUMENTS IS AN UPDATE, AND THE LETTER HAS TO SAY SO.
+  // "has shared some documents with you" over a link that opens on none of
+  // them is the app telling the reader something that is not true - and it is
+  // the sentence that decides whether they bother opening it.
+  const update = count === 0
+  const lines = update
+    ? [`${share.created_by_name ?? 'Your contractor'} has sent you an update${share.name ? `: ${share.name}` : ''}.`]
+    : [`${share.created_by_name ?? 'Your contractor'} has shared ${count} document${count === 1 ? '' : 's'} with you${share.name ? `: ${share.name}` : ''}.`]
   if (share.message) lines.push(share.message)
   if (share.allow_upload) lines.push(share.upload_prompt || 'You can also send documents back from the same page.')
 
   const email = tokenLinkEmail({
     recipientName: share.recipient_name,
-    eyebrow: 'Documents shared with you',
-    heading: share.name || 'Documents shared with you',
+    eyebrow: update ? 'An update on the job' : 'Documents shared with you',
+    heading: share.name || (update ? 'An update on the job' : 'Documents shared with you'),
     lines,
-    ctaLabel: count === 1 ? 'Open the document' : 'Open the documents',
+    ctaLabel: update ? 'Read the update' : count === 1 ? 'Open the document' : 'Open the documents',
     url: `${appOrigin(request.headers.get('origin'))}/share/${share.token}`,
     fromName: share.created_by_name,
     note,
