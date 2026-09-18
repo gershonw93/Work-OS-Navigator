@@ -15,6 +15,8 @@
 /** type -> the project tab that shows the record. */
 export const ACTIVITY_TAB: Record<string, string> = {
   plan_uploaded: 'plans',
+  // The change is about a drawing, so the row opens the drawings.
+  scope_change_notice: 'plans',
   permit_added: 'permits',
   permit_updated: 'permits',
   inspection_added: 'inspections',
