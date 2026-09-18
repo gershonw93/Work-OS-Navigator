@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
+import { TRADES, tradeChoices } from '@/lib/trades'
 import { Badge } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
 import { cn } from '@/lib/utils'
@@ -20,12 +21,10 @@ import { useDeleteGuard } from '@/components/ui/delete-guard'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const TRADES = [
-  'Demolition', 'Concrete', 'Masonry', 'Structural Steel', 'Framing',
-  'Roofing', 'Waterproofing', 'Insulation', 'Drywall', 'Doors & Hardware',
-  'Glazing', 'Tile', 'Flooring', 'Paint', 'Electrical', 'Plumbing',
-  'HVAC', 'Fire Protection', 'Elevators', 'Landscaping', 'Other',
-]
+// THE TRADE LIST LIVES IN `lib/trades.ts`. It was hardcoded here AND the scope
+// templates had their own, so the two disagreed: this list offered "Paint"
+// while a template is keyed on "Painting", and it had no "Excavation" at all.
+// A sub filed from here could be unmatchable by the template meant for them.
 
 const INSPECTOR_SPECIALTIES = [
   'Electrical', 'Plumbing', 'Structural', 'Mechanical/HVAC',
@@ -826,7 +825,19 @@ export default function DirectoryPage() {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-muted-fg">Trade</label>
-                  <input className="w-full rounded-lg border border-muted2 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" value={editTrade} onChange={e => setEditTrade(e.target.value)} placeholder="e.g. Flooring, Electrical" />
+                  {/* A PICKER HERE TOO, AND THIS IS THE DOOR THE TYPOS CAME
+                      THROUGH. Adding a contact has always made you choose;
+                      editing one let you type anything, so "Electric",
+                      "Elecric" and a company name ended up in this column -
+                      and a sub whose trade is spelled differently does not
+                      appear when you pick Electrical to price out electrical.
+                      `tradeChoices` keeps whatever is already stored at the
+                      top of the list, so opening a card to fix a phone number
+                      cannot silently refile the sub under something else. */}
+                  <Select value={editTrade} onChange={e => setEditTrade(e.target.value)}>
+                    <option value="">No trade set</option>
+                    {tradeChoices(editTrade).map(t => <option key={t} value={t}>{t}</option>)}
+                  </Select>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-muted-fg">Address</label>
