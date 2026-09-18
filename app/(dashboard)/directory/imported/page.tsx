@@ -1,6 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Users, RefreshCw, Loader2, Unplug, Link2, Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -69,6 +70,30 @@ export default function ImportedContactsPage() {
   const [busy, setBusy] = useState<string | null>(null)
   const notify = useNotice()
   const guardDelete = useDeleteGuard()
+
+  const search = useSearchParams()
+  // ONCE. A ref rather than state: without it the effect re-runs on every
+  // render the notice triggers and the message stacks up - the same guard the
+  // Directory uses for ?contact=.
+  const saidRef = useRef(false)
+
+  // WHAT THE TRIP TO GOOGLE ACTUALLY DID. The callback comes back with an
+  // answer and this is what says it out loud; landing on a silent page is what
+  // made a working connection look like nothing had happened.
+  useEffect(() => {
+    if (saidRef.current) return
+    const outcome = search.get('google')
+    if (!outcome) return
+    saidRef.current = true
+    if (outcome === 'connected') notify('Google Contacts connected. Press Read contacts to pull them in.', { tone: 'success' })
+    else if (outcome === 'cancelled') notify('Google sign-in was cancelled - nothing was connected.')
+    else if (outcome === 'failed') {
+      // The reason is carried in the URL and printed, rather than being only in
+      // a server log nobody reading this screen can see.
+      const why = search.get('why')
+      notify(`Google could not be connected${why ? ` (${why})` : ''}. Try again, or check the redirect URI in Google Cloud.`)
+    }
+  }, [search, notify])
 
   const load = useCallback(async () => {
     try {

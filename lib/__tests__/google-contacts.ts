@@ -143,4 +143,35 @@ ok(/Connected\{status\.googleEmail \? ` as \$\{status\.googleEmail\}`/.test(page
 ok(/nothing new to review/.test(page),
   'a sync that found nothing new SAYS so - a silent refresh reads as a dead button')
 
+// ── THE RETURN TRIP LANDS WHERE THE FEATURE IS ──────────────────────────────
+// Reported after the first real connection: "i pressed connect, i selected my
+// google account, it took me then to integrations is the settings but there
+// only qb there not google contacts". The connection had WORKED - the row was
+// written with a refresh token and a sync ran a minute later - and the page it
+// returned to had never heard of Google, so it looked like nothing happened.
+// A control has to lead to the thing it names.
+ok(/new URL\('\/directory\/imported'/.test(cb),
+  'THE FIX: Google sends you back to the staging area, not to a tab without a Google card')
+ok(!/tab', 'integrations'/.test(cb),
+  '...and no longer to Settings, which listed only QuickBooks')
+
+// Landing there is only half of it: the page has to SAY what happened.
+ok(/search\.get\('google'\)/.test(page),
+  'and the page reads the outcome the callback came back with')
+ok(/Google Contacts connected/.test(page), '...saying so on success')
+ok(/cancelled/.test(page), '...naming a cancelled sign-in as a decision, not a failure')
+ok(/search\.get\('why'\)/.test(page),
+  '...and printing the REASON on failure, rather than leaving it only in a server log')
+ok(/saidRef/.test(page),
+  '...once, not on every render the notice itself triggers')
+
+// AND INTEGRATIONS LISTS IT, because that is where somebody looks for an
+// integration whatever we decide the feature's home is.
+const settings = code('app/(dashboard)/settings/page.tsx')
+ok(/<GoogleContactsCard \/>/.test(settings), 'Settings -> Integrations lists Google Contacts')
+const card = code('components/settings/google-contacts-card.tsx')
+ok(/status\.googleEmail/.test(card), 'the card NAMES the connected account')
+ok(/href="\/directory\/imported"/.test(card),
+  '...and sends you to the one place that does the work, rather than being a second set of the same buttons')
+
 done()
