@@ -126,6 +126,42 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
     defaults: { inApp: true, email: false }, push: true, status: 'live',
   },
   {
+    key: 'task_updated', label: 'Task updated', group: 'Work',
+    description: 'Any change to a task on one of your jobs - status, dates, priority, or who has it.',
+    audience: 'team', defaultAudience: ['tasks', 'view'],
+    // OFF ON BOTH CHANNELS, AND THAT IS THE FEATURE. Asked for as "opt-in
+    // setting: get notified whenever a task is updated" - which is the only
+    // honest default for a type that can fire on every edit of every task on
+    // every job. A missing preference row means "use the default", so this
+    // ships silent for everybody and starts working the moment somebody turns
+    // it on in Settings -> Notifications.
+    defaults: { inApp: false, email: false },
+    // NO PUSH. "Do I want this at all" is the switch above; whether it is
+    // worth a phone buzz is a different question and this one is not - a
+    // notification that can fire twenty times an afternoon is how people learn
+    // to ignore the buzz for the types that matter.
+    push: false,
+    status: 'live',
+  },
+  {
+    key: 'scope_change', label: 'Scope or plans changed', group: 'Work',
+    description: 'Somebody on a job tells you the plans or the scope have moved.',
+    // DIRECT, because the sender picks who needs to know. A routed audience
+    // would decide FOR them, and the whole point is that the person who made
+    // the change knows which trades it lands on - concrete moving half an inch
+    // is the electrician's problem, not everybody's.
+    audience: 'direct',
+    // ON by default, both channels. This is the case the help text already
+    // names: finding out at your next login is too late. A crew sets heights
+    // off yesterday's drawing exactly once.
+    defaults: { inApp: true, email: true },
+    // "one tap, selected people get the push" - asked for in those words, and
+    // it is the right answer here for the same reason email is on: this is
+    // rare, specific and time-critical, which is what a buzz is for.
+    push: true,
+    status: 'live',
+  },
+  {
     key: 'signoff_requested', label: 'Sign-off requested', group: 'Work',
     description: 'Someone needs you to sign off on a task before it can close.',
     audience: 'direct',

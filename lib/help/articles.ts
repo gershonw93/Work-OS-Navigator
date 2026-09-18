@@ -320,7 +320,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'plan-pins',
     title: 'Pin a task right on the plan',
     category: 'projects',
-    keywords: ['pin', 'plan', 'blueprint', 'task', 'drop', 'marker', 'assign', 'drawing', 'page', 'go to page', 'jump to page', 'page number', 'multi-page', 'sheet'],
+    keywords: ['pin', 'plan', 'blueprint', 'task', 'drop', 'marker', 'assign', 'drawing', 'notify team', 'scope change', 'plans changed', 'revision', 'tell the team', 'broadcast', 'page', 'go to page', 'jump to page', 'page number', 'multi-page', 'sheet'],
     summary: 'Open a plan, drop a pin where the work is, and assign it as a task.',
     blocks: [
       { type: 'steps', items: [
@@ -332,6 +332,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'On a phone, use the full-screen button for a bigger canvas while dropping or reading pins.',
       ] },
       { type: 'text', text: 'JUMPING TO A PAGE. On a multi-page set the page number between the arrows is a box: type the page you want and press Enter (or tap away) and it goes straight there, rather than stepping forty-odd times. Ask for a page past the end and it takes you to the last one. Opening a pin from the list moves the box too, so it always agrees with the sheet on screen.' },
+      { type: 'text', text: 'TELLING THE OTHER TRADES. When a drawing changes, the megaphone button on that plan\'s row opens "Notify team": say what moved, tick who it lands on, send. They get it in the bell, by email and on their phone, following whatever each of them has set. This is the case it exists for - concrete switches from one centre pour to floor-by-floor, the slab height drops half an inch, and the electrician sets his rough-in heights off yesterday\'s drawing because nobody told him. Anyone on the job\'s team who has a SyteNav account can be picked; the ones who do not are listed greyed out saying so, rather than quietly left off the list. It is not a chat - there is no thread and no reply.' },
       { type: 'tip', text: 'Removing a pin keeps its task - nothing gets lost. Very large sheets render at a capped resolution so they stay fast; use the file button to open the raw PDF at native quality.' },
     ],
     related: ['tasks-assign', 'project-tabs-explained'],
@@ -1309,7 +1310,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'notification-preferences',
     title: 'Choose what you get told about',
     category: 'settings',
-    keywords: ['notification', 'notifications', 'email', 'alerts', 'bell', 'turn off', 'mute', 'unsubscribe', 'preferences', 'settings', 'stop emails', 'push', 'phone', 'iphone', 'no phone registered', 'not getting notifications', 'device', 'register', 'testflight'],
+    keywords: ['notification', 'notifications', 'email', 'alerts', 'bell', 'turn off', 'mute', 'unsubscribe', 'preferences', 'settings', 'stop emails', 'push', 'phone', 'iphone', 'no phone registered', 'not getting notifications', 'device', 'register', 'testflight', 'task updated', 'task changes', 'follow a task', 'notify me of task'],
     summary: 'Pick which notifications reach you in the app, by email, or both.',
     blocks: [
       { type: 'steps', items: [
@@ -1321,6 +1322,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: 'text', text: 'EMAIL IS OFF FOR MOST THINGS ON PURPOSE. It is on by default for six, all of them cases where finding out at your next login is too late: somebody is waiting on your sign-off, a bill needs approving, a bill you sent got paid, a bid you priced was decided, an insurance certificate is about to lapse, or you have been invited to quote a package. Everything else stays in the bell until you ask for it.' },
       { type: 'text', text: 'Notifications marked COMING SOON are ones the app does not send yet. The switch is there so you can see what is planned; it will start working when the notification does.' },
       { type: 'text', text: 'BIDS. You are told when a sub sends a quote or declines to, when you are invited to quote, when somebody chases you for a price you have not sent, and when a package is awarded. A sub who does not have a SyteNav account still gets the award by email, since the address is on their quote.' },
+      { type: 'text', text: 'TASK UPDATED IS OFF FOR EVERYONE UNTIL YOU TURN IT ON. It is the one notification that can fire on every edit of every task on every job, so it ships silent rather than opted-in: switch on App (and Email if you want it) on the "Task updated" row and you start hearing about status changes, date moves, priority changes and reassignments. You are never told about a change you made yourself. It deliberately does not buzz your phone - the bell and the inbox are enough for something this frequent. Admins can point it at particular roles or people under Who gets told.' },
       { type: 'tip', text: 'Turning off the bell and the email for something means you will not hear about it at all. If you want a quieter inbox but still want to catch up in your own time, turn off Email and leave App on.' },
       { type: 'text', text: 'YOUR PHONE. Above the switches is a card saying whether a phone is set up for notifications that pop up on the phone itself. If none is, the card now tells you WHY rather than assuming you have not tried: that notifications are switched off for SyteNav in the iPhone\'s own Settings, that Apple would not register the phone (with Apple\'s reason), or that the address arrived but could not be saved. It also dates the last attempt, so you can tell a fresh failure from one you have already retried.' },
       { type: 'text', text: 'Most of those say the same thing: close SyteNav completely - swipe up and flick it away - and open it again. The phone asks for an address on a cold start, so a relaunch is a real retry. The one exception is permission: iOS only ever asks once, so if you said no, the app cannot ask again and you have to turn it back on in iPhone Settings then Notifications then SyteNav.' },
@@ -1775,6 +1777,30 @@ export const HELP_ARTICLES: HelpArticle[] = [
   },
 
   // ── Workspace: Directory / Customers / Files ───────────────────────────────
+  {
+    slug: 'google-contacts',
+    title: 'Import your Google Contacts',
+    category: 'workspace',
+    keywords: ['google', 'contacts', 'import', 'sync', 'address book', 'phone book', 'gmail', 'bulk', 'label', 'staging', 'connect google'],
+    summary: 'Read your Google address book into a staging list, label who matters, and add only those to your Directory.',
+    blocks: [
+      { type: 'text', text: 'YOUR PHONE BOOK IS NOT YOUR DIRECTORY. It has your dentist, your brother-in-law and four numbers for the same electrician. So contacts from Google do NOT go straight into your Directory - they land in a separate list where you decide who is a sub, who is a supplier, and who is nobody you work with.' },
+      { type: 'steps', items: [
+        'Go to Directory, then "Imported contacts".',
+        'Press Connect Google Contacts and sign in with the Google account whose address book you want. We only ever READ it - nothing is changed on Google\'s side.',
+        'Press Read contacts. Everything comes into the list below.',
+        'Tick the ones you want - or Select all - then use the three pickers to label them: Sub, Supplier, Delivery or Inspector; a trade; and a job if they belong to one. Each picker applies to everything you have ticked.',
+        'Press "Add to Directory". Only those become real contacts.',
+        'For the ones you do not work with, tick them and press "Not a work contact" - they stop being offered.',
+      ] },
+      { type: 'tip', text: 'Labelling five people at once only changes what you picked. Setting them all to Supplier will not wipe a trade you already set on one of them.' },
+      { type: 'warn', text: 'A contact has to be labelled before it can be added. If you press Add and something is not labelled, it tells you which ones by name rather than refusing the whole batch silently.' },
+      { type: 'text', text: 'READING AGAIN LATER. Press Read contacts any time. Anyone you already added or dismissed is not offered again, so the list only ever shows what you have not dealt with. Changes to a contact you have not dealt with yet (a new phone number, say) come through on the next read.' },
+      { type: 'text', text: 'DISCONNECTING. Disconnect stops us reading your address book. It does NOT throw away the list or the labels you have given - those stay until you deal with them.' },
+      { type: 'tip', text: 'Only an admin can connect or disconnect the Google account, and it is connected for the whole company rather than for one person - so it keeps working if whoever set it up leaves.' },
+    ],
+    related: ['directory', 'invite-team-member'],
+  },
   {
     slug: 'directory',
     title: 'Add contacts to your Directory',

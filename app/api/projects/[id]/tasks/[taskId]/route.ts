@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { notify } from '@/lib/notify'
+import { audienceFor } from '@/lib/notification-audience'
 import { logActivity } from '@/lib/log-activity'
 
 const admin = () => createClient(
@@ -58,7 +60,7 @@ export async function PATCH(
   // Capture the previous state so we can describe the change in history
   const { data: prev } = await db
     .from('project_tasks')
-    .select('title, status, priority, due_date, assigned_to_name')
+    .select('title, status, priority, due_date, assigned_to_name, description')
     .eq('id', params.taskId)
     .single()
 
@@ -90,7 +92,11 @@ export async function PATCH(
   if (updates.title !== undefined && updates.title !== (prev as any)?.title) {
     changes.push('renamed')
   }
-  if (updates.description !== undefined) {
+  // COMPARED, like every other field here. It used to push on `!== undefined`
+  // alone, so a form that posts the description whether or not it was touched
+  // reported "description updated" on every save. Tolerable as a history line;
+  // not once this list decides whether anybody's phone lights up.
+  if (updates.description !== undefined && updates.description !== (prev as any)?.description) {
     changes.push('description updated')
   }
   if (updates.assigned_to_name !== undefined && updates.assigned_to_name !== (prev as any)?.assigned_to_name) {
@@ -103,6 +109,42 @@ export async function PATCH(
       `${actorName} updated "${taskTitle}": ${changes.join(', ')}`,
       { task_id: params.taskId }, user.id,
     )
+
+    // TELL THE PEOPLE WHO ASKED TO BE TOLD.
+    //
+    // Gated on `changes.length` - the same condition the history line uses, so
+    // a save that altered nothing is silent in both places. Everyone opts in
+    // (the type defaults to off on both channels), and `notify` reads each
+    // person's own preference, so this sends to nobody until somebody turns it
+    // on.
+    //
+    // EXCLUDING THE ACTOR. Being told about a change you just made yourself is
+    // the fastest way to teach somebody to ignore a notification - and on a
+    // type that can fire on every edit, that habit spreads to the ones that
+    // matter.
+    //
+    // Never fatal: the task is saved and answered whatever happens here.
+    try {
+      const { data: actorProfile } = await db
+        .from('profiles').select('company_id').eq('id', user.id).maybeSingle()
+      const companyId = (actorProfile as any)?.company_id
+      if (companyId) {
+        const audience = await audienceFor({
+          db, companyId, type: 'task_updated', exclude: user.id,
+        })
+        if (audience.length) {
+          await notify({
+            db, userIds: audience, type: 'task_updated',
+            title: `Task updated: ${taskTitle}`,
+            message: `${actorName} updated "${taskTitle}": ${changes.join(', ')}`,
+            link: `/projects/${params.id}/tasks`,
+          })
+        }
+      }
+    } catch (e: any) {
+      // A route that computes a reason must not be the only place it exists.
+      console.error('[tasks/PATCH] task_updated notify failed:', e?.message)
+    }
   }
 
   return NextResponse.json({ task: data })
