@@ -19,14 +19,8 @@ import { scopeNoticeProblem, scopeNoticeTitle } from '@/lib/scope-notice'
 // messaging product.
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface Recipient {
-  member_id: string
-  profile_id: string | null
-  name: string
-  role: string | null
-  email: string | null
-  reachable: boolean
-}
+import type { NoticeRecipient } from '@/lib/scope-notice'
+import { canBeTold } from '@/lib/scope-notice'
 
 async function token() {
   const { data: { session } } = await createClient().auth.getSession()
@@ -41,7 +35,7 @@ export function NotifyTeamDialog({
   planName?: string | null
   onClose: () => void
 }) {
-  const [people, setPeople] = useState<Recipient[]>([])
+  const [people, setPeople] = useState<NoticeRecipient[]>([])
   // Loading, failed and empty are three different facts, and "nobody is on this
   // job" is the one that must not be stated until it has been checked.
   const [state, setState] = useState<'loading' | 'ready' | 'failed'>('loading')
@@ -63,8 +57,11 @@ export function NotifyTeamDialog({
 
   useEffect(() => { load() }, [load])
 
-  const reachable = people.filter(p => p.reachable)
-  const allPicked = reachable.length > 0 && reachable.every(p => picked.has(p.profile_id!))
+  // AN ADDRESS IS ENOUGH. Reported as "this should go to anyone via email -
+  // subs too": the first version only offered people with a SyteNav account,
+  // which excludes exactly the electrician the feature exists to warn.
+  const reachable = people.filter(canBeTold)
+  const allPicked = reachable.length > 0 && reachable.every(p => picked.has(p.key))
   const recipientIds = Array.from(picked)
   // The SAME function the route asks. The answer is on the screen as you type,
   // rather than arriving as a message about a whole request that did not happen.
@@ -76,17 +73,24 @@ export function NotifyTeamDialog({
       const res = await fetch(`/api/projects/${projectId}/scope-notice`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await token()}` },
-        body: JSON.stringify({ message, recipient_ids: recipientIds, plan_id: planId, plan_name: planName }),
+        body: JSON.stringify({ message, recipient_keys: recipientIds, plan_id: planId, plan_name: planName }),
       })
       const body = await res.json().catch(() => ({}))
       if (!res.ok) { notify(body?.error ?? 'Could not send that.'); return }
       // WHAT ACTUALLY WENT OUT, not "sent". Somebody with email off for this
       // type got the bell only, and on a change that moves their work the
       // sender needs to know which it was.
-      const bits = [`${body.inApp} in the app`]
+      const bits: string[] = []
+      if (body.inApp) bits.push(`${body.inApp} in the app`)
       if (body.emailed) bits.push(`${body.emailed} by email`)
       if (body.pushed) bits.push(`${body.pushed} to a phone`)
-      notify(`Told ${body.sent}: ${bits.join(', ')}.`, { tone: 'success' })
+      // A failure is NAMED, not counted - "6 of 8" leaves somebody hunting for
+      // the two, and on a scope change the two are the ones that matter.
+      if (body.failed?.length) {
+        notify(`Told ${body.sent - body.failed.length}: ${bits.join(', ')}. Could not reach: ${body.failed.join(', ')}.`)
+      } else {
+        notify(`Told ${body.sent}: ${bits.join(', ')}.`, { tone: 'success' })
+      }
       onClose()
     } catch (e) {
       notify(fetchProblem(e, 'sending the notice'))
@@ -127,7 +131,7 @@ export function NotifyTeamDialog({
               <Label>Who needs to know? <span className="text-danger">*</span></Label>
               {reachable.length > 0 && (
                 <button type="button"
-                  onClick={() => setPicked(allPicked ? new Set() : new Set(reachable.map(p => p.profile_id!)))}
+                  onClick={() => setPicked(allPicked ? new Set() : new Set(reachable.map(p => p.key)))}
                   className="min-h-11 whitespace-nowrap px-2 text-xs font-semibold text-accent-fg hover:underline lg:min-h-0">
                   {allPicked ? 'Clear all' : `Select all ${reachable.length}`}
                 </button>
@@ -142,36 +146,47 @@ export function NotifyTeamDialog({
               </p>
             ) : people.length === 0 ? (
               <p className="rounded-lg border border-line bg-surface p-3 text-sm text-muted-fg">
-                Nobody is on this job&apos;s team yet. Add them on the Team tab and they can be told.
+                Nobody on this job has an email address yet. Add your crew on the Team tab, or a sub with a contract, and they can be told - no SyteNav account needed.
               </p>
             ) : (
               <div className="max-h-56 divide-y divide-line-soft overflow-y-auto rounded-lg border border-line">
-                {people.map(p => (
-                  <label key={p.member_id}
-                    className={p.reachable
-                      ? 'flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-surface'
-                      : 'flex items-center gap-3 px-3 py-2 opacity-60'}>
-                    <input type="checkbox" className="accent-[#C9F24A] shrink-0"
-                      // A SUB WITH NO ACCOUNT CANNOT BE SENT A NOTIFICATION, and
-                      // this says so rather than dropping them from the list -
-                      // the one you most wanted to warn is exactly the one you
-                      // would not notice was missing.
-                      disabled={!p.reachable}
-                      checked={!!p.profile_id && picked.has(p.profile_id)}
-                      onChange={e => setPicked(prev => {
-                        const n = new Set(prev)
-                        if (!p.profile_id) return n
-                        if (e.target.checked) n.add(p.profile_id); else n.delete(p.profile_id)
-                        return n
-                      })} />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm text-ink">{p.name}</span>
-                      <span className="block truncate text-[11px] text-faint">
-                        {p.reachable ? (p.role || p.email || '') : 'No SyteNav account yet - invite them and they can be told'}
+                {people.map(p => {
+                  const told = canBeTold(p)
+                  return (
+                    <label key={p.key}
+                      className={told
+                        ? 'flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-surface'
+                        : 'flex items-center gap-3 px-3 py-2 opacity-60'}>
+                      <input type="checkbox" className="accent-[#C9F24A] shrink-0"
+                        // Only somebody with NEITHER an account NOR an address
+                        // is out of reach, and they are listed saying so rather
+                        // than dropped - the one you most wanted to warn is
+                        // exactly the one you would not notice was missing.
+                        disabled={!told}
+                        checked={picked.has(p.key)}
+                        onChange={e => setPicked(prev => {
+                          const n = new Set(prev)
+                          if (e.target.checked) n.add(p.key); else n.delete(p.key)
+                          return n
+                        })} />
+                      <span className="min-w-0 flex-1">
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          <span className="truncate text-sm text-ink">{p.name}</span>
+                          {/* WHERE THEY CAME FROM. A sub and a teammate are
+                              different people to you, and the list mixes them. */}
+                          {p.source === 'subcontractor' && (
+                            <span className="shrink-0 whitespace-nowrap rounded-full bg-muted px-1.5 py-0 text-[10px] font-medium text-muted-fg">Sub</span>
+                          )}
+                        </span>
+                        <span className="block truncate text-[11px] text-faint">
+                          {told
+                            ? [p.role, p.email].filter(Boolean).join(' · ') || 'On this job'
+                            : 'No email on file - add one so they can be told'}
+                        </span>
                       </span>
-                    </span>
-                  </label>
-                ))}
+                    </label>
+                  )
+                })}
               </div>
             )}
           </div>
