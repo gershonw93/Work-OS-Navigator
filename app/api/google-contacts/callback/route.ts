@@ -10,8 +10,15 @@ export const runtime = 'nodejs'
  */
 function back(request: Request, params: Record<string, string>) {
   const base = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin
-  const url = new URL('/settings', base.replace(/\/+$/, ''))
-  url.searchParams.set('tab', 'integrations')
+  // BACK TO WHERE THE FEATURE IS, not to a tab that has never heard of it.
+  //
+  // THE BUG: this landed on /settings?tab=integrations, which listed only
+  // QuickBooks - so a connection that had worked perfectly, refresh token and
+  // all, looked like it had done nothing. Reported as "i pressed connect, i
+  // selected my google account, it took me then to integrations is the settings
+  // but there only qb there". A control has to lead to the thing it names, and
+  // the thing this names is the contacts that just became available.
+  const url = new URL('/directory/imported', base.replace(/\/+$/, ''))
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v)
   return NextResponse.redirect(url)
 }
