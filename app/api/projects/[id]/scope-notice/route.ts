@@ -4,6 +4,7 @@ import { requirePermission, denied } from '@/lib/api-guard'
 import { notify } from '@/lib/notify'
 import { scopeNoticeProblem, scopeNoticeTitle, splitChannels, type NoticeRecipient } from '@/lib/scope-notice'
 import { scopeChangeEmail } from '@/lib/email'
+import { logActivity } from '@/lib/log-activity'
 import { sendEmail } from '@/lib/email'
 
 export const runtime = 'nodejs'
@@ -183,6 +184,39 @@ export async function POST(request: Request, { params }: { params: { id: string 
       failed.push(person.name)
     }
   }))
+
+  // A RECORD, BECAUSE SIX WEEKS LATER SOMEBODY ASKS.
+  //
+  // "now theres no record of these changes anywhere" - and on a scope change
+  // that is the question that actually gets asked: did anybody tell the
+  // electrician about the slab, and when. An email that left no trace cannot
+  // answer it, and this is the one notice whose whole purpose is that somebody
+  // was told.
+  //
+  // It goes in the JOB HISTORY, where "who did what on this job" already lives
+  // - not the Sharing tab, which is `file_shares`: paperwork sent to an
+  // expeditor or a lender, a different feature that merely sounds adjacent.
+  //
+  // The metadata carries WHO and BY WHICH CHANNEL, because "notified the team"
+  // six weeks on is not an answer - the names are.
+  const toldNames = chosen.map(r => r.name)
+  await logActivity(
+    db, params.id, who, 'scope_change_notice',
+    `${who} flagged a change${planName ? ` on ${planName}` : ''} and told ${chosen.length - failed.length} ${chosen.length - failed.length === 1 ? 'person' : 'people'}: ${String(message).trim()}`,
+    {
+      plan_id: planId,
+      plan_name: planName,
+      message: String(message).trim(),
+      told: toldNames,
+      in_app: result.inApp,
+      emailed: result.emailed + mailed,
+      pushed: result.pushed,
+      // The ones who could NOT be reached are part of the record too - an
+      // audit that lists only successes answers the easy half of the question.
+      failed,
+    },
+    gate.actor.userId,
+  )
 
   return NextResponse.json({
     sent: chosen.length,

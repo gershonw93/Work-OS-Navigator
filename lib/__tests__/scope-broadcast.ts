@@ -15,6 +15,7 @@ import { scopeChangeEmail } from '../email'
 import { NOTIFICATION_TYPES } from '../notifications'
 import { demoNotification } from '../demo-notification'
 import { ok, done, code, exists } from './_helpers'
+import { ACTIVITY_TAB } from '../activity-href'
 
 const GOOD = { message: 'Slab dropped half an inch, check rough-in heights', recipientIds: ['a'] }
 
@@ -195,5 +196,36 @@ ok(/p\.source === 'subcontractor'/.test(dialog),
   'a sub is marked as one - the list mixes your people and theirs')
 ok(/recipient_keys: recipientIds/.test(dialog),
   'it sends KEYS, since most recipients have no profile id to send')
+
+// ── IT LEAVES A RECORD ──────────────────────────────────────────────────────
+// "now theres no record of these changes anywhere" - and on a scope change that
+// is the question that actually gets asked six weeks on: did anybody tell the
+// electrician about the slab, and when. An email that left no trace cannot
+// answer it, and being told is this notice's entire purpose.
+ok(/logActivity\(/.test(route), 'THE RECORD: sending one writes a line to the job history')
+ok(/'scope_change_notice'/.test(route), '...under its own type, not borrowed from a neighbour')
+
+// It goes in the JOB HISTORY, not the Sharing tab. `file_shares` is paperwork
+// sent to an expeditor or a lender - a different feature that merely sounds
+// adjacent, and the one the setup checklist already miscounted once.
+ok(!/file_shares/.test(route),
+  'NOT the Sharing tab: file_shares is paperwork to an expeditor, a different feature entirely')
+
+// "Notified the team" is not an answer. The NAMES are.
+ok(/told: toldNames/.test(route), 'the record names WHO was told')
+ok(/emailed: result\.emailed \+ mailed/.test(route), '...and how many letters actually went')
+ok(/\bfailed,/.test(route),
+  '...including who could NOT be reached - an audit listing only successes answers the easy half')
+ok(/plan_name: planName/.test(route) && /message: String\(message\)\.trim\(\)/.test(route),
+  '...which drawing, and what was actually said')
+
+// A feed row is a way back to the thing that happened.
+ok(ACTIVITY_TAB['scope_change_notice'] === 'plans',
+  'the history row opens the drawings, which is what the change is about')
+// Both icon tables have to know it, or the row renders blank in one of them.
+ok(/scope_change_notice: Megaphone/.test(code('app/(dashboard)/dashboard/page.tsx')),
+  'the dashboard feed has an icon for it')
+ok(/scope_change_notice: \{ icon: Megaphone/.test(code('components/layout/activity-drawer.tsx')),
+  '...and so does the project activity drawer')
 
 done()

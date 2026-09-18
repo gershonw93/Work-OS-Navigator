@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { FolderKanban, AlertCircle, ShieldAlert, MessageSquare, Package, CheckSquare, DollarSign, Briefcase, FileText, Receipt, Activity, FileUp, ClipboardList, CalendarCheck, ScrollText, UploadCloud, UserPlus, UserMinus, Clock, ShoppingCart, Wallet, Wrench, LogIn, LogOut } from 'lucide-react'
+import { FolderKanban, AlertCircle, ShieldAlert, MessageSquare, Package, CheckSquare, DollarSign, Briefcase, FileText, Receipt, Activity, FileUp, ClipboardList, CalendarCheck, ScrollText, UploadCloud, UserPlus, UserMinus, Clock, ShoppingCart, Wallet, Wrench, LogIn, LogOut, Megaphone} from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { usePermissions } from '@/lib/use-permissions'
 import { StatStrip } from '@/components/ui/stat-strip'
@@ -70,6 +70,7 @@ type Stats = GcStats | SubStats
 
 const ACTIVITY_ICONS: Record<string, React.ElementType> = {
   plan_uploaded: FileUp,
+  scope_change_notice: Megaphone,
   permit_added: ScrollText,
   permit_updated: ScrollText,
   inspection_added: CalendarCheck,
