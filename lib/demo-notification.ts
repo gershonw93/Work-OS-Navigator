@@ -55,6 +55,14 @@ export function demoNotification(type: string, today: string): DemoNotification 
         message: `Patch and sand the north stairwell before the painters start - due ${inDays(2)} on ${PROJECT}.`,
         link: '/tasks',
       }
+    case 'task_updated':
+      return {
+        title: 'Task updated: Stairwell handrail',
+        // The DATE is computed like every other sample here - a demo reading
+        // "due Sep 12" in November is the one detail an audience notices.
+        message: `${SUB} updated "Stairwell handrail" on ${PROJECT}: status -> In Progress, due date -> ${inDays(3)}.`,
+        link: '/tasks',
+      }
     case 'signoff_requested':
       return {
         title: 'Sign-off requested',
