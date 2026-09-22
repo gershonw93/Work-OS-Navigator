@@ -10,6 +10,7 @@ import {
 } from '@/lib/schedule-dependencies'
 import { changeWarning } from '@/lib/schedule-change-warning'
 import { progressReader } from '@/lib/schedule-progress-read'
+import { missingDelayReason, type ChangeKind } from '@/lib/schedule-delay'
 
 export const runtime = 'nodejs'
 
@@ -227,6 +228,25 @@ export async function PUT(request: Request, { params }: { params: { id: string; 
   // ignore the link it just made.
   const markOverridden: boolean = body?.dates_overridden !== false
 
+  // WHAT KIND OF MOVE THIS IS. Defaults to 'replan' - changing dates without
+  // saying anything more is a re-plan, and an un-updated caller must not have
+  // its edits recorded as slips somebody never claimed.
+  const kind: ChangeKind = body?.kind === 'delay' ? 'delay' : 'replan'
+  const reason: string | null = String(body?.reason ?? '').trim() || null
+
+  // A DELAY WITHOUT A REASON IS THE THING THE FEATURE EXISTS TO PREVENT. The
+  // database refuses it too, but a CHECK violation reaches a user as a Postgres
+  // sentence - this is the same rule, worded for a person, and it is the SAME
+  // function the dialog asks.
+  //
+  // Only the reason half: this route is handed final DATES, not a day count,
+  // so "how many days" is a question it has no input for. `missingDelay` is
+  // the form's, `missingDelayReason` is what both can honestly ask.
+  if (kind === 'delay') {
+    const problem = missingDelayReason(reason)
+    if (problem) return NextResponse.json({ error: problem }, { status: 400 })
+  }
+
   const db = admin()
   let p
   try { p = await plan(db, params.id, params.itemId, newStart, newEnd) }
@@ -237,11 +257,28 @@ export async function PUT(request: Request, { params }: { params: { id: string; 
 
   // The edited line first. `dates_overridden_at` marks it as a human decision,
   // so a later cascade from further upstream leaves it alone and says so.
+  //
+  // BUT ONLY WHEN THE DATES ACTUALLY CHANGED. Every dialog that touches a line
+  // submits both dates whether or not they were edited, so a save that moved
+  // nothing was marking the line hand-dated and taking it out of the cascade
+  // for ever - reported as the cascade ignoring rows nobody had knowingly
+  // pinned. A RESUBMITTED DATE IS NOT A DECISION ABOUT THE DATE.
+  //
+  // The rule used to live on the PATCH route, which no longer accepts dates.
+  // It is asked HERE rather than left to the caller for the same reason the
+  // PATCH now refuses them: a caller that happens to check is a convention,
+  // and the next caller will not.
+  const before = p.byId.get(params.itemId)
+  const datesActuallyChanged =
+    before == null || before.start_date !== newStart || before.end_date !== newEnd
+
   const { error: rootErr } = await db.from('schedule_items')
     .update({
       start_date: newStart,
       end_date: newEnd,
-      ...(markOverridden ? { dates_overridden_at: new Date().toISOString() } : {}),
+      ...(markOverridden && datesActuallyChanged
+        ? { dates_overridden_at: new Date().toISOString() }
+        : {}),
     })
     .eq('id', params.itemId).eq('project_id', params.id)
   if (rootErr) {
@@ -261,6 +298,51 @@ export async function PUT(request: Request, { params }: { params: { id: string; 
       console.error(`[schedule/cascade] ${m.id} update failed:`, error.message)
       failed.push(m.id)
     }
+  }
+
+  // WHY THIS MOVED, WRITTEN DOWN. One row for the line somebody edited and one
+  // per line the cascade carried with it - the second kind is what answers
+  // "this moved and nobody touched it", which is the mystery the table exists
+  // for, so each carries the line that pushed it.
+  //
+  // Rows that FAILED to update are not recorded: a history claiming a move that
+  // did not happen is worse than a gap, and `failed` already reports them.
+  //
+  // NEVER THROWS, the `logActivity` contract: the history is a record OF the
+  // change and must not be able to prevent one. The dates are already written
+  // by this point, and a 500 here would strand them.
+  const changeRows = [
+    {
+      project_id: params.id,
+      schedule_item_id: params.itemId,
+      kind,
+      reason,
+      from_start: p.byId.get(params.itemId)?.start_date ?? newStart,
+      from_end: p.byId.get(params.itemId)?.end_date ?? newEnd,
+      to_start: newStart,
+      to_end: newEnd,
+      caused_by_item_id: null,
+      changed_by: gate.actor.userId,
+    },
+    ...p.moves.filter(m => !failed.includes(m.id)).map(m => ({
+      project_id: params.id,
+      schedule_item_id: m.id,
+      kind: 'cascade' as const,
+      // A consequence carries no reason of its own - the row it names has one.
+      reason: null,
+      from_start: m.from.start,
+      from_end: m.from.end,
+      to_start: m.to.start,
+      to_end: m.to.end,
+      caused_by_item_id: m.becauseOf ?? params.itemId,
+      changed_by: gate.actor.userId,
+    })),
+  ]
+  try {
+    const { error: histErr } = await db.from('schedule_date_changes').insert(changeRows)
+    if (histErr) console.error('[schedule/cascade] history not recorded:', histErr.message)
+  } catch (e: any) {
+    console.error('[schedule/cascade] history not recorded:', e?.message)
   }
 
   const project = await db.from('projects').select('name').eq('id', params.id).maybeSingle()

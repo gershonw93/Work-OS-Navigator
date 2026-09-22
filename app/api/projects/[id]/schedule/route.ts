@@ -64,8 +64,45 @@ export async function GET(request: Request, { params }: { params: { id: string }
     console.error('[schedule] progress roll-up failed:', e?.message)
   }
 
+  // WHY EACH LINE'S DATES MOVED. On the main payload rather than a route of
+  // its own so the list badges and the dialog's history panel need no extra
+  // round trip - this page is a layout-nested client fetch and every trip is
+  // paid on each navigation.
+  //
+  // `changed_by_name` is resolved here: the table stores an id that SET NULLs
+  // when the account goes, and the point of the record is that it outlives the
+  // account, so a missing name is normal rather than an error.
+  let changes: Record<string, any[]> = {}
+  {
+    const { data: rows, error } = await db
+      .from('schedule_date_changes')
+      .select('id, schedule_item_id, kind, reason, from_start, from_end, to_start, to_end, caused_by_item_id, changed_by, created_at')
+      .eq('project_id', params.id)
+      .order('created_at', { ascending: true })
+      .limit(500)
+
+    // A refused query and an empty one are the same `[]` otherwise, and here
+    // that would read as "this line has never moved" on a line that has.
+    if (error) console.error('[schedule] history read failed:', error.message)
+
+    const actorIds = Array.from(new Set(
+      (rows ?? []).map((r: any) => r.changed_by).filter(Boolean),
+    ))
+    const names = new Map<string, string>()
+    if (actorIds.length) {
+      const { data: people } = await db.from('profiles').select('id, full_name').in('id', actorIds)
+      for (const pr of (people ?? []) as any[]) names.set(pr.id, pr.full_name ?? '')
+    }
+
+    for (const r of (rows ?? []) as any[]) {
+      const list = changes[r.schedule_item_id] ?? []
+      list.push({ ...r, changed_by_name: names.get(r.changed_by) || null })
+      changes[r.schedule_item_id] = list
+    }
+  }
+
   return NextResponse.json({
-    items: items ?? [], project, progress,
+    items: items ?? [], project, progress, changes,
     inspections: inspections ?? [], tasks: tasks ?? [],
   })
 }

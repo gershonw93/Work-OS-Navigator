@@ -7,9 +7,12 @@ import { DependencyPicker, type PickableLine, type ExistingDependency, type Pend
 import type { LineKind } from '@/lib/schedule-link-words'
 import { ProgressField } from '@/components/schedule/progress-field'
 import type { Progress } from '@/lib/schedule-dependencies'
+import { missingDelay, delayedDates, delayDays } from '@/lib/schedule-delay'
+import { LineHistory } from '@/components/schedule/line-history'
+import { slipBadge, type DateChange } from '@/lib/schedule-history'
 import { useRouter } from 'next/navigation'
 import { autoFocusOnDesktop } from '@/lib/auto-focus'
-import { Plus, X, CalendarDays, Pencil, Trash2, Building2, Flag, ChevronLeft, ChevronRight, GanttChartSquare, List, CalendarRange, AlertCircle } from 'lucide-react'
+import { Plus, X, CalendarDays, Pencil, Trash2, Building2, Flag, ChevronLeft, ChevronRight, GanttChartSquare, List, CalendarRange, AlertCircle, Clock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { usePermissions } from '@/lib/use-permissions'
 import { Button } from '@/components/ui/button'
@@ -140,6 +143,9 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
   // Derived progress per line, from the route. Only for the HINT beside the
   // box - never seeded into it.
   const [progressById, setProgressById] = useState<Record<string, Progress>>({})
+  // Why each line's dates moved, keyed by line id. Empty is a real answer -
+  // most lines have never moved - so it is never used to mean "still loading".
+  const [changesById, setChangesById] = useState<Record<string, DateChange[]>>({})
   // The job's other dated things. The calendar draws them; Timeline and List
   // deliberately do not - see the comment above the month grid.
   const router = useRouter()
@@ -168,6 +174,13 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
   // decide whether it is shut because the work is early or because a field was
   // never filled in.
   const [editProgress, setEditProgress] = useState('')
+  // A DELAY IS A MODE OF THIS DIALOG, NOT A SECOND ONE. The arithmetic is the
+  // same date change - a second writer of start_date/end_date is how this repo
+  // got two doors onto a vendor's dates. All that differs is the STATEMENT:
+  // a slip carries a reason and is recorded as a slip.
+  const [editMode, setEditMode] = useState<'edit' | 'delay'>('edit')
+  const [delayDaysInput, setDelayDaysInput] = useState('')
+  const [delayReason, setDelayReason] = useState('')
   const [editSaving, setEditSaving] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
 
@@ -233,6 +246,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
       fresh = data.items ?? []
       setItems(fresh)
       setProgressById(data.progress ?? {})
+      setChangesById(data.changes ?? {})
       setInspections(data.inspections ?? [])
       setDueTasks(data.tasks ?? [])
     }
@@ -420,7 +434,26 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
   async function saveEdit(e: React.FormEvent) {
     e.preventDefault()
     if (!editItem) return
-    const missing = missingMilestone({ label: editLabel, start: editStart, end: editEnd })
+
+    // IN DELAY MODE THE DATES ARE DERIVED, not typed. Both move by the same
+    // number of days, so the line keeps its LENGTH: a trade that was going to
+    // take eight days still takes eight, it just starts later. Stretching the
+    // end alone is a different statement, and a form with one number on it
+    // cannot tell you which was meant.
+    let start = editStart
+    let end = editEnd
+    if (editMode === 'delay') {
+      // The SAME function the route asks, at the field - a server's answer can
+      // only arrive as a message about a whole request that did not happen.
+      const problem = missingDelay({ days: delayDaysInput, reason: delayReason })
+      if (problem) { setEditError(problem); return }
+      const days = delayDays(delayDaysInput)!
+      const moved = delayedDates(editItem, days)
+      start = moved.start
+      end = moved.end
+    }
+
+    const missing = missingMilestone({ label: editLabel, start, end })
     if (missing) { setEditError(missing); return }
     setEditSaving(true)
     setEditError(null)
@@ -436,14 +469,14 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     // moves with them and show it BEFORE anything is written - the review
     // screen is the only thing standing between a slipped trade and a batch of
     // emails, and it is worth nothing if the write has already happened.
-    const datesMoved = editStart !== editItem.start_date || editEnd !== editItem.end_date
+    const datesMoved = start !== editItem.start_date || end !== editItem.end_date
     if (datesMoved) {
       const preview = await fetch(`/api/projects/${params.id}/schedule/${editItem.id}/cascade`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         // LINKING IS THE LATER WORD. A save that creates a link is not a save
         // that drops this line out of a chain, so the warning must not say so.
-        body: JSON.stringify({ start_date: editStart, end_date: editEnd, just_linked: justLinked }),
+        body: JSON.stringify({ start_date: start, end_date: end, just_linked: justLinked }),
       })
       setEditSaving(false)
       if (!preview.ok) {
@@ -480,13 +513,13 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
       // of its own chain. When it is silent, notify is FALSE and not a guess -
       // there is nobody on the list.
       if (!moves.length && !skipped.length && (!warning || warning.silent)) {
-        await applyCascade(false, { start: editStart, end: editEnd, justLinked })
+        await applyCascade(false, { start, end, justLinked })
         return
       }
 
       setPending({
         moves, skipped, affected: p.affected ?? [], warning,
-        start: editStart, end: editEnd, justLinked,
+        start, end, justLinked,
       })
       return
     }
@@ -604,6 +637,18 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     return { id: item.id, name: trade, start_date: item.start_date, end_date: item.end_date, hasSub: false, kind: 'work' as const }
   }
 
+  /**
+   * Where the line lands if this delay is recorded - shown as you type.
+   *
+   * A form that asks for a number and shows nothing back makes you do the date
+   * arithmetic in your head to check it took the right one.
+   */
+  const delayPreview = (() => {
+    if (editMode !== 'delay' || !editItem) return null
+    const days = delayDays(delayDaysInput)
+    return days == null ? null : delayedDates(editItem, days)
+  })()
+
   /** Everything on this project that could be waited for. */
   const pickableLines: PickableLine[] = items.map(i => ({
     id: i.id,
@@ -663,6 +708,12 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
         // A save that just linked this line is not a decision to ignore that
         // link. Without this the dialog writes both and the later one wins.
         dates_overridden: !when.justLinked,
+        // WHAT KIND OF MOVE THIS WAS, which is the whole reason the history
+        // table exists. A plain date edit is a re-plan - changing your mind is
+        // not a slip, and recording it as one would put an accusation in the
+        // record nobody made.
+        kind: editMode === 'delay' ? 'delay' : 'replan',
+        reason: editMode === 'delay' ? delayReason.trim() : null,
       }),
     })
     if (!r.ok) { setEditError(r.error); setPending(null); return }
@@ -722,8 +773,11 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     return Number.isFinite(n) ? n : null
   }
 
-  function openEdit(item: ScheduleItem) {
+  function openEdit(item: ScheduleItem, mode: 'edit' | 'delay' = 'edit') {
     setEditItem(item)
+    setEditMode(mode)
+    setDelayDaysInput('')
+    setDelayReason('')
     setDeps([]); setDepsState('loading')
     // Clearing these is what makes Cancel mean cancel: staged links from the
     // last line opened would otherwise be written against this one.
@@ -888,7 +942,9 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
               a dialog while a picker covers it. */}
           <div className="flex max-h-full w-full max-w-md min-w-0 flex-col overflow-hidden rounded-xl bg-panel shadow-xl">
             <div className="shrink-0 px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-ink">Edit Item</h2>
+              <h2 className="min-w-0 flex-1 truncate text-lg font-semibold text-ink">
+                {editMode === 'delay' ? 'Delay this line' : 'Edit Item'}
+              </h2>
               <button onClick={() => { setEditItem(null); setPendingDeps([]); setRemovingDeps([]) }} aria-label="Close" title="Close" className="text-faint hover:text-muted-fg"><X className="h-5 w-5" /></button>
             </div>
             <form onSubmit={saveEdit} className="flex min-h-0 flex-1 flex-col">
@@ -897,6 +953,45 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                   <Label htmlFor="elabel">Label</Label>
                   <Input id="elabel" value={editLabel} onChange={e => setEditLabel(e.target.value)} required autoFocus={autoFocusOnDesktop()} />
                 </div>
+                {/* DELAY MODE REPLACES THE DATE BOXES, it does not sit beside
+                    them: two ways to set one pair of dates in one dialog is the
+                    "why is it a 2 step" report, and the arithmetic must not
+                    exist twice. Everything downstream - preview, review, apply
+                    - is the same code either way. */}
+                {editMode === 'delay' ? (
+                  <div className="space-y-4 rounded-xl border border-warn/30 bg-warn-tint p-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="edelay">How many days late? <span className="text-danger">*</span></Label>
+                      {/* The unit sits in the row, right after the field - a
+                          number box with no unit was reported once already. */}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Input id="edelay" type="number" min={1} inputMode="numeric" className="w-24"
+                          value={delayDaysInput} onChange={e => setDelayDaysInput(e.target.value)} />
+                        <span className="text-sm text-muted-fg">days</span>
+                      </div>
+                      {delayPreview && (
+                        <p className="text-xs text-muted-fg">
+                          {editItem.start_date} to {editItem.end_date}
+                          {' becomes '}
+                          <span className="font-semibold text-ink">{delayPreview.start} to {delayPreview.end}</span>
+                        </p>
+                      )}
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ereason">What happened? <span className="text-danger">*</span></Label>
+                      <Input id="ereason" value={delayReason} onChange={e => setDelayReason(e.target.value)}
+                        placeholder="e.g. concrete truck no-showed" />
+                      <p className="text-xs text-muted-fg">
+                        Six weeks from now &quot;it moved four days&quot; answers nothing. This goes in the
+                        job history and in the email the subs get.
+                      </p>
+                    </div>
+                    <button type="button" onClick={() => setEditMode('edit')}
+                      className="min-h-11 whitespace-nowrap text-xs font-semibold text-accent-fg hover:underline lg:min-h-0">
+                      Set the dates myself instead
+                    </button>
+                  </div>
+                ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label htmlFor="estart">Start Date</Label>
@@ -907,6 +1002,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                     <Input id="eend" type="date" value={editEnd} onChange={e => setEditEnd(e.target.value)} required />
                   </div>
                 </div>
+                )}
 
                 {/* AFTER the dates, never before: the spec asks "depends on
                     another trade?" once somebody has said when this one is. */}
@@ -927,6 +1023,10 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                   value={editProgress}
                   derived={progressOfLine(editItem)}
                   onChange={setEditProgress}
+                />
+                <LineHistory
+                  changes={changesById[editItem.id] ?? []}
+                  nameOf={id => items.find(i => i.id === id) ? getLabel(items.find(i => i.id === id)!) : null}
                 />
                 {!editItem.subcontract_id && (
                   <div className="space-y-1.5">
@@ -949,10 +1049,18 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                   be hit by accident. `col-reverse` so the choices stay nearest
                   the form. A desktop keeps Delete left, actions right. */}
               <div className="shrink-0 px-4 sm:px-6 py-4 border-t border-line-soft flex flex-col-reverse gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between lg:gap-2">
-                <button type="button" onClick={() => { deleteItem(editItem.id); setEditItem(null) }}
-                  className="flex items-center gap-1.5 self-start text-sm text-danger hover:text-danger">
-                  <Trash2 className="h-3.5 w-3.5" /> Delete
-                </button>
+                <div className="flex flex-wrap items-center gap-4">
+                  <button type="button" onClick={() => { deleteItem(editItem.id); setEditItem(null) }}
+                    className="flex items-center gap-1.5 self-start text-sm text-danger hover:text-danger">
+                    <Trash2 className="h-3.5 w-3.5" /> Delete
+                  </button>
+                  {editMode === 'edit' && (
+                    <button type="button" onClick={() => setEditMode('delay')}
+                      className="flex items-center gap-1.5 self-start text-sm text-warn hover:underline">
+                      <Clock className="h-3.5 w-3.5" /> Running late?
+                    </button>
+                  )}
+                </div>
                 {/* THIS is the row of controls - the footer around it is a
                     layout. It used to carry the rule as well, so this grid sat
                     inside one cell of that grid: Cancel and Save got a quarter
@@ -960,7 +1068,13 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                     ran out of both sides of its own button. */}
                 <div className="row-even lg:flex lg:flex-wrap gap-2 justify-end">
                   <Button type="button" variant="secondary" onClick={() => { setEditItem(null); setEditError(null); setPendingDeps([]); setRemovingDeps([]) }}>Cancel</Button>
-                  <Button type="submit" disabled={editSaving}>{editSaving ? 'Saving...' : 'Save Changes'}</Button>
+                  {/* The verb names what the press does. "Save Changes" on a
+                      delay is a promise about the wrong act. */}
+                  <Button type="submit" disabled={editSaving}>
+                    {editSaving
+                      ? 'Saving...'
+                      : editMode === 'delay' ? 'Record the delay' : 'Save Changes'}
+                  </Button>
                 </div>
               </div>
             </form>
@@ -1278,6 +1392,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                       </span>
                       <span>{formatDateShort(item.start_date)} - {formatDateShort(item.end_date)}</span>
                       <span className="text-faint">{duration} day{duration !== 1 ? 's' : ''}</span>
+                      <SlipBadge item={item} changes={changesById[item.id]} />
                     </div>
                   </div>
                 )
@@ -1315,7 +1430,12 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                       </td>
                       <td className="px-5 py-3 text-muted-fg">{formatDateShort(item.start_date)}</td>
                       <td className="px-5 py-3 text-muted-fg">{formatDateShort(item.end_date)}</td>
-                      <td className="px-5 py-3 text-muted-fg">{duration} day{duration !== 1 ? 's' : ''}</td>
+                      <td className="px-5 py-3 text-muted-fg">
+                        <span className="flex flex-wrap items-center gap-2">
+                          <span className="whitespace-nowrap">{duration} day{duration !== 1 ? 's' : ''}</span>
+                          <SlipBadge item={item} changes={changesById[item.id]} />
+                        </span>
+                      </td>
                       <td className="px-5 py-3 text-right">
                         <button onClick={() => openEdit(item)} className="text-faint hover:text-muted-fg p-1 rounded">
                           <Pencil className="h-3.5 w-3.5" />
@@ -1343,5 +1463,32 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
         />
       )}
 </div>
+  )
+}
+
+/**
+ * "9 days late" on a row whose dates have moved.
+ *
+ * NULL ON A LINE THAT HAS NOT MOVED, which is most of them - a badge on every
+ * row means nothing on any of them, the same reason `inspectionCountdown`
+ * returns null past a fortnight.
+ *
+ * AND AMBER ONLY WHEN SOMEBODY CALLED IT A DELAY. A line that moved because
+ * the whole job was re-planned is a fact, not a problem, and colouring it like
+ * one spends the attention amber buys.
+ *
+ * Hoisted: a component declared inside a component is a new type on every
+ * render, so React throws the row away and rebuilds it.
+ */
+function SlipBadge({ item, changes }: { item: ScheduleItem; changes?: DateChange[] }) {
+  const badge = slipBadge(item, changes ?? [])
+  if (!badge) return null
+  return (
+    <span className={cn(
+      'whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium',
+      badge.tone === 'warn' ? 'bg-warn-tint text-warn' : 'bg-muted text-muted-fg',
+    )}>
+      {badge.label}
+    </span>
   )
 }

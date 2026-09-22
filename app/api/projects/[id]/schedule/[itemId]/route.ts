@@ -48,10 +48,29 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   const db = admin()
   const body = await request.json().catch(() => ({} as any))
 
+  // DATES ARE THE CASCADE'S TO WRITE, AND THIS ROUTE REFUSES THEM.
+  //
+  // It used to accept `start_date` / `end_date` and write them with no cascade
+  // at all: no review screen, nobody pushed, no sub told, and no history row -
+  // while still stamping `dates_overridden_at`, which takes the line out of
+  // every FUTURE cascade as well. Today no shipped caller sends them, so the
+  // whole dependency feature was safe BY CONVENTION IN THE CALLERS rather than
+  // by construction here. One new caller - a gantt drag, a bulk editor, a
+  // mobile screen, a script - and the feature is silently bypassed.
+  //
+  // Closed now rather than later precisely because the Delay action adds a
+  // second way to move dates, and that is exactly when a second writer gets
+  // added by accident.
+  if ('start_date' in body || 'end_date' in body) {
+    return NextResponse.json({
+      error: 'Dates go through the cascade route, so what else moves can be reviewed first.',
+    }, { status: 400 })
+  }
+
   // A WHITELIST WITH A FIELD MISSING FAILS EXACTLY LIKE A REJECTION - the
   // route drops it and answers 200. `trade` and `progress_pct` are new, so
   // they go in here in the same change that added them to the table.
-  const allowed = ['label', 'start_date', 'end_date', 'color', 'trade', 'progress_pct']
+  const allowed = ['label', 'color', 'trade', 'progress_pct']
   const update: Record<string, unknown> = Object.fromEntries(
     Object.entries(body).filter(([k]) => allowed.includes(k)),
   )
@@ -70,30 +89,11 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     update.progress_pct = null
   }
 
-  // EDITING DATES BY HAND IS A DECISION, and the flag is what makes a later
-  // cascade leave it alone. Set here rather than in the cascade route so it is
-  // true however the dates were changed - the flag is about the act, not about
-  // which screen did it.
-  //
-  // BUT ONLY WHEN THEY ACTUALLY CHANGED. Every dialog that touches a line
-  // submits both dates whether or not they were edited, so a save that moved
-  // nothing was marking the line hand-dated and taking it out of the cascade -
-  // reported as the cascade ignoring rows nobody had knowingly pinned. A
-  // resubmitted date is not a decision about the date.
-  if ('start_date' in update || 'end_date' in update) {
-    const { data: before, error: beforeErr } = await db
-      .from('schedule_items').select('start_date, end_date')
-      .eq('id', params.itemId).eq('project_id', params.id).maybeSingle()
-    if (beforeErr) {
-      console.error('[schedule/item] could not read the current dates:', beforeErr.message)
-      return NextResponse.json({ error: friendlyDbError(beforeErr) }, { status: 500 })
-    }
-    const changed =
-      ('start_date' in update && update.start_date !== before?.start_date) ||
-      ('end_date' in update && update.end_date !== before?.end_date)
-    if (changed) update.dates_overridden_at = new Date().toISOString()
-  }
-
+  // THE HAND-EDIT FLAG USED TO BE SET HERE, and is not any more: the dates it
+  // watched cannot reach this route. `dates_overridden_at` is now written by
+  // the cascade apply, which is the only thing that moves a date - and which
+  // also knows whether the same save just created a link, the distinction that
+  // `handEditWins` turns on.
   const { data, error } = await db
     .from('schedule_items').update(update)
     .eq('id', params.itemId).eq('project_id', params.id)
