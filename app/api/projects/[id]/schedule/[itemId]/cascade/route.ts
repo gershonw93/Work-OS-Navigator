@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { requirePermission, denied } from '@/lib/api-guard'
 import { friendlyDbError } from '@/lib/db-error'
-import { sendEmail, scheduleShiftEmail, isEmailAddress, type ShiftedLine } from '@/lib/email'
+import { sendEmail, scheduleShiftEmail, reachableEmail, type ShiftedLine } from '@/lib/email'
 import { notify } from '@/lib/notify'
 import {
   cascade, lineName, isDateString,
@@ -112,7 +112,7 @@ async function plan(
       const entry: AffectedSub = affected.get(company.id) ?? {
         companyId: company.id,
         companyName: company.name ?? 'This vendor',
-        email: isEmailAddress(company.contact_email) ? company.contact_email : null,
+        email: reachableEmail(company.contact_email),
         lines: [],
       }
       entry.lines.push({
