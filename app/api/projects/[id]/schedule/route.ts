@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { progressReader } from '@/lib/schedule-progress-read'
+import { readGatePicture } from '@/lib/schedule-unblocked-read'
 import { NextResponse } from 'next/server'
 import { requirePermission, denied } from '@/lib/api-guard'
 
@@ -23,7 +24,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
   const { data: items } = await db
     .from('schedule_items')
-    .select('*, subcontracts(scope, trade, companies(name, type))')
+    .select('*, subcontracts(scope, trade, companies(name, type, contact_email))')
     .eq('project_id', params.id)
     .order('start_date', { ascending: true })
 
@@ -115,11 +116,22 @@ export async function GET(request: Request, { params }: { params: { id: string }
   // which is the entire reason this feature exists - and it rides the payload
   // this page already waits for rather than a fourth trip paid on every
   // navigation.
-  let links: { id: string; task_id: string; predecessor_task_id: string }[] = []
+  //
+  // THE GATE COLUMNS RIDE ALONG. `min_predecessor_progress` and `lag_days`
+  // were not selected here, so the board could not tell a plain "after them"
+  // link from an 80% gate - which is why a line held by a gate looked exactly
+  // like a line nobody had linked, and why the percent gate had no presence
+  // on any screen at all.
+  let links: {
+    id: string; task_id: string; predecessor_task_id: string
+    min_predecessor_progress?: number | string | null
+    lag_days?: number | null
+    created_at?: string | null
+  }[] = []
   {
     const { data, error } = await db
       .from('schedule_dependencies')
-      .select('id, task_id, predecessor_task_id')
+      .select('id, task_id, predecessor_task_id, min_predecessor_progress, lag_days, created_at')
       .eq('project_id', params.id)
     // A refused query reads as "nothing is linked", which is the exact state
     // the suggestions are computed FROM - so it would quietly propose links
@@ -128,8 +140,35 @@ export async function GET(request: Request, { params }: { params: { id: string }
     links = (data ?? []) as typeof links
   }
 
+  // WHO IS HELD BY A PERCENT GATE, AND WHO HAS JUST COME FREE.
+  //
+  // This is what the schedule page had no way of knowing. `blockedBy` and
+  // `lineProgress` were reachable only from inside the cascade review and a
+  // route with no caller, so a line sitting behind "not until framing is 80%"
+  // rendered on the board identically to one that was free to go, and the
+  // sub on the far side of the gate was never told when it opened.
+  //
+  // Built from the lines and links already read above rather than a fourth
+  // trip, and by the same `readGatePicture` the send itself uses - one rule,
+  // so the screen somebody acts on and the letter that goes out cannot drift.
+  let gates: Awaited<ReturnType<typeof readGatePicture>> = []
+  try {
+    gates = await readGatePicture(db, params.id, {
+      lines: (items ?? []) as any,
+      deps: links as any,
+    })
+  } catch (e: any) {
+    // The schedule is the thing that was asked for. Same call as the progress
+    // roll-up above: a gate read that failed costs the badges and the banner,
+    // not the page. It is NOT silently an empty picture to the reader - an
+    // empty `gates` means "nothing is gated", and the page only draws the
+    // banner from lines it can see, so the worst case is a missing offer
+    // rather than a wrong one.
+    console.error('[schedule] gate picture failed:', e?.message)
+  }
+
   return NextResponse.json({
-    items: items ?? [], project, progress, changes, links,
+    items: items ?? [], project, progress, changes, links, gates,
     inspections: inspections ?? [], tasks: tasks ?? [],
   })
 }

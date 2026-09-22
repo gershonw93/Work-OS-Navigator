@@ -1,9 +1,11 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { CascadeReview, type CascadeMove, type CascadeSkip, type AffectedSub } from '@/components/schedule/cascade-review'
 import type { ChangeWarning } from '@/lib/schedule-change-warning'
 import { DependencyPicker, type PickableLine, type ExistingDependency, type PendingDependency } from '@/components/schedule/dependency-picker'
+import { UnblockedReview, UnblockedBanner, type UnblockedSub } from '@/components/schedule/unblocked-review'
+import { clearToTell, type LineGateState } from '@/lib/schedule-unblocked'
 import type { LineKind } from '@/lib/schedule-link-words'
 import { ProgressField } from '@/components/schedule/progress-field'
 import type { Progress } from '@/lib/schedule-dependencies'
@@ -141,6 +143,11 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
   const supabase = createClient()
   const vc = useViewerContext(params.id)
   const [items, setItems] = useState<ScheduleItem[]>([])
+  // WHO IS HELD BY A PERCENT GATE, AND WHO HAS JUST COME FREE. Off the
+  // schedule payload, computed by the same `readGatePicture` the send uses.
+  const [gates, setGates] = useState<LineGateState[]>([])
+  const [tellOpen, setTellOpen] = useState(false)
+  const [tellError, setTellError] = useState<string | null>(null)
   // Derived progress per line, from the route. Only for the HINT beside the
   // box - never seeded into it.
   const [progressById, setProgressById] = useState<Record<string, Progress>>({})
@@ -280,6 +287,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
       setProgressById(data.progress ?? {})
       setChangesById(data.changes ?? {})
       setLinks(data.links ?? [])
+      setGates(data.gates ?? [])
       setInspections(data.inspections ?? [])
       setDueTasks(data.tasks ?? [])
     }
@@ -295,6 +303,84 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     if (res.ok) {
       const d = await res.json()
       setUnscheduled(d.subs ?? [])
+    }
+  }
+
+  // ── The percent gate, finally on a screen ─────────────────────────────────
+  //
+  // `gates` carries one row per line that has at least one percent gate on it.
+  // Two things read it: a badge on the line itself, so a line sitting behind
+  // "not until framing is 80%" no longer looks exactly like a line nobody
+  // linked, and the banner below, which offers to tell the subs whose gate has
+  // opened.
+  const gateByTask = useMemo(
+    () => Object.fromEntries(gates.map(g => [g.taskId, g])) as Record<string, LineGateState | undefined>,
+    [gates],
+  )
+
+  // `clearToTell` is the rule, and the ROUTE ASKS IT AGAIN at send time. This
+  // is the same function, not a second copy of the condition - a screen that
+  // decides who is clear by its own reasoning is how a stale tab comes to tell
+  // a crew to turn up to a wall that is not there.
+  const toTell = useMemo(() => clearToTell(gates), [gates])
+
+  /** Who each letter would go to. Named, so "no email on file" can name them. */
+  const tellSubs = useMemo(() => {
+    const byId = new Map(items.map(i => [i.id, i]))
+    const out: Record<string, UnblockedSub | undefined> = {}
+    for (const r of toTell) {
+      const co = byId.get(r.taskId)?.subcontracts?.companies ?? null
+      out[r.taskId] = {
+        taskId: r.taskId,
+        companyName: co?.name ?? 'Unknown vendor',
+        email: co?.contact_email?.trim() || null,
+      }
+    }
+    return out
+  }, [toTell, items])
+
+  /**
+   * Tell them - the only thing in this feature that sends.
+   *
+   * The route re-checks every line and answers with what ACTUALLY went out, so
+   * the reply is reported rather than assumed: a silent missing email is the
+   * worst thing to find out about a week later, when the sub did not turn up.
+   */
+  async function tellUnblocked(taskIds: string[]) {
+    setTellError(null)
+    try {
+      const token = await getToken()
+      const res = await fetch(`/api/projects/${params.id}/schedule/unblocked`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ task_ids: taskIds }),
+      })
+      const d = await res.json().catch(() => ({} as any))
+      if (!res.ok) {
+        setTellError(d?.error ?? 'Could not tell them. Nothing was sent.')
+        return
+      }
+      // WHAT WENT OUT, not what was asked for. `told` counts the lines the
+      // route still found clear; `sent` counts the letters that left. They
+      // differ whenever somebody has no address on file, which is exactly the
+      // case worth saying out loud.
+      const sent = Number(d?.sent ?? 0)
+      const told = Number(d?.told ?? 0)
+      if (told === 0) {
+        setTellError(d?.reason
+          ? `Nothing was sent - ${d.reason}.`
+          : 'Nothing was sent - none of those are still clear.')
+      } else if (sent < told) {
+        setTellError(`${sent} of ${told} emails went out. The rest have no email address on file - they are recorded on the job, but nobody wrote to them.`)
+      }
+      setTellOpen(false)
+    } catch {
+      // A request that did not come back is not a verdict about the send.
+      setTellError('We could not reach SyteNav, so we do not know whether that went out. Reload the page before trying again.')
+    } finally {
+      // Whatever happened, the picture on screen is now stale - a send writes
+      // the notices that decide who is still offered.
+      await load()
     }
   }
 
@@ -1289,6 +1375,19 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
         </div>
       )}
 
+      {/* WHO HAS JUST COME FREE.
+          On the board, because a gate opens when somebody updates a PERCENT -
+          on a budget line, or in another line's dialog - and nobody navigates
+          to the schedule afterwards to work out who that released. Gated on
+          the same permission the route asks for, so it is never a button that
+          answers 403. */}
+      {canEditSchedule && (
+        <UnblockedBanner count={toTell.length} onOpen={() => { setTellError(null); setTellOpen(true) }} />
+      )}
+
+      {/* The result of pressing the button belongs on the screen. */}
+      {tellError && <ErrorNote message={tellError} />}
+
       {loading ? (
         <div className="text-sm text-faint py-12 text-center">Loading...</div>
       ) : items.length === 0 ? (
@@ -1537,6 +1636,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                       <span>{formatDateShort(item.start_date)} - {formatDateShort(item.end_date)}</span>
                       <span className="text-faint">{duration} day{duration !== 1 ? 's' : ''}</span>
                       <SlipBadge item={item} changes={changesById[item.id]} />
+                      <GateBadge gate={gateByTask[item.id]} />
                     </div>
                   </div>
                 )
@@ -1578,6 +1678,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                         <span className="flex flex-wrap items-center gap-2">
                           <span className="whitespace-nowrap">{duration} day{duration !== 1 ? 's' : ''}</span>
                           <SlipBadge item={item} changes={changesById[item.id]} />
+                      <GateBadge gate={gateByTask[item.id]} />
                         </span>
                       </td>
                       <td className="px-5 py-3 text-right">
@@ -1594,6 +1695,15 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
           )}
 
         </div>
+      )}
+          {tellOpen && (
+        <UnblockedReview
+          rows={toTell}
+          subs={tellSubs}
+          projectName={null}
+          onConfirm={tellUnblocked}
+          onCancel={() => setTellOpen(false)}
+        />
       )}
           {pending && editItem && (
         <CascadeReview
@@ -1624,6 +1734,43 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
  * Hoisted: a component declared inside a component is a new type on every
  * render, so React throws the row away and rebuilds it.
  */
+/**
+ * WHAT A LINE IS WAITING FOR, ON THE LINE.
+ *
+ * `blockedBy` and `lineProgress` have decided this since the percent gate
+ * shipped, and until now both were reachable only from inside the cascade
+ * review and a route nothing called - so a line held behind "not until framing
+ * is 80%" rendered identically to one that was free to go. An invisible gate
+ * is indistinguishable from no gate, which is how one that never fires and one
+ * whose condition is met come to look the same.
+ *
+ * The sentence is `blockedBy`'s own, never re-worded here, and it goes in the
+ * `title` because a badge has room for two words and the reason is a line.
+ */
+function GateBadge({ gate }: { gate?: LineGateState }) {
+  if (!gate) return null
+  if (!gate.blocked) {
+    return (
+      <span
+        className="whitespace-nowrap rounded-full bg-success-tint px-2 py-0.5 text-[11px] font-medium text-success"
+        title={gate.gates.map(g => `${g.predecessorName} reached ${g.need}%`).join('; ')}
+      >
+        Clear to start
+      </span>
+    )
+  }
+  return (
+    <span
+      className="whitespace-nowrap rounded-full bg-warn-tint px-2 py-0.5 text-[11px] font-medium text-warn"
+      title={gate.reason ?? undefined}
+    >
+      {/* "Nobody has said" is a DIFFERENT fact from "they are not far enough
+          along", and only one of them is somebody's to go and fix. */}
+      {gate.unknown ? 'Waiting - no progress reported' : 'Waiting'}
+    </span>
+  )
+}
+
 function SlipBadge({ item, changes }: { item: ScheduleItem; changes?: DateChange[] }) {
   const badge = slipBadge(item, changes ?? [])
   if (!badge) return null

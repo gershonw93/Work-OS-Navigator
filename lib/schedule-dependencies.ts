@@ -161,7 +161,27 @@ export interface Progress {
 
 export interface BudgetProgressRow {
   progress_pct?: number | string | null
-  amount?: number | string | null
+  /**
+   * `budgeted_amount`, THE NAME THE COLUMN ACTUALLY HAS.
+   *
+   * This was `amount`, and `budget_line_items` has never had a column called
+   * that - the money is in `budgeted_amount`, as `invoice-budget.ts` and the
+   * client portal have both always read it. PostgREST refuses the WHOLE query
+   * for one unknown column, so `progressReader` logged an error nobody was
+   * reading and every budget roll-up in the app degraded to `unknown`.
+   *
+   * WHICH MEANT THE GATE'S BUDGET FALLBACK HAD NEVER WORKED ONCE. Nobody has
+   * typed a percent on any of the 121 live schedule lines, so `unknown` was
+   * the answer for every gate on every job - and unknown BLOCKS, which is the
+   * safe direction and therefore the silent one. A gate that never opens looks
+   * exactly like a gate whose trade is not there yet.
+   *
+   * The fixtures said `amount` too, which is why sixty suites went green over
+   * it: a test written from the same misunderstanding as the code confirms the
+   * misunderstanding. Same failure as `comparisonTitle` reading `trade` off a
+   * table that does not have one.
+   */
+  budgeted_amount?: number | string | null
 }
 
 /**
@@ -225,7 +245,7 @@ export function lineProgress(line: ScheduleLine, budgetRows: BudgetProgressRow[]
   if (!rows.length) return { pct: null, source: 'unknown' }
 
   const weight = (r: BudgetProgressRow) => {
-    const a = toAmount(r.amount)
+    const a = toAmount(r.budgeted_amount)
     return a != null && a > 0 ? a : 0
   }
   const total = rows.reduce((sum, r) => sum + weight(r), 0)

@@ -887,14 +887,31 @@ export function scheduleShiftEmail({
  * are blocked leaves them ringing the GC to ask whether they can start, which
  * is the same phone call from the other end.
  */
+/**
+ * "You're clear to start."
+ *
+ * TWO THINGS HERE WERE ONLY EVER WRONG ON PAPER, because until the review
+ * screen existed nothing had ever called the route that sends this.
+ *
+ * THE DATE IS WORDS. `startDate` was interpolated raw, so the one sentence in
+ * this letter that a sub acts on read "You are down for 2026-10-24." The
+ * weekday is load-bearing - it is how a day gets checked against a diary -
+ * and `dateWords` is the one place that spelling is decided, exactly as the
+ * shift email already does it. A missing date says so rather than printing an
+ * empty sentence: a line with no start is a line nobody has dated yet.
+ *
+ * AND THE TRADE AHEAD IS A LIST. A line can be held by two gates, and it is
+ * clear because BOTH of them opened. Naming one of them is a letter the
+ * reader cannot check against the job.
+ */
 export function scheduleUnblockedEmail({
   vendorName, projectName, trade, predecessorTrade, startDate, fromName, companyName,
 }: {
   vendorName: string | null | undefined
   projectName: string | null
   trade: string
-  predecessorTrade: string
-  startDate: string
+  predecessorTrade: string | string[]
+  startDate: string | null
   fromName?: string | null
   companyName?: string | null
 }) {
@@ -902,9 +919,20 @@ export function scheduleUnblockedEmail({
   const where = projectName ? ` on ${projectName}` : ''
   const sig = [(fromName ?? '').trim(), (companyName ?? '').trim()].filter(Boolean)
 
+  const aheadList = (Array.isArray(predecessorTrade) ? predecessorTrade : [predecessorTrade])
+    .map(t => String(t ?? '').trim()).filter(Boolean)
+  const ahead = aheadList.length > 1
+    ? `${aheadList.slice(0, -1).join(', ')} and ${aheadList[aheadList.length - 1]}`
+    : (aheadList[0] ?? 'The trade ahead of you')
+  const areIs = aheadList.length > 1 ? 'are' : 'is'
+
+  const when = dateWords(startDate)?.withWeekday ?? null
+
   const paragraphs = [
-    `${predecessorTrade} is far enough along, so your ${trade} work${where} is clear to start.`,
-    `You are down for ${startDate}.`,
+    `${ahead} ${areIs} far enough along, so your ${trade} work${where} is clear to start.`,
+    when
+      ? `You are down for ${when}.`
+      : 'There are no dates on that line yet - we will confirm them with you.',
     'Reply to this email if that does not work for you.',
   ]
 
@@ -914,7 +942,7 @@ export function scheduleUnblockedEmail({
     subject: `You're clear to start${where}`,
     text,
     html: emailLayout({
-      preheader: `${predecessorTrade} is far enough along.`,
+      preheader: `${ahead} ${areIs} far enough along.`,
       eyebrow: 'CLEAR TO START',
       heading: "You're unblocked",
       subheading: projectName ?? undefined,

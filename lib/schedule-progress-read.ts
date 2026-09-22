@@ -30,18 +30,21 @@ export async function progressReader(
     lines.map(l => l.subcontract_id).filter((v): v is string => !!v),
   ))
 
-  const budgetBySub = new Map<string, { progress_pct?: number | string | null; amount?: number | string | null }[]>()
+  const budgetBySub = new Map<string, { progress_pct?: number | string | null; budgeted_amount?: number | string | null }[]>()
   if (subIds.length) {
     const { data, error } = await db
       .from('budget_line_items')
-      .select('subcontract_id, progress_pct, amount')
+      // `budgeted_amount`, not `amount` - see BudgetProgressRow. One unknown
+      // column refuses the ENTIRE query, so this read returned nothing at all
+      // and every gate in the app answered `unknown`.
+      .select('subcontract_id, progress_pct, budgeted_amount')
       .in('subcontract_id', subIds)
     // Logged, not thrown: see above - the answer degrades to `unknown`, which
     // is the safe side of this particular fence.
     if (error) console.error('[schedule/progress] budget roll-up unavailable:', error.message)
     for (const row of (data ?? []) as any[]) {
       const list = budgetBySub.get(row.subcontract_id) ?? []
-      list.push({ progress_pct: row.progress_pct, amount: row.amount })
+      list.push({ progress_pct: row.progress_pct, budgeted_amount: row.budgeted_amount })
       budgetBySub.set(row.subcontract_id, list)
     }
   }

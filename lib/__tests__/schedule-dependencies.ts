@@ -391,7 +391,7 @@ const HAND_EDIT = '2026-03-01T00:00:00Z'
 
   const rolled = lineProgress(
     line('A', '2026-01-01', '2026-01-05'),
-    [{ progress_pct: '10.00', amount: '90000.00' }, { progress_pct: '100.00', amount: '10000.00' }],
+    [{ progress_pct: '10.00', budgeted_amount: '90000.00' }, { progress_pct: '100.00', budgeted_amount: '10000.00' }],
   )
   ok(rolled.pct === 19 && rolled.source === 'budget',
     '...and the budget roll-up weights by money off string columns: 19%, not 55%')
@@ -423,12 +423,12 @@ const HAND_EDIT = '2026-03-01T00:00:00Z'
 
   // Typed wins over the budget, because somebody looked at the job.
   const both = lineProgress(line('A', '2026-01-01', '2026-01-05', { progress_pct: 40 }),
-    [{ progress_pct: 90, amount: 1000 }])
+    [{ progress_pct: 90, budgeted_amount: 1000 }])
   ok(both.pct === 40 && both.source === 'entered', 'a typed percent beats the budget roll-up')
 
   // Weighted by amount: $90k at 10% + $10k at 100% is 19%, not 55%.
   const weighted = lineProgress(line('A', '2026-01-01', '2026-01-05'),
-    [{ progress_pct: 10, amount: 90_000 }, { progress_pct: 100, amount: 10_000 }])
+    [{ progress_pct: 10, budgeted_amount: 90_000 }, { progress_pct: 100, budgeted_amount: 10_000 }])
   ok(weighted.pct === 19, 'the budget roll-up is weighted by money, not a plain average')
   ok(weighted.source === 'budget', '...and says so')
 
