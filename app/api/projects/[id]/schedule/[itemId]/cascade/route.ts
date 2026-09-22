@@ -8,6 +8,7 @@ import {
   cascade, lineName, isDateString,
   type Move, type ScheduleLine, type Dependency,
 } from '@/lib/schedule-dependencies'
+import { changeWarning } from '@/lib/schedule-change-warning'
 
 export const runtime = 'nodejs'
 
@@ -34,7 +35,13 @@ interface AffectedSub {
  * property here, and it is worth nothing if it is computed by different code
  * from the write.
  */
-async function plan(db: ReturnType<typeof admin>, projectId: string, itemId: string, newStart: string, newEnd: string) {
+async function plan(
+  db: ReturnType<typeof admin>, projectId: string, itemId: string,
+  newStart: string, newEnd: string,
+  // Linking in the same save is the LATER word, so the line is not dropping
+  // out of a chain it has just been put into.
+  justLinked = false,
+) {
   const [linesRes, depsRes] = await Promise.all([
     db.from('schedule_items').select(LINE_COLS).eq('project_id', projectId),
     db.from('schedule_dependencies').select('*').eq('project_id', projectId),
@@ -47,6 +54,28 @@ async function plan(db: ReturnType<typeof admin>, projectId: string, itemId: str
   const byId = new Map(lines.map(l => [l.id, l]))
 
   const result = cascade(lines, deps, itemId, newStart, newEnd)
+
+  // WHAT THE CHANGE WILL **NOT** DO, worked out here beside the moves so the
+  // sentence on the screen and the thing that happens come from one place.
+  //
+  // `hasDependents` asks the LINKS, not the result: a line every one of whose
+  // followers is hand-dated produces zero moves and zero pushes, and calling
+  // that "nothing is linked" would be the wrong sentence about a linked job.
+  const edited = byId.get(itemId)
+  const warning = edited
+    ? changeWarning({
+        edited,
+        newStart,
+        newEnd,
+        result,
+        ownPredecessors: deps
+          .filter(d => d.task_id === itemId)
+          .map(d => ({ dep: d, predecessor: byId.get(d.predecessor_task_id) }))
+          .filter((x): x is { dep: Dependency; predecessor: ScheduleLine } => !!x.predecessor),
+        justLinked,
+        hasDependents: deps.some(d => d.predecessor_task_id === itemId),
+      })
+    : null
 
   // Who is on each moved line. A placeholder has no subcontract and therefore
   // nobody to tell - that is a normal state, not a failure, and the review
@@ -114,6 +143,7 @@ async function plan(db: ReturnType<typeof admin>, projectId: string, itemId: str
       because: lineName(byId.get(s.becauseOf)),
     })),
     affected: Array.from(affected.values()),
+    warning,
     byId,
   }
 }
@@ -139,8 +169,12 @@ export async function POST(request: Request, { params }: { params: { id: string;
   }
 
   try {
-    const p = await plan(admin(), params.id, params.itemId, newStart, newEnd)
-    return NextResponse.json({ moves: p.rows, skipped: p.skipped, affected: p.affected })
+    const p = await plan(
+      admin(), params.id, params.itemId, newStart, newEnd, body?.just_linked === true,
+    )
+    return NextResponse.json({
+      moves: p.rows, skipped: p.skipped, affected: p.affected, warning: p.warning,
+    })
   } catch (e: any) {
     console.error('[schedule/cascade] preview failed:', e?.message)
     return NextResponse.json({ error: 'Could not work out what would move.' }, { status: 500 })

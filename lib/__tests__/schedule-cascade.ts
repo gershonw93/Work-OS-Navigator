@@ -218,11 +218,20 @@ console.log('\nschedule-cascade')
   ok(!/Number\.isFinite\((need|typed|pct|r\.progress_pct)/.test(pure),
     '...never of a column value straight off a row')
 
-  // The picker prints it through the same reader, or a saved link reads
-  // "hits 80.00%" - a trailing .00 nobody typed.
+  // The percent that reaches the screen goes through the same reader, or a
+  // saved link reads "hits 80.00%" - a trailing .00 nobody typed.
+  //
+  // It moved: the picker used to call `pctLabel` itself, and now delegates to
+  // `linkSentence`, which is the ONE home for every sentence a link produces.
+  // The property is unchanged, so the pin follows it rather than being deleted.
+  const words = code('lib/schedule-link-words.ts')
+  ok(/pctLabel\(x\.gate\?\.pct \?\? null\)/.test(words),
+    'the one link sentence prints the percent through pctLabel')
   const picker = code('components/schedule/dependency-picker.tsx')
-  ok(/pctLabel\(d\.min_predecessor_progress\)/.test(picker),
-    'the edit panel prints the percent through pctLabel')
+  ok(/linkSentence\(\{/.test(picker),
+    '...and the edit panel asks it rather than wording the link a second time')
+  ok(!/After \$\{d\.predecessorName\}/.test(picker),
+    '...with no second copy of the sentence left behind in the picker')
   ok(/min_predecessor_progress: number \| string \| null/.test(picker),
     '...and its type admits the string, so the next reader is forced through it')
 }
@@ -303,18 +312,39 @@ console.log('\nschedule-cascade')
   ok(/function linkWords/.test(review), '...and one place the link kind is')
 }
 
-// ── a review with nothing to review is not a step ────────────────────────────
+// ── a review with nothing to SAY is not a step ───────────────────────────────
 //
-// REPORTED: the screen stopped on "Nothing else moves / Moving Electrical"
-// with two buttons about emailing nobody, and the modal sat over the editor.
+// REPORTED FIRST: the screen stopped on "Nothing else moves / Moving
+// Electrical" with two buttons about emailing nobody, and the modal sat over
+// the editor. The fix was to skip it when nothing moved.
+//
+// REPORTED SECOND, and the reason this pin changed: "will it actually push off
+// anyone dependent?" - on this database, usually not. 121 schedule lines carry
+// five links between them, so the commonest outcome of moving a date was that
+// skip, and a save in total silence is indistinguishable from a feature that
+// never fired.
+//
+// BOTH RULES HOLD AT ONCE. The screen still never asks whether to tell people
+// when there is nobody to tell. What it no longer does is stay quiet about a
+// change that moves nobody - that is the thing worth saying. The test is
+// `warning.silent`, never `!moves.length`.
 {
   const page = code('app/(dashboard)/projects/[id]/schedule/page.tsx')
-  ok(/if \(!moves\.length && !skipped\.length\)/.test(page),
-    'with nothing else touched the review is SKIPPED, not shown empty')
+  ok(/if \(!moves\.length && !skipped\.length && \(!warning \|\| warning\.silent\)\)/.test(page),
+    'THE SKIP IS GATED ON warning.silent, not on "nothing moved"')
+  ok(!/if \(!moves\.length && !skipped\.length\) \{/.test(page),
+    '...and the old unguarded skip is gone, not merely joined by a second branch')
   ok(/applyCascade\(false, \{ start: editStart, end: editEnd, justLinked \}\)/.test(page),
     '...and it applies with notify FALSE - there is nobody on the list, not a guess')
   ok(/\{editItem && !pending && \(/.test(page),
     'and the editor is not left open underneath the review - two overlays at once')
+  // With nothing moving there is nobody to tell, so the two buttons about
+  // emailing nobody must not come back with the screen.
+  const review = code('components/schedule/cascade-review.tsx')
+  ok(/\{moves\.length === 0 \? \(/.test(review),
+    'a review with no moves offers ONE button that saves, not a choice about telling nobody')
+  ok(/Save the dates anyway/.test(review) && /Cancel - change nothing/.test(review),
+    '...and both of them say what they do')
 }
 
 // ── no email without the review screen ───────────────────────────────────────
