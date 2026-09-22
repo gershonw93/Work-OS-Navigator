@@ -40,7 +40,9 @@ export interface CascadeMove {
 export interface CascadeSkip {
   id: string
   name: string
-  reason: 'manually_overridden' | 'no_shift' | 'chain_stopped' | string
+  reason: 'manually_overridden' | 'no_shift' | 'chain_stopped' | 'progress_gate' | string
+  /** `blockedBy`'s own sentence, for a gate. Never re-worded here. */
+  blockReason?: string | null
   because: string
   link: LinkKind
   gate: LinkGate | null
@@ -61,6 +63,12 @@ function whyStill(s: CascadeSkip): string {
       return `${s.because} still finishes on the same day, so there is nothing to pass on`
     case 'chain_stopped':
       return `${s.because} is not moving, so where this one lands is not worked out`
+    case 'progress_gate':
+      // `blockedBy` already wrote this sentence, naming the percent it needs
+      // and the percent it has. Wording it a second time here is how two
+      // screens come to say different things about one gate.
+      return s.blockReason
+        ?? `${s.because} is not far enough along to pull this one forward`
     default:
       return `${s.because} moving does not move it`
   }
@@ -193,6 +201,14 @@ export function CascadeReview({
               {skipped.some(s => s.reason === 'manually_overridden') && (
                 <p className="mt-1.5 text-xs text-faint">
                   Link it again from its own row and it follows from then on.
+                </p>
+              )}
+              {/* A GATE ONLY EVER HOLDS A PULL-FORWARD. Saying so stops this
+                  reading as "the gate stopped my delay going out". */}
+              {skipped.some(s => s.reason === 'progress_gate') && (
+                <p className="mt-1.5 text-xs text-faint">
+                  A percent gate only holds a trade back from starting EARLIER. A trade that slips always
+                  pushes the ones behind it, whatever percent they are at.
                 </p>
               )}
             </div>

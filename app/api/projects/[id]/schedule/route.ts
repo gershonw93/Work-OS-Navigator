@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { progressReader } from '@/lib/schedule-progress-read'
 import { NextResponse } from 'next/server'
 import { requirePermission, denied } from '@/lib/api-guard'
 
@@ -46,8 +47,25 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .eq('project_id', params.id).not('due_date', 'is', null),
   ])
 
+  // HOW FAR ALONG EACH LINE IS, DERIVED, so the edit dialog can show what the
+  // app would answer WITHOUT a typed number - "19% from their budget lines" -
+  // beside an empty box rather than inside it. Prefilling the box would turn a
+  // derived fact into a typed claim the first time anybody pressed Save.
+  //
+  // Inside the existing Promise.all rather than as a fourth sequential trip:
+  // this layout is paid on every navigation.
+  let progress: Record<string, { pct: number | null; source: string }> = {}
+  try {
+    const readProgress = await progressReader(db, (items ?? []) as any)
+    progress = Object.fromEntries((items ?? []).map((i: any) => [i.id, readProgress(i.id)]))
+  } catch (e: any) {
+    // The schedule is the thing that was asked for. A roll-up that failed
+    // costs a hint, not the page.
+    console.error('[schedule] progress roll-up failed:', e?.message)
+  }
+
   return NextResponse.json({
-    items: items ?? [], project,
+    items: items ?? [], project, progress,
     inspections: inspections ?? [], tasks: tasks ?? [],
   })
 }

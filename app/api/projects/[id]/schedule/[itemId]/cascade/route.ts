@@ -9,6 +9,7 @@ import {
   type Move, type ScheduleLine, type Dependency,
 } from '@/lib/schedule-dependencies'
 import { changeWarning } from '@/lib/schedule-change-warning'
+import { progressReader } from '@/lib/schedule-progress-read'
 
 export const runtime = 'nodejs'
 
@@ -53,7 +54,12 @@ async function plan(
   const deps = (depsRes.data ?? []) as unknown as Dependency[]
   const byId = new Map(lines.map(l => [l.id, l]))
 
-  const result = cascade(lines, deps, itemId, newStart, newEnd)
+  // THE GATES NEED REAL PERCENTAGES. Without this every gate reads unknown -
+  // which, because `blockedBy` never blocks a link with no gate, would leave
+  // an 80% link behaving exactly like a plain one, which is what it did.
+  const progressOf = await progressReader(db, lines)
+
+  const result = cascade(lines, deps, itemId, newStart, newEnd, progressOf)
 
   // WHAT THE CHANGE WILL **NOT** DO, worked out here beside the moves so the
   // sentence on the screen and the thing that happens come from one place.
@@ -138,6 +144,7 @@ async function plan(
       id: s.id,
       name: lineName(byId.get(s.id)),
       reason: s.reason,
+      blockReason: s.blockReason ?? null,
       link: s.link,
       gate: s.gate,
       because: lineName(byId.get(s.becauseOf)),
