@@ -20,6 +20,22 @@
             </intent-filter>
         </activity>
 
+        <!--
+            How a push notification looks when the app did not draw it itself
+            (the app is in the background or closed, which is nearly always).
+            The icon must be a white silhouette - see ic_stat_sytenav.xml - and
+            the channel is the one lib/use-push.ts creates on start, so a push
+            that arrives before the app has ever opened still has somewhere
+            sensible to go. ANDROID_CHANNEL_ID in lib/fcm-channel.ts is the
+            same string.
+        -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_stat_sytenav" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="sytenav" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

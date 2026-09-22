@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useNativePlatform } from '@/lib/use-native'
 import { readPushState, writePushState } from '@/lib/push-state'
+import { ANDROID_CHANNEL_ID } from '@/lib/fcm-channel'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Registering this phone for notifications, and doing something sensible when
@@ -48,7 +49,7 @@ function remembered(): string | null {
 }
 
 export function usePush() {
-  const { isNative, ready } = useNativePlatform()
+  const { isNative, ready, platform } = useNativePlatform()
   const router = useRouter()
 
   useEffect(() => {
@@ -74,6 +75,24 @@ export function usePush() {
         if (cancelled) return
         if (status.receive !== 'granted') { writePushState('denied'); return }
 
+        // ANDROID FILES EVERY NOTIFICATION UNDER A CHANNEL, and a push naming
+        // a channel the app never created lands in "Miscellaneous" at default
+        // importance - no banner, which reads as nothing arrived. Created
+        // before registering so it exists by the first push. Idempotent: a
+        // second create with the same id is a no-op, and the person's own
+        // changes to it (sound off, say) survive. iOS has no channels.
+        if (platform === 'android') {
+          try {
+            await PushNotifications.createChannel({
+              id: ANDROID_CHANNEL_ID,
+              name: 'SyteNav',
+              description: 'Approvals, inspections, schedule changes and other job updates',
+              importance: 4,
+              visibility: 1,
+            })
+          } catch { /* the default channel still delivers, just quietly */ }
+        }
+
         // Apple hands the token back on an event, not from the register()
         // call, so the listener has to be attached BEFORE registering or the
         // first token of a cold start is missed.
@@ -86,7 +105,10 @@ export function usePush() {
             const res = await fetch('/api/me/device-token', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
-              body: JSON.stringify({ token: value, platform: 'ios' }),
+              // The REAL platform. This was hardcoded 'ios', so an Android
+              // phone's token was filed as an iPhone's and every push to it
+              // went to Apple, which cannot deliver it.
+              body: JSON.stringify({ token: value, platform: platform === 'android' ? 'android' : 'ios' }),
             })
             // The status, not just "it went wrong" - a 401 and a 500 are two
             // different problems and only one of them is ours.
@@ -135,7 +157,7 @@ export function usePush() {
       cancelled = true
       for (const c of cleanups) { try { c() } catch { /* unmounting */ } }
     }
-  }, [ready, isNative, router])
+  }, [ready, isNative, platform, router])
 }
 
 /**

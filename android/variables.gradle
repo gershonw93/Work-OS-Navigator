@@ -1,7 +1,11 @@
 ext {
     minSdkVersion = 22
-    compileSdkVersion = 34
-    targetSdkVersion = 34
+    // 35, not Capacitor 6's default of 34. Google Play refuses a NEW app, and
+    // any update, that targets less than API 35 (the rule since Aug 31 2025).
+    // Capacitor 6 plugins read these same values off rootProject.ext, so they
+    // compile against 35 too. See gradle.properties for the AGP note.
+    compileSdkVersion = 35
+    targetSdkVersion = 35
     androidxActivityVersion = '1.8.0'
     androidxAppCompatVersion = '1.6.1'
     androidxCoordinatorLayoutVersion = '1.2.0'

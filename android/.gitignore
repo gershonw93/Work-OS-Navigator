@@ -53,16 +53,18 @@ captures/
 .idea/navEditor.xml
 
 # Keystore files
-# Uncomment the following lines if you do not want to check your keystore files in.
-#*.jks
-#*.keystore
+# The upload key is written here by codemagic.yaml at build time and must
+# never be committed: whoever holds it can publish as SyteNav.
+*.jks
+*.keystore
 
 # External native build folder generated in Android Studio 2.2 and later
 .externalNativeBuild
 .cxx/
 
 # Google Services (e.g. APIs or Firebase)
-# google-services.json
+# Supplied by codemagic.yaml from GOOGLE_SERVICES_JSON, never committed.
+app/google-services.json
 
 # Freeline
 freeline.py

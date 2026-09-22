@@ -20,7 +20,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { canonicalType, effectivePrefs, isSendableType, notificationType, wants, wantsPush, type PrefRow } from '@/lib/notifications'
-import { apnsConfig, sendPush } from '@/lib/push'
+import { apnsConfig, sendPush, type PushResult } from '@/lib/push'
+import { fcmConfig, sendFcm } from '@/lib/fcm'
 import { notificationEmail, sendEmail } from '@/lib/email'
 import { appOrigin } from '@/lib/app-url'
 
@@ -185,25 +186,40 @@ export async function pushToPhones(
     // preview deploy, and production until the enrolment finishes - this would
     // otherwise be a database round trip on every single notification, to
     // build a list nothing can be sent to.
-    if (!apnsConfig()) return none
+    const apple = !!apnsConfig()
+    const google = !!fcmConfig()
+    if (!apple && !google) return none
 
-    const { data: devices } = await db.from('device_tokens').select('token').in('user_id', userIds)
-    const tokens = (devices ?? []).map((d: any) => d.token).filter(Boolean)
-    if (!tokens.length) return none
+    // TWO SERVICES, SPLIT BY THE ROW'S PLATFORM. Every token used to go to
+    // Apple, Android ones included - which APNs cannot deliver and never will,
+    // so an Android user's notifications went nowhere while Settings showed a
+    // registered phone.
+    const { data: devices } = await db.from('device_tokens').select('token, platform').in('user_id', userIds)
+    const rows = (devices ?? []).filter((d: any) => d?.token)
+    const ios = rows.filter((d: any) => d.platform !== 'android').map((d: any) => d.token)
+    const android = rows.filter((d: any) => d.platform === 'android').map((d: any) => d.token)
+    if (!(apple && ios.length) && !(google && android.length)) return none
 
-    const res = await sendPush(tokens, message)
-    if (res.dead.length) {
-      try { await db.from('device_tokens').delete().in('token', res.dead) } catch { /* next send will try again */ }
+    const skip: PushResult = { sent: 0, dead: [], failed: 0, skipped: 'not_configured' }
+    const [a, g] = await Promise.all([
+      apple && ios.length ? sendPush(ios, message) : skip,
+      google && android.length ? sendFcm(android, message) : skip,
+    ])
+    const dead = [...a.dead, ...g.dead]
+    if (dead.length) {
+      try { await db.from('device_tokens').delete().in('token', dead) } catch { /* next send will try again */ }
     }
     // A REAL notification has no screen to report on. The Settings test button
     // shows the reason to the person who pressed it; a bill approval that
     // quietly reached nobody has nothing at all, so it goes to the log where it
     // can be found afterwards. This used to return a bare count, and a send
     // refused by Apple was indistinguishable from one with nothing to send to.
-    if (res.failed && res.error) {
-      console.error(`[push] ${res.failed} of ${tokens.length} refused by Apple: ${res.error}`)
-    }
-    return { sent: res.sent, failed: res.failed, error: res.error }
+    if (a.error) console.error(`[push] ${a.failed} of ${ios.length} refused by Apple: ${a.error}`)
+    if (g.error) console.error(`[push] ${g.failed} of ${android.length} refused by Google: ${g.error}`)
+    // A failure BEFORE any phone was tried (unreadable key, auth refused) has
+    // an error and no `failed` count - it still has to reach the test button.
+    const error = [a.error, g.error].filter(Boolean).join(', ') || undefined
+    return { sent: a.sent + g.sent, failed: a.failed + g.failed, error }
   } catch {
     return none
   }

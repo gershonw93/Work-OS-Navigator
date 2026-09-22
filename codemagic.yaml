@@ -218,8 +218,18 @@ workflows:
     max_build_duration: 45
     environment:
       node: 20
+      # Capacitor 6 builds with JDK 17. Left unset, the image's default Java
+      # decides, and a Gradle/JDK mismatch fails twenty minutes in.
+      java: 17
       groups:
-        - google_play_credentials   # holds CM_KEYSTORE, CM_KEYSTORE_PASSWORD, etc.
+        # google_play_credentials holds, all secure:
+        #   CM_KEYSTORE                 the upload keystore, base64 on one line
+        #   CM_KEYSTORE_PASSWORD        its password
+        #   CM_KEY_ALIAS                the key's alias (sytenav, per MOBILE.md)
+        #   CM_KEY_PASSWORD             the key's own password
+        #   GOOGLE_SERVICES_JSON        Firebase's google-services.json, base64
+        #   GCLOUD_SERVICE_ACCOUNT_CREDENTIALS  the Play upload service account
+        - google_play_credentials
       vars:
         PACKAGE_NAME: com.sytenav.app
     scripts:
@@ -229,16 +239,73 @@ workflows:
         script: |
           npx cap add android || true
           npx cap sync android
+      # SAY WHAT IS MISSING, BY NAME, BEFORE GRADLE RUNS. Same lesson as the iOS
+      # signing step: an absent variable surfaces twenty minutes later as an
+      # error about something else entirely.
+      - name: Check the secrets are present
+        script: |
+          missing=""
+          for v in CM_KEYSTORE CM_KEYSTORE_PASSWORD CM_KEY_ALIAS CM_KEY_PASSWORD GOOGLE_SERVICES_JSON; do
+            if [ -z "$(printenv "$v")" ]; then missing="$missing $v"; fi
+          done
+          if [ -n "$missing" ]; then
+            echo "Not set in this build:$missing"
+            echo "In Codemagic: Applications > Work-OS-Navigator > Environment variables,"
+            echo "group google_play_credentials. A variable in another group is invisible here."
+            exit 1
+          fi
+          if [ -z "${BUILD_NUMBER:-}" ]; then
+            echo "BUILD_NUMBER is not set, so versionCode would be 1 and Play would refuse"
+            echo "every upload after the first."
+            exit 1
+          fi
+          echo "All secrets present. versionCode will be $BUILD_NUMBER."
       - name: Set up keystore
         script: |
-          echo $CM_KEYSTORE | base64 --decode > android/app/release.keystore
+          printf '%s' "$CM_KEYSTORE" | base64 --decode > android/app/release.keystore
+          if ! keytool -list -keystore android/app/release.keystore -storepass "$CM_KEYSTORE_PASSWORD" -alias "$CM_KEY_ALIAS" > /dev/null 2>&1; then
+            echo "The keystore decoded, but it will not open with CM_KEYSTORE_PASSWORD,"
+            echo "or has no key called '$CM_KEY_ALIAS'. Check both - the build would sign nothing."
+            exit 1
+          fi
+          echo "Keystore opens and holds '$CM_KEY_ALIAS'."
+      # WITHOUT THIS FILE THERE ARE NO ANDROID NOTIFICATIONS. build.gradle only
+      # applies the google-services plugin when it exists, and without the
+      # plugin the phone never gets an FCM token - register() waits forever.
+      # It is not a secret in the password sense (it ships inside every APK),
+      # but it names our Firebase project, so it is supplied here rather than
+      # committed.
+      - name: Add Firebase config
+        script: |
+          printf '%s' "$GOOGLE_SERVICES_JSON" | base64 --decode > android/app/google-services.json
+          if ! grep -q '"package_name": *"com.sytenav.app"' android/app/google-services.json; then
+            echo "google-services.json does not list com.sytenav.app. It is either not"
+            echo "base64 of the file Firebase downloaded, or it is for a different app."
+            exit 1
+          fi
+          echo "Firebase config in place."
       - name: Build AAB
         script: |
           cd android
           ./gradlew bundleRelease
+      # SIGNED, OR IT DOES NOT LEAVE. build.gradle only attaches the key when the
+      # password is present, so a misnamed variable would produce an unsigned
+      # bundle - which Play refuses at upload, after the whole build.
+      - name: Check the bundle is signed
+        script: |
+          AAB=$(ls android/app/build/outputs/bundle/release/*.aab | head -n1)
+          if ! jarsigner -verify "$AAB" | grep -q "jar verified"; then
+            echo "$AAB is not signed. Google Play will refuse it."
+            exit 1
+          fi
+          echo "$AAB is signed."
     artifacts:
       - android/app/build/outputs/**/*.aab
     publishing:
       google_play:
         credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
         track: internal
+        # Play will not accept an API upload for an app that has never had a
+        # build uploaded by hand. The first .aab goes up through the Play
+        # Console (Testing > Internal testing); from then on this works.
+        # See MOBILE.md section 5.

@@ -83,7 +83,8 @@ blocked behind them.
 |---|---|---|
 | **D-U-N-S number** | free | Dun & Bradstreet. Needed to enrol as an *organization* (not an individual) on both Apple and Google. Longest lead time - request it before anything else. |
 | **Apple Developer Program** | $99/yr | https://developer.apple.com/programs/ · Enrol as an Organization so the seller shows as SyteNav, not a personal name. Needs the D-U-N-S + a legal entity. App Store Connect comes with it. |
-| **Google Play Console** | $25 once | https://play.google.com/console/ · Register as an **organization**, not personal - personal accounts have to run a closed test with real testers for a fixed period before they may publish. |
+| **Google Play Console** | $25 once | https://play.google.com/console/ · Register as an **organization**, not personal - personal accounts have to run a closed test with real testers for a fixed period before they may publish. **The developer phone number and email are shown PUBLICLY on the store listing** for an organization account - use a business line (a Google Voice number is fine), never a personal mobile. The separate organization phone Google verifies you with is private. |
+| **Firebase** | free | https://console.firebase.google.com · Android push. Add an Android app with package `com.sytenav.app`, download `google-services.json`, and generate a service-account key (section 5). |
 | **Codemagic** | free tier | https://codemagic.io · Mac-free iOS builds. `codemagic.yaml` is already in the repo. |
 
 Both stores require identity verification (documents, sometimes a phone call), so treat
@@ -110,8 +111,9 @@ is expected, not a failure.
 **Android is set up too.** `android/` is committed, with the camera, photo,
 location and notification permissions declared in `AndroidManifest.xml` - the
 same capabilities the iOS `Info.plist` strings cover. The `android-capacitor`
-workflow in `codemagic.yaml` builds it; it needs a keystore and a Play
-service-account JSON (section 5) before it can upload. Nothing about Android
+workflow in `codemagic.yaml` builds and signs it, and notifications reach
+Android through Firebase (`lib/fcm.ts`); it needs a keystore, a Firebase
+project and a Play service-account JSON (section 5) before it can upload. Nothing about Android
 blocks the iOS submission - do iOS first.
 
 ---
@@ -623,8 +625,36 @@ iOS applies its own mask, and an icon with an alpha channel is rejected outright
 `codemagic.yaml` is in the repo (workflows: `ios-capacitor`, `android-capacitor`).
 1. Connect the repo in Codemagic.
 2. iOS: add an **App Store Connect API key** integration named `SyteNav ASC`; enable automatic code signing.
-3. Android: create a keystore, add it + passwords as the `google_play_credentials` group; add a Play service-account JSON.
+3. Android - everything goes in ONE variable group, `google_play_credentials`,
+   all marked secure. The workflow names any that are missing before it builds.
+   - **Upload keystore.** Make it once and back it up with its passwords - lose
+     it and only Google support can reset it:
+     `keytool -genkey -v -keystore sytenav-release.keystore -alias sytenav -keyalg RSA -keysize 2048 -validity 10000`
+     Then `CM_KEYSTORE` = `base64 -w0 sytenav-release.keystore` (macOS:
+     `base64 -i sytenav-release.keystore`), plus `CM_KEYSTORE_PASSWORD`,
+     `CM_KEY_ALIAS` (`sytenav`) and `CM_KEY_PASSWORD`. `build.gradle` signs with
+     these, and the workflow refuses to upload a bundle that is not signed.
+   - **`GOOGLE_SERVICES_JSON`** = base64 of Firebase's `google-services.json`.
+     Without it the phone never gets a notification address.
+   - **`GCLOUD_SERVICE_ACCOUNT_CREDENTIALS`** = a Google Cloud service-account
+     JSON, invited in Play Console -> Users and permissions with release rights.
+     This one UPLOADS builds; it is not the Firebase key below.
+   - The build number is Codemagic's `BUILD_NUMBER`, so every upload is higher
+     than the last - nothing to bump by hand.
 4. Run `ios-capacitor` → uploads to **TestFlight**; `android-capacitor` → uploads to Play **internal** track.
+   **Android's FIRST upload is by hand**: Play will not accept an API upload for
+   an app that has never had a build. Download the `.aab` from the first
+   Codemagic run and upload it in Play Console -> Testing -> Internal testing.
+   Every build after that uploads itself.
+5. **Android notifications, server side**: in Vercel, set `FCM_SERVICE_ACCOUNT`
+   to the Firebase service-account key (Firebase -> Project settings -> Service
+   accounts -> Generate new private key), the whole JSON file. Same Firebase
+   project as `google-services.json`. Then Settings -> Notifications -> Send
+   test on an Android phone says whether it worked, in Google's own words if not.
+
+**Android targets API 35**, which Play requires. That also opts the app out of
+Android 15's forced edge-to-edge (`styles.xml`) - honoured for target 35 only,
+so moving to 36 means handling the insets in the webview properly first.
 
 ---
 
@@ -649,8 +679,9 @@ iOS applies its own mask, and an icon with an alpha channel is rejected outright
   `store/listing.md`. Apple rejects without working credentials, every time -
   and with no sign-up in the iOS build, a reviewer without a login has no way in
 - **Safe areas on a real device** (section 3) - cannot be judged from a desktop
-- **Android store assets**: keystore, Play service-account JSON, and screenshots
-  at Android sizes. The project itself is done
+- **Android store assets**: keystore, Firebase project, Play service-account
+  JSON (section 5), and screenshots at Android phone size. The build and
+  Android notifications are done in code
 - **Launch copy** is written and deliberately unpublished - `store/launch-copy.md`
   says what to paste, where, and in what order, on the day it goes live
 
