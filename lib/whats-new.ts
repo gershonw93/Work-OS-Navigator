@@ -76,6 +76,12 @@ const AUTHORED: Release[] = [
         help: 'daily-log-create',
       },
       {
+        kind: 'new',
+        title: 'It now suggests what a line is waiting for',
+        text: 'Linking every trade by hand is the reason almost nothing was linked - and a schedule with no links is one where moving a date pushes nobody. Open a line with nothing linked and SyteNav may now say "Probably: After Framing", with a sentence saying why. Tap it and the link is staged like any other; Save Changes still writes it, and nothing is emailed. It only offers a trade that already finishes before this one starts, so it can never argue with dates you have typed, and it says nothing at all rather than guessing at a trade it does not recognise. Two things it never puts in a suggestion: a percent gate and extra days - those are things you say. Placeholder lines now have a Trade box, which is what gives SyteNav something to go on, and the "After:" list finally shows trades instead of a paragraph of scope text.',
+        help: 'schedule-milestones',
+      },
+      {
         kind: 'improved',
         title: '"Wait till they\'re 80% done" now does something',
         text: 'It used to print the words and nothing else. There is now a "How far along is it?" box on every schedule line - leave it empty and it uses that sub\'s budget lines instead. The gate only ever holds a trade back from starting EARLIER: if the trade ahead slips, everyone behind still moves, whatever percent they are at. You can also wait on a supplier delivery, not just a trade.',

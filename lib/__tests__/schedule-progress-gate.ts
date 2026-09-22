@@ -140,10 +140,17 @@ const at = (pct: number | null): (() => Progress) =>
 
   const page = code('app/(dashboard)/projects/[id]/schedule/page.tsx')
   ok(/<ProgressField/.test(page), 'and the dialog actually renders it')
+  // RE-POINTED, NOT RELAXED. The two save paths used to spell the body out by
+  // hand, and this pair counted the two copies. They now share `editBody`,
+  // which is a stronger version of the same guarantee - one body, so a field
+  // cannot reach one door and miss the other - so the check follows it there
+  // rather than being dropped for going red on a refactor.
   ok(/progress_pct: progressForBody\(\)/.test(page),
-    '...on BOTH save paths, or the field is decoration on one of them')
-  ok((page.match(/progress_pct: progressForBody\(\)/g) ?? []).length === 2,
-    '...literally both - the dates-moved path and the label-only path')
+    'the percent is on the body the dialog sends')
+  ok((page.match(/body: JSON\.stringify\(editBody\(editItem\)\)/g) ?? []).length === 2,
+    '...and BOTH save paths send that body - the dates-moved path and the label-only path')
+  ok((page.match(/progress_pct: progressForBody\(\)/g) ?? []).length === 1,
+    '...from ONE place, so the two can no longer disagree about what they send')
   ok(/if \(raw === ''\) return null/.test(page),
     'an empty box writes NULL, not 0 - "nobody has said" is not "not started"')
 
