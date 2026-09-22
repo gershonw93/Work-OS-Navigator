@@ -103,6 +103,36 @@ export function scheduleLabel(item: ScheduleItemRow): string {
   return 'Untitled'
 }
 
+/**
+ * WHAT TRADE THIS LINE IS, ASKED IN ONE PLACE.
+ *
+ * THE FACT HAS TWO HOMES AND ONLY ONE OF THEM IS EVER FILLED IN.
+ * `schedule_items.trade` is for a PLACEHOLDER - a line somebody added for a
+ * trade they have not hired yet, where the trade is the only name it has. A
+ * line that HAS a subcontract carries no trade of its own, because the
+ * subcontract already knows: `subcontracts.trade` is where "Electrical" is
+ * written, and copying it onto the schedule row would be the second home this
+ * repo keeps paying for.
+ *
+ * So a reader that asks only one of them is wrong for most lines, and two of
+ * them did: the dependency picker named every work line
+ * `item.trade || scheduleLabel(item)`, and the POST route DROPPED `trade` on
+ * the way in. Between them, all 121 lines in this database had a null trade -
+ * so the picker fell through to `scheduleLabel`, which for a line with no
+ * label of its own returns the subcontract's SCOPE. 76 lines offered a
+ * paragraph of scope text as the thing you pick a predecessor from.
+ *
+ * The `??` chaining CLAUDE.md names as the tell is a fallback between two
+ * GUESSES. This is not that: it is one fact reached by the one route that
+ * exists for each kind of line, which is exactly why it is written down once.
+ */
+export function lineTrade(item: Pick<ScheduleItemRow, 'trade' | 'subcontracts'>): string | null {
+  const own = String(item?.trade ?? '').trim()
+  if (own) return own
+  const fromSub = String(item?.subcontracts?.trade ?? '').trim()
+  return fromSub || null
+}
+
 export function scheduleSubLabel(item: ScheduleItemRow): string | null {
   if (isDelivery(item)) return 'Material delivery'
   if (item.subcontracts?.companies?.name) return item.subcontracts.companies.name

@@ -101,8 +101,35 @@ export async function GET(request: Request, { params }: { params: { id: string }
     }
   }
 
+  // EVERY LINK ON THE JOB, not just the open dialog's.
+  //
+  // The dialog already fetches its OWN line's links and will keep doing so -
+  // that read is the one the three-state `existingState` guard is built on.
+  // This is a different question: what a line PROBABLY waits for can only be
+  // answered against the whole board, because the suggester has to know which
+  // lines have been linked already (they have been thought about, and are left
+  // alone) and it has to run `findCycle` over the real graph before proposing
+  // anything.
+  //
+  // Free in practice - 121 lines across 26 jobs carry five links between them,
+  // which is the entire reason this feature exists - and it rides the payload
+  // this page already waits for rather than a fourth trip paid on every
+  // navigation.
+  let links: { id: string; task_id: string; predecessor_task_id: string }[] = []
+  {
+    const { data, error } = await db
+      .from('schedule_dependencies')
+      .select('id, task_id, predecessor_task_id')
+      .eq('project_id', params.id)
+    // A refused query reads as "nothing is linked", which is the exact state
+    // the suggestions are computed FROM - so it would quietly propose links
+    // for lines that already have them.
+    if (error) console.error('[schedule] links read failed:', error.message)
+    links = (data ?? []) as typeof links
+  }
+
   return NextResponse.json({
-    items: items ?? [], project, progress, changes,
+    items: items ?? [], project, progress, changes, links,
     inspections: inspections ?? [], tasks: tasks ?? [],
   })
 }
@@ -120,7 +147,19 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { label, start_date, end_date, color, subcontract_id } = await request.json()
+  // A WHITELIST WITH A FIELD MISSING FAILS EXACTLY LIKE A REJECTION, and only
+  // one of them says so. `trade` was absent here while `addPlaceholder` had
+  // been sending it since the day placeholders shipped: the route answered
+  // 200, the line came back, and the trade was on the floor. Every one of the
+  // 121 schedule lines in this database had a null trade because of this line.
+  //
+  // It is not cosmetic. The trade is the only name a placeholder has - a line
+  // with a subcontract gets its trade from the subcontract, so this column
+  // exists FOR the placeholder - and it is what `lib/trade-order.ts` reads to
+  // work out what a line probably waits for. With it dropped, the dependency
+  // picker named those lines from `scheduleLabel` instead and link suggestions
+  // had nothing to reason from at all.
+  const { label, start_date, end_date, color, subcontract_id, trade } = await request.json()
   if (!start_date || !end_date) {
     return NextResponse.json({ error: 'start_date and end_date are required' }, { status: 400 })
   }
@@ -135,13 +174,14 @@ export async function POST(request: Request, { params }: { params: { id: string 
     subcontract_id: subcontract_id ?? null,
     label: label ?? null,
     color: color ?? null,
+    trade: String(trade ?? '').trim() || null,
   }
 
   let { data, error } = await db.from('schedule_items').insert(row).select().single()
 
   // If label/color columns don't exist yet (migration pending), retry without them
   if (error && (error as any).code === '42703') {
-    delete row.label; delete row.color
+    delete row.label; delete row.color; delete row.trade
     const retry = await db.from('schedule_items').insert(row).select().single()
     data = retry.data; error = retry.error
   }
