@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, Link2, Loader2, Plus, Trash2, X } from 'lucide-react'
+import { ChevronDown, ChevronUp, Lightbulb, Link2, Loader2, Plus, Trash2, X } from 'lucide-react'
 import { formatDateShort } from '@/lib/dates'
 import { linkSentence, deliveryGateProblem, type LineKind } from '@/lib/schedule-link-words'
+import type { LinkSuggestion } from '@/lib/schedule-suggest-links'
 
 // "Can't start till another trade finishes?" - asked after the dates.
 //
@@ -60,7 +61,7 @@ export interface PendingDependency {
 }
 
 export function DependencyPicker({
-  lines, existing, existingState, pending, removing, selfId,
+  lines, existing, existingState, pending, removing, selfId, suggestion,
   onStage, onUnstage, onStageRemoval, onUndoRemoval, onAddPlaceholder,
 }: {
   /** Every line on this project except this one. Placeholders included. */
@@ -88,6 +89,19 @@ export function DependencyPicker({
   /** Ids of saved links marked for removal on save. */
   removing: string[]
   selfId: string | null
+  /**
+   * WHAT THIS LINE PROBABLY WAITS FOR - AN OFFER, NOT A LINK.
+   *
+   * Worked out by `lib/schedule-suggest-links.ts` from a declared build order
+   * and the dates already on the board. It is rendered as one chip that STAGES
+   * exactly what typing it by hand would stage, so "Save Changes" is still the
+   * only thing that writes - and it carries no percent gate, because a gate is
+   * a statement a person makes and a table cannot.
+   *
+   * Null is the ordinary answer: an unplaced trade, a milestone, a delivery,
+   * dates that do not already agree, or a line somebody has linked before.
+   */
+  suggestion: LinkSuggestion | null
   onStage: (d: PendingDependency) => void
   onUnstage: (predecessorTaskId: string) => void
   onStageRemoval: (dependencyId: string) => void
@@ -374,6 +388,36 @@ export function DependencyPicker({
             ? 'There is nothing else on this schedule to wait for yet.'
             : 'Nothing - it can start whenever it is scheduled.'}
         </p>
+      )}
+
+      {/* THE OFFER, AND IT SAYS WHY IT IS OFFERING.
+          A chip with no reasoning under it is a thing to click; the reasoning
+          is the entire job the person has been given here, because accepting
+          this decides whose dates move and who gets emailed when something
+          slips. Only on a line with nothing linked - a line somebody has
+          already linked is a line somebody has already thought about. */}
+      {existingState === 'ready' && !open && nothingLinked && suggestion && (
+        <div className="mt-2 rounded-lg border border-line-soft bg-panel p-2.5">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-medium text-muted-fg">
+              <Lightbulb className="h-3.5 w-3.5" /> Probably:
+            </span>
+            <button type="button"
+              onClick={() => onStage({
+                predecessor_task_id: suggestion.predecessor_task_id,
+                // NEVER A GATE ON A SUGGESTION - see `schedule-suggest-links.ts`.
+                min_predecessor_progress: null,
+                lag_days: 0,
+                predecessorName: suggestion.predecessorName,
+                predecessorKind: lines.find(l => l.id === suggestion.predecessor_task_id)?.kind ?? 'work',
+              })}
+              className="inline-flex min-w-0 items-center gap-1 whitespace-nowrap rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-ink hover:bg-panel">
+              <Plus className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">After {suggestion.predecessorName}</span>
+            </button>
+          </div>
+          <p className="mt-1.5 text-xs text-muted-fg">{suggestion.because}</p>
+        </div>
       )}
 
       {(pending.length > 0 || removing.length > 0) && (

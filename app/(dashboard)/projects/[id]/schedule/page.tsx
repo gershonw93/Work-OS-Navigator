@@ -21,9 +21,10 @@ import { Label } from '@/components/ui/label'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import {
-  calendarEvents, eventsOn, isDelivery, scheduleLabel, scheduleSubLabel,
+  calendarEvents, eventsOn, isDelivery, lineTrade, scheduleLabel, scheduleSubLabel,
   type CalendarEvent, type ScheduleItemRow,
 } from '@/lib/schedule-events'
+import { suggestionFor, type SuggestableLine } from '@/lib/schedule-suggest-links'
 import { useViewerContext } from '@/lib/use-viewer-context'
 import { SubSchedule } from '@/components/projects/sub-schedule'
 import { DayDetailSheet } from '@/components/calendar/day-detail-sheet'
@@ -146,6 +147,17 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
   // Why each line's dates moved, keyed by line id. Empty is a real answer -
   // most lines have never moved - so it is never used to mean "still loading".
   const [changesById, setChangesById] = useState<Record<string, DateChange[]>>({})
+  /**
+   * EVERY LINK ON THE JOB - a different question from the open dialog's links.
+   *
+   * `deps` below is this line's, fetched when the dialog opens, and carries a
+   * three-state guard because `[]` there means "still asking" as well as
+   * "none". This one rides the main payload and is only ever used to work out
+   * what a line PROBABLY waits for, which cannot be asked of one line: the
+   * suggester has to see which lines have been linked already, and has to run
+   * `findCycle` over the real graph before proposing anything.
+   */
+  const [links, setLinks] = useState<{ id: string; task_id: string; predecessor_task_id: string }[]>([])
   // The job's other dated things. The calendar draws them; Timeline and List
   // deliberately do not - see the comment above the month grid.
   const router = useRouter()
@@ -174,6 +186,20 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
   // decide whether it is shut because the work is early or because a field was
   // never filled in.
   const [editProgress, setEditProgress] = useState('')
+  /**
+   * The trade on a PLACEHOLDER line - the only kind of line that has one.
+   *
+   * `progress_pct` and `trade` were both whitelisted by the PATCH route with
+   * no control anywhere that wrote them; the percent got its box in #502 and
+   * this is the other half. A value the app accepts, stores and reads back
+   * with no way for anybody to set it is not a hidden implementation detail,
+   * it is a fact about the job only a machine may write.
+   *
+   * ONLY for a line with no subcontract. A line that has one takes its trade
+   * from the subcontract, and offering a second box here would be inviting
+   * somebody to make the two disagree.
+   */
+  const [editTrade, setEditTrade] = useState('')
   // A DELAY IS A MODE OF THIS DIALOG, NOT A SECOND ONE. The arithmetic is the
   // same date change - a second writer of start_date/end_date is how this repo
   // got two doors onto a vendor's dates. All that differs is the STATEMENT:
@@ -253,6 +279,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
       setItems(fresh)
       setProgressById(data.progress ?? {})
       setChangesById(data.changes ?? {})
+      setLinks(data.links ?? [])
       setInspections(data.inspections ?? [])
       setDueTasks(data.tasks ?? [])
     }
@@ -495,7 +522,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
       await saveRequest(`/api/projects/${params.id}/schedule/${editItem.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ label: editLabel, color: editColor, progress_pct: progressForBody() }),
+        body: JSON.stringify(editBody(editItem)),
       })
 
       const moves = p.moves ?? []
@@ -533,7 +560,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     const r = await saveRequest(`/api/projects/${params.id}/schedule/${editItem.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ label: editLabel, color: editColor, progress_pct: progressForBody() }),
+      body: JSON.stringify(editBody(editItem)),
     })
     setEditSaving(false)
     if (!r.ok) { setEditError(r.error); return }
@@ -658,11 +685,15 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
   /** Everything on this project that could be waited for. */
   const pickableLines: PickableLine[] = items.map(i => ({
     id: i.id,
-    // A DELIVERY KEEPS ITS OWN NAME. `trade` wins for a work line, because
+    // A DELIVERY KEEPS ITS OWN NAME. The trade wins for a work line, because
     // "Electrical" beats a scope paragraph - but on a supplier line it hides
     // "Delivery - ACME Supply" behind whatever trade was typed on the row, and
     // then the picker offers a delivery that does not say it is one.
-    name: isDelivery(i) ? getLabel(i) : ((i as any).trade || getLabel(i)),
+    //
+    // `lineTrade`, NOT `i.trade`: the trade of a line that has a subcontract
+    // lives on the SUBCONTRACT, and reading only the column here is why this
+    // dropdown listed 76 lines by their scope paragraph. See `lineTrade`.
+    name: isDelivery(i) ? getLabel(i) : (lineTrade(i) || getLabel(i)),
     start_date: i.start_date,
     end_date: i.end_date,
     hasSub: !!i.subcontract_id,
@@ -680,6 +711,33 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
    */
   const kindOf = (id: string): LineKind =>
     pickableLines.find(l => l.id === id)?.kind ?? 'work'
+
+  /**
+   * WHAT THE OPEN LINE PROBABLY WAITS FOR - one offer, or nothing.
+   *
+   * Nothing is the ordinary answer and the screen has to be comfortable with
+   * it: a trade `lib/trade-order.ts` does not place, a milestone with no trade
+   * at all, a delivery, dates that do not already agree, or a line somebody
+   * linked before. See `lib/schedule-suggest-links.ts` for why each of those
+   * refuses rather than reaches for the next-best guess.
+   *
+   * Computed from the LOADED board rather than asked of a route, because the
+   * answer is arithmetic over things this page already holds - and because a
+   * route that returned suggestions would be a route with an opinion, which is
+   * one refactor away from being a route that writes them.
+   */
+  const suggestableLines: SuggestableLine[] = items.map(i => ({
+    id: i.id,
+    name: isDelivery(i) ? getLabel(i) : (lineTrade(i) || getLabel(i)),
+    trade: lineTrade(i),
+    start_date: i.start_date,
+    end_date: i.end_date,
+    kind: isDelivery(i) ? ('delivery' as const) : ('work' as const),
+  }))
+
+  const editSuggestion = editItem
+    ? suggestionFor(editItem.id, { lines: suggestableLines, deps: links })
+    : null
 
   const depsWithKind: ExistingDependency[] = deps.map(d => ({
     ...d,
@@ -780,6 +838,26 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
   }
 
   /**
+   * WHAT THE EDIT DIALOG SENDS - written once, because it is sent twice.
+   *
+   * The dialog has two save paths (straight PATCH, and PATCH-then-cascade when
+   * the dates moved) and they each spelled the body out by hand. That is the
+   * shape a whitelist-with-a-field-missing bug grows in: adding a field to the
+   * form silently fails to add it to one of the two doors, and the route
+   * answers 200 either way.
+   *
+   * `trade` goes only on a line with no subcontract - see `editTrade`.
+   */
+  function editBody(item: ScheduleItem): Record<string, unknown> {
+    return {
+      label: editLabel,
+      color: editColor,
+      progress_pct: progressForBody(),
+      ...(item.subcontract_id ? {} : { trade: editTrade.trim() || null }),
+    }
+  }
+
+  /**
    * THE OTHER END OF THE HANDOFF FROM A DAILY LOG.
    *
    * "when a daily log marks a delayed delivery, can it connect the dots?" -
@@ -825,6 +903,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     setEditStart(item.start_date)
     setEditEnd(item.end_date)
     setEditColor(item.color ?? 'blue')
+    setEditTrade(String((item as any).trade ?? ''))
     // NEVER seeded from the derived roll-up: prefilling would turn a derived
     // fact into a typed claim the first time anybody pressed Save, and a typed
     // percent beats the roll-up for ever afterwards.
@@ -1055,17 +1134,44 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                   onUnstage={id => setPendingDeps(p => p.filter(x => x.predecessor_task_id !== id))}
                   onStageRemoval={id => setRemovingDeps(r => [...r, id])}
                   onUndoRemoval={id => setRemovingDeps(r => r.filter(x => x !== id))}
+                  suggestion={editSuggestion}
                   onAddPlaceholder={addPlaceholder}
                 />
-                <ProgressField
-                  value={editProgress}
-                  derived={progressOfLine(editItem)}
-                  onChange={setEditProgress}
-                />
+                {/* A DELIVERY IS NOT 40% DONE. It lands or it does not, which
+                    is already why `deliveryGateProblem` refuses a percent gate
+                    on one - and a box the rest of the app refuses to read is a
+                    question with no answer. */}
+                {!isDelivery(editItem) && (
+                  <ProgressField
+                    value={editProgress}
+                    derived={progressOfLine(editItem)}
+                    onChange={setEditProgress}
+                  />
+                )}
                 <LineHistory
                   changes={changesById[editItem.id] ?? []}
                   nameOf={id => items.find(i => i.id === id) ? getLabel(items.find(i => i.id === id)!) : null}
                 />
+                {/* THE TRADE, AND ONLY ON A LINE THAT HAS NOWHERE ELSE TO KEEP IT.
+                    A line with a subcontract takes its trade from the
+                    subcontract; a second box here would be an invitation to
+                    make the two disagree. On a placeholder the trade is the
+                    line's only real name - and it is what decides whether the
+                    panel above can suggest anything at all, which is why the
+                    hint says so rather than leaving somebody to wonder why one
+                    line offers a suggestion and the next does not. */}
+                {!editItem.subcontract_id && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="etrade">
+                      Trade <span className="font-normal text-muted-fg">(optional)</span>
+                    </Label>
+                    <Input id="etrade" value={editTrade} placeholder="Framing"
+                      onChange={e => setEditTrade(e.target.value)} />
+                    <p className="text-xs text-muted-fg">
+                      Naming the trade is what lets SyteNav suggest what this line waits for.
+                    </p>
+                  </div>
+                )}
                 {!editItem.subcontract_id && (
                   <div className="space-y-1.5">
                     <Label>Color</Label>
