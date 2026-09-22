@@ -10,7 +10,7 @@ import type { Progress } from '@/lib/schedule-dependencies'
 import { missingDelay, delayedDates, delayDays } from '@/lib/schedule-delay'
 import { LineHistory } from '@/components/schedule/line-history'
 import { slipBadge, type DateChange } from '@/lib/schedule-history'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { Plus, X, CalendarDays, Pencil, Trash2, Building2, Flag, ChevronLeft, ChevronRight, GanttChartSquare, List, CalendarRange, AlertCircle, Clock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -195,7 +195,13 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
   // Which line the in-flight request is FOR. Opening one row, closing it and
   // opening another lets the first response land last and paint the wrong
   // line's links - which is the same bug wearing different clothes.
+  const urlParams = useSearchParams()
   const depsFor = useRef<string | null>(null)
+  // The daily log's handoff: `?delay=<itemId>&reason=<draft>&from_log=<logId>`.
+  // A REF, not state - re-opening the dialog on every render would make it
+  // impossible to close, which is the guard the Directory's `?contact=` deep
+  // link already carries.
+  const openedFromUrl = useRef<string | null>(null)
   // NOTHING in the dependency picker saves on its own. Links built there are
   // staged here and written by Save Changes, and a saved link somebody removes
   // is staged too - one dialog, one save, and Cancel really cancels.
@@ -772,6 +778,38 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     const n = Number(raw)
     return Number.isFinite(n) ? n : null
   }
+
+  /**
+   * THE OTHER END OF THE HANDOFF FROM A DAILY LOG.
+   *
+   * "when a daily log marks a delayed delivery, can it connect the dots?" -
+   * this is where the dots arrive. The log RECORDS that the lumber never
+   * showed; the person who may move dates opens it here, reads the drafted
+   * reason, types how many days, and goes through the SAME preview, review and
+   * apply as any other delay. Nothing has moved and nobody has been emailed on
+   * the way in.
+   *
+   * THE DAYS BOX IS NEVER PREFILLED. A log says the delivery was late; it does
+   * not say how late the JOB now is, and a number that arrives already filled
+   * in is a claim nobody made - the `useState` default on a required select,
+   * one field over. The reason is a DRAFT because it is editable and visible;
+   * the day count is arithmetic that decides what moves.
+   *
+   * A LINK NAMING A LINE THIS JOB DOES NOT HAVE OPENS NOTHING. The id lives in
+   * a jsonb column with no foreign key behind it, so the line can have been
+   * deleted since the log was filed - and a dialog opened on the wrong line
+   * would move the wrong trade's dates.
+   */
+  useEffect(() => {
+    const wanted = urlParams?.get('delay')
+    if (!wanted || openedFromUrl.current === wanted || !items.length) return
+    const item = items.find(i => i.id === wanted)
+    if (!item) return
+    openedFromUrl.current = wanted
+    openEdit(item, 'delay')
+    setDelayReason(urlParams.get('reason') ?? '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlParams, items])
 
   function openEdit(item: ScheduleItem, mode: 'edit' | 'delay' = 'edit') {
     setEditItem(item)

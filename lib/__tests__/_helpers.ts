@@ -68,11 +68,35 @@ export function walk(rel: string, out: string[] = []): string[] {
  * test failing for a reason nobody would act on, the exact thing the lint
  * config is kept narrow to avoid.
  */
-export const readCombined = (): string => {
+export const migrationFiles = (): string[] =>
+  readdirSync(join(root(), 'supabase/migrations'))
+
+export const combinedName = (): string => {
   const dir = join(root(), 'supabase/migrations')
   const name = readdirSync(dir).find(f => f.startsWith('_combined_') && f.endsWith('.sql'))
   if (!name) throw new Error('no _combined_*.sql in supabase/migrations')
-  return readFileSync(join(dir, name), 'utf8')
+  return name
+}
+
+export const readCombined = (): string =>
+  readFileSync(join(root(), 'supabase/migrations', combinedName()), 'utf8')
+
+/**
+ * The highest NUMBERED migration on disk.
+ *
+ * So a pin can ask whether the combined file was bumped WITHOUT naming this
+ * week's number - which is the check that kept breaking the moment it passed.
+ * A pin that has to be edited by every future migration is a pin that gets
+ * edited carelessly by one of them.
+ */
+export const highestMigration = (): number => {
+  const dir = join(root(), 'supabase/migrations')
+  const numbers = readdirSync(dir)
+    .map(f => /^(\d+)_/.exec(f)?.[1])
+    .filter((n): n is string => !!n)
+    .map(Number)
+  if (!numbers.length) throw new Error('no numbered migrations in supabase/migrations')
+  return Math.max(...numbers)
 }
 
 export const exists = (rel: string): boolean => {

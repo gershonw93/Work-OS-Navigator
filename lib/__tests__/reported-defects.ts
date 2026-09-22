@@ -234,17 +234,30 @@ ok(/if \(budget_line_item_id !== undefined\) updates\.budget_line_item_id/.test(
 // else. It landed in the list, in the count, and in the CLIENT-FACING PDF - a
 // page of blank headings asserting that somebody was on site and reported this,
 // which is worse than no entry at all.
+//
+// AND THE RULE MOVED, BECAUSE TWO HAND-KEPT COPIES OF IT DISAGREED. It was
+// written out once in the page and once in the route, and NEITHER counted a
+// delay - so a log whose only content was "the lumber never showed up", which
+// is the one thing the delay feature exists to collect, was refused by both.
+// This pin follows it to `logSaysSomething` rather than checking the two
+// spellings that were the bug.
 const logRoute = code('app/api/projects/[id]/daily-logs/route.ts')
 const logPage = code('app/(dashboard)/projects/[id]/daily-logs/page.tsx')
+const logRule = code('lib/daily-log-delays.ts')
+ok(/An empty log says somebody was on site and reported nothing/.test(logRule),
+  'the rule refuses a log with nothing on it')
+ok(/log\.notes, log\.safety_observation, log\.quality_observation/.test(logRule)
+  && /log\.photos \?\? 0/.test(logRule) && /log\.workers \?\? 0/.test(logRule),
+  '...and it counts words AND evidence - a photo or who was there is a report too')
+ok(/\(log\.delays \?\? \[\]\)\.length > 0/.test(logRule),
+  '...AND a delay, which is the whole content of the log this feature collects')
+ok(/v\.answer !== 'na' \|\| String\(v\.description \?\? ''\)\.trim\(\) !== ''/.test(logRule),
+  "...an UNTOUCHED survey is not an answer - every question starts at 'na'")
 for (const [where, src] of [['the route', logRoute], ['the form', logPage]] as const) {
-  ok(/An empty log says somebody was on site and reported nothing/.test(src),
-    `${where} refuses a log with nothing on it`)
-  ok(/const said = \[/.test(src) && /const showed = /.test(src),
-    `...${where === 'the route' ? 'and it' : 'and the form'} counts words AND evidence - a photo or who was there is a report too`)
-  ok(/v\.answer !== 'na' \|\| \(v\.description \?\? ''\)\.trim\(\) !== ''/.test(src),
-    `...${where}: an UNTOUCHED survey is not an answer - every question starts at 'na'`)
+  ok(/logSaysSomething\(\{/.test(src), `${where} asks that one rule`)
+  ok(/delays,/.test(src), `...${where} hands it the delays, or the new field fails silently`)
 }
-ok(/const said = \[\s*notes, safety_observation, quality_observation,?\s*\]/.test(logRoute),
+ok(/EMPTY_LOG_PROBLEM/.test(logRoute) && /EMPTY_LOG_PROBLEM/.test(logPage),
   'the field app posts to the same route, so the rule cannot live only in the office form')
 
 // A disabled button explains nothing.
