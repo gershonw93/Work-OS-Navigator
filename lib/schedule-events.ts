@@ -52,7 +52,10 @@ export interface ScheduleItemRow {
   subcontracts: {
     scope: string
     trade: string | null
-    companies: { name: string; type?: string } | null
+    // `contact_email`, not `email` - the address on a Directory company lives
+    // in that column, and the wrong one reads as "they have no address",
+    // which on the clear-to-start review is a sub who silently never hears.
+    companies: { name: string; type?: string; contact_email?: string | null } | null
   } | null
 }
 

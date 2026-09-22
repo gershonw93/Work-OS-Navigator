@@ -300,6 +300,31 @@ Shipped in #218: bulk creation makes a site + a job per unit/floor/house, with a
 - **Per-project calendar tab** (not just Master).
 - **Master Calendar month cells → dots on a phone.** The job's Schedule calendar got this (its pills were spilling out of their borders at 390px, which is what was reported). The Master Calendar's cells truncate rather than spill, so they are unreadable rather than broken, and it is admin/manager only - same ~55px square, same answer, not yet done. The pieces are already there: `components/calendar/day-detail-sheet.tsx` is shared, and the dots are eight lines of markup.
 
+## 🗓️ "Clear to start" fires only when somebody opens the Schedule
+
+The review screen and the send shipped together, and the banner is on the
+schedule board - so the sub whose gate has just opened is told when a human
+next looks at that job, not when the percent actually moved. That was the
+deliberate choice: every schedule notification in this app goes through a
+review screen, and an email that no human pressed would be the first one that
+does not.
+
+The cost is real though. A gate opens when somebody updates a PERCENT - often
+on a budget line, on a different screen entirely - and nobody navigates to the
+schedule afterwards to see who that freed. On a job nobody opens for three
+days, the sub waits three days.
+
+What a cron would need, if we decide the wait is worse than the silence:
+- a fire-once gate, the shape `ready_reminder_sent_at` already has for
+  inspections - `schedule_shift_notices` records the send, so the state is
+  there, but a job that fires per CLEARING needs to know when the gate re-shut;
+- a `vercel.json` entry, in UTC, remembering that Vercel cron does not follow
+  daylight saving (`30 11` is 7:30am Eastern in summer, 6:30 in winter);
+- an answer to the thing the review screen exists for: who is accountable for
+  an email nobody chose to send. A middle option is a notification to the GC
+  ("3 trades came free on Maple St") rather than a letter to the sub, which
+  keeps the press and removes the waiting.
+
 ## ✍️ Work signoffs (planned - next up)
 - **Signature-based approval of completed work** (distinct from percent-done tracking and button approvals). Reuses the existing signature pad (daily logs already collect one).
 - **Frontend placement:**

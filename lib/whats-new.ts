@@ -84,7 +84,7 @@ const AUTHORED: Release[] = [
       {
         kind: 'improved',
         title: '"Wait till they\'re 80% done" now does something',
-        text: 'It used to print the words and nothing else. There is now a "How far along is it?" box on every schedule line - leave it empty and it uses that sub\'s budget lines instead. The gate only ever holds a trade back from starting EARLIER: if the trade ahead slips, everyone behind still moves, whatever percent they are at. You can also wait on a supplier delivery, not just a trade.',
+        text: 'It used to print the words and nothing else. There is now a "How far along is it?" box on every schedule line - leave it empty and it uses that sub\'s budget lines instead. The gate only ever holds a trade back from starting EARLIER: if the trade ahead slips, everyone behind still moves, whatever percent they are at. You can also wait on a supplier delivery, not just a trade. You can now SEE which lines a gate is holding - the List view marks them "Waiting", or "Clear to start" once the trade ahead gets there - and when a gate opens, a banner on the Schedule offers to tell the subs who have just come free. Same as a date change: it shows you exactly who would be emailed, you untick anyone you do not want written to, and nothing goes out until you press the button. Each line is only offered once, so nobody gets the same letter twice.',
         help: 'schedule-milestones',
       },
     ],
