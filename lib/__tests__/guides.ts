@@ -36,7 +36,7 @@ import { ok, done, code, read } from './_helpers'
 const has = (hay: string, needle: string) => hay.toLowerCase().includes(needle.toLowerCase())
 
 // ── 1. the registry is internally consistent ─────────────────────────────────
-ok(GUIDES.length === 10, `ten guides are published (${GUIDES.length})`)
+ok(GUIDES.length === 11, `eleven guides are published (${GUIDES.length})`)
 
 const slugs = GUIDES.map(g => g.slug)
 ok(new Set(slugs).size === slugs.length, 'no two guides share a slug')
@@ -155,6 +155,12 @@ for (const slug of CLUSTER) {
 }
 ok(clusterGaps.length === 0,
   `the change-order cluster is joined up both ways${clusterGaps.length ? ` - missing ${clusterGaps[0]}` : ''}`)
+const scheduling = guideBySlug('construction-scheduling-software')!
+ok((scheduling.links ?? []).some(l => l.href === '/guides/construction-daily-log-app'),
+  'the scheduling guide defers to the daily-log guide for the inspection workflow')
+ok(!/request\u2192schedule\u2192pass|requests an inspection, the scheduler/i.test(guideText(scheduling).join(' ')),
+  '...rather than re-explaining a workflow another guide owns')
+
 const vague = GUIDES.flatMap(g => (g.links ?? []).filter(l => /^(read more|learn more|click here|here|this)$/i.test(l.text.trim())))
 ok(vague.length === 0, 'no cross-link is anchored on "learn more" or "click here"')
 

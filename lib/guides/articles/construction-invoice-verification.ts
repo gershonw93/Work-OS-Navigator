@@ -44,7 +44,7 @@ export const guide: Guide = {
       'DO THE RATES MATCH THE QUOTE? Line by line against the awarded quote or the priced contract. This is the check that finds money.',
       'IS EVERY LINE ON THE QUOTE? Anything that is not needs a change order behind it before it is approved, not after. Use the change order tracking process to capture, price and approve it.',
       'DOES THE RUNNING TOTAL STILL FIT THE CONTRACT? This invoice plus everything already billed by this sub, against their contract as revised by approved change orders.',
-      'IS THE PERCENT COMPLETE REAL? Compare it to the daily logs, the photos and the schedule. On progress billing this is the whole check.',
+      'IS THE PERCENT COMPLETE REAL? Compare it to the daily logs, the photos and the schedule. A schedule that has not been updated in three weeks is not evidence of anything, which is why keeping the schedule true is work in its own right. On progress billing this is the whole check.',
     ] },
 
     { type: 'callout', tone: 'tip', title: 'Never block a sub over this', text: 'A hard rule that refuses invoices simply pushes billing off the system and into email, where nothing is checked at all. A sub being owed money for genuine extra work is normal. The point of verification is that you see the discrepancy before you approve, not that the software argues with your trade partner.' },
@@ -86,6 +86,7 @@ export const guide: Guide = {
     { type: 'p', text: 'It never blocks the invoice. It puts the discrepancy in front of you before you approve, which is the moment it is still a question.' },
   ],
   links: [
+    { text: 'keeping the schedule true is work in its own right', href: '/guides/construction-scheduling-software' },
     { text: 'Use the change order tracking process to capture, price and approve it', href: '/guides/how-to-track-change-orders' },
     { text: 'Build the evidence record so the late documentation can still hold up', href: '/guides/change-order-documentation' },
     { text: '"Scan an invoice"', href: '/ai' },

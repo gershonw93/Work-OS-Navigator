@@ -332,6 +332,24 @@ Shipped in #218: bulk creation makes a site + a job per unit/floor/house, with a
 
 ## 📚 Guides (the /guides library)
 
+**Scheduling guide shipped** (`construction-scheduling-software`, the eleventh).
+What it deliberately left out, so the next edit does not quietly add it:
+
+- **The inspection workflow stays in the daily-log guide.** The scheduling guide
+  says booked inspections land on the calendar and links across; it does not
+  re-explain request → book → ready → result. Pinned in
+  `lib/__tests__/guides.ts` both ways.
+- **No gantt/critical-path vocabulary.** The article says plainly there is no
+  critical path, float, baseline or resource levelling, and no MS Project or
+  Primavera import/export. If any of those ever ship, that paragraph is the one
+  to fix in the same change.
+- **Calendar days, stated as a limit.** There is no working-day model, so the
+  guide says weekends are not skipped rather than implying they are.
+- **A subcontractor-side scheduling article is still unwritten.** The sub's own
+  job planner (`components/projects/sub-schedule.tsx` - when, how long, how many
+  crew, with the overlap check against their other jobs) is a different reader
+  and a different search from the GC pillar.
+
 Ten articles shipped, one per target phrase, rendered from `lib/guides` by one
 template. Parked, in rough order of value:
 
@@ -421,6 +439,26 @@ does not mean the app is less correct; it means a green run proves less than it
 looks like it does.
 
 ## 🔍 Reported by the tester, NOT yet fixed
+
+**Found while writing the scheduling guide (not from a tester), NOT fixed:**
+
+- **The client portal's schedule card reads two columns that do not exist.**
+  `app/portal/[token]/page.tsx` renders `m.title` and `m.status ?? 'not_started'`,
+  but `schedule_items` has `label` (not `title`) and has no `status` column at
+  all - checked against every migration, including 108. So every row on the
+  client-facing schedule shows a blank name and a permanent grey "not started"
+  badge. This is the wrong-column failure the working agreement names, on the
+  one screen a paying client looks at. The fix is `m.label`, and deciding what
+  the badge should read from (there is `progress_pct` now).
+- **The marketing site promises cross-job conflict detection that only exists
+  for subs.** `/features` says "see conflicts across jobs before they cost you a
+  day"; `/subcontractors` promises "Overlap warnings when crews are
+  double-booked" and "Suggestions that resolve the clash without slipping
+  milestones". The overlap check is real but lives only in
+  `components/projects/sub-schedule.tsx` - a SUB's own jobs, comparing crew
+  counts - and it only warns; nothing suggests a resolution, and there is no
+  GC-side conflict detection anywhere. Same class as the trial/demo copy caught
+  in #456: copy describing a product that does not exist yet.
 
 - **The scan form has no invoice-number field, and vendor/invoice number are not
   always pulled.** Reported against the pink carbon invoice: the OCR got the
