@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { AlertTriangle, ArrowRight, Loader2, Lock, Mail, MailX } from 'lucide-react'
+import { AlertTriangle, ArrowRight, Info, Loader2, Lock, Mail, MailX } from 'lucide-react'
+import type { ChangeWarning } from '@/lib/schedule-change-warning'
 
 // "These moved." The screen between a cascade and a sub's inbox.
 //
@@ -90,12 +91,14 @@ export interface AffectedSub {
 }
 
 export function CascadeReview({
-  moves, skipped, affected, editedName, onConfirm, onCancel,
+  moves, skipped, affected, editedName, warning, onConfirm, onCancel,
 }: {
   moves: CascadeMove[]
   skipped: CascadeSkip[]
   affected: AffectedSub[]
   editedName: string
+  /** What this change will NOT do. Rendered first - it is why the screen opened. */
+  warning?: ChangeWarning | null
   onConfirm: (notify: boolean) => Promise<void>
   onCancel: () => void
 }) {
@@ -123,10 +126,28 @@ export function CascadeReview({
             {moves.length > 0 && ' pushes everything that waits on it.'}
             {moves.length === 0 && skipped.length > 0
               && ` - ${skipped.length} linked ${skipped.length === 1 ? 'line stays' : 'lines stay'} put. Here is why.`}
+            {moves.length === 0 && skipped.length === 0 && ' - nothing else on this job is waiting on it.'}
           </p>
         </div>
 
         <div className="max-h-[55vh] overflow-y-auto">
+          {/* WHAT THIS WILL NOT DO, first, because on most jobs it is the only
+              thing on the screen worth reading. An absence is a fact: "nothing
+              is waiting on this" and "the feature did not fire" look identical
+              from the chair unless one of them is written down. */}
+          {warning && !warning.silent && (
+            <div className="border-b border-line bg-warn-tint px-5 py-3">
+              <p className="flex items-center gap-1.5 text-xs font-semibold text-warn">
+                <Info className="h-3.5 w-3.5 shrink-0" /> {warning.title}
+              </p>
+              <ul className="mt-1.5 space-y-1.5">
+                {warning.points.map((point: string, i: number) => (
+                  <li key={i} className="text-sm leading-relaxed text-ink-soft">{point}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {moves.length > 0 && (
             <ul className="divide-y divide-line-soft">
               {moves.map(m => (
@@ -204,6 +225,27 @@ export function CascadeReview({
         {/* Three controls do not share 390px. Below lg the two choices share a
             row and Cancel takes its own; .row-even reaches both edges. */}
         <div className="border-t border-line px-5 py-3">
+          {/* NOTHING MOVING MEANS NOBODY TO TELL, so the choice between telling
+              and not telling is not a choice - it is two buttons about emailing
+              nobody, which is the report this screen already answered once.
+              One button that saves, and Cancel. */}
+          {moves.length === 0 ? (
+            <div className="row-even lg:flex lg:flex-wrap lg:justify-end gap-2">
+              <button
+                type="button" onClick={onCancel} disabled={!!busy}
+                className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-line px-4 py-2.5 text-sm font-medium text-ink hover:bg-surface disabled:opacity-60"
+              >
+                Cancel - change nothing
+              </button>
+              <button
+                type="button" onClick={() => go(false)} disabled={!!busy}
+                className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink hover:opacity-90 disabled:opacity-60"
+              >
+                {busy === 'silent' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                Save the dates anyway
+              </button>
+            </div>
+          ) : (<>
           <div className="row-even lg:flex lg:flex-wrap lg:justify-end gap-2">
             <button
               type="button" onClick={() => go(true)} disabled={!!busy || affected.length === 0}
@@ -226,6 +268,7 @@ export function CascadeReview({
           >
             Cancel - move nothing
           </button>
+          </>)}
         </div>
       </div>
     </div>

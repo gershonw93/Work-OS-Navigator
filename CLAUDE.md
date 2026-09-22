@@ -909,11 +909,26 @@ Full detail: [`docs/postmortems/derived-state.md`](docs/postmortems/derived-stat
   carries `direct` or `downstream`, and a link whose two ends are not both on
   the board reports NOTHING - a row the reader cannot find is worse than one
   left out.
-  **AND A REVIEW WITH NOTHING TO REVIEW IS NOT A STEP**: with no other line
-  touched the screen is skipped and the dates just save (`notify: false` is a
-  fact there, not a guess - there is nobody on the list). It never renders over
-  the editor either; two overlays at once left Cancel dropping you back into a
-  form whose dates had been decided elsewhere.
+  **AND A REVIEW WITH NOTHING TO *SAY* IS NOT A STEP** - which is NOT the same
+  as nothing to move, and reading it that way was the bug. The screen must
+  never ask whether to tell people when there is nobody to tell (`notify: false`
+  is a fact there, not a guess), and it never renders over the editor; two
+  overlays at once left Cancel dropping you back into a form whose dates had
+  been decided elsewhere. But a change that moves NOBODY is itself the thing
+  worth saying, and gating the skip on `!moves.length` meant the commonest
+  outcome of moving a date was a save in total silence - 121 schedule lines
+  across 26 jobs carry FIVE links between them, so on 23 of those jobs nothing
+  was ever going to move, and a silent save is indistinguishable from a feature
+  that never deployed. Reported as exactly that: "will it actually push off
+  anyone dependent?". The skip is gated on `changeWarning(...).silent`
+  (`lib/schedule-change-warning.ts`), which is false whenever there is
+  something to state: nothing is linked, a follower was hand-dated after it was
+  linked, the FINISH did not move (which is the date a follower watches), or
+  **this line is dropping out of its own chain** - the invisible one, because
+  typing dates sets the very flag `handEditWins` reads, permanently, and
+  nothing had ever said so. With no moves the footer is one button that saves
+  and one that cancels, never the two about emailing nobody. Pinned in
+  `schedule-warning.ts`.
   **`dates_overridden_at` TAKES A LINE OUT OF THE CASCADE FOR EVER, so what
   SETS it matters more than what reads it.** Two bugs, one flag: every dialog
   posts both dates whether or not they were edited, so a save that moved nothing

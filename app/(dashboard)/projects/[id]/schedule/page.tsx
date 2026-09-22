@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { CascadeReview, type CascadeMove, type CascadeSkip, type AffectedSub } from '@/components/schedule/cascade-review'
+import type { ChangeWarning } from '@/lib/schedule-change-warning'
 import { DependencyPicker, type PickableLine, type ExistingDependency, type PendingDependency } from '@/components/schedule/dependency-picker'
+import type { LineKind } from '@/lib/schedule-link-words'
 import { useRouter } from 'next/navigation'
 import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { Plus, X, CalendarDays, Pencil, Trash2, Building2, Flag, ChevronLeft, ChevronRight, GanttChartSquare, List, CalendarRange, AlertCircle } from 'lucide-react'
@@ -163,7 +165,9 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
   // The dependency picker inside the edit dialog, and the review screen that
   // stands between a date change and a sub's inbox.
   const guardDelete = useDeleteGuard()
-  const [deps, setDeps] = useState<ExistingDependency[]>([])
+  // Stored WITHOUT `predecessorKind`; it is derived from the lines on screen
+  // (see `depsWithKind`) so a saved link reads the way a staged one does.
+  const [deps, setDeps] = useState<Omit<ExistingDependency, 'predecessorKind'>[]>([])
   // An empty list is not an answer until this says so - see the picker.
   const [depsState, setDepsState] = useState<'loading' | 'ready' | 'failed'>('loading')
   // Which line the in-flight request is FOR. Opening one row, closing it and
@@ -176,7 +180,11 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
   const [pendingDeps, setPendingDeps] = useState<PendingDependency[]>([])
   const [removingDeps, setRemovingDeps] = useState<string[]>([])
   const [pending, setPending] = useState<
-    { moves: CascadeMove[]; skipped: CascadeSkip[]; affected: AffectedSub[]; start: string; end: string; justLinked: boolean } | null
+    {
+      moves: CascadeMove[]; skipped: CascadeSkip[]; affected: AffectedSub[]
+      warning: ChangeWarning | null
+      start: string; end: string; justLinked: boolean
+    } | null
   >(null)
 
   const [unscheduled, setUnscheduled] = useState<{ id: string; scope: string; trade: string | null; companies: { id: string; name: string; type?: string } | null }[]>([])
@@ -423,7 +431,9 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
       const preview = await fetch(`/api/projects/${params.id}/schedule/${editItem.id}/cascade`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ start_date: editStart, end_date: editEnd }),
+        // LINKING IS THE LATER WORD. A save that creates a link is not a save
+        // that drops this line out of a chain, so the warning must not say so.
+        body: JSON.stringify({ start_date: editStart, end_date: editEnd, just_linked: justLinked }),
       })
       setEditSaving(false)
       if (!preview.ok) {
@@ -441,18 +451,33 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
 
       const moves = p.moves ?? []
       const skipped = p.skipped ?? []
-      // NOTHING TO REVIEW IS NOT A REVIEW. A line with no links is most lines,
-      // and the screen was stopping on "Nothing else moves / Moving
-      // Electrical" with two buttons about emailing nobody - reported, fairly,
-      // as a step that does nothing. The review exists to stand between a
-      // cascade and a sub's inbox; with no other line touched there is neither.
-      // Notify is FALSE and not a guess: there is nobody on the list.
-      if (!moves.length && !skipped.length) {
+      const warning: ChangeWarning | null = p.warning ?? null
+
+      // NOTHING TO REVIEW IS NOT A REVIEW - but "no rows moved" was never the
+      // right test for that, and using it was the bug.
+      //
+      // The rule stands: the review exists to stand between a cascade and a
+      // sub's inbox, and with nobody to tell it must not ask whether to tell
+      // them. What it got wrong is that a change which moves NOBODY is itself
+      // the thing worth saying. On this database that is most jobs - 121
+      // schedule lines carry five links between them - so the commonest
+      // outcome of moving a date was a silent save, indistinguishable from a
+      // feature that had not fired. Reported as exactly that.
+      //
+      // So the skip is now gated on `warning.silent`, which is false whenever
+      // there is something to say: nothing is linked, a follower is pinned by
+      // hand, the finish did not actually move, or THIS line is dropping out
+      // of its own chain. When it is silent, notify is FALSE and not a guess -
+      // there is nobody on the list.
+      if (!moves.length && !skipped.length && (!warning || warning.silent)) {
         await applyCascade(false, { start: editStart, end: editEnd, justLinked })
         return
       }
 
-      setPending({ moves, skipped, affected: p.affected ?? [], start: editStart, end: editEnd, justLinked })
+      setPending({
+        moves, skipped, affected: p.affected ?? [], warning,
+        start: editStart, end: editEnd, justLinked,
+      })
       return
     }
 
@@ -564,16 +589,40 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     }
     const { item } = await res.json()
     await load()
-    return { id: item.id, name: trade, start_date: item.start_date, end_date: item.end_date, hasSub: false }
+    // A placeholder is work by definition - nobody adds a placeholder for a
+    // delivery they have not booked.
+    return { id: item.id, name: trade, start_date: item.start_date, end_date: item.end_date, hasSub: false, kind: 'work' as const }
   }
 
   /** Everything on this project that could be waited for. */
   const pickableLines: PickableLine[] = items.map(i => ({
     id: i.id,
-    name: (i as any).trade || getLabel(i),
+    // A DELIVERY KEEPS ITS OWN NAME. `trade` wins for a work line, because
+    // "Electrical" beats a scope paragraph - but on a supplier line it hides
+    // "Delivery - ACME Supply" behind whatever trade was typed on the row, and
+    // then the picker offers a delivery that does not say it is one.
+    name: isDelivery(i) ? getLabel(i) : ((i as any).trade || getLabel(i)),
     start_date: i.start_date,
     end_date: i.end_date,
     hasSub: !!i.subcontract_id,
+    kind: isDelivery(i) ? ('delivery' as const) : ('work' as const),
+  }))
+
+  /**
+   * A SAVED LINK HAS TO READ THE WAY A STAGED ONE DOES.
+   *
+   * The kind is derived from the lines already on screen rather than carried
+   * back by the dependencies route - one source for "is this a delivery". Read
+   * it off the route instead and a link reads "Once the ACME delivery lands"
+   * while you are building it and "After ACME" the moment you save, which is
+   * the two-wordings-of-one-fact bug that made the review unusable.
+   */
+  const kindOf = (id: string): LineKind =>
+    pickableLines.find(l => l.id === id)?.kind ?? 'work'
+
+  const depsWithKind: ExistingDependency[] = deps.map(d => ({
+    ...d,
+    predecessorKind: kindOf(d.predecessor_task_id),
   }))
 
   /**
@@ -825,7 +874,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                     another trade?" once somebody has said when this one is. */}
                 <DependencyPicker
                   lines={pickableLines}
-                  existing={deps}
+                  existing={depsWithKind}
                   existingState={depsState}
                   pending={pendingDeps}
                   removing={removingDeps}
@@ -1244,6 +1293,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
           moves={pending.moves}
           skipped={pending.skipped}
           affected={pending.affected}
+          warning={pending.warning}
           editedName={(editItem as any).trade || getLabel(editItem)}
           onConfirm={applyCascade}
           onCancel={() => { setPending(null); load() }}

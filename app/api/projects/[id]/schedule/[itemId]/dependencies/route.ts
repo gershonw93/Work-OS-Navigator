@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { requirePermission, denied } from '@/lib/api-guard'
 import { friendlyDbError } from '@/lib/db-error'
 import { findCycle, type Dependency, type ScheduleLine } from '@/lib/schedule-dependencies'
+import { deliveryGateProblem, type LineKind } from '@/lib/schedule-link-words'
 
 export const runtime = 'nodejs'
 
@@ -98,6 +99,28 @@ export async function POST(request: Request, { params }: { params: { id: string;
   const ids = new Set(graph.lines.map(l => l.id))
   if (!ids.has(params.itemId) || !ids.has(predecessorId)) {
     return NextResponse.json({ error: 'That line is not on this project.' }, { status: 404 })
+  }
+
+  // A GATE ON A DELIVERY CAN NEVER OPEN, so the route refuses one - the same
+  // function the picker asks, because the browser is what sends this.
+  //
+  // Only asked when a percent is actually set: the common link carries none,
+  // and a round trip on every link to rule out a case that is not being made
+  // is a cost with no answer attached. The kind lives on `companies.type`, two
+  // joins from this table, which is why it is a query and not a CHECK.
+  if (minProgress != null) {
+    const { data: pre, error: preErr } = await db
+      .from('schedule_items')
+      .select('subcontracts(companies(type))')
+      .eq('id', predecessorId).eq('project_id', params.id).maybeSingle()
+    if (preErr) {
+      console.error('[schedule/dependencies] could not read the predecessor:', preErr.message)
+      return NextResponse.json({ error: 'Could not check that line. Nothing was changed.' }, { status: 500 })
+    }
+    const kind: LineKind =
+      (pre as any)?.subcontracts?.companies?.type === 'supplier' ? 'delivery' : 'work'
+    const problem = deliveryGateProblem(kind, minProgress)
+    if (problem) return NextResponse.json({ error: problem }, { status: 400 })
   }
 
   const cycle = findCycle(graph.deps, params.itemId, predecessorId, graph.lines)

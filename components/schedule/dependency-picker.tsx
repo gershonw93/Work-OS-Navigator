@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronUp, Link2, Loader2, Plus, Trash2, X } from 'lucide-react'
 import { formatDateShort } from '@/lib/dates'
-import { pctLabel } from '@/lib/schedule-dependencies'
+import { linkSentence, deliveryGateProblem, type LineKind } from '@/lib/schedule-link-words'
 
 // "Can't start till another trade finishes?" - asked after the dates.
 //
@@ -36,6 +36,8 @@ export interface PickableLine {
   start_date: string
   end_date: string
   hasSub: boolean
+  /** A delivery is not a trade, and the sentence and the gate both differ. */
+  kind: LineKind
 }
 
 export interface ExistingDependency {
@@ -45,6 +47,7 @@ export interface ExistingDependency {
   min_predecessor_progress: number | string | null
   lag_days: number
   predecessorName: string
+  predecessorKind: LineKind
 }
 
 /** A link somebody has built here but not saved yet. */
@@ -53,6 +56,7 @@ export interface PendingDependency {
   min_predecessor_progress: number | string | null
   lag_days: number
   predecessorName: string
+  predecessorKind: LineKind
 }
 
 export function DependencyPicker({
@@ -109,6 +113,12 @@ export function DependencyPicker({
   // A picker must not offer to add what it is already showing you.
   const available = lines.filter(l => l.id !== selfId && !taken.has(l.id))
 
+  // A DELIVERY IS NOT A TRADE. It lands or it does not, so it takes different
+  // words and must never be offered a percent - see `deliveryGateProblem`.
+  const picked = lines.find(l => l.id === predecessor) ?? null
+  const pickedKind: LineKind = picked?.kind ?? 'work'
+  const pickedIsDelivery = pickedKind === 'delivery'
+
   function add() {
     // Asked at the FIELD, with our own words.
     if (!predecessor) { setProblem('Pick the trade this one comes after.'); return }
@@ -116,6 +126,10 @@ export function DependencyPicker({
     if (pct != null && (!Number.isFinite(pct) || pct < 0 || pct > 100)) {
       setProblem('How far along has to be a number between 0 and 100.'); return
     }
+    // The SAME function the dependencies route asks. A gate on a delivery can
+    // never open, which looks exactly like a gate that is working.
+    const deliveryProblem = deliveryGateProblem(pickedKind, pct)
+    if (deliveryProblem) { setProblem(deliveryProblem); return }
     const lagDays = lag.trim() === '' ? 0 : Number(lag)
     if (!Number.isInteger(lagDays) || lagDays < 0) {
       setProblem('Days to wait has to be a whole number, 0 or more.'); return
@@ -126,7 +140,8 @@ export function DependencyPicker({
       predecessor_task_id: predecessor,
       min_predecessor_progress: pct,
       lag_days: lagDays,
-      predecessorName: lines.find(l => l.id === predecessor)?.name ?? 'that line',
+      predecessorName: picked?.name ?? 'that line',
+      predecessorKind: pickedKind,
     })
     setPredecessor(''); setProgress(''); setLag(''); setShowMore(false); setOpen(false)
   }
@@ -145,16 +160,24 @@ export function DependencyPicker({
   /**
    * "After Framing hits 80%, plus 2 days" - how a link reads back.
    *
-   * `pctLabel` rather than the raw value: the column is NUMERIC and comes back
-   * as the string "80.00", which prints a trailing .00 nobody typed.
+   * `linkSentence` owns the wording AND reads the percent through `pctLabel`:
+   * the column is NUMERIC and comes back as the string "80.00", which prints a
+   * trailing .00 nobody typed.
    */
-  function describe(d: { predecessorName: string; min_predecessor_progress: number | string | null; lag_days: number }) {
-    const pct = pctLabel(d.min_predecessor_progress)
-    const head = pct != null
-      ? `After ${d.predecessorName} hits ${pct}%`
-      : `After ${d.predecessorName}`
-    if (d.lag_days > 0) return `${head}, plus ${d.lag_days} ${d.lag_days === 1 ? 'day' : 'days'}`
-    return head
+  function describe(d: {
+    predecessorName: string
+    predecessorKind?: LineKind
+    min_predecessor_progress: number | string | null
+    lag_days: number
+  }) {
+    // ONE HOME FOR THE SENTENCE. The review screen says the same fact in its
+    // own words; three wordings of one link is how "waits on Sheetrock" came
+    // to print for an 80% link and a plain one alike.
+    return linkSentence({
+      predecessorName: d.predecessorName,
+      predecessorKind: d.predecessorKind ?? 'work',
+      gate: { pct: d.min_predecessor_progress, lagDays: d.lag_days },
+    })
   }
 
   const field = 'rounded-lg border border-muted2 bg-panel px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none'
@@ -265,7 +288,8 @@ export function DependencyPicker({
           {!showMore ? (
             <button type="button" onClick={() => setShowMore(true)}
               className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg px-1 py-1.5 text-xs font-medium text-accent-fg hover:underline">
-              <ChevronDown className="h-3.5 w-3.5" /> More options - wait for a %, or leave extra days
+              <ChevronDown className="h-3.5 w-3.5" />{' '}
+              {pickedIsDelivery ? 'More options - leave extra days' : 'More options - wait for a %, or leave extra days'}
             </button>
           ) : (
             <div className="rounded-lg border border-line-soft bg-panel p-2.5">
@@ -278,6 +302,14 @@ export function DependencyPicker({
                 </button>
               </div>
               <div className="mt-2 space-y-2">
+                {/* A DELIVERY EITHER ARRIVES OR IT DOES NOT. Offering a percent
+                    here builds a gate that can never open - nothing ever sets a
+                    delivery's progress, and an unknown predecessor blocks. */}
+                {pickedIsDelivery ? (
+                  <p className="text-sm text-muted-fg">
+                    A delivery either arrives or it doesn&apos;t - there&apos;s no percent on one.
+                  </p>
+                ) : (
                 <div className="flex flex-wrap items-center gap-2 text-sm text-ink">
                   <label htmlFor="dep-progress" className="whitespace-nowrap">Wait till they&apos;re</label>
                   <span className="inline-flex items-center gap-1">
@@ -288,6 +320,7 @@ export function DependencyPicker({
                   </span>
                   <span className="whitespace-nowrap">done</span>
                 </div>
+                )}
                 <div className="flex flex-wrap items-center gap-2 text-sm text-ink">
                   <label htmlFor="dep-lag" className="whitespace-nowrap">Plus</label>
                   <input id="dep-lag" type="number" min={0} inputMode="numeric"
