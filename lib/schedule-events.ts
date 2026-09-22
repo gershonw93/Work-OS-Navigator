@@ -20,6 +20,8 @@
 // calendar cannot drift from the Today band about what "booked" means.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { daysBetween, type DateString } from './schedule-dependencies'
+
 export type EventKind = 'schedule' | 'inspection' | 'task'
 
 /**
@@ -94,6 +96,40 @@ export interface CalendarEvent {
 // ── what a schedule row is called ───────────────────────────────────────────
 // Here rather than in the page, because the calendar and the list must not end
 // up with two opinions about a bar's name.
+
+/**
+ * HOW MANY DAYS A BAR COVERS, COUNTING BOTH ENDS.
+ *
+ * Oct 27 -> Oct 31 is 5 days, and Sep 10 -> Sep 10 is ONE day. That is the
+ * rule everywhere a duration is printed, and it was written `daysBetween(...)
+ * + 1` in three places on the schedule page - two in the List, one on the
+ * Timeline bar - against a LOCAL `daysBetween` that floored its answer at 1:
+ *
+ *   Math.max(1, Math.round(...))
+ *
+ * So a same-day line measured 0, was forced to 1, gained the +1 and rendered
+ * "2 days". The floor was there to keep a zero-width bar visible, which is a
+ * RENDERING concern that had leaked into the arithmetic - and it had not been
+ * needed for years, because the bar already carries its own
+ * `Math.max(spanDays * 18, 36)`.
+ *
+ * The floor was also being paid for elsewhere: the Timeline compensated with
+ * `Math.max(0, offsetDays - 1)`, which quietly drew every bar except the
+ * earliest one day to the LEFT of where it belonged. A workaround stacked on
+ * a bug, each hiding the other.
+ *
+ * One home, so the two List views and the Timeline cannot disagree, and so
+ * the rule is testable without rendering React.
+ */
+export function spanDays(start: DateString, end: DateString): number {
+  return daysBetween(start, end) + 1
+}
+
+/** "5 days" / "1 day", for a bar or a row. The plural is part of the answer. */
+export function spanLabel(start: DateString, end: DateString): string {
+  const n = spanDays(start, end)
+  return `${n} day${n === 1 ? '' : 's'}`
+}
 
 export function isDelivery(item: ScheduleItemRow): boolean {
   return item.subcontracts?.companies?.type === 'supplier'

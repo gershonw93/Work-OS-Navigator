@@ -8,7 +8,7 @@ import { UnblockedReview, UnblockedBanner, type UnblockedSub } from '@/component
 import { clearToTell, type LineGateState } from '@/lib/schedule-unblocked'
 import type { LineKind } from '@/lib/schedule-link-words'
 import { ProgressField } from '@/components/schedule/progress-field'
-import type { Progress } from '@/lib/schedule-dependencies'
+import { daysBetween, type Progress } from '@/lib/schedule-dependencies'
 import { missingDelay, delayedDates, delayDays } from '@/lib/schedule-delay'
 import { LineHistory } from '@/components/schedule/line-history'
 import { slipBadge, type DateChange } from '@/lib/schedule-history'
@@ -23,7 +23,7 @@ import { Label } from '@/components/ui/label'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import {
-  calendarEvents, eventsOn, isDelivery, lineTrade, scheduleLabel, scheduleSubLabel,
+  calendarEvents, eventsOn, isDelivery, lineTrade, scheduleLabel, scheduleSubLabel, spanDays,
   type CalendarEvent, type ScheduleItemRow,
 } from '@/lib/schedule-events'
 import { suggestionFor, type SuggestableLine } from '@/lib/schedule-suggest-links'
@@ -85,9 +85,11 @@ function eventSubtitle(e: CalendarEvent): string {
   return e.detail ? `${what} · ${e.detail}` : what
 }
 
-function daysBetween(a: string, b: string) {
-  return Math.max(1, Math.round((new Date(b + 'T00:00:00').getTime() - new Date(a + 'T00:00:00').getTime()) / 86400000))
-}
+// `daysBetween` is NOT redeclared here any more. The local copy floored its
+// answer at 1 (`Math.max(1, ...)`), which is what made a same-day line read
+// "2 days" - see `spanDays` in lib/schedule-events.ts. The shared one is also
+// parsed as UTC, so a span crossing a DST boundary is still a whole number of
+// days rather than 0.958333 rounded into place.
 
 function addDays(date: string, days: number) {
   const d = new Date(date + 'T00:00:00')
@@ -1003,7 +1005,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
   const maxDate = sorted.length > 0
     ? sorted.reduce((max, i) => i.end_date > max ? i.end_date : max, sorted[0].end_date)
     : addDays(minDate, 30)
-  const totalDays = Math.max(daysBetween(minDate, maxDate), 14)
+  const totalDays = Math.max(spanDays(minDate, maxDate), 14)
 
   const months: { label: string; startDay: number; days: number }[] = []
   let cursor = new Date(minDate + 'T00:00:00')
@@ -1014,7 +1016,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     const clampedStart = cursor > monthStart ? cursor : monthStart
     const clampedEnd = monthEnd < endCursor ? monthEnd : endCursor
     const startDay = daysBetween(minDate, clampedStart.toISOString().split('T')[0])
-    const days = daysBetween(clampedStart.toISOString().split('T')[0], clampedEnd.toISOString().split('T')[0]) + 1
+    const days = spanDays(clampedStart.toISOString().split('T')[0], clampedEnd.toISOString().split('T')[0])
     months.push({ label: formatDate(cursor, { month: 'short', year: 'numeric' }), startDay, days })
     cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1)
   }
@@ -1570,7 +1572,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                 <div className="divide-y divide-line-soft">
                   {sorted.map(item => {
                     const offsetDays = daysBetween(minDate, item.start_date)
-                    const spanDays = daysBetween(item.start_date, item.end_date) + 1
+                    const span = spanDays(item.start_date, item.end_date)
                     return (
                       <div key={item.id} className="flex items-center hover:bg-surface group">
                         <div className="w-[220px] shrink-0 px-4 py-2.5 flex items-center gap-2.5">
@@ -1582,13 +1584,13 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                             {getSubLabel(item) && <p className="text-xs text-faint truncate">{getSubLabel(item)}</p>}
                           </div>
                         </div>
-                        <div className="flex-1 relative py-2.5 pr-4" style={{ paddingLeft: Math.max(0, offsetDays - 1) * 18 }}>
+                        <div className="flex-1 relative py-2.5 pr-4" style={{ paddingLeft: Math.max(0, offsetDays) * 18 }}>
                           <div
                             className={cn('h-7 rounded-md flex items-center px-2 cursor-pointer transition-opacity hover:opacity-80', barColor(item))}
-                            style={{ width: Math.max(spanDays * 18, 36) }}
+                            style={{ width: Math.max(span * 18, 36) }}
                             onClick={() => openEdit(item)}
                           >
-                            <span className="text-xs text-white font-medium truncate">{spanDays}d</span>
+                            <span className="text-xs text-white font-medium truncate">{span}d</span>
                           </div>
                         </div>
                         <div className="pr-3 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity shrink-0">
@@ -1614,7 +1616,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
             {/* Mobile card list */}
             <div className="md:hidden divide-y divide-line-soft">
               {sorted.map(item => {
-                const duration = daysBetween(item.start_date, item.end_date) + 1
+                const duration = spanDays(item.start_date, item.end_date)
                 return (
                   <div key={item.id} className="px-4 py-3 space-y-2">
                     <div className="flex items-start justify-between gap-2">
@@ -1657,7 +1659,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
               </thead>
               <tbody className="divide-y divide-line-soft">
                 {sorted.map(item => {
-                  const duration = daysBetween(item.start_date, item.end_date) + 1
+                  const duration = spanDays(item.start_date, item.end_date)
                   return (
                     <tr key={item.id} className="hover:bg-surface">
                       <td className="px-5 py-3">
