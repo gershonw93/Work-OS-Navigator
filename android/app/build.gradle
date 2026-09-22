@@ -7,7 +7,12 @@ android {
         applicationId "com.sytenav.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
+        // A BUILD NUMBER GOOGLE HAS NOT SEEN BEFORE. Hardcoded 1, every upload
+        // after the first is refused ("Version code 1 has already been used") -
+        // the exact bug the iOS workflow hit and fixed with Codemagic's own
+        // counter. $BUILD_NUMBER only ever goes up; a local build without it
+        // is 1, which is fine for something that never leaves the laptop.
+        versionCode((System.getenv("BUILD_NUMBER") ?: "1").toInteger())
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
@@ -16,8 +21,31 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // THE UPLOAD KEY. codemagic.yaml decodes CM_KEYSTORE to app/release.keystore
+    // and the passwords arrive as environment variables - but for most of this
+    // file's life nothing here read either, so `bundleRelease` produced an
+    // UNSIGNED bundle, which Google Play refuses outright. The keystore step
+    // ran, succeeded, and signed nothing.
+    //
+    // Only wired in when the password is present, so a local release build
+    // without the key still configures (unsigned) instead of failing Gradle
+    // sync for everybody who opens the project. The CI step checks the result
+    // is actually signed, so that leniency cannot reach the store.
+    signingConfigs {
+        release {
+            if (System.getenv("CM_KEYSTORE_PASSWORD")) {
+                storeFile file("release.keystore")
+                storePassword System.getenv("CM_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("CM_KEY_ALIAS")
+                keyPassword System.getenv("CM_KEY_PASSWORD")
+            }
+        }
+    }
     buildTypes {
         release {
+            if (System.getenv("CM_KEYSTORE_PASSWORD")) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

@@ -131,9 +131,11 @@ the biggest build yet while the books are half-wired ends with both half-done.
   - **The six Apple steps** are now written out in order at the top of
     `MOBILE.md` ("YOU ARE HERE"), for the state the account is actually in -
     approved, no keys. Five of the six are on Apple's side.
-  - **Android is done** (#365): project committed, camera/photo/location/
-    notification permissions declared. Needs a keystore and a Play
-    service-account JSON before Codemagic can upload it. Does not block iOS.
+  - **Android is done in code** (#365, and the signing/push change): project
+    committed, permissions declared, release bundle signed, build number from
+    Codemagic, targetSdk 35, and notifications through Firebase. Needs the
+    accounts: a keystore, a Firebase project and a Play service-account JSON
+    (MOBILE.md section 5), and the first upload by hand. Does not block iOS.
   - **App Privacy** is answered ahead of time in `store/app-privacy.md`, and
     the store URLs are corrected - they pointed at `/homepage/...`, which has
     not existed since the marketing site moved to the root, and they are the

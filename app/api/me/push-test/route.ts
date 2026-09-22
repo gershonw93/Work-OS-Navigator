@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { apnsConfig, pushTestMessage } from '@/lib/push'
+import { fcmConfig } from '@/lib/fcm'
 import { pushToPhones } from '@/lib/notify'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -33,26 +34,46 @@ async function caller(request: Request) {
 }
 
 /** How many phones are registered to me, and when did one last check in? */
-async function devices(db: any, userId: string): Promise<{ count: number; lastSeen: string | null }> {
+async function devices(db: any, userId: string): Promise<{ count: number; lastSeen: string | null; platforms: string[] }> {
   try {
     const { data } = await db.from('device_tokens')
-      .select('last_seen_at').eq('user_id', userId).order('last_seen_at', { ascending: false })
+      .select('last_seen_at, platform').eq('user_id', userId).order('last_seen_at', { ascending: false })
     const rows = data ?? []
-    return { count: rows.length, lastSeen: rows[0]?.last_seen_at ?? null }
+    return {
+      count: rows.length,
+      lastSeen: rows[0]?.last_seen_at ?? null,
+      platforms: rows.map((r: any) => r.platform === 'android' ? 'android' : 'ios'),
+    }
   } catch {
     // The table not existing is "no phones", not an error. A database that
     // has not had migration 090 yet is a normal state, not a fault.
-    return { count: 0, lastSeen: null }
+    return { count: 0, lastSeen: null, platforms: [] }
   }
+}
+
+/**
+ * Is push switched on FOR THE PHONES THIS PERSON HAS?
+ *
+ * Apple keys and a Google key are two separate settings, and each only reaches
+ * its own platform. "Configured" used to mean "the Apple keys are set", which
+ * would tell somebody holding an Android phone that everything was ready while
+ * nothing could ever reach them. With no phone yet, either service counts -
+ * the next thing to say is "register a phone", not "not switched on".
+ */
+function configuredFor(platforms: string[]): boolean {
+  const apple = !!apnsConfig()
+  const google = !!fcmConfig()
+  if (!platforms.length) return apple || google
+  return platforms.some(p => p === 'android' ? google : apple)
 }
 
 export async function GET(request: Request) {
   const { db, user } = await caller(request)
   if (!db || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { count, lastSeen } = await devices(db, user.id)
+  const { count, lastSeen, platforms } = await devices(db, user.id)
   return NextResponse.json({
-    configured: !!apnsConfig(),
+    configured: configuredFor(platforms),
     devices: count,
     // The real diagnostic. A phone that registered three weeks ago and not
     // since is the answer to most "it stopped working" questions, and it is
@@ -65,8 +86,8 @@ export async function POST(request: Request) {
   const { db, user } = await caller(request)
   if (!db || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const configured = !!apnsConfig()
-  const { count } = await devices(db, user.id)
+  const { count, platforms } = await devices(db, user.id)
+  const configured = configuredFor(platforms)
 
   // Both of these are normal states, not failures, and neither is worth a
   // network call. Reported as 200 with an explanation rather than an error

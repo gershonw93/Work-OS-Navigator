@@ -62,6 +62,9 @@ export type PushStage = (typeof PUSH_STAGES)[number]
 
 export type PushState = {
   stage: PushStage
+  /** Which phone wrote it. Absent on records from before Android existed,
+   *  which were all iPhones. The sentences name Apple or Google from this. */
+  platform?: 'ios' | 'android'
   /** Apple's wording, or the HTTP status - whatever names the actual failure. */
   reason?: string
   /** ISO timestamp of the attempt. Read: the card dates the failure, because
@@ -88,6 +91,7 @@ export function readPushState(): PushState | null {
       stage: parsed.stage,
       reason: typeof parsed.reason === 'string' && parsed.reason.trim() ? parsed.reason.trim() : undefined,
       at: typeof parsed.at === 'string' ? parsed.at : '',
+      ...(parsed.platform === 'android' ? { platform: 'android' as const } : {}),
     }
   } catch {
     return null
@@ -99,6 +103,10 @@ export function writePushState(stage: PushStage, reason?: string): void {
   try {
     const text = String(reason ?? '').trim()
     const state: PushState = { stage, at: new Date().toISOString() }
+    // Read here rather than passed by every caller: the hook writes this from
+    // nine places, and a platform threaded through nine calls is nine chances
+    // to forget it.
+    if ((globalThis as any).Capacitor?.getPlatform?.() === 'android') state.platform = 'android'
     if (text) state.reason = text.slice(0, 200)
     localStorage.setItem(KEY, JSON.stringify(state))
   } catch { /* the card falls back to the general advice */ }
@@ -121,6 +129,11 @@ export function pushStateNote(state: PushState | null): string {
   // build older than this one. The old advice is the right advice here.
   if (!state) return GENERAL
 
+  // Apple hands an iPhone its address; Google hands an Android phone its one.
+  // Records from before Android existed carry no platform and were iPhones.
+  const android = state.platform === 'android'
+  const issuer = android ? 'Google' : 'Apple'
+
   switch (state.stage) {
     // Distinct from the no-record default ON PURPOSE. They used to share this
     // sentence - "a browser, so the advice is right" - and that identical
@@ -133,28 +146,35 @@ export function pushStateNote(state: PushState | null): string {
         + 'and allow notifications when it asks.'
 
     case 'starting':
-      return 'This phone began registering and did not get as far as asking Apple. '
+      return `This phone began registering and did not get as far as asking ${issuer}. `
         + RETRY
 
     // The one that names the real answer. Apple hands the token to the app
     // delegate; if the app build has no method to receive it, register()
     // succeeds and nothing else ever happens - no token, and no error either.
+    // On Android the same silence means the build has no google-services.json.
     case 'registering':
-      return 'This phone asked Apple for an address and Apple has not answered. '
+      return `This phone asked ${issuer} for an address and ${issuer} has not answered. `
         + RETRY + ' If it stays on this, the app build cannot receive the answer '
         + 'and a new one is needed - nothing you can do on the phone will fix it.'
 
     case 'unavailable':
       return 'Notifications could not start on this phone. ' + RETRY
-        + ' If it keeps happening, reinstall SyteNav from TestFlight.'
+        + (android
+          ? ' If it keeps happening, reinstall SyteNav from Google Play.'
+          : ' If it keeps happening, reinstall SyteNav from TestFlight.')
 
     case 'denied':
-      return 'Notifications are switched off for SyteNav on this phone. Turn them '
-        + 'back on in iPhone Settings → Notifications → SyteNav. iOS does not ask '
-        + 'a second time, so the app cannot do this for you.'
+      return android
+        ? 'Notifications are switched off for SyteNav on this phone. Turn them back on '
+          + 'in the phone\'s Settings → Apps → SyteNav → Notifications. Android stops '
+          + 'asking once you have said no, so the app cannot do this for you.'
+        : 'Notifications are switched off for SyteNav on this phone. Turn them '
+          + 'back on in iPhone Settings → Notifications → SyteNav. iOS does not ask '
+          + 'a second time, so the app cannot do this for you.'
 
     case 'apple_refused':
-      return 'Apple would not register this phone'
+      return `${issuer} would not register this phone`
         + (state.reason ? `: ${state.reason}. ` : '. ') + RETRY
 
     case 'no_session':
@@ -162,7 +182,7 @@ export function pushStateNote(state: PushState | null): string {
         + 'was nowhere to save it. ' + RETRY
 
     case 'save_failed':
-      return 'Apple gave this phone an address, but SyteNav could not save it'
+      return `${issuer} gave this phone an address, but SyteNav could not save it`
         + (state.reason ? ` (${state.reason})` : '') + '. ' + RETRY
 
     // Registered here, absent there. The row was released - a sign-out on this
