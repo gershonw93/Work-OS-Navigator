@@ -82,6 +82,12 @@ const AUTHORED: Release[] = [
         help: 'schedule-milestones',
       },
       {
+        kind: 'fixed',
+        title: 'Awarding a trade no longer leaves its placeholder behind',
+        text: 'If you had added a placeholder so other trades could depend on it, awarding the real sub used to create a SECOND line beside it - and everything you had linked went on waiting for the placeholder, which can never report progress, so anything gated behind it stayed shut for good. The Schedule now shows a banner when a placeholder still has trades waiting on it, and asks which line took its place. Say which, and everything waiting on the placeholder moves onto the real work and the placeholder goes. It asks rather than matching on the trade name, because a trade name is typed rather than picked - and a placeholder you named yourself could never have matched anything anyway.',
+        help: 'schedule-milestones',
+      },
+      {
         kind: 'improved',
         title: '"Wait till they\'re 80% done" now does something',
         text: 'It used to print the words and nothing else. There is now a "How far along is it?" box on every schedule line - leave it empty and it uses that sub\'s budget lines instead. The gate only ever holds a trade back from starting EARLIER: if the trade ahead slips, everyone behind still moves, whatever percent they are at. You can also wait on a supplier delivery, not just a trade. You can now SEE which lines a gate is holding - the List view marks them "Waiting", or "Clear to start" once the trade ahead gets there - and when a gate opens, a banner on the Schedule offers to tell the subs who have just come free. Same as a date change: it shows you exactly who would be emailed, you untick anyone you do not want written to, and nothing goes out until you press the button. Each line is only offered once, so nobody gets the same letter twice.',
@@ -220,7 +226,7 @@ const AUTHORED: Release[] = [
       {
         kind: 'new',
         title: 'Depend on a trade you have not hired yet',
-        text: 'If the trade you need has no line yet, add a placeholder ("Sheetrock, dates TBD") without leaving the dialog. Other work can depend on it right away, and when you award the job to a real sub later, the link stays.',
+        text: 'If the trade you need has no line yet, add a placeholder ("Sheetrock, dates TBD") without leaving the dialog. Other work can depend on it right away, and when you award the job to a real sub later, SyteNav asks whether that new line takes the placeholder\u2019s place - say yes and everything waiting on the placeholder moves across.',
       },
       {
         kind: 'new',
