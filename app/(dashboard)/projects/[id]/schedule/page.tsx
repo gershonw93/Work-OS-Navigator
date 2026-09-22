@@ -5,6 +5,8 @@ import { CascadeReview, type CascadeMove, type CascadeSkip, type AffectedSub } f
 import type { ChangeWarning } from '@/lib/schedule-change-warning'
 import { DependencyPicker, type PickableLine, type ExistingDependency, type PendingDependency } from '@/components/schedule/dependency-picker'
 import type { LineKind } from '@/lib/schedule-link-words'
+import { ProgressField } from '@/components/schedule/progress-field'
+import type { Progress } from '@/lib/schedule-dependencies'
 import { useRouter } from 'next/navigation'
 import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { Plus, X, CalendarDays, Pencil, Trash2, Building2, Flag, ChevronLeft, ChevronRight, GanttChartSquare, List, CalendarRange, AlertCircle } from 'lucide-react'
@@ -135,6 +137,9 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
   const supabase = createClient()
   const vc = useViewerContext(params.id)
   const [items, setItems] = useState<ScheduleItem[]>([])
+  // Derived progress per line, from the route. Only for the HINT beside the
+  // box - never seeded into it.
+  const [progressById, setProgressById] = useState<Record<string, Progress>>({})
   // The job's other dated things. The calendar draws them; Timeline and List
   // deliberately do not - see the comment above the month grid.
   const router = useRouter()
@@ -159,6 +164,10 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
   const [editStart, setEditStart] = useState('')
   const [editEnd, setEditEnd] = useState('')
   const [editColor, setEditColor] = useState('blue')
+  // '' means "nobody has said", which is NOT zero - it is what a gate reads to
+  // decide whether it is shut because the work is early or because a field was
+  // never filled in.
+  const [editProgress, setEditProgress] = useState('')
   const [editSaving, setEditSaving] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
 
@@ -223,6 +232,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
       const data = await res.json()
       fresh = data.items ?? []
       setItems(fresh)
+      setProgressById(data.progress ?? {})
       setInspections(data.inspections ?? [])
       setDueTasks(data.tasks ?? [])
     }
@@ -446,7 +456,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
       await saveRequest(`/api/projects/${params.id}/schedule/${editItem.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ label: editLabel, color: editColor }),
+        body: JSON.stringify({ label: editLabel, color: editColor, progress_pct: progressForBody() }),
       })
 
       const moves = p.moves ?? []
@@ -484,7 +494,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     const r = await saveRequest(`/api/projects/${params.id}/schedule/${editItem.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ label: editLabel, color: editColor }),
+      body: JSON.stringify({ label: editLabel, color: editColor, progress_pct: progressForBody() }),
     })
     setEditSaving(false)
     if (!r.ok) { setEditError(r.error); return }
@@ -688,6 +698,30 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     load(); loadUnscheduled()
   }
 
+  /**
+   * The percent to send, or NULL for "nobody has said".
+   *
+   * An empty box is a real answer and it is not zero. The route already treats
+   * an explicit null as clearing the column; this is the form's half of that.
+   */
+  /**
+   * What the app would answer for this line WITHOUT a typed number.
+   *
+   * Straight off the route, which rolls the budget lines up server-side. The
+   * fallback is `unknown` - never zero, which would be a claim that the work
+   * has not started.
+   */
+  function progressOfLine(item: ScheduleItem): Progress {
+    return progressById[item.id] ?? { pct: null, source: 'unknown' }
+  }
+
+  function progressForBody(): number | null {
+    const raw = editProgress.trim()
+    if (raw === '') return null
+    const n = Number(raw)
+    return Number.isFinite(n) ? n : null
+  }
+
   function openEdit(item: ScheduleItem) {
     setEditItem(item)
     setDeps([]); setDepsState('loading')
@@ -699,6 +733,10 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     setEditStart(item.start_date)
     setEditEnd(item.end_date)
     setEditColor(item.color ?? 'blue')
+    // NEVER seeded from the derived roll-up: prefilling would turn a derived
+    // fact into a typed claim the first time anybody pressed Save, and a typed
+    // percent beats the roll-up for ever afterwards.
+    setEditProgress(item.progress_pct == null ? '' : String(item.progress_pct))
   }
 
   const sorted = [...items].sort((a, b) => a.start_date.localeCompare(b.start_date))
@@ -884,6 +922,11 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
                   onStageRemoval={id => setRemovingDeps(r => [...r, id])}
                   onUndoRemoval={id => setRemovingDeps(r => r.filter(x => x !== id))}
                   onAddPlaceholder={addPlaceholder}
+                />
+                <ProgressField
+                  value={editProgress}
+                  derived={progressOfLine(editItem)}
+                  onChange={setEditProgress}
                 />
                 {!editItem.subcontract_id && (
                   <div className="space-y-1.5">

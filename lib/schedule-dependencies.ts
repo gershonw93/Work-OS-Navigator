@@ -365,11 +365,13 @@ export interface Move {
  * The last two used to be nothing at all: they were simply absent from the
  * review, which reads exactly like "these are not linked".
  */
-export type SkipReason = 'manually_overridden' | 'no_shift' | 'chain_stopped'
+export type SkipReason = 'manually_overridden' | 'no_shift' | 'chain_stopped' | 'progress_gate'
 
 export interface Skipped {
   id: string
   reason: SkipReason
+  /** `blockedBy`'s own sentence, so the screen does not word the gate twice. */
+  blockReason?: string | null
   /** The line that would have moved it. */
   becauseOf: string
   link: LinkKind
@@ -425,6 +427,12 @@ export function cascade(
   movedId: string,
   newStart: DateString,
   newEnd: DateString,
+  /**
+   * How far along a line is, for GATES ONLY. Omitted means every gate reads
+   * unknown - which, because `blockedBy` never blocks on a link with no gate,
+   * leaves a schedule with no percent gates behaving exactly as before.
+   */
+  progressOf?: (lineId: string) => Progress,
 ): CascadeResult {
   const byId = new Map(lines.map(l => [l.id, l]))
   const root = byId.get(movedId)
@@ -452,6 +460,8 @@ export function cascade(
   const causeOf = new Map<string, string>()
   /** And what that link SAYS, so an 80% gate is not printed as a plain link. */
   const gateVia = new Map<string, LinkGate>()
+  /** Lines a gate refused to pull forward, with the sentence saying why. */
+  const gateHeld = new Map<string, string | null>()
   /** Every link pointing AT a line, for classifying one pass one never reached. */
   const linksTo = new Map<string, Dependency[]>()
   for (const d of deps) {
@@ -476,6 +486,34 @@ export function cascade(
       // not computed THROUGH, only when the hand had the last say. Pass two
       // reports it and everything standing behind it.
       if (handEditWins(child, dep)) continue
+
+      // A GATE BLOCKS A PULL-FORWARD, NEVER A SLIP. This asymmetry is the
+      // whole rule and getting it the other way round would be far worse than
+      // not having it.
+      //
+      // LATER IS ALWAYS SAFE. If the trade ahead slips three days, everything
+      // behind it slips three days whatever percent it is at - holding that
+      // back would mean a crew never hears their date moved, which is the one
+      // thing this feature exists to prevent.
+      //
+      // EARLIER IS NOT. Pulling Drywall three days forward because Sheetrock's
+      // dates moved, while Sheetrock sits at 40% against an 80% gate, is
+      // telling a crew to turn up to a wall that is not there. THAT is what
+      // the gate on the link was for, and until now it did nothing at all: the
+      // percent was read only by `gateOf`, to print a label on the review.
+      //
+      // The blast radius is exactly the links that carry a gate: `blockedBy`
+      // returns not-blocked when `min_predecessor_progress` is null, which on
+      // this database is most of them. Without that, every pull-forward in the
+      // app would stop working the day this shipped, because nothing has ever
+      // written a progress percent.
+      if (currentShift < 0) {
+        const verdict = blockedBy(
+          dep, byId.get(currentId)!,
+          progressOf?.(currentId) ?? { pct: null, source: 'unknown' },
+        )
+        if (verdict.blocked) { gateHeld.set(child.id, verdict.reason); continue }
+      }
 
       // A diamond takes the BIGGEST push. D waiting on both B and C cannot
       // start until the last of them is done, so the larger delta wins - and
@@ -538,6 +576,13 @@ export function cascade(
         })
       } else if (vetoed) {
         skipped.push({ id: childId, reason: 'manually_overridden', becauseOf: currentId, link, gate })
+      } else if (gateHeld.has(childId)) {
+        // Reported, never dropped: a linked row missing from the review reads
+        // as a row that was never linked.
+        skipped.push({
+          id: childId, reason: 'progress_gate', becauseOf: currentId, link, gate,
+          blockReason: gateHeld.get(childId) ?? null,
+        })
       } else if (shift === 0) {
         skipped.push({ id: childId, reason: 'no_shift', becauseOf: causeOf.get(childId) ?? currentId, link, gate })
       } else {

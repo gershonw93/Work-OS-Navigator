@@ -22,6 +22,14 @@
 
 export type EventKind = 'schedule' | 'inspection' | 'task'
 
+/**
+ * A row of `schedule_items`, as the app reads it.
+ *
+ * CHECKED AGAINST MIGRATION 108, NOT AGAINST MEMORY. It was missing `trade`,
+ * `progress_pct` and `dates_overridden_at` - three columns that have existed
+ * since dependencies shipped - so every reader that wanted the trade wrote
+ * `(i as any).trade`, and a type that describes no table is checked by nothing.
+ */
 export interface ScheduleItemRow {
   id: string
   label: string | null
@@ -29,6 +37,18 @@ export interface ScheduleItemRow {
   end_date: string
   color: string | null
   subcontract_id: string | null
+  /** A placeholder carries one; only the sub is absent. */
+  trade?: string | null
+  /**
+   * A percent somebody TYPED. Null means nobody has, which is not zero.
+   *
+   * `number | string` is not sloppiness: the column is NUMERIC and PostgREST
+   * hands it back QUOTED ("80.00"), so the next reader is forced through
+   * `toPct` / `pctLabel` rather than through `Number.isFinite`.
+   */
+  progress_pct?: number | string | null
+  /** Set when a human edited the dates by hand. */
+  dates_overridden_at?: string | null
   subcontracts: {
     scope: string
     trade: string | null
