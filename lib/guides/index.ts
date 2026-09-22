@@ -27,6 +27,7 @@ import { guide as jobCostTracking } from './articles/construction-job-cost-track
 import { guide as dailyLogApp } from './articles/construction-daily-log-app'
 import { guide as changeOrderDocumentation } from './articles/change-order-documentation'
 import { guide as spreadsheetVsSoftware } from './articles/construction-spreadsheet-vs-software'
+import { guide as schedulingSoftware } from './articles/construction-scheduling-software'
 
 /** Every published guide, in the order the index lists them. */
 export const GUIDES: Guide[] = [
@@ -40,6 +41,7 @@ export const GUIDES: Guide[] = [
   dailyLogApp,
   changeOrderDocumentation,
   spreadsheetVsSoftware,
+  schedulingSoftware,
 ]
 
 export { GUIDE_CATEGORIES, guidePath }

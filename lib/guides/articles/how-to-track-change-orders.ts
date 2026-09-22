@@ -46,7 +46,7 @@ export const guide: Guide = {
 
     { type: 'h2', text: 'Price it while you can still say no' },
     { type: 'p', text: 'A change order priced after the work is done is not a price, it is an invoice with a story attached. Before the work starts you have leverage and the client has a choice, which is exactly what makes the number credible. After it is built, you are asking somebody to pay for something they already have.' },
-    { type: 'p', text: 'Price the whole impact, not just the labour and materials: the trade that has to come back a second time, the two days the schedule moves, the inspection that has to be re-booked. Those are real costs that are invisible on a line-item quote, and they are the ones that turn a "small" change order into a loss.' },
+    { type: 'p', text: 'Price the whole impact, not just the labour and materials: the trade that has to come back a second time, the two days the schedule moves, the inspection that has to be re-booked. Getting that slip through to every trade behind it is a process in itself. Those are real costs that are invisible on a line-item quote, and they are the ones that turn a "small" change order into a loss.' },
 
     { type: 'h2', text: 'Approval that counts' },
     { type: 'p', text: 'Whatever your contract says about written change orders, what protects you in practice is a record that shows three things together: an amount, a scope, and an affirmative response from somebody with authority. An email reply saying "ok go ahead" under a quoted number does that. A signature on a form does it better. A verbal yes on site does not do it at all, however sincere it was.' },
@@ -97,6 +97,7 @@ export const guide: Guide = {
     { type: 'p', text: 'An approved change order that names neither a line nor a contract still counts in the job total, and the budget tab lists it under "Not on a budget line" with a picker to file it - because money in a total that is not on a row is exactly how a job stops adding up. And when a pay application refuses a line for being billed past its scheduled value, the words "change order" in that message open the form with the overage and the right line already filled in.' },
   ],
   links: [
+    { text: 'Getting that slip through to every trade behind it', href: '/guides/construction-scheduling-software' },
     { text: 'Why the paperwork decides whether you get paid', href: '/guides/change-order-documentation' },
     { text: 'If you are evaluating change order management software instead, use this GC buyer’s guide', href: '/guides/change-order-management-software' },
     { text: 'See how approved change orders should feed real-time job cost tracking', href: '/guides/construction-job-cost-tracking' },
