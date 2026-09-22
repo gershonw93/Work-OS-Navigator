@@ -61,12 +61,11 @@ export function emailConfig(env: NodeJS.ProcessEnv = process.env): EmailConfig {
   }
 }
 
-/** Cheap sanity check - a bad address is worth catching before an HTTP call. */
-export function isEmailAddress(value: string | null | undefined): boolean {
-  if (!value) return false
-  const v = value.trim()
-  return v.length <= 320 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
-}
+// The address questions live in `lib/contact-email.ts` so the screens can ask
+// them without importing the mail sender. Re-exported here because every
+// caller already reaches for them through this module.
+export { isEmailAddress, isPlaceholderEmail, reachableEmail } from './contact-email'
+import { isEmailAddress, isPlaceholderEmail } from './contact-email'
 
 export interface OutgoingEmail {
   to: string
@@ -104,6 +103,13 @@ export async function sendEmail(email: OutgoingEmail): Promise<SendResult> {
   const cfg = emailConfig()
   if (!cfg.configured) return { sent: false, reason: 'not_configured' }
   if (!isEmailAddress(email.to)) return { sent: false, reason: 'invalid', detail: 'bad recipient address' }
+  // THE LAST GATE. The callers all ask `reachableEmail` now, but 26 company
+  // rows already carry an invented address and a new caller will not know to
+  // exclude it. A send to `noemail+...@placeholder.com` is not a send, and it
+  // must not come back `sent: true` - that is what records somebody as told.
+  if (isPlaceholderEmail(email.to)) {
+    return { sent: false, reason: 'invalid', detail: 'no email address on file' }
+  }
 
   try {
     const res = await fetch(SENDGRID_ENDPOINT, {

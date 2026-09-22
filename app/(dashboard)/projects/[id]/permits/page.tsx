@@ -107,7 +107,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
         name: contactPrompt.name,
         type: 'inspector',
         phone: contactPrompt.phone || null,
-        contact_email: `noemail+${Date.now()}@placeholder.com`,
+        /* no address on file. NOT `noemail+<ts>@placeholder.com`: an invented address passes every is-this-an-address check, so the review screens listed the sub as emailable and a send would have recorded them TOLD. The column is NOT NULL, and '' is what 22 rows already use for absent. */ contact_email: '',
       }),
     })
     setContactSaving(false)

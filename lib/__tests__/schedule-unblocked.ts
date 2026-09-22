@@ -245,4 +245,36 @@ const find = (rows: ReturnType<typeof gatePicture>, id: string) => rows.find(r =
     '...and the raw column is not interpolated into the one sentence the sub acts on')
 }
 
+// ── A FAILED RE-READ IS NOT A NO-OP ─────────────────────────────────────────
+{
+  // REPORTED: "the gate badge doesn't refresh after saving a dependency
+  // change" - add a link, Save, no badge; reload and it is there. The save had
+  // worked. `load()` was `if (res.ok) { ...setGates... }` with NO else, so a
+  // refused re-read updated nothing, logged nothing and said nothing, leaving
+  // every row on screen showing what it showed before. That is the worst shape
+  // a staleness bug can have: indistinguishable from the feature not firing,
+  // and a reload "fixes" it, so it reads as flaky rather than as a failure.
+  const page = read('app/(dashboard)/projects/[id]/schedule/page.tsx')
+  const src = code('app/(dashboard)/projects/[id]/schedule/page.tsx')
+
+  // READ OFF THE FAILURE BRANCH, not the file. The first version of this line
+  // searched for the bare call, which the `setStaleError(null)` on the SUCCESS
+  // path satisfies - so detaching the else entirely left the suite green.
+  const loadBody = src.slice(src.indexOf('async function load()'))
+  const elseAt = loadBody.indexOf('} else {')
+  const failureBranch = elseAt === -1 ? '' : loadBody.slice(elseAt, loadBody.indexOf('setLoading(false)', elseAt))
+  ok(elseAt !== -1,
+    'THE SILENT STALE SCREEN: the re-read has an `else` at all - it used to have none')
+  ok(/setStaleError\(/.test(failureBranch),
+    '...and the FAILURE branch is what raises it')
+  ok(/staleError && <ErrorNote/.test(src),
+    '...and the screen actually renders it')
+  ok(/console\.error\('\[schedule\] could not re-read/.test(page),
+    '...and it is logged, so a refused read is recoverable from somewhere')
+  // The rows are KEPT, not blanked: a failed read says nothing about what is
+  // on the job, and an empty board would be inventing an answer.
+  ok(!/setItems\(\[\]\)/.test(src),
+    'the board is not blanked on a failed read - that would invent an answer')
+}
+
 done()

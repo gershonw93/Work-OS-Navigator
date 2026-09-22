@@ -69,7 +69,7 @@ export async function POST(request: Request) {
     else {
       const { data: created } = await db.from('companies').insert({
         name: store_name.trim(), type: 'supplier', trade: 'Materials',
-        contact_email: `noemail+${Date.now()}@placeholder.com`, insurance_status: 'missing', added_by_company_id: companyId,
+        /* no address on file. NOT `noemail+<ts>@placeholder.com`: an invented address passes every is-this-an-address check, so the review screens listed the sub as emailable and a send would have recorded them TOLD. The column is NOT NULL, and '' is what 22 rows already use for absent. */ contact_email: '', insurance_status: 'missing', added_by_company_id: companyId,
       }).select('id').single()
       store_company_id = created?.id ?? null
     }

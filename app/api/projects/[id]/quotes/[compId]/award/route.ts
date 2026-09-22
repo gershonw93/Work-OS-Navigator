@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { isUntitled } from '@/lib/quote-comparison'
 import { logActivity } from '@/lib/log-activity'
 import { notify } from '@/lib/notify'
-import { awardEmail, sendEmail, isEmailAddress } from '@/lib/email'
+import { awardEmail, sendEmail, reachableEmail } from '@/lib/email'
 import { requirePermission, denied } from '@/lib/api-guard'
 
 const admin = () => createClient(
@@ -71,7 +71,7 @@ export async function POST(request: Request, { params }: { params: { id: string;
         type: companyType,
         trade,
         contact_name: contact.name || null,
-        contact_email: contact.email || `noemail+${Date.now()}@placeholder.com`,
+        /* no address on file. NOT `noemail+<ts>@placeholder.com`: an invented address passes every is-this-an-address check, so the review screens listed the sub as emailable and a send would have recorded them TOLD. The column is NOT NULL, and '' is what 22 rows already use for absent. */ contact_email: contact.email || '',
         phone: contact.phone || null,
         insurance_status: 'missing',
         added_by_company_id: myCompanyId,
@@ -158,7 +158,7 @@ export async function POST(request: Request, { params }: { params: { id: string;
       // `noemail+…@placeholder.com` the company row falls back to, which is a
       // stand-in for "unknown", not a mailbox.
       const to = (contact.email ?? '').trim()
-      if (isEmailAddress(to) && !to.startsWith('noemail+')) {
+      if (reachableEmail(to)) {
         await sendEmail({
           to,
           ...awardEmail({

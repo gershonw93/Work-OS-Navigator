@@ -113,7 +113,7 @@ export function ContactPicker({
       body: JSON.stringify({
         name: quickName.trim(),
         type: filterType ?? 'other',
-        contact_email: quickEmail.trim() || `noemail+${Date.now()}@placeholder.com`,
+        /* no address on file. NOT `noemail+<ts>@placeholder.com`: an invented address passes every is-this-an-address check, so the review screens listed the sub as emailable and a send would have recorded them TOLD. The column is NOT NULL, and '' is what 22 rows already use for absent. */ contact_email: quickEmail.trim() || '',
         phone: quickPhone.trim() || null,
       }),
     })

@@ -6,6 +6,7 @@ import type { ChangeWarning } from '@/lib/schedule-change-warning'
 import { DependencyPicker, type PickableLine, type ExistingDependency, type PendingDependency } from '@/components/schedule/dependency-picker'
 import { UnblockedReview, UnblockedBanner, type UnblockedSub } from '@/components/schedule/unblocked-review'
 import { clearToTell, type LineGateState } from '@/lib/schedule-unblocked'
+import { reachableEmail } from '@/lib/contact-email'
 import type { LineKind } from '@/lib/schedule-link-words'
 import { ProgressField } from '@/components/schedule/progress-field'
 import { daysBetween, type Progress } from '@/lib/schedule-dependencies'
@@ -150,6 +151,8 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
   const [gates, setGates] = useState<LineGateState[]>([])
   const [tellOpen, setTellOpen] = useState(false)
   const [tellError, setTellError] = useState<string | null>(null)
+  /** Set when a re-read failed, so the screen can say it is no longer current. */
+  const [staleError, setStaleError] = useState<string | null>(null)
   // Derived progress per line, from the route. Only for the HINT beside the
   // box - never seeded into it.
   const [progressById, setProgressById] = useState<Record<string, Progress>>({})
@@ -292,6 +295,27 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
       setGates(data.gates ?? [])
       setInspections(data.inspections ?? [])
       setDueTasks(data.tasks ?? [])
+      setStaleError(null)
+    } else {
+      // A FAILED RE-READ IS NOT A NO-OP, AND IT MUST NOT BE SILENT.
+      //
+      // This was `if (res.ok) { ... }` with no else: a refused read updated
+      // nothing, logged nothing and said nothing, so every row on screen went
+      // on showing what it showed before the save. REPORTED as "the gate badge
+      // doesn't refresh after saving a dependency change" - the save had
+      // worked, and the screen was simply the old one. Which is the worst
+      // shape a staleness bug can have: it looks exactly like the feature not
+      // firing, and a reload "fixes" it, so it reads as flaky.
+      //
+      // Keeping the old rows is still right - a failed read says NOTHING about
+      // what is on the job, and blanking the board would be inventing an
+      // answer - but the screen has to say it is no longer current.
+      console.error('[schedule] could not re-read the schedule:', res.status)
+      setStaleError(
+        res.status === 401 || res.status === 403
+          ? 'Your session expired, so this screen is no longer up to date. Reload the page to see the latest.'
+          : 'We could not refresh this screen, so what you are looking at may be out of date. Reload the page.',
+      )
     }
     setLoading(false)
     return fresh
@@ -335,7 +359,12 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
       out[r.taskId] = {
         taskId: r.taskId,
         companyName: co?.name ?? 'Unknown vendor',
-        email: co?.contact_email?.trim() || null,
+        // `reachableEmail`, NOT a trim-and-truthy check. `contact_email` is
+        // NOT NULL, so five forms wrote `noemail+<ts>@placeholder.com` for
+        // somebody with no address - a well-formed address that reaches
+        // nobody. Trimming it leaves a string, so the screen listed them as
+        // emailable with no warning and a send would have logged them TOLD.
+        email: reachableEmail(co?.contact_email),
       }
     }
     return out
@@ -1389,6 +1418,10 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
 
       {/* The result of pressing the button belongs on the screen. */}
       {tellError && <ErrorNote message={tellError} />}
+
+      {/* ...and so does a refresh that did not happen. Every badge, date and
+          gate below is from the last read that WORKED. */}
+      {staleError && <ErrorNote message={staleError} />}
 
       {loading ? (
         <div className="text-sm text-faint py-12 text-center">Loading...</div>

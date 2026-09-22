@@ -221,7 +221,7 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
         type: contactForm.type,
         trade: contactForm.trade || null,
         phone: contactForm.phone || null,
-        contact_email: contactForm.email.trim() || `noemail+${Date.now()}@placeholder.com`,
+        /* no address on file. NOT `noemail+<ts>@placeholder.com`: an invented address passes every is-this-an-address check, so the review screens listed the sub as emailable and a send would have recorded them TOLD. The column is NOT NULL, and '' is what 22 rows already use for absent. */ contact_email: contactForm.email.trim() || '',
       }),
     })
     setContactSaving(false)

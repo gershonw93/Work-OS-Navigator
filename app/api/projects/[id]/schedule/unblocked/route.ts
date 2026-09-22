@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { requirePermission, denied } from '@/lib/api-guard'
-import { sendEmail, scheduleUnblockedEmail, isEmailAddress } from '@/lib/email'
+import { sendEmail, scheduleUnblockedEmail, reachableEmail } from '@/lib/email'
 import { notify } from '@/lib/notify'
 import { readGatePicture } from '@/lib/schedule-unblocked-read'
 import { clearToTell } from '@/lib/schedule-unblocked'
@@ -78,7 +78,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   for (const g of toTell) {
     const company = g.subcontractId ? companyBySub.get(g.subcontractId) : null
-    const email = isEmailAddress(company?.contact_email) ? company.contact_email : null
+    const email = reachableEmail(company?.contact_email)
 
     // EVERY gate that was holding this line, not just the first. A line kept
     // back by two trades is clear because BOTH got there, and a letter naming
