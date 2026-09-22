@@ -54,6 +54,30 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 // Author entries anywhere in this list; the app reads the sorted view.
 const AUTHORED: Release[] = [
   {
+    date: '2026-09-22',
+    title: 'Delay a sub, and see what it actually moves',
+    items: [
+      {
+        kind: 'new',
+        title: 'Say a trade is running late, and why',
+        text: 'Open a schedule line and press "Running late?" - say how many days and what happened, and both dates move by that much. It goes through the same review screen as any date change, so you still see what else moves and still choose whether to email anyone. What is new is that it gets written down: the reason, what the dates were before, and that it was a delay rather than somebody changing their mind. Every line keeps its own history of why it moved, and a line that has slipped says how far from where it was first planned.',
+        help: 'schedule-milestones',
+      },
+      {
+        kind: 'fixed',
+        title: 'A date change that moves nobody now says so',
+        text: 'Moving a date used to save in silence when nothing was linked to that line - which on most jobs is what happens, so it looked like the feature was not working. It now tells you before you save: nothing is waiting on this, or the trade waiting was hand-dated since it was linked, or you only moved the start and the finish is what others follow. And the one nobody knew about: if the line you are editing follows another trade, typing dates takes it out of that chain - it says so now, instead of quietly breaking the link.',
+        help: 'schedule-milestones',
+      },
+      {
+        kind: 'improved',
+        title: '"Wait till they\'re 80% done" now does something',
+        text: 'It used to print the words and nothing else. There is now a "How far along is it?" box on every schedule line - leave it empty and it uses that sub\'s budget lines instead. The gate only ever holds a trade back from starting EARLIER: if the trade ahead slips, everyone behind still moves, whatever percent they are at. You can also wait on a supplier delivery, not just a trade.',
+        help: 'schedule-milestones',
+      },
+    ],
+  },
+  {
     date: '2026-09-18',
     title: 'Tell people things, without the paperwork',
     items: [

@@ -32,14 +32,14 @@ console.log('\nschedule-cascade')
     'every foreign key states its ON DELETE rule explicitly')
 
   // The fallback for a fresh environment has to carry it too.
-  ok(exists('supabase/migrations/_combined_008-112.sql'), 'the combined file is bumped to 112')
-  ok(/schedule_dependencies/.test(read('supabase/migrations/_combined_008-112.sql')),
+  ok(exists('supabase/migrations/_combined_008-113.sql'), 'the combined file is bumped to 113')
+  ok(/schedule_dependencies/.test(read('supabase/migrations/_combined_008-113.sql')),
     '...and contains the new tables')
   ok(!exists('supabase/migrations/_combined_008-107.sql'), '...and the old name is gone, not left beside it')
-  ok(!exists('supabase/migrations/_combined_008-109.sql'),
+  ok(!exists('supabase/migrations/_combined_008-112.sql'),
     '...nor the one before this bump - a fresh environment built from a stale file is the whole risk')
-  ok(/_combined_008-112\.sql/.test(read('CLAUDE.md')), '...and CLAUDE.md points at the new name')
-  ok(!/_combined_008-109\.sql/.test(read('CLAUDE.md')), '...and not at the old one as well')
+  ok(/_combined_008-113\.sql/.test(read('CLAUDE.md')), '...and CLAUDE.md points at the new name')
+  ok(!/_combined_008-112\.sql/.test(read('CLAUDE.md')), '...and not at the old one as well')
 
   // 109 is a DATA REPAIR, not a schema change, and the combined file is
   // replayed whole on a fresh environment - so it has to be idempotent and it
@@ -48,9 +48,9 @@ console.log('\nschedule-cascade')
   ok(/dates_overridden_at = NULL/.test(repair), 'the repair clears the flag')
   ok(/INTERVAL '2 minutes'/.test(repair),
     '...only where ONE SAVE wrote both statements, never a deliberate override days later')
-  ok(/109/.test(read('supabase/migrations/_combined_008-112.sql')),
+  ok(/109/.test(read('supabase/migrations/_combined_008-113.sql')),
     '...and it is in the combined file too, or a fresh environment is born with the bug')
-  ok(/demo_notification_log/.test(read('supabase/migrations/_combined_008-112.sql')),
+  ok(/demo_notification_log/.test(read('supabase/migrations/_combined_008-113.sql')),
     'and 110 is in it as well - the bump is the easy half to forget')
 }
 
@@ -105,8 +105,15 @@ console.log('\nschedule-cascade')
     ok(new RegExp(`'${field}'`).test(item.slice(item.indexOf('const allowed'), item.indexOf('const allowed') + 200)),
       `${field} is on the PATCH whitelist, added in the same change as the column`)
   }
-  ok(/dates_overridden_at = |dates_overridden_at:/.test(item),
-    'editing dates by hand sets the override flag, whatever screen did it')
+  // DATES CANNOT REACH THIS ROUTE ANY MORE. It used to accept them and write
+  // them with no cascade - no review, nobody pushed, no sub told, no history -
+  // while still pinning the line out of every future cascade. Safe only by
+  // convention in the callers, which is one new caller from being the bug.
+  ok(!/'start_date'/.test(item.slice(item.indexOf('const allowed'), item.indexOf('const allowed') + 200)),
+    'THE BYPASS IS CLOSED: the PATCH whitelist no longer carries the dates')
+  ok(/'start_date' in body \|\| 'end_date' in body/.test(item),
+    '...and it REFUSES them rather than dropping them, which answers 200')
+  ok(/cascade route/.test(item), '...naming where dates go instead')
 }
 
 // ── the hand-edit flag, and the two ways it was wrong ────────────────────────
@@ -121,11 +128,18 @@ console.log('\nschedule-cascade')
   // Half one: a save that resubmits the same dates is not a decision about
   // them. Every dialog that touches a line posts both dates whether or not
   // they were edited.
-  const flagBlock = item.slice(item.indexOf("if ('start_date' in update"))
-  ok(/select\('start_date, end_date'\)/.test(flagBlock),
-    'the PATCH reads the dates it is about to replace')
-  ok(/const changed =/.test(flagBlock) && /if \(changed\) update\.dates_overridden_at/.test(flagBlock),
-    '...and only flags the line when they ACTUALLY changed')
+  //
+  // THE RULE MOVED WITH THE WRITE. It lived on the PATCH route until that route
+  // stopped accepting dates; it is now asked by the cascade apply, which is the
+  // only thing that moves one. Asked THERE rather than left to the caller, for
+  // the same reason the PATCH refuses dates at all.
+  const apply = code('app/api/projects/[id]/schedule/[itemId]/cascade/route.ts')
+  ok(/const before = p\.byId\.get\(params\.itemId\)/.test(apply),
+    'the apply reads the dates it is about to replace')
+  ok(/const datesActuallyChanged =/.test(apply),
+    '...and works out whether they actually changed')
+  ok(/markOverridden && datesActuallyChanged/.test(apply),
+    '...and only flags the line when they DID - a resubmitted date is not a decision')
 
   // Half two: linking is the statement that this line follows from now on.
   const deps = code('app/api/projects/[id]/schedule/[itemId]/dependencies/route.ts')
@@ -167,8 +181,8 @@ console.log('\nschedule-cascade')
   const cascade = code('app/api/projects/[id]/schedule/[itemId]/cascade/route.ts')
   ok(/body\?\.dates_overridden !== false/.test(cascade),
     'the apply takes an explicit "this is not a hand override", defaulting to the protective answer')
-  ok(/markOverridden \?/.test(cascade),
-    '...and only stamps the flag when it is true')
+  ok(/markOverridden && datesActuallyChanged/.test(cascade),
+    '...and only stamps the flag when it is true AND a date really moved')
   const page = code('app/(dashboard)/projects/[id]/schedule/page.tsx')
   ok(/const justLinked = pendingDeps\.length > 0/.test(page),
     'the dialog knows whether it just linked this row')
@@ -334,7 +348,11 @@ console.log('\nschedule-cascade')
     'THE SKIP IS GATED ON warning.silent, not on "nothing moved"')
   ok(!/if \(!moves\.length && !skipped\.length\) \{/.test(page),
     '...and the old unguarded skip is gone, not merely joined by a second branch')
-  ok(/applyCascade\(false, \{ start: editStart, end: editEnd, justLinked \}\)/.test(page),
+  // The dates are the COMPUTED pair now, not the raw fields: delay mode derives
+  // them from "how many days late", so `editStart`/`editEnd` are no longer what
+  // gets written. The property pinned is unchanged - notify is false and not a
+  // guess, because there is nobody on the list.
+  ok(/applyCascade\(false, \{ start, end, justLinked \}\)/.test(page),
     '...and it applies with notify FALSE - there is nobody on the list, not a guess')
   ok(/\{editItem && !pending && \(/.test(page),
     'and the editor is not left open underneath the review - two overlays at once')
