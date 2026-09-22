@@ -7,6 +7,8 @@ import { DependencyPicker, type PickableLine, type ExistingDependency, type Pend
 import { UnblockedReview, UnblockedBanner, type UnblockedSub } from '@/components/schedule/unblocked-review'
 import { clearToTell, type LineGateState } from '@/lib/schedule-unblocked'
 import { reachableEmail } from '@/lib/contact-email'
+import { AdoptBanner, AdoptDialog } from '@/components/schedule/adopt-placeholder'
+import { adoptOffers } from '@/lib/schedule-adopt'
 import type { LineKind } from '@/lib/schedule-link-words'
 import { ProgressField } from '@/components/schedule/progress-field'
 import { daysBetween, type Progress } from '@/lib/schedule-dependencies'
@@ -15,7 +17,7 @@ import { LineHistory } from '@/components/schedule/line-history'
 import { slipBadge, type DateChange } from '@/lib/schedule-history'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { autoFocusOnDesktop } from '@/lib/auto-focus'
-import { Plus, X, CalendarDays, Pencil, Trash2, Building2, Flag, ChevronLeft, ChevronRight, GanttChartSquare, List, CalendarRange, AlertCircle, Clock } from 'lucide-react'
+import { Plus, X, CalendarDays, Pencil, Trash2, Building2, Flag, ChevronLeft, ChevronRight, GanttChartSquare, List, CalendarRange, AlertCircle, CheckCircle2, Clock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { usePermissions } from '@/lib/use-permissions'
 import { Button } from '@/components/ui/button'
@@ -153,6 +155,9 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
   const [tellError, setTellError] = useState<string | null>(null)
   /** Set when a re-read failed, so the screen can say it is no longer current. */
   const [staleError, setStaleError] = useState<string | null>(null)
+  const [adoptOpen, setAdoptOpen] = useState(false)
+  /** What the last merge did, or why it did not. A success in a red box is a lie. */
+  const [adoptNote, setAdoptNote] = useState<{ text: string; tone: 'ok' | 'error' } | null>(null)
   // Derived progress per line, from the route. Only for the HINT beside the
   // box - never seeded into it.
   const [progressById, setProgressById] = useState<Record<string, Progress>>({})
@@ -369,6 +374,58 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     }
     return out
   }, [toTell, items])
+
+  /**
+   * PLACEHOLDERS THAT THE BOARD HAS OUTGROWN.
+   *
+   * A placeholder is how a trade gets depended on before it is awarded. When
+   * the real sub lands it becomes a SECOND line, and the placeholder stays -
+   * dead, un-progressable, and still the thing everything is waiting on.
+   * Offered rather than merged automatically: a trade name is free text on
+   * both sides, and a wrong merge rewires somebody else's chain in silence.
+   */
+  const offers = useMemo(
+    () => adoptOffers(
+      items.map(i => ({
+        id: i.id,
+        trade: lineTrade(i),
+        label: i.label,
+        subcontract_id: i.subcontract_id,
+        subName: i.subcontracts?.companies?.name ?? null,
+        start_date: i.start_date,
+        end_date: i.end_date,
+      })),
+      links as any,
+    ),
+    [items, links],
+  )
+
+  /** Retire a placeholder and point everything that waited on it at the real line. */
+  async function adoptPlaceholder(placeholderId: string, targetId: string) {
+    setAdoptNote(null)
+    try {
+      const token = await getToken()
+      const res = await fetch(`/api/projects/${params.id}/schedule/${placeholderId}/adopt`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ target_id: targetId }),
+      })
+      const d = await res.json().catch(() => ({} as any))
+      if (!res.ok) { setAdoptNote({ text: d?.error ?? 'Could not do that. Nothing was changed.', tone: 'error' }); return }
+      // WHAT ACTUALLY MOVED, not what was asked for - a link that was dropped
+      // as a duplicate is a link somebody wrote, and it is gone.
+      const bits = [`${d.movedLinks ?? 0} ${(d.movedLinks ?? 0) === 1 ? 'trade now waits' : 'trades now wait'} on ${d.targetName ?? 'the awarded line'}`]
+      if (d.droppedDuplicates) bits.push(`${d.droppedDuplicates} already did, so ${d.droppedDuplicates === 1 ? 'that link was' : 'those links were'} merged`)
+      if (d.droppedOwnLinks) bits.push(`the placeholder's own ${d.droppedOwnLinks === 1 ? 'link went' : 'links went'} with it`)
+      setAdoptNote({ text: `${bits.join('; ')}.`, tone: 'ok' })
+      setAdoptOpen(false)
+    } catch {
+      // A request that did not come back is not a verdict about the write.
+      setAdoptNote({ text: 'We could not reach SyteNav, so we do not know whether that went through. Reload the page before trying again.', tone: 'error' })
+    } finally {
+      await load()
+    }
+  }
 
   /**
    * Tell them - the only thing in this feature that sends.
@@ -1423,6 +1480,22 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
           gate below is from the last read that WORKED. */}
       {staleError && <ErrorNote message={staleError} />}
 
+      {/* A PLACEHOLDER NOTHING CAN EVER PROGRESS, with trades waiting on it.
+          Above the gate banner on purpose: a shut gate behind a placeholder is
+          a SYMPTOM of this, and telling somebody their trade is blocked is no
+          use while the thing blocking it is a stand-in. */}
+      {canEditSchedule && (
+        <AdoptBanner count={offers.length} onOpen={() => { setAdoptNote(null); setAdoptOpen(true) }} />
+      )}
+      {adoptNote && (adoptNote.tone === 'error'
+        ? <ErrorNote message={adoptNote.text} />
+        : (
+          <div className="flex items-start gap-2 rounded-lg border border-success/30 bg-success-tint px-3 py-2">
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+            <p className="text-sm text-ink-soft">{adoptNote.text}</p>
+          </div>
+        ))}
+
       {loading ? (
         <div className="text-sm text-faint py-12 text-center">Loading...</div>
       ) : items.length === 0 ? (
@@ -1731,6 +1804,14 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
 
         </div>
       )}
+          {adoptOpen && offers.length > 0 && (
+        <AdoptDialog
+          offers={offers}
+          onConfirm={adoptPlaceholder}
+          onCancel={() => setAdoptOpen(false)}
+        />
+      )}
+
           {tellOpen && (
         <UnblockedReview
           rows={toTell}
