@@ -17,7 +17,7 @@
  *   - the PATCH bypass is closed, and the rule it used to carry moved WITH the
  *     write rather than being dropped
  */
-import { ok, done, code, read, exists } from './_helpers'
+import { ok, done, code, read, exists, readCombined } from './_helpers'
 import {
   missingDelay, missingDelayDays, missingDelayReason, delayDays, delayedDates,
   MAX_DELAY_DAYS,
@@ -152,8 +152,7 @@ ok(slipBadge(LINE, []) === null,
   ok(/changed_by UUID REFERENCES profiles \(id\) ON DELETE SET NULL/.test(sql),
     'the record outlives the account that made it')
 
-  ok(exists('supabase/migrations/_combined_008-113.sql')
-    && /schedule_date_changes/.test(read('supabase/migrations/_combined_008-113.sql')),
+  ok(/schedule_date_changes/.test(readCombined()),
     'and the combined file carries it, or a fresh environment is born without it')
 }
 

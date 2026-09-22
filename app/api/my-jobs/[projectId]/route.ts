@@ -39,7 +39,10 @@ export async function GET(request: Request, { params }: { params: { projectId: s
     db.from('rfis').select('*').eq('project_id', params.projectId).order('created_at', { ascending: false }),
     db.from('inspections').select('*').eq('project_id', params.projectId).order('created_at', { ascending: false }),
     db.from('invoices').select('*').eq('project_id', params.projectId).eq('company_id', companyId).order('created_at', { ascending: false }),
-    db.from('daily_logs').select('id, log_date, created_by_name, has_issues, weather_condition, created_at').eq('project_id', params.projectId).order('log_date', { ascending: false }).limit(5),
+    // `weather`, not `weather_condition` - the second column was a fossil with
+    // four rows in it and is gone (114). An unknown column takes the WHOLE
+    // query down in PostgREST and reads back as "there aren't any".
+    db.from('daily_logs').select('id, log_date, created_by_name, has_issues, weather, created_at').eq('project_id', params.projectId).order('log_date', { ascending: false }).limit(5),
   ])
 
   // Fetch payment schedule items for all subcontracts

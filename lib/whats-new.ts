@@ -70,6 +70,12 @@ const AUTHORED: Release[] = [
         help: 'schedule-milestones',
       },
       {
+        kind: 'new',
+        title: 'Log what held the day up, and push the dates from there',
+        text: 'A daily log can now say what held things up - weather, a delivery that never showed, an inspection - and which schedule line it held up. Anyone on site can record it; nothing moves on its own. Somebody who can change the schedule then sees "Push the schedule for this" on the log, and it opens the delay box with the reason already written out, naming the log it came from. You say how many days and it goes through the usual review of what else moves.',
+        help: 'daily-log-create',
+      },
+      {
         kind: 'improved',
         title: '"Wait till they\'re 80% done" now does something',
         text: 'It used to print the words and nothing else. There is now a "How far along is it?" box on every schedule line - leave it empty and it uses that sub\'s budget lines instead. The gate only ever holds a trade back from starting EARLIER: if the trade ahead slips, everyone behind still moves, whatever percent they are at. You can also wait on a supplier delivery, not just a trade.',

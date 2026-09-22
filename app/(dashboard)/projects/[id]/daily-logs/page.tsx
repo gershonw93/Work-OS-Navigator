@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { SearchableSelect } from '@/components/ui/searchable-select'
@@ -20,6 +21,7 @@ import {
 // The table lives in lib now: the client portal shows the same field and was
 // printing a hardcoded sun beside every log, whatever the weather actually was.
 import { WEATHER_OPTIONS, weatherIcon as weatherIconFor } from '@/lib/weather'
+import { DELAY_TYPES, logDelayProblem, logSaysSomething, delayReasonFromLog, EMPTY_LOG_PROBLEM, type LogDelay } from '@/lib/daily-log-delays'
 import { ACCEPT_DOCS } from '@/lib/file-accept'
 import { usePreviewUrls } from '@/lib/use-preview-urls'
 import { parseDate, formatDate } from '@/lib/dates'
@@ -42,21 +44,21 @@ function blankSurvey(): Record<string, SurveyAnswer> {
   return Object.fromEntries(SURVEY_QUESTIONS.map(q => [q.key, { answer: 'na', description: '' }]))
 }
 
-const DELAY_TYPES = ['Weather', 'Material Delivery', 'Equipment', 'Labor Shortage', 'Inspection', 'Design Change', 'Other']
 
 interface DailyLog {
   id: string
   log_date: string
   created_by_name: string
   created_at: string
+  // ONE HOME EACH. `weather_condition` and `temperature` were a second pair of
+  // columns holding the same two facts - 70 rows in one, 4 in the other, and a
+  // `??` chain between them in every reader. Merged and dropped in 114.
   weather: string | null
-  weather_condition: string | null  // alias fallback
   temp_f: number | null
-  temperature: string | null        // alias fallback
   notes: string | null
   has_issues: boolean
   issue_description: string | null
-  delays: { type: string; description: string }[]
+  delays: LogDelay[]
   subs_on_site: { company_id: string; name: string; workers?: number }[]
   workers_on_site: { name: string; role: string }[]
   photos: { url: string; path: string; caption: string }[]
@@ -85,6 +87,10 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
   const canCreateLog = can('daily-logs', 'create')
   const canEditLog = can('daily-logs', 'edit')
   const canDeleteLog = can('daily-logs', 'delete')
+  // WHO MAY ACT ON A LOGGED DELAY. Not the same people who may file one:
+  // field_supervisor and worker file logs and hold no `schedule: edit` between
+  // them. The offer is hidden without it and the schedule route asks again.
+  const canEditSchedule = can('schedule', 'edit')
   const supabase = createClient()
   const photoInputRef = useRef<HTMLInputElement>(null)
 
@@ -106,7 +112,15 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
   const [notes, setNotes] = useState('')
   const [hasIssues, setHasIssues] = useState(false)
   const [issueDescription, setIssueDescription] = useState('')
-  const [delays, setDelays] = useState<{ type: string; description: string }[]>([])
+  const [delays, setDelays] = useState<LogDelay[]>([])
+  // The job's schedule lines, so a delay can name the one it held up. Deliveries
+  // first - the commonest thing a site reports as late.
+  const [scheduleLines, setScheduleLines] = useState<{ id: string; name: string; isDelivery: boolean; when: string | null }[]>([])
+  // THREE STATES, NOT A FALSY VALUE. `[]` means "still asking" as well as
+  // "there are none", and a FAILED read is the worse half - rendering "nothing
+  // is scheduled on this job" over a request that never landed tells somebody
+  // their schedule is empty.
+  const [linesState, setLinesState] = useState<'loading' | 'ready' | 'failed'>('loading')
   const [subsOnSite, setSubsOnSite] = useState<{ id: string; company_id: string; name: string; workers: number }[]>([])
   const [workersOnSite, setWorkersOnSite] = useState<{ name: string; role: string }[]>([])
   const [photos, setPhotos] = useState<File[]>([])
@@ -208,11 +222,20 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
     fetchLogs()
     async function fetchContext() {
       const token = await getToken()
-      const [teamRes, subRes, projRes] = await Promise.all([
+      const [teamRes, subRes, projRes, linesRes] = await Promise.all([
         fetch(`/api/projects/${params.id}/team`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`/api/projects/${params.id}/tasks`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`/api/projects/${params.id}/activity`, { headers: { Authorization: `Bearer ${token}` } }),
+        // `daily-logs/lines`, NEVER `/schedule`: a `worker` holds no schedule
+        // permission at all, and they are the person who watched the delivery
+        // not arrive. A page's gate has to cover every route it loads from.
+        fetch(`/api/projects/${params.id}/daily-logs/lines`, { headers: { Authorization: `Bearer ${token}` } }),
       ])
+      if (linesRes.ok) {
+        const body = await linesRes.json().catch(() => null)
+        if (body?.lines) { setScheduleLines(body.lines); setLinesState('ready') }
+        else setLinesState('failed')
+      } else setLinesState('failed')
       if (teamRes.ok) {
         const d = await teamRes.json()
         setTeamMembers(d.members ?? [])
@@ -376,7 +399,14 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
   }
 
   function addDelay() {
-    setDelays(prev => [...prev, { type: '', description: '' }])
+    // STARTS EMPTY. A `useState` default on a required select is a claim, and
+    // it disarms the validation beside it: a row that begins on "Weather"
+    // records a cause nobody chose.
+    setDelays(prev => [...prev, { type: '', description: '', schedule_item_id: null }])
+  }
+
+  function setDelay(i: number, patch: Partial<LogDelay>) {
+    setDelays(prev => prev.map((d, j) => (j === i ? { ...d, ...patch } : d)))
   }
 
   function resetForm() {
@@ -426,8 +456,8 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
     setEditLogDate(log.log_date)
     setEditWorkersOnsite(String(log.workers_on_site?.length ?? ''))
     setEditNotes(log.notes ?? '')
-    setEditWeather((log.weather ?? log.weather_condition) ?? '')
-    setEditTempF(log.temp_f != null ? String(log.temp_f) : (log.temperature ?? ''))
+    setEditWeather(log.weather ?? '')
+    setEditTempF(log.temp_f != null ? String(log.temp_f) : '')
     setEditSubsOnSite((log.subs_on_site ?? []).map(s => ({ id: (s as any).id ?? s.company_id, company_id: s.company_id, name: s.name, workers: (s as any).workers ?? 0 })))
     setEditCrewOnSite((log.workers_on_site ?? []).map(w => ({ name: w.name, role: w.role })))
     setEditSafety(log.safety_observation ?? '')
@@ -498,27 +528,37 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
     // log filed happily and then sat in the list and the client PDF asserting
     // that somebody was on site and reported nothing. The date and the weather
     // do not count - both are filled in for you.
-    const said = [notes, safetyObs, qualityObs].some(v => v.trim() !== '')
-    const showed = photos.length > 0 || attachments.length > 0
-      || workersOnSite.length > 0 || subsOnSite.length > 0
-      // Every question starts at 'na' with no note, so untouched is not an answer.
-      || Object.values(survey ?? {}).some((v: any) => v && (v.answer !== 'na' || (v.description ?? '').trim() !== ''))
-    if (!said && !showed) {
-      setError('An empty log says somebody was on site and reported nothing. Add a note, a photo, who was there, or an observation.')
+    if (!logSaysSomething({
+      notes, safety_observation: safetyObs, quality_observation: qualityObs,
+      photos: photos.length,
+      attachments: attachments.length,
+      workers: workersOnSite.length,
+      subs: subsOnSite.length,
+      delays,
+      survey,
+    })) {
+      setError(EMPTY_LOG_PROBLEM)
       return
     }
+    // A HALF-TYPED DELAY ROW IS ANSWERED AT THE FIELD, not by a 400 that talks
+    // about the whole request. The route DROPS such a row rather than refusing
+    // the log - correct there, and silent, which is why the form has to say so
+    // before it posts. Otherwise the save "works" and the delay is gone.
+    const badDelay = delays.map(logDelayProblem).find(Boolean)
+    if (badDelay) { setError(badDelay); return }
     setSubmitting(true)
     const token = await getToken()
     const form = new FormData()
     form.append('log_date', logDate)
     if (weatherCondition) form.append('weather_condition', weatherCondition)
-    if (temperature) form.append('temperature', temperature)
+    if (temperature) form.append('temp_f', temperature)
     if (notes) form.append('notes', notes)
     if (safetyObs) form.append('safety_observation', safetyObs)
     if (qualityObs) form.append('quality_observation', qualityObs)
     form.append('survey', JSON.stringify(survey))
     form.append('subs_on_site', JSON.stringify(subsOnSite))
     form.append('workers_on_site', JSON.stringify(workersOnSite))
+    form.append('delays', JSON.stringify(delays))
     photos.forEach((f, i) => {
       form.append('photos', f)
       if (photoSubs[i]) form.append(`subId_${f.name}`, photoSubs[i])
@@ -995,6 +1035,91 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
               </label>
             </div>
 
+            {/* What held things up - the delay rows */}
+            <div className="space-y-2">
+              <Label><Clock className="inline h-3.5 w-3.5 mr-1 text-warn" />What held things up today?</Label>
+              <p className="text-xs text-muted-fg">
+                Optional. Naming the schedule line it held up lets somebody in the
+                office push the dates from here - nothing moves until they do.
+              </p>
+
+              {delays.length > 0 && (
+                <div className="rounded-lg border border-line divide-y divide-line-soft">
+                  {delays.map((d, i) => (
+                    <div key={i} className="p-3 space-y-2">
+                      <div className="row-even lg:flex lg:flex-wrap gap-2">
+                        <div className="space-y-1.5">
+                          <Label htmlFor={`delay-type-${i}`}>What kind? *</Label>
+                          <select id={`delay-type-${i}`} value={d.type}
+                            onChange={e => setDelay(i, { type: e.target.value })}
+                            className="w-full rounded-md border border-muted2 bg-panel px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent">
+                            {/* STARTS EMPTY. A useState default on a required
+                                select is a claim, and it disarms the rule beside
+                                it - a row that begins on "Weather" records a
+                                cause nobody chose. */}
+                            <option value="">-- Select --</option>
+                            {DELAY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                          </select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor={`delay-line-${i}`}>Which schedule line? (optional)</Label>
+                          <select id={`delay-line-${i}`} value={d.schedule_item_id ?? ''}
+                            onChange={e => {
+                              const id = e.target.value || null
+                              // THE LABEL TRAVELS WITH THE ID. A jsonb id has no
+                              // foreign key, so the line can be deleted next
+                              // March and this log still has to read.
+                              setDelay(i, {
+                                schedule_item_id: id,
+                                schedule_item_label: id
+                                  ? (scheduleLines.find(l => l.id === id)?.name ?? null)
+                                  : null,
+                              })
+                            }}
+                            disabled={linesState !== 'ready' || scheduleLines.length === 0}
+                            className="w-full rounded-md border border-muted2 bg-panel px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-60">
+                            <option value="">
+                              {/* AN EMPTY LIST IS A THIRD FACT. "Still asking"
+                                  and "there are none" must not share one
+                                  sentence, and a FAILED read must never say
+                                  "none" - that tells somebody their schedule is
+                                  empty when the request simply did not land. */}
+                              {linesState === 'loading' ? 'Loading the schedule…'
+                                : linesState === 'failed' ? 'Could not load the schedule - reload to try again'
+                                : scheduleLines.length === 0 ? 'Nothing is scheduled on this job yet'
+                                : '-- Not tied to one --'}
+                            </option>
+                            {scheduleLines.map(l => (
+                              <option key={l.id} value={l.id}>
+                                {l.isDelivery ? `Delivery: ${l.name.replace(/^Delivery - /, '')}` : l.name}
+                                {l.when ? ` (${l.when})` : ''}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`delay-what-${i}`}>What happened? *</Label>
+                        <input id={`delay-what-${i}`} value={d.description}
+                          onChange={e => setDelay(i, { description: e.target.value })}
+                          placeholder="Lumber truck never showed"
+                          className="w-full rounded-md border border-muted2 px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+                      </div>
+                      <button type="button" onClick={() => setDelays(prev => prev.filter((_, j) => j !== i))}
+                        className="inline-flex items-center gap-1.5 text-xs text-faint hover:text-danger">
+                        <X className="h-3.5 w-3.5" /> Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <button type="button" onClick={addDelay}
+                className="inline-flex items-center gap-1.5 text-xs text-accent-fg hover:underline w-fit">
+                <Plus className="h-3.5 w-3.5" /> Add a delay
+              </button>
+            </div>
+
             {/* Site Safety Observation */}
             <div className="space-y-1.5">
               <Label><ShieldAlert className="inline h-3.5 w-3.5 mr-1 text-warn" />Site Safety Observation</Label>
@@ -1176,11 +1301,11 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2.5 flex-wrap">
                       <span className="font-semibold text-ink">{dateLabel}</span>
-                      {(log.weather ?? log.weather_condition) && (
+                      {log.weather && (
                         <span className="flex items-center gap-1 text-xs text-muted-fg">
-                          {weatherIcon(log.weather ?? log.weather_condition)}
-                          <span className="capitalize">{log.weather ?? log.weather_condition}</span>
-                          {log.temperature && <span>· {log.temperature}°F</span>}
+                          {weatherIcon(log.weather)}
+                          <span className="capitalize">{log.weather}</span>
+                          {log.temp_f != null && <span>· {log.temp_f}°F</span>}
                         </span>
                       )}
                       {log.review_status === 'pending' && (
@@ -1242,9 +1367,9 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                     {/* Top bar: weather + location */}
                     <div className="flex flex-wrap gap-4 rounded-lg bg-surface border border-line-soft px-4 py-3 text-sm">
                       <div className="flex items-center gap-1.5 text-muted-fg">
-                        {weatherIcon(log.weather ?? log.weather_condition)}
-                        <span className="capitalize font-medium">{log.weather ?? log.weather_condition ?? 'No weather logged'}</span>
-                        {log.temperature && <span className="text-faint">· {log.temperature}°F</span>}
+                        {weatherIcon(log.weather)}
+                        <span className="capitalize font-medium">{log.weather ?? 'No weather logged'}</span>
+                        {log.temp_f != null && <span className="text-faint">· {log.temp_f}°F</span>}
                       </div>
                       <div className="text-faint">|</div>
                       <div className="text-muted-fg text-xs">
@@ -1321,6 +1446,57 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                         <div>
                           <p className="text-sm font-semibold text-success">Quality Control Observation</p>
                           <p className="text-sm text-ink-soft mt-0.5">{log.quality_observation}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* What held things up - and the handoff to the schedule */}
+                    {log.delays?.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold text-faint uppercase tracking-wide mb-2">What Held Things Up</p>
+                        <div className="rounded-lg border border-line-soft divide-y divide-line-soft">
+                          {log.delays.map((d, i) => (
+                            <div key={i} className="px-3 py-2.5 space-y-1.5">
+                              <div className="flex items-start gap-2 min-w-0">
+                                <Clock className="h-3.5 w-3.5 text-warn shrink-0 mt-0.5" />
+                                <div className="min-w-0">
+                                  <p className="text-sm text-ink">
+                                    <span className="font-semibold">{d.type}</span>
+                                    <span className="text-ink-soft"> - {d.description}</span>
+                                  </p>
+                                  {/* THE LABEL, NEVER A SECOND LOOKUP. A jsonb id
+                                      has no foreign key, so a line deleted since
+                                      leaves this id pointing at nothing - and a
+                                      log has to read correctly for ever. */}
+                                  {d.schedule_item_label && (
+                                    <p className="text-xs text-faint mt-0.5">Held up: {d.schedule_item_label}</p>
+                                  )}
+                                </div>
+                              </div>
+                              {/* THE HANDOFF. The people who see a delivery arrive
+                                  late do not hold `schedule: edit` - a worker
+                                  holds no schedule permission at all - so the log
+                                  RECORDS the fact and somebody entitled acts on
+                                  it. Hidden without the permission, and the
+                                  schedule route gates on it regardless: a hidden
+                                  button is not a guard.
+
+                                  NOTHING IS OFFERED WITHOUT A LINE. Guessing
+                                  which delivery a logged delay meant would move
+                                  the wrong trade's dates and email the wrong sub
+                                  - the question `inspector-link.ts` refuses to
+                                  answer when it is too vague to have one answer. */}
+                              {canEditSchedule && d.schedule_item_id && (
+                                <Link
+                                  href={`/projects/${params.id}/schedule?delay=${d.schedule_item_id}&from_log=${log.id}`
+                                    + `&reason=${encodeURIComponent(delayReasonFromLog(d, log))}`}
+                                  className="inline-flex items-center gap-1.5 text-xs text-accent-fg hover:underline"
+                                >
+                                  <Clock className="h-3.5 w-3.5" /> Push the schedule for this
+                                </Link>
+                              )}
+                            </div>
+                          ))}
                         </div>
                       </div>
                     )}

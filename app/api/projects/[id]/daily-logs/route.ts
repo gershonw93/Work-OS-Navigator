@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { cleanDelays, logSaysSomething, EMPTY_LOG_PROBLEM } from '@/lib/daily-log-delays'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
 import { FIELD_ROLES } from '@/lib/permissions'
@@ -44,6 +45,18 @@ export async function GET(request: Request, { params }: { params: { id: string }
   return NextResponse.json({ logs: rows })
 }
 
+/**
+ * `JSON.parse` on a field a browser sent, without taking the request with it.
+ *
+ * The survey and the rosters are already parsed bare above; a malformed one
+ * throws a SyntaxError out of the handler and the filer sees a 500 about their
+ * whole log. Used for the new field rather than retrofitted to the others in
+ * this change - that is a separate fix with its own blast radius.
+ */
+function safeJson(raw: string): unknown {
+  try { return JSON.parse(raw) } catch { return [] }
+}
+
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -86,9 +99,24 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const survey_raw = formData.get('survey') as string | null
   const subs_on_site_raw = formData.get('subs_on_site') as string | null
   const workers_on_site_raw = formData.get('workers_on_site') as string | null
+  const delays_raw = formData.get('delays') as string | null
+  // The form posted `temperature` and nothing read it, so the number the
+  // Auto-fill weather button fetched was thrown away on every log. `temp_f`
+  // is the column (integer) and what the PATCH route already whitelists.
+  const temp_f_raw = formData.get('temp_f') as string | null
+  // Posted by the mobile field view since it shipped, and dropped on the floor
+  // here until now - the route answered 200 and the log came back without
+  // them, which is a rejection wearing a success.
+  const has_issues = formData.get('has_issues') === 'true'
+  const issue_description = formData.get('issue_description') as string | null
   const signed_by_name = formData.get('signed_by_name') as string | null
 
   const survey = survey_raw ? JSON.parse(survey_raw) : {}
+  // A HALF-TYPED DELAY ROW MUST NOT COST SOMEBODY THEIR WHOLE DAY'S LOG.
+  // `cleanDelays` drops the rows that fail the rule and keeps the rest - this
+  // is a record of a day on a site, often filed from a phone at the end of it,
+  // and refusing all of it over one blank description is the wrong trade.
+  const delays = cleanDelays(delays_raw ? safeJson(delays_raw) : [])
   const workers_on_site = workers_on_site_raw ? JSON.parse(workers_on_site_raw) : []
   const subs_on_site = subs_on_site_raw ? JSON.parse(subs_on_site_raw) : []
   const subWorkerTotal = subs_on_site.reduce((t: number, s: any) => t + (Number(s.workers) || 0), 0)
@@ -143,18 +171,16 @@ export async function POST(request: Request, { params }: { params: { id: string 
   // the same route. Anything substantive counts: a note, an observation, a
   // photo, an attachment, who was on site, or an answered survey question. The
   // DATE does not, and neither does the weather - both are filled in for you.
-  const said = [
-    notes, safety_observation, quality_observation,
-  ].some(v => (v ?? '').trim() !== '')
-  const showed = photos.length > 0 || attachments.length > 0
-    || totalWorkers > 0 || subs_on_site.length > 0
-    // blankSurvey() starts every question at 'na' with no note, so an
-    // untouched survey is not a report.
-    || Object.values(survey ?? {}).some((v: any) => v && (v.answer !== 'na' || (v.description ?? '').trim() !== ''))
-  if (!said && !showed) {
-    return NextResponse.json({
-      error: 'An empty log says somebody was on site and reported nothing. Add a note, a photo, who was there, or an observation.',
-    }, { status: 400 })
+  if (!logSaysSomething({
+    notes, safety_observation, quality_observation, issue_description,
+    photos: photos.length,
+    attachments: attachments.length,
+    workers: totalWorkers,
+    subs: subs_on_site.length,
+    delays,
+    survey,
+  })) {
+    return NextResponse.json({ error: EMPTY_LOG_PROBLEM }, { status: 400 })
   }
 
   const { data: log, error } = await db.from('daily_logs').insert({
@@ -166,8 +192,18 @@ export async function POST(request: Request, { params }: { params: { id: string 
     log_date,
     notes: notes || '',
     workers_onsite: totalWorkers,
+    // The FORM field is `weather_condition`; the COLUMN is `weather`. Both
+    // posters agree on the wire name, so it stays - but the second weather
+    // COLUMN is gone (114), and this is the one place the two names meet.
     weather: weather_condition || null,
+    temp_f: temp_f_raw && /^\d+$/.test(temp_f_raw.trim()) ? Number(temp_f_raw.trim()) : null,
     subs_on_site,
+    // The roster itself, not only the count. `workers_onsite` above is the
+    // derived total; this is who they were, posted all along and stored now.
+    workers_on_site,
+    delays,
+    has_issues,
+    issue_description: issue_description || null,
     survey,
     safety_observation: safety_observation || null,
     quality_observation: quality_observation || null,

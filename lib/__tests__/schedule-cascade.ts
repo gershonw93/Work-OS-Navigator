@@ -5,7 +5,7 @@
 // things that are true about the SYSTEM rather than about the maths - the ones
 // that go wrong by omission, quietly, months later.
 
-import { ok, done, code, read, walk, exists } from './_helpers'
+import { ok, done, code, read, walk, exists, combinedName, readCombined, highestMigration, migrationFiles } from './_helpers'
 
 console.log('\nschedule-cascade')
 
@@ -32,14 +32,21 @@ console.log('\nschedule-cascade')
     'every foreign key states its ON DELETE rule explicitly')
 
   // The fallback for a fresh environment has to carry it too.
-  ok(exists('supabase/migrations/_combined_008-113.sql'), 'the combined file is bumped to 113')
-  ok(/schedule_dependencies/.test(read('supabase/migrations/_combined_008-113.sql')),
-    '...and contains the new tables')
-  ok(!exists('supabase/migrations/_combined_008-107.sql'), '...and the old name is gone, not left beside it')
-  ok(!exists('supabase/migrations/_combined_008-112.sql'),
-    '...nor the one before this bump - a fresh environment built from a stale file is the whole risk')
-  ok(/_combined_008-113\.sql/.test(read('CLAUDE.md')), '...and CLAUDE.md points at the new name')
-  ok(!/_combined_008-112\.sql/.test(read('CLAUDE.md')), '...and not at the old one as well')
+  //
+  // ASKED AGAINST THE HIGHEST MIGRATION ON DISK, never against a number typed
+  // here. The first version of this pin hardcoded `_combined_008-113.sql`, so
+  // migration 114 broke it - a test failing for a reason nobody would act on,
+  // which is how a pin gets "fixed" by pointing it somewhere harmless. The
+  // RULE is "the combined file's suffix is the newest migration"; that is what
+  // is checked, and it needs no editing next time.
+  const combined = combinedName()
+  ok(combined === `_combined_008-${highestMigration()}.sql`,
+    `the combined file carries the newest migration number (${combined})`)
+  ok(/schedule_dependencies/.test(readCombined()), '...and contains the new tables')
+  const strays = migrationFiles().filter(f => f.startsWith('_combined_') && f !== combined)
+  ok(strays.length === 0,
+    `...and no older combined file is left beside it (${strays.join(', ') || 'none'})`)
+  ok(read('CLAUDE.md').includes(combined), '...and CLAUDE.md points at that name')
 
   // 109 is a DATA REPAIR, not a schema change, and the combined file is
   // replayed whole on a fresh environment - so it has to be idempotent and it
@@ -48,9 +55,9 @@ console.log('\nschedule-cascade')
   ok(/dates_overridden_at = NULL/.test(repair), 'the repair clears the flag')
   ok(/INTERVAL '2 minutes'/.test(repair),
     '...only where ONE SAVE wrote both statements, never a deliberate override days later')
-  ok(/109/.test(read('supabase/migrations/_combined_008-113.sql')),
+  ok(/109/.test(readCombined()),
     '...and it is in the combined file too, or a fresh environment is born with the bug')
-  ok(/demo_notification_log/.test(read('supabase/migrations/_combined_008-113.sql')),
+  ok(/demo_notification_log/.test(readCombined()),
     'and 110 is in it as well - the bump is the easy half to forget')
 }
 
