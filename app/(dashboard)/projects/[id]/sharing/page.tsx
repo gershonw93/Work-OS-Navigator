@@ -49,11 +49,19 @@ type Row =
  *     second table - one fact, one home; this page just reads it.
  *
  * TWO BUTTONS, AND THEY ARE DIFFERENT ACTS, because two controls answering the
- * same question is worse than one control in the wrong place. "Send to
- * someone" goes to ONE person outside the company on a link. "Send scope
+ * same question is worse than one control in the wrong place. "Send to one
+ * person" goes to ONE person outside the company on a link. "Send scope
  * update" goes to the team and the trades through the bell and their inbox -
  * and it can carry the revised sheet with it, so the notice and the drawing
  * arrive together.
+ *
+ * THE LABELS HAVE TO SAY THAT, because nothing else on the button can. Reported
+ * from a UX review as two overlapping CTAs: "Send to someone" and "Send scope
+ * update" both read as "send a thing to people", and the difference - one
+ * outsider on a link vs everybody on the job in the bell - lived only in the
+ * Help article. The primary now names its audience ("one person"), the
+ * secondary keeps the name the dialog and the plan row share, and the intro
+ * says who each one reaches.
  */
 export default function SharingPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
@@ -130,8 +138,11 @@ export default function SharingPage({ params }: { params: { id: string } }) {
         <div>
           <h1 className="text-2xl font-bold text-ink">Sharing</h1>
           <p className="text-sm text-muted-fg mt-0.5">
-            Everything that has gone out on this job, and who it went to. Documents are optional on both -
-            send a plain update with nothing attached, or a scope update with the revised sheet on it.
+            Everything that has gone out on this job, and who it went to.{' '}
+            <span className="text-ink-soft font-medium">Send to one person</span> gives someone outside your
+            company - an expeditor, a lender - a link, no account needed.{' '}
+            <span className="text-ink-soft font-medium">Send scope update</span> tells your team and the trades
+            on this job, in the bell and by email. Documents are optional on both.
           </p>
         </div>
         {/* A row of controls reaches both edges on a phone and sits right on a
@@ -141,7 +152,7 @@ export default function SharingPage({ params }: { params: { id: string } }) {
             <Megaphone className="h-4 w-4" /> Send scope update
           </Button>
           <Button onClick={() => setOpen(true)} className="gap-1.5">
-            <Send className="h-4 w-4" /> Send to someone
+            <Send className="h-4 w-4" /> Send to one person
           </Button>
         </div>
       </div>

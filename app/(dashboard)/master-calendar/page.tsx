@@ -20,6 +20,17 @@ const COLOR: Record<string, string> = {
   purple: 'bg-accent-tint text-accent-fg', red: 'bg-danger-tint text-danger',
   amber: 'bg-warn-tint text-warn',
 }
+// PHONE DOTS ARE COLOURED BY KIND, not by the item's own colour. A schedule
+// line's colour is whatever somebody picked for it - blue, green, red, amber,
+// purple - which is the same five a task and an inspection use for their
+// state, so a legend by colour could not be true. Three kinds, three dots, and
+// the legend under the grid says which is which.
+const KIND_DOT: Record<Item['kind'], string> = {
+  schedule: 'bg-info', task: 'bg-warn', inspection: 'bg-special',
+}
+const KIND_LABEL: Record<Item['kind'], string> = {
+  schedule: 'Schedule', task: 'Task due', inspection: 'Inspection',
+}
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
@@ -99,18 +110,38 @@ export default function MasterCalendarPage() {
 
       <div className="bg-panel rounded-xl border border-line overflow-hidden">
         <div className="grid grid-cols-7 border-b border-line-soft">
-          {DOW.map(d => <div key={d} className="px-2 py-2 text-center text-[11px] font-semibold uppercase tracking-wide text-faint">{d}</div>)}
+          {DOW.map(d => (
+            <div key={d} className="px-2 py-2 text-center text-[11px] font-semibold uppercase tracking-wide text-faint">
+              <span className="sm:hidden">{d[0]}</span><span className="hidden sm:inline">{d}</span>
+            </div>
+          ))}
         </div>
         <div className="grid grid-cols-7">
           {cells.map((d, i) => {
             const k = d ? iso(d) : ''
             const dayItems = d ? (byDay.get(k) ?? []) : []
+            // The whole square is the control when there is anything on it.
+            const open = d && dayItems.length ? () => setSelectedDay(k) : undefined
             return (
               <div key={i}
-                onClick={() => { if (d && dayItems.length) setSelectedDay(k) }}
-                className={cn('min-h-[96px] border-b border-r border-line-soft p-1.5 align-top', !d && 'bg-surface/40', k === todayIso && 'bg-accent-tint/30', d && dayItems.length && 'cursor-pointer hover:bg-surface/60')}>
+                onClick={open}
+                role={open ? 'button' : undefined}
+                tabIndex={open ? 0 : undefined}
+                aria-label={open && d ? `${formatDate(d, { month: 'long', day: 'numeric' })}, ${dayItems.length} ${dayItems.length === 1 ? 'item' : 'items'}` : undefined}
+                onKeyDown={open ? (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); open() } } : undefined}
+                className={cn('min-w-0 min-h-[60px] lg:min-h-[96px] border-b border-r border-line-soft p-1.5 align-top', !d && 'bg-surface/40', k === todayIso && 'bg-accent-tint/30', open && 'cursor-pointer hover:bg-surface/60')}>
                 {d && <div className={cn('text-xs mb-1', k === todayIso ? 'font-bold text-accent-fg' : 'text-faint')}>{d.getDate()}</div>}
-                <div className="space-y-1">
+                {/* PHONE: DOTS. Seven columns at 390px is a ~55px square, and
+                    the chips that lived here came out as "Mar…" three letters
+                    long, four deep, with "+1 more" under them. Colour by kind
+                    only - the legend under the grid explains it - and the DAY
+                    is what you tap: it opens the shared day sheet. */}
+                <div className="lg:hidden flex flex-wrap gap-1">
+                  {dayItems.slice(0, 6).map(it => (
+                    <span key={it.id} className={cn('h-1.5 w-1.5 rounded-full', KIND_DOT[it.kind], it.done && 'opacity-40')} />
+                  ))}
+                </div>
+                <div className="hidden lg:block space-y-1">
                   {dayItems.slice(0, 4).map(it => (
                     <button key={it.id} onClick={(e) => { e.stopPropagation(); router.push(it.href) }} title={`${it.project_name} · ${it.title}`}
                       className={cn('w-full text-left rounded px-1.5 py-0.5 text-[10px] leading-tight truncate hover:opacity-80', COLOR[it.color] ?? COLOR.blue, it.done && 'line-through opacity-60')}>
@@ -123,6 +154,16 @@ export default function MasterCalendarPage() {
             )
           })}
         </div>
+      </div>
+
+      {/* PHONE: what the dots mean, and what to do with them. */}
+      <div className="lg:hidden flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-fg" data-calendar-legend>
+        {(Object.keys(KIND_DOT) as Item['kind'][]).map(kind => (
+          <span key={kind} className="inline-flex items-center gap-1.5 whitespace-nowrap">
+            <span className={cn('h-2 w-2 rounded-full', KIND_DOT[kind])} />{KIND_LABEL[kind]}
+          </span>
+        ))}
+        <span className="basis-full text-faint">Tap a day to see everything on it.</span>
       </div>
 
       {/* Day detail - everything happening that day; click one to open it.
@@ -138,7 +179,9 @@ export default function MasterCalendarPage() {
             id: it.id,
             title: it.title,
             subtitle: `${it.project_name} · ${it.kind === 'inspection' ? 'Inspection' : it.kind === 'task' ? 'Task' : 'Schedule'}`,
-            dot: (COLOR[it.color] ?? COLOR.blue).split(' ')[0],
+            // The same dot as the phone grid and its legend, so the sheet a
+            // day opens agrees with the square that opened it.
+            dot: KIND_DOT[it.kind],
             done: it.done,
             onOpen: () => router.push(it.href),
           }))}

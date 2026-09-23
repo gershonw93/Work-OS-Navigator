@@ -1,3 +1,5 @@
+import { dateWords } from './dates'
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Has it run out yet?
 //
@@ -64,4 +66,44 @@ export function daysExpired(expiry: string | null | undefined, today?: Date): nu
   const d = today ? new Date(today) : new Date()
   d.setHours(0, 0, 0, 0)
   return Math.round((d.getTime() - due.getTime()) / 86_400_000)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// What the date line SAYS.
+//
+// THE BUG: an expired permit read "Expires Sep 8, 2026" a fortnight after Sep
+// 8 - a past date under a future-tense verb, beside a red "expired" chip that
+// said the opposite. Four screens (permits, compliance, directory, reports)
+// each wrote `Expires ${formatDate(...)}` by hand, so none of them could know
+// the date had gone. The verb follows the same four-state answer as the chip.
+//
+// Built from `dateWords` (fixed tables, parsed as UTC) rather than
+// toLocaleDateString, so it reads the same in a test as on a phone. The year
+// is printed only when it is not this year's: "Expired Sep 8" is the report's
+// own wording, and "Expires Mar 1, 2027" still says which March.
+// ─────────────────────────────────────────────────────────────────────────────
+
+
+export function expiryLabel(
+  expiry: string | null | undefined,
+  opts: { today?: Date } = {},
+): string | null {
+  if (!expiry) return null
+  const iso = String(expiry).slice(0, 10)
+  const words = dateWords(iso)
+  if (!words) return null
+  const state = expiryState(iso, { today: opts.today })
+  const today = opts.today ? new Date(opts.today) : new Date()
+  const sameYear = iso.slice(0, 4) === String(today.getFullYear())
+  const when = sameYear ? words.short : `${words.short}, ${iso.slice(0, 4)}`
+  if (state === 'expired') return `Expired ${when}`
+  if (expiryState(iso, { today: opts.today, windowDays: 0 }) === 'soon') return 'Expires today'
+  return `Expires ${when}`
+}
+
+/** "Expired 15 days ago" - the ONE status an expired row wears. */
+export function expiredAgo(expiry: string | null | undefined, today?: Date): string | null {
+  const n = daysExpired(expiry, today)
+  if (n === null) return null
+  return `Expired ${n} day${n === 1 ? '' : 's'} ago`
 }

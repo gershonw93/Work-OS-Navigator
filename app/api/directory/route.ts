@@ -83,17 +83,22 @@ export async function GET(request: Request) {
     .in('id', visibleIds)
     .order('name')
 
-  // Check which companies have at least one profile (i.e. a real account)
-  const { data: profiles } = await db
-    .from('profiles')
-    .select('company_id')
-    .in('company_id', visibleIds)
+  // Check which companies have at least one profile (i.e. a real account), and
+  // which already have an invite out. The second is what lets the Directory
+  // say "Invited" after a reload - it used to live in page state only, so the
+  // "Invite N contacts" count went back to counting people already asked.
+  const [{ data: profiles }, { data: invites }] = await Promise.all([
+    db.from('profiles').select('company_id').in('company_id', visibleIds),
+    db.from('company_invites').select('company_id').in('company_id', visibleIds).eq('status', 'pending'),
+  ])
 
   const companiesWithAccount = new Set((profiles ?? []).map(p => p.company_id))
+  const companiesInvited = new Set((invites ?? []).map((i: any) => i.company_id))
 
   const companiesResult = (companies ?? []).map(c => ({
     ...c,
     has_account: companiesWithAccount.has(c.id),
+    invite_pending: !companiesWithAccount.has(c.id) && companiesInvited.has(c.id),
   }))
 
   // `contacts` IS NOT A TABLE THIS APP WRITES TO. It holds zero rows: the

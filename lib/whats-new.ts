@@ -54,6 +54,45 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 // Author entries anywhere in this list; the app reads the sorted view.
 const AUTHORED: Release[] = [
   {
+    date: '2026-09-23',
+    title: 'Less to scroll past, and the thing that needs you first',
+    items: [
+      {
+        kind: 'improved',
+        title: 'Budget on a phone: one line per budget line',
+        text: 'Each budget line starts folded to its name, what it has cost and how much is left or over - tap it for the rest. Tap a category to fold it away. The toolbar is Add Line plus a "..." menu, and Delete now lives inside an opened line instead of beside every one. Receipts with no budget line yet are counted once, with "Assign them", instead of a badge on every row - and you can assign one straight from Materials.',
+        help: 'add-project-budget',
+      },
+      {
+        kind: 'improved',
+        title: 'Expired permits go to the top',
+        text: 'The permit that needs you is no longer at the bottom of the list: expired and expiring permits come first, with one red "Expired 15 days ago" instead of three labels, and a past date reads "Expired Sep 8" everywhere dates are shown - Compliance, Directory and Reports too. On Approvals, Approve and Reject stay on screen however wide the table gets.',
+      },
+      {
+        kind: 'improved',
+        title: 'Directory and Settings, tidied',
+        text: 'The Directory has one "Invite N contacts not on SyteNav" button instead of one on every card - each card\'s own invite, edit and delete are in its "..." menu - and every tab shows its count. On a phone, Settings opens as a list of sections instead of a strip that cut half of them off. Adding a customer who is already on your list now says so instead of making a second card.',
+      },
+      {
+        kind: 'improved',
+        title: 'Projects, Master Money and the Master Calendar get to the point on a phone',
+        text: 'On Projects the counts are one line and the type, status, sort and map/list choice sit behind one Filter button, so the first job is near the top instead of two screens down. Master Money shows three numbers per job - received, paid out, escrow - and a tap for the rest, with jobs that have no money yet folded into one row. The Master Calendar draws a dot per item and you tap a day to see everything on it, instead of chips cut to three letters. Nothing changes on a desktop.',
+        help: 'master-money',
+      },
+      {
+        kind: 'improved',
+        title: 'Escrow says what it means',
+        text: 'Master Money now explains its escrow figure: what the client has paid you, less what you paid vendors out of escrow, less your fee on approved vendor bills. Below zero means more has gone out than the client has paid in, and on a phone the amount of that gap is spelled out under the total.',
+        help: 'master-money',
+      },
+      {
+        kind: 'improved',
+        title: 'Recent Activity shows the latest three',
+        text: 'The home screen\'s activity feed shows the three most recent things, with "Show all" for the rest. Bills from subs folds its introduction away once a job has a bill - "How this works" brings it back.',
+      },
+    ],
+  },
+  {
     date: '2026-09-22',
     title: 'Delay a sub, and see what it actually moves',
     items: [

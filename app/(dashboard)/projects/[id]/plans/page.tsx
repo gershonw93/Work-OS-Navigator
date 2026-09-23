@@ -19,6 +19,7 @@ import { uploadPlan, guessPlanType, baseName } from '@/lib/upload-plan'
 import { formatDate } from '@/lib/dates'
 import { useNotice } from '@/components/ui/notice'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
+import { RowMenu, MenuItem } from '@/components/ui/row-menu'
 interface PlanFolder { id: string; name: string; project_id: string; created_at: string }
 interface Plan { id: string; name: string; plan_type: string; file_url: string; folder_id: string | null; created_at: string }
 
@@ -550,11 +551,14 @@ export default function PlansPage({ params }: { params: { id: string } }) {
                   {searching ? 'Matches' : activeFolderId ? 'Files' : 'Not in a folder'}
                 </p>
               )}
-              <div className="divide-y divide-line-soft overflow-hidden rounded-xl border border-line bg-panel">
+              {/* NO overflow-hidden on the card: it clips on both axes, and
+                  the RowMenu hanging off the last row would be cut off rather
+                  than shortened. The first and last rows round themselves. */}
+              <div className="divide-y divide-line-soft rounded-xl border border-line bg-panel">
                 {visiblePlans.map(plan => {
                   const folder = folders.find(f => f.id === plan.folder_id)
                   return (
-                    <div key={plan.id} className="group flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-surface sm:px-4">
+                    <div key={plan.id} className="group flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-surface first:rounded-t-xl last:rounded-b-xl sm:px-4">
                       <span className="shrink-0 rounded-lg border border-line-soft bg-surface p-2">
                         <FileText className="h-4 w-4 text-muted-fg" />
                       </span>
@@ -590,25 +594,30 @@ export default function PlansPage({ params }: { params: { id: string } }) {
                             <Megaphone className="h-4 w-4" />
                           </button>
                         )}
-                        <a href={plan.file_url} target="_blank" rel="noopener noreferrer"
-                          className="rounded-md p-1.5 text-faint transition-colors hover:bg-accent-tint hover:text-accent-fg"
-                          title="Open the original file">
-                          <ExternalLink className="h-4 w-4" />
-                        </a>
-                        {canAdd && (
-                          <button onClick={() => openMove(plan)}
-                            className="rounded-md p-1.5 text-faint transition-colors hover:bg-accent-tint hover:text-accent-fg"
-                            title="Move to a folder">
-                            <FolderInput className="h-4 w-4" />
-                          </button>
-                        )}
-                        {canDelete && (
-                          <button onClick={() => handleDeletePlan(plan.id)}
-                            className="rounded-md p-1.5 text-faint transition-colors hover:bg-danger-tint hover:text-danger"
-                            title="Delete plan">
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        )}
+                        {/* ONE PRIMARY ACTION PER ROW - opening the plan is
+                            the row itself. The rest, and above all Delete, go
+                            behind the menu: a bare bin on every row put the
+                            irreversible act one tap from the list. Delete still
+                            asks through useDeleteGuard. */}
+                        <RowMenu label={`More for ${plan.name}`}>
+                          {close => (
+                            <>
+                              <MenuItem href={plan.file_url} newTab onClick={close}>
+                                <ExternalLink className="h-3.5 w-3.5" /> Open the original file
+                              </MenuItem>
+                              {canAdd && (
+                                <MenuItem onClick={() => { close(); openMove(plan) }}>
+                                  <FolderInput className="h-3.5 w-3.5" /> Move to a folder
+                                </MenuItem>
+                              )}
+                              {canDelete && (
+                                <MenuItem danger onClick={() => { close(); handleDeletePlan(plan.id) }}>
+                                  <Trash2 className="h-3.5 w-3.5" /> Delete plan
+                                </MenuItem>
+                              )}
+                            </>
+                          )}
+                        </RowMenu>
                       </div>
                     </div>
                   )

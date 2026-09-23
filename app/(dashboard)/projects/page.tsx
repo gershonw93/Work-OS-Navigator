@@ -10,7 +10,7 @@ import {
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { StatStrip } from '@/components/ui/stat-strip'
+import { useSheetDismiss } from '@/lib/use-sheet-dismiss'
 import { Badge, getStatusVariant } from '@/components/ui/badge'
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -131,6 +131,8 @@ export default function ProjectsPage() {
   const [typeFilter, setTypeFilter] = useState<string>('all')
   const [sort, setSort] = useState<SortKey>('created_desc')
   const [view, setView] = useState<'grid' | 'list' | 'map'>('grid')
+  // PHONE: type, status, sort and view live in one sheet behind one button.
+  const [filterSheet, setFilterSheet] = useState(false)
 
   // Edit form state
   const [editName, setEditName] = useState('')
@@ -297,6 +299,9 @@ export default function ProjectsPage() {
   }, [items])
 
   const hasFilters = query.trim() !== '' || statusFilter !== 'all' || typeFilter !== 'all'
+  // What the phone's Filter button counts. Sort is not a filter - it hides
+  // nothing - so a non-default sort does not claim the list is narrowed.
+  const activeFilterCount = (statusFilter !== 'all' ? 1 : 0) + (typeFilter !== 'all' ? 1 : 0)
   function clearFilters() { setQuery(''); setStatusFilter('all'); setTypeFilter('all') }
 
   if (loading) return <div className="p-6 text-sm text-faint py-12 text-center">Loading...</div>
@@ -444,17 +449,37 @@ export default function ProjectsPage() {
         />
       )}
 
-      {/* Stats bar. PHONE: one card of counts, each a filter, the one that is
-          on shown with a quiet fill - a count of jobs is not a warning, so no
-          colour. DESKTOP (lg+): the five boxes it always had. */}
+      {filterSheet && (
+        <ProjectFilterSheet
+          onClose={() => setFilterSheet(false)}
+          statusFilter={statusFilter} setStatusFilter={setStatusFilter}
+          typeFilter={typeFilter} setTypeFilter={setTypeFilter}
+          sort={sort} setSort={setSort}
+          view={view} changeView={changeView}
+          shown={filtered.length}
+        />
+      )}
+
+      {/* Stats bar. PHONE: ONE LINE of counts, each a filter, the one that is
+          on in ink. It was a StatStrip - five cells, three rows of a card -
+          and with search, three filters and a sort under it the first project
+          sat two screens down. A count of jobs is not a warning, so no colour.
+          DESKTOP (lg+): the five boxes it always had. */}
       {items.length > 0 && (
-        <StatStrip className="mb-5 lg:hidden" items={[
-          { label: 'Total', value: stats.total, onClick: () => setStatusFilter('all'), active: statusFilter === 'all' },
-          { label: 'Active', value: stats.active, onClick: () => setStatusFilter('active'), active: statusFilter === 'active' },
-          { label: 'Planning', value: stats.planning, onClick: () => setStatusFilter('planning'), active: statusFilter === 'planning' },
-          { label: 'On hold', value: stats.on_hold, onClick: () => setStatusFilter('on_hold'), active: statusFilter === 'on_hold' },
-          { label: 'Completed', value: stats.completed, onClick: () => setStatusFilter('completed'), active: statusFilter === 'completed' },
-        ]} />
+        <div className="lg:hidden -mx-6 mb-2 flex gap-4 overflow-x-auto scroll-fade whitespace-nowrap px-6" data-project-summary>
+          {[
+            { label: 'total', value: stats.total, filter: 'all' },
+            { label: 'active', value: stats.active, filter: 'active' },
+            { label: 'planning', value: stats.planning, filter: 'planning' },
+            { label: 'on hold', value: stats.on_hold, filter: 'on_hold' },
+            { label: 'completed', value: stats.completed, filter: 'completed' },
+          ].map(s => (
+            <button key={s.filter} type="button" onClick={() => setStatusFilter(s.filter)} aria-pressed={statusFilter === s.filter}
+              className={cn('min-h-11 shrink-0 text-sm', statusFilter === s.filter ? 'font-semibold text-ink underline decoration-accent-fg decoration-2 underline-offset-8' : 'text-muted-fg')}>
+              <span className="font-semibold tabular-nums text-ink">{s.value}</span> {s.label}
+            </button>
+          ))}
+        </div>
       )}
       {items.length > 0 && (
         <div className="hidden lg:grid lg:grid-cols-5 gap-3 mb-5">
@@ -482,9 +507,9 @@ export default function ProjectsPage() {
 
       {/* Toolbar */}
       {items.length > 0 && (
-        <div className="flex flex-col lg:flex-row gap-3 mb-5">
+        <div className="flex gap-2 lg:gap-3 mb-5">
           {/* Search */}
-          <div className="relative flex-1">
+          <div className="relative min-w-0 flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-faint" />
             <input
               value={query}
@@ -494,7 +519,18 @@ export default function ProjectsPage() {
             />
           </div>
 
-          <div className="row-even lg:flex lg:flex-wrap items-center gap-2">
+          {/* PHONE: ONE button. Type, status, sort and the view used to be
+              four controls in two rows under the search, which with the counts
+              above them put the first project a whole screen down. They live
+              in a sheet now; the button says how many are on. */}
+          <button type="button" onClick={() => setFilterSheet(true)}
+            className={cn('lg:hidden inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border px-3 text-sm font-medium',
+              activeFilterCount ? 'border-accent bg-accent-tint text-accent-fg' : 'border-line bg-panel text-ink-soft')}>
+            <SlidersHorizontal className="h-4 w-4" />
+            Filter{activeFilterCount ? ` (${activeFilterCount})` : ''}
+          </button>
+
+          <div className="hidden lg:flex lg:flex-wrap items-center gap-2">
             {/* Type filter */}
             <div className="relative">
               <Building2 className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-faint pointer-events-none" />
@@ -808,6 +844,91 @@ export default function ProjectsPage() {
           </CardContent>
         </Card>
       )}
+    </div>
+  )
+}
+
+// ── the phone's filter sheet ────────────────────────────────────────────────
+// HOISTED, not declared inside the page: a component declared inside a
+// component is a new type on every render, so the sheet would be torn down and
+// rebuilt - replaying its slide-in - on every tap of a chip inside it.
+//
+// Choices are chips, not selects: four dropdowns in a sheet is a dropdown
+// inside a dropdown, and every option here fits on the screen at once.
+const sentence = (v: string) => v.charAt(0).toUpperCase() + v.slice(1).replace('_', ' ')
+const STATUS_CHOICES = [{ value: 'all', label: 'All' }, ...PROJECT_STATUSES.map(s => ({ value: s, label: sentence(s) }))]
+const TYPE_CHOICES = [{ value: 'all', label: 'All' }, ...PROJECT_TYPES.map(t => ({ value: t, label: sentence(t) }))]
+const VIEW_CHOICES: { value: 'grid' | 'list' | 'map'; label: string }[] = [
+  { value: 'grid', label: 'Cards' }, { value: 'list', label: 'List' }, { value: 'map', label: 'Map' },
+]
+
+function Chips<T extends string>({ label, value, options, onPick }: {
+  label: string
+  value: T
+  options: { value: T; label: string }[]
+  onPick: (v: T) => void
+}) {
+  return (
+    <div className="space-y-2">
+      <p className="text-xs font-semibold uppercase tracking-wide text-faint">{label}</p>
+      <div className="flex flex-wrap gap-2">
+        {options.map(o => (
+          <button key={o.value} type="button" onClick={() => onPick(o.value)} aria-pressed={value === o.value}
+            className={cn('min-h-11 whitespace-nowrap rounded-full border px-4 text-sm',
+              value === o.value ? 'border-accent bg-accent-tint font-medium text-accent-fg' : 'border-line bg-panel text-ink-soft')}>
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function ProjectFilterSheet({
+  onClose, statusFilter, setStatusFilter, typeFilter, setTypeFilter, sort, setSort, view, changeView, shown,
+}: {
+  onClose: () => void
+  statusFilter: string
+  setStatusFilter: (v: string) => void
+  typeFilter: string
+  setTypeFilter: (v: string) => void
+  sort: SortKey
+  setSort: (v: SortKey) => void
+  view: 'grid' | 'list' | 'map'
+  changeView: (v: 'grid' | 'list' | 'map') => void
+  /** How many projects the current choices leave - the Done button says it. */
+  shown: number
+}) {
+  const sheet = useSheetDismiss(onClose)
+  return (
+    <div className="overlay-sheet lg:hidden bg-black/40" data-overlay onClick={onClose}>
+      <div onClick={e => e.stopPropagation()}
+        {...sheet.handlers}
+        style={sheet.style}
+        className="flex flex-col overflow-y-auto overscroll-contain rounded-t-2xl bg-panel shadow-2xl pb-safe">
+        <div className="flex items-center justify-between py-2 pl-5 pr-2">
+          <h2 className="text-base font-bold text-ink">Filter and sort</h2>
+          <button type="button" onClick={onClose} aria-label="Close" title="Close"
+            className="flex h-11 w-11 items-center justify-center rounded-lg text-faint hover:text-ink">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="space-y-5 px-5 pb-4">
+          <Chips label="Status" value={statusFilter} options={STATUS_CHOICES} onPick={setStatusFilter} />
+          <Chips label="Type" value={typeFilter} options={TYPE_CHOICES} onPick={setTypeFilter} />
+          <Chips label="Sort" value={sort} options={SORT_OPTIONS} onPick={setSort} />
+          <Chips label="Show as" value={view} options={VIEW_CHOICES} onPick={changeView} />
+        </div>
+        <div className="row-even border-t border-line-soft px-5 py-3 gap-2">
+          <Button type="button" variant="secondary" className="h-11"
+            onClick={() => { setStatusFilter('all'); setTypeFilter('all'); setSort('created_desc') }}>
+            Reset
+          </Button>
+          <Button type="button" className="h-11" onClick={onClose}>
+            Show {shown} {shown === 1 ? 'project' : 'projects'}
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }

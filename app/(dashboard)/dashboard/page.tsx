@@ -110,6 +110,9 @@ function getActivityIcon(type: string): React.ElementType {
   return ACTIVITY_ICONS[type] ?? Activity
 }
 
+/** How many activity rows the home screen shows before "Show all". */
+const ACTIVITY_PREVIEW = 3
+
 function greeting() {
   const h = new Date().getHours()
   return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'
@@ -123,6 +126,8 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null)
   const [activity, setActivity] = useState<ActivityItem[]>([])
   const [activityIsAdmin, setActivityIsAdmin] = useState(false)
+  // The feed shows ACTIVITY_PREVIEW rows until somebody asks for the rest.
+  const [activityAll, setActivityAll] = useState(false)
   const [overview, setOverview] = useState<OverviewData | null>(null)
   const [firstName, setFirstName] = useState('')
   const [loading, setLoading] = useState(true)
@@ -583,8 +588,14 @@ export default function DashboardPage() {
               ) : activity.length === 0 ? (
                 <div className="py-10 text-center text-sm text-faint">No activity yet</div>
               ) : (
+                <>
+                {/* THREE ROWS, THEN "Show all". The feed ran to thirty lines
+                    under everything else on the home screen - on a phone a
+                    whole screen of "X updated Y" to scroll past, on a desktop
+                    a column longer than the one beside it. What happened most
+                    recently is the part anybody reads; the rest is one tap. */}
                 <div className="divide-y divide-line-soft max-h-[440px] overflow-y-auto">
-                  {activity.map(item => {
+                  {(activityAll ? activity : activity.slice(0, ACTIVITY_PREVIEW)).map(item => {
                     const Icon = getActivityIcon(item.type)
                     // The row goes to the record it is ABOUT. Every line used to
                     // link to /plans, so the feed answered "which project" and
@@ -620,6 +631,13 @@ export default function DashboardPage() {
                       : <div key={item.id} className={rowClass}>{body}</div>
                   })}
                 </div>
+                {activity.length > ACTIVITY_PREVIEW && (
+                  <button type="button" onClick={() => setActivityAll(v => !v)}
+                    className="flex min-h-11 w-full items-center justify-center border-t border-line-soft text-sm font-medium text-accent-fg hover:bg-surface">
+                    {activityAll ? 'Show fewer' : `Show all ${activity.length}`}
+                  </button>
+                )}
+                </>
               )}
             </CardContent>
           </Card>

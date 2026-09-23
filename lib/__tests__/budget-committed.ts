@@ -63,7 +63,9 @@ ok(noLine[0].materials_amount === 0, 'a receipt with none does not - which is wh
 
 const view = code('components/materials/materials-view.tsx')
 ok(/will not appear in the/.test(view), 'the form warns before saving an unlinked receipt')
-ok(/Not in the budget/.test(view), '...and an existing one is findable in the list')
+// Findable as ONE aggregate line that narrows the list, not a pill per row -
+// see budget-phone-lines.ts for the shape of that.
+ok(/no budget line yet/.test(view) && /setOnlyUnfiled/.test(view), '...and an existing one is findable in the list')
 
 // ── a stale recommendation says so ───────────────────────────────────────────
 const block = code('components/quotes/comparison-block.tsx')

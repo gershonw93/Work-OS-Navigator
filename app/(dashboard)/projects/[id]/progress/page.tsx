@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { useViewerContext } from '@/lib/use-viewer-context'
 import { QuoteLineItems } from '@/components/projects/quote-line-items'
+import { fetchProblem } from '@/lib/fetch-error'
 
 interface Task {
   id: string
@@ -41,22 +42,37 @@ export default function ProgressPage({ params }: { params: { id: string } }) {
   const vc = useViewerContext(params.id)
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
+  // "Loading" and "failed" are different facts. This page used to end its
+  // load with a bare setLoading(false) - so a request that threw (a dropped
+  // connection) left it on "Loading..." for ever, and one that came back
+  // refused rendered "No tasks yet" over tasks that exist. Seen in review:
+  // "Progress hung on Loading... once, rendered on reload."
+  const [error, setError] = useState<string | null>(null)
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
+    let live = true
     async function load() {
-      const { data: { session } } = await supabase.auth.getSession()
-      const token = session?.access_token ?? ''
-      const res = await fetch(`/api/projects/${params.id}/tasks`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (res.ok) {
+      setLoading(true)
+      setError(null)
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        const token = session?.access_token ?? ''
+        const res = await fetch(`/api/projects/${params.id}/tasks`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (!res.ok) throw new Error(`Could not load tasks (error ${res.status}).`)
         const data = await res.json()
-        setTasks(data.tasks)
+        if (live) setTasks(data.tasks ?? [])
+      } catch (e) {
+        if (live) setError(fetchProblem(e, 'loading the tasks'))
+      } finally {
+        if (live) setLoading(false)
       }
-      setLoading(false)
     }
     load()
-  }, [params.id])
+    return () => { live = false }
+  }, [params.id, attempt])
 
   const total = tasks.length
   const completed = tasks.filter(t => t.status === 'completed').length
@@ -81,6 +97,17 @@ export default function ProgressPage({ params }: { params: { id: string } }) {
 
       {loading ? (
         <div className="text-sm text-faint py-12 text-center">Loading...</div>
+      ) : error ? (
+        <div className="rounded-xl border border-line bg-panel py-12 px-6 text-center">
+          <p className="text-sm font-medium text-danger">{error}</p>
+          <button
+            type="button"
+            onClick={() => setAttempt(a => a + 1)}
+            className="mt-3 text-sm font-medium text-accent-fg hover:underline"
+          >
+            Try again
+          </button>
+        </div>
       ) : total === 0 ? (
         <div className="rounded-xl border border-dashed border-line py-16 text-center">
           <TrendingUp className="h-10 w-10 text-faint mx-auto mb-3" />

@@ -76,7 +76,7 @@ export default function UnitsPage({ params }: { params: { id: string } }) {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-ink flex items-center gap-2">
-          <Building2 className="h-5 w-5 text-info" /> Jobs on this site
+          <Building2 className="h-5 w-5 text-info" /> Jobs
         </h1>
         <p className="text-sm text-muted-fg mt-0.5">
           {children.length} job{children.length !== 1 ? 's' : ''}

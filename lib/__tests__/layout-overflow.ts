@@ -424,16 +424,24 @@ ok(strips.length === 0,
   `every StatStrip is phone-only and has a desktop twin${strips.length ? ` - ${strips[0]}` : ''}`)
 ok(tsx.filter(f => /<StatStrip/.test(code(f))).length >= 4, '...and there are at least four of them')
 // The three screens a tester sent still had coloured tiles after pass 4:
-// a project's overview, the Projects list and Master Money. Each is a strip
-// on a phone now (the scan above proves it is gated and has its twin).
-for (const f of ['app/(dashboard)/projects/[id]/overview/page.tsx', 'app/(dashboard)/projects/page.tsx', 'app/(dashboard)/master-money/page.tsx']) {
+// a project's overview, the Projects list and Master Money. The overview and
+// Master Money are a strip on a phone (the scan above proves it is gated and
+// has its twin).
+for (const f of ['app/(dashboard)/projects/[id]/overview/page.tsx', 'app/(dashboard)/master-money/page.tsx']) {
   ok(/<StatStrip/.test(code(f)), `${f.split('/').slice(-2, -1)[0]} puts its numbers in one StatStrip on a phone`)
 }
+// THE PROJECTS LIST WENT ONE STEP FURTHER. Its five-cell strip was three rows
+// of card, and with search, two filters and a sort under it the first project
+// sat two screens down. Now it is ONE LINE of counts - still each a filter -
+// and the rest is behind one Filter button (see lib/__tests__/phone-lists.ts).
+const projList = code('app/(dashboard)/projects/page.tsx')
+ok(!/<StatStrip/.test(projList) && /lg:hidden[^"]*overflow-x-auto scroll-fade[^"]*" data-project-summary/.test(projList),
+  'the Projects counts are one scrolling line on a phone, not a three-row card')
+ok(/onClick=\{\(\) => setStatusFilter\(s\.filter\)\}/.test(projList),
+  '...and tapping a count still filters on a phone')
 const strip = code('components/ui/stat-strip.tsx')
 ok(/onClick\?: \(\) => void/.test(strip) && /active\?: boolean/.test(strip) && /\? 'button' :/.test(strip),
-  'a StatStrip cell can be a button - the Projects counts are filters, not links')
-ok(/onClick: \(\) => setStatusFilter/.test(code('app/(dashboard)/projects/page.tsx')),
-  '...and the Projects page uses it, so tapping a count still filters on a phone')
+  'a StatStrip cell can be a button - a count can be a filter, not only a link')
 const overview = code('app/(dashboard)/projects/[id]/overview/page.tsx')
 ok(/phoneRow\(/.test(overview) && (overview.match(/divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-panel lg:hidden/g) ?? []).length === 2,
   'a project\'s waiting-on lists are one divided card each on a phone')
@@ -500,7 +508,16 @@ ok(/className="overlay-drawer/.test(tasksPage) && /data-overlay/.test(tasksPage)
 // every strip fades the same way.
 ok(/\.scroll-fade\s*\{[^}]*mask-image:\s*linear-gradient\(to right/.test(css), '.scroll-fade fades the right edge')
 ok(/scroll-fade/.test(tasksPage), 'tasks filter strip fades at its right edge')
-ok(/scroll-fade/.test(code('app/(dashboard)/settings/page.tsx')), 'settings tab strip fades at its right edge')
+// Settings no longer HAS a strip on a phone - twelve sections did not fit, so
+// it became a vertical list of sections (pinned in settings-mobile.ts). What
+// matters here is that it did not become a strip without the fade again.
+{
+  const settingsPage = code('app/(dashboard)/settings/page.tsx')
+  ok(!/overflow-x-auto[^"]*flex gap-1|flex gap-1[^"]*overflow-x-auto/.test(settingsPage) || /scroll-fade/.test(settingsPage),
+    'settings has no unfaded tab strip (it is a section list on a phone)')
+}
+ok(/scroll-fade/.test(code('app/(dashboard)/directory/page.tsx')), 'directory tab strip fades at its right edge')
+ok(/scroll-fade/.test(code('app/(dashboard)/files/page.tsx')), 'files tab strip fades at its right edge')
 
 // ── 10. four spots from one phone ───────────────────────────────────────────
 // The project layout pads p-6; nine project pages padded p-6 again and sat

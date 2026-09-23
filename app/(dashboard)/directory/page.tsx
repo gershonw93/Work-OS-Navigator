@@ -16,8 +16,12 @@ import { Badge } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
 import { cn } from '@/lib/utils'
 import { parseDate, formatDate } from '@/lib/dates'
+import { expiryLabel } from '@/lib/expiry'
 import { useNotice } from '@/components/ui/notice'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
+import { RowMenu, MenuItem } from '@/components/ui/row-menu'
+import { usePermissions } from '@/lib/use-permissions'
+import { invitable, inviteBatchSummary, type InviteOutcome } from '@/lib/directory-invite'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -87,6 +91,8 @@ interface Company {
   insurance_status: string
   license_number: string | null
   has_account: boolean
+  /** A vendor invite is out and not yet accepted (company_invites, pending). */
+  invite_pending?: boolean
   extra?: Extra | null
 }
 
@@ -131,6 +137,15 @@ export default function DirectoryPage() {
   const [inviteLoading, setInviteLoading] = useState(false)
   const [inviteError, setInviteError] = useState<string | null>(null)
   const [invitedIds, setInvitedIds] = useState<string[]>([])
+
+  // Bulk invite state. ONE control at the top for "everybody not on SyteNav",
+  // instead of an identical button on every card.
+  const { can } = usePermissions()
+  const canInvite = can('directory', 'edit')
+  const [bulkOpen, setBulkOpen] = useState(false)
+  const [bulkSelected, setBulkSelected] = useState<string[]>([])
+  const [bulkSending, setBulkSending] = useState(false)
+  const [bulkResults, setBulkResults] = useState<InviteOutcome[] | null>(null)
 
   // Form fields
   const [formType, setFormType] = useState<ContactType>('subcontractor')
@@ -229,6 +244,10 @@ export default function DirectoryPage() {
     counts[t] = companies.filter(c => c.type === t).length
   }
 
+  // Who the top "Invite N contacts" control covers - the SAME answer the
+  // dialog lists, so the number on the button cannot disagree with it.
+  const { ready: toInvite, noEmail: cannotInvite } = invitable(companies, invitedIds)
+
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
   function TypeBadge({ type }: { type: ContactType }) {
@@ -320,6 +339,79 @@ export default function DirectoryPage() {
     }, { label: company.name })
   }
 
+  /**
+   * One vendor invite through /api/invite. The single-card dialog and the
+   * bulk dialog both come through here, so they cannot ask for different
+   * things - the route gates it on `directory: edit`, decides the role, and
+   * checks the company is in this Directory.
+   */
+  async function postVendorInvite(companyId: string, email: string) {
+    const token = await getToken()
+    const res = await fetch('/api/invite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        // A VENDOR, not a teammate. They get the email that says what the
+        // account is for; the route reads the inviting company off the
+        // profile, so it no longer needs (or trusts) a name from here.
+        audience: 'vendor',
+        company_id: companyId,
+        email,
+      }),
+    })
+    const body = await res.json().catch(() => ({} as any))
+    return { res, body }
+  }
+
+  function openBulkInvite() {
+    setBulkSelected(toInvite.map(c => c.id))
+    setBulkResults(null)
+    setBulkOpen(true)
+  }
+
+  /**
+   * Invite everybody ticked, one request each. A LOOP THAT THROWS ABANDONS THE
+   * REST IN SILENCE, so every contact's answer is collected - sent, recorded
+   * without an email, or refused - and the dialog shows each one that did not
+   * simply work, with the route's own reason beside the name.
+   */
+  async function sendBulkInvites() {
+    if (bulkSending) return
+    const chosen = toInvite.filter(c => bulkSelected.includes(c.id))
+    setBulkSending(true)
+    const outcomes: InviteOutcome[] = []
+    try {
+      for (const c of chosen) {
+        try {
+          const { res, body } = await postVendorInvite(c.id, c.contact_email)
+          if (!res.ok) {
+            outcomes.push({ id: c.id, name: c.name, status: 'failed', reason: body.error ?? 'Could not send that invite.' })
+          } else if (body.emailSent === false) {
+            outcomes.push({ id: c.id, name: c.name, status: 'recorded', reason: body.note ?? 'The invite was recorded, but the email did not send.' })
+          } else {
+            outcomes.push({ id: c.id, name: c.name, status: 'sent' })
+          }
+        } catch (err) {
+          console.error('[directory] bulk invite failed', { company: c.id, err })
+          outcomes.push({ id: c.id, name: c.name, status: 'failed', reason: 'No answer from the server. Reload before trying this one again.' })
+        }
+      }
+    } finally {
+      setBulkSending(false)
+      // Anything written - sent or only recorded - is an invite that exists,
+      // so it leaves the "not invited yet" list either way.
+      const written = outcomes.filter(o => o.status !== 'failed').map(o => o.id)
+      if (written.length) setInvitedIds(prev => [...prev, ...written])
+      const summary = inviteBatchSummary(outcomes)
+      if (!summary.problems.length) {
+        setBulkOpen(false)
+        notify(summary.text, { tone: 'success' })
+      } else {
+        setBulkResults(outcomes)
+      }
+    }
+  }
+
   function openInvite(company: Company) {
     setInviteCompany(company)
     setInviteEmail(company.contact_email ?? '')
@@ -331,20 +423,7 @@ export default function DirectoryPage() {
     if (!inviteCompany) return
     setInviteError(null)
     setInviteLoading(true)
-    const token = await getToken()
-    const res = await fetch('/api/invite', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({
-        // A VENDOR, not a teammate. They get the email that says what the
-        // account is for; the route reads the inviting company off the
-        // profile, so it no longer needs (or trusts) a name from here.
-        audience: 'vendor',
-        company_id: inviteCompany.id,
-        email: inviteEmail,
-      }),
-    })
-    const body = await res.json().catch(() => ({} as any))
+    const { res, body } = await postVendorInvite(inviteCompany.id, inviteEmail)
     setInviteLoading(false)
     if (!res.ok) {
       setInviteError(body.error ?? 'Could not send that invite.')
@@ -580,7 +659,7 @@ export default function DirectoryPage() {
         <div className="overlay items-center justify-center bg-black/50" data-overlay>
           <div className="bg-panel rounded-xl shadow-xl w-full max-w-sm">
             <div className="px-6 py-4 border-b border-line-soft flex items-center justify-between">
-              <h2 className="text-base font-semibold text-ink">Invite to Platform</h2>
+              <h2 className="text-base font-semibold text-ink">Invite to SyteNav</h2>
               <button onClick={() => setInviteCompany(null)} className="text-faint hover:text-muted-fg">
                 <X className="h-4 w-4" />
               </button>
@@ -615,10 +694,106 @@ export default function DirectoryPage() {
         </div>
       )}
 
+      {/* ── Bulk Invite Modal ── */}
+      {bulkOpen && (
+        <div className="overlay items-center justify-center bg-black/50" data-overlay>
+          <div className="absolute inset-0" onClick={() => { if (!bulkSending) setBulkOpen(false) }} />
+          <div className="relative bg-panel rounded-xl shadow-xl w-full max-w-full sm:max-w-md flex flex-col">
+            <div className="px-6 py-4 border-b border-line-soft flex items-center justify-between gap-3 shrink-0">
+              <h2 className="min-w-0 text-base font-semibold text-ink">Invite to SyteNav</h2>
+              <button onClick={() => { if (!bulkSending) setBulkOpen(false) }} aria-label="Close" title="Close"
+                className="-mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-faint hover:bg-surface hover:text-muted-fg lg:h-8 lg:w-8">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {bulkResults ? (
+              <>
+                <div className="px-6 py-5 space-y-3 overflow-y-auto">
+                  {(() => {
+                    const summary = inviteBatchSummary(bulkResults)
+                    return (
+                      <>
+                        <p className={cn('text-sm font-medium', summary.tone === 'danger' ? 'text-danger' : summary.tone === 'warn' ? 'text-warn' : 'text-success')}>
+                          {summary.text}
+                        </p>
+                        <ul className="rounded-xl border border-line divide-y divide-line-soft">
+                          {summary.problems.map(o => (
+                            <li key={o.id} className="px-4 py-3">
+                              <p className="text-sm font-medium text-ink">{o.name}</p>
+                              <p className={cn('text-xs mt-0.5', o.status === 'failed' ? 'text-danger' : 'text-warn')}>
+                                {o.status === 'recorded' ? 'Invited, but no email went out. ' : ''}{o.reason}
+                              </p>
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    )
+                  })()}
+                </div>
+                <div className="px-6 py-4 border-t border-line-soft flex justify-end shrink-0">
+                  <Button className="w-full lg:w-auto" onClick={() => setBulkOpen(false)}>Done</Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="px-6 py-5 space-y-4 overflow-y-auto">
+                  <p className="text-sm text-muted-fg">
+                    Each contact gets an email inviting them to log in and see the jobs they are on with you. They can only read their own work.
+                  </p>
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs font-medium text-muted-fg">{bulkSelected.length} of {toInvite.length} selected</p>
+                    <button type="button"
+                      onClick={() => setBulkSelected(bulkSelected.length === toInvite.length ? [] : toInvite.map(c => c.id))}
+                      className="min-h-11 whitespace-nowrap text-xs font-medium text-accent-fg hover:underline lg:min-h-0">
+                      {bulkSelected.length === toInvite.length ? 'Select none' : 'Select all'}
+                    </button>
+                  </div>
+                  <ul className="rounded-xl border border-line divide-y divide-line-soft">
+                    {toInvite.map(c => {
+                      const on = bulkSelected.includes(c.id)
+                      return (
+                        <li key={c.id}>
+                          <label className="flex min-h-11 cursor-pointer items-center gap-3 px-4 py-2.5">
+                            <input type="checkbox" checked={on}
+                              onChange={() => setBulkSelected(prev => on ? prev.filter(id => id !== c.id) : [...prev, c.id])}
+                              className="h-4 w-4 shrink-0 accent-accent" />
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-medium text-ink">{c.name}</span>
+                              <span className="block truncate text-xs text-muted-fg">{c.contact_email}</span>
+                            </span>
+                            <span className="shrink-0"><TypeBadge type={(c.type ?? 'other') as ContactType} /></span>
+                          </label>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                  {cannotInvite.length > 0 && (
+                    <p className="text-xs text-muted-fg">
+                      Not included, no email address on file: {cannotInvite.map(c => c.name).join(', ')}. Add one from the contact&apos;s card to invite them.
+                    </p>
+                  )}
+                </div>
+                <div className="row-even px-6 py-4 border-t border-line-soft lg:flex gap-2 justify-end shrink-0">
+                  <Button type="button" variant="secondary" onClick={() => setBulkOpen(false)} disabled={bulkSending}>Cancel</Button>
+                  <Button type="button" onClick={() => {
+                    if (!bulkSelected.length) { notify('Tick at least one contact to invite.'); return }
+                    sendBulkInvites()
+                  }} disabled={bulkSending}>
+                    <Send className="h-3.5 w-3.5" />
+                    {bulkSending ? 'Sending...' : `Send ${bulkSelected.length} invite${bulkSelected.length === 1 ? '' : 's'}`}
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ── Header ── */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Contacts Directory</h1>
+          <h1 className="text-2xl font-bold text-ink">Directory</h1>
           <p className="text-sm text-muted-fg mt-0.5">GCs, subs, inspectors, suppliers, and workers.</p>
         </div>
         <div className="row-even sm:flex sm:items-center gap-2 self-start sm:self-auto">
@@ -633,11 +808,24 @@ export default function DirectoryPage() {
             <Plus className="h-4 w-4" />
             Add Contact
           </Button>
+          {/* ONE invite control for the whole list. It was a button on every
+              card not on the platform - twenty-two of them on the Subs tab -
+              for an action most people take once. Hidden when nobody is left
+              to ask, and for anybody the route would refuse. */}
+          {canInvite && toInvite.length > 0 && (
+            <Button variant="outline" onClick={openBulkInvite}>
+              <Send className="h-4 w-4" />
+              Invite {toInvite.length} contact{toInvite.length === 1 ? '' : 's'} not on SyteNav
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* ── Tabs ── */}
-      <div className="flex gap-0 border-b border-line mb-5 overflow-x-auto">
+      {/* ── Tabs ──
+          Six tabs with counts do not fit 390px: "Inspectors 2" was cut off at
+          the edge. The strip scrolls, and `.scroll-fade` is what says so - the
+          scrollbar is hidden, so a faded edge is the only sign of more. */}
+      <div className="flex gap-0 border-b border-line mb-5 overflow-x-auto scrollbar-hide scroll-fade">
         {TABS.map(tab => {
           const count = counts[tab.key] ?? 0
           const active = activeTab === tab.key
@@ -653,14 +841,15 @@ export default function DirectoryPage() {
               )}
             >
               {tab.label}
-              {count > 0 && (
-                <span className={cn(
-                  'whitespace-nowrap inline-flex items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-medium min-w-[1.25rem]',
-                  active ? 'bg-accent-tint text-accent-fg' : 'bg-muted text-muted-fg'
-                )}>
-                  {count}
-                </span>
-              )}
+              {/* EVERY tab carries its count, zero included. Hiding a zero
+                  left Workers as the one tab with no number, which read as
+                  "not counted" rather than "none". */}
+              <span className={cn(
+                'whitespace-nowrap inline-flex items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-medium min-w-[1.25rem]',
+                active ? 'bg-accent-tint text-accent-fg' : 'bg-muted text-muted-fg'
+              )}>
+                {count}
+              </span>
             </button>
           )
         })}
@@ -710,7 +899,29 @@ export default function DirectoryPage() {
                     )}
                     <span className="font-semibold text-ink truncate">{company.name}</span>
                   </div>
-                  <TypeBadge type={type} />
+                  <div className="flex shrink-0 items-center gap-2" onClick={e => e.stopPropagation()}>
+                    <TypeBadge type={type} />
+                    {/* The card's secondary actions. Inviting ONE contact lives
+                        here now; the whole list is the control at the top. */}
+                    <RowMenu label={`More for ${company.name}`}>
+                      {close => (
+                        <>
+                          {canInvite && !company.has_account && (
+                            <MenuItem onClick={() => { close(); openInvite(company) }}>
+                              <Send className="h-4 w-4" />
+                              {company.invite_pending || invitedIds.includes(company.id) ? 'Resend invite' : 'Invite to SyteNav'}
+                            </MenuItem>
+                          )}
+                          <MenuItem onClick={() => { close(); openEditCompany(company) }}>
+                            <Pencil className="h-4 w-4" /> Edit
+                          </MenuItem>
+                          <MenuItem danger onClick={() => { close(); deleteCompany(company) }}>
+                            <Trash2 className="h-4 w-4" /> Delete
+                          </MenuItem>
+                        </>
+                      )}
+                    </RowMenu>
+                  </div>
                 </div>
 
                 {/* Inspector specialty badge */}
@@ -780,29 +991,22 @@ export default function DirectoryPage() {
                   )}
                 </div>
 
-                {/* On-platform indicator / Invite button */}
+                {/* Platform status - a fact, not a button. Somebody not on
+                    SyteNav and not invited shows nothing here: the invite is
+                    in the row menu and in the one control at the top. */}
                 {company.has_account ? (
                   <div className="flex items-center gap-1 pt-1 border-t border-line-soft">
                     <span className="h-1.5 w-1.5 rounded-full bg-success-solid" />
                     <span className="text-xs text-success font-medium">On Platform</span>
                   </div>
-                ) : (
+                ) : (company.invite_pending || invitedIds.includes(company.id)) ? (
                   <div className="pt-1 border-t border-line-soft">
-                    {invitedIds.includes(company.id) ? (
-                      <span className="text-xs text-success font-medium flex items-center gap-1">
-                        <span className="h-1.5 w-1.5 rounded-full bg-success-solid" />
-                        Invited ✓
-                      </span>
-                    ) : (
-                      <button
-                        onClick={e => { e.stopPropagation(); openInvite(company) }}
-                        className="text-xs font-medium text-accent-fg border border-accent rounded-md px-2 py-1 hover:bg-accent-tint transition-colors"
-                      >
-                        Invite to Platform
-                      </button>
-                    )}
+                    <span className="text-xs text-muted-fg font-medium flex items-center gap-1">
+                      <span className="h-1.5 w-1.5 rounded-full bg-muted2" />
+                      Invited ✓
+                    </span>
                   </div>
-                )}
+                ) : null}
               </div>
             )
           })}
@@ -1093,7 +1297,7 @@ export default function DirectoryPage() {
                                 <div className="min-w-0 flex-1">
                                   <p className="font-medium text-ink">{typeLabels[doc.type] ?? doc.type}</p>
                                   <p className="mt-0.5 flex flex-wrap items-center gap-x-3 text-xs text-muted-fg">
-                                    <span>{doc.expiry_date ? `Expires ${formatDate(doc.expiry_date, { month: 'short', day: 'numeric', year: 'numeric' })}` : 'No expiry'}</span>
+                                    <span>{expiryLabel(doc.expiry_date) ?? 'No expiry'}</span>
                                     {doc.created_at && <span className="text-faint">Uploaded {formatDate(doc.created_at, { month: 'short', day: 'numeric', year: 'numeric' })}</span>}
                                     {doc.file_url
                                       ? <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-medium text-accent-fg hover:underline"><ExternalLink className="h-3 w-3" /> View</a>

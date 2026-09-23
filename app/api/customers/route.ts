@@ -21,6 +21,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { pushCustomer } from '@/lib/quickbooks-push'
+import { duplicateCustomer, duplicateCustomerMessage } from '@/lib/customer-dedupe'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -65,6 +66,25 @@ export async function POST(request: Request) {
   const { name, contact_name, email, phone, billing_address, notes } = body
 
   if (!name) return NextResponse.json({ error: 'name is required' }, { status: 400 })
+
+  // One client, one card. This insert used to take anything, so the New
+  // Customer form could file the same client twice and split their projects
+  // and invoices across two cards. See lib/customer-dedupe.ts.
+  const { data: mine, error: listError } = await db
+    .from('customers')
+    .select('id, name, email')
+    .eq('gc_company_id', profile.company_id)
+  if (listError) {
+    console.error('[customers] duplicate check failed', listError)
+    return NextResponse.json({ error: 'Could not check your existing customers. Try again.' }, { status: 500 })
+  }
+  const dup = duplicateCustomer(mine ?? [], { name, email })
+  if (dup) {
+    return NextResponse.json(
+      { error: duplicateCustomerMessage(dup), existing_id: dup.customer.id },
+      { status: 409 },
+    )
+  }
 
   const { data: customer, error } = await db
     .from('customers')

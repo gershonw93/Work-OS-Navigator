@@ -58,9 +58,9 @@ export const RESOURCES: ResourceDef[] = [
   { key: 'bids',           label: 'Quotes & Bids',  group: 'Buyout', slug: 'request-quotes' },
   { key: 'rfis',           label: 'RFIs',           group: 'Docs', slug: 'rfis' },
   // Money
-  { key: 'invoices',       label: 'Invoices',       group: 'Finance', slug: 'invoices' },
-  { key: 'pay-apps',       label: 'Pay Applications', group: 'Finance', slug: 'pay-apps' },
-  { key: 'payments',       label: 'Payments & Escrow', group: 'Finance', slug: 'payments' },
+  { key: 'invoices',       label: 'Bills from subs', group: 'Finance', slug: 'invoices' },
+  { key: 'pay-apps',       label: 'Pay Apps',       group: 'Finance', slug: 'pay-apps' },
+  { key: 'payments',       label: 'Billing the client', group: 'Finance', slug: 'payments' },
   { key: 'budget',         label: 'Budget',         group: 'Finance', slug: 'budget' },
   // Split out of `budget` deliberately. Seeing what a job COSTS and seeing what
   // you MAKE on it are different questions, and a project manager who has to
@@ -69,7 +69,7 @@ export const RESOURCES: ResourceDef[] = [
   { key: 'margin',         label: 'Job Margin & Markup', group: 'Finance' },
   { key: 'request-quotes', label: 'Quotes & Bids',  group: 'Buyout', slug: 'request-quotes' },
   { key: 'quotes',         label: 'Compare Quotes', group: 'Finance', slug: 'quotes' },
-  { key: 'financials',     label: 'Financials',     group: 'Finance', slug: 'financials' },
+  { key: 'financials',     label: 'Financial Summary', group: 'Finance', slug: 'financials' },
   { key: 'change-orders',  label: 'Change Orders',  group: 'Finance', slug: 'change-orders' },
   // Compliance
   { key: 'permits',        label: 'Permits',        group: 'Docs', slug: 'permits' },

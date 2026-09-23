@@ -860,7 +860,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
       {/* Header */}
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Team</h1>
+          <h1 className="text-2xl font-bold text-ink">Subs &amp; Team</h1>
           <p className="text-sm text-muted-fg mt-0.5">Your crew and awarded subcontractors on this project.</p>
         </div>
         <div className="row-even lg:flex gap-2 self-start sm:self-auto shrink-0">
