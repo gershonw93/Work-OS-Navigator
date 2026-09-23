@@ -96,6 +96,11 @@ import { ok, done, code, read, exists } from './_helpers'
   ok(/android-release:\s*\n\s*<<: \*android[\s\S]*google_play:[\s\S]*GCLOUD_SERVICE_ACCOUNT_CREDENTIALS/.test(android),
     '...and the release workflow is the same recipe plus the upload')
   ok(/jarsigner -verify/.test(android), 'the Android workflow refuses to upload an unsigned bundle')
+  // A copy Play hands back carries Play's integrity protection and will not
+  // start in a browser emulator ("Check that Google Play is enabled"), so the
+  // build also keeps an APK that never went through Play.
+  ok(/assembleRelease/.test(android.split('\n').filter(l => !/^\s*#/.test(l)).join('\n')) && /outputs\/\*\*\/\*\.apk/.test(android),
+    'the build also produces a testing APK, kept as an artifact, for trying the app without a phone')
   // The free plan has no Linux machines ("not available with the current
   // billing plan"), so Android builds on the same Mac as iOS - and a Mac's
   // base64 is BSD's, which is why the decode goes through openssl.
