@@ -174,8 +174,12 @@ ok(shareActionLabel(0) !== shareActionLabel(2),
     '...and are not re-declared inside the page')
   // Two controls must not answer one question: these reach different people,
   // and the labels are the only thing saying so.
-  ok(/Send scope update/.test(src) && /Send to someone/.test(src),
+  // "Send to someone" beside "Send scope update" read as two ways to do one
+  // thing (UX review). The primary names its AUDIENCE so the pair contrasts.
+  ok(/Send scope update/.test(src) && /> Send to one person/.test(src),
     'the two doors are named for the two different acts they are')
+  ok(!/> Send to someone/.test(src),
+    '...and the vaguer name, which overlapped the other, is gone')
   ok(/row-even/.test(src), 'a row of controls reaches both edges on a phone')
 }
 
