@@ -301,6 +301,18 @@ workflows:
         script: |
           cd android
           ./gradlew bundleRelease
+      # AN APK TO TRY THE APP WITHOUT A PHONE. The .aab is what Play wants, but
+      # every copy Play hands back out - the "universal APK" in the bundle
+      # explorer included - carries Play's automatic integrity protection, which
+      # refuses to start anywhere Play did not install it: an emulator in a
+      # browser (Appetize) answered "Something went wrong. Check that Google
+      # Play is enabled on your device". This one is built here, signed with the
+      # same upload key, and never passes through Play, so it runs anywhere.
+      # Same code, same config; not for distribution.
+      - name: Build APK for testing
+        script: |
+          cd android
+          ./gradlew assembleRelease
       # SIGNED, OR IT DOES NOT LEAVE. build.gradle only attaches the key when the
       # password is present, so a misnamed variable would produce an unsigned
       # bundle - which Play refuses at upload, after the whole build.
@@ -314,6 +326,7 @@ workflows:
           echo "$AAB is signed."
     artifacts:
       - android/app/build/outputs/**/*.aab
+      - android/app/build/outputs/**/*.apk
 
   android-release:
     <<: *android
