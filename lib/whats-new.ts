@@ -58,6 +58,12 @@ const AUTHORED: Release[] = [
     title: 'Less to scroll past, and the thing that needs you first',
     items: [
       {
+        kind: 'new',
+        title: 'Add people to a job from the team panel - account or not',
+        text: 'The people icon at the top of a job now has an Add button. Pick a coworker who already has a login, or add somebody who is not on SyteNav at all - a name, a role and, if you have them, a phone and email - so the whole job can reach them from the team list. The Subs & Team tab uses the same box.',
+        help: 'invite-team-member',
+      },
+      {
         kind: 'improved',
         title: 'Budget on a phone: one line per budget line',
         text: 'Each budget line starts folded to its name, what it has cost and how much is left or over - tap it for the rest. Tap a category to fold it away. The toolbar is Add Line plus a "..." menu, and Delete now lives inside an opened line instead of beside every one. Receipts with no budget line yet are counted once, with "Assign them", instead of a badge on every row - and you can assign one straight from Materials.',

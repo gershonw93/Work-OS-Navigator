@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Users, Plus, X, Phone, Mail, HardHat, Building2, DollarSign, UserCircle2, Pencil, UserPlus, Sparkles, Loader2, Paperclip, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react'
+import { Users, Plus, X, Phone, Mail, HardHat, Building2, DollarSign, UserCircle2, Pencil, Sparkles, Loader2, Paperclip, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,11 +14,12 @@ import { contractAmount, contractAmountLabel, isUnpriced } from '@/lib/contract-
 import { money, percent } from '@/lib/validate'
 import { useNotice } from '@/components/ui/notice'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
+import { AddTeamMemberDialog } from '@/components/projects/add-team-member-dialog'
+import { JOB_ROLES } from '@/lib/team-member'
+import { usePermissions } from '@/lib/use-permissions'
+import { useViewerContext } from '@/lib/use-viewer-context'
 
-const GC_ROLES = [
-  'Project Manager', 'Site Manager', 'Superintendent', 'Foreman',
-  'Laborer', 'Safety Officer', 'Quality Control', 'Other',
-]
+const GC_ROLES = JOB_ROLES
 
 const TRADES = [
   'General Labor', 'Excavation', 'Concrete / Foundation', 'Masonry', 'Framing',
@@ -34,13 +35,6 @@ interface TeamMember {
   role: string
   phone: string | null
   email: string | null
-}
-
-interface CompanyProfile {
-  id: string
-  full_name: string | null
-  email: string | null
-  role: string | null
 }
 
 interface Subcontract {
@@ -64,13 +58,15 @@ export default function TeamPage({ params }: { params: { id: string } }) {
   const [subcontracts, setSubcontracts] = useState<Subcontract[]>([])
   const [loading, setLoading] = useState(true)
 
-  const [showAdd, setShowAdd] = useState(false)
-  const [name, setName] = useState('')
-  const [role, setRole] = useState('Site Manager')
-  const [phone, setPhone] = useState('')
-  const [email, setEmail] = useState('')
-  const [saving, setSaving] = useState(false)
 
+  // One dialog for adding anyone - a teammate with a login or somebody who is
+  // not on SyteNav. It used to be two modals behind two buttons.
+  const [adding, setAdding] = useState(false)
+  const { can } = usePermissions()
+  const vc = useViewerContext(params.id)
+  // Same two questions the route asks (team:edit, and the job is ours) - a
+  // button the route will refuse is a button that lies.
+  const canAdd = can('team', 'edit') && vc.owns
   const [editMember, setEditMember] = useState<TeamMember | null>(null)
   const [editName, setEditName] = useState('')
   const [editRole, setEditRole] = useState('')
@@ -78,12 +74,6 @@ export default function TeamPage({ params }: { params: { id: string } }) {
   const [editEmail, setEditEmail] = useState('')
   const [editSaving, setEditSaving] = useState(false)
 
-  const [showAddCompanyMember, setShowAddCompanyMember] = useState(false)
-  const [companyProfiles, setCompanyProfiles] = useState<CompanyProfile[]>([])
-  const [selectedProfileId, setSelectedProfileId] = useState('')
-  const [companyMemberRole, setCompanyMemberRole] = useState('Site Manager')
-  const [companyMemberSaving, setCompanyMemberSaving] = useState(false)
-  const [companyProfilesLoading, setCompanyProfilesLoading] = useState(false)
 
   // Add a subcontractor (manual / from directory)
   const [showAddSub, setShowAddSub] = useState(false)
@@ -355,23 +345,6 @@ export default function TeamPage({ params }: { params: { id: string } }) {
 
   useEffect(() => { load() }, [params.id])
 
-  async function addMember(e: React.FormEvent) {
-    e.preventDefault()
-    setSaving(true)
-    const token = await getToken()
-    const res = await fetch(`/api/projects/${params.id}/team`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ name, role, phone: phone || null, email: email || null }),
-    })
-    if (res.ok) {
-      setShowAdd(false)
-      setName(''); setRole('Site Manager'); setPhone(''); setEmail('')
-      load()
-    }
-    setSaving(false)
-  }
-
   function openEditMember(member: TeamMember) {
     setEditMember(member)
     setEditName(member.name)
@@ -385,7 +358,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
     if (!editMember) return
     setEditSaving(true)
     const token = await getToken()
-    await fetch(`/api/projects/${params.id}/team/${editMember.id}`, {
+    const res = await fetch(`/api/projects/${params.id}/team/${editMember.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({
@@ -396,70 +369,28 @@ export default function TeamPage({ params }: { params: { id: string } }) {
       }),
     })
     setEditSaving(false)
+    // The route now asks for team:edit on a job you own; say so when it
+    // refuses rather than closing as if the change had saved.
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}))
+      notify(`Could not save: ${d.error ?? res.statusText}`)
+      return
+    }
     setEditMember(null)
     load()
   }
 
   async function removeMember(id: string) {
     const token = await getToken()
-    await fetch(`/api/projects/${params.id}/team/${id}`, {
+    const res = await fetch(`/api/projects/${params.id}/team/${id}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     })
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}))
+      notify(`Could not remove: ${d.error ?? res.statusText}`)
+    }
     load()
-  }
-
-  async function openAddMember() {
-    setShowAdd(true)
-    setCompanyProfilesLoading(true)
-    const token = await getToken()
-    const res = await fetch('/api/settings/teammates', {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    if (res.ok) {
-      const data = await res.json()
-      setCompanyProfiles(data.teammates ?? [])
-    }
-    setCompanyProfilesLoading(false)
-  }
-
-  async function openAddCompanyMember() {
-    setShowAddCompanyMember(true)
-    setCompanyProfilesLoading(true)
-    const token = await getToken()
-    // Use the teammates API (service role) so RLS doesn't hide company members
-    const res = await fetch('/api/settings/teammates', {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    if (res.ok) {
-      const data = await res.json()
-      setCompanyProfiles(data.teammates ?? [])
-    }
-    setCompanyProfilesLoading(false)
-  }
-
-  async function addCompanyMember(e: React.FormEvent) {
-    e.preventDefault()
-    if (!selectedProfileId) return
-    setCompanyMemberSaving(true)
-    const selectedProfile = companyProfiles.find(p => p.id === selectedProfileId)
-    const token = await getToken()
-    const res = await fetch(`/api/projects/${params.id}/team`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({
-        name: selectedProfile?.full_name ?? selectedProfile?.email ?? 'Unknown',
-        role: companyMemberRole,
-        email: selectedProfile?.email ?? null,
-      }),
-    })
-    if (res.ok) {
-      setShowAddCompanyMember(false)
-      setSelectedProfileId('')
-      setCompanyMemberRole('Site Manager')
-      load()
-    }
-    setCompanyMemberSaving(false)
   }
 
   // Unpriced subs contribute nothing rather than breaking the sum.
@@ -512,127 +443,13 @@ export default function TeamPage({ params }: { params: { id: string } }) {
         </div>
       )}
 
-      {/* Add Member Modal */}
-      {showAdd && (
-        <div className="overlay items-center justify-center bg-black/50" data-overlay>
-          <div className="bg-panel rounded-xl shadow-xl w-full max-w-md min-w-0">
-            <div className="px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-ink">Add Team Member</h2>
-              <button onClick={() => setShowAdd(false)} className="text-faint hover:text-muted-fg">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <form onSubmit={addMember}>
-              <div className="px-4 sm:px-6 py-5 space-y-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="name">Full Name <span className="text-danger">*</span></Label>
-                  <div className="relative">
-                    <input
-                      id="name"
-                      type="text"
-                      required
-                      autoComplete="off"
-                      className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
-                      placeholder="Search teammates or type a name…"
-                      value={name}
-                      onChange={e => setName(e.target.value)}
-                    />
-                    {companyProfiles.length > 0 && (
-                      <ul className="absolute z-10 w-full bg-panel border border-line rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
-                        {companyProfiles
-                          .filter(p => !name || (p.full_name ?? p.email ?? '').toLowerCase().includes(name.toLowerCase()))
-                          .map(p => (
-                            <li key={p.id}>
-                              <button
-                                type="button"
-                                className="w-full text-left px-3 py-2 text-sm hover:bg-accent-tint hover:text-accent-fg flex items-center gap-2"
-                                onClick={() => {
-                                  setName(p.full_name ?? '')
-                                  setEmail(p.email ?? '')
-                                }}
-                              >
-                                <span className="font-medium">{p.full_name || p.email}</span>
-                                {p.role && <span className="text-xs text-faint capitalize">{p.role.replace('_', ' ')}</span>}
-                              </button>
-                            </li>
-                          ))}
-                      </ul>
-                    )}
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="role">Role <span className="text-danger">*</span></Label>
-                  <Select id="role" value={role} onChange={e => setRole(e.target.value)}>
-                    {GC_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                  </Select>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="phone">Phone</Label>
-                    <Input id="phone" type="tel" placeholder="(555) 000-0000" value={phone} onChange={e => setPhone(e.target.value)} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="email">Email</Label>
-                    <Input id="email" type="email" placeholder="name@company.com" value={email} onChange={e => setEmail(e.target.value)} />
-                  </div>
-                </div>
-              </div>
-              <div className="row-even px-4 sm:px-6 py-4 border-t border-line-soft lg:flex lg:flex-wrap gap-2 justify-end">
-                <Button type="button" variant="secondary" onClick={() => setShowAdd(false)}>Cancel</Button>
-                <Button type="submit" disabled={saving || !name.trim()}>
-                  {saving ? 'Adding...' : 'Add Member'}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Add Company Member Modal */}
-      {showAddCompanyMember && (
-        <div className="overlay items-center justify-center bg-black/50" data-overlay>
-          <div className="bg-panel rounded-xl shadow-xl w-full max-w-md min-w-0">
-            <div className="px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-ink">Add Company Member</h2>
-              <button onClick={() => setShowAddCompanyMember(false)} className="text-faint hover:text-muted-fg">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <form onSubmit={addCompanyMember}>
-              <div className="px-4 sm:px-6 py-5 space-y-4">
-                {companyProfilesLoading ? (
-                  <p className="text-sm text-faint text-center py-4">Loading company members...</p>
-                ) : companyProfiles.length === 0 ? (
-                  <p className="text-sm text-faint text-center py-4">No other company members found.</p>
-                ) : (
-                  <div className="space-y-1.5">
-                    <Label htmlFor="company-member">Select Member <span className="text-danger">*</span></Label>
-                    <Select id="company-member" value={selectedProfileId} onChange={e => setSelectedProfileId(e.target.value)} required>
-                      <option value="">-- Choose a member --</option>
-                      {companyProfiles.map(p => (
-                        <option key={p.id} value={p.id}>
-                          {p.full_name || p.email || p.id}{p.role ? ` (${p.role})` : ''}
-                        </option>
-                      ))}
-                    </Select>
-                  </div>
-                )}
-                <div className="space-y-1.5">
-                  <Label htmlFor="company-member-role">Project Role <span className="text-danger">*</span></Label>
-                  <Select id="company-member-role" value={companyMemberRole} onChange={e => setCompanyMemberRole(e.target.value)}>
-                    {GC_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                  </Select>
-                </div>
-              </div>
-              <div className="row-even px-4 sm:px-6 py-4 border-t border-line-soft lg:flex lg:flex-wrap gap-2 justify-end">
-                <Button type="button" variant="secondary" onClick={() => setShowAddCompanyMember(false)}>Cancel</Button>
-                <Button type="submit" disabled={companyMemberSaving || !selectedProfileId}>
-                  {companyMemberSaving ? 'Adding...' : 'Add to Project'}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {adding && (
+        <AddTeamMemberDialog
+          projectId={params.id}
+          existingEmails={members.map(m => m.email).filter((e): e is string => !!e)}
+          onClose={() => setAdding(false)}
+          onAdded={load}
+        />
       )}
 
       {/* Add Subcontractor Manually Modal */}
@@ -864,14 +681,12 @@ export default function TeamPage({ params }: { params: { id: string } }) {
           <p className="text-sm text-muted-fg mt-0.5">Your crew and awarded subcontractors on this project.</p>
         </div>
         <div className="row-even lg:flex gap-2 self-start sm:self-auto shrink-0">
-          <Button variant="secondary" onClick={openAddCompanyMember}>
-            <UserPlus className="h-4 w-4" />
-            Add Company Member
-          </Button>
-          <Button onClick={() => openAddMember()}>
-            <Plus className="h-4 w-4" />
-            Add Member
-          </Button>
+          {canAdd && (
+            <Button onClick={() => setAdding(true)}>
+              <Plus className="h-4 w-4" />
+              Add Member
+            </Button>
+          )}
         </div>
       </div>
 
@@ -890,7 +705,7 @@ export default function TeamPage({ params }: { params: { id: string } }) {
               <div className="rounded-xl border border-dashed border-line py-10 text-center">
                 <UserCircle2 className="h-8 w-8 text-faint mx-auto mb-2" />
                 <p className="text-sm text-faint">No crew members added yet</p>
-                <button onClick={() => openAddMember()} className="mt-2 text-sm text-accent-fg hover:underline">Add your first member</button>
+                {canAdd && <button onClick={() => setAdding(true)} className="mt-2 text-sm text-accent-fg hover:underline">Add your first member</button>}
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">

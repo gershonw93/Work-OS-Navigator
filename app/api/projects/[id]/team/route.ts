@@ -2,6 +2,9 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { profileIdForEmail } from '@/lib/my-jobs'
 import { logActivity } from '@/lib/log-activity'
+import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
+import { missingMemberBody } from '@/lib/team-member'
+import { friendlyDbError } from '@/lib/db-error'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -56,11 +59,26 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  // THIS ROUTE ASKED NOTHING. Any signed-in user, from any company, could add
+  // a person to any job by its id. Adding to a job's team is the job OWNER's
+  // act (a sub on the job sees the team, and does not staff the GC's job), so
+  // it takes team:edit AND ownership - the same two questions the team panel's
+  // Add button asks before it shows.
+  const gate = await requirePermission(db, request, 'team', 'edit')
+  if (denied(gate)) return gate.denied
+  const owned = await ownedProject(db, gate.actor, params.id, 'id')
+  if ('denied' in owned) return owned.denied
+
   // SQL: ALTER TABLE project_team_members ADD COLUMN IF NOT EXISTS profile_id uuid REFERENCES profiles(id);
   // SQL: ALTER TABLE project_activity ADD COLUMN IF NOT EXISTS actor_id uuid;
 
-  const { name, role, phone, email } = await request.json()
-  if (!name || !role) return NextResponse.json({ error: 'Name and role are required' }, { status: 400 })
+  const body = await request.json().catch(() => ({}))
+  const missing = missingMemberBody(body)
+  if (missing) return NextResponse.json({ error: missing }, { status: 400 })
+  const name = String(body.name).trim()
+  const role = String(body.role).trim()
+  const phone = typeof body.phone === 'string' && body.phone.trim() ? body.phone.trim() : null
+  const email = typeof body.email === 'string' && body.email.trim() ? body.email.trim() : null
 
   // Auto-link to a real profile so the row carries a foreign key rather than a
   // string somebody typed. Case-insensitively: this was `.eq('email', email)`,
@@ -70,11 +88,14 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   const { data, error } = await db
     .from('project_team_members')
-    .insert({ project_id: params.id, name, role, phone: phone ?? null, email: email ?? null, profile_id: profileId })
+    .insert({ project_id: params.id, name, role, phone, email, profile_id: profileId })
     .select()
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error('[team POST]', error)
+    return NextResponse.json({ error: friendlyDbError(error) }, { status: 500 })
+  }
 
   const { data: profile } = await db.from('profiles').select('full_name').eq('id', user.id).single()
   await logActivity(db, params.id, profile?.full_name || 'Someone', 'team_member_added',
