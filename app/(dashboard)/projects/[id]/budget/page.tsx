@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
-import { Wallet, DollarSign, CheckCircle2, TrendingDown, TrendingUp, Plus, Trash2, Pencil, X, Check, Link as LinkIcon, AlertTriangle, LayoutTemplate, Save, FileSpreadsheet, FolderInput, Search, ShoppingCart, FileText } from 'lucide-react'
+import { Wallet, DollarSign, CheckCircle2, TrendingDown, TrendingUp, Plus, Trash2, Pencil, X, Check, Link as LinkIcon, AlertTriangle, LayoutTemplate, Save, FileSpreadsheet, FolderInput, Search, ShoppingCart, FileText, ChevronDown, ChevronRight, Square, CheckSquare } from 'lucide-react'
+import { RowMenu, MenuItem } from '@/components/ui/row-menu'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -196,6 +197,26 @@ const blankForm = {
 
 const SPACE_LABELS: Record<string, string> = { interior: 'Interior', exterior: 'Exterior' }
 
+/**
+ * A line's variance as one chip, for the COLLAPSED phone row.
+ *
+ * The phone used to print every line fully expanded - four label/value rows,
+ * a pencil, a trash can and the linked sub - so a thirty-line budget was a
+ * scroll of a hundred and fifty numbers with no way to see which line was in
+ * trouble. Collapsed, a row is its name, what it has cost, and this: red when
+ * the line is over, quiet when it is not. Colour only where it means something.
+ */
+function VarianceChip({ variance }: { variance: number }) {
+  if (variance === 0) return null
+  const over = variance < 0
+  return (
+    <span className={cn('inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium',
+      over ? 'bg-danger-tint text-danger' : 'bg-surface text-muted-fg')}>
+      {over ? `Over ${money(Math.abs(variance))}` : `${money(variance)} left`}
+    </span>
+  )
+}
+
 export default function BudgetPage({ params }: { params: { id: string } }) {
   const notify = useNotice()
   const supabase = createClient()
@@ -272,6 +293,13 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [bulkDeleting, setBulkDeleting] = useState(false)
   const [selectMode, setSelectMode] = useState(false)
+  // PHONE ONLY. Which lines are open, and which categories are folded away.
+  // Lines start CLOSED and categories start OPEN: the list is scannable by
+  // default, and a category is folded only because somebody chose to.
+  const [openLines, setOpenLines] = useState<Set<string>>(new Set())
+  const [foldedCats, setFoldedCats] = useState<Set<string>>(new Set())
+  const toggleIn = (set: (f: (s: Set<string>) => Set<string>) => void, id: string) =>
+    set(s => { const next = new Set(s); if (next.has(id)) next.delete(id); else next.add(id); return next })
 
   // Templates
   const [showTemplate, setShowTemplate] = useState(false)
@@ -910,6 +938,100 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
     },
   ]
 
+  // The inline edit form, rendered by the desktop table AND the phone list.
+  // A function returning markup, not a component: declared as a component in
+  // here it would be a new type on every render and throw away what was typed.
+  const renderEditForm = (item: BudgetItem) => (
+      <div key={item.id} className="px-4 py-3 bg-accent-tint/40 space-y-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+          <Field label="Cost type">
+            <SearchableSelect className="rounded-lg border border-line px-2.5 py-1.5 text-sm bg-panel"
+              value={editForm.cost_type} onChange={e => {
+                const next = e.target.value === 'soft' ? 'soft' : 'hard'
+                const list = categoryOptions(next, knownCategories)
+                setEditForm(f => ({ ...f, cost_type: next, category: list.includes(f.category) ? f.category : list[0] }))
+              }}>
+              <option value="hard">Hard cost (construction)</option>
+              <option value="soft">Soft cost (preconstruction / carrying)</option>
+            </SearchableSelect>
+          </Field>
+          <Field label="Category">
+            <CategoryPicker compact
+              costType={editForm.cost_type} known={knownCategories} value={editForm.category}
+              onChange={v => setEditForm(f => ({ ...f, category: v }))} />
+          </Field>
+          <Field label="Cost code">
+            <input className="w-full rounded-lg border border-line px-2.5 py-1.5 text-sm" placeholder="optional"
+              value={editForm.cost_code} onChange={e => setEditForm({ ...editForm, cost_code: e.target.value })} />
+          </Field>
+          <Field label="Description" className="sm:col-span-2 lg:col-span-1">
+            <input className="w-full rounded-lg border border-line px-2.5 py-1.5 text-sm" placeholder="What this covers"
+              value={editForm.description} onChange={e => setEditForm({ ...editForm, description: e.target.value })} />
+          </Field>
+          <Field label="Budgeted ($)">
+            <input type="number" className="w-full rounded-lg border border-line px-2.5 py-1.5 text-sm" placeholder="0"
+              value={editForm.budgeted_amount} onChange={e => setEditForm({ ...editForm, budgeted_amount: e.target.value })} />
+          </Field>
+          <Field label="Space">
+            <SearchableSelect className="w-full rounded-lg border border-line px-2.5 py-1.5 text-sm bg-panel"
+              value={editForm.space_type} onChange={e => setEditForm({ ...editForm, space_type: e.target.value })}>
+              <option value="">Unassigned</option>
+              <option value="interior">Interior</option>
+              <option value="exterior">Exterior</option>
+            </SearchableSelect>
+          </Field>
+          {editForm.subcontract_id ? (
+            <>
+              <Field label="Committed ($)">
+                <div className="rounded-lg border border-line bg-muted px-2.5 py-1.5 text-sm flex items-center justify-between">
+                  <span className="text-xs text-faint">auto</span>
+                  <span className="font-medium text-ink-soft">{money(subOptions.find(s => s.id === editForm.subcontract_id)?.contract_amount ?? 0)}</span>
+                </div>
+              </Field>
+              <Field label="Actual ($)">
+                <div className="rounded-lg border border-line bg-muted px-2.5 py-1.5 text-sm flex items-center justify-between">
+                  <span className="text-xs text-faint">from invoices</span>
+                  <span className="font-medium text-accent-fg">Auto</span>
+                </div>
+              </Field>
+            </>
+          ) : (
+            <>
+              <Field label="Committed ($)">
+                <input type="number" className="w-full rounded-lg border border-line px-2.5 py-1.5 text-sm" placeholder="0"
+                  value={editForm.committed_amount} onChange={e => setEditForm({ ...editForm, committed_amount: e.target.value })} />
+              </Field>
+              <Field label="Actual ($)">
+                <input type="number" className="w-full rounded-lg border border-line px-2.5 py-1.5 text-sm" placeholder="0"
+                  value={editForm.actual_amount} onChange={e => setEditForm({ ...editForm, actual_amount: e.target.value })} />
+              </Field>
+            </>
+          )}
+        </div>
+        {subOptions.length > 0 && (
+          <Field label="Link to subcontract (auto-fills Committed & Actual)">
+            <SearchableSelect className="w-full rounded-lg border border-line px-2.5 py-1.5 text-sm bg-panel"
+              value={editForm.subcontract_id} onChange={e => setEditForm({ ...editForm, subcontract_id: e.target.value })}>
+              <option value="">Not linked - enter manually</option>
+              {subOptions.filter(s => !linkedSubIds.has(s.id) || s.id === item.subcontract_id).map(s => <option key={s.id} value={s.id}>{s.label} · {contractAmountLabel(s.contract_amount)}</option>)}
+            </SearchableSelect>
+          </Field>
+        )}
+        <div className="flex gap-2 justify-end">
+          {lineError && (
+            <p role="alert" className="mr-auto text-xs text-danger">{lineError}</p>
+          )}
+          <button onClick={() => { setEditingId(null); setLineError(null) }} className="inline-flex items-center gap-1 text-xs text-muted-fg px-2 py-1.5 rounded-lg hover:bg-muted">
+            <X className="h-3.5 w-3.5" /> Cancel
+          </button>
+          <button onClick={() => saveEdit(item.id)} disabled={saving}
+            className="inline-flex items-center gap-1 text-xs text-accent-ink bg-accent hover:bg-accent px-2.5 py-1.5 rounded-lg">
+            <Check className="h-3.5 w-3.5" /> Save
+          </button>
+        </div>
+      </div>
+  )
+
   if (loading) return <div className="text-sm text-faint py-12 text-center">Loading…</div>
 
   // Sub's own job → budget IS the quote line items (no committed/actual rollup).
@@ -924,12 +1046,13 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
           <h1 className="text-2xl font-bold text-ink">Budget</h1>
           <p className="text-sm text-muted-fg mt-0.5">Line-item cost breakdown - budgeted vs committed vs actual.</p>
         </div>
-        <div className="row-even lg:flex lg:flex-wrap items-center gap-2">
+        <input ref={importInputRef} type="file" accept=".xlsx,.xls,.csv" className="sr-only"
+          onChange={e => { const file = e.target.files?.[0]; if (file) { setImportOnly(true); setShowTemplate(true); setImportItems(null); importExcel(file) } e.target.value = '' }} />
+        {/* Desktop: the toolbar as it was. */}
+        <div className="hidden lg:flex lg:flex-wrap items-center gap-2">
           <Button variant="outline" onClick={() => importInputRef.current?.click()} className="gap-1.5">
             <FileSpreadsheet className="h-4 w-4" /> Import Estimate
           </Button>
-          <input ref={importInputRef} type="file" accept=".xlsx,.xls,.csv" className="sr-only"
-            onChange={e => { const file = e.target.files?.[0]; if (file) { setImportOnly(true); setShowTemplate(true); setImportItems(null); importExcel(file) } e.target.value = '' }} />
           <Button variant="outline" onClick={openTemplatePicker} className="gap-1.5"><LayoutTemplate className="h-4 w-4" /> Use Template</Button>
           {items.length > 0 && <Button variant="outline" onClick={() => setShowSave(true)} className="gap-1.5"><Save className="h-4 w-4" /> Save as Template</Button>}
           {items.length > 0 && (
@@ -937,7 +1060,38 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
               <Pencil className="h-4 w-4" /> {selectMode ? 'Done' : 'Select'}
             </Button>
           )}
-          <Button onClick={() => setAdding(v => !v)} className="gap-1.5"><Plus className="h-4 w-4" /> Add Line</Button>
+          <Button onClick={() => setAdding(true)} className="gap-1.5"><Plus className="h-4 w-4" /> Add Line</Button>
+        </div>
+        {/* Phone: ONE action, and the rest behind More. Five buttons of equal
+            weight wrapped into three rows above a list nobody had reached yet;
+            adding a line is the thing done daily, the other four are set-up. */}
+        <div className="flex w-full items-center gap-2 lg:hidden">
+          <Button onClick={() => setAdding(true)} className="flex-1 gap-1.5"><Plus className="h-4 w-4" /> Add Line</Button>
+          {selectMode && (
+            <Button variant="default" onClick={() => { setSelectMode(false); setSelected(new Set()) }}>Done</Button>
+          )}
+          <RowMenu label="More budget actions">
+            {close => (
+              <>
+                <MenuItem onClick={() => { close(); importInputRef.current?.click() }}>
+                  <FileSpreadsheet className="h-4 w-4" /> Import Estimate
+                </MenuItem>
+                <MenuItem onClick={() => { close(); openTemplatePicker() }}>
+                  <LayoutTemplate className="h-4 w-4" /> Use Template
+                </MenuItem>
+                {items.length > 0 && (
+                  <MenuItem onClick={() => { close(); setShowSave(true) }}>
+                    <Save className="h-4 w-4" /> Save as Template
+                  </MenuItem>
+                )}
+                {items.length > 0 && !selectMode && (
+                  <MenuItem onClick={() => { close(); setSelectMode(true); setSelected(new Set()) }}>
+                    <Pencil className="h-4 w-4" /> Select lines
+                  </MenuItem>
+                )}
+              </>
+            )}
+          </RowMenu>
         </div>
       </div>
 
@@ -1608,7 +1762,10 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
           <p className="text-sm text-muted-fg">No line items match “{search}”.</p>
         </div>
       ) : (
-        <div className="bg-panel rounded-xl border border-line overflow-hidden">
+        <>
+        {/* DESKTOP: the table, unchanged. Below lg the phone list further down
+            takes over - one line per row, collapsed until tapped. */}
+        <div className="hidden lg:block bg-panel rounded-xl border border-line overflow-hidden">
           {/* header row (desktop) */}
           <div className={cn('hidden md:grid gap-2 px-4 py-2.5 border-b border-line-soft text-xs font-semibold text-faint uppercase tracking-wide items-center',
             selectMode ? 'grid-cols-[1.5rem_1fr_repeat(4,minmax(0,7rem))_3rem]' : 'grid-cols-[1fr_repeat(4,minmax(0,7rem))_3rem]')}>
@@ -1671,98 +1828,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                     const stillToBill = toBill(item)
                     const over = variance < 0
                     const overCommitted = revised > 0 && (Number(item.committed_amount || 0) - revised) >= 1
-                    if (editingId === item.id) {
-                      return (
-                        <div key={item.id} className="px-4 py-3 bg-accent-tint/40 space-y-2">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                            <Field label="Cost type">
-                              <SearchableSelect className="rounded-lg border border-line px-2.5 py-1.5 text-sm bg-panel"
-                                value={editForm.cost_type} onChange={e => {
-                                  const next = e.target.value === 'soft' ? 'soft' : 'hard'
-                                  const list = categoryOptions(next, knownCategories)
-                                  setEditForm(f => ({ ...f, cost_type: next, category: list.includes(f.category) ? f.category : list[0] }))
-                                }}>
-                                <option value="hard">Hard cost (construction)</option>
-                                <option value="soft">Soft cost (preconstruction / carrying)</option>
-                              </SearchableSelect>
-                            </Field>
-                            <Field label="Category">
-                              <CategoryPicker compact
-                                costType={editForm.cost_type} known={knownCategories} value={editForm.category}
-                                onChange={v => setEditForm(f => ({ ...f, category: v }))} />
-                            </Field>
-                            <Field label="Cost code">
-                              <input className="w-full rounded-lg border border-line px-2.5 py-1.5 text-sm" placeholder="optional"
-                                value={editForm.cost_code} onChange={e => setEditForm({ ...editForm, cost_code: e.target.value })} />
-                            </Field>
-                            <Field label="Description" className="sm:col-span-2 lg:col-span-1">
-                              <input className="w-full rounded-lg border border-line px-2.5 py-1.5 text-sm" placeholder="What this covers"
-                                value={editForm.description} onChange={e => setEditForm({ ...editForm, description: e.target.value })} />
-                            </Field>
-                            <Field label="Budgeted ($)">
-                              <input type="number" className="w-full rounded-lg border border-line px-2.5 py-1.5 text-sm" placeholder="0"
-                                value={editForm.budgeted_amount} onChange={e => setEditForm({ ...editForm, budgeted_amount: e.target.value })} />
-                            </Field>
-                            <Field label="Space">
-                              <SearchableSelect className="w-full rounded-lg border border-line px-2.5 py-1.5 text-sm bg-panel"
-                                value={editForm.space_type} onChange={e => setEditForm({ ...editForm, space_type: e.target.value })}>
-                                <option value="">Unassigned</option>
-                                <option value="interior">Interior</option>
-                                <option value="exterior">Exterior</option>
-                              </SearchableSelect>
-                            </Field>
-                            {editForm.subcontract_id ? (
-                              <>
-                                <Field label="Committed ($)">
-                                  <div className="rounded-lg border border-line bg-muted px-2.5 py-1.5 text-sm flex items-center justify-between">
-                                    <span className="text-xs text-faint">auto</span>
-                                    <span className="font-medium text-ink-soft">{money(subOptions.find(s => s.id === editForm.subcontract_id)?.contract_amount ?? 0)}</span>
-                                  </div>
-                                </Field>
-                                <Field label="Actual ($)">
-                                  <div className="rounded-lg border border-line bg-muted px-2.5 py-1.5 text-sm flex items-center justify-between">
-                                    <span className="text-xs text-faint">from invoices</span>
-                                    <span className="font-medium text-accent-fg">Auto</span>
-                                  </div>
-                                </Field>
-                              </>
-                            ) : (
-                              <>
-                                <Field label="Committed ($)">
-                                  <input type="number" className="w-full rounded-lg border border-line px-2.5 py-1.5 text-sm" placeholder="0"
-                                    value={editForm.committed_amount} onChange={e => setEditForm({ ...editForm, committed_amount: e.target.value })} />
-                                </Field>
-                                <Field label="Actual ($)">
-                                  <input type="number" className="w-full rounded-lg border border-line px-2.5 py-1.5 text-sm" placeholder="0"
-                                    value={editForm.actual_amount} onChange={e => setEditForm({ ...editForm, actual_amount: e.target.value })} />
-                                </Field>
-                              </>
-                            )}
-                          </div>
-                          {subOptions.length > 0 && (
-                            <Field label="Link to subcontract (auto-fills Committed & Actual)">
-                              <SearchableSelect className="w-full rounded-lg border border-line px-2.5 py-1.5 text-sm bg-panel"
-                                value={editForm.subcontract_id} onChange={e => setEditForm({ ...editForm, subcontract_id: e.target.value })}>
-                                <option value="">Not linked - enter manually</option>
-                                {subOptions.filter(s => !linkedSubIds.has(s.id) || s.id === item.subcontract_id).map(s => <option key={s.id} value={s.id}>{s.label} · {contractAmountLabel(s.contract_amount)}</option>)}
-                              </SearchableSelect>
-                            </Field>
-                          )}
-                          <div className="flex gap-2 justify-end">
-                            {lineError && (
-                              <p role="alert" className="mr-auto text-xs text-danger">{lineError}</p>
-                            )}
-                            <button onClick={() => { setEditingId(null); setLineError(null) }} className="inline-flex items-center gap-1 text-xs text-muted-fg px-2 py-1.5 rounded-lg hover:bg-muted">
-                              <X className="h-3.5 w-3.5" /> Cancel
-                            </button>
-                            <button onClick={() => saveEdit(item.id)} disabled={saving}
-                              className="inline-flex items-center gap-1 text-xs text-accent-ink bg-accent hover:bg-accent px-2.5 py-1.5 rounded-lg">
-                              <Check className="h-3.5 w-3.5" /> Save
-                            </button>
-                          </div>
-                        </div>
-                      )
-                    }
+                    if (editingId === item.id) return renderEditForm(item)
                     return (
                       <div key={item.id}
                         // The whole row opens the line. In select mode it toggles
@@ -1839,10 +1905,13 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                           </span>
                         </div>
                         <div className="flex justify-end gap-1 mt-2 md:mt-0 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                          <button onClick={e => { e.stopPropagation(); startEdit(item) }} className="p-1.5 rounded-lg text-faint hover:bg-muted hover:text-muted-fg">
+                          <button onClick={e => { e.stopPropagation(); startEdit(item) }} aria-label={`Edit ${item.description}`} title="Edit line" className="p-1.5 rounded-lg text-faint hover:bg-muted hover:text-muted-fg">
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
-                          <button onClick={e => { e.stopPropagation(); remove(item.id) }} className="p-1.5 rounded-lg text-faint hover:bg-danger-tint hover:text-danger">
+                          {/* Not one tap: `remove` goes through the delete
+                              guard, which asks first (and wants the delete key
+                              when protection is on). */}
+                          <button onClick={e => { e.stopPropagation(); remove(item.id) }} aria-label={`Delete ${item.description}`} title="Delete line" className="p-1.5 rounded-lg text-faint hover:bg-danger-tint hover:text-danger">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
@@ -1873,6 +1942,140 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
             <span />
           </div>
         </div>
+
+        {/* PHONE: every line COLLAPSED to its name, what it has cost, and its
+            variance. It used to print all four figures, the linked sub, a
+            pencil and a trash can on every line, so the one line that was over
+            budget was somewhere in a scroll of a hundred numbers. Tap a line
+            for the rest; tap a category to fold it away. Delete lives inside
+            the opened line, never one tap from the list. */}
+        <div className="overflow-hidden rounded-2xl border border-line bg-panel lg:hidden" data-budget-phone-list>
+          {sections.map(section => (
+            <div key={section.key}>
+              {showSectionBands && (
+                <div className={cn('flex items-center justify-between gap-2 px-4 py-2.5 border-y border-line',
+                  section.key === 'soft' ? 'bg-info-tint' : 'bg-muted')}>
+                  <span className={cn('min-w-0 truncate text-xs font-bold uppercase tracking-wider', section.key === 'soft' ? 'text-info' : 'text-ink-soft')}>
+                    {section.label}
+                  </span>
+                  <span className={cn('shrink-0 text-sm font-bold', section.key === 'soft' ? 'text-info' : 'text-ink-soft')}>{money(section.total)}</span>
+                </div>
+              )}
+              {section.groups.map(group => {
+                const catKey = `${section.key}:${group.category}`
+                const folded = foldedCats.has(catKey)
+                const gBudget = group.rows.reduce((s, i) => s + revisedOf(i), 0)
+                const gOver = group.rows.filter(i => variance(i) < 0).length
+                return (
+                  <div key={group.category} className="border-t border-line-soft first:border-t-0">
+                    <button type="button" onClick={() => toggleIn(setFoldedCats, catKey)} aria-expanded={!folded}
+                      className="flex min-h-11 w-full items-center justify-between gap-2 bg-surface px-4 py-2 text-left">
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        {folded ? <ChevronRight className="h-4 w-4 shrink-0 text-faint" /> : <ChevronDown className="h-4 w-4 shrink-0 text-faint" />}
+                        <span className="truncate text-xs font-bold uppercase tracking-wide text-muted-fg">{group.category}</span>
+                        <span className="shrink-0 text-xs text-faint">{group.rows.length}</span>
+                        {gOver > 0 && <span className="shrink-0 whitespace-nowrap text-[11px] font-medium text-danger">{gOver} over</span>}
+                      </span>
+                      <span className="shrink-0 text-xs font-semibold text-muted-fg">{money(gBudget)}</span>
+                    </button>
+                    {!folded && (
+                      <div className="divide-y divide-line-soft">
+                        {group.rows.map(item => {
+                          if (editingId === item.id) return renderEditForm(item)
+                          const open = openLines.has(item.id)
+                          const revised = revisedOf(item)
+                          const changes = Number(item.change_orders_amount || 0)
+                          const v = variance(item)
+                          const overCommitted = revised > 0 && (Number(item.committed_amount || 0) - revised) >= 1
+                          const picked = selectMode && selected.has(item.id)
+                          return (
+                            <div key={item.id} className={cn(open && !selectMode && 'bg-surface', picked && 'bg-danger-tint/40')}>
+                              <button type="button"
+                                onClick={() => selectMode ? toggleSelect(item.id) : toggleIn(setOpenLines, item.id)}
+                                aria-expanded={selectMode ? undefined : open}
+                                aria-pressed={selectMode ? picked : undefined}
+                                className="flex min-h-11 w-full items-center gap-3 px-4 py-3 text-left">
+                                {selectMode && (picked
+                                  ? <CheckSquare className="h-5 w-5 shrink-0 text-danger" />
+                                  : <Square className="h-5 w-5 shrink-0 text-faint" />)}
+                                <span className="min-w-0 flex-1">
+                                  <span className="block truncate text-sm font-medium text-ink">{item.description}</span>
+                                  {item.cost_code && <span className="block truncate text-xs text-faint">{item.cost_code}</span>}
+                                </span>
+                                <span className="shrink-0 text-right">
+                                  <span className="block text-sm font-semibold text-ink">{money(item.actual_amount)}</span>
+                                  <VarianceChip variance={v} />
+                                </span>
+                                {!selectMode && (open
+                                  ? <ChevronDown className="h-4 w-4 shrink-0 text-faint" />
+                                  : <ChevronRight className="h-4 w-4 shrink-0 text-faint" />)}
+                              </button>
+                              {open && !selectMode && (
+                                <div className="space-y-3 px-4 pb-4">
+                                  <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                                    <div>
+                                      <dt className="text-xs text-faint">Budgeted</dt>
+                                      <dd className="text-ink-soft">
+                                        {money(revised)}
+                                        {changes !== 0 && <span className="ml-1 text-[11px] text-info">incl. {money(changes)} CO</span>}
+                                      </dd>
+                                    </div>
+                                    <div>
+                                      <dt className="text-xs text-faint">Committed</dt>
+                                      <dd className={cn('inline-flex items-center gap-1', overCommitted ? 'font-semibold text-danger' : 'text-ink-soft')}>
+                                        {overCommitted && <AlertTriangle className="h-3 w-3 shrink-0" />}
+                                        {money(item.committed_amount)}
+                                      </dd>
+                                    </div>
+                                    <div>
+                                      <dt className="text-xs text-faint">Actual</dt>
+                                      <dd className="text-ink-soft">{money(item.actual_amount)}</dd>
+                                    </div>
+                                    <div>
+                                      <dt className="text-xs text-faint">Variance</dt>
+                                      <dd className={cn('font-medium', v === 0 ? 'text-faint' : v < 0 ? 'text-danger' : 'text-success')}>
+                                        {v === 0 ? '-' : `${v < 0 ? '-' : ''}${money(Math.abs(v))}`}
+                                      </dd>
+                                    </div>
+                                  </dl>
+                                  {(item.space_type || item.linked || item.notes) && (
+                                    <div className="space-y-1 text-xs">
+                                      {item.space_type && <p className="text-muted-fg">{SPACE_LABELS[item.space_type]}</p>}
+                                      {item.linked && (
+                                        <a href={`/projects/${params.id}/team`}
+                                          className="flex w-fit max-w-full items-center gap-1 text-accent-fg hover:underline">
+                                          <LinkIcon className="h-3 w-3 shrink-0" /> <span className="truncate">Linked · {item.linked_label}</span>
+                                        </a>
+                                      )}
+                                      {item.notes && <p className="text-faint">{item.notes}</p>}
+                                    </div>
+                                  )}
+                                  <div className="row-even gap-2">
+                                    <Button variant="outline" onClick={() => setDetailLineId(item.id)}>Details</Button>
+                                    <Button variant="outline" onClick={() => startEdit(item)} className="gap-1.5"><Pencil className="h-4 w-4" /> Edit</Button>
+                                  </div>
+                                  <button type="button" onClick={() => remove(item.id)}
+                                    className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-danger">
+                                    <Trash2 className="h-4 w-4" /> Delete this line
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          ))}
+          <div className="flex items-center justify-between gap-2 border-t border-line bg-surface px-4 py-3 text-sm font-bold text-ink-soft">
+            <span>Total spent</span>
+            <span>{money(totalActual)} <span className="font-normal text-faint">of {money(totalBudgeted)}</span></span>
+          </div>
+        </div>
+        </>
       )}
 
       {/* MONEY THAT IS IN THE TOTALS AND ON NO LINE ABOVE.
@@ -1882,7 +2085,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
           with no line did the same to Actual Spent. Both are now visible, both
           are counted, and both can be filed from here. */}
       {(unlinkedSubs.length > 0 || unassignedReceipts.length > 0 || unlinkedChangeOrders.length > 0) && (
-        <div className="mt-4 overflow-hidden rounded-xl border border-warn/40 bg-warn-tint/30">
+        <div id="not-on-a-line" className="mt-4 scroll-mt-4 overflow-hidden rounded-xl border border-warn/40 bg-warn-tint/30">
           <div className="border-b border-warn/30 px-4 py-2.5">
             <p className="text-sm font-semibold text-warn">Not on a budget line</p>
             <p className="mt-0.5 text-xs text-warn">
@@ -1963,6 +2166,12 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       {/* Materials - receipts assigned to this job (linked ones roll into a line's Actual) */}
       {materials.length > 0 && (() => {
         const materialsOwed = materials.reduce((s: number, m: any) => s + (m.client_paid ? 0 : Number(m.amount ?? 0)), 0)
+        // ONE line for the receipts with no budget line, not a label on each.
+        // Every row used to say "in a budget line" or "not linked to a line",
+        // so the list read as a column of the same two phrases and the few
+        // that needed filing did not stand out. They are listed, with a picker
+        // each, in the "Not on a budget line" panel above - this points there.
+        const unfiledReceipts = materials.filter((m: any) => !m.budget_line_id).length
         return (
         <div className="mt-6 rounded-xl border border-line bg-panel overflow-hidden">
           <div className="px-4 sm:px-5 py-3.5 border-b border-line-soft flex flex-wrap items-center justify-between gap-2">
@@ -1972,13 +2181,23 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
               {materialsOwed > 0 && <span className="font-medium text-warn">{money(materialsOwed)} owed by client</span>}
             </div>
           </div>
+          {unfiledReceipts > 0 && (
+            <button type="button"
+              onClick={() => document.getElementById('not-on-a-line')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+              className="flex min-h-11 w-full items-center justify-between gap-2 border-b border-line-soft px-4 py-2 text-left text-sm sm:px-5 lg:min-h-0">
+              <span className="min-w-0 text-warn">
+                {unfiledReceipts} receipt{unfiledReceipts !== 1 ? 's have' : ' has'} no budget line yet
+              </span>
+              <span className="shrink-0 font-medium text-accent-fg">Assign {unfiledReceipts !== 1 ? 'them' : 'it'} →</span>
+            </button>
+          )}
           <div className="divide-y divide-line-soft">
             {materials.map((m: any) => (
               <div key={m.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 sm:px-5 py-2.5 text-sm">
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-ink-soft truncate">{m.store_name || 'Material purchase'}</p>
                   <p className="text-xs text-faint truncate">
-                    {[m.category, m.budget_line_id ? 'in a budget line' : 'not linked to a line', m.purchase_date && formatDate(m.purchase_date)].filter(Boolean).join(' · ')}
+                    {[m.category, m.purchase_date && formatDate(m.purchase_date)].filter(Boolean).join(' · ')}
                   </p>
                 </div>
                 {m.client_paid ? (
