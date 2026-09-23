@@ -116,7 +116,7 @@ const navs = Array.from(sidebar.matchAll(/\{ label: '([^']+)', href: '(\/[^']+)'
 ok(navs.length >= 10, `the sidebar was parsed (${navs.length} entries)`)
 // `/directory` is being renamed in a parallel change ("Contacts Directory" ->
 // "Directory"); remove this line once it has merged.
-const SIDEBAR_PENDING = new Set(['/directory'])
+const SIDEBAR_PENDING = new Set<string>()
 let sidebarChecked = 0
 for (const n of navs) {
   const file = `app/(dashboard)${n.href}/page.tsx`
