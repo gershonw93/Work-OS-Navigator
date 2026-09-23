@@ -6,6 +6,9 @@ SyteNav
 ## Subtitle / short (Apple 30 chars / Play 30 chars)
 Run every job in one place
 
+## Play short description (80 chars)
+Construction management for GCs and subs: quotes, budgets, schedules, invoices.
+
 ## Promotional text (Apple, 170 chars)
 From the quote to the final invoice, SyteNav puts your whole job in one place. AI reads your documents, and the office and the field finally share one screen.
 
@@ -27,10 +30,18 @@ Run the whole job in one app:
 
 Built for the jobsite and the office. Works on your phone, tablet, and computer.
 
-Start free. No credit card needed.
+SyteNav is free during its invite-only beta. Request access at sytenav.com, then sign in here.
 
 ## Keywords (Apple, 100 chars, comma-separated)
 construction,contractor,subcontractor,invoices,quotes,estimate,punch list,daily log,jobsite,builder
+
+## Google Play graphics
+`store/play/play-icon-512.png` (512x512, the app icon) and
+`store/play/play-feature-graphic-1024x500.png` (the banner at the top of the
+listing). Both are drawn from the same mark as the app icon and the in-app
+logo; the `.html` beside each is its source - edit it and screenshot at the
+exact size with headless Chromium to regenerate. Phone screenshots (at least
+two) still have to be taken from the app itself.
 
 ## Categories
 Primary: Business • Secondary: Productivity
