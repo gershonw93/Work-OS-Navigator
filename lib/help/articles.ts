@@ -1819,7 +1819,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'Go to Directory, then "Imported contacts".',
         'Press Connect Google Contacts and sign in with the Google account whose address book you want. We only ever READ it - nothing is changed on Google\'s side.',
         'Press Read contacts. Everything comes into the list below.',
-        'Tick the ones you want - or Select all - then use the three pickers to label them: Sub, Supplier, Delivery or Inspector; a trade; and a job if they belong to one. Each picker applies to everything you have ticked.',
+        'Tick the ones you want - or Select all - then use the three pickers to label them: Sub, Supplier, Delivery or Inspector; a trade; and a job if they belong to one. Each picker applies to everything you have ticked. A Delivery contact goes into the Directory as a Supplier, since that is the kind of contact whose schedule line is a delivery.',
         'Press "Add to Directory". Only those become real contacts.',
         'For the ones you do not work with, tick them and press "Not a work contact" - they stop being offered.',
       ] },

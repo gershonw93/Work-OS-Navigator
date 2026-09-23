@@ -206,9 +206,32 @@ export function worthStaging(c: StagedContact | null): boolean {
   return !!(c.name || c.email || c.phone)
 }
 
-/** What a staged contact can be labelled as. Mirrors `companies.type`. */
+/**
+ * What a staged contact can be labelled as. This is the STAGING vocabulary and
+ * it is NOT `companies.type` - "delivery" is a word a GC sorts a phone book
+ * with, and the Directory has no such type. `directoryType` is the one
+ * translation between the two.
+ */
 export const CONTACT_TYPES = ['subcontractor', 'supplier', 'delivery', 'inspector', 'other'] as const
 export type StagedContactType = (typeof CONTACT_TYPES)[number]
+
+/** The values `companies_type_check` allows (migration 021). */
+export const DIRECTORY_TYPES = ['gc', 'subcontractor', 'supplier', 'inspector', 'worker', 'other'] as const
+export type DirectoryType = (typeof DIRECTORY_TYPES)[number]
+
+/**
+ * The Directory type a staged label is filed under.
+ *
+ * THE BUG. This comment used to say CONTACT_TYPES "mirrors companies.type", and
+ * it did not: the import wrote `type: 'delivery'` straight into `companies`,
+ * the CHECK constraint refused it, and every contact labelled Delivery failed
+ * with a Postgres sentence on screen while the Subs beside it went through.
+ * A delivery is a supplier everywhere else in the app (a supplier's schedule
+ * line IS "the delivery"), so that is where it is filed.
+ */
+export function directoryType(t: StagedContactType): DirectoryType {
+  return t === 'delivery' ? 'supplier' : t
+}
 
 export function isContactType(v: unknown): v is StagedContactType {
   return typeof v === 'string' && (CONTACT_TYPES as readonly string[]).includes(v)
