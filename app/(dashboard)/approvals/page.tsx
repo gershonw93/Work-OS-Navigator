@@ -4,12 +4,13 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
-import { CheckSquare, FileText, MessageSquare, DollarSign, Clock, CheckCircle2, XCircle, ExternalLink } from 'lucide-react'
+import { CheckSquare, FileText, MessageSquare, Clock, CheckCircle2, XCircle, ExternalLink } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
 
 import { formatDate } from '@/lib/dates'
+import { contractAmountLabel } from '@/lib/contract-amount'
 type FilterTab = 'all' | 'invoices' | 'rfis'
 
 const STATUS_COLORS: Record<string, string> = {
@@ -168,10 +169,12 @@ export default function ApprovalsPage() {
                       {!isSub && item.submitted_by && (
                         <p className="text-xs text-faint mt-0.5">From: {item.submitted_by}</p>
                       )}
+                      {/* One string, "$15,500". It was a DollarSign ICON, a
+                          flex gap and the bare number, which a phone drew as
+                          "$ 15,500" - the symbol is part of the figure. */}
                       {item.amount != null && (
-                        <p className="text-sm font-semibold text-ink-soft mt-1 flex items-center gap-1">
-                          <DollarSign className="h-3.5 w-3.5 text-faint" />
-                          {Number(item.amount).toLocaleString()}
+                        <p className="text-sm font-semibold text-ink-soft mt-1 tabular-nums">
+                          {contractAmountLabel(item.amount, '-')}
                         </p>
                       )}
                       <p className="text-xs text-faint mt-1">
@@ -235,14 +238,19 @@ export default function ApprovalsPage() {
                       <th className="text-left px-4 py-3 text-xs font-semibold text-muted-fg uppercase tracking-wide">Amount</th>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-muted-fg uppercase tracking-wide">Status</th>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-muted-fg uppercase tracking-wide">Date</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-muted-fg uppercase tracking-wide">
+                      {/* STICKY to the right edge. At 1280px beside the sidebar
+                          the seven columns ran past the card and Reject sat
+                          behind the horizontal scrollbar - the one thing on
+                          the row somebody came to press. The table may still
+                          scroll; the actions never scroll with it. */}
+                      <th className="sticky right-0 z-10 bg-panel border-l border-line-soft text-left px-4 py-3 text-xs font-semibold text-muted-fg uppercase tracking-wide">
                         {isSub ? 'Notes' : 'Actions'}
                       </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-line-soft">
                     {filtered.map((item) => (
-                      <tr key={`${item.type}-${item.id}`} className="hover:bg-surface transition-colors">
+                      <tr key={`${item.type}-${item.id}`} className="group hover:bg-surface transition-colors">
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             {item.type === 'invoice'
@@ -257,7 +265,7 @@ export default function ApprovalsPage() {
                         <td className="px-4 py-3 text-ink-soft">{item.project ?? '-'}</td>
                         {!isSub && <td className="px-4 py-3 text-muted-fg">{item.submitted_by ?? '-'}</td>}
                         <td className="px-4 py-3 font-semibold text-ink-soft">
-                          {item.amount != null ? `$${Number(item.amount).toLocaleString()}` : '-'}
+                          {contractAmountLabel(item.amount, '-')}
                         </td>
                         <td className="px-4 py-3">
                           <span className={cn('whitespace-nowrap text-xs font-medium rounded-full border px-2 py-0.5', STATUS_COLORS[item.status] ?? STATUS_COLORS.pending)}>
@@ -267,7 +275,7 @@ export default function ApprovalsPage() {
                         <td className="px-4 py-3 text-muted-fg whitespace-nowrap">
                           {formatDate(item.date, { month: 'short', day: 'numeric', year: 'numeric' })}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="sticky right-0 z-10 bg-panel group-hover:bg-surface border-l border-line-soft px-4 py-3 whitespace-nowrap">
                           {!isSub && item.type === 'invoice' && (
                             <div className="flex items-center gap-2">
                               <button
