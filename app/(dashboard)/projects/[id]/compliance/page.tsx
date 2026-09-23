@@ -18,6 +18,7 @@ import { clientAppOrigin } from '@/lib/app-url'
 import { SendLinkBox } from '@/components/ui/send-link-box'
 
 import { formatDate } from '@/lib/dates'
+import { expiryLabel } from '@/lib/expiry'
 // THE DATE DECIDES, and it decides the same way on the printed report - which
 // is why this lives in lib now rather than here. See lib/compliance-report.ts.
 import { statusFromExpiry } from '@/lib/compliance-report'
@@ -836,7 +837,7 @@ function SubCard({ sub, docs, requests, requirements, projectId, token, onRefres
                         : <p className="text-xs text-faint">No extracted details - open the file to review, or hit Update to add them.</p>}
                       <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-xs text-muted-fg">
                         <span>Status: <span className="text-ink-soft font-medium">{STATUS_CONFIG[status].label}</span></span>
-                        {doc.expiry_date && <span>Expires: <span className="text-ink-soft font-medium">{formatDate(doc.expiry_date, { month: 'short', day: 'numeric', year: 'numeric' })}</span></span>}
+                        {doc.expiry_date && <span className="text-ink-soft font-medium">{expiryLabel(doc.expiry_date)}</span>}
                         {doc.file_url && <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="text-accent-fg hover:underline inline-flex items-center gap-1"><ExternalLink className="h-3 w-3" /> Open document</a>}
                       </div>
                     </div>
@@ -874,9 +875,7 @@ function SubCard({ sub, docs, requests, requirements, projectId, token, onRefres
                     <span className="truncate">{DOC_LABELS[type]}</span>
                   </p>
                   <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-fg">
-                    <span>{doc?.expiry_date
-                      ? `Expires ${formatDate(doc.expiry_date, { month: 'short', day: 'numeric', year: 'numeric' })}`
-                      : 'No expiry on file'}</span>
+                    <span>{expiryLabel(doc?.expiry_date) ?? 'No expiry on file'}</span>
                     {doc?.file_url && (
                       <a href={doc.file_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
                         className="inline-flex items-center gap-1 font-medium text-accent-fg hover:underline">
