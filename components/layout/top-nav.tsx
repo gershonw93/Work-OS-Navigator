@@ -6,11 +6,17 @@ import { NotificationBell } from './notification-bell'
 import { OPEN_SIDEBAR_EVENT } from './sidebar'
 import { ImpersonateSwitcher } from './impersonate-switcher'
 import { GlobalSearch } from './global-search'
+import { projectTabLabel } from './project-tabs'
 
 const sectionLabels: Record<string, string> = {
   '/dashboard': 'Dashboard',
   '/projects': 'Projects',
+  '/customers': 'Customers',
   '/directory': 'Directory',
+  '/equipment': 'Equipment',
+  '/materials': 'Materials',
+  '/master-calendar': 'Master Calendar',
+  '/master-money': 'Master Money',
   '/files': 'Files',
   '/approvals': 'Approvals',
   '/settings': 'Settings',
@@ -22,14 +28,10 @@ function getBreadcrumb(pathname: string): string {
   if (pathname.startsWith('/projects/') && pathname !== '/projects') {
     const parts = pathname.split('/')
     if (parts.length >= 4) {
-      const sectionMap: Record<string, string> = {
-        plans: 'Plans', bids: 'Bids', team: 'Team', schedule: 'Schedule',
-        tasks: 'Tasks', progress: 'Progress', 'daily-logs': 'Daily Logs', time: 'Time Clock',
-        rfis: 'RFIs', invoices: 'Bills from subs', payments: 'Billing the client', 'pay-apps': 'Pay Applications', budget: 'Budget', 'request-quotes': 'Request Quotes', quotes: 'Compare Quotes', financials: 'Financials',
-        permits: 'Permits', inspections: 'Inspections', compliance: 'Compliance',
-        submittals: 'Submittals',
-      }
-      return `Projects / ${sectionMap[parts[3]] ?? 'Project'}`
+      // The menu's own name, never a second table of them: this used to be
+      // one, and it said "Pay Applications", "Request Quotes" and "Team" for
+      // tabs the menu calls something else.
+      return `Projects / ${projectTabLabel(parts[3]) ?? 'Project'}`
     }
     return 'Projects / Detail'
   }

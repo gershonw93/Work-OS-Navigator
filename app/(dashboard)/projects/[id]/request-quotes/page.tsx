@@ -405,7 +405,7 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
         onChange={e => { if (e.target.files?.length) uploadNewSet(e.target.files); e.target.value = '' }} />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Quotes</h1>
+          <h1 className="text-2xl font-bold text-ink">Quotes &amp; Bids</h1>
           <p className="text-sm text-muted-fg mt-0.5">Send plans to subs, track responses, then compare &amp; award - all in one place. Each sub gets a private link, no account needed.</p>
         </div>
         <div className="row-even lg:flex lg:flex-wrap items-center gap-2">
