@@ -2,7 +2,9 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { getActor, actorCan } from '@/lib/server-permissions'
 import { asContractType } from '@/lib/contract-type'
-import { requirePermission, denied } from '@/lib/api-guard'
+import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
+import { ownsProject } from '@/lib/project-access'
+import { friendlyDbError } from '@/lib/db-error'
 import { guardActivation } from '@/lib/activation-check'
 import { isProjectStatus } from '@/lib/activation'
 
@@ -213,9 +215,46 @@ export async function DELETE(
     return NextResponse.json({ error: 'You do not have permission to delete projects.' }, { status: 403 })
   }
 
+  // WHOSE JOB IT IS. The gate above asks whether the caller may delete
+  // projects at all; it does not ask whether THIS project is theirs - and a
+  // sub invited onto a GC's job, holding projects:edit in their own company,
+  // passed it for the GC's job. Deleting is the GC's act, never the sub's.
+  const owned = await ownedProject<{ id: string; name: string | null }>(db, actor!, params.id, 'id, name')
+  if ('denied' in owned) return owned.denied
+
+  // A SITE TAKES ITS UNITS WITH IT. parent_project_id is ON DELETE SET NULL
+  // (migration 063), so deleting only the site detached every unit and turned
+  // "a building with 10 floors" into 10 loose projects - reported exactly so
+  // after a bulk-added building was deleted. The units are deleted first, and
+  // only if every one of them is this company's too.
+  const { data: units, error: unitsError } = await db
+    .from('projects')
+    .select('id, gc_company_id, created_by_company_id')
+    .eq('parent_project_id', params.id)
+  if (unitsError) {
+    console.error('[projects DELETE] reading units', unitsError)
+    return NextResponse.json({ error: friendlyDbError(unitsError) }, { status: 500 })
+  }
+  const unitRows = units ?? []
+  if (unitRows.some(u => !ownsProject(actor!.companyId, u))) {
+    return NextResponse.json(
+      { error: 'Some jobs on this site belong to another company, so the site cannot be deleted.' },
+      { status: 403 },
+    )
+  }
+  if (unitRows.length) {
+    const { error: unitDeleteError } = await db.from('projects').delete().in('id', unitRows.map(u => u.id))
+    if (unitDeleteError) {
+      console.error('[projects DELETE] deleting units', unitDeleteError)
+      return NextResponse.json({ error: friendlyDbError(unitDeleteError) }, { status: 500 })
+    }
+  }
+
   const { error } = await db.from('projects').delete().eq('id', params.id)
+  if (error) {
+    console.error('[projects DELETE]', error)
+    return NextResponse.json({ error: friendlyDbError(error) }, { status: 500 })
+  }
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  return NextResponse.json({ success: true })
+  return NextResponse.json({ success: true, unitsDeleted: unitRows.length })
 }
