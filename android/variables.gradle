@@ -1,11 +1,13 @@
 ext {
     minSdkVersion = 22
-    // 35, not Capacitor 6's default of 34. Google Play refuses a NEW app, and
-    // any update, that targets less than API 35 (the rule since Aug 31 2025).
-    // Capacitor 6 plugins read these same values off rootProject.ext, so they
-    // compile against 35 too. See gradle.properties for the AGP note.
-    compileSdkVersion = 35
-    targetSdkVersion = 35
+    // 36, not Capacitor 6's default of 34. Google Play refuses a new app, and
+    // any update, targeting less than API 36 (the rule since Aug 31 2026). The
+    // first upload targeted 35, which had been the rule a year earlier, and
+    // was refused for it. Capacitor 6 plugins read these values off rootProject.ext, so they
+    // compile against 36 too. Targeting 36 makes Android 16 draw the app edge
+    // to edge with no opt-out - MainActivity.java handles the insets.
+    compileSdkVersion = 36
+    targetSdkVersion = 36
     androidxActivityVersion = '1.8.0'
     androidxAppCompatVersion = '1.6.1'
     androidxCoordinatorLayoutVersion = '1.2.0'
