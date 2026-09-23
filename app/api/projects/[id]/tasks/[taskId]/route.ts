@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { notify } from '@/lib/notify'
 import { audienceFor } from '@/lib/notification-audience'
 import { logActivity } from '@/lib/log-activity'
+import { normalizeAssignees } from '@/lib/task-assignees'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -25,6 +26,12 @@ export async function PATCH(
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
+
+  // Read ONCE, up here: both `completed_by_name` below and the history line
+  // further down need it, and it used to be fetched only after the write.
+  const { data: profile } = await db.from('profiles').select('full_name, email').eq('id', user.id).single()
+  const actorName = (profile as any)?.full_name ?? (profile as any)?.email ?? user.email ?? 'Someone'
+
   const updates: Record<string, any> = {}
   if (body.status !== undefined) updates.status = body.status
   if (body.title !== undefined) updates.title = body.title
@@ -55,6 +62,19 @@ export async function PATCH(
   // that could set it could date a task finished last year.
   if (body.status !== undefined) {
     updates.completed_at = body.status === 'completed' ? new Date().toISOString() : null
+    // AND WHO FINISHED IT. `completed_at` said when and never by whom, which
+    // is the question a month later - and with several people on a task it is
+    // the only way to know which of them actually did it.
+    //
+    // Derived from the ACTOR, never taken from the body, exactly as the
+    // timestamp is: a client that could name the finisher could credit
+    // somebody who was not there. Cleared on the way back out of completed,
+    // because a name left behind on a re-opened task is a claim about work
+    // that is no longer done.
+    updates.completed_by = body.status === 'completed' ? user.id : null
+    updates.completed_by_name = body.status === 'completed'
+      ? actorName
+      : null
   }
 
   // Capture the previous state so we can describe the change in history
@@ -74,9 +94,44 @@ export async function PATCH(
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Log to job history
-  const { data: profile } = await db.from('profiles').select('full_name, email').eq('id', user.id).single()
-  const actorName = (profile as any)?.full_name ?? (profile as any)?.email ?? user.email ?? 'Someone'
+  // WHO IS ON IT, when the body says so.
+  //
+  // `undefined` means "not mentioned" and leaves them alone; an empty array
+  // means "nobody", which is a real answer and must be able to clear the
+  // list. That is the same distinction the whitelist above draws, and
+  // collapsing the two would make unassigning impossible.
+  //
+  // Replace rather than diff: the picker hands back the whole set, and a diff
+  // computed from a stale screen removes somebody a second tab just added.
+  // Delete THEN insert, in that order - the unique indexes would refuse an
+  // insert that overlaps the rows still sitting there.
+  let assigneeNamesAfter: string[] | null = null
+  if (body.assignees !== undefined) {
+    const wanted = normalizeAssignees(Array.isArray(body.assignees) ? body.assignees : [])
+    const { error: delErr } = await db.from('project_task_assignees')
+      .delete().eq('task_id', params.taskId)
+    if (delErr) {
+      console.error('[tasks] could not clear assignees:', delErr.message)
+      return NextResponse.json(
+        { error: 'Saved the task, but could not update who is on it. Reload and try again.' },
+        { status: 500 },
+      )
+    }
+    if (wanted.length) {
+      const { error: insErr } = await db.from('project_task_assignees')
+        .insert(wanted.map(a => ({ task_id: params.taskId, ...a })))
+      if (insErr) {
+        console.error('[tasks] could not save assignees:', insErr.message)
+        return NextResponse.json(
+          { error: 'Saved the task, but could not update who is on it. Reload and try again.' },
+          { status: 500 },
+        )
+      }
+    }
+    assigneeNamesAfter = wanted.map(a => (a.name ?? '').trim() || 'Unnamed')
+  }
+
+  // Log to job history - `actorName` is read once, above.
   const taskTitle = (data as any)?.title ?? (prev as any)?.title ?? 'a task'
 
   const changes: string[] = []
@@ -98,6 +153,11 @@ export async function PATCH(
   // not once this list decides whether anybody's phone lights up.
   if (updates.description !== undefined && updates.description !== (prev as any)?.description) {
     changes.push('description updated')
+  }
+  if (assigneeNamesAfter !== null) {
+    changes.push(assigneeNamesAfter.length
+      ? `assigned to ${assigneeNamesAfter.join(', ')}`
+      : 'unassigned')
   }
   if (updates.assigned_to_name !== undefined && updates.assigned_to_name !== (prev as any)?.assigned_to_name) {
     changes.push(updates.assigned_to_name ? `assigned to ${updates.assigned_to_name}` : 'unassigned')

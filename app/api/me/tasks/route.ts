@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { myJobs } from '@/lib/my-jobs'
+import { taskIdsFor } from '@/lib/task-assignees'
 
 export const runtime = 'nodejs'
 
@@ -47,25 +48,30 @@ export async function GET(request: Request) {
 
   // --- 3. Tasks assigned to this worker across those projects.
   // Match on the team-member ids we resolved, plus a name fallback.
-  const tasks: any[] = []
-  if (memberIds.length) {
-    const { data: byMember } = await db
-      .from('project_tasks').select('*')
-      .in('project_id', projectIds)
-      .in('assigned_to_member_id', memberIds)
-      .order('due_date', { ascending: true, nullsFirst: false })
-    if (byMember?.length) tasks.push(...byMember)
+  //
+  // THROUGH THE JOIN TABLE, because a task can carry several people now. This
+  // was two queries over `assigned_to_member_id` and `assigned_to_name` - the
+  // single-assignee columns - and a task assigned to two crew would have been
+  // nobody's the moment those stopped being written.
+  //
+  // A FAILED LOOKUP IS NOT AN EMPTY ONE. `taskIdsFor` answers null when it
+  // could not ask, and rendering that as "you have no tasks" is how somebody
+  // is told their work is gone. The route says so instead.
+  let tasks: any[] = []
+  const mineIds = await taskIdsFor(db, { memberIds, name: profile?.full_name ?? null })
+  if (mineIds === null) {
+    return NextResponse.json(
+      { error: 'Could not work out which tasks are yours. Reload the page.' },
+      { status: 500 },
+    )
   }
-  if (profile?.full_name) {
-    const { data: byName } = await db
+  if (mineIds.length) {
+    const { data: rows } = await db
       .from('project_tasks').select('*')
       .in('project_id', projectIds)
-      .eq('assigned_to_name', profile.full_name)
+      .in('id', mineIds)
       .order('due_date', { ascending: true, nullsFirst: false })
-    if (byName?.length) {
-      const seen = new Set(tasks.map(t => t.id))
-      for (const t of byName) if (!seen.has(t.id)) tasks.push(t)
-    }
+    tasks = rows ?? []
   }
   const tasksOut = tasks.map(t => ({ ...t, project_name: projectName.get(t.project_id) ?? '' }))
 

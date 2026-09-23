@@ -55,6 +55,25 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 const AUTHORED: Release[] = [
   {
     date: '2026-09-23',
+    title: 'A task can have a whole crew on it',
+    items: [
+      {
+        kind: 'new',
+        title: 'Assign a task to more than one person',
+        text: 'Assign To takes as many people as the job needs now, instead of exactly one. Pick somebody, pick another, and each shows as a chip you can take off again - crew and subcontractors can be on the same task. It is still ONE task: any of them can move it to Completed and it is done for everybody, rather than turning into three jobs to chase. Everyone on it is told once each, even if somebody is both on your crew and at the sub you picked. Everything already assigned carried over exactly as it was.',
+        help: 'tasks-assign',
+      },
+      {
+        kind: 'new',
+        title: 'A finished task says who finished it',
+        text: 'Completing a task used to record when and not by whom, which is unanswerable a month later - and with several people on a task it is the only way to tell which of them did the work. A completed task now shows who ticked it off and when. Tasks completed before this will not have a name on them; SyteNav leaves it blank rather than guessing.',
+        help: 'tasks-assign',
+      },
+    ],
+  },
+
+  {
+    date: '2026-09-23',
     title: 'Less to scroll past, and the thing that needs you first',
     items: [
       {
