@@ -641,11 +641,17 @@ iOS applies its own mask, and an icon with an alpha channel is rejected outright
      This one UPLOADS builds; it is not the Firebase key below.
    - The build number is Codemagic's `BUILD_NUMBER`, so every upload is higher
      than the last - nothing to bump by hand.
-4. Run `ios-capacitor` → uploads to **TestFlight**; `android-capacitor` → uploads to Play **internal** track.
+4. Run `ios-capacitor` → uploads to **TestFlight**. Android has TWO workflows:
+   - **SyteNav Android** (`android-capacitor`) builds the `.aab` and stops. No
+     Play key needed - Codemagic checks publishing credentials BEFORE building,
+     so a workflow with an upload in it cannot run until that key exists.
+   - **SyteNav Android → Google Play** (`android-release`) is the same build
+     plus the upload to the **internal** track. Needs
+     `GCLOUD_SERVICE_ACCOUNT_CREDENTIALS`.
    **Android's FIRST upload is by hand**: Play will not accept an API upload for
-   an app that has never had a build. Download the `.aab` from the first
-   Codemagic run and upload it in Play Console -> Testing -> Internal testing.
-   Every build after that uploads itself.
+   an app that has never had a build. Run SyteNav Android, download the `.aab`
+   from Artifacts, and upload it in Play Console -> Testing -> Internal testing.
+   After that, use SyteNav Android → Google Play.
 5. **Android notifications, server side**: in Vercel, set `FCM_SERVICE_ACCOUNT`
    to the Firebase service-account key (Firebase -> Project settings -> Service
    accounts -> Generate new private key), the whole JSON file. Same Firebase

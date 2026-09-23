@@ -212,7 +212,15 @@ workflows:
         # human-reviewed act. It belongs in App Store Connect when we actually
         # want it, not on every push. See MOBILE.md.
 
-  android-capacitor:
+  # TWO ANDROID WORKFLOWS, ONE RECIPE. Codemagic checks the Google Play upload
+  # credentials BEFORE it builds anything, so a workflow with a `publishing:`
+  # block cannot even produce an .aab until the Play service account exists -
+  # and the first .aab has to exist first, because Play refuses an API upload
+  # for an app that has never had one uploaded by hand. The first run died in
+  # seconds on exactly that: "Provided Google Play service account credentials
+  # could not be used". So `android-capacitor` builds and stops, and
+  # `android-release` is the same recipe (the YAML anchor) plus the upload.
+  android-capacitor: &android
     name: SyteNav Android
     # A MAC, NOT LINUX. The free Codemagic plan only includes the Mac
     # machines - `linux_x2` refused to start at all with "The selected instance
@@ -306,6 +314,14 @@ workflows:
           echo "$AAB is signed."
     artifacts:
       - android/app/build/outputs/**/*.aab
+
+  android-release:
+    <<: *android
+    name: SyteNav Android → Google Play
+    # Everything above comes from the anchor, the variable group included - so
+    # GCLOUD_SERVICE_ACCOUNT_CREDENTIALS goes in google_play_credentials too: a
+    # Google Cloud service-account JSON with release rights in Play Console ->
+    # Users and permissions. MOBILE.md section 5.
     publishing:
       google_play:
         credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS

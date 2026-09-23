@@ -54,6 +54,14 @@ import { ok, done, code, read, exists } from './_helpers'
 
   const cm = read('codemagic.yaml')
   const android = cm.slice(cm.indexOf('android-capacitor:'))
+  // Codemagic checks publishing credentials BEFORE building, so a workflow
+  // with a Play upload cannot produce the first .aab - the one that has to be
+  // uploaded by hand before Play accepts any upload from the API at all.
+  const buildOnly = android.slice(0, android.indexOf('android-release:'))
+  ok(android.includes('android-release:') && !/publishing:/.test(buildOnly),
+    'the plain Android workflow builds without uploading, so it runs before the Play key exists')
+  ok(/android-release:\s*\n\s*<<: \*android[\s\S]*google_play:[\s\S]*GCLOUD_SERVICE_ACCOUNT_CREDENTIALS/.test(android),
+    '...and the release workflow is the same recipe plus the upload')
   ok(/jarsigner -verify/.test(android), 'the Android workflow refuses to upload an unsigned bundle')
   // The free plan has no Linux machines ("not available with the current
   // billing plan"), so Android builds on the same Mac as iOS - and a Mac's
