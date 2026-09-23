@@ -200,6 +200,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       'units', 'unit numbers', 'apartment', 'condo', 'building', 'floors', 'floor by floor',
       'level', 'suite', 'commercial', 'fit out', 'street numbers', 'subdivision', 'development',
       'site', 'parent project', 'folder', 'group projects', 'map', 'gps', 'coordinates',
+      'delete site', 'delete building', 'delete all units', 'units became projects',
     ],
     summary: 'Set up a whole building or street in one go, grouped under a single site.',
     blocks: [
@@ -217,6 +218,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: 'text', text: 'On the unit and floor batches the address is geocoded once and shared, because every unit really is the same building - so they all land on the map at the right spot. Street batches look up each house separately. If a job could not be placed you will be told how many, and fixing its address in Project Settings puts it on the map.' },
       { type: 'text', text: 'The unit or floor number is stored as its own field rather than being glued onto the address, which is what keeps the address clean enough to geocode. You can see and change it in Project Settings on any job.' },
       { type: 'tip', text: 'Searching on the Projects page looks inside sites too, so you can jump straight to "Unit 12" without opening the building first.' },
+      { type: 'text', text: 'DELETING A SITE DELETES EVERY JOB IN IT. The warning names how many - "the 10 jobs inside it, with all their data" - before you confirm. To remove just one unit or floor, open that job and delete it on its own; the rest of the building stays.' },
     ],
     related: ['create-first-project', 'project-settings', 'project-tabs-explained'],
   },

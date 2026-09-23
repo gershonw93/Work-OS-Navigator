@@ -238,14 +238,28 @@ export default function ProjectsPage() {
   }
 
   function handleDelete(project: Project) {
+    // A site's units go with it (the route deletes them), so the warning has
+    // to say so - "this project and all its data" undersells ten jobs.
+    const units = childCount[project.id] ?? 0
     guardDelete(async () => {
       const token = await getToken()
-      await fetch(`/api/projects/${project.id}`, {
+      const res = await fetch(`/api/projects/${project.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       })
+      // It used to refresh and say nothing whatever came back, so a refused
+      // delete looked exactly like one that worked until the row reappeared.
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}))
+        notify(`Could not delete: ${d.error ?? res.statusText}`)
+      }
       fetchProjects()
-    }, { label: `"${project.name}" and all its data`, protected: true })
+    }, {
+      label: units
+        ? `"${project.name}" and the ${units} ${units === 1 ? 'job' : 'jobs'} inside it, with all their data`
+        : `"${project.name}" and all its data`,
+      protected: true,
+    })
   }
 
   // How many jobs hang off each site, so its row can say "40 units" instead of
