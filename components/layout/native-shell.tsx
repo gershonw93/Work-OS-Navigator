@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect } from 'react'
+import { usePathname } from 'next/navigation'
+import { edgeColor } from '@/lib/edge-color'
 import { usePush } from '@/lib/use-push'
 import { useVisualViewport } from '@/lib/use-visual-viewport'
 import { useNativePlatform } from '@/lib/use-native'
@@ -52,7 +54,11 @@ export function NativeShell() {
  * it tracks a theme change without being told about it.
  */
 function useStatusBar() {
-  const { isNative, ready } = useNativePlatform()
+  const { isNative, ready, platform } = useNativePlatform()
+  // Android's bands are painted from what is ON SCREEN at each edge, and the
+  // field shell's top is `surface` where the dashboard's is `panel` - so a
+  // navigation can change the answer without the theme changing.
+  const pathname = usePathname()
 
   useEffect(() => {
     if (!ready || !isNative) return
@@ -67,6 +73,7 @@ function useStatusBar() {
           // The naming is Apple's and it is the wrong way round from what you
           // would guess, which is worth one comment rather than one bug.
           StatusBar.setStyle({ style: dark ? Style.Light : Style.Dark }).catch(() => {})
+          if (platform === 'android') paintAndroidBars()
         }
         apply()
         const observer = new MutationObserver(apply)
@@ -76,7 +83,31 @@ function useStatusBar() {
     })()
 
     return () => stop?.()
-  }, [ready, isNative])
+  }, [ready, isNative, platform, pathname])
+}
+
+/**
+ * ANDROID: tell the native side what colour is at the top and bottom edges.
+ *
+ * Google Play requires targetSdk 36, which puts the app edge to edge under the
+ * system bars. MainActivity keeps the WebView BETWEEN the bars and paints the
+ * bands behind them - but only the page knows its colours: the theme is picked
+ * inside the app and can disagree with the phone's night mode, and the phone's
+ * guess would put a dark clock on a dark band. See MainActivity.java.
+ *
+ * Next frame, so the class change that triggered this has been painted.
+ */
+function paintAndroidBars() {
+  requestAnimationFrame(async () => {
+    try {
+      const top = edgeColor(document.elementFromPoint(1, 1))
+      const bottom = edgeColor(document.elementFromPoint(1, window.innerHeight - 1))
+      if (!top || !bottom) return
+      const { registerPlugin } = await import('@capacitor/core')
+      const Bars = registerPlugin<{ setColors(o: { top: string; bottom: string }): Promise<void> }>('SyteNavBars')
+      await Bars.setColors({ top, bottom })
+    } catch { /* an older app build has no such plugin; its bars keep their colour */ }
+  })
 }
 
 /**

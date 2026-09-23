@@ -26,6 +26,7 @@ import {
 import { pushTestMessage } from '../push'
 import { pushStateNote } from '../push-state'
 import { pushToPhones } from '../notify'
+import { cssColorToHex } from '../edge-color'
 import { ok, done, code, read, exists } from './_helpers'
 
 ;(async () => {
@@ -46,11 +47,43 @@ import { ok, done, code, read, exists } from './_helpers'
   const vars = code('android/variables.gradle')
   const target = Number(/targetSdkVersion\s*=\s*(\d+)/.exec(vars)?.[1] ?? 0)
   const compile = Number(/compileSdkVersion\s*=\s*(\d+)/.exec(vars)?.[1] ?? 0)
-  ok(target >= 35, `targetSdk is ${target}, and Play requires 35 or more`)
+  // 36 since Aug 31 2026. The first upload targeted 35 - the rule a year
+  // earlier - and Play refused it: "must target at least API level 36".
+  ok(target >= 36, `targetSdk is ${target}, and Play requires 36 or more`)
   ok(compile >= target, `compileSdk (${compile}) is not below targetSdk (${target})`)
-  const styles = read('android/app/src/main/res/values/styles.xml')
-  ok(target !== 35 || (styles.match(/windowOptOutEdgeToEdgeEnforcement[^>]*>true</g) ?? []).length >= 2,
-    'targeting 35 opts out of forced edge-to-edge on both themes, or the top bar sits under the clock')
+  const agp = /com\.android\.tools\.build:gradle:(\d+)\.(\d+)/.exec(code('android/build.gradle'))
+  ok(!!agp && (Number(agp[1]) > 8 || (Number(agp[1]) === 8 && Number(agp[2]) >= 9)),
+    `the Android Gradle Plugin (${agp?.[1]}.${agp?.[2]}) is new enough to compile against 36 - 8.2 predates it`)
+  const wrapper = /gradle-(\d+)\.(\d+)/.exec(read('android/gradle/wrapper/gradle-wrapper.properties'))
+  ok(!!wrapper && (Number(wrapper[1]) > 8 || Number(wrapper[2]) >= 13), 'Gradle is 8.13 or later, which that plugin requires')
+
+  // At 36 Android 16 draws the app edge to edge and the old opt-out is
+  // IGNORED, so the insets are handled natively - on every version.
+  const main = code('android/app/src/main/java/com/sytenav/app/MainActivity.java')
+  ok(/setDecorFitsSystemWindows\(window, false\)/.test(main)
+    && /setOnApplyWindowInsetsListener\(content/.test(main)
+    && /Type\.systemBars\(\)/.test(main) && /Type\.ime\(\)/.test(main),
+    'MainActivity pads the WebView by the system bars AND the keyboard, so nothing sits under the clock')
+  ok(/return WindowInsetsCompat\.CONSUMED/.test(main),
+    '...and consumes them, so env(safe-area-inset-*) reads 0 and the CSS does not pad a second time')
+  ok(main.indexOf('registerPlugin(SystemBarsPlugin.class)') >= 0
+    && main.indexOf('registerPlugin(SystemBarsPlugin.class)') < main.indexOf('super.onCreate'),
+    'the bar-colour plugin is registered BEFORE super.onCreate, or the page cannot see it')
+  ok(/@CapacitorPlugin\(name = "SyteNavBars"\)/.test(code('android/app/src/main/java/com/sytenav/app/SystemBarsPlugin.java'))
+    && /registerPlugin<[\s\S]*>\('SyteNavBars'\)/.test(code('components/layout/native-shell.tsx')),
+    'the page calls the plugin by the name the native side registers')
+  ok(/adjustResize/.test(read('android/app/src/main/AndroidManifest.xml')),
+    'the keyboard never pans the window - the inset padding is what makes room')
+  ok(!/windowOptOutEdgeToEdgeEnforcement/.test(read('android/app/src/main/res/values/styles.xml')),
+    'no opt-out left behind that Android 16 ignores - it would read as the thing handling the insets')
+
+  // The band colours come from what is on screen, not from a guess.
+  ok(cssColorToHex('rgb(31, 34, 39)') === '#1F2227', 'rgb() becomes #RRGGBB')
+  ok(cssColorToHex('rgba(255, 255, 255, 1)') === '#FFFFFF', 'an opaque rgba() counts')
+  ok(cssColorToHex('rgba(0, 0, 0, 0)') === null && cssColorToHex('rgba(0, 0, 0, 0.4)') === null,
+    'transparent and a translucent backdrop are not a colour - keep walking up')
+  ok(cssColorToHex('rgb(244 244 241 / 100%)') === '#F4F4F1', 'the space-separated form Tailwind emits parses')
+  ok(cssColorToHex('') === null && cssColorToHex(undefined) === null, 'nothing is null, never white')
 
   const cm = read('codemagic.yaml')
   const android = cm.slice(cm.indexOf('android-capacitor:'))

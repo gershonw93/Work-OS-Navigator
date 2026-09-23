@@ -658,9 +658,14 @@ iOS applies its own mask, and an icon with an alpha channel is rejected outright
    project as `google-services.json`. Then Settings -> Notifications -> Send
    test on an Android phone says whether it worked, in Google's own words if not.
 
-**Android targets API 35**, which Play requires. That also opts the app out of
-Android 15's forced edge-to-edge (`styles.xml`) - honoured for target 35 only,
-so moving to 36 means handling the insets in the webview properly first.
+**Android targets API 36**, which Play requires from Aug 31 2026 (the first
+upload targeted 35 and was refused). That needs Android Gradle Plugin 8.9+ -
+the project carries 8.13 and Gradle 8.14, ahead of Capacitor 6's own 8.2 pin.
+Targeting 36 also makes Android 16 draw the app edge to edge with no opt-out,
+so `MainActivity.java` keeps the WebView between the system bars on every
+Android version and paints the bands behind them in the colours the page
+reports (`SystemBarsPlugin`, called from `native-shell.tsx`). Moving to
+Capacitor 8 later would replace that with its own SystemBars handling.
 
 ---
 

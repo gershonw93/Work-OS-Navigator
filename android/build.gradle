@@ -7,8 +7,13 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.2.1'
-        classpath 'com.google.gms:google-services:4.4.0'
+        // 8.13, not Capacitor 6's pin of 8.2.1. Google Play requires targetSdk
+        // 36 (from Aug 31 2026), and compileSdk 36 needs AGP 8.9 or later -
+        // 8.2 predates Android 16 entirely. The Capacitor plugins still name
+        // 8.2.1 in their own buildscripts; this root classpath is the one the
+        // build loads. Gradle 8.13+ is required by it (gradle-wrapper).
+        classpath 'com.android.tools.build:gradle:8.13.0'
+        classpath 'com.google.gms:google-services:4.4.4'
 
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
