@@ -1350,12 +1350,10 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                         <Pencil className="h-4 w-4" />
                       </button>
                     )}
-                    {canDeleteLog && (
-                      <button type="button" onClick={e => { e.stopPropagation(); handleDeleteLog(log.id) }}
-                        className="p-1 text-danger hover:text-danger" title="Delete log">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    )}
+                    {/* NO TRASH HERE. A red bin on every collapsed card put the
+                        one irreversible act a single tap from the list, beside
+                        the tap that opens the log. Delete lives at the foot of
+                        the opened log, behind the delete guard. */}
                     {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                   </div>
                 </button>
@@ -1736,6 +1734,17 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                         )}
                         {log.signed_by_name && <p className="text-sm text-ink-soft mt-1">Signed by {log.signed_by_name}</p>}
                         {log.signed_at && <p className="text-xs text-faint">{new Date(log.signed_at).toLocaleString('en-US')}</p>}
+                      </div>
+                    )}
+
+                    {/* The destructive act, in the detail view rather than on
+                        the list row - and still behind useDeleteGuard. */}
+                    {canDeleteLog && (
+                      <div className="flex justify-end border-t border-line-soft pt-4">
+                        <Button size="sm" variant="outline" onClick={() => handleDeleteLog(log.id)}
+                          className="text-danger hover:bg-danger-tint">
+                          <Trash2 className="h-3.5 w-3.5" /> Delete this log
+                        </Button>
                       </div>
                     )}
                   </div>

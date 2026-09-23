@@ -11,7 +11,8 @@ import { Plus, X, FileCheck, FileText, ChevronDown, ChevronUp, Phone, Building, 
 import { ContactPicker } from '@/components/contact-picker'
 
 import { formatDate } from '@/lib/dates'
-import { expiryState, daysExpired } from '@/lib/expiry'
+import { expiryState, expiryLabel, expiredAgo } from '@/lib/expiry'
+import { sortPermits } from '@/lib/permit-order'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 import { permitProblem } from '@/lib/permit-rules'
 const PERMIT_TYPES = [
@@ -450,7 +451,10 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
         </div>
       ) : (
         <div className="space-y-2">
-          {permits.map(permit => {
+          {/* What needs somebody goes FIRST - expired, then expiring, then
+              pending. The route returns newest-first, which put the one
+              expired permit at the bottom of the page. lib/permit-order.ts. */}
+          {sortPermits(permits).map(permit => {
             const isExpanded = expanded === permit.id
             // THE BUG: only "expiring soon" was ever asked, and that window sits
             // BEFORE the date - so the morning a permit lapsed the warning went
@@ -458,9 +462,14 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
             const state = expiryState(permit.expiry_date)
             const expiring = state === 'soon'
             const lapsed = state === 'expired'
-            const lapsedDays = lapsed ? daysExpired(permit.expiry_date) ?? 0 : 0
             // The row can say 'pending' for ever; the date cannot be argued with.
             const shownStatus = state === 'expired' ? 'expired' : permit.status
+            // ONE chip for an expired row. It used to wear "expired" AND
+            // "Expired 15 days ago" - two chips saying one thing - so the
+            // status chip itself carries the how-long.
+            const statusText = (lapsed && expiredAgo(permit.expiry_date)) || shownStatus
+            // "Expired Sep 8", never "Expires" under a date already gone.
+            const dateLine = expiryLabel(permit.expiry_date)
             return (
               <div key={permit.id} className="rounded-xl border border-line bg-panel overflow-hidden">
                 <button className="w-full flex items-center gap-4 px-5 py-4 hover:bg-surface transition-colors text-left"
@@ -471,9 +480,8 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                       <span className="font-semibold text-ink">{permit.permit_type}</span>
                       {permit.permit_number && <span className="text-xs font-mono text-muted-fg">#{permit.permit_number}</span>}
                       <span className={cn('whitespace-nowrap text-xs font-medium rounded-full border px-2 py-0.5', STATUS_COLORS[shownStatus] ?? STATUS_COLORS.pending)}>
-                        {shownStatus}
+                        {statusText}
                       </span>
-                      {lapsed && <span className="whitespace-nowrap text-xs font-medium bg-danger-tint border border-danger/30 text-danger rounded-full px-2 py-0.5">{`Expired ${lapsedDays} day${lapsedDays !== 1 ? 's' : ''} ago`}</span>}
                       {expiring && <span className="whitespace-nowrap text-xs font-medium bg-warn-tint border border-warn/30 text-warn rounded-full px-2 py-0.5">Expiring soon</span>}
                     </div>
                     <p className="text-xs text-muted-fg mt-0.5 truncate">
@@ -482,7 +490,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                         : null}
                       {permit.description && (permit.issuing_authority || permit.expiry_date) && <span className="text-faint mx-1">·</span>}
                       {permit.issuing_authority}
-                      {permit.expiry_date && ` · Expires ${formatDate(permit.expiry_date)}`}
+                      {dateLine && ` · ${dateLine}`}
                     </p>
                   </div>
                   {permit.file_url && <FileText className="h-4 w-4 text-accent-fg shrink-0" />}
@@ -493,7 +501,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                   <div className="border-t border-line-soft px-5 py-5 space-y-4">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                       {permit.issued_date && <div><p className="text-xs text-faint">Issued</p><p className="font-medium text-ink-soft">{formatDate(permit.issued_date)}</p></div>}
-                      {permit.expiry_date && <div><p className="text-xs text-faint">Expires</p><p className={cn('font-medium', lapsed ? 'text-danger' : expiring ? 'text-warn' : 'text-ink-soft')}>{formatDate(permit.expiry_date)}</p></div>}
+                      {permit.expiry_date && <div><p className="text-xs text-faint">{lapsed ? 'Expired' : 'Expires'}</p><p className={cn('font-medium', lapsed ? 'text-danger' : expiring ? 'text-warn' : 'text-ink-soft')}>{formatDate(permit.expiry_date)}</p></div>}
                       {permit.issuing_authority && <div><p className="text-xs text-faint">Issued By</p><p className="font-medium text-ink-soft">{permit.issuing_authority}</p></div>}
                       {permit.inspector_name && (
                         <div>

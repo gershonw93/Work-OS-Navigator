@@ -7,6 +7,7 @@ import { Printer, FileText, ShieldCheck, DollarSign } from 'lucide-react'
 import { clientLabel } from '@/lib/project-access'
 
 import { formatDate } from '@/lib/dates'
+import { expiryLabel } from '@/lib/expiry'
 import { complianceReport, type ReportGroup } from '@/lib/compliance-report'
 interface Invoice {
   id: string
@@ -366,7 +367,7 @@ export default function ReportsPage({ params }: { params: { id: string } }) {
                                 </span>
                                 {doc.expiry_date ? (
                                   <span className={cn('ml-2 text-xs', bad ? 'text-danger' : 'text-faint')}>
-                                    Expires {formatDate(doc.expiry_date)}
+                                    {expiryLabel(doc.expiry_date)}
                                   </span>
                                 ) : !doc.onFile ? (
                                   <span className="ml-2 text-xs text-danger">Nothing on file</span>

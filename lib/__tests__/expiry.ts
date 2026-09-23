@@ -91,7 +91,11 @@ ok(/from '@\/lib\/expiry'/.test(permits), 'Permits asks the same question')
 ok(!/diff > 0/.test(permits), '...and has dropped its own copy too')
 ok(/state === 'expired' \? 'expired' : permit\.status/.test(permits),
   'a permit whose date has passed reads Expired whatever the row still says')
-ok(/Expired \$\{/.test(permits) || /Expired \$\{days\}/.test(permits) || /`Expired/.test(permits),
-  '...and says how long ago')
+// The how-long moved INTO the status chip (one status per expired row, not an
+// "expired" chip beside an "Expired 15 days ago" chip), worded by expiredAgo.
+ok(/expiredAgo\(permit\.expiry_date\)/.test(permits),
+  '...and says how long ago, in the ONE status chip')
+ok(!/`Expired \$\{lapsedDays\}/.test(permits),
+  '...not in a second chip beside it')
 
 done()

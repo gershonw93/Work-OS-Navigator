@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
 import { cn } from '@/lib/utils'
 import { parseDate, formatDate } from '@/lib/dates'
+import { expiryLabel } from '@/lib/expiry'
 import { useNotice } from '@/components/ui/notice'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 
@@ -1093,7 +1094,7 @@ export default function DirectoryPage() {
                                 <div className="min-w-0 flex-1">
                                   <p className="font-medium text-ink">{typeLabels[doc.type] ?? doc.type}</p>
                                   <p className="mt-0.5 flex flex-wrap items-center gap-x-3 text-xs text-muted-fg">
-                                    <span>{doc.expiry_date ? `Expires ${formatDate(doc.expiry_date, { month: 'short', day: 'numeric', year: 'numeric' })}` : 'No expiry'}</span>
+                                    <span>{expiryLabel(doc.expiry_date) ?? 'No expiry'}</span>
                                     {doc.created_at && <span className="text-faint">Uploaded {formatDate(doc.created_at, { month: 'short', day: 'numeric', year: 'numeric' })}</span>}
                                     {doc.file_url
                                       ? <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-medium text-accent-fg hover:underline"><ExternalLink className="h-3 w-3" /> View</a>
