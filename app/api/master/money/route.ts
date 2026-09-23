@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { committedTotal } from '@/lib/committed'
+import { masterMoneyRows } from '@/lib/master-money'
 
 export const runtime = 'nodejs'
 
@@ -9,7 +10,6 @@ const admin = () => createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
-const ACTUAL = new Set(['approved', 'sent', 'paid'])
 
 // Cross-project money rollup for the boss. Admin/manager only.
 export async function GET(request: Request) {
@@ -32,47 +32,48 @@ export async function GET(request: Request) {
   const ids = (projects ?? []).map(p => p.id)
   if (!ids.length) return NextResponse.json({ rows: [] })
 
-  const [{ data: budgetLines }, { data: subs }, { data: invoices }, { data: clientPayments }] = await Promise.all([
-    db.from('budget_line_items').select('project_id, budgeted_amount, subcontract_id, committed_amount').in('project_id', ids),
+  // One query per table across ALL the company's projects - never one per job.
+  // The allocations (how a bill is split across budget lines) and each line's
+  // own rate are what the per-bill fee needs; without them this route could
+  // only multiply, which is how it disagreed with the job's own tab.
+  const [budgetRes, subsRes, invoiceRes, paymentRes, allocRes] = await Promise.all([
+    db.from('budget_line_items').select('id, project_id, budgeted_amount, subcontract_id, committed_amount, markup_pct, markup_excluded').in('project_id', ids),
     db.from('subcontracts').select('id, project_id, contract_amount').in('project_id', ids),
-    db.from('invoices').select('project_id, amount, status, client_paid, escrow_paid').in('project_id', ids),
+    db.from('invoices').select('id, project_id, amount, status, client_paid, escrow_paid, markup_pct, markup_excluded').in('project_id', ids),
     db.from('client_payments').select('project_id, amount').in('project_id', ids),
+    db.from('invoice_allocations')
+      .select('invoice_id, budget_line_item_id, amount, invoices!inner(project_id)')
+      .in('invoices.project_id', ids),
   ])
-
-  const sumBy = (rows: any[] | null, key: string, val: (r: any) => number) => {
-    const m = new Map<string, number>()
-    for (const r of rows ?? []) m.set(r[key], (m.get(r[key]) ?? 0) + val(r))
-    return m
+  // A refused query is not an empty one. Printing zeros for a job whose bills
+  // could not be read would be a confident, wrong escrow on the owner's screen.
+  const failed = [budgetRes, subsRes, invoiceRes, paymentRes, allocRes].find(r => r.error)
+  if (failed?.error) {
+    console.error('[master money]', failed.error)
+    return NextResponse.json({ error: 'Could not load the money for every job. Try again.' }, { status: 500 })
   }
-  const budgeted = sumBy(budgetLines, 'project_id', r => Number(r.budgeted_amount ?? 0))
+  const budgetLines = budgetRes.data ?? []
+  const subs = subsRes.data ?? []
+
   // ONE derivation, shared with the Budget tab and the project Summary. This
   // used to be the subcontract total alone, which lost every commitment that
   // never became a contract - a materials order, an equipment hire - and so
   // disagreed with the Budget screen by a quarter of a million on one job.
-  const committed = new Map<string, number>()
-  for (const id of ids) {
-    committed.set(id, committedTotal({
-      subcontracts: (subs ?? []).filter((s: any) => s.project_id === id),
-      lines: (budgetLines ?? []).filter((l: any) => l.project_id === id),
-    }).total)
-  }
-  const billed = sumBy((invoices ?? []).filter(i => ACTUAL.has(i.status)), 'project_id', r => Number(r.amount ?? 0))
-  // Total paid (escrow + client-direct) and escrow-only disbursements, honoring the split.
-  const paidVal = (r: any) => (Number(r.client_paid || 0) || Number(r.escrow_paid || 0)) ? Number(r.client_paid || 0) + Number(r.escrow_paid || 0) : (r.status === 'paid' ? Number(r.amount || 0) : 0)
-  const escrowVal = (r: any) => (Number(r.client_paid || 0) || Number(r.escrow_paid || 0)) ? Number(r.escrow_paid || 0) : (r.status === 'paid' ? Number(r.amount || 0) : 0)
-  const paid = sumBy(invoices, 'project_id', paidVal)
-  const escrowPaid = sumBy(invoices, 'project_id', escrowVal)
-  const received = sumBy(clientPayments, 'project_id', r => Number(r.amount ?? 0))
+  const committedFor = (id: string) => committedTotal({
+    subcontracts: subs.filter((s: any) => s.project_id === id),
+    lines: budgetLines.filter((l: any) => l.project_id === id),
+  }).total
 
-  const rows = (projects ?? []).map(p => {
-    const b = budgeted.get(p.id) ?? 0, c = committed.get(p.id) ?? 0, bi = billed.get(p.id) ?? 0, pd = paid.get(p.id) ?? 0
-    const rec = received.get(p.id) ?? 0
-    const fee = bi * Number(p.contractor_fee_pct ?? 0)
-    return {
-      project_id: p.id, project_name: p.name, status: p.status,
-      budgeted: b, committed: c, billed: bi, paid: pd, outstanding: Math.max(bi - pd, 0),
-      received: rec, escrow: rec - (escrowPaid.get(p.id) ?? 0) - fee,
-    }
+  // Escrow, billed, paid and outstanding: the SAME derivation the job's own
+  // Billing the client tab calls (lib/escrow.ts, via masterMoneyRows).
+  const rows = masterMoneyRows({
+    projects: (projects ?? []) as any,
+    budgetLines,
+    subs,
+    invoices: invoiceRes.data ?? [],
+    clientPayments: paymentRes.data ?? [],
+    allocations: allocRes.data ?? [],
+    committedFor,
   })
 
   return NextResponse.json({ rows })
