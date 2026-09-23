@@ -87,16 +87,31 @@ export async function GET(request: Request) {
   // which already have an invite out. The second is what lets the Directory
   // say "Invited" after a reload - it used to live in page state only, so the
   // "Invite N contacts" count went back to counting people already asked.
-  const [{ data: profiles }, { data: invites }] = await Promise.all([
+  //
+  // WHICH ONES CAME OUT OF A PHONE BOOK, so the Directory can be filtered down
+  // to them. DERIVED, not stored: the import already writes
+  // `google_contact_imports.company_record_id` pointing at the row it created,
+  // so the fact is on disk and a second column on `companies` would be one
+  // more thing to keep in step. Rides the same Promise.all - this list is
+  // fetched on every visit to the page.
+  const [{ data: profiles }, { data: invites }, { data: importedRows }] = await Promise.all([
     db.from('profiles').select('company_id').in('company_id', visibleIds),
     db.from('company_invites').select('company_id').in('company_id', visibleIds).eq('status', 'pending'),
+    db.from('google_contact_imports')
+      .select('company_record_id')
+      .in('company_record_id', visibleIds)
+      .eq('status', 'imported'),
   ])
 
   const companiesWithAccount = new Set((profiles ?? []).map(p => p.company_id))
   const companiesInvited = new Set((invites ?? []).map((i: any) => i.company_id))
+  const companiesImported = new Set(
+    (importedRows ?? []).map((r: any) => r.company_record_id).filter(Boolean),
+  )
 
   const companiesResult = (companies ?? []).map(c => ({
     ...c,
+    imported: companiesImported.has(c.id),
     has_account: companiesWithAccount.has(c.id),
     invite_pending: !companiesWithAccount.has(c.id) && companiesInvited.has(c.id),
   }))
