@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
-import { Plus, X, Receipt, CheckCircle2, Clock, Send, DollarSign, ChevronDown, ChevronUp, Printer, Upload, AlertTriangle, Pencil, Trash2, FileText, ScanLine, Loader2, Wallet } from 'lucide-react'
+import { Plus, X, Receipt, CheckCircle2, Clock, Send, DollarSign, ChevronDown, ChevronUp, Printer, Upload, AlertTriangle, Pencil, Trash2, FileText, ScanLine, Loader2, Wallet, HelpCircle } from 'lucide-react'
 import Link from 'next/link'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 import { InvoiceSplit, type SplitLineOption, type AllocationRow } from '@/components/projects/invoice-split'
@@ -114,6 +114,8 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
    */
   const [loadError, setLoadError] = useState('')
   const [expanded, setExpanded] = useState<string | null>(null)
+  // "How this works", reopened by hand. See showExplainer below.
+  const [explainerOpen, setExplainerOpen] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [updating, setUpdating] = useState<string | null>(null)
@@ -633,6 +635,10 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
   const subPaymentItems = paymentItems.filter(p => p.subcontract_id === subId && p.status !== 'paid')
 
   const pending = invoices.filter(i => i.status === 'pending_approval')
+  // The explainer shows on a job with no bills yet (the first visit), and
+  // whenever somebody asks for it. While loading it shows nothing rather than
+  // flashing open and then folding when the bills land.
+  const showExplainer = explainerOpen || (!loading && !loadError && invoices.length === 0)
   const active = invoices.filter(i => i.status === 'approved' || i.status === 'sent')
   const paid = invoices.filter(i => i.status === 'paid')
 
@@ -1344,12 +1350,40 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-ink">Bills from subs</h1>
+          {/* THE EXPLAINER IS FOR THE FIRST VISIT. Once this job has a bill,
+              whoever is here has used the page, and four lines of "what this
+              is" above the buttons every time after that pushes the bills
+              themselves down a screen on a phone. It folds to one quiet
+              "How this works" link - derived from the bills, not remembered
+              in the browser, so it is the same answer on every device. */}
+          {showExplainer ? (
+          <>
           {/* Says whose bills these are and what to do with them. "Send" used
               to be in here, which read as if you invoiced the sub. */}
           <p className="text-sm text-muted-fg mt-0.5">
             Bills your subs and suppliers sent <span className="font-medium text-ink-soft">you</span> - upload one they
             emailed, or enter it yourself, then approve and pay.
           </p>
+          <p className="text-xs text-faint mt-1">
+            Billing your client is separate - that lives on{' '}
+            <Link href={`/projects/${params.id}/${billingMode === 'aia' ? 'pay-apps' : 'payments'}`}
+              className="text-accent-fg hover:underline">
+              {billingMode === 'aia' ? 'Pay Apps' : 'Payments'}
+            </Link>.
+          </p>
+          {explainerOpen && (
+            <button type="button" onClick={() => setExplainerOpen(false)}
+              className="mt-1 inline-flex min-h-11 items-center text-xs font-medium text-accent-fg hover:underline lg:min-h-0">
+              Hide
+            </button>
+          )}
+          </>
+          ) : !loading && (
+            <button type="button" onClick={() => setExplainerOpen(true)}
+              className="mt-1 inline-flex min-h-11 items-center gap-1 text-sm font-medium text-accent-fg hover:underline lg:min-h-0">
+              <HelpCircle className="h-4 w-4" /> How this works
+            </button>
+          )}
           {/* Cost-plus roll-up: cost, your fee, what the client owes. Only when
               a markup is actually in use. */}
           {(costPlus || projectMarkup > 0) && invoices.length > 0 && (() => {
@@ -1370,13 +1404,6 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
               </p>
             )
           })()}
-          <p className="text-xs text-faint mt-1">
-            Billing your client is separate - that lives on{' '}
-            <Link href={`/projects/${params.id}/${billingMode === 'aia' ? 'pay-apps' : 'payments'}`}
-              className="text-accent-fg hover:underline">
-              {billingMode === 'aia' ? 'Pay Apps' : 'Payments'}
-            </Link>.
-          </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {pending.length > 0 && (
