@@ -80,7 +80,7 @@ const groups = [
       { label: 'Pay Apps', slug: 'pay-apps', icon: FileSpreadsheet },
       { label: 'Billing the client', slug: 'payments', icon: Wallet },
       { label: 'Change Orders', slug: 'change-orders', icon: GitPullRequest },
-      { label: 'Summary', slug: 'financials', icon: DollarSign },
+      { label: 'Financial Summary', slug: 'financials', icon: DollarSign },
       { label: 'Reports', slug: 'reports', icon: BarChart2 },
     ],
   },
@@ -99,6 +99,21 @@ const groups = [
 ]
 
 const allTabs = groups.flatMap(g => g.tabs)
+
+/**
+ * What a project section is CALLED, for anything else that names it (the top
+ * bar's breadcrumb). The menu above is the one home for the name, and the
+ * page's own <h1> matches it - pinned in lib/__tests__/screen-names.ts. A
+ * second table of names is how "Billing the client" in the menu came to read
+ * "Payments" one link over.
+ *
+ * `bids` and `quotes` are old URLs that redirect into `request-quotes`.
+ */
+const TAB_ALIASES: Record<string, string> = { bids: 'request-quotes', quotes: 'request-quotes' }
+export function projectTabLabel(slug: string): string | null {
+  if (slug === 'overview') return 'Overview'
+  return allTabs.find(t => t.slug === (TAB_ALIASES[slug] ?? slug))?.label ?? null
+}
 
 // When a subcontractor opens a GC-owned project they were awarded, restrict to
 // their own lane (plans/schedule to do the work + their field items) - never the

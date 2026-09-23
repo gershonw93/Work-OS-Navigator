@@ -1374,7 +1374,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
             Billing your client is separate - that lives on{' '}
             <Link href={`/projects/${params.id}/${billingMode === 'aia' ? 'pay-apps' : 'payments'}`}
               className="text-accent-fg hover:underline">
-              {billingMode === 'aia' ? 'Pay Apps' : 'Payments'}
+              {billingMode === 'aia' ? 'Pay Apps' : 'Billing the client'}
             </Link>.
           </p>
         </div>
