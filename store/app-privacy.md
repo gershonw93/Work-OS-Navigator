@@ -34,7 +34,7 @@ rejection.
 | **Financial Info → Payment info** | No | - | - | Not collected. There is no purchase in the app; card details never touch it. |
 | **Browsing History** | No | - | - | Not collected. |
 | **Search History** | No | - | - | Not collected. |
-| **Contacts** | No | - | - | Not collected. The address book is never read; the directory is people you type in. |
+| **Contacts** | Yes (optional) | Yes | No | Only if a company connects Google Contacts (Settings, migration 112). Contacts land in a staging area and reach the Directory only when somebody picks them. The phone's own address book is never read. |
 | **Sensitive Info** | No | - | - | Not collected. |
 | **Health & Fitness** | No | - | - | Not collected. |
 
@@ -45,6 +45,8 @@ rejection.
 | **Supabase** | Everything above - it is the database and the auth provider | It is where the Service stores your data |
 | **Vercel** | Requests hitting the app | It is where the Service runs |
 | **Apple (APNs)** | A device token and the text of a notification | Only how a push notification reaches your phone |
+| **Google (Firebase Cloud Messaging)** | A device token and the text of a notification | Only how a push notification reaches an Android phone |
+| **Google (Contacts)** | Read access to the contacts of the Google account a company connects | **Only if you connect it yourself.** Import into a staging area |
 | **SendGrid** | Email address and the message | Sending the emails you asked for |
 | **Anthropic** | The document you asked to be read | Only when you scan an invoice, quote or permit. Not used to train a model |
 | **QuickBooks (Intuit)** | Invoices and payments, one way out | **Only if you connect it yourself.** Not connected is the normal state |
@@ -58,7 +60,22 @@ No advertising network, no analytics vendor, no data broker.
 - **"Do you collect data from this app?"** → Yes, per the table above.
 - **Account deletion**: required since 2022 for any app with account creation.
   Accounts are created and closed on the website (there is no sign-up in the iOS
-  build), and the review notes say so. The support route is `/contact`.
+  build), and the review notes say so. Deletion is requested at
+  `/delete-account` (Google Play requires that exact kind of page).
+
+## Google Play Data safety (same facts, Play's categories)
+
+Collected, none of it shared (service providers are not "sharing" in Play's
+sense), none of it for ads, all of it processed only to run the app:
+Personal info (name, email, user IDs, phone number - optional), Financial info
+(other financial info: the budgets, invoices and payments you enter), Location
+(precise - optional, clock in/out and daily logs only), Messages (other in-app
+messages: comments, RFIs), Photos, Files and docs, Contacts (optional, Google
+Contacts import), App activity (app interactions, other user-generated
+content), Device or other IDs (the push token). Not collected: audio, calendar,
+health, web browsing, search history, installed apps, crash logs.
+Encrypted in transit: yes. Account creation: username and password. Delete
+account URL: `https://sytenav.com/delete-account`.
 
 ## URLs the form asks for
 
