@@ -129,6 +129,24 @@ export default function DirectoryPage() {
   const [editPhone, setEditPhone] = useState('')
   const [editAddress, setEditAddress] = useState('')
   const [editTrade, setEditTrade] = useState('')
+  /**
+   * THE LABEL DECIDES WHICH PICKERS OFFER THEM, AND IT WAS NOT EDITABLE.
+   *
+   * Reported as "I imported contacts, now I want to add a sub from the
+   * directory and it's not there". The import had worked perfectly - the
+   * contact was staged, labelled "Other" and written to `companies` as
+   * `type: 'other'` - and the Add Sub picker filters on
+   * `type === 'subcontractor'`, so it could never appear. Nothing was
+   * broken and nothing said anything; the row was simply in a category no
+   * sub picker asks for.
+   *
+   * The trap was that there was NO WAY BACK. The Add form has a Contact
+   * Type control and `PATCH /api/directory/[companyId]` has always
+   * accepted `type` on its whitelist - only this form was missing the box,
+   * so a label chosen once during a bulk import was permanent. A value the
+   * app writes, submits and reads back must have a control somewhere.
+   */
+  const [editType, setEditType] = useState<ContactType>('subcontractor')
   const [editSaving, setEditSaving] = useState(false)
 
   // Invite state
@@ -294,6 +312,7 @@ export default function DirectoryPage() {
     setEditPhone(company.phone ?? '')
     setEditAddress(company.address ?? '')
     setEditTrade(company.trade ?? '')
+    setEditType((company.type as ContactType) ?? 'other')
   }
 
   async function saveEditCompany(e: React.FormEvent) {
@@ -304,7 +323,7 @@ export default function DirectoryPage() {
     const res = await fetch(`/api/directory/${editingCompany.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ name: editName, contact_email: editEmail, phone: editPhone, address: editAddress, trade: editTrade }),
+      body: JSON.stringify({ name: editName, contact_email: editEmail, phone: editPhone, address: editAddress, trade: editTrade, type: editType }),
     })
     setEditSaving(false)
     if (!res.ok) { notify('Could not save changes.'); return }
@@ -1036,6 +1055,22 @@ export default function DirectoryPage() {
                   <label className="text-xs font-medium text-muted-fg">Phone</label>
                   <input className="w-full rounded-lg border border-muted2 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" value={editPhone} onChange={e => setEditPhone(e.target.value)} />
                 </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-type">Contact Type</Label>
+                  {/* The label is what every picker filters on - a sub list asks
+                      for `subcontractor` and nothing else - so getting it wrong
+                      on import hides the contact from the screen that wanted
+                      them. It is changeable here now. */}
+                  <Select id="edit-type" value={editType} onChange={e => setEditType(e.target.value as ContactType)}>
+                    <option value="gc">General Contractor (GC)</option>
+                    <option value="subcontractor">Subcontractor</option>
+                    <option value="inspector">Inspector</option>
+                    <option value="supplier">Supplier</option>
+                    <option value="worker">Worker</option>
+                    <option value="other">Other</option>
+                  </Select>
+                </div>
+
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-muted-fg">Trade</label>
                   {/* A PICKER HERE TOO, AND THIS IS THE DOOR THE TYPOS CAME
