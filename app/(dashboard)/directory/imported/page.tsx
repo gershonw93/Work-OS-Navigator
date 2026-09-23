@@ -12,8 +12,9 @@ import { useNotice } from '@/components/ui/notice'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 import { fetchProblem } from '@/lib/fetch-error'
 import { TRADES } from '@/lib/trades'
-import { CONTACT_TYPES } from '@/lib/google-contacts'
+import { CONTACT_TYPES, hasEmail, stagedOrder } from '@/lib/google-contacts'
 import { formatDate } from '@/lib/dates'
+import { cn } from '@/lib/utils'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // THE STAGING AREA.
@@ -106,7 +107,7 @@ export default function ImportedContactsPage() {
       ])
       if (!s.ok) { setState('failed'); return }
       setStatus(await s.json())
-      setRows(c.ok ? ((await c.json()).contacts ?? []) : [])
+      setRows(c.ok ? stagedOrder((await c.json()).contacts ?? []) : [])
       setProjects(p.ok ? ((await p.json()).projects ?? []).map((x: any) => ({ id: x.id, name: x.name })) : [])
       setState('ready')
     } catch { setState('failed') }
@@ -342,7 +343,7 @@ export default function ImportedContactsPage() {
       ) : rows.length > 0 ? (
         <div className="divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-panel lg:rounded-xl">
           {rows.map(r => (
-            <label key={r.id} className="flex cursor-pointer items-start gap-3 px-4 py-3 hover:bg-surface">
+            <label key={r.id} className={cn('flex cursor-pointer items-start gap-3 px-4 py-3 hover:bg-surface', !hasEmail(r) && 'opacity-60')}>
               <input type="checkbox" className="accent-[#C9F24A] mt-0.5 shrink-0"
                 checked={picked.has(r.id)}
                 onChange={e => setPicked(p => {
@@ -353,6 +354,7 @@ export default function ImportedContactsPage() {
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium text-ink">
                   {r.name || r.organization || r.email || 'Unnamed'}
+                  {!hasEmail(r) && <span className="ml-2 whitespace-nowrap text-[11px] font-normal text-faint">No email</span>}
                 </span>
                 <span className="block truncate text-xs text-muted-fg">
                   {[r.organization && r.organization !== r.name ? r.organization : null, r.email, r.phone].filter(Boolean).join(' · ') || 'No contact details'}

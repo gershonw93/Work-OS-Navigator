@@ -236,3 +236,20 @@ export function directoryType(t: StagedContactType): DirectoryType {
 export function isContactType(v: unknown): v is StagedContactType {
   return typeof v === 'string' && (CONTACT_TYPES as readonly string[]).includes(v)
 }
+
+/** True when a staged contact has an email address to reach them on. */
+export function hasEmail(c: { email?: string | null }): boolean {
+  return !!c.email?.trim()
+}
+
+/**
+ * The order the staging list is shown in: contacts WITH an email first, the
+ * ones without at the bottom (and greyed out on screen). Asked for directly -
+ * a phone book is mostly half-entries from old syncs, and the ones worth
+ * filing are the ones SyteNav can actually write to. Stable, so within each
+ * group the server's order is kept. Nothing is hidden: a no-email contact can
+ * still be ticked and imported (a sub you only ever phone is still a sub).
+ */
+export function stagedOrder<T extends { email?: string | null }>(rows: T[]): T[] {
+  return rows.filter(hasEmail).concat(rows.filter(r => !hasEmail(r)))
+}
