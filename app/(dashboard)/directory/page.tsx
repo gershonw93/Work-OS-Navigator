@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { StatStrip } from '@/components/ui/stat-strip'
 import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import Link from 'next/link'
-import { Building2, Plus, X, Search, Phone, Mail, MapPin, Globe, BadgeCheck, Send, ExternalLink, Pencil, Trash2, Users} from 'lucide-react'
+import { Building2, Plus, X, Search, Phone, Mail, MapPin, Globe, BadgeCheck, Send, ExternalLink, Pencil, Trash2, Users, Download} from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -93,6 +93,14 @@ interface Company {
   has_account: boolean
   /** A vendor invite is out and not yet accepted (company_invites, pending). */
   invite_pending?: boolean
+  /**
+   * Came out of a Google Contacts import rather than being typed in.
+   *
+   * DERIVED on the route from `google_contact_imports.company_record_id`, not
+   * a column on the contact - the import already records which row it created,
+   * and a second home for one fact is a second thing to keep in step.
+   */
+  imported?: boolean
   extra?: Extra | null
 }
 
@@ -147,6 +155,7 @@ export default function DirectoryPage() {
    * app writes, submits and reads back must have a control somewhere.
    */
   const [editType, setEditType] = useState<ContactType>('subcontractor')
+  const [importedOnly, setImportedOnly] = useState(false)
   const [editSaving, setEditSaving] = useState(false)
 
   // Invite state
@@ -244,7 +253,11 @@ export default function DirectoryPage() {
 
   // ─── Filtering ──────────────────────────────────────────────────────────────
 
-  const tabFiltered = activeTab === 'all' ? companies : companies.filter(c => c.type === activeTab)
+  // IMPORTED CUTS ACROSS THE TYPE TABS, so it is a toggle beside them rather
+  // than a tab of its own: "show me the subs I imported" is the question, and
+  // a seventh tab could not answer it.
+  const tabFiltered = (activeTab === 'all' ? companies : companies.filter(c => c.type === activeTab))
+    .filter(c => (importedOnly ? !!c.imported : true))
 
   const filtered = tabFiltered.filter(c => {
     const q = search.toLowerCase()
@@ -840,6 +853,38 @@ export default function DirectoryPage() {
         </div>
       </div>
 
+      {/* IMPORTED, as a toggle rather than a seventh tab. It cuts ACROSS the
+          types - "the subs I imported" is the question somebody actually has -
+          and it only appears when there is something to filter, because a
+          control that can only ever return nothing is noise on every other
+          company's screen. */}
+      {companies.some(c => c.imported) && (
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setImportedOnly(v => !v)}
+            aria-pressed={importedOnly}
+            className={cn(
+              'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+              importedOnly
+                ? 'border-accent bg-accent-tint text-accent-fg'
+                : 'border-line text-muted-fg hover:text-ink-soft',
+            )}
+          >
+            <Download className="h-3.5 w-3.5" />
+            Imported
+            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[11px] text-muted-fg">
+              {companies.filter(c => c.imported).length}
+            </span>
+          </button>
+          {importedOnly && (
+            <span className="text-xs text-faint">
+              Showing only contacts that came from a Google Contacts import.
+            </span>
+          )}
+        </div>
+      )}
+
       {/* ── Tabs ──
           Six tabs with counts do not fit 390px: "Inspectors 2" was cut off at
           the edge. The strip scrolls, and `.scroll-fade` is what says so - the
@@ -919,6 +964,17 @@ export default function DirectoryPage() {
                     <span className="font-semibold text-ink truncate">{company.name}</span>
                   </div>
                   <div className="flex shrink-0 items-center gap-2" onClick={e => e.stopPropagation()}>
+                    {/* Says where the row came from. Only ever shown when it
+                        is true - an "added by hand" badge on every other card
+                        would be noise for a fact nobody asked about. */}
+                    {company.imported && (
+                      <span
+                        title="Came from a Google Contacts import"
+                        className="whitespace-nowrap rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-fg"
+                      >
+                        Imported
+                      </span>
+                    )}
                     <TypeBadge type={type} />
                     {/* The card's secondary actions. Inviting ONE contact lives
                         here now; the whole list is the control at the top. */}

@@ -8,8 +8,25 @@
 // before writing, so the two cannot disagree.
 
 /** The roles a person can hold on a job. */
+/**
+ * WHO IS ON A JOB - AND IT IS NOT ONLY THE GC'S OWN STAFF.
+ *
+ * REPORTED: "the quick add doesn't let me add a sub as well". The list was
+ * Project Manager through Quality Control - every one of them somebody on the
+ * GC's payroll - so the "Not on SyteNav" tab could add a foreman and not the
+ * electrician standing next to him. A required picker with no right answer in
+ * it is a dead end: the dialog is for anybody on the job who is reachable by
+ * phone, which is mostly the trades.
+ *
+ * THIS IS A LABEL ON A PERSON, NOT A SUBCONTRACT. Adding "Subcontractor" here
+ * puts a name and a number on the job's team list; it does not award anybody
+ * work, create a subcontract or touch the budget. Awarding is Buyout, and it
+ * stays that way - this is the roster, which is the thing somebody on site
+ * needs when they have to ring whoever is doing the ductwork.
+ */
 export const JOB_ROLES = [
   'Project Manager', 'Site Manager', 'Superintendent', 'Foreman',
+  'Subcontractor', 'Supplier', 'Inspector', 'Architect', 'Engineer',
   'Laborer', 'Safety Officer', 'Quality Control', 'Other',
 ] as const
 
