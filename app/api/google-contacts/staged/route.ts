@@ -1,41 +1,33 @@
 import { NextResponse } from 'next/server'
-import { admin, isContactType } from '@/lib/google-contacts'
+import { isContactType } from '@/lib/google-contacts'
+import { contactsActor } from '@/lib/google-contacts-actor'
 import { isKnownTrade } from '@/lib/trades'
 
 export const runtime = 'nodejs'
 
 /**
- * THE STAGING AREA: what came out of Google, and what you decide about it.
+ * THE STAGING AREA: what came out of YOUR Google account, and what you decide
+ * about it.
  *
  * "They land in a separate staging area, not auto-mixed into the directory.
  * From there assign to a job and label - sub, supplier, delivery, electrician,
  * whatever. Bulk actions: select 5, label all at once."
  *
- * Gated on `directory: edit` - the same permission adding a contact needs,
- * because that is what this eventually does.
+ * PRIVATE UNTIL FILED. Every read and write here is keyed on `owner_id` = the
+ * person asking. This comment used to say the route was gated on
+ * `directory: edit`; it checked nothing but a login and filtered on the
+ * COMPANY, so anyone signed in could read an admin's whole address book.
  */
 
-async function actor(request: Request) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return null
-  const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return null
-  const { data: profile } = await db
-    .from('profiles').select('company_id, role').eq('id', user.id).single()
-  if (!(profile as any)?.company_id) return null
-  return { db, userId: user.id, companyId: (profile as any).company_id as string, role: (profile as any).role }
-}
-
 export async function GET(request: Request) {
-  const ctx = await actor(request)
-  if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const ctx = await contactsActor(request, 'view')
+  if ('denied' in ctx) return ctx.denied
 
   const status = new URL(request.url).searchParams.get('status') ?? 'staged'
   const { data, error } = await ctx.db
     .from('google_contact_imports')
     .select('*')
-    .eq('company_id', ctx.companyId)
+    .eq('owner_id', ctx.userId)
     .eq('status', status)
     .order('name', { ascending: true, nullsFirst: false })
 
@@ -58,8 +50,8 @@ export async function GET(request: Request) {
  * list is short and explicit.
  */
 export async function PATCH(request: Request) {
-  const ctx = await actor(request)
-  if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const ctx = await contactsActor(request, 'view')
+  if ('denied' in ctx) return ctx.denied
 
   const body = await request.json().catch(() => ({} as any))
   const ids: string[] = Array.isArray(body?.ids)
@@ -111,7 +103,7 @@ export async function PATCH(request: Request) {
   const { data, error } = await ctx.db
     .from('google_contact_imports')
     .update(updates)
-    .eq('company_id', ctx.companyId)   // never somebody else's staging area
+    .eq('owner_id', ctx.userId)   // never somebody else's list - not even a colleague's
     .in('id', ids)
     .select('id')
 

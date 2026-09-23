@@ -34,7 +34,7 @@ rejection.
 | **Financial Info → Payment info** | No | - | - | Not collected. There is no purchase in the app; card details never touch it. |
 | **Browsing History** | No | - | - | Not collected. |
 | **Search History** | No | - | - | Not collected. |
-| **Contacts** | Yes (optional) | Yes | No | Only if a company connects Google Contacts (Settings, migration 112). Contacts land in a staging area and reach the Directory only when somebody picks them. The phone's own address book is never read. |
+| **Contacts** | Yes (optional) | Yes | No | Only if a user connects their own Google account (Directory > Imported contacts; per person since migration 117). Contacts land in a list private to that user and reach the company's Directory only when that user picks them. The phone's own address book is never read. |
 | **Sensitive Info** | No | - | - | Not collected. |
 | **Health & Fitness** | No | - | - | Not collected. |
 

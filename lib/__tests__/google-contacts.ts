@@ -71,10 +71,12 @@ ok(/contacts\.readonly/.test(GOOGLE_SCOPES),
 ok(exists('supabase/migrations/112_google_contacts_import.sql'), 'the migration exists')
 const mig = readCombined()
 ok(/CREATE TABLE IF NOT EXISTS google_contact_imports/.test(mig), '...and is in the combined fresh-install file')
-ok(/idx_google_contact_imports_unique[\s\S]{0,120}\(company_id, resource_name\)/.test(mig),
-  'ONE ROW PER PERSON: without this, syncing twice doubles the staging area')
-ok(/connected_by uuid REFERENCES profiles \(id\) ON DELETE SET NULL/.test(mig),
-  'the connection outlives whoever set it up - SET NULL, never CASCADE')
+ok(/idx_google_contact_imports_owner_unique[\s\S]{0,120}\(owner_id, resource_name\)/.test(mig),
+  'ONE ROW PER CONTACT PER OWNER: without this, syncing twice doubles the staging area')
+// Migration 117 reversed 112's "the connection outlives whoever set it up":
+// it is one person's phone book now, and it goes with them.
+ok(/google_connections_profile_id_fkey[\s\S]{0,160}ON DELETE CASCADE/.test(mig),
+  'a connection is one PERSON\'s tokens - CASCADE, so they go with the person')
 
 // ── the handshake ───────────────────────────────────────────────────────────
 const lib = code('lib/google-contacts.ts')
@@ -117,8 +119,8 @@ ok(/problems: failed\.map/.test(imp), '...and the reply carries every reason, so
 // ── bulk actions ────────────────────────────────────────────────────────────
 const staged = code('app/api/google-contacts/staged/route.ts')
 ok(/Array\.isArray\(body\?\.ids\)/.test(staged), 'bulk: it takes a LIST of ids')
-ok(/\.eq\('company_id', ctx\.companyId\)/.test(staged),
-  "...and can only ever touch this company's staging area")
+ok(/\.eq\('owner_id', ctx\.userId\)/.test(staged),
+  "...and can only ever touch the asker's OWN staging list")
 ok(/isKnownTrade\(trade\)/.test(staged),
   'a trade the app would not offer is REFUSED here - "Elecric" is not laundered in through an import')
 ok(/if \(body\.contact_type !== undefined\)/.test(staged) && /if \(body\.trade !== undefined\)/.test(staged),

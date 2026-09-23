@@ -37,10 +37,14 @@ export async function GET(request: Request) {
   const db = admin()
 
   // THE STATE IS THE ONLY THING THAT SURVIVED the trip to Google, so it is both
-  // the CSRF check and how we know which company this is for.
+  // the CSRF check and how we know WHOSE phone book this is (migration 117 -
+  // the connection is the person's, not the company's).
   const { data: stateRow } = await db
     .from('google_oauth_states').select('state, company_id, created_by').eq('state', state).maybeSingle()
   if (!stateRow) return back(request, { google: 'failed', why: 'bad_state' })
+  // No person, no owner: a connection that belongs to nobody is readable by
+  // nobody, so it is refused rather than saved.
+  if (!(stateRow as any).created_by) return back(request, { google: 'failed', why: 'no_owner' })
   // Burned immediately: a replayed code must not re-link anything.
   await db.from('google_oauth_states').delete().eq('state', state)
 
@@ -61,13 +65,14 @@ export async function GET(request: Request) {
   } catch { /* the name is a nicety; the connection is the point */ }
 
   const row = {
+    profile_id: (stateRow as any).created_by,
     company_id: (stateRow as any).company_id,
     google_email: googleEmail,
     access_token: tokens.access_token,
     access_expires_at: new Date(Date.now() + (tokens.expires_in ?? 3600) * 1000).toISOString(),
     scope: tokens.scope ?? null,
     status: 'connected',
-    connected_by: (stateRow as any).created_by ?? null,
+    connected_by: (stateRow as any).created_by,
     updated_at: new Date().toISOString(),
   } as Record<string, unknown>
 
@@ -78,7 +83,7 @@ export async function GET(request: Request) {
   if (tokens.refresh_token) row.refresh_token = tokens.refresh_token
 
   const { error: upsertError } = await db
-    .from('google_connections').upsert(row, { onConflict: 'company_id' })
+    .from('google_connections').upsert(row, { onConflict: 'profile_id' })
   if (upsertError) {
     console.error('[google-contacts/callback] save failed:', upsertError.message)
     return back(request, { google: 'failed', why: 'save_failed' })

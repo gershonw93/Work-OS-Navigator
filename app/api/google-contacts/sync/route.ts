@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { admin, accessTokenFor, stageContact, worthStaging } from '@/lib/google-contacts'
+import { accessTokenFor, stageContact, worthStaging } from '@/lib/google-contacts'
+import { contactsActor } from '@/lib/google-contacts-actor'
 
 export const runtime = 'nodejs'
 // Reading a whole address book is several round trips to Google. The default
@@ -13,32 +14,26 @@ const PAGE_SIZE = 200
 const MAX_PAGES = 25
 
 /**
- * Pull the address book into the STAGING AREA.
+ * Pull YOUR address book into YOUR staging list.
+ *
+ * Private until filed (migration 117): every row written here carries
+ * `owner_id` = whoever is asking, and nobody else's list can see it.
  *
  * Nothing here touches `companies`. Contacts land in `google_contact_imports`
  * and stay there until somebody labels them and says to import - "not
  * auto-mixed into the directory", as asked.
  */
 export async function POST(request: Request) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const ctx = await contactsActor(request, 'view')
+  if ('denied' in ctx) return ctx.denied
+  const { db, userId, companyId } = ctx
 
-  const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const { data: profile } = await db.from('profiles').select('company_id, role').eq('id', user.id).single()
-  if (!profile?.company_id) return NextResponse.json({ error: 'No company' }, { status: 400 })
-  if (!['admin', 'manager'].includes((profile as any).role)) {
-    return NextResponse.json({ error: 'Only an admin can import contacts.' }, { status: 403 })
-  }
-  const companyId = (profile as any).company_id as string
-
-  const accessToken = await accessTokenFor(db, companyId)
+  const accessToken = await accessTokenFor(db, userId)
   if (!accessToken) {
     // EXPIRED AND NEVER-CONNECTED ARE DIFFERENT, and the screen says different
     // things. An empty list would read as "you have no contacts".
     return NextResponse.json(
-      { error: 'Google is not connected, or the connection has expired. Reconnect it in Settings.' },
+      { error: 'Google is not connected, or the connection has expired. Reconnect it above.' },
       { status: 409 },
     )
   }
@@ -66,9 +61,9 @@ export async function POST(request: Request) {
         if (res.status === 401 || res.status === 403) {
           await db.from('google_connections')
             .update({ status: 'expired', updated_at: new Date().toISOString() })
-            .eq('company_id', companyId)
+            .eq('profile_id', userId)
           return NextResponse.json(
-            { error: 'Google refused the request. Reconnect Google Contacts in Settings.' },
+            { error: 'Google refused the request. Reconnect Google Contacts above.' },
             { status: 409 },
           )
         }
@@ -90,7 +85,7 @@ export async function POST(request: Request) {
 
   if (!staged.length) {
     await db.from('google_connections')
-      .update({ last_sync_at: new Date().toISOString() }).eq('company_id', companyId)
+      .update({ last_sync_at: new Date().toISOString() }).eq('profile_id', userId)
     return NextResponse.json({ found: 0, staged: 0, alreadyHandled: 0 })
   }
 
@@ -100,7 +95,7 @@ export async function POST(request: Request) {
   const { data: seen } = await db
     .from('google_contact_imports')
     .select('resource_name, status')
-    .eq('company_id', companyId)
+    .eq('owner_id', userId)
     .in('resource_name', staged.map(c => c!.resource_name))
   const handled = new Set(
     (seen ?? []).filter((r: any) => r.status !== 'staged').map((r: any) => r.resource_name),
@@ -108,15 +103,15 @@ export async function POST(request: Request) {
 
   const rows = staged
     .filter(c => !handled.has(c!.resource_name))
-    .map(c => ({ ...c!, company_id: companyId, updated_at: new Date().toISOString() }))
+    .map(c => ({ ...c!, company_id: companyId, owner_id: userId, updated_at: new Date().toISOString() }))
 
   if (rows.length) {
-    // UPSERT on (company_id, resource_name): a second sync UPDATES a staged row
+    // UPSERT on (owner_id, resource_name): a second sync UPDATES a staged row
     // rather than adding a duplicate, which is what the unique index is for.
     // `ignoreDuplicates: false` so a changed phone number actually lands.
     const { error } = await db
       .from('google_contact_imports')
-      .upsert(rows, { onConflict: 'company_id,resource_name', ignoreDuplicates: false })
+      .upsert(rows, { onConflict: 'owner_id,resource_name', ignoreDuplicates: false })
     if (error) {
       console.error('[google-contacts/sync] upsert failed:', error.message)
       return NextResponse.json({ error: 'Could not save the contacts we read.' }, { status: 500 })
@@ -124,7 +119,7 @@ export async function POST(request: Request) {
   }
 
   await db.from('google_connections')
-    .update({ last_sync_at: new Date().toISOString() }).eq('company_id', companyId)
+    .update({ last_sync_at: new Date().toISOString() }).eq('profile_id', userId)
 
   return NextResponse.json({
     found: staged.length,
