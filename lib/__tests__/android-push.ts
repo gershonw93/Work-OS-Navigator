@@ -55,6 +55,13 @@ import { ok, done, code, read, exists } from './_helpers'
   const cm = read('codemagic.yaml')
   const android = cm.slice(cm.indexOf('android-capacitor:'))
   ok(/jarsigner -verify/.test(android), 'the Android workflow refuses to upload an unsigned bundle')
+  // The free plan has no Linux machines ("not available with the current
+  // billing plan"), so Android builds on the same Mac as iOS - and a Mac's
+  // base64 is BSD's, which is why the decode goes through openssl.
+  ok(/instance_type:\s*mac_mini_m2/.test(android), 'the Android build runs on a Mac, which the free plan includes')
+  // Comment lines stripped: the comment explaining the rule names the command.
+  const androidCode = android.split('\n').filter(l => !/^\s*#/.test(l)).join('\n')
+  ok(!/base64 --decode/.test(androidCode), '...so nothing in it uses the GNU-only `base64 --decode`')
   ok(/GOOGLE_SERVICES_JSON/.test(android) && /google-services\.json/.test(android),
     'the Android workflow writes google-services.json - without it no phone ever gets an FCM token')
   ok(android.indexOf('google-services.json') < android.indexOf('bundleRelease'),
