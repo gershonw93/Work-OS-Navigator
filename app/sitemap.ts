@@ -46,6 +46,7 @@ const PAGES: {
   { path: '/terms', priority: 0.3, changeFrequency: 'yearly' },
   { path: '/cookies', priority: 0.3, changeFrequency: 'yearly' },
   { path: '/acceptable-use', priority: 0.3, changeFrequency: 'yearly' },
+  { path: '/delete-account', priority: 0.2, changeFrequency: 'yearly' },
   { path: '/guides', priority: 0.8, changeFrequency: 'weekly' },
 ]
 

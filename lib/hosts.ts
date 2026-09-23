@@ -57,7 +57,7 @@ export const MARKETING_PATHS = [
   '/', '/features', '/money', '/flows', '/workflow', '/ai', '/mobile',
   '/contractors', '/subcontractors', '/why', '/pricing', '/security',
   '/about', '/contact', '/privacy', '/terms', '/cookies', '/acceptable-use',
-  '/guides',
+  '/delete-account', '/guides',
 ]
 
 /**
