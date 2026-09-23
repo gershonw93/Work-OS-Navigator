@@ -55,8 +55,24 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 const AUTHORED: Release[] = [
   {
     date: '2026-09-23',
-    title: 'Less to scroll past on a phone',
+    title: 'Less to scroll past, and the thing that needs you first',
     items: [
+      {
+        kind: 'improved',
+        title: 'Budget on a phone: one line per budget line',
+        text: 'Each budget line starts folded to its name, what it has cost and how much is left or over - tap it for the rest. Tap a category to fold it away. The toolbar is Add Line plus a "..." menu, and Delete now lives inside an opened line instead of beside every one. Receipts with no budget line yet are counted once, with "Assign them", instead of a badge on every row - and you can assign one straight from Materials.',
+        help: 'add-project-budget',
+      },
+      {
+        kind: 'improved',
+        title: 'Expired permits go to the top',
+        text: 'The permit that needs you is no longer at the bottom of the list: expired and expiring permits come first, with one red "Expired 15 days ago" instead of three labels, and a past date reads "Expired Sep 8" everywhere dates are shown - Compliance, Directory and Reports too. On Approvals, Approve and Reject stay on screen however wide the table gets.',
+      },
+      {
+        kind: 'improved',
+        title: 'Directory and Settings, tidied',
+        text: 'The Directory has one "Invite N contacts not on SyteNav" button instead of one on every card - each card\'s own invite, edit and delete are in its "..." menu - and every tab shows its count. On a phone, Settings opens as a list of sections instead of a strip that cut half of them off. Adding a customer who is already on your list now says so instead of making a second card.',
+      },
       {
         kind: 'improved',
         title: 'Projects, Master Money and the Master Calendar get to the point on a phone',
