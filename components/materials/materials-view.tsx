@@ -276,6 +276,13 @@ export function MaterialsView({ lockedProjectId }: { lockedProjectId?: string })
   const [projectFilter, setProjectFilter] = useState('all')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [budgetLineLabels, setBudgetLineLabels] = useState<Record<string, string>>({})
+  // Each job's budget lines, fetched the first time a receipt on that job is
+  // opened - for the label of a filed receipt and the picker on an unfiled one.
+  const [lineOptions, setLineOptions] = useState<Record<string, { id: string; label: string }[]>>({})
+  const [filingId, setFilingId] = useState<string | null>(null)
+  const [fileError, setFileError] = useState<string | null>(null)
+  /** Narrow the list to the receipts with no budget line yet. */
+  const [onlyUnfiled, setOnlyUnfiled] = useState(false)
   // Does this job put the contractor fee on material receipts?
   //
   // Only asked when the list is ONE job's. Across jobs the answer differs per
@@ -339,19 +346,45 @@ export function MaterialsView({ lockedProjectId }: { lockedProjectId?: string })
   async function toggleExpand(m: Material) {
     const opening = expandedId !== m.id
     setExpandedId(opening ? m.id : null)
-    if (opening && m.budget_line_id && !budgetLineLabels[m.budget_line_id]) {
-      const res = await fetch(`/api/projects/${m.project_id}/budget`, { headers: await authHeaders() })
-      if (res.ok) {
-        const d = await res.json()
-        const line = (d.items ?? []).find((l: any) => l.id === m.budget_line_id)
-        if (line) setBudgetLineLabels(prev => ({ ...prev, [m.budget_line_id!]: [line.category, line.description].filter(Boolean).join(' · ') || 'Line' }))
+    setFileError(null)
+    if (!opening || !m.project_id || lineOptions[m.project_id]) return
+    if (m.budget_line_id && budgetLineLabels[m.budget_line_id]) return
+    const res = await fetch(`/api/projects/${m.project_id}/budget`, { headers: await authHeaders() })
+    if (!res.ok) return
+    const d = await res.json()
+    const opts = (d.items ?? []).map((l: any) => ({ id: l.id as string, label: [l.category, l.description].filter(Boolean).join(' · ') || 'Line' }))
+    setLineOptions(prev => ({ ...prev, [m.project_id]: opts }))
+    setBudgetLineLabels(prev => ({ ...prev, ...Object.fromEntries(opts.map((o: { id: string; label: string }) => [o.id, o.label])) }))
+  }
+
+  /**
+   * File a receipt against a budget line, from here.
+   *
+   * The aggregate line above the list says "assign them"; a verb on a control
+   * is a promise, so the opened receipt carries the picker that keeps it. Same
+   * PATCH the Budget tab's "Not on a budget line" panel sends.
+   */
+  async function fileReceipt(m: Material, lineId: string) {
+    if (!lineId) return
+    setFilingId(m.id); setFileError(null)
+    try {
+      const res = await fetch(`/api/materials/${m.id}`, {
+        method: 'PATCH', headers: await authHeaders(), body: JSON.stringify({ budget_line_id: lineId }),
+      })
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({} as any))
+        setFileError(d?.error ?? 'Could not file that receipt against the line.')
+        return
       }
+      setMaterials(prev => prev.map(x => x.id === m.id ? { ...x, budget_line_id: lineId } : x))
+    } finally {
+      setFilingId(null)
     }
   }
 
   const scoped = useMemo(() => lockedProjectId ? materials.filter(m => m.project_id === lockedProjectId) : materials, [materials, lockedProjectId])
 
-  const filtered = useMemo(() => {
+  const searched = useMemo(() => {
     const q = query.trim().toLowerCase()
     return scoped.filter(m => {
       if (!lockedProjectId && projectFilter !== 'all' && m.project_id !== projectFilter) return false
@@ -359,9 +392,15 @@ export function MaterialsView({ lockedProjectId }: { lockedProjectId?: string })
       return [m.store_name, m.category, m.project_name, m.notes].filter(Boolean).some(s => (s as string).toLowerCase().includes(q))
     })
   }, [scoped, query, projectFilter, lockedProjectId])
+  // Receipts on a job but on no line of its budget. ONE line above the list
+  // counts them and narrows to them - it replaced a "Not in the budget" pill on
+  // every such row, which on a job with a dozen unfiled receipts was the same
+  // two words a dozen times and still no way to see them together.
+  const unfiled = useMemo(() => searched.filter(m => m.project_id && !m.budget_line_id), [searched])
+  const filtered = onlyUnfiled && unfiled.length > 0 ? unfiled : searched
 
-  const total = useMemo(() => filtered.reduce((s, m) => s + Number(m.amount || 0), 0), [filtered])
-  const paidByClient = useMemo(() => filtered.filter(m => m.client_paid).reduce((s, m) => s + Number(m.amount || 0), 0), [filtered])
+  const total = useMemo(() => searched.reduce((s, m) => s + Number(m.amount || 0), 0), [searched])
+  const paidByClient = useMemo(() => searched.filter(m => m.client_paid).reduce((s, m) => s + Number(m.amount || 0), 0), [searched])
   const owed = Math.max(total - paidByClient, 0)
 
   return (
@@ -375,7 +414,7 @@ export function MaterialsView({ lockedProjectId }: { lockedProjectId?: string })
       <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-xl border border-line bg-panel px-4 py-3">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-fg">Receipts</p>
-          <p className="mt-0.5 text-2xl font-bold text-ink">{filtered.length}</p>
+          <p className="mt-0.5 text-2xl font-bold text-ink">{searched.length}</p>
         </div>
         <div className="rounded-xl border border-line bg-panel px-4 py-3">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-fg">Total cost</p>
@@ -404,6 +443,21 @@ export function MaterialsView({ lockedProjectId }: { lockedProjectId?: string })
         )}
       </div>
 
+      {!loading && unfiled.length > 0 && (
+        <div data-unfiled-summary className="mb-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl border border-warn/30 bg-warn-tint px-4 py-2.5 text-sm">
+          <p className="min-w-0 text-ink-soft">
+            <span className="font-semibold text-warn">
+              {unfiled.length} receipt{unfiled.length !== 1 ? 's have' : ' has'} no budget line yet
+            </span>
+            <span className="text-muted-fg"> - counted in the job&apos;s costs, but on no line of its budget.</span>
+          </p>
+          <button type="button" onClick={() => { setOnlyUnfiled(v => !v); setExpandedId(null) }}
+            className="min-h-11 whitespace-nowrap font-medium text-accent-fg hover:underline lg:min-h-0">
+            {onlyUnfiled ? 'Show all receipts' : `Assign ${unfiled.length !== 1 ? 'them' : 'it'} →`}
+          </button>
+        </div>
+      )}
+
       {loading ? (
         <p className="py-16 text-center text-sm text-muted-fg">Loading…</p>
       ) : filtered.length === 0 ? (
@@ -429,15 +483,6 @@ export function MaterialsView({ lockedProjectId }: { lockedProjectId?: string })
                     <p className="truncate font-semibold text-ink">{m.store_name || 'Material purchase'}</p>
                     {m.category && <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-fg">{m.category}</span>}
                     {m.client_paid && <span className="inline-flex items-center gap-1 rounded-full bg-success-tint px-1.5 py-0.5 text-[10px] font-medium text-success"><CheckCircle2 className="h-3 w-3" />Paid</span>}
-                    {/* Findable after the fact. A receipt on a job with no
-                        budget line is money the Budget tab cannot see, and
-                        without this the only way to notice is to add up the
-                        receipts by hand and wonder. */}
-                    {m.project_id && !m.budget_line_id && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-warn-tint px-1.5 py-0.5 text-[10px] font-medium text-warn">
-                        Not in the budget
-                      </span>
-                    )}
                   </div>
                   <p className="truncate text-xs text-muted-fg">
                     {lockedProjectId ? '' : `${m.project_name}`}{m.purchase_date ? `${lockedProjectId ? '' : ' · '}${formatDate(m.purchase_date)}` : ''}
@@ -465,9 +510,28 @@ export function MaterialsView({ lockedProjectId }: { lockedProjectId?: string })
                     <div><p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Job</p><p className="text-ink-soft">{m.project_name}</p></div>
                     <div><p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Tax</p><p className="text-ink-soft">{m.tax != null ? money(m.tax) : '-'}</p></div>
                     <div><p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Total</p><p className="font-semibold text-ink">{money(m.amount)}</p></div>
-                    {m.budget_line_id && (
+                    {m.budget_line_id ? (
                       <div className="col-span-2 sm:col-span-3"><p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Budget line</p><p className="text-ink-soft">{budgetLineLabels[m.budget_line_id] ?? 'Loading…'}</p></div>
-                    )}
+                    ) : m.project_id ? (
+                      // The one place a receipt says it has no line: when you
+                      // opened it, beside the control that gives it one.
+                      <div className="col-span-2 sm:col-span-3">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Budget line</p>
+                        <p className="text-warn">No budget line yet</p>
+                        {(lineOptions[m.project_id]?.length ?? 0) > 0 ? (
+                          <Select className="mt-1" value="" disabled={filingId === m.id}
+                            onChange={e => fileReceipt(m, e.target.value)}>
+                            <option value="">{filingId === m.id ? 'Assigning…' : 'Assign to a budget line…'}</option>
+                            {lineOptions[m.project_id]!.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+                          </Select>
+                        ) : lineOptions[m.project_id] ? (
+                          <a href={`/projects/${m.project_id}/budget`} className="mt-1 inline-block text-xs font-medium text-accent-fg hover:underline">
+                            This job has no budget lines - add one on the Budget tab →
+                          </a>
+                        ) : null}
+                        {fileError && expandedId === m.id && <p role="alert" className="mt-1 text-xs text-danger">{fileError}</p>}
+                      </div>
+                    ) : null}
                     {m.notes && (
                       <div className="col-span-2 sm:col-span-3"><p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Notes</p><p className="text-ink-soft">{m.notes}</p></div>
                     )}
