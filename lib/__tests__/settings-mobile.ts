@@ -19,9 +19,25 @@ ok(!/w-14 md:w-52/.test(page), 'the tab rail is no longer a fixed 56px column on
 ok(/shrink-0 md:w-52/.test(page), '...it only takes a fixed width from md up')
 ok(/flex flex-col gap-4 md:flex-row/.test(page), 'the page stacks on a phone and goes side-by-side from md')
 
-// A horizontal strip you can scroll, rather than a squeezed column.
-ok(/overflow-x-auto/.test(page), 'the tabs scroll horizontally on a phone')
-ok(/md:block md:space-y-1 md:overflow-visible/.test(page), '...and become a column again from md')
+// THEN the strip failed too. Twelve sections do not fit 390px, and
+// Notifications, Security, Billing, Integrations and the Danger Zone sat off
+// the edge of a strip nobody could tell scrolled. A phone gets a vertical LIST
+// of sections; tapping one opens it, and a back control returns to the list.
+ok(!/scroll-fade -mx-4 flex gap-1 overflow-x-auto/.test(page), 'no horizontal tab strip on a phone any more')
+ok(/<nav className="md:hidden" aria-label="Settings sections">/.test(page), 'a phone gets a list of sections')
+ok(/divide-y divide-line-soft rounded-2xl border border-line bg-panel/.test(page), '...one card, hairline rows')
+ok(/onClick=\{\(\) => openPhoneSection\(id\)\}/.test(page), '...tapping one opens that section')
+ok(/phoneSection \? '' : 'hidden md:block'/.test(page), '...which replaces the list on a phone, not stacks under it')
+ok(/onClick=\{\(\) => setPhoneSection\(false\)\}/.test(page) && /All settings/.test(page),
+  '...and there is a way back to the list')
+ok((page.match(/visibleTabs\.map/g) ?? []).length === 2 && !/TABS\.filter\(\(\{ id \}\) => \{[\s\S]{0,200}\}\)\.map/.test(page),
+  'the phone list and the sidebar read ONE permission-filtered list, so they cannot offer different sections')
+ok(/setActiveTab\(tab\)\s*setPhoneSection\(true\)/.test(page),
+  'a ?tab= deep link lands IN the section on a phone, not on the list above it')
+ok(/tabAllowed\(tab\)/.test(page), '...and still only for a tab this person may open')
+// The desktop was not asked to change: the sidebar is the same from md up.
+ok(/<nav className="hidden md:block shrink-0 md:w-52">/.test(page), 'from md up the sidebar is unchanged')
+ok(/md:block md:space-y-1 md:overflow-visible/.test(page), '...a column, as it was')
 
 // ── the labels come back ─────────────────────────────────────────────────────
 // `hidden md:block` on the label is what made a phone show nine unlabelled

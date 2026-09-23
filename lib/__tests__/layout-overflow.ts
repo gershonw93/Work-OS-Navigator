@@ -500,7 +500,16 @@ ok(/className="overlay-drawer/.test(tasksPage) && /data-overlay/.test(tasksPage)
 // every strip fades the same way.
 ok(/\.scroll-fade\s*\{[^}]*mask-image:\s*linear-gradient\(to right/.test(css), '.scroll-fade fades the right edge')
 ok(/scroll-fade/.test(tasksPage), 'tasks filter strip fades at its right edge')
-ok(/scroll-fade/.test(code('app/(dashboard)/settings/page.tsx')), 'settings tab strip fades at its right edge')
+// Settings no longer HAS a strip on a phone - twelve sections did not fit, so
+// it became a vertical list of sections (pinned in settings-mobile.ts). What
+// matters here is that it did not become a strip without the fade again.
+{
+  const settingsPage = code('app/(dashboard)/settings/page.tsx')
+  ok(!/overflow-x-auto[^"]*flex gap-1|flex gap-1[^"]*overflow-x-auto/.test(settingsPage) || /scroll-fade/.test(settingsPage),
+    'settings has no unfaded tab strip (it is a section list on a phone)')
+}
+ok(/scroll-fade/.test(code('app/(dashboard)/directory/page.tsx')), 'directory tab strip fades at its right edge')
+ok(/scroll-fade/.test(code('app/(dashboard)/files/page.tsx')), 'files tab strip fades at its right edge')
 
 // ── 10. four spots from one phone ───────────────────────────────────────────
 // The project layout pads p-6; nine project pages padded p-6 again and sat
