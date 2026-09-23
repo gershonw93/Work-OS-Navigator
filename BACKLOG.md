@@ -136,6 +136,14 @@ the biggest build yet while the books are half-wired ends with both half-done.
     Codemagic, targetSdk 35, and notifications through Firebase. Needs the
     accounts: a keystore, a Firebase project and a Play service-account JSON
     (MOBILE.md section 5), and the first upload by hand. Does not block iOS.
+  - **Settings -> Danger Zone -> "Delete Company Account" has never worked.**
+    It sends DELETE to `/api/settings`, which exports only GET and PATCH, so it
+    always answers "Failed to delete account. Contact support." Deletion is by
+    email for now (`/delete-account`, the URL Google Play requires). Building
+    the real one means walking every table that points at `companies`, the
+    storage objects (signed URLs live ten years), device tokens and the
+    QuickBooks link - and deciding what a teammate's own deletion removes. Until
+    then the button should say "request deletion", not promise one.
   - **App Privacy** is answered ahead of time in `store/app-privacy.md`, and
     the store URLs are corrected - they pointed at `/homepage/...`, which has
     not existed since the marketing site moved to the root, and they are the
