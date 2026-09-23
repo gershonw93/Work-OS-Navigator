@@ -54,6 +54,29 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 // Author entries anywhere in this list; the app reads the sorted view.
 const AUTHORED: Release[] = [
   {
+    date: '2026-09-23',
+    title: 'Less to scroll past on a phone',
+    items: [
+      {
+        kind: 'improved',
+        title: 'Projects, Master Money and the Master Calendar get to the point on a phone',
+        text: 'On Projects the counts are one line and the type, status, sort and map/list choice sit behind one Filter button, so the first job is near the top instead of two screens down. Master Money shows three numbers per job - received, paid out, escrow - and a tap for the rest, with jobs that have no money yet folded into one row. The Master Calendar draws a dot per item and you tap a day to see everything on it, instead of chips cut to three letters. Nothing changes on a desktop.',
+        help: 'master-money',
+      },
+      {
+        kind: 'improved',
+        title: 'Escrow says what it means',
+        text: 'Master Money now explains its escrow figure: what the client has paid you, less what you paid vendors out of escrow, less your fee on approved vendor bills. Below zero means more has gone out than the client has paid in, and on a phone the amount of that gap is spelled out under the total.',
+        help: 'master-money',
+      },
+      {
+        kind: 'improved',
+        title: 'Recent Activity shows the latest three',
+        text: 'The home screen\'s activity feed shows the three most recent things, with "Show all" for the rest. Bills from subs folds its introduction away once a job has a bill - "How this works" brings it back.',
+      },
+    ],
+  },
+  {
     date: '2026-09-22',
     title: 'Delay a sub, and see what it actually moves',
     items: [
