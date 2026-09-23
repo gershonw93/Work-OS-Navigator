@@ -567,8 +567,12 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
               : { label: 'Open', cls: 'bg-muted text-muted-fg' }
         const isCollapsed = !expanded.has(req.id)
         return (
-          <div key={req.id} className={cn('bg-panel rounded-xl border overflow-hidden', awarded ? 'border-success/40' : overdue ? 'border-danger/40' : 'border-line')}>
-            <div onClick={() => toggleCollapse(req.id)} className="px-4 sm:px-5 py-3.5 border-b border-line-soft flex flex-wrap items-center justify-between gap-2 cursor-pointer hover:bg-surface/60 transition-colors">
+          // NO overflow-hidden: it clips on both axes, and the RowMenu in this
+          // header - and the invite menus further down - hang off the card. A
+          // collapsed card is only its header, so the menu would be cut off
+          // entirely. The header rounds its own corners instead.
+          <div key={req.id} className={cn('bg-panel rounded-xl border', awarded ? 'border-success/40' : overdue ? 'border-danger/40' : 'border-line')}>
+            <div onClick={() => toggleCollapse(req.id)} className={cn('px-4 sm:px-5 py-3.5 border-b border-line-soft flex flex-wrap items-center justify-between gap-2 cursor-pointer hover:bg-surface/60 transition-colors', isCollapsed ? 'rounded-xl' : 'rounded-t-xl')}>
               <div className="flex items-start gap-2 min-w-0">
                 <span className="p-1 -ml-1 mt-0.5 rounded text-faint shrink-0" aria-hidden>
                   {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -591,7 +595,16 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
                     {pulling === req.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Scale className="h-3.5 w-3.5" />} {comp ? 'Refresh comparison' : 'Compare quotes'}
                   </Button>
                 )}
-                <button onClick={() => deleteRequest(req.id)} className="p-1.5 rounded-lg text-faint hover:bg-danger-tint hover:text-danger"><Trash2 className="h-4 w-4" /></button>
+                {/* Delete is behind the menu, not a bare bin on every row of
+                    the list one tap from the header that opens it. Still
+                    guarded (protected) by useDeleteGuard. */}
+                <RowMenu label={`More for ${req.title}`}>
+                  {close => (
+                    <MenuItem danger onClick={() => { close(); deleteRequest(req.id) }}>
+                      <Trash2 className="h-3.5 w-3.5" /> Delete request
+                    </MenuItem>
+                  )}
+                </RowMenu>
               </div>
             </div>
 
