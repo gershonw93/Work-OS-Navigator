@@ -21,6 +21,10 @@ import { formatDate } from '@/lib/dates'
 import { dueLabel } from '@/lib/task-due'
 import { timeAgo, absoluteTime } from '@/lib/time-ago'
 import { useSwipeDismiss } from '@/lib/use-swipe-dismiss'
+import {
+  assigneeLabel, assigneeName, normalizeAssignees, completedByLabel,
+  type TaskAssignee,
+} from '@/lib/task-assignees'
 // ─── constants ───────────────────────────────────────────────────────────────
 
 const PRIORITIES = [
@@ -48,8 +52,14 @@ type FilterMode = 'all' | 'open' | 'in_progress' | 'completed' | 'overdue'
 
 interface Task {
   id: string; title: string; description: string | null; due_date: string | null
-  priority: string; status: string; assigned_to_member_id: string | null
-  assigned_to_company_id: string | null; assigned_to_name: string | null
+  priority: string; status: string
+  /**
+   * EVERYONE on this task. `project_task_assignees` is the home for that now;
+   * the three `assigned_to_*` fields above are the old single-assignee shape,
+   * backfilled into this list by migration 116 and no longer read here.
+   */
+  assignees?: TaskAssignee[]
+  completed_by_name?: string | null
   created_by: string; completed_at: string | null; created_at: string
   image_url: string | null; follow_up_date: string | null; follow_up_note: string | null
   budget_line_item_id: string | null
@@ -313,12 +323,12 @@ function TaskDetailPanel({ task, notes, notesLoading, onAddNote, projectId, onCh
             <PriorityBadge priority={task.priority} />
           </div>
 
-          {task.assigned_to_name && (
+          {(task.assignees?.length ?? 0) > 0 && (
             <div className="flex items-center gap-1.5 text-sm text-muted-fg">
-              {task.assigned_to_company_id
+              {taskCompanyId(task)
                 ? <Building2 className="h-4 w-4 text-faint shrink-0" />
                 : <UserCircle2 className="h-4 w-4 text-faint shrink-0" />}
-              <span>{task.assigned_to_name}</span>
+              <span>{assigneeLabel(task.assignees, 2)}</span>
             </div>
           )}
 
@@ -352,6 +362,28 @@ function TaskDetailPanel({ task, notes, notesLoading, onAddNote, projectId, onCh
             <a href={task.image_url} target="_blank" rel="noreferrer">
               <img src={task.image_url} alt="Task" className="rounded-lg border border-line max-h-56 object-cover" />
             </a>
+          )}
+
+          {/* WHO TICKED IT OFF, and when.
+              Distinct from the signoff below it: signing off is a formal act
+              somebody is ASKED to do, while this is simply the record of who
+              moved the card. With several people on a task it is the only way
+              to know which of them did it. Null for every task finished
+              before migration 116 - `completedByLabel` says nothing rather
+              than inventing a name, because "completed by somebody" is a
+              claim. */}
+          {completedByLabel(task) && (
+            <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted-fg">
+              <span className="inline-flex items-center gap-1.5 font-medium text-ink-soft">
+                <CheckSquare className="h-3.5 w-3.5 text-success" />
+                {completedByLabel(task)}
+              </span>
+              {task.completed_at && (
+                <span className="text-faint" title={absoluteTime(task.completed_at)}>
+                  {timeAgo(task.completed_at)}
+                </span>
+              )}
+            </p>
           )}
 
           {/* Work signoff - signature approval once the work is done */}
@@ -532,6 +564,25 @@ function TaskDrawer({
   )
 }
 
+
+/**
+ * THE SUB ON A TASK, derived from the assignee list.
+ *
+ * The board groups by subcontractor and the invoice flow bills one, both of
+ * which used to read `assigned_to_company_id`. With several people on a task
+ * the question becomes "which company is on this", and the answer is the
+ * first one - a task carrying two subs is possible and rare, and the group it
+ * files under has to be ONE bucket or the row appears twice.
+ */
+function taskCompanyId(t: { assignees?: TaskAssignee[] }): string | null {
+  return (t.assignees ?? []).find(a => a.company_id)?.company_id ?? null
+}
+
+function taskCompanyName(t: { assignees?: TaskAssignee[] }): string | null {
+  const a = (t.assignees ?? []).find(x => x.company_id)
+  return a ? assigneeName(a) : null
+}
+
 export default function TasksPage({ params }: { params: { id: string } }) {
   const { can } = usePermissions()
   const canCreateTask = can('tasks', 'create')
@@ -575,6 +626,8 @@ export default function TasksPage({ params }: { params: { id: string } }) {
   const [assigneeType, setAssigneeType] = useState<'member' | 'sub'>('member')
   const [assignedMemberId, setAssignedMemberId] = useState('')
   const [assignedSubId, setAssignedSubId]       = useState('')
+  /** Everyone picked for the task being added or edited. */
+  const [picked, setPicked] = useState<TaskAssignee[]>([])
   const [followUpDate, setFollowUpDate] = useState('')
   const [taskImage, setTaskImage] = useState<File | null>(null)
   const [taskImagePreview, setTaskImagePreview] = useState<string | null>(null)
@@ -688,15 +741,18 @@ export default function TasksPage({ params }: { params: { id: string } }) {
     setFollowUpDate(task.follow_up_date ?? '')
     setTaskImage(null)
     setTaskImagePreview(task.image_url ?? null)
-    if (task.assigned_to_member_id) {
-      setAssigneeType('member')
-      setAssignedMemberId(task.assigned_to_member_id)
-      setAssignedSubId('')
-    } else if (task.assigned_to_company_id) {
+    setPicked(task.assignees ?? [])
+    // THE TAB IS A VIEW CHOICE, NOT AN ASSIGNMENT. It used to be seeded from
+    // the single `assigned_to_*` columns, which were also what was assigned;
+    // now the chips hold that and this only decides which picker opens first.
+    // Opening on Subcontractor when the only person on the task is a sub
+    // saves a tap; anything else opens on the crew.
+    if ((task.assignees ?? []).some(a => a.company_id) && !(task.assignees ?? []).some(a => a.member_id)) {
       setAssigneeType('sub')
-      const s = subs.find(s => s.companies?.id === task.assigned_to_company_id)
-      setAssignedSubId(s?.id ?? '')
-      setAssignedMemberId('')
+      setAssignedSubId(''); setAssignedMemberId('')
+    } else if ((task.assignees ?? []).length) {
+      setAssigneeType('member')
+      setAssignedMemberId(''); setAssignedSubId('')
     } else {
       setAssigneeType('member')
       setAssignedMemberId('')
@@ -721,19 +777,9 @@ export default function TasksPage({ params }: { params: { id: string } }) {
     try {
       const token = await getToken()
 
-      let assigned_to_member_id: string | null = null
-      let assigned_to_company_id: string | null = null
-      let assigned_to_name: string | null = null
-
-      if (assigneeType === 'member' && assignedMemberId) {
-        const m = members.find(m => m.id === assignedMemberId)
-        assigned_to_member_id = assignedMemberId
-        assigned_to_name = m?.name ?? null
-      } else if (assigneeType === 'sub' && assignedSubId) {
-        const s = subs.find(s => s.id === assignedSubId)
-        assigned_to_company_id = s?.companies?.id ?? null
-        assigned_to_name = s?.companies?.name ?? null
-      }
+      // THE WHOLE SET, every time. The route replaces rather than diffs, and
+      // an empty array is a real answer - it is how a task gets unassigned.
+      const assignees = normalizeAssignees(picked)
 
       // Upload a newly-selected image to storage; keep existing url otherwise
       let image_url: string | null = editTask?.image_url ?? null
@@ -749,7 +795,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
 
       const body = JSON.stringify({
         title, description, due_date: dueDate || null, priority,
-        assigned_to_member_id, assigned_to_company_id, assigned_to_name,
+        assignees,
         image_url, follow_up_date: followUpDate || null,
         // Create only. On PATCH this stays out of the body on purpose: saving
         // an edit must not move the task to whichever column was last used.
@@ -809,14 +855,14 @@ export default function TasksPage({ params }: { params: { id: string } }) {
     if (!invoiceTask) return
     setCreatingInvoice(true)
     const token = await getToken()
-    const sub = subs.find(s => s.companies?.id === invoiceTask.assigned_to_company_id)
+    const sub = subs.find(s => s.companies?.id === taskCompanyId(invoiceTask))
     await fetch(`/api/projects/${params.id}/invoices`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({
         subcontract_id: sub?.id ?? null,
-        company_id: invoiceTask.assigned_to_company_id,
-        company_name: invoiceTask.assigned_to_name,
+        company_id: taskCompanyId(invoiceTask),
+        company_name: taskCompanyName(invoiceTask),
         amount: parseFloat(invoiceAmount),
         description: invoiceDesc,
         due_date: invoiceDue || null,
@@ -864,13 +910,13 @@ export default function TasksPage({ params }: { params: { id: string } }) {
 
   const openTask_ = openTaskId ? tasks.find(t => t.id === openTaskId) ?? null : null
 
-  const generalTasks = filteredTasks.filter(t => !t.assigned_to_company_id)
-  const subTasks     = filteredTasks.filter(t => t.assigned_to_company_id)
+  const generalTasks = filteredTasks.filter(t => !taskCompanyId(t))
+  const subTasks     = filteredTasks.filter(t => taskCompanyId(t))
 
   const subGroups: Record<string, { name: string; tasks: Task[] }> = {}
   for (const t of subTasks) {
-    const key = t.assigned_to_company_id!
-    if (!subGroups[key]) subGroups[key] = { name: t.assigned_to_name ?? 'Unknown', tasks: [] }
+    const key = taskCompanyId(t)!
+    if (!subGroups[key]) subGroups[key] = { name: taskCompanyName(t) ?? 'Unknown', tasks: [] }
     subGroups[key].tasks.push(t)
   }
 
@@ -885,11 +931,12 @@ export default function TasksPage({ params }: { params: { id: string } }) {
    * are already in hand from the page's one load().
    */
   function taskTag(task: Task): string | null {
-    if (task.assigned_to_company_id) {
-      return subs.find(s => s.companies?.id === task.assigned_to_company_id)?.trade ?? null
+    if (taskCompanyId(task)) {
+      return subs.find(s => s.companies?.id === taskCompanyId(task))?.trade ?? null
     }
-    if (task.assigned_to_member_id) {
-      return members.find(m => m.id === task.assigned_to_member_id)?.role ?? null
+    const firstMember = (task.assignees ?? []).find(a => a.member_id)?.member_id
+    if (firstMember) {
+      return members.find(m => m.id === firstMember)?.role ?? null
     }
     return null
   }
@@ -937,12 +984,12 @@ export default function TasksPage({ params }: { params: { id: string } }) {
             </p>
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <DueChip task={task} />
-              {task.assigned_to_name && (
+              {(task.assignees?.length ?? 0) > 0 && (
                 <span className="flex min-w-0 items-center gap-1 text-xs text-muted-fg">
-                  {task.assigned_to_company_id
+                  {taskCompanyId(task)
                     ? <Building2 className="h-3 w-3 shrink-0 text-faint" />
                     : <UserCircle2 className="h-3 w-3 shrink-0 text-faint" />}
-                  <span className="truncate">{task.assigned_to_name}</span>
+                  <span className="truncate">{assigneeLabel(task.assignees, 2)}</span>
                 </span>
               )}
               <TaskTag task={task} />
@@ -965,7 +1012,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
             className="p-1 rounded text-faint hover:text-accent-fg hover:bg-accent-tint transition-colors">
             <Pencil className="h-3 w-3" />
           </button>
-          {task.status === 'completed' && task.assigned_to_company_id && (
+          {task.status === 'completed' && taskCompanyId(task) && (
             <button
               onClick={e => { e.stopPropagation(); openInvoiceModal(task) }}
               className="p-1 rounded text-faint hover:text-accent-fg hover:bg-accent-tint transition-colors"
@@ -1019,10 +1066,10 @@ export default function TasksPage({ params }: { params: { id: string } }) {
             <p className="text-sm text-muted-fg mt-0.5 truncate">{task.description}</p>
           )}
           <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-            {task.assigned_to_name && (
+            {(task.assignees?.length ?? 0) > 0 && (
               <span className="flex items-center gap-1.5 text-xs text-muted-fg">
-                {task.assigned_to_company_id ? <Building2 className="h-3 w-3 text-faint" /> : <UserCircle2 className="h-3 w-3 text-faint" />}
-                {task.assigned_to_name}
+                {taskCompanyId(task) ? <Building2 className="h-3 w-3 text-faint" /> : <UserCircle2 className="h-3 w-3 text-faint" />}
+                {assigneeLabel(task.assignees, 2)}
               </span>
             )}
             <DueChip task={task} />
@@ -1031,7 +1078,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
         </div>
 
         <div className="flex shrink-0 items-center gap-1 opacity-100 transition-opacity lg:opacity-0 lg:group-hover:opacity-100">
-          {task.status === 'completed' && task.assigned_to_company_id && (
+          {task.status === 'completed' && taskCompanyId(task) && (
             <button
               onClick={e => { e.stopPropagation(); openInvoiceModal(task) }}
               className="flex items-center gap-1 px-2 py-1 text-xs text-accent-fg border border-accent/40 rounded-md hover:bg-accent-tint transition-colors font-medium">
@@ -1175,11 +1222,11 @@ export default function TasksPage({ params }: { params: { id: string } }) {
     const groups: Record<string, { name: string; tasks: Task[]; isCompany: boolean }> = {}
 
     for (const t of filteredTasks) {
-      const key = t.assigned_to_name ?? '__unassigned__'
+      const key = assigneeLabel(t.assignees, 3)
       if (!groups[key]) groups[key] = {
-        name: t.assigned_to_name ?? 'Unassigned',
+        name: assigneeLabel(t.assignees, 3),
         tasks: [],
-        isCompany: !!t.assigned_to_company_id,
+        isCompany: !!taskCompanyId(t),
       }
       groups[key].tasks.push(t)
     }
@@ -1281,8 +1328,37 @@ export default function TasksPage({ params }: { params: { id: string } }) {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Assign To</Label>
-                  <div className="flex gap-2 mb-2">
+                  <Label>Assign To <span className="text-faint font-normal">(optional - you can pick more than one)</span></Label>
+
+                  {/* WHO IS ON IT, as chips. A task is one thing to be done
+                      and any of them can finish it; the list is not an order
+                      of precedence, so nobody is marked "primary". */}
+                  {picked.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {picked.map((a, i) => (
+                        <span
+                          key={`${a.member_id ?? a.company_id ?? a.name}-${i}`}
+                          className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-line bg-surface py-1 pl-2.5 pr-1.5 text-xs font-medium text-ink-soft"
+                        >
+                          {a.company_id
+                            ? <Building2 className="h-3 w-3 shrink-0 text-faint" />
+                            : <UserCircle2 className="h-3 w-3 shrink-0 text-faint" />}
+                          {assigneeName(a)}
+                          <button
+                            type="button"
+                            onClick={() => setPicked(prev => prev.filter((_, j) => j !== i))}
+                            aria-label={`Take ${assigneeName(a)} off this task`}
+                            title="Remove"
+                            className="rounded-full p-0.5 text-faint hover:bg-muted hover:text-ink"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex gap-2">
                     <button type="button" onClick={() => setAssigneeType('member')}
                       className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors',
                         assigneeType === 'member' ? 'border-accent bg-accent-tint text-accent-fg' : 'border-line text-muted-fg hover:bg-surface')}>
@@ -1294,21 +1370,49 @@ export default function TasksPage({ params }: { params: { id: string } }) {
                       <Building2 className="h-3.5 w-3.5" /> Subcontractor
                     </button>
                   </div>
+
+                  {/* THE PICKER ADDS, it does not replace - and it goes back
+                      to "-- Select --" after each pick, so the box is never
+                      sitting on somebody who is already a chip above. It also
+                      stops offering anybody already on the task: a picker must
+                      not offer to add what it is already showing you. */}
                   {assigneeType === 'member' && (
                     members.length === 0
                       ? <p className="text-xs text-faint">No crew members on this project yet. Add them in the Team tab.</p>
-                      : <Select value={assignedMemberId} onChange={e => setAssignedMemberId(e.target.value)}>
-                          <option value="">Unassigned</option>
-                          {members.map(m => <option key={m.id} value={m.id}>{m.name} - {m.role}</option>)}
+                      : <Select
+                          value=""
+                          onChange={e => {
+                            const m = members.find(x => x.id === e.target.value)
+                            if (m) setPicked(prev => normalizeAssignees([...prev, { member_id: m.id, name: m.name }]))
+                            e.target.value = ''
+                          }}
+                        >
+                          <option value="">-- Add someone --</option>
+                          {members
+                            .filter(m => !picked.some(a => a.member_id === m.id))
+                            .map(m => <option key={m.id} value={m.id}>{m.name} - {m.role}</option>)}
                         </Select>
                   )}
                   {assigneeType === 'sub' && (
                     subs.length === 0
                       ? <p className="text-xs text-faint">No awarded subcontractors yet. Award bids first.</p>
-                      : <Select value={assignedSubId} onChange={e => setAssignedSubId(e.target.value)}>
-                          <option value="">Unassigned</option>
-                          {subs.map(s => <option key={s.id} value={s.id}>{s.companies?.name} - {s.scope}</option>)}
+                      : <Select
+                          value=""
+                          onChange={e => {
+                            const sub = subs.find(x => x.id === e.target.value)
+                            const cid = sub?.companies?.id
+                            if (cid) setPicked(prev => normalizeAssignees([...prev, { company_id: cid, name: sub?.companies?.name ?? null }]))
+                            e.target.value = ''
+                          }}
+                        >
+                          <option value="">-- Add a sub --</option>
+                          {subs
+                            .filter(sc => !picked.some(a => a.company_id === sc.companies?.id))
+                            .map(sc => <option key={sc.id} value={sc.id}>{sc.companies?.name} - {sc.scope}</option>)}
                         </Select>
+                  )}
+                  {picked.length === 0 && (
+                    <p className="text-xs text-faint">Nobody on it yet - it will show as Unassigned.</p>
                   )}
                 </div>
 
@@ -1362,7 +1466,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
             <div className="px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between">
               <div>
                 <h2 className="font-semibold text-ink">Create Invoice</h2>
-                <p className="text-xs text-muted-fg mt-0.5">For {invoiceTask.assigned_to_name} · {invoiceTask.title}</p>
+                <p className="text-xs text-muted-fg mt-0.5">For {taskCompanyName(invoiceTask) ?? assigneeLabel(invoiceTask.assignees)} · {invoiceTask.title}</p>
               </div>
               <button onClick={() => setInvoiceTask(null)} className="text-faint hover:text-muted-fg"><X className="h-5 w-5" /></button>
             </div>

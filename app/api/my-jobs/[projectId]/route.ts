@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { taskIdsFor } from '@/lib/task-assignees'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -34,8 +35,15 @@ export async function GET(request: Request, { params }: { params: { projectId: s
     if (!ownership) return NextResponse.json({ error: 'Access denied' }, { status: 403 })
   }
 
+  // WHICH TASKS ARE THIS SUB'S. Was `.eq('assigned_to_company_id', companyId)`
+  // - the single-assignee column - so a task carrying this sub alongside
+  // anybody else would have vanished from their own job page.
+  const myTaskIds = await taskIdsFor(db, { companyId })
+
   const [{ data: tasks }, { data: rfis }, { data: inspections }, { data: invoices }, { data: dailyLogs }] = await Promise.all([
-    db.from('project_tasks').select('*').eq('project_id', params.projectId).eq('assigned_to_company_id', companyId).order('created_at', { ascending: false }),
+    myTaskIds && myTaskIds.length
+      ? db.from('project_tasks').select('*').eq('project_id', params.projectId).in('id', myTaskIds).order('created_at', { ascending: false })
+      : Promise.resolve({ data: [] }),
     db.from('rfis').select('*').eq('project_id', params.projectId).order('created_at', { ascending: false }),
     db.from('inspections').select('*').eq('project_id', params.projectId).order('created_at', { ascending: false }),
     db.from('invoices').select('*').eq('project_id', params.projectId).eq('company_id', companyId).order('created_at', { ascending: false }),

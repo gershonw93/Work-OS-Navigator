@@ -1510,9 +1510,35 @@ ok(article.colW === article.vw - 32,
 // column makes the MEASUREMENT below fail, not merely a regex.
 const tasksPage = read('app/(dashboard)/projects/[id]/tasks/page.tsx')
 
+/**
+ * The class string on an element in the tasks page.
+ *
+ * IT HAS TO KNOW WHICH QUOTE IT IS LOOKING FOR. This took the next two SINGLE
+ * quotes after the match, which is right for `className={cn('...')}` and
+ * nonsense for `className="..."` - there the next apostrophe is whatever prose
+ * happens to come later, so the "class string" was a blob of comment and
+ * markup swept up from further down the file. It passed for a year because
+ * that blob happened not to contain the word it was checking for, and went
+ * red the day an unrelated edit moved an apostrophe. A scan reading text it
+ * did not mean to read cannot be trusted either way round.
+ *
+ * Now: `className="` slices to the closing double quote; `className={cn('`
+ * slices between the first two single quotes, as before.
+ */
 function classLiteral(after: string, label: string): string {
   const at = tasksPage.indexOf(after)
   if (at < 0) throw new Error(`overlay-geometry: could not find ${label} in the tasks page`)
+
+  // A double-quoted className is one the MATCH ITSELF opened - `after` starts
+  // at the `<div` and runs past the quote - so it is found inside the matched
+  // span, not before it.
+  const dq = tasksPage.indexOf('className="', at)
+  if (dq >= 0 && dq < at + after.length) {
+    const open = dq + 'className="'.length
+    const close = tasksPage.indexOf('"', open)
+    return tasksPage.slice(open, close)
+  }
+
   const open = tasksPage.indexOf("'", at)
   const close = tasksPage.indexOf("'", open + 1)
   return tasksPage.slice(open + 1, close)

@@ -64,8 +64,12 @@ for (const field of ['assigned_to_member_id', 'assigned_to_company_id', 'assigne
   ok(new RegExp(`body\\.${field} !== undefined\\) updates\\.${field} = body\\.${field}`).test(patch),
     `THE BUG: saving an edit writes ${field}`)
 }
-ok(/assigned_to_name: string \| null/.test(page) || /assigned_to_name,/.test(page),
-  'the form still sends them - it always did; the route was the half that was missing')
+// THE BUG THIS ORIGINALLY PINNED - a save that dropped the assignment - is
+// now pinned one table over: the form sends `assignees` and the PATCH
+// replaces the rows. The three `assigned_to_*` fields stay on the whitelist
+// for the five other screens that create a task pre-assigned to ONE person.
+ok(/assignees,/.test(page),
+  'the form sends the whole assignee list, which is what a save must not drop')
 ok(/updates\.assigned_to_name !== \(prev as any\)\?\.assigned_to_name/.test(patch),
   '...and a reassignment is written into job history, so it is visible afterwards')
 
@@ -143,7 +147,7 @@ ok(/text-danger/.test(code('app/(dashboard)/projects/[id]/tasks/page.tsx')),
 const boardCard = page.slice(page.indexOf('function BoardCard('), page.indexOf('function ListCard('))
 ok(/\{task\.title\}/.test(boardCard), 'title')
 ok(/<DueChip task=\{task\} \/>/.test(boardCard), 'due date')
-ok(/\{task\.assigned_to_name\}/.test(boardCard), 'assignee')
+ok(/assigneeLabel\(task\.assignees/.test(boardCard), 'assignee')
 ok(/<TaskTag task=\{task\} \/>/.test(boardCard), 'trade or role')
 ok(!/<ChevronDown/.test(boardCard), '...and no chevron: nothing expands in place any more')
 ok(!/ImagePlus|CalendarClock/.test(boardCard), '...and no glyphs for facts the panel states in words')
@@ -153,9 +157,9 @@ ok(/w-1\.5 h-1\.5/.test(code('app/(dashboard)/projects/[id]/tasks/page.tsx')),
 // DERIVED, NEVER STORED. Neither trade nor role is a column on a task, and
 // copying one there would be a second place for it to be wrong.
 ok(/function taskTag\(task: Task\)/.test(page), 'the tag is computed')
-ok(/subs\.find\(s => s\.companies\?\.id === task\.assigned_to_company_id\)\?\.trade/.test(page),
+ok(/subs\.find\(s => s\.companies\?\.id === taskCompanyId\(task\)\)\?\.trade/.test(page),
   "...a sub's trade comes off the subcontract")
-ok(/members\.find\(m => m\.id === task\.assigned_to_member_id\)\?\.role/.test(page),
+ok(/members\.find\(m => m\.id === firstMember\)\?\.role/.test(page),
   "...and a crew member's role off the team row")
 ok(!/tag:/.test(post), 'and nothing new is stored on the task to hold it')
 

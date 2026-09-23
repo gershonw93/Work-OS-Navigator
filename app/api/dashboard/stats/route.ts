@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { getActor, actorCan, getAssignment } from '@/lib/server-permissions'
 import { isAssignedOnly } from '@/lib/permissions'
+import { taskIdsFor } from '@/lib/task-assignees'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -138,12 +139,17 @@ export async function GET(request: Request) {
 
   // Tasks: an assignment-limited role counts only the tasks assigned to them,
   // so "Open Tasks" means their own work rather than the whole company's.
-  const myTaskQuery = () => {
-    const q = db.from('project_tasks').select('id', { count: 'exact', head: true })
+  // Through the join table: a task with several people on it belongs to each
+  // of them, and `assigned_to_member_id` could only ever name one. A failed
+  // lookup counts NOTHING rather than guessing - a wrong number on a
+  // dashboard tile is worse than a zero somebody can question.
+  const myTaskQuery = async () => {
+    if (!assignment.memberIds.length) return { count: 0 }
+    const mineIds = await taskIdsFor(db, { memberIds: assignment.memberIds })
+    if (!mineIds || !mineIds.length) return { count: 0 }
+    return db.from('project_tasks').select('id', { count: 'exact', head: true })
       .in('project_id', projectIds).neq('status', 'completed')
-    return assignment.memberIds.length > 0
-      ? q.in('assigned_to_member_id', assignment.memberIds)
-      : Promise.resolve({ count: 0 })
+      .in('id', mineIds)
   }
 
   const [
