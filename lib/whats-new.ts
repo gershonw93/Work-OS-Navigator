@@ -172,7 +172,7 @@ const AUTHORED: Release[] = [
       {
         kind: 'new',
         title: 'Import your Google Contacts',
-        text: 'Directory > Imported contacts connects a Google account and reads its address book into a staging list. Tick people, label them Sub / Supplier / Delivery, set a trade and a job - all in bulk - and only the ones you pick become Directory contacts. Your phone book never gets mixed into your subs.',
+        text: 'Directory > Imported contacts connects YOUR Google account and reads its address book into a list only you can see. Tick people, label them Sub / Supplier / Delivery, set a trade and a job - all in bulk - and only the ones you pick become Directory contacts your company shares. Your phone book never gets mixed into your subs, and nobody else at your company sees it.',
         help: 'google-contacts',
       },
       {

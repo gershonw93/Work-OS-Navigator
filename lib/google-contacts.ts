@@ -99,7 +99,7 @@ export function refreshAccessToken(refreshToken: string) {
 }
 
 /**
- * A usable access token for this company, refreshing if it has expired.
+ * A usable access token for this PERSON, refreshing if it has expired.
  *
  * Returns null rather than throwing: "the connection has gone stale" is a state
  * the screen has to be able to describe, not an exception that takes a page
@@ -108,12 +108,12 @@ export function refreshAccessToken(refreshToken: string) {
  */
 export async function accessTokenFor(
   db: ReturnType<typeof admin>,
-  companyId: string,
+  profileId: string,
 ): Promise<string | null> {
   const { data: row } = await db
     .from('google_connections')
     .select('access_token, refresh_token, access_expires_at, status')
-    .eq('company_id', companyId).maybeSingle()
+    .eq('profile_id', profileId).maybeSingle()
   if (!row || (row as any).status === 'revoked') return null
 
   const expiresAt = (row as any).access_expires_at
@@ -127,7 +127,7 @@ export async function accessTokenFor(
   if (!refresh) {
     await db.from('google_connections')
       .update({ status: 'expired', updated_at: new Date().toISOString() })
-      .eq('company_id', companyId)
+      .eq('profile_id', profileId)
     return null
   }
 
@@ -136,7 +136,7 @@ export async function accessTokenFor(
     console.error('[google-contacts] refresh failed:', fresh?.error, fresh?.error_description)
     await db.from('google_connections')
       .update({ status: 'expired', updated_at: new Date().toISOString() })
-      .eq('company_id', companyId)
+      .eq('profile_id', profileId)
     return null
   }
 
@@ -145,7 +145,7 @@ export async function accessTokenFor(
     access_expires_at: new Date(Date.now() + (fresh.expires_in ?? 3600) * 1000).toISOString(),
     status: 'connected',
     updated_at: new Date().toISOString(),
-  }).eq('company_id', companyId)
+  }).eq('profile_id', profileId)
 
   return fresh.access_token
 }

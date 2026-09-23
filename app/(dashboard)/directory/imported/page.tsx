@@ -13,6 +13,7 @@ import { useDeleteGuard } from '@/components/ui/delete-guard'
 import { fetchProblem } from '@/lib/fetch-error'
 import { TRADES } from '@/lib/trades'
 import { CONTACT_TYPES, hasEmail, stagedOrder } from '@/lib/google-contacts'
+import { usePermissions } from '@/lib/use-permissions'
 import { formatDate } from '@/lib/dates'
 import { cn } from '@/lib/utils'
 
@@ -64,9 +65,12 @@ export default function ImportedContactsPage() {
   const [status, setStatus] = useState<Status | null>(null)
   const [rows, setRows] = useState<Staged[]>([])
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([])
+  const { can, loading: permsLoading } = usePermissions()
   // Loading, failed and empty are three facts. "Nothing to review" is the happy
   // answer here, so it must not be the default.
-  const [state, setState] = useState<'loading' | 'ready' | 'failed'>('loading')
+  // 'denied' is its own fact: a 403 is not a failure to ask, and "reload the
+  // page" would be advice that can never work.
+  const [state, setState] = useState<'loading' | 'ready' | 'failed' | 'denied'>('loading')
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState<string | null>(null)
   const notify = useNotice()
@@ -105,7 +109,7 @@ export default function ImportedContactsPage() {
         fetch('/api/google-contacts/staged', { headers: h }),
         fetch('/api/projects', { headers: h }),
       ])
-      if (!s.ok) { setState('failed'); return }
+      if (!s.ok) { setState(s.status === 403 ? 'denied' : 'failed'); return }
       setStatus(await s.json())
       setRows(c.ok ? stagedOrder((await c.json()).contacts ?? []) : [])
       setProjects(p.ok ? ((await p.json()).projects ?? []).map((x: any) => ({ id: x.id, name: x.name })) : [])
@@ -228,7 +232,8 @@ export default function ImportedContactsPage() {
       <div>
         <h1 className="text-xl font-bold text-ink">Imported contacts</h1>
         <p className="mt-0.5 text-sm text-muted-fg">
-          Contacts from Google wait here until you label them. Nothing reaches your Directory until you say so.
+          Contacts from your Google account wait here until you label them. This list is private to you -
+          nobody else at your company can see it. A contact is shared only once you add it to the Directory.
         </p>
       </div>
 
@@ -238,6 +243,11 @@ export default function ImportedContactsPage() {
           <p className="text-sm text-faint">Checking the connection…</p>
         ) : state === 'failed' ? (
           <p className="text-sm text-muted-fg">Could not check the Google connection. Reload the page.</p>
+        ) : state === 'denied' ? (
+          <p className="text-sm text-muted-fg">
+            Your role cannot see the Directory, so there is nowhere for imported contacts to go. Ask an admin
+            if you need it.
+          </p>
         ) : !status?.configured ? (
           // The server has no credentials at all - a different fact from "this
           // company has not linked an account", and a different thing to do.
@@ -248,7 +258,8 @@ export default function ImportedContactsPage() {
         ) : !status.connected ? (
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <p className="text-sm text-muted-fg">
-              Connect a Google account and we will read its contacts into the list below - read only, and nothing is changed on Google&apos;s side.
+              Connect your Google account and we will read its contacts into the list below - read only, nothing is
+              changed on Google&apos;s side, and only you can see the list.
             </p>
             <Button onClick={connect} disabled={busy === 'connect'}>
               {busy === 'connect' ? <><Loader2 className="h-4 w-4 animate-spin" /> Opening…</> : <><Link2 className="h-4 w-4" /> Connect Google Contacts</>}
@@ -329,6 +340,14 @@ export default function ImportedContactsPage() {
               {busy === 'import' ? <><Loader2 className="h-4 w-4 animate-spin" /> Adding…</> : <><Check className="h-4 w-4" /> Add to Directory</>}
             </Button>
           </div>
+          {/* SAID BEFORE THE PRESS, not only after it. Sorting your own list
+              needs Directory view; filing into the shared Directory needs
+              create, and the route refuses without it. */}
+          {!permsLoading && !can('directory', 'create') && (
+            <p className="text-xs text-faint lg:text-right">
+              Adding to the Directory needs the Directory &quot;create&quot; permission. You can sort your list; an admin can give you that.
+            </p>
+          )}
         </div>
       )}
 

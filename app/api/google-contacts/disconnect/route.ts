@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server'
-import { admin } from '@/lib/google-contacts'
+import { contactsActor } from '@/lib/google-contacts-actor'
 
 export const runtime = 'nodejs'
 
 /**
- * Unlink the Google account.
+ * Unlink YOUR Google account. Only ever your own - the row is keyed on who is
+ * asking, so nobody can disconnect a colleague's phone book.
  *
  * THE STAGING AREA IS LEFT ALONE. Disconnecting means "stop reading my phone
  * book", not "throw away the work I did labelling these" - and a destructive
@@ -12,20 +13,11 @@ export const runtime = 'nodejs'
  * staged contacts is its own action on its own screen.
  */
 export async function POST(request: Request) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const ctx = await contactsActor(request, 'view')
+  if ('denied' in ctx) return ctx.denied
 
-  const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const { data: profile } = await db.from('profiles').select('company_id, role').eq('id', user.id).single()
-  if (!profile?.company_id) return NextResponse.json({ error: 'No company' }, { status: 400 })
-  if (!['admin', 'manager'].includes((profile as any).role)) {
-    return NextResponse.json({ error: 'Only an admin can disconnect Google Contacts.' }, { status: 403 })
-  }
-
-  const { error } = await db.from('google_connections')
-    .delete().eq('company_id', profile.company_id)
+  const { error } = await ctx.db.from('google_connections')
+    .delete().eq('profile_id', ctx.userId)
   if (error) {
     console.error('[google-contacts/disconnect] failed:', error.message)
     return NextResponse.json({ error: 'Could not disconnect. Try again.' }, { status: 500 })

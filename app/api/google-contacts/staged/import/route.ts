@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { admin, directoryType, isContactType } from '@/lib/google-contacts'
+import { directoryType, isContactType } from '@/lib/google-contacts'
+import { contactsActor } from '@/lib/google-contacts-actor'
 import { friendlyDbError } from '@/lib/db-error'
 
 export const runtime = 'nodejs'
@@ -14,15 +15,11 @@ export const runtime = 'nodejs'
  * trade list, which the staging area exists to prevent.
  */
 export async function POST(request: Request) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const { data: profile } = await db.from('profiles').select('company_id').eq('id', user.id).single()
-  if (!(profile as any)?.company_id) return NextResponse.json({ error: 'No company' }, { status: 400 })
-  const companyId = (profile as any).company_id as string
+  // FILING IS THE ONE ACT THAT MAKES A CONTACT EVERYBODY'S, so it takes the
+  // Directory's `create` - what the rest of the list only needs `view` for.
+  const ctx = await contactsActor(request, 'create')
+  if ('denied' in ctx) return ctx.denied
+  const { db, userId, companyId } = ctx
 
   const body = await request.json().catch(() => ({} as any))
   const ids: string[] = Array.isArray(body?.ids)
@@ -33,7 +30,7 @@ export async function POST(request: Request) {
   const { data: rows, error } = await db
     .from('google_contact_imports')
     .select('*')
-    .eq('company_id', companyId).eq('status', 'staged').in('id', ids)
+    .eq('owner_id', userId).eq('status', 'staged').in('id', ids)
 
   if (error) {
     console.error('[google-contacts/import] read failed:', error.message)
@@ -101,7 +98,7 @@ export async function POST(request: Request) {
       await db.from('google_contact_imports').update({
         status: 'imported',
         company_record_id: created.id,
-        imported_by: user.id,
+        imported_by: userId,
         updated_at: new Date().toISOString(),
       }).eq('id', row.id)
 
