@@ -1347,7 +1347,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'invite-team-member',
     title: 'Invite a team member',
     category: 'settings',
-    keywords: ['invite', 'team', 'user', 'add', 'member', 'staff', 'waitlist', 'approved', 'access request', 'invite a sub', 'invite subcontractor', 'who can invite', 'admin only'],
+    keywords: ['invite', 'team', 'user', 'add', 'member', 'staff', 'add to job', 'job team', 'crew', 'not on sytenav', 'no account', 'people icon', 'waitlist', 'approved', 'access request', 'invite a sub', 'invite subcontractor', 'who can invite', 'admin only'],
     summary: 'Add coworkers and set what they can access.',
     blocks: [
       { type: 'steps', items: [
@@ -1364,6 +1364,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: 'text', text: 'Only an admin can invite another admin. Anyone else inviting a teammate can hand out any role below that.' },
       { type: 'tip', text: 'A sub or supplier you invite from the Directory gets a different email from a teammate - it explains what the login is for on their side: the jobs they are on, quoting work you send them, sending in bills, and keeping their insurance current. They are read-only on your side and always land on their own company, never inside yours.' },
       { type: 'text', text: 'USE THE SAME EMAIL ON THE JOB. You will often add somebody to a project team - by name and email - before they have a login. When they accept their invite, we join the two up using the email address, so use the same one in both places. That link is what a field supervisor or worker\'s "only the jobs I am assigned to" is built on, and it survives them changing their name later.' },
+      { type: 'text', text: 'ADDING SOMEBODY TO ONE JOB. Open the job, tap the people icon at the top, then Add - or use Add Member on the Subs & Team tab; both open the same box. "From your team" picks a coworker who already has a login. "Not on SyteNav" takes a name, a role and, if you have them, a phone and email - they do not need an account, and anyone on the job can call them from the team list. Adding, editing and removing people on a job needs Subs & Team edit, on a job that belongs to your company.' },
     ],
     related: ['permissions', 'delete-protection', 'directory'],
   },

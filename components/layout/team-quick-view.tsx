@@ -2,10 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Users, Phone, Mail, HardHat, Building2, X } from 'lucide-react'
+import { Users, Phone, Mail, HardHat, Building2, X, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSheetDismiss } from '@/lib/use-sheet-dismiss'
 import { headerIconButton } from './header-icon-button'
+import { usePermissions } from '@/lib/use-permissions'
+import { useViewerContext } from '@/lib/use-viewer-context'
+import { AddTeamMemberDialog } from '@/components/projects/add-team-member-dialog'
 
 interface Member {
   id: string
@@ -31,26 +34,31 @@ export function TeamQuickView({ projectId }: { projectId: string }) {
   const [members, setMembers] = useState<Member[]>([])
   const [subs, setSubs] = useState<Sub[]>([])
   const [open, setOpen] = useState(false)
+  const [adding, setAdding] = useState(false)
   const sheet = useSheetDismiss(() => setOpen(false), open)
   const [loaded, setLoaded] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
+  const { can } = usePermissions()
+  const vc = useViewerContext(projectId)
+  // Adding people is the job owner's act, and the route agrees (team:edit AND
+  // ownedProject). A sub on this job sees the team but not the button.
+  const canAdd = can('team', 'edit') && vc.owns
 
-  useEffect(() => {
-    async function load() {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
-      const res = await fetch(`/api/projects/${projectId}/team`, {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      })
-      if (res.ok) {
-        const data = await res.json()
-        setMembers(data.members ?? [])
-        setSubs(data.subcontracts ?? [])
-      }
-      setLoaded(true)
+  async function load() {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    const res = await fetch(`/api/projects/${projectId}/team`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+    if (res.ok) {
+      const data = await res.json()
+      setMembers(data.members ?? [])
+      setSubs(data.subcontracts ?? [])
     }
-    load()
-  }, [projectId])
+    setLoaded(true)
+  }
+
+  useEffect(() => { load() }, [projectId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
@@ -61,9 +69,15 @@ export function TeamQuickView({ projectId }: { projectId: string }) {
   }, [])
 
   const totalCount = members.length + subs.length
-  if (!loaded || totalCount === 0) return null
+  // An empty job used to hide the button entirely - which is exactly the job
+  // you most want to add somebody to. It stays for anyone who can add.
+  if (!loaded || (totalCount === 0 && !canAdd)) return null
 
   const label = `Team (${totalCount})`
+  // The panel closes while the dialog is up - two overlays at once is how a
+  // Cancel lands somewhere unexpected - and reopens after a successful add, so
+  // the new person is the first thing seen.
+  const startAdd = () => { setOpen(false); setAdding(true) }
 
   return (
     <div className="relative" ref={wrapperRef}>
@@ -80,91 +94,22 @@ export function TeamQuickView({ projectId }: { projectId: string }) {
         className={cn(headerIconButton, 'relative')}
       >
         <Users className="h-4 w-4" />
-        <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-accent-ink">
-          {totalCount}
-        </span>
+        {totalCount > 0 && (
+          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-accent-ink">
+            {totalCount}
+          </span>
+        )}
       </button>
 
       {/* DESKTOP: a pop-over under the avatars. PHONE: a bottom sheet - the
           pop-over ran off the right edge and past the tab bar. */}
       {open && (
         <div data-overlay className="hidden lg:block absolute right-0 z-50 mt-2 w-80 max-h-[70vh] overflow-y-auto overscroll-contain rounded-xl border border-line bg-panel shadow-xl">
-          {members.length > 0 && (
-            <div className="p-3">
-              <p className="px-1 pb-2 text-xs font-semibold uppercase tracking-wide text-faint flex items-center gap-1.5">
-                <HardHat className="h-3.5 w-3.5" /> My Team
-              </p>
-              <ul className="space-y-1">
-                {members.map((m) => (
-                  <li key={m.id} className="rounded-lg px-2 py-2 hover:bg-surface">
-                    <div className="flex items-center gap-2">
-                      <span className="whitespace-nowrap flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-tint text-xs font-semibold text-accent-fg">
-                        {initials(m.name)}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-ink">{m.name}</p>
-                        {m.role && <p className="truncate text-xs text-muted-fg">{m.role}</p>}
-                      </div>
-                    </div>
-                    <div className="mt-1.5 flex flex-wrap gap-2 pl-10">
-                      {m.phone && (
-                        <a href={`tel:${m.phone}`} className="inline-flex items-center gap-1 rounded-md bg-success-tint px-2 py-1 text-xs font-medium text-success hover:bg-success-tint">
-                          <Phone className="h-3 w-3" /> {m.phone}
-                        </a>
-                      )}
-                      {m.email && (
-                        <a href={`mailto:${m.email}`} className="inline-flex items-center gap-1 rounded-md bg-info-tint px-2 py-1 text-xs font-medium text-info hover:bg-info-tint">
-                          <Mail className="h-3 w-3" /> Email
-                        </a>
-                      )}
-                      {!m.phone && !m.email && <span className="text-xs text-faint">No contact info</span>}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {subs.length > 0 && (
-            <div className="border-t border-line-soft p-3">
-              <p className="px-1 pb-2 text-xs font-semibold uppercase tracking-wide text-faint flex items-center gap-1.5">
-                <Building2 className="h-3.5 w-3.5" /> Subcontractors
-              </p>
-              <ul className="space-y-1">
-                {subs.map((s) => {
-                  const name = s.companies?.name ?? s.scope
-                  const phone = s.companies?.phone
-                  const email = s.companies?.contact_email
-                  return (
-                    <li key={s.id} className="rounded-lg px-2 py-2 hover:bg-surface">
-                      <div className="flex items-center gap-2">
-                        <span className="whitespace-nowrap flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted2 text-xs font-semibold text-muted-fg">
-                          {initials(name)}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-ink">{name}</p>
-                          <p className="truncate text-xs text-muted-fg">{s.trade ?? s.scope}</p>
-                        </div>
-                      </div>
-                      <div className="mt-1.5 flex flex-wrap gap-2 pl-10">
-                        {phone && (
-                          <a href={`tel:${phone}`} className="inline-flex items-center gap-1 rounded-md bg-success-tint px-2 py-1 text-xs font-medium text-success hover:bg-success-tint">
-                            <Phone className="h-3 w-3" /> {phone}
-                          </a>
-                        )}
-                        {email && !email.includes('placeholder.com') && (
-                          <a href={`mailto:${email}`} className="inline-flex items-center gap-1 rounded-md bg-info-tint px-2 py-1 text-xs font-medium text-info hover:bg-info-tint">
-                            <Mail className="h-3 w-3" /> Email
-                          </a>
-                        )}
-                        {!phone && (!email || email.includes('placeholder.com')) && <span className="text-xs text-faint">No contact info</span>}
-                      </div>
-                    </li>
-                  )
-                })}
-              </ul>
-            </div>
-          )}
+          <div className="flex items-center justify-between border-b border-line-soft py-1.5 pl-4 pr-1.5">
+            <p className="text-sm font-semibold text-ink">Team</p>
+            {canAdd && <AddButton onClick={startAdd} />}
+          </div>
+          <TeamList members={members} subs={subs} onAdd={canAdd ? startAdd : null} />
         </div>
       )}
       {open && (
@@ -173,91 +118,139 @@ export function TeamQuickView({ projectId }: { projectId: string }) {
             {...sheet.handlers}
             style={sheet.style}
             className="flex flex-col overflow-y-auto overscroll-contain rounded-t-2xl bg-panel shadow-2xl pb-safe">
-            <div className="flex items-center justify-between py-2 pl-5 pr-2">
-              <h2 className="text-base font-bold text-ink">Team</h2>
-              <button onClick={() => setOpen(false)} aria-label="Close" className="flex h-11 w-11 items-center justify-center rounded-lg text-faint hover:text-ink">
-                <X className="h-5 w-5" />
-              </button>
+            <div className="flex items-center justify-between gap-2 py-2 pl-5 pr-2">
+              <h2 className="min-w-0 truncate text-base font-bold text-ink">Team</h2>
+              <div className="flex shrink-0 items-center gap-1">
+                {canAdd && <AddButton onClick={startAdd} />}
+                <button onClick={() => setOpen(false)} aria-label="Close" className="flex h-11 w-11 items-center justify-center rounded-lg text-faint hover:text-ink">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
             </div>
-          {members.length > 0 && (
-            <div className="p-3">
-              <p className="px-1 pb-2 text-xs font-semibold uppercase tracking-wide text-faint flex items-center gap-1.5">
-                <HardHat className="h-3.5 w-3.5" /> My Team
-              </p>
-              <ul className="space-y-1">
-                {members.map((m) => (
-                  <li key={m.id} className="rounded-lg px-2 py-2 hover:bg-surface">
-                    <div className="flex items-center gap-2">
-                      <span className="whitespace-nowrap flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-tint text-xs font-semibold text-accent-fg">
-                        {initials(m.name)}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-ink">{m.name}</p>
-                        {m.role && <p className="truncate text-xs text-muted-fg">{m.role}</p>}
-                      </div>
-                    </div>
-                    <div className="mt-1.5 flex flex-wrap gap-2 pl-10">
-                      {m.phone && (
-                        <a href={`tel:${m.phone}`} className="inline-flex items-center gap-1 rounded-md bg-success-tint px-2 py-1 text-xs font-medium text-success hover:bg-success-tint">
-                          <Phone className="h-3 w-3" /> {m.phone}
-                        </a>
-                      )}
-                      {m.email && (
-                        <a href={`mailto:${m.email}`} className="inline-flex items-center gap-1 rounded-md bg-info-tint px-2 py-1 text-xs font-medium text-info hover:bg-info-tint">
-                          <Mail className="h-3 w-3" /> Email
-                        </a>
-                      )}
-                      {!m.phone && !m.email && <span className="text-xs text-faint">No contact info</span>}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {subs.length > 0 && (
-            <div className="border-t border-line-soft p-3">
-              <p className="px-1 pb-2 text-xs font-semibold uppercase tracking-wide text-faint flex items-center gap-1.5">
-                <Building2 className="h-3.5 w-3.5" /> Subcontractors
-              </p>
-              <ul className="space-y-1">
-                {subs.map((s) => {
-                  const name = s.companies?.name ?? s.scope
-                  const phone = s.companies?.phone
-                  const email = s.companies?.contact_email
-                  return (
-                    <li key={s.id} className="rounded-lg px-2 py-2 hover:bg-surface">
-                      <div className="flex items-center gap-2">
-                        <span className="whitespace-nowrap flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted2 text-xs font-semibold text-muted-fg">
-                          {initials(name)}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-ink">{name}</p>
-                          <p className="truncate text-xs text-muted-fg">{s.trade ?? s.scope}</p>
-                        </div>
-                      </div>
-                      <div className="mt-1.5 flex flex-wrap gap-2 pl-10">
-                        {phone && (
-                          <a href={`tel:${phone}`} className="inline-flex items-center gap-1 rounded-md bg-success-tint px-2 py-1 text-xs font-medium text-success hover:bg-success-tint">
-                            <Phone className="h-3 w-3" /> {phone}
-                          </a>
-                        )}
-                        {email && !email.includes('placeholder.com') && (
-                          <a href={`mailto:${email}`} className="inline-flex items-center gap-1 rounded-md bg-info-tint px-2 py-1 text-xs font-medium text-info hover:bg-info-tint">
-                            <Mail className="h-3 w-3" /> Email
-                          </a>
-                        )}
-                        {!phone && (!email || email.includes('placeholder.com')) && <span className="text-xs text-faint">No contact info</span>}
-                      </div>
-                    </li>
-                  )
-                })}
-              </ul>
-            </div>
-          )}
+            <TeamList members={members} subs={subs} onAdd={canAdd ? startAdd : null} />
           </div>
         </div>
       )}
+      {adding && (
+        <AddTeamMemberDialog
+          projectId={projectId}
+          existingEmails={members.map(m => m.email).filter((e): e is string => !!e)}
+          onClose={() => setAdding(false)}
+          onAdded={() => { load(); setOpen(true) }}
+        />
+      )}
     </div>
+  )
+}
+
+/**
+ * The list itself - ONE copy for the desktop pop-over and the phone sheet.
+ * It used to be written out twice, character for character. Hoisted rather
+ * than declared inside TeamQuickView: a component declared inside a component
+ * is a new type on every render (CLAUDE.md).
+ */
+function TeamList({ members, subs, onAdd }: { members: Member[]; subs: Sub[]; onAdd: (() => void) | null }) {
+  return (
+    <>
+      {members.length === 0 && subs.length === 0 && (
+        <div className="p-6 text-center">
+          <p className="text-sm text-muted-fg">Nobody is on this job yet.</p>
+          {onAdd && (
+            <button type="button" onClick={onAdd} className="mt-2 text-sm font-medium text-accent-fg hover:underline">
+              Add the first person
+            </button>
+          )}
+        </div>
+      )}
+      {members.length > 0 && (
+        <div className="p-3">
+          <p className="px-1 pb-2 text-xs font-semibold uppercase tracking-wide text-faint flex items-center gap-1.5">
+            <HardHat className="h-3.5 w-3.5" /> My Team
+          </p>
+          <ul className="space-y-1">
+            {members.map((m) => (
+              <li key={m.id} className="rounded-lg px-2 py-2 hover:bg-surface">
+                <div className="flex items-center gap-2">
+                  <span className="whitespace-nowrap flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-tint text-xs font-semibold text-accent-fg">
+                    {initials(m.name)}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-ink">{m.name}</p>
+                    {m.role && <p className="truncate text-xs text-muted-fg">{m.role}</p>}
+                  </div>
+                </div>
+                <div className="mt-1.5 flex flex-wrap gap-2 pl-10">
+                  {m.phone && (
+                    <a href={`tel:${m.phone}`} className="inline-flex items-center gap-1 rounded-md bg-success-tint px-2 py-1 text-xs font-medium text-success hover:bg-success-tint">
+                      <Phone className="h-3 w-3" /> {m.phone}
+                    </a>
+                  )}
+                  {m.email && (
+                    <a href={`mailto:${m.email}`} className="inline-flex items-center gap-1 rounded-md bg-info-tint px-2 py-1 text-xs font-medium text-info hover:bg-info-tint">
+                      <Mail className="h-3 w-3" /> Email
+                    </a>
+                  )}
+                  {!m.phone && !m.email && <span className="text-xs text-faint">No contact info</span>}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {subs.length > 0 && (
+        <div className="border-t border-line-soft p-3">
+          <p className="px-1 pb-2 text-xs font-semibold uppercase tracking-wide text-faint flex items-center gap-1.5">
+            <Building2 className="h-3.5 w-3.5" /> Subcontractors
+          </p>
+          <ul className="space-y-1">
+            {subs.map((s) => {
+              const name = s.companies?.name ?? s.scope
+              const phone = s.companies?.phone
+              const email = s.companies?.contact_email
+              return (
+                <li key={s.id} className="rounded-lg px-2 py-2 hover:bg-surface">
+                  <div className="flex items-center gap-2">
+                    <span className="whitespace-nowrap flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted2 text-xs font-semibold text-muted-fg">
+                      {initials(name)}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-ink">{name}</p>
+                      <p className="truncate text-xs text-muted-fg">{s.trade ?? s.scope}</p>
+                    </div>
+                  </div>
+                  <div className="mt-1.5 flex flex-wrap gap-2 pl-10">
+                    {phone && (
+                      <a href={`tel:${phone}`} className="inline-flex items-center gap-1 rounded-md bg-success-tint px-2 py-1 text-xs font-medium text-success hover:bg-success-tint">
+                        <Phone className="h-3 w-3" /> {phone}
+                      </a>
+                    )}
+                    {email && !email.includes('placeholder.com') && (
+                      <a href={`mailto:${email}`} className="inline-flex items-center gap-1 rounded-md bg-info-tint px-2 py-1 text-xs font-medium text-info hover:bg-info-tint">
+                        <Mail className="h-3 w-3" /> Email
+                      </a>
+                    )}
+                    {!phone && (!email || email.includes('placeholder.com')) && <span className="text-xs text-faint">No contact info</span>}
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
+    </>
+  )
+}
+
+/** The "+ Add" in the panel's header row. */
+function AddButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex h-9 items-center gap-1 whitespace-nowrap rounded-lg px-2.5 text-sm font-medium text-accent-fg hover:bg-accent-tint"
+    >
+      <Plus className="h-4 w-4" /> Add
+    </button>
   )
 }

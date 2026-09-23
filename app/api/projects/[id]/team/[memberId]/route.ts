@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
+import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
+import { friendlyDbError } from '@/lib/db-error'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,6 +19,13 @@ export async function PATCH(
   const db = admin()
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // Editing or removing somebody on a job's team is the owner's act - these
+  // two asked nothing at all, same as adding did. See the POST beside this.
+  const gate = await requirePermission(db, request, 'team', 'edit')
+  if (denied(gate)) return gate.denied
+  const owned = await ownedProject(db, gate.actor, params.id, 'id')
+  if ('denied' in owned) return owned.denied
 
   const body = await request.json()
   const { name, role, phone, email } = body
@@ -35,7 +44,10 @@ export async function PATCH(
     .select()
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error('[team PATCH]', error)
+    return NextResponse.json({ error: friendlyDbError(error) }, { status: 500 })
+  }
 
   return NextResponse.json({ member: data })
 }
@@ -50,6 +62,13 @@ export async function DELETE(
   const db = admin()
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // Editing or removing somebody on a job's team is the owner's act - these
+  // two asked nothing at all, same as adding did. See the POST beside this.
+  const gate = await requirePermission(db, request, 'team', 'edit')
+  if (denied(gate)) return gate.denied
+  const owned = await ownedProject(db, gate.actor, params.id, 'id')
+  if ('denied' in owned) return owned.denied
 
   const { data: member } = await db.from('project_team_members').select('name').eq('id', params.memberId).single()
   await db.from('project_team_members').delete().eq('id', params.memberId).eq('project_id', params.id)
