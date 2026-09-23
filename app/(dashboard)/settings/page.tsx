@@ -15,7 +15,7 @@ import Link from 'next/link'
 import {
   User, Building2, Users, Shield, Bell, BellRing, CreditCard, AlertTriangle,
   Check, X, SlidersHorizontal, Plug, Palette, Camera, RefreshCw, Ban, Lock,
-  LayoutTemplate, Copy,
+  LayoutTemplate, Copy, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import {
   type ContractType, CONTRACT_TYPES, CONTRACT_LABEL, CONTRACT_BLURB, asContractType,
@@ -202,16 +202,31 @@ export default function SettingsPage() {
   // Anything that leads to buying a plan is hidden in the iOS build.
   const { allowed: canBuy } = useCanSignUp()
   const [activeTab, setActiveTab] = useState('profile')
+  // PHONE ONLY: is a section open, or is the list of sections showing? From md
+  // up the sidebar and the section are side by side and this is not read.
+  const [phoneSection, setPhoneSection] = useState(false)
   const [loading, setLoading] = useState(true)
 
   // Open a specific tab when linked with ?tab= (e.g. the QuickBooks OAuth
   // callback). Waits for permissions rather than racing them - checking while
   // they are still loading would refuse a tab the person is allowed.
+  // On a phone a deep link lands IN the section, not on the list above it -
+  // a link must lead to the thing it names.
   useEffect(() => {
     if (permsLoading) return
     const tab = new URLSearchParams(window.location.search).get('tab')
-    if (tab && TABS.some(t => t.id === tab && !t.href) && tabAllowed(tab)) setActiveTab(tab)
+    if (tab && TABS.some(t => t.id === tab && !t.href) && tabAllowed(tab)) {
+      setActiveTab(tab)
+      setPhoneSection(true)
+    }
   }, [permsLoading, tabAllowed])
+
+  /** Phone: open a section from the list, starting at its top. */
+  function openPhoneSection(id: string) {
+    setActiveTab(id)
+    setPhoneSection(true)
+    document.querySelector('[data-app-scroll]')?.scrollTo({ top: 0 })
+  }
   const [userRole, setUserRole] = useState<string>('')
 
   // Profile
@@ -812,42 +827,74 @@ export default function SettingsPage() {
     )
   }
 
+  // The sections this person may open. ONE list, read by the phone's section
+  // list AND the desktop sidebar, gated by the SAME permission map as
+  // everything else.
+  //
+  // This used to be a second, parallel permission model built from hardcoded
+  // role names - `isAdmin`, `isManager`, `isRestricted` - that never consulted
+  // settings_company / settings_team / settings_billing. Those three keys sat
+  // in the Permissions grid where an admin could tick and untick them, and
+  // NOTHING read them: the switches did nothing at all. So a company that
+  // customised a role got that customisation everywhere except the screen
+  // where roles are configured.
+  //
+  // The role defaults were adjusted in the same change so every shipped role
+  // keeps exactly the tabs it had before. Yours, whoever you are: profile and
+  // notifications need no permission. Everything else goes through
+  // tabAllowed, which the ?tab= deep link uses too.
+  const visibleTabs = TABS.filter(({ id }) => {
+    if (permsLoading) return id === 'profile'
+    return tabAllowed(id)
+  })
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold text-ink mb-6">Settings</h1>
 
-      {/* A COLUMN ON A PHONE, A SIDEBAR ON A DESKTOP.
+      {/* A LIST ON A PHONE, A SIDEBAR ON A DESKTOP.
           This was a fixed 56px icon rail at every width, so on a 390px phone it
           took the rail plus a 24px gap out of the content before anything was
           drawn - and the card that was left squeezed "Task assigned to me" onto
           three lines with the switches jammed against the edge. Icon-only also
           meant guessing which tab was which.
-          On a phone the tabs become a horizontal strip you scroll, with their
-          labels, and the content gets the whole width. */}
+          The rail became a horizontal strip, and THAT failed next: twelve
+          sections do not fit 390px, so Notifications, Security, Billing,
+          Integrations and the Danger Zone sat off the edge of a strip nobody
+          could tell scrolled. A phone now gets what a phone's own Settings
+          does - a vertical list of every section; tap one to open it, and a
+          back control returns to the list. From md up nothing changed: the
+          sidebar and the section sit side by side. */}
       <div className="flex flex-col gap-4 md:flex-row md:gap-6">
-        {/* ── Tabs: strip on mobile, sidebar from md ───────────────────── */}
-        <nav className="shrink-0 md:w-52">
-          <ul className="scroll-fade -mx-4 flex gap-1 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:block md:space-y-1 md:overflow-visible md:px-0 md:pb-0">
-            {TABS.filter(({ id }) => {
-              // Gated by the SAME permission map as everything else.
-              //
-              // This used to be a second, parallel permission model built from
-              // hardcoded role names - `isAdmin`, `isManager`, `isRestricted` -
-              // that never consulted settings_company / settings_team /
-              // settings_billing. Those three keys sat in the Permissions grid
-              // where an admin could tick and untick them, and NOTHING read
-              // them: the switches did nothing at all. So a company that
-              // customised a role got that customisation everywhere except the
-              // screen where roles are configured.
-              //
-              // The role defaults were adjusted in the same change so every
-              // shipped role keeps exactly the tabs it had before.
-              // Yours, whoever you are: profile and notifications need no
-              // permission. Everything else goes through tabAllowed, which the
-              // ?tab= deep link uses too.
-              if (permsLoading) return id === 'profile'
-              return tabAllowed(id)
-            }).map(({ id, label, icon: Icon, danger, href }) => {
+        {/* ── Phone: the list of sections ───────────────────────────────── */}
+        {!phoneSection && (
+          <nav className="md:hidden" aria-label="Settings sections">
+            <ul className="divide-y divide-line-soft rounded-2xl border border-line bg-panel">
+              {visibleTabs.map(({ id, label, icon: Icon, danger, href }) => {
+                const row = 'flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left text-base font-medium'
+                const inner = (
+                  <>
+                    <Icon className={`h-5 w-5 shrink-0 ${danger ? 'text-danger' : 'text-muted-fg'}`} />
+                    <span className="min-w-0 flex-1 truncate">{label}</span>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-faint" />
+                  </>
+                )
+                return (
+                  <li key={id}>
+                    {href
+                      ? <Link href={href} className={`${row} text-ink`}>{inner}</Link>
+                      : <button type="button" onClick={() => openPhoneSection(id)} className={`${row} ${danger ? 'text-danger' : 'text-ink'}`}>{inner}</button>}
+                  </li>
+                )
+              })}
+            </ul>
+          </nav>
+        )}
+
+        {/* ── Desktop (md+): the sidebar, as it was ─────────────────────── */}
+        <nav className="hidden md:block shrink-0 md:w-52">
+          <ul className="md:block md:space-y-1 md:overflow-visible">
+            {visibleTabs.map(({ id, label, icon: Icon, danger, href }) => {
               // Budget Templates lives on its own page, so it's a link, not a tab.
               if (href) {
                 return (
@@ -885,7 +932,13 @@ export default function SettingsPage() {
         </nav>
 
         {/* ── Content ──────────────────────────────────────────────────── */}
-        <div className="flex-1 min-w-0">
+        {/* On a phone it REPLACES the list, so it is hidden until a section is
+            open; from md up it is always beside the sidebar. */}
+        <div className={`flex-1 min-w-0 ${phoneSection ? '' : 'hidden md:block'}`}>
+          <button type="button" onClick={() => setPhoneSection(false)}
+            className="md:hidden -ml-2 mb-3 inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-sm font-medium text-accent-fg hover:bg-surface">
+            <ChevronLeft className="h-4 w-4" /> All settings
+          </button>
 
           {/* ══════════════════════════════════════ TAB: PROFILE */}
           {activeTab === 'profile' && (

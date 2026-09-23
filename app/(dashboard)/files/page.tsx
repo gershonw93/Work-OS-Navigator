@@ -523,11 +523,14 @@ export default function FilesPage() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 border-b border-line">
+      {/* Tabs. "All Files" broke onto two lines on a phone: three tabs with
+          icons and counts do not fit 390px, and a flex child with no
+          `whitespace-nowrap` wraps its label rather than overflowing. Each tab
+          stays on one line and the strip SCROLLS, with the fade saying so. */}
+      <div className="flex gap-1 border-b border-line overflow-x-auto scrollbar-hide scroll-fade">
         {([['files', 'All Files', FolderOpen], ['packets', 'Packets', Package], ['shares', 'Shared', Share2]] as const).map(([key, label, Icon]) => (
           <button key={key} onClick={() => setTab(key)}
-            className={cn('flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors',
+            className={cn('shrink-0 whitespace-nowrap flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors',
               tab === key ? 'border-accent text-accent-fg' : 'border-transparent text-muted-fg hover:text-ink-soft')}>
             <Icon className="h-4 w-4" />{label}
             <span className="text-xs text-faint ml-0.5">{key === 'files' ? files.length : key === 'packets' ? packets.length : shares.length}</span>

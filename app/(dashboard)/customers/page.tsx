@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
+import { Button, buttonClasses } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
@@ -11,7 +11,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge, getStatusVariant } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
-import { Plus, ChevronDown, ChevronUp, ExternalLink, UserPlus } from 'lucide-react'
+import { Plus, ArrowRight, UserPlus } from 'lucide-react'
 import Link from 'next/link'
 import { BulkAddModal } from '@/components/projects/bulk-add-modal'
 import { AddProjectModal } from '@/components/projects/add-project-modal'
@@ -139,7 +139,6 @@ function CustomerCard({
   token: string
   onRefresh: () => void
 }) {
-  const [expanded, setExpanded] = useState(false)
   const [addProjectOpen, setAddProjectOpen] = useState(false)
 
   const statuses = uniqueStatuses(customer.projects ?? [])
@@ -164,6 +163,7 @@ function CustomerCard({
               onClick={() => setAddProjectOpen(true)}
               className="shrink-0 rounded-md p-1.5 text-faint hover:bg-muted hover:text-accent-fg transition-colors"
               title="Add Project"
+              aria-label="Add Project"
             >
               <UserPlus className="h-4 w-4" />
             </button>
@@ -175,43 +175,18 @@ function CustomerCard({
               <Badge key={s} variant={getStatusVariant(s)}>{s}</Badge>
             ))}
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              className="flex-1 justify-between"
-              onClick={() => setExpanded((v) => !v)}
-            >
-              View Projects
-              {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            </Button>
-            <Link
-              href={`/customers/${customer.id}`}
-              className="inline-flex items-center gap-1 rounded-md bg-accent-tint px-3 py-1.5 text-xs font-medium text-accent-fg hover:bg-accent-tint transition-colors"
-            >
-              View →
-            </Link>
-          </div>
-          {expanded && (
-            <ul className="divide-y divide-line-soft border border-line rounded-lg overflow-hidden">
-              {(customer.projects ?? []).map((p) => (
-                <li key={p.id} className="px-3 py-2.5 flex items-start justify-between gap-2 bg-panel">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-ink truncate">{p.name}</p>
-                    {p.address && <p className="text-xs text-muted-fg truncate">{p.address}</p>}
-                    {p.start_date && <p className="text-xs text-faint">{p.start_date}</p>}
-                    <Badge variant={getStatusVariant(p.status)} className="mt-1">{p.status}</Badge>
-                  </div>
-                  <Link
-                    href={`/projects/${p.id}/plans`}
-                    className="shrink-0 flex items-center gap-1 text-xs font-medium text-accent-fg hover:text-accent-fg"
-                  >
-                    Open <ExternalLink className="h-3 w-3" />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
+          {/* ONE WAY IN. The card used to carry "View Projects" - an inline
+              list whose Open went to /plans even for a multi-unit site - beside
+              "View", two near-identical controls answering one question. The
+              customer page is the better answer: the same projects with status
+              filters and the site/unit routing, plus the customer's documents,
+              notes and contact details. */}
+          <Link
+            href={`/customers/${customer.id}`}
+            className={buttonClasses('secondary', 'md', 'w-full min-h-11 lg:min-h-0')}
+          >
+            View customer <ArrowRight className="h-4 w-4" />
+          </Link>
         </CardContent>
       </Card>
       {addProjectOpen && (
