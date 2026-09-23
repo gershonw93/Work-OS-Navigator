@@ -1,7 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { feeForInvoice } from '@/lib/allocations'
-import { ACTUAL_STATUSES } from '@/lib/invoice-budget'
+import { projectEscrow } from '@/lib/escrow'
 import { logActivity } from '@/lib/log-activity'
 import { pushPaymentForProject } from '@/lib/quickbooks-push'
 import { requirePermission, denied } from '@/lib/api-guard'
@@ -19,12 +18,6 @@ async function auth(request: Request) {
   const { data: { user } } = await admin().auth.getUser(token)
   return user
 }
-
-// "A real cost", same definition the Budget tab and the Invoices tab use. This
-// was a second hand-written copy of the same three statuses; the Budget tab now
-// reports the fee earned too, so the two drifting apart would have them printing
-// different fees for the same work.
-const VENDOR_BILLED = ACTUAL_STATUSES
 
 // Client payments ledger + escrow summary for a project.
 export async function GET(request: Request, { params }: { params: { id: string } }) {
@@ -49,50 +42,26 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .eq('invoices.project_id', params.id),
   ])
 
+  // Everything escrow is made of comes from ONE derivation, shared with Master
+  // Money (lib/escrow.ts): client payments, the escrow/client-direct split, and
+  // the fee earned BILL BY BILL - at-cost bills, a bill's own rate, and a bill
+  // split across budget lines at different rates. This route used to hold that
+  // arithmetic itself while Master Money multiplied instead, so one job printed
+  // two escrow figures.
   const feePct = Number(project?.contractor_fee_pct ?? 0)
-  const received = (payments ?? []).reduce((s, p) => s + Number(p.amount || 0), 0)
-  const inv = invoices ?? []
-  const vendorBilled = inv.filter(i => VENDOR_BILLED.has(i.status)).reduce((s, i) => s + Number(i.amount || 0), 0)
-
-  // Payment-source split. Prefer the explicit split; for legacy 'paid' invoices
-  // with no split entered, treat the full amount as an escrow disbursement.
-  let escrowPaid = 0, clientPaidDirect = 0
-  for (const i of inv) {
-    const cp = Number(i.client_paid || 0), ep = Number(i.escrow_paid || 0)
-    if (cp || ep) { escrowPaid += ep; clientPaidDirect += cp }
-    else if (i.status === 'paid') { escrowPaid += Number(i.amount || 0) }
-  }
-  const vendorPaid = escrowPaid + clientPaidDirect
-
-  // Fee earned, item by item rather than one multiplication over the total.
-  // An invoice can be excluded from markup (a permit, a pass-through) or carry
-  // a rate of its own, and a flat multiply silently ignored both.
-  //
-  // Split-aware since 077: one bill divided across a line at 15% and a line at
-  // cost earns the right fee for each part. Same helper the Budget tab uses, so
-  // the two screens cannot report different fees for the same work.
-  const allocsByInvoice = new Map<string, any[]>()
-  for (const a of (allocations ?? []) as any[]) {
-    if (!allocsByInvoice.has(a.invoice_id)) allocsByInvoice.set(a.invoice_id, [])
-    allocsByInvoice.get(a.invoice_id)!.push(a)
-  }
-  const feeEarned = inv
-    .filter(i => VENDOR_BILLED.has(i.status))
-    .reduce((sum, i: any) => sum + feeForInvoice({
-      invoice: i,
-      allocations: allocsByInvoice.get(i.id) ?? [],
-      lines: (budgetLines ?? []) as any,
-      projectPct: feePct * 100,
-    }).markup, 0)
-
-  // Escrow holds client cash minus escrow disbursements minus the fee taken
-  // (client-direct payments don't touch escrow).
-  const escrowBalance = received - escrowPaid - feeEarned
+  const {
+    received, vendorBilled, vendorPaid, escrowPaid, clientPaidDirect,
+    feeEarned, escrowBalance, outstandingToVendors, budgetTotal,
+  } = projectEscrow({
+    feePct: project?.contractor_fee_pct,
+    payments: payments ?? [],
+    invoices: (invoices ?? []) as any,
+    budgetLines: (budgetLines ?? []) as any,
+    allocations: (allocations ?? []) as any,
+  })
   const availableAfterFee = received - feeEarned
-  const outstandingToVendors = Math.max(vendorBilled - vendorPaid, 0)
 
   // Forward projections: budget × (1 + fee) is the projected job cost.
-  const budgetTotal = (budgetLines ?? []).reduce((s, b) => s + Number(b.budgeted_amount || 0), 0)
   const projectedCost = budgetTotal * (1 + feePct)
   const projectedGoingForward = Math.max(projectedCost - vendorBilled, 0)
 

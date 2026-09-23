@@ -64,14 +64,20 @@ ok(escrowSentence(-33879, usd) === 'Escrow is below zero: $33,879 more has gone 
 
 // THE WORDS HAVE TO MATCH THE ARITHMETIC. If the route changes what escrow
 // is, this fails, and whoever changed it has to change the sentence too.
-const route = code('app/api/master/money/route.ts')
-ok(/escrow: rec - \(escrowPaid\.get\(p\.id\) \?\? 0\) - fee/.test(route),
-  'route: escrow = received - paid from escrow - fee')
-ok(/const fee = bi \* Number\(p\.contractor_fee_pct \?\? 0\)/.test(route)
-  && /const ACTUAL = new Set\(\['approved', 'sent', 'paid'\]\)/.test(route),
-  "route: the fee is the job's rate on vendor bills approved, sent or paid")
-ok(/\? Number\(r\.escrow_paid \|\| 0\) : \(r\.status === 'paid' \? Number\(r\.amount \|\| 0\) : 0\)/.test(route),
-  'route: a split bill counts its escrow half; a paid bill with no split counts in full')
+// It used to pin the ROUTE's inline formula - including the flat fee, which
+// was the bug (it disagreed with the job's own tab). The arithmetic now lives
+// in lib/escrow.ts, shared by both routes, so that is what the words are held
+// against. escrow-agree.ts proves the two routes print the same figure.
+const escrowSrc = code('lib/escrow.ts')
+ok(/escrowBalance: received - escrowPaid - feeEarned/.test(escrowSrc),
+  'escrow = received - paid from escrow - fee')
+ok(/ACTUAL_STATUSES\.has\(/.test(escrowSrc) && /feeForInvoice\(/.test(escrowSrc),
+  "the fee is earned bill by bill on vendor bills approved, sent or paid")
+ok(/if \(cp \|\| ep\) \{ escrowPaid \+= ep; clientPaidDirect \+= cp \}/.test(escrowSrc)
+  && /else if \(i\.status === 'paid'\) \{ escrowPaid \+= amt\(i\.amount\) \}/.test(escrowSrc),
+  'a split bill counts its escrow half; a paid bill with no split counts in full')
+ok(/bill by bill/.test(ESCROW_EXPLAINED) && /at cost earns none/.test(ESCROW_EXPLAINED),
+  '...and the explanation says the fee is per bill, and at-cost bills earn none')
 ok(/client has paid you/.test(ESCROW_EXPLAINED) && /paid vendors out of escrow/.test(ESCROW_EXPLAINED)
   && /fee on vendor bills\s+that are approved, sent or paid/.test(ESCROW_EXPLAINED.replace(/\n/g, ' '))
   && /no split counts as paid from escrow in full/.test(ESCROW_EXPLAINED)
