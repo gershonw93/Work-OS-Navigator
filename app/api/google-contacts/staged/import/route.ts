@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { admin } from '@/lib/google-contacts'
+import { admin, directoryType, isContactType } from '@/lib/google-contacts'
+import { friendlyDbError } from '@/lib/db-error'
 
 export const runtime = 'nodejs'
 
@@ -64,9 +65,14 @@ export async function POST(request: Request) {
       const name = String(row.organization || row.name || row.email || '').trim()
       if (!name) { results.push({ id: row.id, error: 'No name to file them under' }); continue }
 
+      if (!isContactType(row.contact_type)) {
+        results.push({ id: row.id, error: `"${row.contact_type}" is not a label SyteNav knows - relabel them` })
+        continue
+      }
+
       const { data: created, error: insertError } = await db.from('companies').insert({
         name,
-        type: row.contact_type,
+        type: directoryType(row.contact_type),
         trade: row.trade ?? null,
         contact_email: row.email ?? null,
         phone: row.phone ?? null,
@@ -74,7 +80,8 @@ export async function POST(request: Request) {
       }).select('id').single()
 
       if (insertError) {
-        results.push({ id: row.id, error: insertError.message })
+        console.error('[google-contacts/import] insert failed:', row.id, insertError.message)
+        results.push({ id: row.id, error: friendlyDbError(insertError) })
         continue
       }
 

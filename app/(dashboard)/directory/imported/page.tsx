@@ -301,7 +301,7 @@ export default function ImportedContactsPage() {
               <Label>Label as <span className="text-faint font-normal">(applies to selected)</span></Label>
               <Select defaultValue="" onChange={e => { if (e.target.value) { patch({ contact_type: e.target.value }, `labelled ${TYPE_LABEL[e.target.value] ?? e.target.value}`); e.target.value = '' } }}>
                 <option value="">-- Select --</option>
-                {CONTACT_TYPES.map(t => <option key={t} value={t}>{TYPE_LABEL[t] ?? t}</option>)}
+                {CONTACT_TYPES.map(t => <option key={t} value={t}>{TYPE_LABEL[t] ?? t}{t === 'delivery' ? ' (files as Supplier)' : ''}</option>)}
               </Select>
             </div>
             <div className="space-y-1.5">
