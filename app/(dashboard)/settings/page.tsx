@@ -2021,7 +2021,7 @@ export default function SettingsPage() {
                 <h3 className="text-base font-semibold text-ink mb-1">Plans</h3>
                 {/* THE NUMBERS AND WHAT THEY MEAN TRAVEL TOGETHER. The prices
                     below are real and published on the website; nobody is being
-                    charged them yet. An unqualified "$199/month" inside a
+                    charged them yet. An unqualified "$299/month" inside a
                     product that is free is the same lie as the $49 this screen
                     used to print for a tier that did not exist - one sentence,
                     from lib/plans.ts, so the two screens cannot drift. */}

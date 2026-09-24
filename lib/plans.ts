@@ -61,7 +61,7 @@ export const PLANS: Plan[] = [
     who: 'For a growing GC with several jobs moving at once.',
     projects: '10 active projects',
     scans: 300,
-    monthly: 199,
+    monthly: 299,
     featured: true,
   },
   {
@@ -70,7 +70,7 @@ export const PLANS: Plan[] = [
     who: 'For a company that does not want to count jobs.',
     projects: 'Unlimited active projects',
     scans: 750,
-    monthly: 399,
+    monthly: 499,
     featured: false,
   },
 ]
@@ -164,7 +164,7 @@ export const PLAN_FEATURES: PlanFeature[] = [
  * WHAT THE NUMBERS ON THE SCREEN MEAN TODAY.
  *
  * Every screen that prints a price prints this beside it. The product is free
- * while the beta is on, so an unqualified "$199/month" is a charge nobody is
+ * while the beta is on, so an unqualified "$299/month" is a charge nobody is
  * making - and the pricing page's own buttons open a request form, not a
  * checkout. One sentence, one home, so the two screens cannot drift into
  * telling different stories about the same numbers.
