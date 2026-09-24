@@ -47,8 +47,8 @@ ok(/router\.push\(`\/projects\/\$\{project\.id\}`\)/.test(created), 'a job you j
 // invented $49. Now it names three, and the risk moves: two screens printing
 // the same number, and a third place quietly restating it as prose.
 ok(PLANS.length === 3, 'there are three plans')
-ok(PLANS.map(p => p.monthly).join(',') === '99,199,399',
-  'they are the published ones - $99, $199, $399 a month')
+ok(PLANS.map(p => p.monthly).join(',') === '99,299,499',
+  'they are the published ones - $99, $299, $499 a month')
 ok(!/\bPro\b|Starter|Enterprise|Crew|Company|Scale/.test(JSON.stringify(PLANS.map(p => p.name))),
   'and the old invented tier names are gone - the tiers are capacity, not feature sets')
 ok(PLANS.filter(p => p.featured).length === 1, 'exactly one plan is highlighted')
@@ -75,8 +75,13 @@ for (const p of PLANS) {
 // The three figures the draft copy hardcoded, checked against the arithmetic
 // that now produces them.
 ok(planPrice(annualPerMonth(PLANS[0])) === '$82.50', 'the $99 plan reads $82.50 a month annually')
-ok(planPrice(annualTotal(PLANS[1])) === '$1,990', '...the $199 plan is $1,990 a year')
-ok(planPrice(annualSaving(PLANS[2])) === '$798', '...and the $399 plan saves $798')
+ok(planPrice(annualTotal(PLANS[1])) === '$2,990', '...the $299 plan is $2,990 a year')
+ok(planPrice(annualSaving(PLANS[2])) === '$998', '...and the $499 plan saves $998')
+// A per-month figure that does NOT divide evenly - $2,990 over twelve is
+// $249.1666... - is the case the rounding rule exists for, and the one a
+// hand-typed copy gets wrong. It was absent while every plan divided neatly.
+ok(planPrice(annualPerMonth(PLANS[1])) === '$249.17',
+  '...and a price that does not divide by twelve keeps its cents, rounded UP to the customer\'s favour')
 
 // Money prints its cents only when it has some - $99, not $99.00; but $82.50,
 // never $83. Rounding a saving DOWN is a number a customer can catch you on.
@@ -99,7 +104,7 @@ for (const [src, name] of [[settings, 'Settings'], [cards, 'the cards']] as cons
 }
 // The hero's "start at $99" is prose about the cheapest plan, so it is allowed
 // to say so - but nowhere may restate the annual figures, which are computed.
-ok(!/82\.50|165\.83|332\.50|1,990|3,990|\$198|\$398|\$798/.test(pricing + cards + settings),
+ok(!/82\.50|249\.17|415\.83|2,990|4,990|\$198|\$598|\$998/.test(pricing + cards + settings),
   'THE DERIVED ONES: no screen hardcodes a per-month or a saving')
 
 // ── a button promises what pressing it does ─────────────────────────────────

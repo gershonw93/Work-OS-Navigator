@@ -82,8 +82,8 @@ but not a force-quit.
 
 ## 💳 Self-serve: the trial and the demo the pricing page cannot offer
 
-Prices are published (#456) and the tiers meter ACTIVE PROJECTS - $99 / $199 /
-$399 a month for 3 / 10 / unlimited, annual at ten months for twelve. The
+Prices are published (#456) and the tiers meter ACTIVE PROJECTS - $99 / $299 /
+$499 a month for 3 / 10 / unlimited, annual at ten months for twelve. The
 product is still an invite-only beta and free while you are in it, so every
 button on `/pricing` opens the Request Access form.
 

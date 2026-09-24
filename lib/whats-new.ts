@@ -393,7 +393,7 @@ const AUTHORED: Release[] = [
       {
         kind: 'new',
         title: 'Plans and prices are published',
-        text: 'Settings > Billing and the pricing page now show what each plan will cost: $99, $199 or $399 a month, depending on how many projects you have running at once. Paying annually is ten months for twelve. Every plan is the whole product - you are only buying project capacity, so there is no feature locked behind a higher tier.',
+        text: 'Settings > Billing and the pricing page now show what each plan will cost: $99, $299 or $499 a month, depending on how many projects you have running at once. Paying annually is ten months for twelve. Every plan is the whole product - you are only buying project capacity, so there is no feature locked behind a higher tier.',
         help: 'plans-and-pricing',
         href: '/settings',
       },
