@@ -41,8 +41,17 @@ import { ok, done, code, read, exists } from './_helpers'
   ok(/buildTypes\s*\{[\s\S]*release\s*\{[\s\S]*signingConfig signingConfigs\.release/.test(gradle),
     'the release build is actually SIGNED with it - a declared config nothing uses signs nothing')
   ok(!/versionCode\s+1\b/.test(gradle), 'versionCode is not hardcoded to 1')
-  ok(/versionCode\s*\(\s*\(System\.getenv\("BUILD_NUMBER"\)/.test(gradle),
-    'versionCode comes from Codemagic\'s BUILD_NUMBER, which only goes up')
+  // NOT BUILD_NUMBER: Codemagic counts it per workflow, and android-release's
+  // second build uploaded as versionCode 2 under a library holding 3, 4 and 8.
+  ok(/versionCode\s*\(\s*\(System\.getenv\("ANDROID_VERSION_CODE"\)/.test(gradle),
+    'versionCode comes from the one clock both Android workflows share')
+  ok(!/getenv\("BUILD_NUMBER"\)/.test(gradle),
+    '...never from BUILD_NUMBER, which each workflow counts separately')
+  const cmVersion = code('codemagic.yaml')
+  ok(/ANDROID_VERSION_CODE=\$CODE" >> "\$CM_ENV"/.test(cmVersion),
+    'codemagic.yaml hands the version code to the build through CM_ENV')
+  ok(/date -u \+%s\) - 1767225600/.test(cmVersion),
+    '...counted in minutes from 2026-01-01 UTC, so it only goes up')
 
   const vars = code('android/variables.gradle')
   const target = Number(/targetSdkVersion\s*=\s*(\d+)/.exec(vars)?.[1] ?? 0)

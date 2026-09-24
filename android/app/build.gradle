@@ -8,11 +8,17 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         // A BUILD NUMBER GOOGLE HAS NOT SEEN BEFORE. Hardcoded 1, every upload
-        // after the first is refused ("Version code 1 has already been used") -
-        // the exact bug the iOS workflow hit and fixed with Codemagic's own
-        // counter. $BUILD_NUMBER only ever goes up; a local build without it
-        // is 1, which is fine for something that never leaves the laptop.
-        versionCode((System.getenv("BUILD_NUMBER") ?: "1").toInteger())
+        // after the first is refused ("Version code 1 has already been used").
+        //
+        // AND NOT $BUILD_NUMBER EITHER. That is Codemagic's counter PER
+        // WORKFLOW, and Android has two: android-capacitor had reached 8 when
+        // android-release made its second build, so the automatic upload
+        // arrived as versionCode 2 beneath a Play library holding 3, 4 and 8 -
+        // a version that can never be released. ANDROID_VERSION_CODE is minutes
+        // since 2026-01-01 UTC, set by codemagic.yaml before Gradle runs: ONE
+        // clock both workflows share, so it only goes up whichever one built
+        // last. A local build without it is 1, which never leaves the laptop.
+        versionCode((System.getenv("ANDROID_VERSION_CODE") ?: "1").toInteger())
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {

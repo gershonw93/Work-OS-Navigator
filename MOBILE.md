@@ -639,8 +639,10 @@ iOS applies its own mask, and an icon with an alpha channel is rejected outright
    - **`GCLOUD_SERVICE_ACCOUNT_CREDENTIALS`** = a Google Cloud service-account
      JSON, invited in Play Console -> Users and permissions with release rights.
      This one UPLOADS builds; it is not the Firebase key below.
-   - The build number is Codemagic's `BUILD_NUMBER`, so every upload is higher
-     than the last - nothing to bump by hand.
+   - The version code is minutes since 2026-01-01 UTC, set by the "Set the
+     version code" step - NOT `BUILD_NUMBER`, which Codemagic counts per
+     workflow, so the two Android workflows would hand Play clashing and
+     lower numbers. Every upload is higher than the last, whichever ran.
 4. Run `ios-capacitor` → uploads to **TestFlight**. Android has TWO workflows:
    - **SyteNav Android** (`android-capacitor`) builds the `.aab` and stops. No
      Play key needed - Codemagic checks publishing credentials BEFORE building,
