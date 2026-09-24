@@ -138,6 +138,16 @@ export async function PATCH(request: Request) {
     if (existing.status !== 'approved' || !existing.invite_token) {
       return NextResponse.json({ error: 'Only an approved request with a live invite can be resent.' }, { status: 400 })
     }
+    // THE SCREEN IS NOT THE ENFORCEMENT. The console stops offering Resend on a
+    // used link, but a second tab, a stale page or a double press goes straight
+    // round that - and the mail it would send carries a URL `complete-signup`
+    // now refuses. Same rule as everywhere: the guard sits on the route too.
+    if (existing.invite_used_at) {
+      return NextResponse.json(
+        { error: 'That link has already been used to create an account. Revoke it and approve again to issue a new one.' },
+        { status: 400 },
+      )
+    }
     const email = await deliverInvite(db, existing, origin)
     const { data: fresh } = await db.from('access_requests').select('*').eq('id', id).single()
     return NextResponse.json({ request: fresh ?? existing, email })
@@ -147,11 +157,16 @@ export async function PATCH(request: Request) {
   // already out there now points at a dead link, so a "sent" stamp would claim
   // something that is no longer true.
   const updates: Record<string, unknown> =
+    // EVERY BRANCH THAT TOUCHES THE TOKEN CLEARS `invite_used_at` WITH IT.
+    // A new token beside a stamp from the old one is a link born dead: the
+    // console would show it as sent, the customer would click it, and the
+    // route would tell them it had already been used - about a link nobody had
+    // ever opened. The stamp describes a token, so it dies with that token.
     action === 'approve'
-      ? { status: 'approved', invite_token: randomUUID().replace(/-/g, ''), reviewed_at: new Date().toISOString() }
+      ? { status: 'approved', invite_token: randomUUID().replace(/-/g, ''), invite_used_at: null, reviewed_at: new Date().toISOString() }
       : action === 'reject'
-      ? { status: 'rejected', invite_token: null, invite_sent_at: null, reviewed_at: new Date().toISOString() }
-      : { status: 'pending', invite_token: null, invite_sent_at: null, reviewed_at: null }
+      ? { status: 'rejected', invite_token: null, invite_sent_at: null, invite_used_at: null, reviewed_at: new Date().toISOString() }
+      : { status: 'pending', invite_token: null, invite_sent_at: null, invite_used_at: null, reviewed_at: null }
 
   const { data, error } = await db.from('access_requests').update(updates).eq('id', id).select().single()
   // Not `error.message`. A not-null or check-constraint sentence is not
