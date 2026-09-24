@@ -53,11 +53,14 @@ WKWebView loading the live site, so the DOM is identical - but the pixels are
 not. Safe-area insets resolve to real values on a phone and to zero on a
 desktop, the status bar and home indicator are part of an iPhone screenshot,
 and font rendering differs. There is no Mac here, so no Simulator either:
-capture them off your own iPhone and iPad once the TestFlight build is
-installed. **Both sets are required** - the target is universal
-(`TARGETED_DEVICE_FAMILY = "1,2"`), so Apple wants 6.7" iPhone *and* 13" iPad,
-and the reviewer will run it on an iPad. Decided deliberately: iPad support
-stays in v1. Dropping it later is a downgrade for anyone already using it.
+capture them off your own iPhone once the TestFlight build is installed.
+**v1 is iPhone-only** (`TARGETED_DEVICE_FAMILY = 1`), so Apple asks for 6.7"
+iPhone screenshots and nothing else. It was universal ("1,2"), which made 13"
+iPad screenshots mandatory - and there is no iPad to take them on. Reversed on
+purpose BEFORE the first store release, because the direction matters: Apple
+lets an update ADD iPad support, but refuses an update that REMOVES it once a
+version has shipped with it. So iPad is a later build, never a take-back. An
+iPad can still install the iPhone app from the store and run it scaled up.
 
 **What step 4 proves, and what it does NOT.** Once the variables are in, load
 `https://app.sytenav.com/.well-known/apple-app-site-association` in any browser:
