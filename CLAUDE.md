@@ -38,7 +38,7 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-119.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-120.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - **Verify every column you `.select()` actually exists.** Supabase returns
   `data: null` for an unknown column, so a typo reads as "not found" rather than
@@ -338,6 +338,36 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   a sub writes to jobs it does not own. "No row means no writing" closes a small
   hole by breaking every sub in the product - the same reasoning that keeps
   `requirePermission` out of the ownership question.
+- **A SUBCONTRACTOR IS NOT A TENANT, SO THE PUBLIC DOOR MUST NOT METER ONE.**
+  `complete-signup` created a trial for every new company regardless of type. A
+  sub owns no projects - they can never use the thing the plans meter - so the
+  fifteen days simply ran out underneath them and `billingLock` turned the
+  account read-only on day sixteen, leaving them unable to submit a bid or a
+  bill to the GC waiting on it. A customer of ours locked out of helping a
+  customer of ours. Subs invited through `/api/invite` have always been born
+  with no billing row, which IS the designed meaning of unmetered; the public
+  door was the one place that disagreed. **AND THE DECISION READS THE COMPANY
+  ROW, never `companyType` off the request body** - one fact then decides both
+  which product somebody gets and whether they are metered, so the two cannot
+  drift, and claiming to be a sub to dodge billing hands you the sub product.
+  A billing decision taken from a client's claim about itself is the same shape
+  as a role out of a request body. A company that later changes type is a
+  platform-console job, deliberately not a trigger. Pinned in `billing-trial.ts`.
+- **AN INVITE LINK IS GOOD ONCE, AND ONLY FOR THE ADDRESS IT WAS SENT TO.** The
+  invite email has said exactly that since it was written - "The link is
+  personal to you and only works once" - and neither half was true: nothing
+  consumed `invite_token`, and the email box on the create-account form was
+  editable, so one forwarded link minted unlimited accounts under any address,
+  each a new company with its own free trial. COPY IS A SPEC, and the sentence
+  was the spec nobody had implemented. `access_requests.invite_used_at` is the
+  stamp, written only AFTER the profile exists (stamp it where the token is READ
+  and a signup that dies on the company insert burns the link, so the way back
+  from our own error is to ask us for another one). The address is compared
+  against the AUTHENTICATED user, never the body - the body is the claim being
+  checked. Every branch that touches the token clears the stamp with it, or a
+  fresh token beside an old stamp is a link born dead. And the route refuses a
+  resend as well as the screen hiding it: a second tab goes round a hidden
+  button. Pinned in `admin-invite.ts`.
 - **EVERY AMBIGUITY RESOLVES TOWARDS WRITABLE.** A wrong "locked" takes a crew's
   screen away mid-job; a wrong "open" costs a few dollars and is corrected the
   moment somebody looks. So a trial with no end date, an `active` row with a

@@ -249,6 +249,30 @@ ok(/trialEnd\(/.test(signup), '...for TRIAL_DAYS, read rather than typed')
 ok(/ignoreDuplicates: true/.test(signup),
   'and somebody joining an existing company cannot reset a paying customer back to a trial')
 
+// ── ...BUT ONLY A GC ────────────────────────────────────────────────────────
+// A subcontractor is a vendor on somebody else's job, not a tenant: they own no
+// projects, so they can never use the thing the plans meter, and the trial just
+// runs out underneath them. On day sixteen `billingLock` would turn the account
+// read-only and they could no longer submit a bid or a bill to the GC waiting
+// on it - a customer of ours locked out of helping a customer of ours. Subs
+// invited through `/api/invite` have always been born with no billing row,
+// which is what "unmetered" means; this public door was the one disagreeing.
+ok(/!== 'subcontractor'/.test(signup), 'a subcontractor signing up is not put on a trial')
+ok(/if \(meters\) \{/.test(signup), '...the whole billing write is inside that branch')
+// OFF THE COMPANY ROW, not off `companyType` from the body. One fact then
+// decides both which product somebody gets and whether they are metered, so
+// they cannot drift - and claiming to be a sub to dodge billing hands you the
+// sub product. A billing decision taken from a client's claim about itself is
+// the same shape as a role out of a request body.
+ok(/const meters = \(company as \{ type\?: string \| null \}\)\.type/.test(signup),
+  '...and the decision reads the company row rather than the request body')
+// The existing-company branch has to carry the type or the check above reads
+// undefined and meters a Directory sub - the quiet version of the same bug.
+ok(/\.select\('id, type'\)/.test(signup),
+  'and a person joining a company that already exists is judged on that company\'s type')
+ok(!/company_billing/.test(read('app/api/invite/route.ts')),
+  'and the GC-invited vendor door still creates no billing row at all')
+
 // ── Stripe ──────────────────────────────────────────────────────────────────
 const checkout = code('app/api/billing/checkout/route.ts')
 ok(/billing_plan_prices/.test(checkout) && /\.eq\('plan_key'/.test(checkout),

@@ -29,13 +29,40 @@ export async function POST(request: Request) {
   // (Fail open only if the access_requests table doesn't exist yet.)
   const { data: invite, error: inviteErr } = await admin
     .from('access_requests')
-    .select('id, status')
+    .select('id, status, email, invite_used_at')
     .eq('invite_token', inviteToken ?? '')
     .eq('status', 'approved')
     .maybeSingle()
   const tableMissing = (inviteErr as any)?.code === '42P01'
   if (!invite && !tableMissing) {
     return NextResponse.json({ error: 'Signup is invite-only right now. Request access and we will be in touch.' }, { status: 403 })
+  }
+
+  // ── THE LINK IS GOOD ONCE, AND ONLY FOR THE PERSON IT WAS SENT TO ────────
+  //
+  // The invite email has said exactly that since it was written - "The link is
+  // personal to you and only works once" - and neither half was true. Nothing
+  // consumed `invite_token`, and the email box on the create-account form was
+  // editable, so one forwarded link minted unlimited accounts under any
+  // address, each a new company with its own free trial. Copy is a spec.
+  if (invite?.invite_used_at) {
+    return NextResponse.json(
+      { error: 'This invite link has already been used to create an account. Sign in instead, or ask us for a new link.' },
+      { status: 403 },
+    )
+  }
+
+  // AGAINST THE AUTHENTICATED USER, never against `email` from the body. The
+  // body is the client's claim about who it is; `user.email` came back from
+  // the auth server with the bearer token. Checking the claim would leave the
+  // door exactly as open as it was.
+  const invitedTo = (invite?.email ?? '').trim().toLowerCase()
+  const signingUp = (user.email ?? '').trim().toLowerCase()
+  if (invitedTo && signingUp && invitedTo !== signingUp) {
+    return NextResponse.json(
+      { error: `That invite was sent to ${invite!.email}. Sign up with that address, or ask us for an invite of your own.` },
+      { status: 403 },
+    )
   }
 
   const targetId = userId ?? user.id
@@ -55,7 +82,7 @@ export async function POST(request: Request) {
   // If so, link to that company instead of creating a duplicate
   const { data: existingCompany } = await admin
     .from('companies')
-    .select('id')
+    .select('id, type')
     .eq('contact_email', email)
     .single()
 
@@ -90,6 +117,28 @@ export async function POST(request: Request) {
   // THE FIFTEEN DAYS START HERE, because this is the moment a company becomes
   // a company - the one place in the product where a tenant is born.
   //
+  // BUT ONLY FOR A GC. A subcontractor is a vendor on somebody else's job, not
+  // a tenant: they own no projects, so they can never use the thing the plans
+  // meter, and the trial would simply run out underneath them. On day sixteen
+  // `billingLock` would turn their account read-only and they could no longer
+  // submit a bid or a bill to the GC waiting on it - a customer of ours locked
+  // out of helping a customer of ours. Subs invited by a GC through
+  // `/api/invite` have always been born with no billing row at all, which is
+  // the designed meaning of "unmetered" (lib/billing-state.ts); this public
+  // door was the one place that disagreed.
+  //
+  // READ OFF THE COMPANY ROW, not off `companyType` from the request body. One
+  // fact then decides both which product somebody gets and whether they are
+  // metered, so the two cannot drift apart - and claiming to be a sub to dodge
+  // billing hands you the sub product instead of the GC one, which is nobody's
+  // idea of a win. A billing decision taken from a client's claim about itself
+  // is the same shape as a role out of a request body.
+  //
+  // A company that later changes type is a platform console job - /admin/billing
+  // can start a trial or comp it by hand. Deliberately not automatic: switching
+  // a sub to a GC is a conversation, not a trigger.
+  const meters = (company as { type?: string | null }).type !== 'subcontractor'
+
   // ON CONFLICT DO NOTHING is load-bearing rather than tidy: this route also
   // runs for somebody joining a company that already exists, and a plain
   // insert there would either fail the whole signup or, worse, reset a paying
@@ -100,15 +149,29 @@ export async function POST(request: Request) {
   // billing row. Refusing to let somebody into the product because a trial
   // record would not write is the wrong way round.
   const now = new Date()
-  const { error: billingError } = await admin
-    .from('company_billing')
-    .upsert({
-      company_id: company.id,
-      status: 'trialing',
-      trial_started_at: now.toISOString(),
-      trial_ends_at: trialEnd(now).toISOString(),
-    }, { onConflict: 'company_id', ignoreDuplicates: true })
-  if (billingError) console.error('[billing] could not start a trial', { company: company.id, error: billingError.message })
+  if (meters) {
+    const { error: billingError } = await admin
+      .from('company_billing')
+      .upsert({
+        company_id: company.id,
+        status: 'trialing',
+        trial_started_at: now.toISOString(),
+        trial_ends_at: trialEnd(now).toISOString(),
+      }, { onConflict: 'company_id', ignoreDuplicates: true })
+    if (billingError) console.error('[billing] could not start a trial', { company: company.id, error: billingError.message })
+  }
+
+  // THE LINK IS SPENT, and only now - after the profile exists. Stamped where
+  // the token is READ instead, a signup that died on the company insert would
+  // burn the invite, and the only way back from our own error would be to ask
+  // us for another one.
+  if (invite?.id) {
+    const { error: usedErr } = await admin
+      .from('access_requests')
+      .update({ invite_used_at: now.toISOString() })
+      .eq('id', invite.id)
+    if (usedErr) console.error('[signup] could not mark the invite used', { id: invite.id, error: usedErr.message })
+  }
 
   return NextResponse.json({ success: true })
 }

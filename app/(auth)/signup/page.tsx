@@ -232,7 +232,23 @@ function CreateAccountForm({ inviteToken, prefill }: { inviteToken: string; pref
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="email" className="text-faint">Email address</Label>
-          <Input id="email" type="email" placeholder="you@company.com" value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email"  />
+          {/* READ-ONLY WHEN THE INVITE CARRIES ONE. The invite email promises the
+              link is personal, and an editable box here made that false: a
+              forwarded link signed anybody up under any address. The route
+              refuses a mismatch too - this is so nobody meets that refusal by
+              surprise, having typed the wrong thing into a box we offered.
+              Still editable in the one case the token gave us nothing, so a
+              gap in the data cannot lock somebody out of their own signup. */}
+          <Input
+            id="email" type="email" placeholder="you@company.com"
+            value={email} onChange={e => setEmail(e.target.value)}
+            readOnly={!!prefill?.email}
+            className={prefill?.email ? 'cursor-not-allowed opacity-80' : undefined}
+            required autoComplete="email"
+          />
+          {prefill?.email && (
+            <p className="text-xs text-faint">This is the address your invite was sent to.</p>
+          )}
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="password" className="text-faint">Password</Label>

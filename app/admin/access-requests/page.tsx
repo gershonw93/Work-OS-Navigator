@@ -15,6 +15,8 @@ interface AccessRequest {
   company_type: string | null; phone: string | null; message: string | null
   status: string; invite_token: string | null; created_at: string
   invite_sent_at: string | null
+  /** When the link was redeemed. Set means it cannot be used again. */
+  invite_used_at?: string | null
   /** Which door: 'request' = they asked, 'invite' = the owner started it. */
   source?: string | null
   account: { exists: boolean; last_sign_in_at: string | null }
@@ -126,6 +128,16 @@ export default function AccessRequestsPage() {
         </span>
       )
     }
+    // SPENT BEATS SENT. A row reading "Invite emailed 3 Sep" over a link that
+    // was used on the 4th describes the wrong half of what happened, and it is
+    // the half that makes somebody press Resend.
+    if (r.invite_used_at) {
+      return (
+        <span className="text-xs text-success">
+          Account created {formatDate(r.invite_used_at)}
+        </span>
+      )
+    }
     if (r.invite_sent_at) {
       return (
         <span className="text-xs text-success">
@@ -195,7 +207,15 @@ export default function AccessRequestsPage() {
                     </button>
                   </>
                 )}
-                {r.status === 'approved' && r.invite_token && (
+                {/* A USED LINK IS DEAD, so nothing here offers to send it. Copy,
+                    Resend and Send by hand would each hand somebody a URL the
+                    route now refuses - a control that cannot do what it says. */}
+                {r.status === 'approved' && r.invite_token && r.invite_used_at && (
+                  <span className="text-xs text-faint">
+                    This link has been used - they have an account. Nothing left to send.
+                  </span>
+                )}
+                {r.status === 'approved' && r.invite_token && !r.invite_used_at && (
                   <>
                     <button onClick={() => copyLink(r)} className={GHOST_BTN}>
                       <Copy className="h-3.5 w-3.5" /> {copiedId === r.id ? 'Copied!' : 'Copy invite link'}

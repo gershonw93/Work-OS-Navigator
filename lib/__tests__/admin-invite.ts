@@ -22,7 +22,7 @@
 
 import { invitePersonProblem, inviteFullName } from '../invite-person'
 import { platformInviteEmail, inviteEmail } from '../email'
-import { ok, done, code, readCombined } from './_helpers'
+import { ok, done, code, read, readCombined } from './_helpers'
 
 // ── the guard both doors ask ────────────────────────────────────────────────
 const good = { firstName: 'Dana', lastName: 'Whitfield', email: 'dana@whitfieldbuild.com' }
@@ -142,5 +142,78 @@ ok(/did not send/.test(form),
 const page = code('app/admin/access-requests/page.tsx')
 ok(/<InvitePersonForm/.test(page), 'the page mounts the form')
 ok(!/function InvitePersonForm/.test(page), '...and does not declare it inside itself')
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AN INVITE LINK THAT REALLY IS GOOD ONCE.
+//
+// The email has said so since it was written - "The link is personal to you and
+// only works once" - and neither half was true. `invite_token` was matched on
+// and never cleared, and the email box on the create-account form was editable,
+// so ONE forwarded link minted unlimited accounts under any address, each a new
+// company with its own free trial. Copy is a spec, and this is the enforcement
+// the sentence had been describing for months.
+// ═══════════════════════════════════════════════════════════════════════════
+
+const signupRoute = code('app/api/complete-signup/route.ts')
+
+// ── the promise, still made ─────────────────────────────────────────────────
+// Read the raw file: this is a claim in an email body, and it is the reason
+// every assertion below exists. If somebody deletes the sentence, the checks
+// that enforce it should be reconsidered rather than left running on their own.
+ok(/only works once/i.test(read('lib/email.ts')),
+  'the invite email still promises the link works once')
+
+// ── ...and now kept ─────────────────────────────────────────────────────────
+ok(/invite_used_at/.test(signupRoute), 'signup reads whether the link has been spent')
+ok(/if \(invite\?\.invite_used_at\)/.test(signupRoute), '...and refuses a link that has')
+ok(/already been used/i.test(signupRoute), '...saying so in words somebody can act on')
+
+// STAMPED AFTER THE PROFILE, never at the point the token is read. The other
+// way round, a signup that died on the company insert would burn the invite and
+// the only way back from our own error would be to ask us for another one.
+const profileAt = signupRoute.indexOf("from('profiles')\n    .insert")
+const stampAt = signupRoute.indexOf('invite_used_at: now.toISOString()')
+ok(profileAt > 0 && stampAt > profileAt,
+  'the link is spent only after the profile exists, so a failed signup can be retried')
+
+// ── and only by the person it was sent to ───────────────────────────────────
+// AGAINST THE AUTHENTICATED USER. `email` in the body is the client's claim
+// about who it is; `user.email` came back from the auth server with the bearer
+// token. Checking the claim leaves the door exactly as open as it was.
+ok(/user\.email \?\? ''\)\.trim\(\)\.toLowerCase\(\)/.test(signupRoute),
+  'the address is taken from the verified token, not from the request body')
+ok(/invitedTo !== signingUp/.test(signupRoute), '...and a mismatch is refused')
+
+// The form matches the route, so nobody meets that refusal by surprise having
+// typed into a box we offered them.
+const signupForm = code('app/(auth)/signup/page.tsx')
+ok(/readOnly=\{!!prefill\?\.email\}/.test(signupForm),
+  'the create-account form will not let the invited address be edited')
+ok(/invite was sent to/i.test(signupForm),
+  '...and says why the box cannot be typed in')
+
+// ── the token and its stamp live and die together ───────────────────────────
+// A fresh token beside a stamp from the old one is a link born dead: the
+// console shows it sent, the customer clicks it, and the route says it has
+// already been used - about a link nobody ever opened.
+const adminRequests = code('app/api/admin/access-requests/route.ts')
+ok((adminRequests.match(/invite_used_at: null/g) ?? []).length === 3,
+  'approve, reject and reset each clear the stamp along with the token')
+
+// THE SCREEN IS NOT THE ENFORCEMENT, so the route refuses a resend too - a
+// second tab or a double press goes straight round a hidden button.
+ok(/existing\.invite_used_at/.test(adminRequests), 'resend refuses a link that has been used')
+const adminPage = code('app/admin/access-requests/page.tsx')
+ok(/r\.invite_token && !r\.invite_used_at/.test(adminPage),
+  '...and the console stops offering Copy, Resend and Send by hand on a dead one')
+ok(/Account created \{formatDate\(r\.invite_used_at\)\}/.test(adminPage),
+  'a spent link reads as an account created, not as an invite still waiting')
+
+// ── the column ──────────────────────────────────────────────────────────────
+const m120 = read('supabase/migrations/120_invite_single_use.sql').replace(/--[^\n]*/g, '')
+ok(/ADD COLUMN IF NOT EXISTS invite_used_at TIMESTAMPTZ/.test(m120), 'the column exists')
+ok(!/NOT NULL/.test(m120), '...and is nullable, because null is what "not used yet" looks like')
+ok(/invite_used_at/.test(readCombined()), 'and the combined migration carries it')
 
 done()
