@@ -143,10 +143,15 @@ export function Campaigns() {
     guard(async () => {
       const out = await post({ action: 'send', ...fields }, 'send it')
       if (out?.ok) {
-        notice(out.sent != null
-          ? `Sent to ${out.sent} of ${out.recipients}.`
-          : `${out.recipients} people queued. They go out over the next few minutes.`,
-        { tone: 'success' })
+        // WHAT ACTUALLY WENT, not what was queued. Most sends finish in this
+        // one request; anything past the cap is left pending and the daily run
+        // finishes it, and the sentence says which rather than implying
+        // everybody has been mailed.
+        const parts = [`Sent to ${out.sent} of ${out.recipients}.`]
+        if (out.failed) parts.push(`${out.failed} failed - see the list below for why.`)
+        if (out.skipped) parts.push(`${out.skipped} had unsubscribed.`)
+        if (out.remaining) parts.push(`The last ${out.remaining} go out on tomorrow's run.`)
+        notice(parts.join(' '), { tone: out.failed ? 'error' : 'success' })
         setName(''); setSubject(''); setBody(''); setCustom(''); setSegment('')
         await load()
       }
@@ -165,7 +170,7 @@ export function Campaigns() {
     if (!when) { notice('Pick a date and time first.'); return }
     const out = await post({ action: 'schedule', ...fields, scheduledFor: new Date(when).toISOString() }, 'schedule it')
     if (out?.ok) {
-      notice('Scheduled. The list is worked out when it sends, not now.', { tone: 'success' })
+      notice('Scheduled. It goes out on the daily run after that time, and the list is worked out then rather than now.', { tone: 'success' })
       setName(''); setSubject(''); setBody(''); setCustom(''); setSegment(''); setWhen('')
       await load()
     }
@@ -288,7 +293,8 @@ export function Campaigns() {
           </div>
           <p className="text-xs text-faint">
             Who is on the list is worked out when it sends, not now - so anybody who unsubscribes in
-            between is already gone.
+            between is already gone. A scheduled campaign goes out on the daily run after the time
+            you pick, not to the minute.
           </p>
         </div>
 

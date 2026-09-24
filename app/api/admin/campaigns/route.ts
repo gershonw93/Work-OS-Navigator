@@ -4,7 +4,7 @@ import { isSuperAdmin } from '@/lib/super-admin'
 import { SEGMENTS, segmentByKey, peopleFor, parseAddressList, normaliseEmail } from '@/lib/campaign-audience'
 import { readAudience, readSuppressions } from '@/lib/campaign-audience-read'
 import { campaignProblem, fillCampaign, CAMPAIGN_TAGS } from '@/lib/campaign-copy'
-import { buildRecipients, drainCampaign, TEST_SEND_MAX, type CampaignRow } from '@/lib/campaign-send'
+import { buildRecipients, drainCampaign, INLINE_SEND_MAX, type CampaignRow } from '@/lib/campaign-send'
 import { campaignEmail } from '@/lib/email'
 import { unsubscribeUrl } from '@/lib/unsubscribe-token'
 import { appOrigin } from '@/lib/app-url'
@@ -198,20 +198,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Could not write the list, so nothing was sent.' }, { status: 500 })
   }
 
-  // A TEST SEND GOES NOW; A LIST WAITS FOR THE CRON. The reason nothing large
-  // is sent in this request is the timeout - half a list mailed with no record
-  // of which half. A handful cannot hit it, and making somebody wait ten
-  // minutes to see whether their own copy looks right is how a test send stops
-  // being used at all.
-  let drained = null
-  if (recipients.length <= TEST_SEND_MAX) {
-    drained = await drainCampaign(db, campaign, origin, TEST_SEND_MAX)
-  }
+  // IT SENDS NOW, UP TO THE CAP. The cron is a once-a-day safety net, not the
+  // delivery mechanism: pressing Send and being told "queued" while nothing
+  // moves for twenty-four hours is the shape of a feature that looks finished
+  // and does nothing. The rows are already written, so whatever this request
+  // does not reach stays `pending` and the daily run finishes it.
+  const drained = await drainCampaign(db, campaign, origin, INLINE_SEND_MAX)
 
   return NextResponse.json({
     ok: true,
     id: campaign.id,
     recipients: recipients.length,
-    ...(drained ? { sent: drained.sent, failed: drained.failed, skipped: drained.skipped } : {}),
+    sent: drained.sent,
+    failed: drained.failed,
+    skipped: drained.skipped,
+    // What this request could not get to. The screen says so rather than
+    // implying everybody has been mailed.
+    remaining: Math.max(0, recipients.length - drained.sent - drained.failed - drained.skipped),
+    stopped: drained.stopped ?? null,
   })
 }

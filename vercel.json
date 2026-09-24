@@ -18,7 +18,7 @@
     },
     {
       "path": "/api/cron/campaign-send",
-      "schedule": "*/10 * * * *"
+      "schedule": "0 13 * * *"
     }
   ]
 }
