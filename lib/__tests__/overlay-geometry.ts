@@ -24,6 +24,7 @@ import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync, readdirSy
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { ok, done, root, code, read } from './_helpers'
+import { statValueSize } from '../stat-value-size'
 
 const VIEWPORT = { w: 390, h: 844 }   // iPhone 14/15, the smallest we care about
 
@@ -1631,6 +1632,69 @@ ok(/align="left"/.test(tasksPage),
 ok(/align === 'left' \? 'left-0' : 'right-0'/.test(code('app/(dashboard)/projects/[id]/tasks/page.tsx')),
   "...and the board keeps right-0, because its trigger sits at the card's right edge")
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// A MONEY NUMBER FITS ITS STAT CELL, ON ONE LINE, WHOLE.
+//
+// Master Money on a phone: "$18,769,451" broke into "$18,769,45" over a lone
+// "1", and "$9,056,478" ran under the cell beside it. A wrapped or clipped
+// number is a DIFFERENT number. The strip now steps its type down off its
+// longest value (`statValueSize`) and never wraps. Built from the component's
+// own class strings, so reverting either half fails here.
+// ─────────────────────────────────────────────────────────────────────────────
+const stripSrc = read('components/ui/stat-strip.tsx')
+const VALUE_CLASS = /cn\(size, '([^']+)'/.exec(stripSrc)?.[1] ?? ''
+ok(/whitespace-nowrap/.test(VALUE_CLASS), 'a stat value never wraps')
+const MONEY = ['$9,056,478', '$18,769,451', '$1,521,162', '$7,464,242']
+// The app's face is Archivo, a web font this machine does not have, and the
+// fallback here is narrower - at text-2xl it FITS, which is how the bug got
+// past a browser that was not the phone. So the fixture pins DejaVu Sans, whose
+// figures are WIDER than Archivo's: a value that fits in it fits in the app.
+const MONEY_STRIP = (size: string, cls: string) => `
+<div class="p-6" style="font-family:'DejaVu Sans'"><div class="overflow-hidden rounded-2xl border border-line bg-panel"><div class="grid grid-cols-2">
+  ${MONEY.map((v, i) => `<div class="block min-w-0 px-5 py-4 ${i % 2 ? 'border-l border-line-soft' : ''}">
+    <p id="v${i}" class="${size} ${cls}">${v}</p></div>`).join('')}
+</div></div></div>`
+const MONEY_PROBE = `rect => [0,1,2,3].map(i => {
+  const p = document.querySelector('#v' + i), c = p.parentElement.getBoundingClientRect(), r = document.createRange()
+  r.selectNodeContents(p); const t = r.getBoundingClientRect()
+  return { over: Math.round(t.right - (c.right - 20)), lines: r.getClientRects().length }
+})`
+const before = measure(MONEY_STRIP('text-2xl', 'font-bold tabular-nums tracking-tight'), MONEY_PROBE, VIEWPORT.h, '', 390)
+ok(before.some((c: any) => c.over > 0 || c.lines > 1),
+  `the reported bug, measured: at text-2xl a value overflows or wraps (${JSON.stringify(before)})`)
+const after = measure(MONEY_STRIP(statValueSize(MONEY), VALUE_CLASS), MONEY_PROBE, VIEWPORT.h, '', 390)
+ok(after.every((c: any) => c.over <= 0 && c.lines === 1),
+  `THE FIX: every value sits inside its cell on one line (${JSON.stringify(after)})`)
+ok(statValueSize(['12', '3']) === 'text-2xl', '...and a short count keeps the big type')
+
+// ─────────────────────────────────────────────────────────────────────────────
+// THE MASTER CALENDAR CONTROLS STAY ON THE SCREEN.
+//
+// Prev, the month, next, Today and "Connect to Calendar" were one flex row
+// with a fixed-width month label, so on a phone Connect left through the right
+// edge of the screen, its label cut in half. Below lg Connect takes its own
+// line; the fixture is the page's own wrapper class.
+// ─────────────────────────────────────────────────────────────────────────────
+const calSrc = read('app/(dashboard)/master-calendar/page.tsx')
+const CAL_ROW = /<div className="(flex w-full flex-wrap[^"]*)">\s*<button onClick=\{\(\) => move\(-1\)\}/.exec(calSrc)?.[1] ?? ''
+ok(!!CAL_ROW, 'found the calendar control row')
+const CAL = (row: string, connect: string, label: string) => `
+<div id="page" class="p-6"><div class="${row}">
+  <button class="shrink-0 p-2 rounded-lg border"><span class="block h-4 w-4">&lt;</span></button>
+  <span class="${label}">September 2026</span>
+  <button class="shrink-0 p-2 rounded-lg border"><span class="block h-4 w-4">&gt;</span></button>
+  <button class="shrink-0 whitespace-nowrap px-3 py-2 rounded-lg border text-sm lg:ml-1">Today</button>
+  <button id="connect" class="inline-flex items-center gap-1.5 whitespace-nowrap px-3 py-2 rounded-lg border text-sm font-medium ${connect}"><span class="block h-4 w-4">+</span> Connect to Calendar</button>
+</div></div>`
+const CAL_PROBE = `rect => ({ right: Math.round(rect('#connect').right), vw: window.innerWidth,
+  doc: Math.round(document.documentElement.scrollWidth) })`
+const calBefore = measure(CAL('flex items-center gap-2', 'ml-1', 'text-sm font-semibold w-36 text-center'), CAL_PROBE, VIEWPORT.h, '', 390)
+ok(calBefore.right > calBefore.vw, `the reported bug, measured: Connect ended ${calBefore.right - calBefore.vw}px off the screen`)
+const calAfter = measure(CAL(CAL_ROW, 'w-full justify-center lg:ml-1 lg:w-auto', 'min-w-0 flex-1 truncate text-sm font-semibold text-center lg:w-36 lg:flex-none'), CAL_PROBE, VIEWPORT.h, '', 390)
+ok(calAfter.right <= calAfter.vw - 16, `THE FIX: Connect is inside the gutter (${calAfter.right} of ${calAfter.vw})`)
+ok(calAfter.doc <= calAfter.vw, 'and nothing drags the page sideways')
+ok(/w-full justify-center lg:ml-1 lg:w-auto/.test(calSrc), '...with the page giving Connect its own line below lg')
 
 rmSync(work, { recursive: true, force: true })
 done()

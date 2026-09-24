@@ -99,12 +99,15 @@ export default function MasterCalendarPage() {
           <h1 className="text-2xl font-bold text-ink flex items-center gap-2"><CalendarDays className="h-6 w-6 text-accent-fg" /> Master Calendar</h1>
           <p className="text-sm text-muted-fg mt-0.5">Every project's schedule and task due dates in one place. Click an item to jump to its project.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => move(-1)} className="p-2 rounded-lg border border-line text-muted-fg hover:bg-surface"><ChevronLeft className="h-4 w-4" /></button>
-          <span className="text-sm font-semibold text-ink-soft w-36 text-center">{monthLabel}</span>
-          <button onClick={() => move(1)} className="p-2 rounded-lg border border-line text-muted-fg hover:bg-surface"><ChevronRight className="h-4 w-4" /></button>
-          <button onClick={() => { const d = new Date(); setCursor({ y: d.getFullYear(), m: d.getMonth() }) }} className="ml-1 px-3 py-2 rounded-lg border border-line text-sm text-muted-fg hover:bg-surface">Today</button>
-          <ConnectCalendarButton className="ml-1" />
+        {/* Below lg the controls cannot share one 390px row: month nav and
+            Today take the first line, Connect takes the second whole. It ran
+            off the right edge of the screen as one row. */}
+        <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:flex-nowrap">
+          <button onClick={() => move(-1)} aria-label="Previous month" title="Previous month" className="shrink-0 p-2 rounded-lg border border-line text-muted-fg hover:bg-surface"><ChevronLeft className="h-4 w-4" /></button>
+          <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink-soft text-center lg:w-36 lg:flex-none">{monthLabel}</span>
+          <button onClick={() => move(1)} aria-label="Next month" title="Next month" className="shrink-0 p-2 rounded-lg border border-line text-muted-fg hover:bg-surface"><ChevronRight className="h-4 w-4" /></button>
+          <button onClick={() => { const d = new Date(); setCursor({ y: d.getFullYear(), m: d.getMonth() }) }} className="shrink-0 whitespace-nowrap px-3 py-2 rounded-lg border border-line text-sm text-muted-fg hover:bg-surface lg:ml-1">Today</button>
+          <ConnectCalendarButton className="w-full justify-center lg:ml-1 lg:w-auto" />
         </div>
       </div>
 

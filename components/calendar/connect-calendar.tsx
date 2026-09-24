@@ -40,7 +40,7 @@ export function ConnectCalendarButton({ className, label = 'Connect to Calendar'
 
   return (
     <>
-      <button onClick={openModal} className={cn('inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line text-sm font-medium text-accent-fg hover:bg-surface', className)}>
+      <button onClick={openModal} className={cn('inline-flex items-center gap-1.5 whitespace-nowrap px-3 py-2 rounded-lg border border-line text-sm font-medium text-accent-fg hover:bg-surface', className)}>
         <CalendarPlus className="h-4 w-4" /> {label}
       </button>
 
