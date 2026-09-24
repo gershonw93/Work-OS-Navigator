@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -59,17 +60,24 @@
         quotes and permits. Location: the time clock records where somebody
         clocked in and out, and where a daily log was written.
 
-        READ_MEDIA_IMAGES is the Android 13+ replacement for
-        READ_EXTERNAL_STORAGE, which is kept with maxSdkVersion for older
-        phones - a crew's phones are not all new.
+        NO PHOTO-LIBRARY PERMISSION, ON PURPOSE. Every photo SyteNav takes in
+        goes through an <input type="file"> in the webview, which opens the
+        SYSTEM picker - the user hands over the one file they chose, and that
+        needs no permission at all. READ_MEDIA_IMAGES used to be declared here
+        and Google Play refused the release over it: that permission is only
+        for apps whose core purpose is the photo library (a gallery, an
+        editor), and anything else must use the picker. It is REMOVED rather
+        than merely left out, with tools:node="remove", so that a plugin whose
+        own manifest declares it cannot merge it back in.
 
         All of them are optional to the app: `required="false"` on the camera
         feature keeps SyteNav installable on a tablet without one, and every
         screen works if the permission is refused.
     -->
     <uses-permission android:name="android.permission.CAMERA" />
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" tools:node="remove" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
