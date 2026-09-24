@@ -276,7 +276,27 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
   on the current date" - a sample reading "due Sep 12" in November is the one
   detail an audience notices. The pin re-renders every sample on a second date
   and demands the text change, per sample rather than in aggregate: one frozen
-  date passes an aggregate check as long as something else moved.
+  date passes an aggregate check as long as something else moved. **AND THE
+  SAMPLES THAT MUST CARRY A DATE ARE NAMED, NOT SNIFFED.** The first version
+  asked whether a sample CONTAINED a weekday date and only then demanded it
+  move, so replacing a computed date with the literal 'Sep 12' made the sample
+  undated, the check skipped it, and the mutation went green. A test that stops
+  applying when you break the thing it guards is not a test.
+- **AND THE ELEVEN EMAILS THAT ARE NOT NOTIFICATIONS NEEDED A BOARD TOO.** The
+  picker is the catalog, and a template a ROUTE sends directly is not in it -
+  no audience to configure, no preference to honour. So the welcome email, the
+  first thing a customer ever receives, could only be read by completing a real
+  signup. `lib/demo-emails.ts` is the registry beside `demo-notification.ts`,
+  same rules, plus one of its own: these do NOT respect notification settings
+  because the real sends do not, and the screen says so - otherwise "I turned
+  that off and still got one" arrives as a bug report about a product working
+  exactly as designed. A SECOND BRANCH on the existing route, never a second
+  route, so the super-admin gate stays the only one there is; logged as
+  `email:<key>` so a demo send is never mistaken for a real notification type;
+  and a PREVIEW (sandboxed iframe) because for copy you are checking the look
+  of, mailing yourself and waiting is the slow loop. Pinned in
+  `demo-emails.ts`, which derives the expected set from the exported `*Email`
+  functions in `lib/email.ts` - a twelfth template cannot arrive unreachable.
 
 ## Back burner (KEEP CURRENT)
 - Parked / future ideas live in `BACKLOG.md` at the repo root.
