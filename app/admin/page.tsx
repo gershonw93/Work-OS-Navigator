@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Building2, Users, Activity, UserX } from 'lucide-react'
+import { Building2, Users, Activity, UserX, Inbox } from 'lucide-react'
 import { adminGet } from '@/lib/admin-fetch'
 import { timeAgo, absoluteTime } from '@/lib/time-ago'
 
@@ -26,6 +26,7 @@ interface ActivePerson {
 interface Stats {
   companies: number
   users: number
+  pendingRequests: number
   activeWeek: number
   activeMonth: number
   neverSignedIn: number
@@ -47,6 +48,14 @@ export default function AdminOverview() {
   }, [])
 
   const cards = [
+    // FIRST, and amber when it is not zero. Everything else here is a statistic
+    // about us; this one is a person waiting, having been told they would hear
+    // back. It used to be absent entirely, so the only thing that brought
+    // anybody to the approvals screen was remembering it existed.
+    {
+      label: 'Waiting for review', value: stats?.pendingRequests, icon: Inbox, href: '/admin/access-requests',
+      color: stats?.pendingRequests ? 'text-warn bg-warn-tint' : 'text-faint bg-muted',
+    },
     { label: 'Active this week', value: stats?.activeWeek, icon: Activity, href: '/admin/users', color: 'text-success bg-success-tint' },
     { label: 'Active this month', value: stats?.activeMonth, icon: Users, href: '/admin/users', color: 'text-info bg-info-tint' },
     { label: 'Never signed in', value: stats?.neverSignedIn, icon: UserX, href: '/admin/access-requests', color: 'text-warn bg-warn-tint' },

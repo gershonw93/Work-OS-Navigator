@@ -86,9 +86,18 @@ export async function GET(request: Request) {
       }
     })
 
+  // WAITING ON US. The one number on this screen that is somebody else's time
+  // rather than our own statistics - a person who has been told they will hear
+  // back, and is waiting while nobody has looked.
+  const { count: pendingRequests } = await db
+    .from('access_requests')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'pending')
+
   return NextResponse.json({
     companies,
     users,
+    pendingRequests: pendingRequests ?? 0,
     activeWeek: accounts.rows.filter(a => since(a.last_sign_in_at) <= 7 * DAY).length,
     activeMonth: accounts.rows.filter(a => since(a.last_sign_in_at) <= 30 * DAY).length,
     neverSignedIn: accounts.rows.filter(a => !a.last_sign_in_at).length,

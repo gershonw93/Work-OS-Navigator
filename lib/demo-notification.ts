@@ -19,6 +19,7 @@ import { addDaysIso, addBusinessDaysIso } from './inspection-status'
 import { dateWords } from './dates'
 import { isSendableType, notificationType, NOTIFICATION_TYPES } from './notifications'
 import { trialCopy } from '@/lib/trial-warning'
+import { NUDGES } from '@/lib/onboarding-nudges'
 
 export interface DemoNotification {
   /** The bell headline, and the email subject. */
@@ -87,6 +88,20 @@ export function demoNotification(type: string, today: string): DemoNotification 
         title: 'Your invoice was approved',
         message: `Invoice #1042 for $18,400 on ${PROJECT} was approved and is scheduled to pay on ${inDays(14)}.`,
         link: '/my-bids',
+      }
+    case 'access_request':
+      return {
+        title: 'New access request',
+        message: `Dana Whitfield - Whitfield Builders (dana@whitfieldbuilders.com) asked for access on ${inDays(0)}. Approve them and the invite goes out automatically.`,
+        link: '/admin/access-requests',
+      }
+    case 'onboarding_nudge':
+      // Off the real list, so a demo cannot show a nudge the product does not
+      // send - the same rule as the trial warning below.
+      return {
+        ...NUDGES[0],
+        message: `${NUDGES[0].message} Your trial runs to ${inDays(14)}.`,
+        link: NUDGES[0].link,
       }
     case 'trial_ending':
       // The one sample whose copy is not invented here: it comes from the same

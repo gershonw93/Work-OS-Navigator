@@ -4,7 +4,7 @@ import { audienceFor } from '@/lib/notification-audience'
 import { notify } from '@/lib/notify'
 import { checkCronAuth } from '@/lib/cron-auth'
 import { trialWarning, trialCopy, TRIAL_WARN_FROM } from '@/lib/trial-warning'
-import { dateWords } from '@/lib/dates'
+import { dayWords } from '@/lib/dates'
 
 export const runtime = 'nodejs'
 
@@ -82,6 +82,9 @@ export async function GET(request: Request) {
     }
 
     const copy = trialCopy(action.send)
+    // Null when the date will not parse, and the clause is dropped rather than
+    // printed empty - a sentence with a hole in it is worse than a shorter one.
+    const endsOn = dayWords(row.trial_ends_at, { weekday: true })
     // The people who can actually choose a plan, through the same Who gets told
     // table every other event uses - `settings_billing`, the permission for the
     // ACTION being asked for, not for the record it is about.
@@ -91,9 +94,15 @@ export async function GET(request: Request) {
       await notify({
         db, userIds: recipients, type: 'trial_ending',
         title: copy.title,
-        // The date as well as the countdown. "In 3 days" is an answer; the date
-        // is what somebody checks against a diary.
-        message: `${copy.message} Your trial ends on ${dateWords(row.trial_ends_at)}.`,
+        // The date as well as the countdown. "In 3 days" is an answer; the
+        // date is what somebody checks against a diary - and the WEEKDAY is
+        // the load-bearing half of that, per lib/dates.ts.
+        //
+        // `dateWords` was called here and it returns an OBJECT from a DATE-ONLY
+        // string; `trial_ends_at` is a timestamptz, so this sentence read "Your
+        // trial ends on null." in an email to a customer. It passed its test,
+        // which asserted the words "Your trial ends on".
+        message: endsOn ? `${copy.message} Your trial ends on ${endsOn}.` : copy.message,
         link: '/settings?tab=billing',
       })
       notifications += recipients.length

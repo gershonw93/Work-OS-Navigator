@@ -39,6 +39,17 @@ export interface NotificationType {
    */
   status: 'live' | 'planned'
   /**
+   * OURS, not a customer's. A platform event - somebody asking for access -
+   * that only ever reaches a super admin.
+   *
+   * It stays IN this catalog rather than being sent with a bare `sendEmail`,
+   * because the registry rule is what makes a notification turn-off-able and
+   * gives the demo console something to rehearse. But it is filtered out of
+   * Settings -> Notifications, because a switch for an event you will never
+   * receive is a question nobody can answer.
+   */
+  platform?: boolean
+  /**
    * Who hears this NO MATTER WHAT the company configures, in plain words.
    *
    * Some recipients are structural - the person assigned to book an inspection,
@@ -210,6 +221,21 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
   },
 
   {
+    // THE FIRST FIFTEEN DAYS. One sequence, one switch - five nudges that only
+    // go out when the thing they ask for has NOT been done and the company has
+    // not signed in for a couple of days. A drip that fires on a calendar sends
+    // "create your first job" to somebody with three of them, which is the
+    // fastest way to teach a person to filter mail from us.
+    //
+    // EMAIL AND PUSH BOTH ON. The whole point is reaching somebody who is not
+    // in the app; a bell they never open is where this notification would go to
+    // die. It stops on day 11, before the trial warnings start.
+    key: 'onboarding_nudge', label: 'Getting started tips', group: 'Money',
+    description: 'A nudge in your first two weeks, about a setup step you have not done yet. Stops as soon as you do it.',
+    audience: 'direct',
+    defaults: { inApp: true, email: true }, push: true, status: 'live',
+  },
+  {
     // THE ACCOUNT ITSELF, not a job. It sits in Money because that is where a
     // person looks for it, and it is the only type in this catalog that is
     // about SyteNav rather than about the work.
@@ -228,6 +254,21 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
     // because the thing being warned about is that there may not be a useful
     // next login. A bell nobody opens is exactly how this deadline is missed.
     defaults: { inApp: true, email: true }, push: true, status: 'live',
+  },
+
+  {
+    // TO US. Somebody filled in the request form on the pricing page.
+    //
+    // THE GAP THIS CLOSES: nothing at all. The row was inserted and the request
+    // sat there until somebody remembered to open /admin/access-requests -
+    // while the applicant had just been told, in as many words, that they would
+    // get an email as soon as they were approved. The slowest part of getting a
+    // customer was us not knowing they had asked.
+    key: 'access_request', label: 'Somebody requested access', group: 'Money',
+    description: 'A new access request came in from the pricing page.',
+    audience: 'direct',
+    defaults: { inApp: true, email: true }, push: true, status: 'live',
+    platform: true,
   },
 
   // ── Bids ──────────────────────────────────────────────────────────────────

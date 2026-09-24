@@ -37,7 +37,10 @@ export async function GET(request: Request) {
   // The catalog goes with it, so the settings screen renders from the same
   // source the send path validates against and the two cannot drift.
   return NextResponse.json({
-    types: NOTIFICATION_TYPES,
+    // PLATFORM TYPES ARE NOT A CUSTOMER'S BUSINESS. "Somebody requested access"
+    // only ever reaches a super admin, and a switch for an event you will never
+    // receive is a question nobody can answer.
+    types: NOTIFICATION_TYPES.filter(t => !t.platform),
     prefs: effectivePrefs(data),
   })
 }

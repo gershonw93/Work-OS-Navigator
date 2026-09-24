@@ -117,6 +117,36 @@ export interface DateWords {
 }
 
 /** A bare `YYYY-MM-DD` in words. Null for anything that is not one. */
+/**
+ * A date as words, READY TO PUT IN A SENTENCE.
+ *
+ * `dateWords` returns an OBJECT with two spellings in it, and interpolating one
+ * of those into a template literal prints `[object Object]`. It also takes a
+ * DATE-ONLY string, so handing it a timestamptz straight out of Postgres
+ * returns null and prints the word "null".
+ *
+ * Both of those shipped. Settings -> Billing read "Resets [object Object]." on
+ * the scan meter, the over-allowance refusal said "refills on [object Object]",
+ * and the trial-ending email - the one that goes to a customer - said "Your
+ * trial ends on null." Every one of them passed a test, because the tests
+ * asserted the stem of the sentence ("refills on", "Your trial ends on") and
+ * never the value after it: a check on the half that could not be wrong.
+ *
+ * So this is the one that callers use. It takes either shape, it returns a
+ * STRING, and it returns null rather than a placeholder when there is no date -
+ * a caller with nothing to say should drop the clause, not print an empty one.
+ */
+export function dayWords(
+  value: string | null | undefined,
+  opts: { weekday?: boolean } = {},
+): string | null {
+  // A timestamptz is a date with a time bolted on; the date half is what a
+  // person is being told.
+  const words = dateWords(String(value ?? '').slice(0, 10))
+  if (!words) return null
+  return opts.weekday ? words.withWeekday : words.short
+}
+
 export function dateWords(value: string | null | undefined): DateWords | null {
   if (!value || !DATE_ONLY.test(String(value).trim())) return null
   const t = Date.parse(`${String(value).trim()}T00:00:00Z`)

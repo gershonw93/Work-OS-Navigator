@@ -1,6 +1,10 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { trialEnd } from '@/lib/billing-state'
+import { welcomeEmail, sendEmail } from '@/lib/email'
+import { appOrigin } from '@/lib/app-url'
+import { TRIAL_DAYS } from '@/lib/plans'
+import { dayWords } from '@/lib/dates'
 
 export async function POST(request: Request) {
   const authHeader = request.headers.get('Authorization')
@@ -173,5 +177,32 @@ export async function POST(request: Request) {
     if (usedErr) console.error('[signup] could not mark the invite used', { id: invite.id, error: usedErr.message })
   }
 
+  // ── THE FIRST THING THEY EVER HEAR FROM US ───────────────────────────────
+  //
+  // There was nothing. A company was created and went silent until the trial
+  // warning on day 12 - by which point they had either worked it out alone or
+  // quietly gone. Transactional, so it is sent here rather than routed through
+  // the notification catalog: it has no audience choice, exactly like the
+  // invite email.
+  //
+  // ONLY FOR A METERED COMPANY, because it names the trial. A subcontractor has
+  // no trial, and telling them theirs ends on the 9th is a sentence about
+  // somebody else's account.
+  //
+  // NEVER FAILS THE SIGNUP - `sendEmail` guarantees that for itself, and a
+  // welcome that did not go is a thing to log, not a reason to refuse somebody
+  // the account they have just created.
+  if (meters) {
+    const result = await sendEmail({
+      to: email,
+      ...welcomeEmail({
+        name: fullName,
+        appUrl: appOrigin(request.headers.get('origin')),
+        trialDays: TRIAL_DAYS,
+        trialEndWords: dayWords(trialEnd(now).toISOString(), { weekday: true }) ?? `${TRIAL_DAYS} days from today`,
+      }),
+    })
+    if (!result.sent) console.error('[signup] welcome email did not send', { to: email, reason: result.reason })
+  }
   return NextResponse.json({ success: true })
 }
