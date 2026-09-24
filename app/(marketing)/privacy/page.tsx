@@ -14,7 +14,7 @@ export default function PrivacyPage() {
   return (
     <LegalDoc
       title="Privacy Policy"
-      updated="September 23, 2026"
+      updated="September 24, 2026"
       intro="This Privacy Policy explains how SyteNav ('SyteNav', 'we', 'us') collects, uses, and protects information when you use our website and construction management software (the 'Service'). By using the Service you agree to this policy."
       sections={[
         { h: 'Information we collect', body: ['We collect information you provide directly, such as your name, email, company details, and the project data you enter (quotes, budgets, invoices, logs, documents, photos, and similar).', 'We also collect limited technical information automatically, such as device, browser, IP address, and usage events, to keep the Service secure and reliable.'] },
@@ -36,6 +36,10 @@ export default function PrivacyPage() {
           'You can disconnect Google at any time from Directory > Imported contacts, which deletes the access we were given. You can also remove SyteNav\'s access from your Google account at myaccount.google.com/permissions. To have the imported contacts deleted as well, see sytenav.com/delete-account or email us.',
           'SyteNav\'s use and transfer to any other app of information received from Google APIs will adhere to the Google API Services User Data Policy (developers.google.com/terms/api-services-user-data-policy), including the Limited Use requirements.',
         ] },
+        // THE SENTENCE THAT MATCHES WHAT THE CODE DOES. Campaigns are the one
+        // kind of mail we send because we decided to, so the policy has to say
+        // it, say how to stop it, and say what stopping it does NOT stop.
+        { h: 'Email we send you', body: ['Most email from SyteNav is about your own account and your own jobs - invoices, bid requests, schedule changes, reminders and anything to do with signing in. Those are part of the Service and cannot be turned off, though you can choose which of them reach you by email under Settings then Notifications.', 'Separately, we occasionally send announcements about SyteNav itself. Every one of those carries an unsubscribe link in its footer that works without signing in, and we keep a record of the addresses that have unsubscribed so they are not sent again. Unsubscribing from announcements does not stop the account and job emails above.'] },
         { h: 'Data storage and security', body: ['Your data is stored with reputable cloud infrastructure providers. We use industry-standard safeguards including encryption in transit and access controls. No method of transmission or storage is 100% secure, but we work to protect your information.'] },
         { h: 'Data retention', body: ['We retain your information for as long as your account is active or as needed to provide the Service, comply with legal obligations, resolve disputes, and enforce agreements. You may request deletion as described below.'] },
         { h: 'Your rights', body: ['Depending on your location, you may have rights to access, correct, export, or delete your personal information, and to object to or restrict certain processing. To exercise these rights, contact us at the email below.'] },

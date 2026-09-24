@@ -169,16 +169,32 @@ export function copyProblem(slug: string, fields: CopyFields): string | null {
       + `This one can use ${spec.tags.map(t => `{{${t}}}`).join(', ')}.`
   }
 
-  // A number of days that is not OUR number of days. Written out as a digit or
-  // not at all: a word cannot be interpolated, so a word is always wrong here.
-  const text = `${subject} ${body}`
+  return claimProblem(`${subject} ${body}`, { countsDown: spec.tags.includes('days_left') })
+}
+
+/**
+ * A claim in stored copy that the product cannot honour, or null.
+ *
+ * SHARED BY EVERY SENTENCE SOMEBODY CAN TYPE INTO A CONSOLE - the nine
+ * transactional emails and a campaign body alike. `plans-and-landing.ts` keeps
+ * every public page honest about `TRIAL_DAYS` by scanning SOURCE FILES, and it
+ * cannot see a sentence typed into a browser; each new console is a fresh hole
+ * through that pin unless it asks this. A campaign saying "your first 30 days
+ * are free" is the same lie as a pricing page saying it, sent to more people.
+ *
+ * A number of days that is not OUR number of days, written as a digit or not at
+ * all: a word cannot be interpolated, so a word is always wrong here.
+ */
+export function claimProblem(text: string, opts: { countsDown?: boolean } = {}): string | null {
+  // `countsDown` is for copy that legitimately names a shrinking number - the
+  // trial warnings say "3 days left", and that is the whole point of them.
+  if (opts.countsDown) return null
   const wrongDays = Array.from(text.matchAll(/\b(\d+)[- ]days?\b/g))
     .map(m => Number(m[1]))
-    .filter(n => n !== TRIAL_DAYS && !spec.tags.includes('days_left'))
+    .filter(n => n !== TRIAL_DAYS)
   if (wrongDays.length) {
     return `This says ${wrongDays[0]} days, and the trial is ${TRIAL_DAYS}. Use {{trial_days}} so it stays right if we ever change it.`
   }
-
   return null
 }
 

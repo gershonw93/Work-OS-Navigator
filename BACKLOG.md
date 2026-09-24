@@ -506,6 +506,33 @@ looks like it does.
   confirmed which one the report is about. Worth doing: an invoice number is how
   you avoid paying the same bill twice.
 
+## 📣 Campaigns - deliberately not in the first cut
+
+Campaigns shipped as compose, segment, preview, test, send or schedule, with a
+one-click unsubscribe and an address-keyed suppression list. What was left out,
+and why:
+
+- **Bounces and spam complaints do not reach `email_suppressions`.** SendGrid
+  knows about both and will post them to a webhook; today the only thing that
+  writes a suppression is somebody pressing Unsubscribe. A hard bounce retried
+  every campaign is how a sending domain's reputation goes. This is the first
+  one to pick up - the table already carries `reason` ('bounced', 'complained')
+  for exactly this.
+- **No opens, clicks or any other analytics.** `campaign_recipients` records
+  what we did (sent, failed, skipped) and not what they did. Adding tracking
+  pixels to bulk mail is a privacy decision as much as a feature, so it is a
+  conversation rather than a task.
+- **No recurring campaigns, no saved lists, no contacts outside the app.** A
+  segment is a question asked of our own customers at send time. A stored list
+  is a second home for who somebody is - exactly the shape "one fact, ONE home"
+  warns about - so if recurring sends are ever wanted, they should re-ask the
+  segment each time rather than freeze it.
+- **No A/B testing.** With 27 people at 21 builders there is nothing to split.
+- **A campaign cannot be edited or cancelled once it is sending.** Deleting the
+  row cascades its recipients away, which stops the cron; there is no button for
+  it. Worth one if a list ever gets big enough for a mistake to be expensive
+  halfway through.
+
 ## ✅ Recently shipped (for reference)
 
 - `confirm()` is gone from the app (#424). All 22 handlers moved to
