@@ -38,7 +38,7 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-122.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-123.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - **Verify every column you `.select()` actually exists.** Supabase returns
   `data: null` for an unknown column, so a typo reads as "not found" rather than
@@ -526,6 +526,65 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   as a guide's inline links and the shift email's typed date block - data
   supplies content, code supplies structure, so no stored string can break the
   branding or smuggle markup into an inbox.
+
+## Bulk mail, which is a different animal (IMPORTANT)
+- **A CAMPAIGN IS THE ONLY MAIL SYTENAV SENDS BECAUSE WE DECIDED TO.** Every
+  other send is transactional or a notification: it reaches one person because
+  something happened to them. `lib/email.ts` used to say so in as many words -
+  a signed one-click unsubscribe "is for bulk mail, which this is not". So the
+  compliance half shipped in the SAME change as the compose box, because a
+  broadcast with no way out is the thing a spam report exists for.
+- **AN UNSUBSCRIBE STOPS BROADCASTS ONLY, AND `sendEmail` MUST NEVER CONSULT
+  THE LIST.** Put the suppression check inside the sender and one unsubscribe
+  starts silently eating invoices, bid requests and password resets - the
+  account then dies of a feature working exactly as written. Only
+  `lib/campaign-send.ts` asks, and `campaigns.ts` pins that nothing in
+  `lib/email.ts` reaches for it, under that name or any other.
+- **THE SUPPRESSION IS KEYED ON THE ADDRESS, NOT ON A PROFILE.** The link has
+  to work from an inbox with no session, the address may map to no account at
+  all (a pasted list), and it must outlive the account being deleted - an
+  unsubscribe a later deletion quietly undoes is worse than none. Same reason
+  the token is an HMAC of the address (`lib/unsubscribe-token.ts`, the shape of
+  `lib/admin-gate.ts`): nothing to mint, nothing to expire, and it does not
+  verify for anybody else, so a forwarded email cannot unsubscribe its sender.
+- **AND IT IS CHECKED AGAIN AT SEND TIME.** A list built when a campaign was
+  composed knows nothing about somebody who unsubscribed on the Wednesday in
+  between. The later check is the one that matters; the earlier one only keeps
+  the count on the screen honest.
+- **A SUBCONTRACTOR IS NEVER ON A LIST.** They were invited onto a job by one
+  of our customers, they never asked to hear from us, and they cannot buy
+  anything. The gate is in `peopleFor`, ABOVE every segment, not repeated
+  inside each one - a rule written once per segment is the rule the twelfth
+  segment is added without. **AND IT IS `companies.type = 'gc'`, NOT "has a
+  billing row"**: migration 118 backfilled a row for every company, the four
+  subcontractor tenants included, so the billing row stopped distinguishing
+  them and never will again. Four real people sit behind that today.
+- **THE ROWS ARE WRITTEN BEFORE THE FIRST LETTER, AND THEY ARE THREE THINGS AT
+  ONCE**: the gate (a unique index on `(campaign_id, lower(email))`, so an
+  overlapping run cannot double send - the second copy is what gets somebody to
+  unsubscribe), the record ("who got this and when" is the question that
+  arrives, and a count cannot answer it), and the resume point. Nothing big is
+  sent in the request that starts it: a hundred recipients in one serverless
+  invocation is a timeout with half the list mailed and no way to know which
+  half. `TEST_SEND_MAX` is the one exception, and it is five - small enough not
+  to time out, and making somebody wait ten minutes to see their own copy is
+  how a test send stops being used.
+- **A READ THAT DID NOT COMPLETE IS NOT A SMALLER LIST.** An incomplete
+  audience or a failed suppression read REFUSES the send rather than narrowing
+  it - the same rule the onboarding cron follows about half a page of sign-ins,
+  and here the people silently dropped from "trial ending" are the ones the
+  mail was for.
+- **`List-Unsubscribe` AND `List-Unsubscribe-Post` GO ON BULK MAIL AND NOTHING
+  ELSE.** Gmail and Yahoo have required them of bulk senders since 2024, and
+  without them a campaign lands in spam whatever it says - taking the
+  transactional mail's reputation with it. On a password reset they would be a
+  promise to stop sending password resets. `buildSendGridPayload` adds them only
+  when the email carries an unsubscribe URL; both halves are pinned.
+- **AND THE CONSOLE IS A HOLE THROUGH THE SUITE UNLESS THE ROUTE SAYS NO.**
+  `claimProblem` came out of `copyProblem` so a campaign body cannot say "your
+  first 30 days are free" either - `plans-and-landing.ts` scans SOURCE FILES
+  and cannot see a sentence typed into a browser. Every future rule a pin
+  enforces over source has to be re-stated there too.
 
 ## Two registries, and why a new thing goes IN them (IMPORTANT)
 Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.md).

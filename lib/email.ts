@@ -73,6 +73,15 @@ export interface OutgoingEmail {
   /** Always required. A text/plain part is what keeps mail out of spam. */
   text: string
   html?: string
+  /**
+   * The one-click unsubscribe URL, for BULK mail only.
+   *
+   * Present on a campaign and on nothing else. Everything else this module
+   * sends is transactional or a notification - it goes to one person because
+   * of something that happened to them - and offering to unsubscribe from a
+   * password reset is offering something we will not honour.
+   */
+  unsubscribeUrl?: string | null
 }
 
 /**
@@ -87,12 +96,25 @@ export function buildSendGridPayload(email: OutgoingEmail, cfg: EmailConfig) {
   const content: { type: string; value: string }[] = [{ type: 'text/plain', value: email.text }]
   if (email.html) content.push({ type: 'text/html', value: email.html })
 
+  // GMAIL AND YAHOO HAVE REQUIRED THESE OF BULK SENDERS SINCE FEBRUARY 2024.
+  // Without them a campaign lands in spam however good the content is, and the
+  // domain's reputation carries that into the transactional mail as well. They
+  // go on bulk mail ONLY: a List-Unsubscribe header on a password reset is a
+  // promise to stop sending password resets.
+  const headers = email.unsubscribeUrl
+    ? {
+      'List-Unsubscribe': `<${email.unsubscribeUrl}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    }
+    : undefined
+
   return {
     personalizations: [{ to: [{ email: email.to }] }],
     from: { email: cfg.from, name: cfg.fromName },
     reply_to: { email: cfg.replyTo },
     subject: email.subject,
     content,
+    ...(headers ? { headers } : {}),
   }
 }
 
@@ -201,6 +223,14 @@ export interface EmailLayout {
   cta?: { label: string; url: string }
   /** Small print under the card. */
   footNote?: string
+  /**
+   * The way out, under the footer. BULK MAIL ONLY - a campaign.
+   *
+   * A link rather than a sentence, because the whole point is that it takes one
+   * tap from the inbox with no session. Typed, like every other link the layout
+   * paints: no caller passes HTML through here.
+   */
+  unsubscribeUrl?: string | null
 }
 
 /**
@@ -304,6 +334,7 @@ ${body}${dates}${attachments}${cta}
 
 ${l.footNote ? `<tr><td style="padding:16px 6px 0;font-family:${BRAND.font};font-size:12px;line-height:1.5;color:${BRAND.faint}">${e(l.footNote)}</td></tr>` : ''}
 <tr><td style="padding:14px 6px 0;font-family:${BRAND.font};font-size:11px;color:${BRAND.faint}">SyteNav &middot; Construction management built for the field</td></tr>
+${l.unsubscribeUrl ? `<tr><td style="padding:8px 6px 0;font-family:${BRAND.font};font-size:11px;line-height:1.5;color:${BRAND.faint}">Don't want these? <a href="${e(l.unsubscribeUrl)}" style="color:${BRAND.faint};text-decoration:underline">Unsubscribe</a>. You'll still get anything about your own account - invoices, bids and password resets.</td></tr>` : ''}
 
 </table></td></tr></table></body></html>`
 }
@@ -1105,6 +1136,59 @@ export function scopeChangeEmail({
       ],
       attachments: docs,
       footNote: 'You are getting this because you are on this job. No account or login is needed.',
+    }),
+  }
+}
+
+/**
+ * A CAMPAIGN - the one kind of bulk mail SyteNav sends.
+ *
+ * Everything else in this module goes to one person because of something that
+ * happened to them. This goes to a list because we decided to send it, which is
+ * what makes the unsubscribe link REQUIRED rather than a nicety: it is the
+ * difference between mail somebody can stop and mail they can only report.
+ *
+ * ONLY WORDS CROSS THE BOUNDARY. The subject, the paragraphs and the button
+ * label come from a console; the shape stays here. Same rule as `welcomeEmail`
+ * takes its copy, a guide's inline links, and the shift email's date block -
+ * data supplies content, code supplies structure, so nothing typed into a
+ * browser can break the branding or smuggle markup into an inbox.
+ */
+export function campaignEmail({
+  name, subject, paragraphs, cta, unsubscribeUrl,
+}: {
+  name: string | null | undefined
+  subject: string
+  paragraphs: string[]
+  cta?: { label: string; url: string } | null
+  unsubscribeUrl: string
+}) {
+  const hi = firstName(name)
+  const body = paragraphs.filter(p => p.trim())
+
+  const text = [
+    `Hi ${hi},`,
+    '',
+    ...body.flatMap(p => [p, '']),
+    ...(cta ? [cta.label + ':', cta.url, ''] : []),
+    'Gershon',
+    'SyteNav',
+    '',
+    `Don't want these? Unsubscribe: ${unsubscribeUrl}`,
+    "You'll still get anything about your own account.",
+  ].join('\n')
+
+  return {
+    subject,
+    text,
+    unsubscribeUrl,
+    html: emailLayout({
+      preheader: body[0] ?? subject,
+      eyebrow: 'SyteNav',
+      heading: subject,
+      paragraphs: [`Hi ${hi},`, ...body],
+      cta: cta ?? undefined,
+      unsubscribeUrl,
     }),
   }
 }

@@ -66,7 +66,13 @@ for (const key of MUST_BE_DATED) {
 // sent in, and the demo board already covers those through the notification
 // picker. `buildSendGridPayload` is the transport.
 const emailSrc = read('lib/email.ts')
-const NOT_A_TEMPLATE = new Set(['notificationEmail', 'buildSendGridPayload'])
+//
+// `campaignEmail` is excluded too, and for a different reason: it has no copy
+// of its own to sample. Every word in it is typed into /admin/marketing on the
+// screen that sends it, which previews the real thing before anything goes -
+// so a sample here would be a made-up campaign nobody ever sent. The exemption
+// is only honest while that preview exists, which is asserted below.
+const NOT_A_TEMPLATE = new Set(['notificationEmail', 'buildSendGridPayload', 'campaignEmail'])
 const senders = Array.from(emailSrc.matchAll(/^export function (\w*Email)\b/gm))
   .map(m => m[1])
   .filter(n => !NOT_A_TEMPLATE.has(n))
@@ -133,5 +139,12 @@ ok(/<option value="">-- Select --<\/option>/.test(page), '...with something to s
 ok(/NOTIFICATION_TYPES\.filter\(t => t\.status === 'live'\)/.test(page),
   'the notification picker is still the catalog')
 ok(NOTIFICATION_TYPES.some(t => t.status === 'live'), '...which still has live types in it')
+
+// The campaign template's way of being looked at, since it is not in the
+// registry above. If this ever stops being true, `campaignEmail` belongs back
+// in the derived set rather than in the exemption.
+const campaignRoute = read('app/api/admin/campaigns/route.ts')
+ok(/campaignEmail\(/.test(campaignRoute), 'campaignEmail: the console renders it')
+ok(/action === 'preview'/.test(campaignRoute), "campaignEmail: ...and there is a preview action that asks for it")
 
 done()

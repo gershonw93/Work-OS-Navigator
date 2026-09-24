@@ -9,6 +9,28 @@ import { Label } from '@/components/ui/label'
 import { useNotice } from '@/components/ui/notice'
 import { fetchProblem } from '@/lib/fetch-error'
 import { copyProblem } from '@/lib/email-copy'
+import { Campaigns } from './campaigns'
+
+// TWO HALVES OF ONE CONSOLE. `Emails` edits the words of the nine the product
+// sends on its own; `Campaigns` writes a new one and picks who gets it. They
+// are separate components rather than one screen with a flag, so each keeps
+// its own loading and failure state - a campaign list that could not be read
+// must not take the email editor down with it.
+export default function MarketingPage() {
+  const [tab, setTab] = useState<'emails' | 'campaigns'>('emails')
+  return (
+    <div className="space-y-6">
+      <div className="row-even lg:flex lg:flex-wrap gap-2">
+        {(['emails', 'campaigns'] as const).map(t => (
+          <Button key={t} variant={tab === t ? 'default' : 'outline'} onClick={() => setTab(t)}>
+            {t === 'emails' ? 'Emails' : 'Campaigns'}
+          </Button>
+        ))}
+      </div>
+      {tab === 'emails' ? <Emails /> : <Campaigns />}
+    </div>
+  )
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Every email SyteNav sends, with its words editable.
@@ -44,7 +66,7 @@ async function headers(): Promise<Record<string, string>> {
   return t ? { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` } : { 'Content-Type': 'application/json' }
 }
 
-export default function MarketingPage() {
+function Emails() {
   const [state, setState] = useState<'loading' | 'ready' | 'failed'>('loading')
   const [problem, setProblem] = useState('')
   const [emails, setEmails] = useState<Email[]>([])
