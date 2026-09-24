@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Loader2, Send, Bell, Mail, Smartphone } from 'lucide-react'
+import { Loader2, Send, Bell, Mail, Smartphone, Eye } from 'lucide-react'
 import { adminGet } from '@/lib/admin-fetch'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { NOTIFICATION_TYPES } from '@/lib/notifications'
 import { demoNotification } from '@/lib/demo-notification'
+import { DEMO_EMAILS } from '@/lib/demo-emails'
 import { todayDateInput } from '@/lib/dates'
 
 // The demo control board. Pick a person, pick a notification, press send.
@@ -46,6 +47,10 @@ export default function DemoConsolePage() {
   const [sending, setSending] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
   const [result, setResult] = useState<SendResult | null>(null)
+  // The transactional half - emails no notification type can reach.
+  const [emailKey, setEmailKey] = useState('')
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null)
+  const [previewing, setPreviewing] = useState(false)
 
   useEffect(() => {
     adminGet<{ users: AdminUser[] }>('/api/admin/users').then(({ data, error }) => {
@@ -61,10 +66,60 @@ export default function DemoConsolePage() {
   const sendable = NOTIFICATION_TYPES.filter(t => t.status === 'live')
 
   const selected = users.find(u => u.id === recipientId) ?? null
+  const chosenEmail = DEMO_EMAILS.find(e => e.key === emailKey) ?? null
 
   // Live preview, computed with the same function the route uses - so what is
   // on the screen before you press send is what lands.
   const preview = type ? demoNotification(type, todayDateInput()) : null
+
+  /** Render one without mailing anybody - the fast loop for checking the look. */
+  async function renderPreview(key: string) {
+    setProblem(null); setPreviewHtml(null)
+    if (!key) return
+    setPreviewing(true)
+    try {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch(`/api/admin/demo-notification?email=${encodeURIComponent(key)}`, {
+        headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
+      })
+      const d = await res.json().catch(() => null)
+      if (!res.ok) { setProblem(d?.error ?? `Could not render it (${res.status}).`); return }
+      setPreviewHtml(d?.html ?? null)
+    } catch (err: any) {
+      setProblem(err?.message ?? 'Could not reach the server.')
+    } finally {
+      setPreviewing(false)
+    }
+  }
+
+  /** Send a transactional one for real. */
+  async function sendEmailDemo(e: React.FormEvent) {
+    e.preventDefault()
+    if (!recipientId) { setProblem('Pick who it goes to.'); return }
+    if (!emailKey) { setProblem('Pick an email.'); return }
+
+    setProblem(null); setResult(null); setSending(true)
+    try {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/admin/demo-notification', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token ?? ''}`,
+        },
+        body: JSON.stringify({ recipient_id: recipientId, email_key: emailKey }),
+      })
+      const d = await res.json().catch(() => null)
+      if (!res.ok) { setProblem(d?.error ?? `That did not send (${res.status}).`); return }
+      setResult(d as SendResult)
+    } catch (err: any) {
+      setProblem(err?.message ?? 'Could not reach the server.')
+    } finally {
+      setSending(false)
+    }
+  }
 
   async function send(e: React.FormEvent) {
     e.preventDefault()
@@ -186,6 +241,60 @@ export default function DemoConsolePage() {
             {sending ? 'Sending...' : 'Send it'}
           </Button>
         </div>
+      </form>
+
+      {/* ── THE OTHER HALF ────────────────────────────────────────────────
+          Eleven templates never go through `notify()` - a route sends them
+          directly, because they have no audience to configure. The welcome
+          email is the clearest: the first thing a customer ever receives, and
+          until now the only way to read it was to complete a real signup. */}
+      <form onSubmit={sendEmailDemo} className="mt-6 rounded-xl border border-line bg-panel p-5">
+        <h2 className="text-base font-semibold text-ink">One-off emails</h2>
+        <p className="mt-1 text-sm text-muted-fg">
+          The ones a route sends directly - the welcome, the invites, a quote request, an award.
+          They go to the person picked above.
+        </p>
+        {/* SAID OUT LOUD, because it is the difference between a product
+            working as designed and a bug report. */}
+        <p className="mt-2 text-xs text-warn">
+          These ignore notification settings - the real sends do too. There is no switch to turn one off.
+        </p>
+
+        <div className="mt-4 space-y-1.5">
+          <Label htmlFor="demo-email">Email <span className="text-danger">*</span></Label>
+          <select id="demo-email" className={field} value={emailKey}
+            onChange={e => { setEmailKey(e.target.value); setPreviewHtml(null) }}>
+            <option value="">-- Select --</option>
+            {DEMO_EMAILS.map(e => (
+              <option key={e.key} value={e.key}>{e.label}</option>
+            ))}
+          </select>
+          {chosenEmail && <p className="text-xs text-faint">{chosenEmail.when}</p>}
+        </div>
+
+        <div className="row-even lg:flex lg:flex-wrap mt-5 gap-2">
+          <Button type="button" variant="outline" disabled={previewing || !emailKey}
+            onClick={() => renderPreview(emailKey)}>
+            {previewing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
+            {previewing ? 'Rendering...' : 'Preview it'}
+          </Button>
+          <Button type="submit" disabled={sending}>
+            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            {sending ? 'Sending...' : 'Send it for real'}
+          </Button>
+        </div>
+
+        {/* Sandboxed: this is email HTML, and it is not running anything here. */}
+        {previewHtml && (
+          <div className="mt-4 overflow-hidden rounded-lg border border-line">
+            <iframe
+              title="Email preview"
+              sandbox=""
+              srcDoc={previewHtml}
+              className="h-[32rem] w-full bg-white"
+            />
+          </div>
+        )}
       </form>
 
       {/* WHAT ACTUALLY WENT OUT, not what was asked for. `notify()` honours
