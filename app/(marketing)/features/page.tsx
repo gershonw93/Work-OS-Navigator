@@ -75,7 +75,7 @@ const SECTIONS: {
     title: 'Built for phones with gloves on',
     lead: 'The crew should log it once, on the spot, and the office should see it live. Every field tool works on the device already in your pocket.',
     features: [
-      { icon: CalendarDays, title: 'Scheduling', body: 'Plan milestones, deliveries, and crew dates per job, and see conflicts across jobs before they cost you a day.' },
+      { icon: CalendarDays, title: 'Scheduling that survives a delay', body: 'Plan milestones, deliveries and crew dates per job, then say what waits for what. Move one date and every trade behind it shifts by the same number of days - after a review screen showing what moves and what does not, and only emailing the subs if you press the button.' },
       { icon: BookOpen, title: 'Daily logs', body: 'Weather, crew counts, work performed, photos, and notes, filed from the jobsite in a couple of minutes.' },
       { icon: CheckSquare, title: 'Tasks & progress', body: 'Track progress against each line item and spin off assignable tasks with priority and due dates.' },
       { icon: Clock, title: 'Time clock', body: 'Crew clocks in and out with location. You approve timesheets and export clean hours to payroll.' },
