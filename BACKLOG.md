@@ -652,10 +652,9 @@ Also noticed while building it and NOT done:
   screen. A cron that notices cleared gates would close that loop.
 
 ### Billing follow-ups (shipped the trial, not these)
-- **Nothing warns a company that its trial is ending.** The banner appears in
-  the app from three days out, which only reaches somebody who opens it. A
-  notification type + a cron is the shape - and per the registry rule its
-  audience is `settings_billing`, the permission for the action being asked for.
+- ~~Nothing warns a company that its trial is ending.~~ **Shipped**: three
+  letters at three days, one day and on the last day (days 12, 14 and 15),
+  routed on `settings_billing` through `/api/cron/trial-reminders`.
 - **No dunning.** A `past_due` account is writable and shouts on screen;
   nothing emails them. Stripe's own dunning can do it, but somebody has to turn
   it on in the dashboard.

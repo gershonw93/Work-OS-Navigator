@@ -209,6 +209,27 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
     defaults: { inApp: true, email: false }, status: 'planned',
   },
 
+  {
+    // THE ACCOUNT ITSELF, not a job. It sits in Money because that is where a
+    // person looks for it, and it is the only type in this catalog that is
+    // about SyteNav rather than about the work.
+    //
+    // AUDIENCE IS `settings_billing`, THE PERMISSION FOR THE ACTION IT IS
+    // ASKING FOR - choosing a plan - and not `settings_company`, which is who
+    // owns the record. That distinction is the one the inspection reminder got
+    // wrong for a whole release: it routed "nobody has marked this ready" to
+    // the office permission for BOOKING a visit, which told everybody except
+    // the two people who could do anything about it.
+    key: 'trial_ending', label: 'Free trial ending', group: 'Money',
+    description: 'Your company\'s free trial is nearly up. Sent three days out, the day before, and on the last day.',
+    audience: 'team', defaultAudience: ['settings_billing', 'edit'],
+    // EMAIL ON. This is the case the "email is off by default for most" rule
+    // names as its exception - finding out at your next login is too late,
+    // because the thing being warned about is that there may not be a useful
+    // next login. A bell nobody opens is exactly how this deadline is missed.
+    defaults: { inApp: true, email: true }, push: true, status: 'live',
+  },
+
   // ── Bids ──────────────────────────────────────────────────────────────────
   {
     // TO THE GC. Was sharing the `new_bid` string with the invitation below,

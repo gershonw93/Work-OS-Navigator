@@ -18,6 +18,7 @@
 import { addDaysIso, addBusinessDaysIso } from './inspection-status'
 import { dateWords } from './dates'
 import { isSendableType, notificationType, NOTIFICATION_TYPES } from './notifications'
+import { trialCopy } from '@/lib/trial-warning'
 
 export interface DemoNotification {
   /** The bell headline, and the email subject. */
@@ -86,6 +87,15 @@ export function demoNotification(type: string, today: string): DemoNotification 
         title: 'Your invoice was approved',
         message: `Invoice #1042 for $18,400 on ${PROJECT} was approved and is scheduled to pay on ${inDays(14)}.`,
         link: '/my-bids',
+      }
+    case 'trial_ending':
+      // The one sample whose copy is not invented here: it comes from the same
+      // function the cron writes with, so a demo cannot show a sentence the
+      // product does not send. The date moves because `inDays` does.
+      return {
+        ...trialCopy(3),
+        message: `${trialCopy(3).message} Your trial ends on ${inDays(3)}.`,
+        link: '/settings?tab=billing',
       }
     case 'new_bid':
       return {

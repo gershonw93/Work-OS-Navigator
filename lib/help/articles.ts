@@ -1392,6 +1392,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       'subscription', 'monthly', 'annual', 'yearly', 'invoice from sytenav', 'upgrade',
       'active project', 'project limit', 'limit', 'scans', 'scan allowance', 'ai scans',
       'beta', 'free', 'trial', 'card', 'cancel', 'seats', 'per seat', 'team members',
+      'trial ending', 'trial expired', 'reminder', 'warning', 'days left', 'read-only', 'locked out',
     ],
     summary: 'What each plan costs, how the free trial works, what counts toward your project limit, and what happens if you run out of scans.',
     blocks: [
@@ -1408,6 +1409,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: 'text', text: 'WHAT AN AI SCAN IS. One document read by the AI: a quote, a sub invoice, a receipt, an inspector card, a permit, a submittal or a compliance document. A read that fails never counts against you - you only spend a scan when you get an answer back. The count runs by calendar month and refills on the 1st.' },
       { type: 'text', text: 'IF YOU RUN OUT OF SCANS, scanning pauses until the 1st or until you move up a plan. Everything else in SyteNav carries on exactly as before - the limit is on having documents read for you, not on running the job. You can always enter the details by hand in the meantime.' },
       { type: 'text', text: 'SUBS AND CLIENTS COST NOTHING. Team members are unlimited on every plan, and subs and clients work through links rather than logins, so there is no seat to buy for them and no reason to ration access to the people on site.' },
+      { type: 'text', text: `WE WRITE TO YOU BEFORE IT RUNS OUT - three days out, the day before, and on the last day. It goes to whoever at your company can choose a plan, by email and in the bell, and Settings \u2192 Notifications \u2192 Who gets told is where you change who that is. The app shows the same countdown in a banner over the top of every screen for the last three days, so the screen and the letter never disagree.` },
       { type: 'warn', text: `There is still no self-serve sign-up. Access is by invite, so the buttons on the public pricing page open a request form rather than a checkout - the ${TRIAL_DAYS} free days start once you are approved, not when a stranger presses a button.` },
       { type: 'text', text: `WHAT HAPPENS AT THE END OF THE ${TRIAL_DAYS} DAYS. Pick a plan in Settings \u2192 Billing and you carry straight on. If you do not, the account goes READ-ONLY rather than away: every job, photo, invoice and log stays exactly where it is and stays readable by everybody who could read it before - what stops is saving new work. Choosing a plan turns writing back on immediately, and nothing is ever deleted for non-payment.` },
     ],

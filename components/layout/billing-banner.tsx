@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Lock, Clock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { TRIAL_WARN_FROM } from '@/lib/trial-warning'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // "Why did my save just fail?"
@@ -27,8 +28,11 @@ interface State {
   daysLeft: number | null
 }
 
-/** The last few days of a trial are worth saying out loud, not just the end. */
-const WARN_WITHIN_DAYS = 3
+// THE SCREEN SAYS WHAT THE LETTER SAYS. This used to be its own `= 3`, which is
+// a second spelling of a rule the reminder job also holds - and two spellings is
+// how a company gets a calm screen on the morning we emailed them that their
+// trial was ending, or a shouting one on a day we sent nothing. One list, in
+// lib/trial-warning.ts, read by both.
 
 export function BillingBanner() {
   const [access, setAccess] = useState<State | null>(null)
@@ -65,7 +69,7 @@ export function BillingBanner() {
     )
   }
 
-  const ending = access.state === 'trial' && access.daysLeft !== null && access.daysLeft <= WARN_WITHIN_DAYS
+  const ending = access.state === 'trial' && access.daysLeft !== null && access.daysLeft <= TRIAL_WARN_FROM
   const failed = access.state === 'overdue'
   if (!ending && !failed) return null
 

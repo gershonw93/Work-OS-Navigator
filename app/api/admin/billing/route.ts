@@ -138,6 +138,10 @@ export async function POST(request: Request) {
       trial_started_at: now.toISOString(),
       trial_ends_at: trialEnd(now, days).toISOString(),
       comped_until: now.toISOString(),
+      // THE DEADLINE MOVED, so what we have already said about it is stale.
+      // Leaving the stamp would mean a company that has been warned once is
+      // never warned again, silently - the milestones only ever count down.
+      trial_warned_days_left: null,
       updated_at: now.toISOString(),
     }).eq('company_id', companyId)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -155,6 +159,8 @@ export async function POST(request: Request) {
       company_id: companyId,
       status: 'trialing',
       trial_ends_at: trialEnd(now, days).toISOString(),
+      // Same reason as above: extending a trial un-says the warnings.
+      trial_warned_days_left: null,
       updated_at: now.toISOString(),
     }, { onConflict: 'company_id' })
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
