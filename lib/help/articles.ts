@@ -1231,6 +1231,25 @@ export const HELP_ARTICLES: HelpArticle[] = [
 
   // ── Settings & Team ────────────────────────────────────────────────────────
   {
+    slug: 'delete-account',
+    title: 'Delete your account',
+    category: 'settings',
+    keywords: ['delete', 'delete account', 'close account', 'remove account', 'cancel', 'deactivate', 'delete my data', 'privacy', 'gdpr', 'leave', 'danger zone', 'delete company', 'erase'],
+    summary: 'Ask us to delete your own login, or - if you are an admin - your whole company account, from inside the app.',
+    blocks: [
+      { type: 'text', text: 'Anybody can ask to delete their own account from inside SyteNav. We carry the deletion out within 30 days and email you when it is done.' },
+      { type: 'steps', items: [
+        'Go to Settings > Profile and scroll to the bottom. In Field Mode, open Me.',
+        'Press "Delete my account" and confirm.',
+        'We email you to confirm we have the request. The screen shows the date you asked, so you do not need to ask twice.',
+      ] },
+      { type: 'text', text: 'YOUR OWN LOGIN. Your name, email, password and notification settings go. Work you recorded on your company\'s jobs - daily logs, photos, time entries - belongs to the company and stays with it.' },
+      { type: 'text', text: 'THE WHOLE COMPANY. An admin can ask for the entire company account to be deleted from Settings > Danger Zone. That removes every project, everything in it, and every teammate\'s login, so only an admin can ask for it.' },
+      { type: 'tip', text: 'Changed your mind, or somebody asked without you knowing? Reply to the confirmation email and we will stop.' },
+    ],
+    related: ['invite-team-member'],
+  },
+  {
     slug: 'connect-quickbooks',
     title: 'Connect QuickBooks Online',
     category: 'settings',

@@ -5,7 +5,10 @@ import {
   inviteEmail, platformInviteEmail, teamInviteEmail, vendorInviteEmail,
   passwordResetEmail, welcomeEmail, clientPortalEmail, tokenLinkEmail,
   awardEmail, scheduleShiftEmail, scheduleUnblockedEmail, scopeChangeEmail,
+  deletionRequestEmail,
 } from './email'
+import { deletionPromise } from './account-deletion'
+import { SUPPORT_EMAIL } from './support-email'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The demo board's OTHER half: the emails that never go through `notify()`.
@@ -105,6 +108,12 @@ export const DEMO_EMAILS: DemoEmail[] = [
     label: 'Password reset',
     when: 'Somebody asks for a reset link.',
     build: () => passwordResetEmail({ resetUrl: `${APP}/reset-password?token=demo` }),
+  },
+  {
+    key: 'deletion-request',
+    label: 'Account deletion request',
+    when: 'Somebody presses Delete my account (Settings > Profile, or Me in Field Mode).',
+    build: () => deletionRequestEmail({ name: PERSON, promise: deletionPromise('self'), supportEmail: SUPPORT_EMAIL }),
   },
   {
     key: 'client-portal',
