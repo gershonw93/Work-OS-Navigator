@@ -60,7 +60,7 @@ const AUTHORED: Release[] = [
       {
         kind: 'new',
         title: 'Your first 15 days are free, and Billing says where you are',
-        text: 'New companies now start on a 15-day free trial - the whole product on a real job, with no card taken and nothing to cancel. Settings > Billing tells you exactly where you stand: how many days are left, or which plan you are on and when it renews. Anybody who was in the beta before this shipped keeps free access; we have not put a clock on people who were here first, and that screen says so in as many words.',
+        text: 'New companies now start on a 15-day free trial - the whole product on a real job, with no card taken and nothing to cancel. Settings > Billing tells you exactly where you stand: how many days are left, or which plan you are on and when it renews. We write to you before it runs out - three days out, the day before, and on the last day - so nobody finds out by having a save refused, and the app carries the same countdown over the top of every screen for the last three days. Anybody who was in the beta before this shipped keeps free access; we have not put a clock on people who were here first, and that screen says so in as many words.',
         help: 'plans-and-pricing',
       },
       {
