@@ -5,6 +5,7 @@ import { requirePermission, denied } from '@/lib/api-guard'
 import { guardActivation } from '@/lib/activation-check'
 import { budgetAmount } from '@/lib/validate'
 import { estimateRemovalProblem, QUOTE_CATEGORY } from '@/lib/estimate-removal'
+import { guardScan, scanDenied } from '@/lib/scan-guard'
 
 export const runtime = 'nodejs'
 
@@ -181,10 +182,16 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const { data: signed } = await db.storage.from('submittals').createSignedUrl(path, 60 * 60 * 24 * 365 * 10)
   const fileUrl = signed?.signedUrl ?? null
 
-  // AI scan → line items
+  // AI scan → line items.
+  // The meter is asked only when a scan is actually going to happen - there is
+  // no key on some environments, and an upload that stores a file without
+  // reading it has not spent anybody's allowance.
   let parsed: any = null
   if (fileUrl && process.env.ANTHROPIC_API_KEY) {
+    const meter = await guardScan(db, gate.actor, 'estimate', params.id)
+    if (scanDenied(meter)) return meter.denied
     parsed = await scan(new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }), fileUrl)
+    if (parsed) await meter.succeeded()
   }
   const items: any[] = Array.isArray(parsed?.line_items) ? parsed.line_items : []
   const lineAmount = (it: any) => typeof it.amount === 'number' ? it.amount

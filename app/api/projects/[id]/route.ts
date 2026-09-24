@@ -7,6 +7,9 @@ import { ownsProject } from '@/lib/project-access'
 import { friendlyDbError } from '@/lib/db-error'
 import { guardActivation } from '@/lib/activation-check'
 import { isProjectStatus } from '@/lib/activation'
+import { billingLock } from '@/lib/api-guard'
+import { projectSlotProblem } from '@/lib/billing-read'
+import { COUNTED_PROJECT_STATUSES } from '@/lib/plan-limits'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -66,6 +69,11 @@ export async function PATCH(
     return NextResponse.json({ error: 'You do not have permission to edit this project.' }, { status: 403 })
   }
 
+  // Gated by hand rather than through `requirePermission`, so the read-only
+  // lock has to be asked for explicitly here - see `billingLock`.
+  const locked = await billingLock(db, actor?.companyId)
+  if (locked) return locked
+
   const body = await request.json()
   const { name, address, client, type, status, start_date, end_date, customer_id, lat, lng, interior_sqft, exterior_sqft, billing_mode, default_retainage_pct, labor_rate, unit, floor, sellout_amount, contract_type, contractor_fee_pct, fee_on_materials } = body
 
@@ -106,6 +114,21 @@ export async function PATCH(
   if (status != null) {
     if (!isProjectStatus(status)) {
       return NextResponse.json({ error: 'That is not a project status.' }, { status: 400 })
+    }
+    // BRINGING A JOB BACK IS OPENING A SLOT. Metering only the create route
+    // would leave the eleventh active job one status change away - and the
+    // status change is how a finished job comes back, so it is the likelier
+    // door of the two. Only asked when the move is INTO a counted status from
+    // outside one; re-saving an active job as active must not be refused for
+    // the slot it is already occupying.
+    const { data: was } = await db.from('projects')
+      .select('status, gc_company_id').eq('id', params.id).maybeSingle()
+    const prev = (was as { status?: string; gc_company_id?: string } | null) ?? null
+    const wasCounted = (COUNTED_PROJECT_STATUSES as readonly string[]).includes(prev?.status ?? '')
+    const willCount = (COUNTED_PROJECT_STATUSES as readonly string[]).includes(status)
+    if (willCount && !wasCounted) {
+      const slot = await projectSlotProblem(db, prev?.gc_company_id)
+      if (slot) return NextResponse.json({ error: slot, billing: 'project_limit' }, { status: 402 })
     }
     updates.status = status
   }

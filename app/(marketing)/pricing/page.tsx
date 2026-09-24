@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import { ArrowRight, Check, Archive } from 'lucide-react'
-import { PLAN_FEATURES, PLAN_CTA_HREF, PLAN_CTA_WEB, PLAN_CTA_WEB_HREF, PRICING_STATUS } from '@/lib/plans'
+import { PLAN_FEATURES, PLAN_CTA_HREF, PLAN_CTA_WEB, PLAN_CTA_WEB_HREF, PRICING_STATUS, TRIAL_DAYS } from '@/lib/plans'
 import { appHref } from '@/lib/hosts'
 import { marketingMeta } from '@/components/marketing/meta'
 import { Reveal } from '@/components/marketing/reveal'
@@ -11,7 +11,7 @@ import { PricingPlans } from '@/components/marketing/pricing-plans'
 export const metadata: Metadata = marketingMeta({
   title: 'SyteNav Pricing | Pay by Active Project',
   description:
-    'Run every part of the job in SyteNav. Plans start at $99 a month and include unlimited team members, subs and clients. SyteNav is an invite-only beta and free while you are in it.',
+    `Run every part of the job in SyteNav. Plans start at $99 a month and include unlimited team members, subs and clients. SyteNav is invite-only and your first ${TRIAL_DAYS} days are free.`,
   path: '/pricing',
 })
 
@@ -29,17 +29,29 @@ export const metadata: Metadata = marketingMeta({
 //   "Poke around the live demo. No signup."  There is no public demo. The only
 //   thing named demo in this repo is /api/dev/seed-demo, which seeds a database.
 //
-// Both were replaced with Request access, which is the door that exists. When a
-// trial or a demo ships, this page is where it goes - and the FAQ below stops
-// being true, so fix it in the same change.
+// Both were replaced with Request access, which is the door that exists.
+//
+// A TRIAL SHIPPED, SO HALF OF THAT CHANGED - and the note above said this page
+// was where it would go, and that the FAQ below would stop being true. Both
+// happened. What did NOT change is the door: `/signup` is still a request form
+// behind a waitlist, so the fifteen days are stated as what happens once you
+// are approved, never as a button a stranger can press. The BUTTON still says
+// Request access, because that is still what pressing it does.
 const FAQ = [
   {
     q: 'What happens when I reach my project limit?',
-    a: 'You can upgrade or close out a finished job. Nothing is deleted either way. Closed jobs stay fully readable.',
+    a: 'You can move up a plan or close out a finished job. Nothing is deleted either way, and a closed job stays fully readable. Planning and on-hold jobs count towards the limit; completed and cancelled ones do not.',
   },
   {
+    // REWRITTEN BECAUSE THE PRODUCT CHANGED UNDER IT. This used to say "We
+    // reach out. We do not cut you off in the middle of a job", written when
+    // nothing counted a scan at all. Scans are metered now and the allowance
+    // is a real stop, so the old answer would have been a promise the code no
+    // longer keeps - the same failure as a button whose verb nothing honours.
+    // The second half of it is still true and still worth saying: the stop is
+    // on scanning, not on the job.
     q: 'What happens if I go over the scan allowance?',
-    a: 'We reach out. We do not cut you off in the middle of a job.',
+    a: 'Scanning pauses until the allowance refills on the 1st, or you move up a plan. Everything else in SyteNav keeps working - the limit is on reading documents for you, not on running the job.',
   },
   {
     q: 'Do subs or clients cost extra?',
@@ -52,7 +64,7 @@ const FAQ = [
   {
     // The question the prices on this page raise, answered where they are.
     q: 'So what am I paying today?',
-    a: 'Nothing. SyteNav is an invite-only beta and free while you are in it, on the full product with a real job. The prices above are what the plans will cost when billing starts, published now so nobody finds out later. There is no card on file and no trial clock running.',
+    a: `Nothing for your first ${TRIAL_DAYS} days. SyteNav is invite-only: once you are approved you get the whole product on a real job for ${TRIAL_DAYS} days, with no card taken and nothing to cancel. After that you pick one of the plans above. Anybody already in the beta stays free - we are not putting a clock on people who were here before billing was.`,
   },
 ]
 
@@ -121,9 +133,9 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* Run a real job before you decide. The beta IS the trial - it is the
-          full product on a real job with no card - so this block says that
-          rather than promising a self-serve clock that does not exist. */}
+      {/* Run a real job before you decide. THE LENGTH COMES OFF `TRIAL_DAYS`,
+          never typed: a hardcoded "15 days" here is one price change away from
+          being the only place on the internet still saying fourteen. */}
       <section className="dark">
         <div className="border-y border-line bg-surface text-ink">
           <div className="mx-auto max-w-3xl px-4 sm:px-6 py-20 sm:py-24 text-center">
@@ -132,9 +144,9 @@ export default function PricingPage() {
                 Run a real job before you decide.
               </h2>
               <p className="mx-auto mt-5 max-w-xl leading-relaxed text-muted-fg">
-                SyteNav is an invite-only beta. Ask for access, tell us how you work, and you
-                get the whole product on a real job - free while you are in the beta, with no
-                card and no cut-down plan.
+                SyteNav is invite-only. Ask for access, tell us how you work, and your first{' '}
+                {TRIAL_DAYS} days are free - the whole product on a real job, with no card taken
+                and no cut-down plan.
               </p>
               <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
                 <Link

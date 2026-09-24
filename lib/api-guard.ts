@@ -3,6 +3,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { getActor, actorCan, type ActorPerms } from '@/lib/server-permissions'
 import type { Action } from '@/lib/permissions'
 import { ownsProject } from '@/lib/project-access'
+import { readBilling } from '@/lib/billing-read'
+import { billingAccess } from '@/lib/billing-state'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // "Are you allowed to do this?" - asked once, in one place.
@@ -30,6 +32,42 @@ import { ownsProject } from '@/lib/project-access'
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type Gate = { actor: ActorPerms } | { denied: NextResponse }
+
+/**
+ * The actions that change something. A locked account may still be READ.
+ *
+ * That is the whole shape of the lock: past the trial with no plan, every
+ * screen and every job stays open and nothing is deleted - what stops is
+ * writing. A lock that hid the data would be holding a crew's own site records
+ * hostage, which is a different product decision from asking them to pay.
+ */
+const WRITE_ACTIONS: Action[] = ['create', 'edit', 'delete']
+
+/**
+ * 402, not 403. A client behaves differently on each and a person reads them
+ * differently: 403 is "you personally may not", which sends somebody to their
+ * admin to ask for a permission nobody can grant them. Payment Required is the
+ * one status that says the account, not the person.
+ */
+function paymentRequired(reason: string): NextResponse {
+  return NextResponse.json({ error: reason, billing: 'locked' }, { status: 402 })
+}
+
+/**
+ * The same lock, for the routes that gate by hand.
+ *
+ * `POST /api/projects` and `PATCH /api/projects/[id]` resolve permissions
+ * themselves with `actorCan` rather than through `requirePermission`, so the
+ * check below would never have run on the two routes that decide how many
+ * jobs a company has open - which is the thing the plans meter. Exported
+ * rather than copied: a second spelling of the lock is how one of them stops
+ * matching the other.
+ */
+export async function billingLock(db: SupabaseClient, companyId: string | null | undefined): Promise<NextResponse | null> {
+  if (!companyId) return null
+  const access = billingAccess(await readBilling(db, companyId))
+  return access.writable ? null : paymentRequired(access.reason)
+}
 
 /**
  * The permission a route needs, resolved from the bearer token.
@@ -66,6 +104,21 @@ export async function requirePermission(
         { status: 403 },
       ),
     }
+  }
+
+  // ── and is the account itself allowed to write today? ────────────────────
+  //
+  // HERE, because this is the only thing all 152 write routes already have in
+  // common. The alternative was a line in each of them, which is how the
+  // forty-first gets missed - the exact reasoning that put the permission
+  // check here in the first place. `middleware.ts` cannot do it: it returns
+  // early for every `/api/` path.
+  //
+  // Only for writes, so a read costs nothing extra, and only when the caller
+  // has a company - a token with no profile behind it is already handled above.
+  if (WRITE_ACTIONS.includes(action)) {
+    const locked = await billingLock(db, actor.companyId)
+    if (locked) return { denied: locked }
   }
 
   return { actor }

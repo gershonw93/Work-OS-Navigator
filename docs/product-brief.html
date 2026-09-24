@@ -1,3 +1,4 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>SyteNav Field Guide</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -228,6 +229,7 @@
 
   .stage h3 { margin: 2px 0 5px; }
   .stage p { margin: 0; font-size: 15.5px; }
+  .stage p + p { margin-top: 10px; }
 
   .tabs {
     font-family: var(--mono);
@@ -335,6 +337,54 @@
   }
   .colophon p { margin-bottom: 10px; }
 
+  /* ── Price cards ──────────────────────────────────────────── */
+
+  .tiers {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin: 20px 0 0;
+  }
+  @media (max-width: 620px) { .tiers { grid-template-columns: 1fr; } }
+
+  .tier {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 18px 18px 16px;
+  }
+  .tier.pick { border-color: var(--accent-ink); }
+  .tier .cap {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--faint);
+    display: block;
+    margin-bottom: 7px;
+  }
+  .tier .amt {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 26px;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    display: block;
+    line-height: 1.1;
+  }
+  .tier .amt span { font-size: 14px; font-weight: 600; color: var(--muted); }
+  .tier .sub { font-size: 14px; color: var(--muted); margin: 7px 0 0; }
+
+  .beta {
+    background: var(--accent-soft);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-top: 18px;
+    font-size: 15.5px;
+  }
+  .beta b { color: var(--ink); }
+
   a { color: var(--accent-ink); text-decoration-thickness: 1px; text-underline-offset: 2px; }
   a:focus-visible, [tabindex]:focus-visible {
     outline: 2px solid var(--accent-ink);
@@ -353,12 +403,12 @@
     </div>
     <h1>What SyteNav does, in the words a builder would use</h1>
     <p class="standfirst">
-      Construction management for general contractors — the estimate, the subs, the schedule,
+      Construction management for general contractors - the estimate, the subs, the schedule,
       and every dollar in and out of a job. Written to answer real questions, including the
       ones where the answer is "not yet".
     </p>
     <div class="stamp">
-      <span><b>Updated</b> 11 Sep 2026</span>
+      <span><b>Updated</b> 24 Sep 2026</span>
       <span><b>Audience</b> prospects &amp; customers</span>
       <span><b>Status</b> live, in daily use</span>
     </div>
@@ -368,7 +418,7 @@
     <p class="eyebrow">The short version</p>
     <h2>One place for the job, from the estimate to the last payment</h2>
     <p class="lead">
-      A GC runs a job out of a dozen places at once — a spreadsheet for the budget, a text thread
+      A GC runs a job out of a dozen places at once - a spreadsheet for the budget, a text thread
       with the plumber, an inbox full of certificates, and a bookkeeper asking what got billed.
       SyteNav is one place for all of it, built for the person standing on the site rather than
       the person reporting on it afterwards.
@@ -376,7 +426,7 @@
     <p>
       Every job opens on an <strong>Overview</strong>: what you have received from the client, what
       you have committed to vendors, what is waiting on you, and what is waiting on somebody else.
-      Not a checklist — a GC knows how to run a job. What nobody can know without opening six tabs
+      Not a checklist - a GC knows how to run a job. What nobody can know without opening six tabs
       is what has piled up since they last looked.
     </p>
   </section>
@@ -391,7 +441,7 @@
         <div>
           <h3>Price it</h3>
           <p>
-            Build or upload an estimate and AI reads it into line items — including your payment
+            Build or upload an estimate and AI reads it into line items - including your payment
             terms, so "50% deposit, 40% at rough-in" becomes figures you can actually request later.
             Send it as a proposal; accept it and it becomes a live job.
           </p>
@@ -405,9 +455,9 @@
           <p>
             Send a scope to subs and get priced quotes back. Inviting one emails them the request there
             and then; a second email to somebody who has not answered is a reminder and says so. They need
-            no account and no password — a private link opens the scope, the plans and a form on a phone. Compare line by line,
+            no account and no password - a private link opens the scope, the plans and a form on a phone. Compare line by line,
             award one, and the subcontract, its payment schedule and its budget line all exist.
-            The package you pick — labour and material, labour only, material only — decides who supplies the
+            The package you pick - labour and material, labour only, material only - decides who supplies the
             material, so a request cannot go out contradicting itself. A quote carrying a valid-until date is
             flagged before you award it, so nobody signs a price the vendor stopped holding last month.
             Insurance and licences are chased from the same place, and compliance goes by the DATE on the
@@ -426,7 +476,23 @@
             permits, inspections, RFIs and submittals. Field-first: everything here works on a
             phone with one hand and a glove on the other.
           </p>
-          <p class="tabs">Plans · Schedule · Tasks · Daily Logs · Permits · Inspections · RFIs</p>
+          <p>
+            Inspections keep two dates apart on purpose: the date the field <em>needs</em> it, and
+            the date the jurisdiction actually <em>gave</em> you. Only the second one reaches the
+            calendar, so nothing sits in your team's Outlook as a confirmed appointment that nobody
+            has arranged.
+          </p>
+          <p>
+            The time clock takes a live selfie and checks the punch against where the job actually
+            is - inside 250m and it passes, outside and it is flagged for somebody to look at. Every
+            job has one point on the map for that, taken from its address; where the address puts
+            the pin in the wrong place - a site entrance on a different road, a long driveway, new
+            construction with no street number yet - you can set it by hand, or just stand on the
+            site and press <em>Use my current location</em>. If a job has no usable point, SyteNav
+            says so on the Time Clock tab and records the punch unchecked. It never invents one: a
+            pin in the wrong place would flag an honest worker standing exactly where they should be.
+          </p>
+          <p class="tabs">Plans · Schedule · Tasks · Daily Logs · Time Clock · Permits · Inspections · RFIs</p>
         </div>
       </li>
       <li class="stage">
@@ -453,7 +519,7 @@
         <h3>Simple invoicing</h3>
         <p>
           For residential and cost-plus work. Invoices are built from costs you have already
-          approved — sub bills and material receipts — each carrying its own markup, so nothing is
+          approved - sub bills and material receipts - each carrying its own markup, so nothing is
           retyped and the figures cannot drift.
         </p>
       </div>
@@ -469,7 +535,7 @@
     <h3>Deposits and stage payments</h3>
     <p>
       A deposit is money taken before there are any costs to bill against, so it is not built like
-      an invoice. Your estimate's payment terms appear already priced — press once to request the
+      an invoice. Your estimate's payment terms appear already priced - press once to request the
       deposit, and it goes to the client by email and appears on their portal. Ask in dollars or as
       a percentage; either way it shows what the figure comes to before you send it.
     </p>
@@ -477,9 +543,76 @@
     <h3>Your fee is earned, not assumed</h3>
     <p>
       On a cost-plus job the contractor's fee is calculated from the cost that has actually been
-      billed, line by line — including lines you agreed to pass through at cost, and lines
+      billed, line by line - including lines you agreed to pass through at cost, and lines
       negotiated at a different rate. A flat "rate × spend" is close but wrong, and it is wrong in
       the direction that costs you money.
+    </p>
+  </section>
+
+  <section>
+    <p class="eyebrow">What it costs</p>
+    <h2>You pay for how many jobs are running, not for how many people use it</h2>
+    <p class="lead">
+      Every plan is the whole product. There is no cut-down tier, so nothing is ever behind a
+      higher price - the only thing the tiers meter is how many projects can be active at once.
+    </p>
+
+    <div class="tiers">
+      <div class="tier">
+        <span class="cap">Up to 3 active projects</span>
+        <span class="amt">$99<span> / month</span></span>
+        <p class="sub">150 AI scans a month.</p>
+      </div>
+      <div class="tier pick">
+        <span class="cap">Up to 10 active projects</span>
+        <span class="amt">$299<span> / month</span></span>
+        <p class="sub">300 AI scans a month.</p>
+      </div>
+      <div class="tier">
+        <span class="cap">Unlimited active projects</span>
+        <span class="amt">$499<span> / month</span></span>
+        <p class="sub">750 AI scans a month.</p>
+      </div>
+    </div>
+
+    <div class="beta">
+      <b>Your first 15 days are free.</b> SyteNav is invite-only: once you are approved you get
+      the whole product on a real job for 15 days, with no card taken and nothing to cancel.
+      After that you pick one of the plans above. Anybody who was in the beta before billing
+      existed keeps free access - we have not put a clock on people who were here first.
+    </div>
+
+    <h3>Finished jobs do not count</h3>
+    <p>
+      Only <em>active</em> projects use your plan - jobs being planned, running, or on hold.
+      Complete or cancel a job and it stops counting while staying fully readable forever: the
+      budget, invoices, daily logs, photos, documents and Job History all stay where they are.
+      Reaching the limit means moving up a plan or closing out a job that is done, and neither
+      deletes anything. Settings &rarr; Billing shows the count as it stands.
+    </p>
+
+    <h3>Your team, your subs and your clients are all free</h3>
+    <p>
+      Team members are unlimited on every plan. Subs and clients work through links rather than
+      logins, so there is no seat to buy for them - which matters more than it sounds: where the
+      field is charged per seat, seats get rationed, and rationed seats mean the people on site
+      are not in the system.
+    </p>
+
+    <h3>Paying annually</h3>
+    <p>
+      Ten months charged for twelve months of service - so $99 a month becomes $990 a year, and
+      the middle plan $2,990. Monthly plans cancel anytime.
+    </p>
+
+    <h3>What an AI scan is</h3>
+    <p>
+      One document read by the AI: a quote, a sub bill, a receipt, an inspector's card, a permit,
+      a submittal or a compliance document. A read that fails never counts against you - you only
+      spend a scan when you get an answer back. The count runs by calendar month and refills on
+      the 1st. If you run out, scanning pauses until then or until you move up a plan, and
+      everything else in SyteNav carries on: the limit is on having documents read for you, not
+      on running the job.
     </p>
   </section>
 
@@ -493,10 +626,17 @@
       already paid.
     </p>
     <p>
-      Nothing appears there until you have actually sent it — a draft invoice or an unsent payment
+      Nothing appears there until you have actually sent it - a draft invoice or an unsent payment
       request stays yours. And the moment money is recorded, their page says so: the request
       disappears and the payment is acknowledged. <em>"Did they even get my money?"</em> is the one
       question a client page must never leave open.
+    </p>
+    <p>
+      Who can hand that link out is its own permission, set per role or per person. It is on by
+      default for admins, managers, project managers and office staff, and off for field
+      supervisors, workers and any subcontractor you invite onto the job - the portal carries your
+      invoices to your client, so it is not something the crew or a vendor should be able to open.
+      Replacing a link, which cuts off a client using the old one, is a separate permission again.
     </p>
   </section>
 
@@ -509,7 +649,7 @@
         <dt>Does it sync with QuickBooks Online?</dt>
         <dd>
           Yes. One-way, SyteNav into QuickBooks, so your bookkeeper is not re-entering anything.
-          Once connected it runs itself — there is no button to remember.
+          Once connected it runs itself - there is no button to remember.
         </dd>
       </div>
       <div>
@@ -536,7 +676,7 @@
       <div>
         <dt>Will an unpaid invoice show as money owed?</dt>
         <dd>
-          Yes — that is the point. Send it and it lands in QuickBooks as a receivable with your own
+          Yes - that is the point. Send it and it lands in QuickBooks as a receivable with your own
           invoice number, the due date and the job name on it, so you get proper aging rather than
           only seeing cash when it arrives.
         </dd>
@@ -544,16 +684,16 @@
       <div>
         <dt>Which invoice does a payment settle?</dt>
         <dd>
-          The one you recorded it against — not "the oldest one still open". Two invoices raised on
+          The one you recorded it against - not "the oldest one still open". Two invoices raised on
           the same day cannot be mixed up, because the payment carries the invoice you pressed Mark
-          paid on. Only money that settles nothing in particular — a deposit taken before there is
-          an invoice — books as a sales receipt instead.
+          paid on. Only money that settles nothing in particular - a deposit taken before there is
+          an invoice - books as a sales receipt instead.
         </dd>
       </div>
       <div>
         <dt>Does it record how the client paid?</dt>
         <dd>
-          Yes. Check, ACH, wire, cash or card carries through to the QuickBooks record — the field
+          Yes. Check, ACH, wire, cash or card carries through to the QuickBooks record - the field
           your bookkeeper reconciles a bank statement against. QuickBooks only knows a few of those
           out of the box; the rest are created in your file the first time you use them.
         </dd>
@@ -568,7 +708,7 @@
       <div>
         <dt>What if QuickBooks is down when I record something?</dt>
         <dd>
-          Your record saves regardless — the payment is the work, QuickBooks is a side effect. The
+          Your record saves regardless - the payment is the work, QuickBooks is a side effect. The
           miss is logged and swept up by the next sync, and the settings screen tells you plainly
           how many records are waiting. That includes voids: if a void does not get through, the
           invoice says so rather than showing a tick, because an invoice that is still an open
@@ -579,7 +719,7 @@
         <dt>I have more than one company. Do they share books?</dt>
         <dd>
           No. Each company connects to its own QuickBooks file and only ever pushes there. That is
-          deliberate — separate businesses must never write into each other's books.
+          deliberate - separate businesses must never write into each other's books.
         </dd>
       </div>
     </dl>
@@ -589,12 +729,28 @@
     <p class="eyebrow">Straight answers</p>
     <h2>What it does not do yet</h2>
     <p>
-      Worth knowing before you ask it to do something it cannot. None of these lose data — the
+      Worth knowing before you ask it to do something it cannot. None of these lose data - the
       information is still in SyteNav; they are places a person still does the last step.
     </p>
 
     <div class="limits">
       <ul>
+        <li>
+          <span class="tag">Booking an inspection</span>
+          SyteNav does not contact the inspector or the township. It tells the right person at your
+          company that an inspection is needed, hands them the numbers already on the job - the
+          issuing authority and inspector from your permits, plus any inspectors in your Directory -
+          and then records what they were given: the confirmed date, who they spoke to and the
+          confirmation number. The phone call is still a person's job.
+        </li>
+        <li>
+          <span class="tag">Placing a job on the map</span>
+          A job's map point comes from its address, and an address a map service cannot resolve -
+          a street with no town or ZIP, or a placeholder typed in a hurry - leaves the job unplaced
+          rather than guessed at. SyteNav says which jobs those are and lets you set the point by
+          hand, but it will not invent one, and it cannot tell a placeholder that happens to name a
+          real town from a genuine address.
+        </li>
         <li>
           <span class="tag">QuickBooks · one direction</span>
           Nothing recorded directly in QuickBooks comes back into SyteNav. Edit something over
@@ -607,9 +763,16 @@
         </li>
         <li>
           <span class="tag">Editing a sent invoice</span>
-          Deliberately not possible — editing a document your client is holding leaves your copy
+          Deliberately not possible - editing a document your client is holding leaves your copy
           and theirs disagreeing. Void it and raise a corrected one instead; voiding sends the void
           to QuickBooks and releases its costs to be billed again.
+        </li>
+        <li>
+          <span class="tag">Signing up · no self-serve start</span>
+          There is still no button a stranger can press to start the free 15 days, and no public
+          demo you can click into. Access is by invite, so the pricing page asks for your details
+          rather than your card, and the trial begins once you are approved. The page says that
+          rather than offering a button that opens something else.
         </li>
         <li>
           <span class="tag">Sub-side experience</span>
@@ -627,7 +790,7 @@
     <h3>Email that actually sends</h3>
     <p>
       Quote requests, document requests, shared files, client invoices and payment requests all go
-      out from SyteNav — properly branded, from your domain, with the link the recipient needs. If
+      out from SyteNav - properly branded, from your domain, with the link the recipient needs. If
       sending is not set up or fails, it says so and hands you the link to send yourself rather
       than showing a green tick over an email that never left.
     </p>
@@ -635,7 +798,7 @@
     <h3>You choose what you are told about, and so does the company</h3>
     <p>
       Each person has their own switches for the bell and for email. Email is off by default for
-      most, on for the six where finding out at your next login is too late — somebody waiting on
+      most, on for the six where finding out at your next login is too late - somebody waiting on
       your sign-off, a bill needing approval, an insurance certificate about to lapse, or a package
       you bid on being decided. Separately, an admin sets <strong>who gets told at all</strong>:
       which roles or people hear about an inspection, a change order, a bill waiting for approval.
@@ -644,7 +807,7 @@
     <h3>Multi-unit work</h3>
     <p>
       A building or a street can be a site holding a job per unit, with budget and progress rolling
-      up across all of them — so twelve townhouses are twelve jobs you can actually run, not one
+      up across all of them - so twelve townhouses are twelve jobs you can actually run, not one
       job with twelve of everything in it.
     </p>
   </section>
@@ -652,7 +815,7 @@
   <footer class="colophon">
     <p>
       <strong>Using this page to answer questions.</strong> Everything here describes behaviour
-      that is live today, and the limits section is as carefully checked as the features — a brief
+      that is live today, and the limits section is as carefully checked as the features - a brief
       that only sells produces confident wrong answers.
     </p>
     <p>
@@ -662,3 +825,5 @@
   </footer>
 
 </div>
+
+</body></html>

@@ -650,3 +650,18 @@ Also noticed while building it and NOT done:
 - `min_predecessor_progress` clearing does not fire the "you're unblocked"
   email on its own - somebody has to open the schedule and send from the review
   screen. A cron that notices cleared gates would close that loop.
+
+### Billing follow-ups (shipped the trial, not these)
+- **Nothing warns a company that its trial is ending.** The banner appears in
+  the app from three days out, which only reaches somebody who opens it. A
+  notification type + a cron is the shape - and per the registry rule its
+  audience is `settings_billing`, the permission for the action being asked for.
+- **No dunning.** A `past_due` account is writable and shouts on screen;
+  nothing emails them. Stripe's own dunning can do it, but somebody has to turn
+  it on in the dashboard.
+- **`ai_scans` records `kind` and nothing reads it.** A breakdown of where a
+  month's scans went ("41 invoices, 12 quotes") is one query away and would
+  answer the first question anybody near their limit asks.
+- **The trial allowance is the featured plan's.** Defensible, and invisible: a
+  company on a trial is not told which caps it is running under, only the
+  numbers.

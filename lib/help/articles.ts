@@ -16,7 +16,7 @@
 // way 'plans-and-pricing' builds its steps out of PLANS.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { PLANS, planPrice } from '@/lib/plans'
+import { PLANS, planPrice, TRIAL_DAYS } from '@/lib/plans'
 
 export type HelpBlock =
   | { type: 'text'; text: string }
@@ -1393,9 +1393,9 @@ export const HELP_ARTICLES: HelpArticle[] = [
       'active project', 'project limit', 'limit', 'scans', 'scan allowance', 'ai scans',
       'beta', 'free', 'trial', 'card', 'cancel', 'seats', 'per seat', 'team members',
     ],
-    summary: 'What each plan costs at launch, what counts toward your project limit, and what you are paying today (nothing).',
+    summary: 'What each plan costs, how the free trial works, what counts toward your project limit, and what happens if you run out of scans.',
     blocks: [
-      { type: 'text', text: 'WHAT YOU ARE PAYING TODAY: nothing. SyteNav is an invite-only beta and free while you are in it, on the full product with a real job. There is no card on file and no trial clock running. The prices in Settings \u2192 Billing are what the plans will cost when billing starts - published now rather than sprung on you later.' },
+      { type: 'text', text: `YOUR FIRST ${TRIAL_DAYS} DAYS ARE FREE. SyteNav is invite-only: once you are approved you get the whole product on a real job for ${TRIAL_DAYS} days, with no card taken and nothing to cancel. Settings \u2192 Billing shows exactly where you are - how many days are left, how many active projects you are using, and how many AI scans you have had this month. If you were in the beta before billing existed, your account stays free and that screen says so.` },
       { type: 'text', text: 'THE TIERS ARE CAPACITY, NOT FEATURES. Every plan is the whole product. You are only buying how many projects can be active at once: up to 3, up to 10, or unlimited. The cheapest plan is not a cut-down version, so there is never a feature you cannot reach because of which plan you are on.' },
       // Built from PLANS, not typed. A price quoted in help text is the copy
       // that goes stale silently - there is no compiler watching this file.
@@ -1404,10 +1404,12 @@ export const HELP_ARTICLES: HelpArticle[] = [
       ) },
       { type: 'tip', text: 'Paying annually is ten months for twelve - two months free. The per-month figure and the saving shown beside each plan are worked out from the monthly price, so they cannot drift out of date.' },
       { type: 'text', text: 'WHAT COUNTS AS AN ACTIVE PROJECT. Only jobs that are running. Complete a project and it stops counting toward your limit while staying fully readable forever - the budget, invoices, daily logs, photos, documents and Job History all stay exactly where they are. Nothing is deleted or archived away when you close a job out.' },
-      { type: 'text', text: 'WHEN YOU REACH THE LIMIT you can upgrade or close out a finished job. Either way nothing is lost.' },
-      { type: 'text', text: 'WHAT AN AI SCAN IS. One document read by the AI: a quote, a sub invoice, a receipt, or an inspector card. A failed read never counts against you. If you go over the allowance we reach out - we do not cut you off in the middle of a job.' },
+      { type: 'text', text: 'WHEN YOU REACH THE LIMIT you can move up a plan or close out a finished job. Either way nothing is lost. Jobs that are planning, active or on hold all count; completed and cancelled ones do not, so closing out a finished job frees the slot straight away.' },
+      { type: 'text', text: 'WHAT AN AI SCAN IS. One document read by the AI: a quote, a sub invoice, a receipt, an inspector card, a permit, a submittal or a compliance document. A read that fails never counts against you - you only spend a scan when you get an answer back. The count runs by calendar month and refills on the 1st.' },
+      { type: 'text', text: 'IF YOU RUN OUT OF SCANS, scanning pauses until the 1st or until you move up a plan. Everything else in SyteNav carries on exactly as before - the limit is on having documents read for you, not on running the job. You can always enter the details by hand in the meantime.' },
       { type: 'text', text: 'SUBS AND CLIENTS COST NOTHING. Team members are unlimited on every plan, and subs and clients work through links rather than logins, so there is no seat to buy for them and no reason to ration access to the people on site.' },
-      { type: 'warn', text: 'There is no self-serve sign-up or free trial yet. Access is by invite while the beta is on, and the buttons on the pricing page open a request form rather than a checkout - on purpose, so nothing promises a card-free instant start that does not exist.' },
+      { type: 'warn', text: `There is still no self-serve sign-up. Access is by invite, so the buttons on the public pricing page open a request form rather than a checkout - the ${TRIAL_DAYS} free days start once you are approved, not when a stranger presses a button.` },
+      { type: 'text', text: `WHAT HAPPENS AT THE END OF THE ${TRIAL_DAYS} DAYS. Pick a plan in Settings \u2192 Billing and you carry straight on. If you do not, the account goes READ-ONLY rather than away: every job, photo, invoice and log stays exactly where it is and stays readable by everybody who could read it before - what stops is saving new work. Choosing a plan turns writing back on immediately, and nothing is ever deleted for non-payment.` },
     ],
     related: ['permissions', 'scan-sub-invoice', 'create-invoice'],
   },

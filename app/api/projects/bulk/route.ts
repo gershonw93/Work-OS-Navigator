@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { getActor, actorCan } from '@/lib/server-permissions'
 import { geocodeAddress, geocodeMany } from '@/lib/geocode'
+import { billingLock } from '@/lib/api-guard'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -40,6 +41,9 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const actor = await getActor(db, token)
+  const locked = await billingLock(db, actor?.companyId)
+  if (locked) return locked
+
   if (!actorCan(actor, 'projects', 'create')) {
     return NextResponse.json({ error: 'You do not have permission to create projects.' }, { status: 403 })
   }
