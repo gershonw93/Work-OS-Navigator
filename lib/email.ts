@@ -612,12 +612,21 @@ export function passwordResetEmail({ resetUrl }: { resetUrl: string }) {
  * the number in the later warnings is not the first they hear of it.
  */
 export function welcomeEmail({
-  name, appUrl, trialDays, trialEndWords,
+  name, appUrl, trialDays, trialEndWords, copy,
 }: {
   name: string | null | undefined
   appUrl: string
   trialDays: number
   trialEndWords: string
+  /**
+   * The words, when somebody has edited them in the marketing console.
+   *
+   * THE STRUCTURE STAYS HERE. Only the sentences and the button label come in -
+   * never HTML, never the layout. Same rule as a guide's inline links and the
+   * shift email's date block: data supplies content, code supplies the shape,
+   * so no stored string can break the branding or smuggle markup into an inbox.
+   */
+  copy?: { subject: string; paragraphs: string[]; cta?: string | null } | null
 }) {
   const hi = firstName(name)
   const projectUrl = `${appUrl}/projects/new`
@@ -636,19 +645,29 @@ export function welcomeEmail({
     'SyteNav',
   ].join('\n')
 
+  const body = copy?.paragraphs?.length ? copy.paragraphs : [
+    `Hi ${hi}, your account is ready. Your first ${trialDays} days are free - the whole product, no card taken and nothing to cancel - and that runs to ${trialEndWords}.`,
+    'Put in a job you are actually running rather than a test one. Everything in SyteNav hangs off a job: the budget, the subs you award, the bills they send you and what you invoice the client. The first real one is what makes the rest of it mean anything.',
+    'If you get stuck, reply to this email. It comes to me.',
+  ]
+
   const html = emailLayout({
     preheader: `Your first ${trialDays} days are free. Start with a real job.`,
     eyebrow: 'Welcome',
     heading: "You're in - start with a real job",
-    paragraphs: [
-      `Hi ${hi}, your account is ready. Your first ${trialDays} days are free - the whole product, no card taken and nothing to cancel - and that runs to ${trialEndWords}.`,
-      'Put in a job you are actually running rather than a test one. Everything in SyteNav hangs off a job: the budget, the subs you award, the bills they send you and what you invoice the client. The first real one is what makes the rest of it mean anything.',
-      'If you get stuck, reply to this email. It comes to me.',
-    ],
-    cta: { label: 'Create your first job', url: projectUrl },
+    paragraphs: body,
+    cta: { label: (copy?.cta ?? '').trim() || 'Create your first job', url: projectUrl },
   })
 
-  return { subject: `Welcome to SyteNav - your first ${trialDays} days are free`, text, html }
+  const plain = copy?.paragraphs?.length
+    ? [`Hi ${hi},`, '', ...body.flatMap(p => [p, '']), projectUrl, '', 'Gershon', 'SyteNav'].join('\n')
+    : text
+
+  return {
+    subject: (copy?.subject ?? '').trim() || `Welcome to SyteNav - your first ${trialDays} days are free`,
+    text: plain,
+    html,
+  }
 }
 
 export function notificationEmail({

@@ -4,6 +4,7 @@ import { notify } from '@/lib/notify'
 import { checkCronAuth } from '@/lib/cron-auth'
 import { signIns, latestSignIn } from '@/lib/auth-sign-ins'
 import { nextNudge, wholeDaysSince, NUDGE_LAST_DAY, type OnboardingFacts } from '@/lib/onboarding-nudges'
+import { resolveAll, fill } from '@/lib/email-copy-read'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -41,6 +42,8 @@ export async function GET(request: Request) {
 
   const db = admin()
   const now = new Date()
+  // Overrides, once for the whole run rather than once per company.
+  const copy = await resolveAll(db)
 
   // The cohort: companies inside the nudge window. The horizon is generous by a
   // day at each end so the pure rule, not the SQL, decides who is in - a query
@@ -80,6 +83,10 @@ export async function GET(request: Request) {
     console.error('[onboarding] sign-in read was incomplete - saying nothing today')
     return NextResponse.json({ ok: true, skipped: 'incomplete sign-in read', companies: companyIds.length, sent: 0 })
   }
+
+  const { data: companyRows } = await db.from('companies').select('id, name').in('id', companyIds)
+  const names = new Map<string, string>()
+  for (const c of (companyRows ?? []) as any[]) names.set(c.id, c.name)
 
   const projectIds = ((projects.data ?? []) as any[]).map(p => p.id)
   // Keyed on project, not company, so these two need the ids above first.
@@ -159,10 +166,15 @@ export async function GET(request: Request) {
     // who set the account up is not a fact we hold - the person who signed up
     // and the person who will do the work are often not the same.
     if (staff.length) {
+      // The WORDS may have been edited in the marketing console; WHICH nudge
+      // and WHETHER to send it are `nextNudge`'s, and stay in code.
+      const words = fill(copy[`nudge:${nudge.key}`] ?? { ...nudge, subject: nudge.title, body: nudge.message, source: 'default' }, {
+        company: names.get(id) ?? '',
+      })
       await notify({
         db, userIds: staff, type: 'onboarding_nudge',
-        title: nudge.title,
-        message: nudge.message,
+        title: words.subject,
+        message: words.body,
         link: nudge.link,
       })
       sent++

@@ -5,6 +5,8 @@ import { welcomeEmail, sendEmail } from '@/lib/email'
 import { appOrigin } from '@/lib/app-url'
 import { TRIAL_DAYS } from '@/lib/plans'
 import { dayWords } from '@/lib/dates'
+import { resolveCopy } from '@/lib/email-copy-read'
+import { paragraphs } from '@/lib/email-copy'
 
 export async function POST(request: Request) {
   const authHeader = request.headers.get('Authorization')
@@ -193,13 +195,25 @@ export async function POST(request: Request) {
   // welcome that did not go is a thing to log, not a reason to refuse somebody
   // the account they have just created.
   if (meters) {
+    const endWords = dayWords(trialEnd(now).toISOString(), { weekday: true }) ?? `${TRIAL_DAYS} days from today`
+    // The words, if somebody has edited them in the marketing console. Null
+    // means nobody has, and the template's own copy ships - see lib/email-copy.ts.
+    const edited = await resolveCopy(admin, 'welcome', {
+      first_name: (fullName ?? '').trim().split(/\s+/)[0] || 'there',
+      company: companyName ?? '',
+      trial_days: String(TRIAL_DAYS),
+      trial_end: endWords,
+    })
     const result = await sendEmail({
       to: email,
       ...welcomeEmail({
         name: fullName,
         appUrl: appOrigin(request.headers.get('origin')),
         trialDays: TRIAL_DAYS,
-        trialEndWords: dayWords(trialEnd(now).toISOString(), { weekday: true }) ?? `${TRIAL_DAYS} days from today`,
+        trialEndWords: endWords,
+        copy: edited?.source === 'stored'
+          ? { subject: edited.subject, paragraphs: paragraphs(edited.body), cta: edited.cta }
+          : null,
       }),
     })
     if (!result.sent) console.error('[signup] welcome email did not send', { to: email, reason: result.reason })
