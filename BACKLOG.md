@@ -528,6 +528,12 @@ and why:
   warns about - so if recurring sends are ever wanted, they should re-ask the
   segment each time rather than freeze it.
 - **No A/B testing.** With 27 people at 21 builders there is nothing to split.
+- **Delivery is capped by the plan, not by the design.** The send drains up to
+  45 in the request that pressed Send and a once-a-day cron finishes the rest,
+  because Vercel's Hobby plan refuses any cron more frequent than daily. On Pro
+  the schedule in `vercel.json` can go back to every ten minutes or so and the
+  cap stops mattering - one line, no other change. Worth doing before a list is
+  big enough that the tail waits overnight.
 - **A campaign cannot be edited or cancelled once it is sending.** Deleting the
   row cascades its recipients away, which stops the cron; there is no button for
   it. Worth one if a list ever gets big enough for a mistake to be expensive

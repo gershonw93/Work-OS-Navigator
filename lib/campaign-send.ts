@@ -26,11 +26,22 @@ import { unsubscribeUrl } from './unsubscribe-token'
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * A send small enough that it cannot time out, and small enough that it is
- * obviously somebody checking their own copy rather than a campaign. Those go
- * out in the request that starts them; everything bigger waits for the cron.
+ * How many go out in the request that pressed Send.
+ *
+ * THE CRON IS ONCE A DAY, so this number is the difference between a campaign
+ * that goes now and one that goes tomorrow morning. Vercel's Hobby plan refuses
+ * any cron more frequent than daily, and the every-ten-minutes schedule this
+ * shipped with would have failed the build - a console that writes every
+ * recipient row, reports "queued", and is then waited on for twenty-four hours.
+ *
+ * 45 sequential SendGrid calls is well inside the route's `maxDuration = 60`
+ * (each is a few hundred milliseconds), and the whole customer list is smaller
+ * than that today. Anything beyond it is written, left `pending`, and drained
+ * by the daily run - which is the case the chunking was always for. The rows
+ * are still written BEFORE the first letter, so a request that dies halfway
+ * leaves a resumable list rather than an unknown one.
  */
-export const TEST_SEND_MAX = 5
+export const INLINE_SEND_MAX = 45
 
 export interface CampaignRow {
   id: string

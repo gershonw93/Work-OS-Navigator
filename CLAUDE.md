@@ -566,9 +566,19 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   arrives, and a count cannot answer it), and the resume point. Nothing big is
   sent in the request that starts it: a hundred recipients in one serverless
   invocation is a timeout with half the list mailed and no way to know which
-  half. `TEST_SEND_MAX` is the one exception, and it is five - small enough not
-  to time out, and making somebody wait ten minutes to see their own copy is
-  how a test send stops being used.
+  half. So the request that pressed Send drains up to `INLINE_SEND_MAX` (45,
+  comfortably inside `maxDuration = 60`) and the cron finishes the rest.
+- **AND THE CRON IS ONCE A DAY, BECAUSE THE PLAN SAYS SO.** It shipped as
+  `*/10 * * * *` and **Vercel's Hobby plan refuses any cron more frequent than
+  daily - at BUILD time, so the whole deploy fails with it**. That is the worst
+  version of this feature's own failure mode: a console that writes every
+  recipient row, reports "queued", and is deployed nowhere. The schedule is
+  `0 13 * * *` and `campaigns.ts` pins that it carries no `*/` step. It follows
+  that the cron cannot be the delivery mechanism - it is the safety net for a
+  list longer than the cap - and the screen says which: what actually went, and
+  how many go on tomorrow's run. Check the plan before writing a sub-daily cron
+  into `vercel.json`; four daily ones were already there and passing, which is
+  exactly why nobody thought to.
 - **A READ THAT DID NOT COMPLETE IS NOT A SMALLER LIST.** An incomplete
   audience or a failed suppression read REFUSES the send rather than narrowing
   it - the same rule the onboarding cron follows about half a page of sign-ins,

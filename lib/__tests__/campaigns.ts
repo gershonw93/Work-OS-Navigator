@@ -239,8 +239,28 @@ const cronSrc = code('app/api/cron/campaign-send/route.ts')
 const authAt = cronSrc.indexOf('checkCronAuth')
 const dbAt = cronSrc.indexOf("from('email_campaigns')")
 ok(authAt > 0 && dbAt > authAt, 'the cron checks CRON_SECRET before it reads anything')
-ok(JSON.parse(read('vercel.json')).crons.some((c: { path: string }) => c.path === '/api/cron/campaign-send'),
-  'the cron is actually scheduled - a route nothing calls sends nothing')
+const crons = JSON.parse(read('vercel.json')).crons as { path: string; schedule: string }[]
+const campaignCron = crons.find(c => c.path === '/api/cron/campaign-send')
+ok(!!campaignCron, 'the cron is actually scheduled - a route nothing calls sends nothing')
+
+// THE SCHEDULE HAS TO BE ONE THE PLAN ALLOWS. This shipped as `*/10 * * * *`
+// and Vercel's Hobby plan refuses any cron more frequent than daily - it fails
+// the BUILD, so the whole deploy goes with it, and the feature that looks
+// finished is one nobody can even deploy. A step value in the minute or hour
+// field is the tell.
+ok(!!campaignCron && !/\*\//.test(campaignCron.schedule),
+  `the campaign cron fires at most once a day (${campaignCron?.schedule}) - more often is refused on Hobby`)
+
+// AND THE SEND DOES NOT DEPEND ON IT. With a daily cron, a campaign that only
+// queues is a campaign nobody sees go out until tomorrow. The route drains
+// what it can in the request that pressed Send, unconditionally - the cron
+// picks up whatever was past the cap.
+ok(/const drained = await drainCampaign\(/.test(routeSrc),
+  'the send route drains inline, so pressing Send actually sends')
+ok(!/if \(recipients\.length <=[\s\S]{0,120}drainCampaign\(/.test(routeSrc),
+  '...and not only for a handful, which would leave a real campaign waiting a day')
+ok(/remaining:/.test(routeSrc),
+  'and it reports what it could NOT reach, rather than implying everybody was mailed')
 
 // The audience read refuses to become a smaller list.
 ok(/audience\.complete/.test(code('lib/campaign-send.ts')),
