@@ -267,12 +267,22 @@ workflows:
             echo "group google_play_credentials. A variable in another group is invisible here."
             exit 1
           fi
-          if [ -z "${BUILD_NUMBER:-}" ]; then
-            echo "BUILD_NUMBER is not set, so versionCode would be 1 and Play would refuse"
-            echo "every upload after the first."
+          echo "All secrets present."
+      # ONE CLOCK FOR BOTH ANDROID WORKFLOWS. $BUILD_NUMBER is counted per
+      # workflow, so android-release's second build was versionCode 2 while
+      # android-capacitor had already put 8 in the Play library - a version Play
+      # takes the upload of and then refuses to release. Minutes since
+      # 2026-01-01 UTC only goes up, whichever workflow ran last. build.gradle
+      # reads it; $CM_ENV is how one Codemagic step hands a variable to the next.
+      - name: Set the version code
+        script: |
+          CODE=$(( ( $(date -u +%s) - 1767225600 ) / 60 ))
+          if [ "$CODE" -lt 100 ]; then
+            echo "Version code $CODE is too low - the clock on this machine is wrong."
             exit 1
           fi
-          echo "All secrets present. versionCode will be $BUILD_NUMBER."
+          echo "ANDROID_VERSION_CODE=$CODE" >> "$CM_ENV"
+          echo "versionCode will be $CODE."
       - name: Set up keystore
         script: |
           printf '%s' "$CM_KEYSTORE" | openssl base64 -d -A > android/app/release.keystore
