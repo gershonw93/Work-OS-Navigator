@@ -618,6 +618,45 @@ export function passwordResetEmail({ resetUrl }: { resetUrl: string }) {
 }
 
 /**
+ * "We have your request to delete your account."
+ *
+ * Sent to the person who pressed Delete my account (or, for a whole company,
+ * the admin who did). Apple requires that deletion can be STARTED in the app;
+ * we carry it out by hand, so the promise - what goes and by when - comes from
+ * `deletionPromise`, the same sentence the screen showed. If they did not ask,
+ * the footnote tells them how to stop it, because a request anybody could
+ * make from a borrowed phone must be reversible by the owner.
+ */
+export function deletionRequestEmail({ name, promise, supportEmail }: {
+  name: string | null | undefined
+  /** `deletionPromise(scope)` - never retyped here. */
+  promise: string
+  supportEmail: string
+}) {
+  const hi = name ? `Hi ${name},` : 'Hi,'
+  const text = [
+    hi,
+    '',
+    'We have your request to delete your SyteNav account.',
+    promise,
+    '',
+    `If you did not ask for this, or you have changed your mind, reply to this email or write to ${supportEmail} and we will stop.`,
+    '',
+    'SyteNav',
+  ].join('\n')
+
+  const html = emailLayout({
+    preheader: 'We have your request to delete your SyteNav account.',
+    eyebrow: 'Account deletion',
+    heading: 'We have your request',
+    paragraphs: [hi, 'We have your request to delete your SyteNav account.', promise],
+    footNote: `If you did not ask for this, or you have changed your mind, reply to this email or write to ${supportEmail} and we will stop.`,
+  })
+
+  return { subject: 'Your SyteNav account deletion request', text, html }
+}
+
+/**
  * A notification, by email.
  *
  * Deliberately one line of content and one link. A notification email that

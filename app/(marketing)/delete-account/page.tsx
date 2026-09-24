@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { SUPPORT_EMAIL, supportMailto } from '@/lib/support-email'
 import { marketingMeta } from '@/components/marketing/meta'
+import { DELETION_DAYS } from '@/lib/account-deletion'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // How to delete a SyteNav account - the page Google Play links from the store
@@ -11,12 +12,12 @@ import { marketingMeta } from '@/components/marketing/meta'
 // the app, it PROMINENTLY gives the steps to request deletion, and it says
 // which data is deleted, which is kept, and for how long.
 //
-// A REQUEST, NOT A BUTTON, AND THE PAGE SAYS SO. Settings has a "Delete
-// Company Account" control, but it calls a DELETE on /api/settings that has
-// never existed, so it has never worked - pointing people at it from here
-// would be sending them to a button that fails. Deletion is by email until a
-// real one is built; see BACKLOG.md. Every sentence below is a promise, so
-// none of them describes a mechanism that is not there.
+// TWO DOORS, ONE PROMISE. Inside the app, Settings > Profile (Me, in Field
+// Mode) has "Delete my account", and the Danger Zone asks for the whole company
+// - Apple requires the in-app one. This page is the door for somebody who no
+// longer has the app, which Google Play requires. Both are REQUESTS we carry
+// out within DELETION_DAYS, and both say so; neither describes a mechanism
+// that is not there.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const metadata: Metadata = marketingMeta({
@@ -46,7 +47,14 @@ export default function DeleteAccountPage() {
 
       <section className="mt-8 rounded-2xl border border-line bg-panel p-6">
         <h2 className="text-lg font-bold text-ink">How to request deletion</h2>
-        <ol className="mt-3 space-y-2 text-sm text-muted-fg leading-relaxed list-decimal pl-5">
+        <p className="mt-3 text-sm text-muted-fg leading-relaxed">
+          <strong className="text-ink">In the app:</strong> Settings &gt; Profile &gt; Delete my account (in Field Mode,
+          open Me). An admin can ask for the whole company account from Settings &gt; Danger Zone.
+        </p>
+        <p className="mt-3 text-sm text-muted-fg leading-relaxed">
+          <strong className="text-ink">Without the app:</strong>
+        </p>
+        <ol className="mt-2 space-y-2 text-sm text-muted-fg leading-relaxed list-decimal pl-5">
           <li>
             Email <a href={`mailto:${SUPPORT_EMAIL}`} className="text-accent-fg hover:underline">{SUPPORT_EMAIL}</a>{' '}
             <strong className="text-ink">from the email address you sign in with</strong>, with the subject
@@ -57,7 +65,7 @@ export default function DeleteAccountPage() {
             We reply to confirm. A company account can only be deleted at the request of its owner or an
             admin, because it holds everyone else&apos;s work too.
           </li>
-          <li>We delete the data within 30 days of confirming, and email you when it is done.</li>
+          <li>We delete the data within {DELETION_DAYS} days of confirming, and email you when it is done.</li>
         </ol>
         <a
           href={supportMailto('Delete my SyteNav account', REQUEST_BODY)}
