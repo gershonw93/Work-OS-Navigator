@@ -40,8 +40,10 @@ construction,contractor,subcontractor,invoices,quotes,estimate,punch list,daily 
 `store/play/play-feature-graphic-1024x500.png` (the banner at the top of the
 listing). Both are drawn from the same mark as the app icon and the in-app
 logo; the `.html` beside each is its source - edit it and screenshot at the
-exact size with headless Chromium to regenerate. Phone screenshots (at least
-two) still have to be taken from the app itself.
+exact size with headless Chromium to regenerate. Phone screenshots are in
+`store/play/screenshots/` - taken on a phone and cropped to 1206x2412, because
+Play refuses any screenshot whose long side is more than twice its short side
+(a modern phone's 1206x2622 is 2.17:1).
 
 ## Categories
 Primary: Business • Secondary: Productivity
