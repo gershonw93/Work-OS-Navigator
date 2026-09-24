@@ -28,6 +28,7 @@
  *      pages contradicted each other.
  */
 import { ok, done, read } from './_helpers'
+import { FLOWS } from '../flows'
 
 console.log('\n\x1b[1mmarketing-scheduling\x1b[0m')
 
@@ -95,6 +96,59 @@ ok(step5.length > 600,
     '...including that the cross-project month view is admin/manager only - the fact the workflow page used to contradict')
   ok(/placeholder/i.test(guide) && /takes the placeholder/i.test(guide),
     'and it now covers what happens to a placeholder when the trade is awarded')
+}
+
+
+// ── THE SEVENTH FLOW: a trade runs long ─────────────────────────────────────
+{
+  // /flows is six scenarios where money goes missing, and a schedule slip was
+  // not one of them - which was the gap: it is the leak that costs a crew's
+  // morning rather than a line on an invoice, and it is the one the app got
+  // good at this week.
+  const slip = FLOWS.find(f => f.slug === 'the-schedule-slipped')
+  ok(!!slip, 'the schedule-slip flow exists')
+
+  const text = JSON.stringify(slip ?? {}).toLowerCase()
+
+  // The file's own accuracy rule: nothing here describes something the app
+  // does not do. Each of these is a real behaviour, and each is the half a
+  // reader would otherwise assume wrongly.
+  ok(/before anything is written|shows what moves/.test(text),
+    'it says the review screen comes BEFORE anything is written')
+  ok(/one letter|one email/.test(text),
+    'ONE email per sub, not one per line - the thing a reader would assume wrongly')
+  ok(/unless you press|nothing is emailed/.test(text),
+    'and that nothing is sent without a press, which is the promise the product actually keeps')
+  ok(/no email address|no address/.test(text),
+    'it names the subs with no address, because assuming everyone was told is the failure')
+  ok(/skipped|left alone/.test(text),
+    'and that a hand-dated line is skipped rather than moved underneath you')
+
+  // THE CLAIM IT MUST NOT MAKE. Every other schedule surface in the product
+  // refuses to send without a press; a flow promising automatic emails would
+  // be selling a different product.
+  ok(!/automatically emails|emails them automatically|sends automatically/.test(text),
+    'it never claims SyteNav emails the subs by itself')
+
+  // Every step carries a win or a loss - the file says a flow with only the
+  // happy path is a feature list with arrows drawn on it.
+  ok((slip?.steps ?? []).every(st => st.win || st.loss),
+    'every step carries a win or a loss')
+  ok((slip?.steps ?? []).some(st => st.loss),
+    '...and the losses are there, which is the point of the page')
+}
+
+// ── AND THE COUNT ON THE PAGE IS DERIVED ────────────────────────────────────
+{
+  const page = read('app/(marketing)/flows/page.tsx')
+  // "Six" was typed in THREE places - the metadata, the eyebrow and the title
+  // - so adding a seventh flow left a page announcing six and rendering seven.
+  // A number in prose about a list sitting beside it goes stale the moment
+  // somebody edits the list.
+  ok(/FLOWS\.length/.test(page),
+    'THE STALE COUNT: the heading counts the flows rather than stating a number')
+  ok(!/Six flows|Six places/.test(page),
+    '...and the hardcoded "Six" is gone from the headings')
 }
 
 done()
