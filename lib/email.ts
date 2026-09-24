@@ -597,6 +597,60 @@ export function passwordResetEmail({ resetUrl }: { resetUrl: string }) {
  * account, so pointing at Settings is the right affordance - a signed
  * one-click unsubscribe is for bulk mail, which this is not.
  */
+/**
+ * The first thing a new company ever hears from us.
+ *
+ * THE GAP: nothing. `complete-signup` created a company, a profile and a trial
+ * and sent not a word - so the first automated mail a customer received was the
+ * trial warning on day 12, by which point they had either worked it out alone
+ * or quietly gone. This is transactional, sent by the route, and deliberately
+ * not routed through the notification catalog: it has no audience choice, it
+ * goes to the person who just signed up, in the same way the invite does.
+ *
+ * ONE THING TO DO. It resists listing the product - somebody who has just set a
+ * password is not reading a feature tour - and names the day the trial ends so
+ * the number in the later warnings is not the first they hear of it.
+ */
+export function welcomeEmail({
+  name, appUrl, trialDays, trialEndWords,
+}: {
+  name: string | null | undefined
+  appUrl: string
+  trialDays: number
+  trialEndWords: string
+}) {
+  const hi = firstName(name)
+  const projectUrl = `${appUrl}/projects/new`
+
+  const text = [
+    `Hi ${hi},`,
+    '',
+    `You're in. Your first ${trialDays} days are free - the whole product, no card, nothing to cancel. That runs to ${trialEndWords}.`,
+    '',
+    'Start with a job you are actually running rather than a test one. Everything in SyteNav hangs off a job - the budget, the subs, the bills, what you are owed - so the first one is what makes the rest of it mean anything:',
+    projectUrl,
+    '',
+    'If you get stuck, reply to this email. It comes to me.',
+    '',
+    'Gershon',
+    'SyteNav',
+  ].join('\n')
+
+  const html = emailLayout({
+    preheader: `Your first ${trialDays} days are free. Start with a real job.`,
+    eyebrow: 'Welcome',
+    heading: "You're in - start with a real job",
+    paragraphs: [
+      `Hi ${hi}, your account is ready. Your first ${trialDays} days are free - the whole product, no card taken and nothing to cancel - and that runs to ${trialEndWords}.`,
+      'Put in a job you are actually running rather than a test one. Everything in SyteNav hangs off a job: the budget, the subs you award, the bills they send you and what you invoice the client. The first real one is what makes the rest of it mean anything.',
+      'If you get stuck, reply to this email. It comes to me.',
+    ],
+    cta: { label: 'Create your first job', url: projectUrl },
+  })
+
+  return { subject: `Welcome to SyteNav - your first ${trialDays} days are free`, text, html }
+}
+
 export function notificationEmail({
   name, eyebrow, heading, message, url, settingsUrl,
 }: {

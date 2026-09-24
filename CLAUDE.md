@@ -38,7 +38,7 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-120.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-121.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - **Verify every column you `.select()` actually exists.** Supabase returns
   `data: null` for an unknown column, so a typo reads as "not found" rather than
@@ -419,6 +419,54 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   past the first version of that check. The public BUTTON still says Request
   access: the door is still a waitlist, so "Start free trial" is still a verb the
   product cannot honour.
+
+## The first fifteen days, and telling us somebody asked (IMPORTANT)
+- **A DRIP THAT FIRES ON A CALENDAR SENDS "CREATE YOUR FIRST JOB" TO SOMEBODY
+  WITH THREE OF THEM.** `lib/onboarding-nudges.ts` is milestone-driven: every
+  nudge carries the question it is asking (`done`), and one whose question is
+  already answered is never sent. The first UNMET nudge goes, in dependency
+  order - somebody who has done nothing by day seven is asked for a project, not
+  for subs they have nowhere to put.
+- **AND IT SHUTS UP WHEN THEY ARE ACTIVE.** Signed in within
+  `ACTIVE_WITHIN_DAYS` and we say nothing: the screen in front of them already
+  says what to do next, and mail to somebody sitting in the app reads as spam.
+  This is a nudge for a person who drifted, not a drip for everybody.
+- **THE TWO SEQUENCES HAND OVER RATHER THAN OVERLAP.** `NUDGE_LAST_DAY` is
+  DERIVED from `TRIAL_WARN_FROM`, so moving the trial warnings cannot leave both
+  firing on one morning - which is how the one that mattered gets ignored.
+- **THE GATE IS A UNIQUE INDEX, WRITTEN BEFORE THE SEND.** Two runs overlapping
+  on a slow morning send the same nudge twice, and the second is what gets
+  somebody to unsubscribe. A 23505 means another run has it, not an error.
+- **AN INCOMPLETE READ IS NOT A READ THAT SAID NO.** `lib/auth-sign-ins.ts`
+  PAGES (`last_sign_in_at` lives in auth.users, which PostgREST cannot reach),
+  and half the pages missing looks exactly like half the customers never having
+  signed in. The cron says nothing that day rather than mailing people who are
+  in the app. It is one reader because it existed twice already and this was
+  going to be the third copy of a paging loop.
+- **A NOTIFICATION ONLY WE EVER GET IS STILL A CATALOG TYPE**, so it can be
+  turned off and the demo console can rehearse it - but it carries
+  `platform: true` and Settings -> Notifications filters it out, because a
+  switch for an event you will never receive is a question nobody can answer.
+- **AND SOMEBODY ASKING FOR ACCESS NOW REACHES US.** Nothing did: the row was
+  inserted and sat there until somebody remembered to open the approvals screen,
+  while the applicant had just been told they would hear back. Notified AFTER
+  the insert - the request is the work - plus a "Waiting for review" card on the
+  platform Overview, because an unread email is not a system.
+- **A SENTENCE MUST NOT PRINT AN OBJECT.** `dateWords` returns `{short,
+  withWeekday}` and takes a DATE-ONLY string, and three shipped call sites
+  interpolated it straight into a template: Settings -> Billing read "Resets
+  [object Object].", the out-of-scans refusal said "refills on [object Object]",
+  and the trial-ending EMAIL said "Your trial ends on null." because
+  `trial_ends_at` is a timestamptz. **Every one passed a test**, because the
+  assertions checked the stem of the sentence ("refills on", "Your trial ends
+  on") and never the value after it - a check on the half that could not be
+  wrong. `dayWords()` is what a sentence uses: it takes either shape, returns a
+  STRING, and returns null rather than a placeholder so a caller drops the
+  clause. Pinned in `onboarding-nudges.ts`, which renders the real sentences and
+  scans for the object being interpolated - reading the whole interpolation, not
+  just the call, because the first version flagged the shift email's correct
+  `?.short ?? date` and a scan that fails on working code is one somebody
+  deletes.
 
 ## Two registries, and why a new thing goes IN them (IMPORTANT)
 Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.md).

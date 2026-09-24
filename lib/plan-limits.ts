@@ -1,6 +1,6 @@
 import { PLANS, planForProjects, planForScans, type Plan } from './plans'
 import type { Access } from './billing-state'
-import { dateWords } from './dates'
+import { dayWords } from './dates'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Where a company is against what it bought.
@@ -109,7 +109,10 @@ export function usageMeters(usage: Usage, ent: Entitlement, now: Date = new Date
     limit: ent.scans,
     pct: ent.scans === null ? null : Math.min(100, Math.round((usage.scansThisMonth / ent.scans) * 100)),
     tone: meterTone(usage.scansThisMonth, ent.scans),
-    note: `Counted per calendar month. Resets ${dateWords(nextResetIso(now))}.`,
+    // dayWords, not dateWords: the latter hands back an OBJECT, and this note
+    // read "Resets [object Object]." on every billing screen until somebody
+    // looked at it rather than at the test asserting the word "Resets".
+    note: `Counted per calendar month. Resets ${dayWords(nextResetIso(now))}.`,
   }
   return [projects, scans]
 }
@@ -155,5 +158,5 @@ export function scanLimitProblem(ent: Entitlement, scansThisMonth: number, now: 
   const fits = planForScans(scansThisMonth + 1)
   const next = fits ? ` ${fits.name} includes ${fits.scans.toLocaleString('en-US')} a month.` : ''
   return `You have used all ${ent.scans.toLocaleString('en-US')} AI scans on your plan this month.` +
-    ` The allowance refills on ${dateWords(nextResetIso(now))}; everything else in SyteNav keeps working.${next}`
+    ` The allowance refills on ${dayWords(nextResetIso(now))}; everything else in SyteNav keeps working.${next}`
 }

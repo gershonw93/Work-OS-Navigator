@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { superAdminProfileIds } from '@/lib/super-admin'
+import { notify } from '@/lib/notify'
 
 export const runtime = 'nodejs'
 
@@ -31,6 +33,30 @@ export async function POST(request: Request) {
     message: String(body.message ?? '').trim().slice(0, 1000) || null,
   })
   if (error) return NextResponse.json({ error: 'Could not submit - try again.' }, { status: 500 })
+
+  // ── AND TELL US ──────────────────────────────────────────────────────────
+  //
+  // Nothing did. The row was inserted and it sat there until somebody
+  // remembered to open /admin/access-requests - while this person had just been
+  // told, on the screen they are looking at, that they would get an email as
+  // soon as they were approved. The slowest part of getting a customer was us
+  // not knowing they had asked.
+  //
+  // AFTER the insert and never in front of it: the request is the work, telling
+  // us is the side effect. `notify` already guarantees it cannot throw, and the
+  // await is here rather than floated so a serverless function cannot be frozen
+  // between the response and the send.
+  const who = [name, String(body.company_name ?? '').trim() || null].filter(Boolean).join(' - ')
+  await notify({
+    db,
+    userIds: await superAdminProfileIds(db),
+    type: 'access_request',
+    title: 'New access request',
+    message: `${who} (${email}) asked for access${body.company_type === 'subcontractor' ? ' as a subcontractor' : ''}.`
+      + ' Approve them and the invite goes out automatically.',
+    link: '/admin/access-requests',
+  })
+
   return NextResponse.json({ ok: true })
 }
 

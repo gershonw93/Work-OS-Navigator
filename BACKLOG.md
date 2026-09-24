@@ -655,6 +655,11 @@ Also noticed while building it and NOT done:
 - ~~Nothing warns a company that its trial is ending.~~ **Shipped**: three
   letters at three days, one day and on the last day (days 12, 14 and 15),
   routed on `settings_billing` through `/api/cron/trial-reminders`.
+- ~~Nothing tells us a request arrived.~~ **Shipped**: a notification to the
+  super admins plus a "Waiting for review" card on the platform Overview.
+- ~~No welcome email.~~ **Shipped**, along with a five-step nudge sequence over
+  the first eleven days that stops as soon as somebody does the thing, or comes
+  back to the app.
 - **No dunning.** A `past_due` account is writable and shouts on screen;
   nothing emails them. Stripe's own dunning can do it, but somebody has to turn
   it on in the dashboard.
