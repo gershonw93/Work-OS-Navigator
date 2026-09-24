@@ -4,7 +4,9 @@ import { audienceFor } from '@/lib/notification-audience'
 import { notify } from '@/lib/notify'
 import { checkCronAuth } from '@/lib/cron-auth'
 import { trialWarning, trialCopy, TRIAL_WARN_FROM } from '@/lib/trial-warning'
+import { TRIAL_DAYS } from '@/lib/plans'
 import { dayWords } from '@/lib/dates'
+import { resolveAll, fill } from '@/lib/email-copy-read'
 
 export const runtime = 'nodejs'
 
@@ -62,6 +64,7 @@ export async function GET(request: Request) {
   }
 
   const now = new Date()
+  const copy = await resolveAll(db)
   let warned = 0
   let reset = 0
   let notifications = 0
@@ -81,7 +84,7 @@ export async function GET(request: Request) {
       continue
     }
 
-    const copy = trialCopy(action.send)
+    const copy_ = trialCopy(action.send)
     // Null when the date will not parse, and the clause is dropped rather than
     // printed empty - a sentence with a hole in it is worse than a shorter one.
     const endsOn = dayWords(row.trial_ends_at, { weekday: true })
@@ -91,9 +94,13 @@ export async function GET(request: Request) {
     const recipients = await audienceFor({ db, companyId: row.company_id, type: 'trial_ending' })
 
     if (recipients.length) {
+      const words = fill(
+        copy[`trial:${action.send}`] ?? { subject: copy_.title, body: copy_.message, cta: null, source: 'default' },
+        { days_left: String(action.send), trial_end: endsOn ?? '', trial_days: String(TRIAL_DAYS) },
+      )
       await notify({
         db, userIds: recipients, type: 'trial_ending',
-        title: copy.title,
+        title: words.subject,
         // The date as well as the countdown. "In 3 days" is an answer; the
         // date is what somebody checks against a diary - and the WEEKDAY is
         // the load-bearing half of that, per lib/dates.ts.
@@ -102,7 +109,7 @@ export async function GET(request: Request) {
         // string; `trial_ends_at` is a timestamptz, so this sentence read "Your
         // trial ends on null." in an email to a customer. It passed its test,
         // which asserted the words "Your trial ends on".
-        message: endsOn ? `${copy.message} Your trial ends on ${endsOn}.` : copy.message,
+        message: endsOn ? `${words.body} Your trial ends on ${endsOn}.` : words.body,
         link: '/settings?tab=billing',
       })
       notifications += recipients.length

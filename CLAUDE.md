@@ -38,7 +38,7 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-121.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-122.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - **Verify every column you `.select()` actually exists.** Supabase returns
   `data: null` for an unknown column, so a typo reads as "not found" rather than
@@ -487,6 +487,45 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   just the call, because the first version flagged the shift email's correct
   `?.short ?? date` and a scan that fails on working code is one somebody
   deletes.
+
+## Editing the words without a second home for them (IMPORTANT)
+- **`/admin/marketing` EDITS COPY. THE CODE IS THE DEFAULT AND A ROW IS ONLY AN
+  OVERRIDE.** A table of email copy is precisely the shape "one fact, ONE home"
+  warns about - two places that both exist, both compile, and only one of which
+  is what sends. So `COPY_SLUGS` in `lib/email-copy.ts` carries a default for
+  every slug, DERIVED from the modules that own the behaviour (`NUDGES`,
+  `trialCopy`) rather than retyped, and `email_copy` replaces one only while
+  somebody has deliberately put a row there. No row is the normal state, an
+  empty or unreachable table still sends a real shipped sentence, and RESET
+  DELETES THE ROW - storing the default instead is indistinguishable from a
+  deliberate edit that matches, and the next improvement to the default would
+  silently never reach that slug.
+- **THE RULES ARE NOT EDITABLE, AND THAT IS THE WHOLE SAFETY OF IT.** When a
+  nudge goes, whether it goes at all, who it reaches - all of it stays in
+  `lib/onboarding-nudges.ts` and `lib/trial-warning.ts`, pinned. A slug carries
+  a subject, a body and a button label and nothing else; the pin asserts that,
+  and asserts the rules module never imports a database client. A console that
+  can edit conditions is a console that can send "create your first job" to
+  somebody with three of them - the exact failure the sequence was designed
+  around.
+- **A CONSOLE IS A HOLE STRAIGHT THROUGH THE TEST SUITE UNLESS THE ROUTE SAYS
+  NO.** `plans-and-landing.ts` keeps every public page honest about `TRIAL_DAYS`
+  by scanning SOURCE FILES - it cannot see a sentence somebody typed into a
+  browser. So `copyProblem` refuses a stored sentence naming a different number
+  of days and points at `{{trial_days}}` instead, and it is asked by the ROUTE
+  as well as the form. Any future rule a pin enforces over source has to be
+  re-stated there, or the console is the way round it.
+- **MERGE TAGS ARE A CLOSED SET, REFUSED AT THE DOOR.** A stored sentence can
+  only use tags the sender actually supplies, checked per slug when it is saved
+  - `{{frist_name}}` reaching an inbox is "a value that is present and WRONG".
+  A tag with no value at send time is left VISIBLE rather than blanked: an empty
+  space reads as a bug to the customer, a visible tag reads as a bug to us, and
+  only one of those gets fixed.
+- **ONLY WORDS CROSS THE BOUNDARY, NEVER HTML.** `welcomeEmail` takes a subject,
+  paragraphs and a button label; `emailLayout` still owns the shape. Same rule
+  as a guide's inline links and the shift email's typed date block - data
+  supplies content, code supplies structure, so no stored string can break the
+  branding or smuggle markup into an inbox.
 
 ## Two registries, and why a new thing goes IN them (IMPORTANT)
 Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.md).
