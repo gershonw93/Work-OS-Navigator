@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
+import { statValueSize } from '@/lib/stat-value-size'
 
 /**
  * A row of numbers that belong together, in ONE card.
@@ -46,6 +47,7 @@ export function StatStrip({
 }) {
   const shown = items.filter(s => s.value !== null && s.value !== undefined)
   if (!shown.length) return null
+  const size = statValueSize(shown.map(s => s.value))
 
   return (
     <div className={cn('overflow-hidden rounded-2xl border border-line bg-panel', className)}>
@@ -76,7 +78,7 @@ export function StatStrip({
               i === shown.length - 1 && shown.length % 2 === 1 && 'col-span-2',
             )}
           >
-            <p className={cn('text-2xl font-bold tabular-nums tracking-tight',
+            <p className={cn(size, 'whitespace-nowrap font-bold tabular-nums tracking-tight',
               s.tone ? TONE[s.tone] : 'text-ink')}>
               {s.value}
             </p>
