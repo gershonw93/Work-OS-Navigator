@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { checkInvoiceAgainstQuote, checkSummary } from '@/lib/invoice-check'
 import { requirePermission, denied } from '@/lib/api-guard'
+import { guardScan, scanDenied } from '@/lib/scan-guard'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -72,6 +73,9 @@ function nameScore(a: string, b: string): number {
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   const gate = await requirePermission(admin(), request, 'invoices', 'edit')
   if (denied(gate)) return gate.denied
+
+  const scan = await guardScan(admin(), gate.actor, 'invoice', params.id)
+  if (scanDenied(scan)) return scan.denied
 
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -219,6 +223,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     }
   }
 
+  await scan.succeeded()
   return NextResponse.json({
     read_error: readError,
     document_url,

@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { guardScan, scanDenied, scanActorFor } from '@/lib/scan-guard'
 
 export const runtime = 'nodejs'
 
@@ -22,6 +23,9 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const db = admin()
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const scan = await guardScan(db, await scanActorFor(db, user.id), 'inspection', params.id)
+  if (scanDenied(scan)) return scan.denied
 
   const formData = await request.formData()
   const file = formData.get('file') as File | null
@@ -74,6 +78,7 @@ Return ONLY the JSON object, no other text.`
   try {
     const cleaned = text.replace(/^```json\s*/i, '').replace(/\s*```$/, '').trim()
     const parsed = JSON.parse(cleaned)
+    await scan.succeeded()
     return NextResponse.json({ fields: parsed })
   } catch {
     return NextResponse.json({ error: 'Could not parse inspection data. Please fill in the fields manually.' }, { status: 422 })

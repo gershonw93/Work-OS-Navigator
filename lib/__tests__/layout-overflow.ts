@@ -764,7 +764,12 @@ ok(dashes.length === 0,
 
 // ...and the hyphens that replaced them are really there, so this cannot have
 // been passed by deleting the sentences.
-ok(/is the whole product - you are only buying/.test(read('app/(dashboard)/settings/page.tsx')),
+// The billing tab moved out of the settings page into its own panel when the
+// three made-up usage bars were replaced with counted ones, and this sentence
+// went with it. Following the sentence rather than the file is the point: the
+// assertion is about the copy, and a pin left pointing at the old path would
+// have gone quietly true-by-absence.
+ok(/is the whole product - you are only buying/.test(read('components/settings/billing-panel.tsx')),
   'the sentence dashes came back as hyphens rather than vanishing')
 
 // ...and the typography it deliberately keeps is still there, so the scan above

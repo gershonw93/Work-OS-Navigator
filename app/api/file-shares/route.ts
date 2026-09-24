@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { randomBytes } from 'crypto'
 import { getActor, actorCan } from '@/lib/server-permissions'
 import { shareProblem } from '@/lib/share-contents'
+import { billingLock } from '@/lib/api-guard'
 
 export const runtime = 'nodejs'
 
@@ -61,6 +62,9 @@ export async function POST(request: Request) {
 
   // Sharing documents outward is a files action, so it needs files rights.
   const actor = await getActor(db, token)
+  const locked = await billingLock(db, actor?.companyId)
+  if (locked) return locked
+
   if (!actorCan(actor, 'files', 'view')) {
     return NextResponse.json({ error: 'You do not have permission to share files.' }, { status: 403 })
   }

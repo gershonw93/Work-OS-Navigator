@@ -38,7 +38,7 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-117.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-118.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - **Verify every column you `.select()` actually exists.** Supabase returns
   `data: null` for an unknown column, so a typo reads as "not found" rather than
@@ -324,6 +324,71 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   and misses land in `quickbooks_sync_log` for the backlog sync to pick up.
 - Pushes take an atomic claim (`qbo_claimed_at`) via a conditional UPDATE. A
   check-then-act guard is NOT enough.
+
+## Billing, the trial, and the meter (IMPORTANT)
+- **`lib/plans.ts` IS THE ONE HOME FOR A PRICE, A CAP AND `TRIAL_DAYS`.** A plan
+  carries `projectLimit` as a NUMBER and the sentence is derived
+  (`projectLimitLabel`) - it used to be the string `'3 active projects'`, which
+  reads perfectly and cannot be compared with anything, while the screen that
+  was supposed to be counting printed a hardcoded `0 / 10` under a tier called
+  "Starter" that no plan has ever had. `key` is the stable id every stored row
+  and Stripe price names; `name` is marketing's to reword.
+- **A COMPANY WITH NO `company_billing` ROW IS UNMETERED, NOT LOCKED.**
+  `companies` holds our customers AND every sub and inspector in a Directory, and
+  a sub writes to jobs it does not own. "No row means no writing" closes a small
+  hole by breaking every sub in the product - the same reasoning that keeps
+  `requirePermission` out of the ownership question.
+- **EVERY AMBIGUITY RESOLVES TOWARDS WRITABLE.** A wrong "locked" takes a crew's
+  screen away mid-job; a wrong "open" costs a few dollars and is corrected the
+  moment somebody looks. So a trial with no end date, an `active` row with a
+  stale period end, and a status we do not recognise all stay open. Same
+  asymmetry as `lib/auth-outcome.ts`, settled the same way: when the evidence
+  does not say, guess the mistake you can take back.
+- **THE LOCK GOES AT `requirePermission`, FOR WRITE ACTIONS ONLY** - the one door
+  all 152 write routes already share. `middleware.ts` returns early for `/api/`,
+  so it cannot. The seven routes that gate by hand with `actorCan` call
+  `billingLock` themselves, **and two of them are the ones that decide how many
+  jobs are open**, which is the thing the plans meter. 402, never 403: 403 sends
+  somebody to their admin for a permission nobody can grant.
+- **A READ-ONLY ACCOUNT IS STILL FULLY READABLE.** Nothing is hidden and nothing
+  is deleted for non-payment; what stops is writing. And it is announced ONCE
+  for the session (`BillingBanner`, beside `PermissionsBanner`) - learning your
+  trial ended from a failed save is learning it after doing the work.
+- **A FAILED CARD IS NOT A CANCELLATION.** Stripe retries `past_due` for weeks;
+  locking on the first decline takes the job screen away over a card the office
+  has not noticed. It stays writable and says so loudly. The lock arrives with
+  `canceled`.
+- **THE CAP IS ENFORCED ON EVERY DOOR THAT OPENS A SLOT**, which is two: creating
+  a project and moving one back INTO a counted status. Metering only the create
+  route leaves the eleventh job one status change away, and a status change is
+  how a finished job comes back.
+- **THE SCAN ROW IS WRITTEN BEFORE THE MODEL IS CALLED, MARKED FAILED**, and
+  flipped to `succeeded` when an answer comes back. Written the other way round
+  a route that times out records nothing and `succeeded` is true on every row -
+  a column that lies by omission. Only successful scans count: a customer who
+  got nothing has not spent anything. And a meter that cannot write must never
+  refuse the scan.
+- **EVERY ROUTE THAT CALLS THE MODEL IS METERED**, pinned by walking `app/api`
+  for the call itself rather than against a typed list - the allowance was
+  printed on a pricing page for months while nothing in the product counted one.
+- **A COMP CARRIES WHO AND WHY, ASKED AT THE DOOR.** `comped` with nothing
+  against it cannot answer "why has this company never been charged" six weeks
+  later, which is when it is asked. Same rule as `demo_notification_log`. Ending
+  one drops them onto a trial, never straight into a read-only app.
+- **STRIPE IS OURS, NOT A CUSTOMER'S** - the opposite direction from QuickBooks,
+  which is per company and takes their data out to their own file. The secret is
+  an env var; the PRICE IDS are in `billing_plan_prices` and pasted in the
+  platform console, because the person making prices in Stripe should not need a
+  deploy. The app NEVER marks itself paid - a checkout returning to a success URL
+  proves the browser came back, not that money moved. Only the signed webhook
+  writes, and with no signing secret it refuses everything.
+- **A TRIAL LENGTH NAMED ON A PUBLIC PAGE IS READ FROM `TRIAL_DAYS`.** Pinned by
+  scanning every trial CLAIM ("N days free", "N-day trial") across the pricing
+  page, the cards, Help and the guides, plus a ban on spelling it out in words -
+  a digit can be interpolated, a word cannot, which is how one sentence drifted
+  past the first version of that check. The public BUTTON still says Request
+  access: the door is still a waitlist, so "Start free trial" is still a verb the
+  product cannot honour.
 
 ## Two registries, and why a new thing goes IN them (IMPORTANT)
 Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.md).

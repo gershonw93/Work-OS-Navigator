@@ -5,6 +5,7 @@ import { Sidebar } from '@/components/layout/sidebar'
 import { TopNav } from '@/components/layout/top-nav'
 import { MobileTabBar } from '@/components/layout/mobile-tab-bar'
 import { ViewAsBanner } from '@/components/layout/view-as-switcher'
+import { BillingBanner } from '@/components/layout/billing-banner'
 import { PermissionsBanner } from '@/components/layout/permissions-banner'
 import { ImpersonationBanner } from '@/components/layout/impersonate-switcher'
 import { IdleLogout } from '@/components/layout/idle-logout'
@@ -89,6 +90,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
             <ImpersonationBanner />
             <ViewAsBanner />
             <PermissionsBanner />
+            <BillingBanner />
             <TopNav />
           </div>
           <main

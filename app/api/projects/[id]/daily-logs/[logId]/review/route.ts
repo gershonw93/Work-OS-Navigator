@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
 import { getActor, actorCan } from '@/lib/server-permissions'
+import { billingLock } from '@/lib/api-guard'
 
 export const runtime = 'nodejs'
 
@@ -24,6 +25,9 @@ export async function PATCH(
   const db = admin()
   const actor = await getActor(db, token)
   if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const locked = await billingLock(db, actor?.companyId)
+  if (locked) return locked
+
   if (!actorCan(actor, 'daily-logs', 'edit')) {
     return NextResponse.json({ error: 'You do not have permission to review logs.' }, { status: 403 })
   }

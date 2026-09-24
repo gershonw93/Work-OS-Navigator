@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server'
 import { comparisonTitle, isUntitled } from '@/lib/quote-comparison'
 import { friendlyDbError } from '@/lib/db-error'
 import { requirePermission, denied } from '@/lib/api-guard'
+import { guardScan, scanDenied } from '@/lib/scan-guard'
 
 export const runtime = 'nodejs'
 
@@ -41,6 +42,9 @@ export async function POST(request: Request, { params }: { params: { id: string;
   // the family answered anybody with a login.
   const gate = await requirePermission(admin(), request, 'quotes', 'create')
   if (denied(gate)) return gate.denied
+
+  const scan = await guardScan(admin(), gate.actor, 'quote', params.id)
+  if (scanDenied(scan)) return scan.denied
 
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -165,5 +169,6 @@ export async function POST(request: Request, { params }: { params: { id: string;
     console.error('[quotes/upload] could not name the comparison:', e)
   }
 
+  await scan.succeeded()
   return NextResponse.json({ quote: data })
 }

@@ -5,7 +5,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
 import { NotificationSettings } from '@/components/settings/notification-settings'
 import { NotificationRouting } from '@/components/settings/notification-routing'
-import { PLANS, PLAN_CTA_HREF, PLAN_CTA_APP, PLAN_FEATURES, PRICING_STATUS, annualTotal, annualSaving, planPrice } from '@/lib/plans'
+import { BillingPanel } from '@/components/settings/billing-panel'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -1954,139 +1954,11 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* ══════════════════════════════════════ TAB: BILLING */}
-          {activeTab === 'billing' && (
-            <div className="space-y-6">
-              {/* Current Plan */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Current Plan</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-lg font-semibold text-ink">Starter Plan</p>
-                      <p className="text-sm text-muted-fg mt-0.5">Free during beta</p>
-                    </div>
-                    {/* No route to buying anything inside the iOS app - see
-                        lib/use-native.ts. Plan changes happen on the web. */}
-                    {canBuy ? (
-                      <Button disabled className="opacity-60 cursor-not-allowed">
-                        Upgrade (Coming Soon)
-                      </Button>
-                    ) : (
-                      <p className="text-sm text-faint">Manage your plan at sytenav.com</p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Usage */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Usage</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {[
-                    { label: 'Team Members', used: teammates.length, max: 5, unit: '' },
-                    { label: 'Projects',     used: 0,                max: 10, unit: '' },
-                    { label: 'Storage',      used: 0,                max: 5,  unit: ' GB' },
-                  ].map(({ label, used, max, unit }) => (
-                    <div key={label}>
-                      <div className="flex justify-between text-sm text-muted-fg mb-1">
-                        <span>{label}</span>
-                        <span>{used} / {max}{unit}</span>
-                      </div>
-                      <div className="h-2 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-accent rounded-full transition-all"
-                          style={{ width: `${Math.min((used / max) * 100, 100)}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-
-              {/* Plans comparison.
-                  FROM lib/plans.ts, the same list the pricing page renders.
-                  This used to be its own hardcoded set - Starter / Pro /
-                  Enterprise, different limits, and **$49 / mo** on the middle
-                  one. The website offers Crew / Company / Scale with no prices
-                  at all, and has an FAQ entry headed "Why is there no price on
-                  this page?", so the absence is a decision. The app was quoting
-                  a price the business had chosen not to publish, under three
-                  tier names that do not exist. */}
-              <div>
-                <h3 className="text-base font-semibold text-ink mb-1">Plans</h3>
-                {/* THE NUMBERS AND WHAT THEY MEAN TRAVEL TOGETHER. The prices
-                    below are real and published on the website; nobody is being
-                    charged them yet. An unqualified "$299/month" inside a
-                    product that is free is the same lie as the $49 this screen
-                    used to print for a tier that did not exist - one sentence,
-                    from lib/plans.ts, so the two screens cannot drift. */}
-                <p className="mb-4 text-sm text-muted-fg">{PRICING_STATUS.line}</p>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                  {PLANS.map((plan) => (
-                    <div
-                      key={plan.name}
-                      className={`rounded-xl border p-5 ${plan.featured ? 'border-accent bg-accent-tint' : 'border-line bg-panel'}`}
-                    >
-                      <div className="mb-1 flex items-start justify-between gap-2">
-                        <p className="font-semibold text-ink">{plan.name}</p>
-                        {plan.featured && (
-                          <span className="whitespace-nowrap rounded-full bg-accent-tint px-2 py-0.5 text-xs font-medium text-accent-fg">
-                            Most popular
-                          </span>
-                        )}
-                      </div>
-                      <p className="mb-3 text-sm text-muted-fg">{plan.who}</p>
-                      <p className="text-2xl font-bold tracking-tight text-ink">
-                        {planPrice(plan.monthly)}
-                        <span className="ml-1 text-sm font-semibold text-muted-fg">/month</span>
-                      </p>
-                      {/* Derived, both of them - see lib/plans.ts. */}
-                      <p className="mt-0.5 text-xs text-faint">
-                        or {planPrice(annualTotal(plan))}/year, saving {planPrice(annualSaving(plan))}
-                      </p>
-                      <ul className="mt-3 space-y-1.5">
-                        <li className="flex items-center gap-2 text-sm font-medium text-ink-soft">
-                          <Check className="h-3.5 w-3.5 shrink-0 text-accent-fg" />
-                          {plan.projects}
-                        </li>
-                        <li className="flex items-center gap-2 text-sm font-medium text-ink-soft">
-                          <Check className="h-3.5 w-3.5 shrink-0 text-accent-fg" />
-                          {plan.scans.toLocaleString('en-US')} AI scans / month
-                        </li>
-                      </ul>
-                      <a
-                        href={PLAN_CTA_HREF}
-                        className="mt-4 block w-full rounded-lg border border-line py-2 text-center text-sm font-medium text-ink-soft hover:bg-surface"
-                      >
-                        {PLAN_CTA_APP}
-                      </a>
-                    </div>
-                  ))}
-                </div>
-                {/* ONE product, so the features are a shared list rather than a
-                    per-plan one. Printing them inside each card implied the
-                    cheapest tier was missing something. */}
-                <div className="mt-4 rounded-xl border border-line bg-panel p-5">
-                  <p className="mb-3 text-sm font-semibold text-ink">
-                    Every plan is the whole product - you are only buying project capacity.
-                  </p>
-                  <ul className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
-                    {PLAN_FEATURES.map((f) => (
-                      <li key={f.t} className="flex items-start gap-2 text-sm text-muted-fg">
-                        <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
-                        {f.t}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* ══════════════════════════════════════ TAB: BILLING
+              Every number on this tab is counted server-side and every price
+              comes off lib/plans.ts. It used to be three progress bars drawn
+              from literals under a tier name no plan has ever had. */}
+          {activeTab === 'billing' && <BillingPanel canBuy={canBuy} />}
 
           {/* ══════════════════════════════════════ TAB: DANGER ZONE */}
           {activeTab === 'danger' && (

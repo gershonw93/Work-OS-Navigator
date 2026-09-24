@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useId, useState } from 'react'
 import { ArrowRight, Check, HardHat, Building2, Landmark, FolderKanban, ScanLine } from 'lucide-react'
 import {
-  PLANS, PLAN_CTA_HREF, PLAN_CTA_APP, PLAN_CTA_WEB, PLAN_CTA_WEB_HREF,
+  PLANS, projectLimitLabel, PLAN_CTA_HREF, PLAN_CTA_APP, PLAN_CTA_WEB, PLAN_CTA_WEB_HREF,
   PRICING_STATUS, annualTotal, annualPerMonth, annualSaving, planPrice,
 } from '@/lib/plans'
 import { appHref } from '@/lib/hosts'
@@ -113,7 +113,7 @@ export function PricingPlans() {
               <div className={`mt-6 space-y-2 rounded-xl px-4 py-3 ${p.featured ? 'bg-surface/10 dark:bg-muted' : 'border border-line-soft bg-surface'}`}>
                 <p className={`flex items-center gap-2.5 font-mono text-xs ${p.featured ? 'opacity-85' : 'text-ink-soft'}`}>
                   <FolderKanban className={`h-3.5 w-3.5 shrink-0 ${p.featured ? 'text-accent' : 'text-accent-fg'}`} />
-                  {p.projects}
+                  {projectLimitLabel(p)}
                 </p>
                 <p className={`flex items-center gap-2.5 font-mono text-xs ${p.featured ? 'opacity-85' : 'text-ink-soft'}`}>
                   <ScanLine className={`h-3.5 w-3.5 shrink-0 ${p.featured ? 'text-accent' : 'text-accent-fg'}`} />
@@ -126,9 +126,14 @@ export function PricingPlans() {
                 The full product. You are only buying project capacity.
               </p>
 
-              {/* THE DOOR IS A WAITLIST, so the button says so. A primary
-                  action that read "Start free trial · no card" would open a
-                  request form, which is a promise the product cannot keep. */}
+              {/* THE DOOR IS STILL A WAITLIST, so the button still says so -
+                  and this is the bit that survives a trial shipping. There ARE
+                  fifteen free days now, and `PRICING_STATUS` under these cards
+                  says so; what there is not is a self-serve checkout, so a
+                  primary action reading "Start free trial" would still open a
+                  request form, which is still a promise the product cannot
+                  keep. The trial is a fact about what happens after approval,
+                  not a verb on a button. */}
               <Link
                 href={appHref(PLAN_CTA_WEB_HREF)}
                 className={[

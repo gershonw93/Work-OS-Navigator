@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { requirePermission, denied } from '@/lib/api-guard'
+import { guardScan, scanDenied } from '@/lib/scan-guard'
 
 export const runtime = 'nodejs'
 
@@ -22,6 +23,9 @@ const CATEGORIES = ['Lumber', 'Electrical', 'Plumbing', 'Hardware', 'Concrete', 
 export async function POST(request: Request) {
   const gate = await requirePermission(admin(), request, 'materials', 'edit')
   if (denied(gate)) return gate.denied
+
+  const scan = await guardScan(admin(), gate.actor, 'material', null)
+  if (scanDenied(scan)) return scan.denied
 
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -79,6 +83,7 @@ Keep line_items short (skip store boilerplate). Return ONLY the JSON object.`
     const text = message.content[0].type === 'text' ? message.content[0].text : ''
     const cleaned = text.replace(/^```json\s*/i, '').replace(/\s*```$/, '').trim()
     const fields = JSON.parse(cleaned)
+    await scan.succeeded()
     return NextResponse.json({ fields, receipt_url })
   } catch {
     // Scan failed - still return the stored image so they can fill it in by hand.

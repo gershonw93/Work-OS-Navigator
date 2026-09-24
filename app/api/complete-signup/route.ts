@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { trialEnd } from '@/lib/billing-state'
 
 export async function POST(request: Request) {
   const authHeader = request.headers.get('Authorization')
@@ -85,6 +86,29 @@ export async function POST(request: Request) {
   if (profileError) {
     return NextResponse.json({ error: profileError.message }, { status: 500 })
   }
+
+  // THE FIFTEEN DAYS START HERE, because this is the moment a company becomes
+  // a company - the one place in the product where a tenant is born.
+  //
+  // ON CONFLICT DO NOTHING is load-bearing rather than tidy: this route also
+  // runs for somebody joining a company that already exists, and a plain
+  // insert there would either fail the whole signup or, worse, reset a paying
+  // customer's row back to a trial because a second person accepted an invite.
+  //
+  // A FAILURE HERE DOES NOT FAIL THE SIGNUP. No row means unmetered, which is
+  // the permissive side, and the platform console can see a company with no
+  // billing row. Refusing to let somebody into the product because a trial
+  // record would not write is the wrong way round.
+  const now = new Date()
+  const { error: billingError } = await admin
+    .from('company_billing')
+    .upsert({
+      company_id: company.id,
+      status: 'trialing',
+      trial_started_at: now.toISOString(),
+      trial_ends_at: trialEnd(now).toISOString(),
+    }, { onConflict: 'company_id', ignoreDuplicates: true })
+  if (billingError) console.error('[billing] could not start a trial', { company: company.id, error: billingError.message })
 
   return NextResponse.json({ success: true })
 }

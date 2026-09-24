@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { requirePermission, denied } from '@/lib/api-guard'
+import { guardScan, scanDenied } from '@/lib/scan-guard'
 
 export const runtime = 'nodejs'
 
@@ -19,6 +20,9 @@ const admin = () => createClient(
 export async function POST(request: Request, { params: _params }: { params: { id: string } }) {
   const gate = await requirePermission(admin(), request, 'team', 'edit')
   if (denied(gate)) return gate.denied
+
+  const scan = await guardScan(admin(), gate.actor, 'proposal', _params.id)
+  if (scanDenied(scan)) return scan.denied
 
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -69,6 +73,7 @@ Return ONLY the JSON object, no other text.`
   const text = message.content[0].type === 'text' ? message.content[0].text : ''
   try {
     const cleaned = text.replace(/^```json\s*/i, '').replace(/\s*```$/, '').trim()
+    await scan.succeeded()
     return NextResponse.json({ fields: JSON.parse(cleaned) })
   } catch {
     return NextResponse.json({ error: 'Could not read the proposal. Fill in the fields manually.' }, { status: 422 })

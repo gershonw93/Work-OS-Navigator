@@ -54,6 +54,30 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 // Author entries anywhere in this list; the app reads the sorted view.
 const AUTHORED: Release[] = [
   {
+    date: '2026-09-24',
+    title: 'Plans, a free trial, and a usage counter that is real',
+    items: [
+      {
+        kind: 'new',
+        title: 'Your first 15 days are free, and Billing says where you are',
+        text: 'New companies now start on a 15-day free trial - the whole product on a real job, with no card taken and nothing to cancel. Settings > Billing tells you exactly where you stand: how many days are left, or which plan you are on and when it renews. Anybody who was in the beta before this shipped keeps free access; we have not put a clock on people who were here first, and that screen says so in as many words.',
+        help: 'plans-and-pricing',
+      },
+      {
+        kind: 'new',
+        title: 'A counter for active projects and AI scans',
+        text: 'Settings > Billing counts what you are actually using: active projects against your plan, and AI scans used this month against your allowance. Both are counted at the moment you look. Jobs that are planning, active or on hold count towards the limit - completed and cancelled ones do not - and the screen says so rather than leaving you to find out. A scan only counts when it gives you an answer back; a read that fails is free, and the allowance refills on the 1st.',
+        help: 'plans-and-pricing',
+      },
+      {
+        kind: 'fixed',
+        title: 'The old usage bars were not measuring anything',
+        text: 'The three bars on that screen - Team Members, Projects, Storage - were fixed numbers written into the page. Projects always read 0, the limits matched no plan SyteNav sells, storage is not something we meter at all, and the plan above them was called "Starter", a tier that does not exist. A company with nine live jobs saw an empty bar. They are gone, replaced by figures that are counted.',
+        help: 'plans-and-pricing',
+      },
+    ],
+  },
+  {
     date: '2026-09-23',
     title: 'A task can have a whole crew on it',
     items: [

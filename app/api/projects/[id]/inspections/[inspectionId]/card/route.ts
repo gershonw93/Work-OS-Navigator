@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { canCarryCompletion } from '@/lib/inspection-status'
+import { guardScan, scanDenied, scanActorFor } from '@/lib/scan-guard'
 
 export const runtime = 'nodejs'
 
@@ -24,6 +25,9 @@ export async function POST(request: Request, { params }: { params: { id: string;
   const db = admin()
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const scan = await guardScan(db, await scanActorFor(db, user.id), 'inspection-card', params.id)
+  if (scanDenied(scan)) return scan.denied
 
   const formData = await request.formData()
   const file = formData.get('file') as File | null
@@ -118,6 +122,7 @@ export async function POST(request: Request, { params }: { params: { id: string;
   // The date PRINTED ON THE CARD, offered alongside the result. Accepting the
   // suggestion used to stamp today - so the one path that resolved the
   // contradiction also threw away the better date.
+  await scan.succeeded()
   return NextResponse.json({
     inspection,
     suggested_status: fields?.status ?? null,

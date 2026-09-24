@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { requirePermission, denied } from '@/lib/api-guard'
+import { guardScan, scanDenied } from '@/lib/scan-guard'
 
 export const runtime = 'nodejs'
 
@@ -22,6 +23,9 @@ export async function POST(request: Request, { params }: { params: { id: string;
   // the family answered anybody with a login.
   const gate = await requirePermission(admin(), request, 'quotes', 'edit')
   if (denied(gate)) return gate.denied
+
+  const scan = await guardScan(admin(), gate.actor, 'quote-comparison', params.id)
+  if (scanDenied(scan)) return scan.denied
 
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -81,5 +85,6 @@ Compare each quote against the requirements and against the other quotes. Be spe
   }
 
   await db.from('quote_comparisons').update({ analysis }).eq('id', params.compId)
+  await scan.succeeded()
   return NextResponse.json({ analysis })
 }

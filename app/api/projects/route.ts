@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server'
 import { myJobs } from '@/lib/my-jobs'
 import { getActor, actorCan } from '@/lib/server-permissions'
 import { asContractType } from '@/lib/contract-type'
+import { billingLock } from '@/lib/api-guard'
+import { projectSlotProblem } from '@/lib/billing-read'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -162,6 +164,16 @@ export async function POST(request: Request) {
   if (!actorCan(actor, 'projects', 'create')) {
     return NextResponse.json({ error: 'You do not have permission to create projects.' }, { status: 403 })
   }
+
+  // THE PLAN IS METERED ON ACTIVE PROJECTS, so this is the door it is metered
+  // at. This route gates by hand rather than through `requirePermission`, so
+  // neither the read-only lock nor the project cap reaches it on its own -
+  // both are asked explicitly, from the same two functions the rest of the
+  // product uses.
+  const locked = await billingLock(admin, profile.company_id)
+  if (locked) return locked
+  const slot = await projectSlotProblem(admin, profile.company_id)
+  if (slot) return NextResponse.json({ error: slot, billing: 'project_limit' }, { status: 402 })
 
   const body = await request.json()
   const { name, address, client, type, start_date, end_date, customer_id, lat, lng, interior_sqft, exterior_sqft, billing_mode, default_retainage_pct, contract_type } = body
