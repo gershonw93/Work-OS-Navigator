@@ -11,23 +11,29 @@ import { FLOWS } from '@/lib/flows'
 export const metadata: Metadata = marketingMeta({
   title: 'Where construction jobs leak money · SyteNav',
   description:
-    'Six real flows, start to finish: a client picking an upgrade over allowance, bringing a sub on from quote to first bill, a supplier invoice split across two trades, cost-plus billed per invoice, a bill that does not match its quote, and where a budget line got its number.',
+    'Seven real flows, start to finish: a client picking an upgrade over allowance, bringing a sub on from quote to first bill, a trade running long and every trade behind it moving with it, a supplier invoice split across two trades, cost-plus billed per invoice, a bill that does not match its quote, and where a budget line got its number.',
   path: '/flows',
 })
 
 // Deliberately NOT the same page as /workflow. That one walks the
 // project lifecycle top to bottom - find the job, price it, award it, close it
-// out. This one is six specific scenarios where money actually goes missing,
-// with the loss spelled out beside the fix. Lifecycle answers "what does it
-// cover"; this answers "why would I switch".
+// out. This one is specific scenarios where money actually goes missing, with
+// the loss spelled out beside the fix. Lifecycle answers "what does it cover";
+// this answers "why would I switch".
+//
+// THE COUNT IS DERIVED, NOT TYPED. The heading and the eyebrow used to say
+// "Six" in three places - the metadata, the eyebrow and the title - so adding
+// a seventh flow left a page announcing six and rendering seven. A number in
+// prose about a list beside it is a claim that goes stale the moment somebody
+// edits the list.
 export default function FlowsPage() {
   return (
     <>
       <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-28">
         <Reveal>
           <SectionHead
-            eyebrow="Six flows, start to finish"
-            title={<>Six places a job leaks money<br className="hidden sm:block" /> - and what stops it.</>}
+            eyebrow={`${FLOWS.length} flows, start to finish`}
+            title={<>{FLOWS.length} places a job leaks money<br className="hidden sm:block" /> - and what stops it.</>}
             lead="Every product has change orders and a budget. What matters is the twenty minutes between a client tapping an upgrade and $3,500 landing on the right line. Here is each of those, step by step, with what it costs you today written next to what fixes it."
           />
         </Reveal>

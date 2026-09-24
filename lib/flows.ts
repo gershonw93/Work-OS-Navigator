@@ -128,6 +128,49 @@ export const FLOWS: Flow[] = [
   },
 
   {
+    slug: 'the-schedule-slipped',
+    title: 'Framing runs three days long',
+    short: 'One date moves. Every trade behind it moves with it, and each one hears about it once.',
+    who: 'Anyone whose schedule stopped matching the job somewhere around week three',
+    stake: 'A crew that turns up to a wall that is not there',
+    steps: [
+      {
+        act: 'Framing was due to finish Thursday. It finishes Tuesday week.',
+        loss: 'Four phone calls - sheetrock, the painter, the trim carpenter, the inspector - and the one you forget is the one that costs you a day.',
+      },
+      {
+        act: 'You open the line and press "Running late?". How many days, and what happened.',
+        win: 'Both dates move by the same amount, so the line keeps its length: eight days of work is still eight days of work, it just starts later.',
+        loss: 'Dragging an end date and quietly turning an eight-day trade into an eleven-day one.',
+      },
+      {
+        act: 'Before anything is written, a screen shows what moves and what does not.',
+        win: 'Every trade waiting on framing shifts by the same number of days its FINISH moved, all the way down the chain.',
+        loss: 'Re-typing five sets of dates, or leaving the schedule alone because updating it is worse than working around it.',
+      },
+      {
+        act: 'Lines somebody dated by hand after linking them are skipped, and listed with the reason.',
+        win: 'A date you set on purpose is never moved underneath you - and you are told it was left alone, rather than finding out later.',
+      },
+      {
+        act: 'Then it asks one question on its own: tell the subs, or move the dates quietly.',
+        win: 'Nothing is emailed unless you press it. Each sub gets ONE letter listing every date of theirs that moved, with the old one struck through and the new one - weekday and all - in bold.',
+        loss: 'Five separate "your dates changed" emails to one sub, none of which say which job.',
+      },
+      {
+        act: 'Any sub with no email address on file is named on that screen, before you send.',
+        win: 'You know who to ring, while you are still looking at the list.',
+        loss: 'Assuming everyone was told, and finding out on site that one of them never was.',
+      },
+      {
+        act: 'The slip is written down: the reason, and what the dates were before it.',
+        win: 'As-planned against as-built is a question the job can still answer in March.',
+        loss: 'A schedule that only ever shows today, so nobody can say where the six weeks went.',
+      },
+    ],
+    outcome: 'One date moves, everybody who needed to know knows, and the job remembers why.',
+  },
+  {
     slug: 'bill-that-does-not-match',
     title: 'The bill that does not match the quote',
     short: 'He quoted $28,000 and billed $31,400. You find out before you approve it.',
