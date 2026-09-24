@@ -104,8 +104,9 @@ and a project. If any of those are empty the seed did not finish.
 **Capture from the installed app on a real device, not a resized browser.** The
 shell is a webview of the same site, so the DOM matches - but safe areas resolve
 to zero on a desktop, and the status bar and home indicator belong in the shot.
-No Mac here means no Simulator, so these come off your own iPhone and iPad once
-the TestFlight build is on them.
+No Mac here means no Simulator, so these come off your own iPhone once the
+TestFlight build is on it.
 
-Required sizes: **6.7" iPhone** and **13" iPad** (the target is universal, so
-Apple asks for both), plus Android phone/tablet when that store comes.
+Required sizes: **6.7" iPhone** only - v1 is iPhone-only
+(`TARGETED_DEVICE_FAMILY = 1`), so there is no iPad set to supply. Android
+phone screenshots are in `store/play/screenshots/`.
