@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { Sparkles, BookOpen, ArrowRight } from 'lucide-react'
 import { RELEASES, KIND_LABEL, KIND_TINT, LATEST_RELEASE, SEEN_KEY } from '@/lib/whats-new'
+import { getArticle, helpArticleAllowed } from '@/lib/help/articles'
+import { useCanShowPricing } from '@/lib/use-native'
 
 import { formatDate } from '@/lib/dates'
 const fmt = (iso: string) =>
@@ -15,6 +17,7 @@ export default function WhatsNewPage() {
   // recorded, so the "new" markers on this render reflect the state they came
   // in with rather than instantly clearing themselves.
   const [seenOnArrival, setSeenOnArrival] = useState<string | null>(null)
+  const pricingAllowed = useCanShowPricing()
 
   useEffect(() => {
     try {
@@ -67,7 +70,10 @@ export default function WhatsNewPage() {
                     </div>
                     <p className="text-sm text-muted-fg mt-1.5 leading-relaxed">{item.text}</p>
                     <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
-                      {item.help && (
+                      {/* Six entries point at the pricing article, which the
+                          iOS build hides - a link into it is a sixth door, and
+                          the same predicate answers for all of them. */}
+                      {item.help && helpArticleAllowed(getArticle(item.help), pricingAllowed) && (
                         <Link href={`/help?a=${item.help}`}
                           className="inline-flex items-center gap-1 text-xs font-medium text-accent-fg hover:underline">
                           <BookOpen className="h-3.5 w-3.5" /> How it works

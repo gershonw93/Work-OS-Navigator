@@ -440,6 +440,74 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   access: the door is still a waitlist, so "Start free trial" is still a verb the
   product cannot honour.
 
+## Selling, and the one platform that may not (IMPORTANT)
+- **`lib/use-native.ts` IS THE ONE HOME FOR "MAY THIS BUILD SELL ANYTHING".**
+  Apple's 3.1.1 wants anything unlocking features in an app sold through In-App
+  Purchase, and the anti-steering rules restrict pointing somewhere else
+  instead. SyteNav sells on the web through Stripe, so the iOS build offers no
+  purchase, names no price, and shows no control leading to one - which is what
+  every comparable B2B app does. `IOS_SIGNUP_ALLOWED` is the single switch:
+  flip it and every surface comes back.
+- **AND THE UNREADY WINDOW IS ANSWERED THE OPPOSITE WAY FOR A PRICE.**
+  `useNativePlatform` cannot answer until after mount - the server has no idea
+  which shell will load the page - so the first paint always believes it is on
+  the web. `canSignUpHere` guesses PERMISSIVELY through that window, because
+  wrongly refusing somebody an account is worse than briefly offering one.
+  `canShowPricing` is the same policy with the opposite default: a price shown
+  inside the iOS app is a store problem you cannot take back, while one hidden
+  from a web user for a frame appears a moment later. Two functions, not one
+  flag, because a single answer would be wrong for one of them. There is no
+  delay in practice - every caller is behind a fetch and `ready` flips first.
+- **ONLY THE VERBS WERE SWAPPED THE FIRST TIME, AND THE PRICES STAYED.** The
+  sign-up door was shut and `BillingPanel` learned to print `Manage your plan at
+  sytenav.com` instead of a button - while the plan grid went on rendering
+  $99 / $299 / $499 with a CTA on every card. A price list with a CTA is the
+  thing that gets an app rejected, and the kind that gets it pulled after it is
+  live rather than at review. Hiding the controls is half a job; the NUMBERS are
+  the other half.
+- **HIDDEN, NEVER EXTRACTED.** The plan grid is wrapped in the gate and left
+  where it is, because three suites read `billing-panel.tsx` to keep the WEB
+  screen honest about prices - the `@/lib/plans` import, `PRICING_STATUS`
+  travelling beside the numbers, and a pinned sentence. Move the block out and
+  two of them fail and one CRASHES on the missing file; worse, a screen that no
+  longer renders a price can never fail a check about printing a wrong one. What
+  stays visible is the plan and the usage meters: what you are using is a fact
+  about your own account, not an offer, and on a phone it is the most useful
+  thing there.
+- **A CONTROL MUST LEAD TO THE THING IT NAMES, AND THREE DID NOT.**
+  `BillingBanner` rides over every screen offering `Choose a plan`, `See plans`
+  or `Update the card`. On iOS the first two open a screen with no plans on it
+  and the third is worse - it opens one where the Stripe portal button is
+  already hidden, so the link promises the single thing that build cannot do.
+  The banner still states the fact and names the website instead, in the
+  sentence the panel already uses rather than a second spelling of it. The
+  server's `access.reason` sentences stay as they are: they are advice, not
+  controls, and "choose a plan" is still true - just not here.
+- **A PRICE CAN HIDE IN DOCUMENTATION.** The Help article `plans-and-pricing`
+  builds its steps straight out of `PLANS`, so it is the second price surface in
+  the app and carries `webOnly`. One predicate (`helpArticleAllowed`) answers at
+  every door, and there are FIVE - the category list, a search result, the count
+  under them, a `related` link, and the `/help?a=` deep link that six What's New
+  entries use. A hide covering the browse list and not the deep link is a price
+  list one URL away. Asserted per door, because any single working door
+  satisfies a check written in aggregate.
+- **THE CHANGELOG'S OLD PRICES STAY.** `/whats-new` quotes `$99, $299 or $499`
+  and an older `$49` as dated record. It is history, not an offer, and nothing
+  in it is pressable - rewriting it to satisfy a store rule would be dishonest
+  and hiding entries would gut the changelog. A decision, written down so it is
+  not rediscovered as an oversight.
+- **AND IT IS A SCAN, NOT A LIST.** `ios-no-purchase.ts` walks `app/` and
+  `components/` for a purchase verb and demands every file printing one read the
+  native gate - so a NEW screen with an Upgrade button fails the suite instead
+  of shipping. Marketing is excluded on purpose: selling is what that site is
+  for. This is the `install-as-app.ts` shape - if a surface makes a claim, the
+  platform it renders on has to be able to honour it.
+- **THIS REACHES A PHONE WITHOUT AN APP STORE REBUILD.** `capacitor.config.ts`
+  sets `server.url`, so the shell loads the live site and a change gated on
+  `Capacitor.isNativePlatform()` ships with a Vercel deploy. Only native-side
+  changes (that config, the Podfile, Swift, Info.plist) need a rebuild - the
+  distinction `@capacitor/keyboard` and the back gesture both pay for.
+
 ## The first fifteen days, and telling us somebody asked (IMPORTANT)
 - **A DRIP THAT FIRES ON A CALENDAR SENDS "CREATE YOUR FIRST JOB" TO SOMEBODY
   WITH THREE OF THEM.** `lib/onboarding-nudges.ts` is milestone-driven: every
