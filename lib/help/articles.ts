@@ -33,6 +33,15 @@ export interface HelpArticle {
   summary: string
   blocks: HelpBlock[]
   related?: string[]
+  /**
+   * Prints a price, so the iOS build must not show it.
+   *
+   * Apple takes a cut of anything sold inside an iOS app, so that build offers
+   * no route to buying and names no price - see `lib/use-native.ts`, which owns
+   * the decision. An article is the one place in Help that can carry a price,
+   * and `plans-and-pricing` builds its steps straight out of `PLANS`.
+   */
+  webOnly?: boolean
 }
 
 export interface HelpCategory {
@@ -1407,6 +1416,10 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'plans-and-pricing',
     title: 'Plans, prices and what an active project is',
     category: 'settings',
+    // Hidden in the iOS app: it prints $99 / $299 / $499 out of PLANS and
+    // sends people to Settings -> Billing for a purchase path that build does
+    // not have. See `helpArticleAllowed` below.
+    webOnly: true,
     keywords: [
       'price', 'prices', 'pricing', 'plan', 'plans', 'billing', 'cost', 'how much',
       'subscription', 'monthly', 'annual', 'yearly', 'invoice from sytenav', 'upgrade',
@@ -2114,6 +2127,26 @@ export function searchArticles(query: string): HelpArticle[] {
 
 export function getArticle(slug: string): HelpArticle | undefined {
   return HELP_ARTICLES.find((a) => a.slug === slug)
+}
+
+/**
+ * May this reader see this article at all?
+ *
+ * ONE predicate, asked at every door, because there are five ways into an
+ * article - the category list, a search result, the count under them, a
+ * `related` link, and the `/help?a=<slug>` deep link that What's New uses. A
+ * hide that covers the list and not the deep link is a price list one URL
+ * away, which is the shape of partial fix this repo keeps paying for.
+ *
+ * `pricingAllowed` comes from `useCanShowPricing()` so the answer cannot drift
+ * from the billing screen's.
+ */
+export function helpArticleAllowed(
+  article: HelpArticle | undefined | null,
+  pricingAllowed: boolean,
+): boolean {
+  if (!article) return false
+  return pricingAllowed || !article.webOnly
 }
 
 export function articlesByCategory(key: string): HelpArticle[] {

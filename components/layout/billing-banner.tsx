@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Lock, Clock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { TRIAL_WARN_FROM } from '@/lib/trial-warning'
+import { useCanShowPricing } from '@/lib/use-native'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // "Why did my save just fail?"
@@ -36,6 +37,14 @@ interface State {
 
 export function BillingBanner() {
   const [access, setAccess] = useState<State | null>(null)
+  // A CONTROL MUST LEAD TO THE THING IT NAMES, and in the iOS build none of
+  // these three can. "Choose a plan" and "See plans" open a screen with no
+  // plans on it; "Update the card" is worse - it opens one where the Stripe
+  // portal button is already hidden, so the link promises the one thing that
+  // build cannot do. The banner still states the fact; it just stops offering
+  // a door, and names where the door is instead. Same sentence the billing
+  // panel already uses, not a second spelling of it.
+  const canBuy = useCanShowPricing()
 
   useEffect(() => {
     let live = true
@@ -62,9 +71,13 @@ export function BillingBanner() {
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 bg-danger-solid px-4 py-1.5 text-sm font-medium text-white sm:px-6">
         <Lock className="h-4 w-4 shrink-0" />
         <span className="min-w-0">{access.reason}</span>
-        <Link href="/settings?tab=billing" className="shrink-0 underline underline-offset-2">
-          Choose a plan
-        </Link>
+        {canBuy ? (
+          <Link href="/settings?tab=billing" className="shrink-0 underline underline-offset-2">
+            Choose a plan
+          </Link>
+        ) : (
+          <span className="shrink-0">At sytenav.com</span>
+        )}
       </div>
     )
   }
@@ -77,9 +90,13 @@ export function BillingBanner() {
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 bg-warn-tint px-4 py-1.5 text-sm font-medium text-warn sm:px-6">
       <Clock className="h-4 w-4 shrink-0" />
       <span className="min-w-0">{access.reason}</span>
-      <Link href="/settings?tab=billing" className="shrink-0 underline underline-offset-2">
-        {failed ? 'Update the card' : 'See plans'}
-      </Link>
+      {canBuy ? (
+        <Link href="/settings?tab=billing" className="shrink-0 underline underline-offset-2">
+          {failed ? 'Update the card' : 'See plans'}
+        </Link>
+      ) : (
+        <span className="shrink-0">At sytenav.com</span>
+      )}
     </div>
   )
 }

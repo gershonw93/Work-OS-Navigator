@@ -1,16 +1,17 @@
 'use client'
 
 import { SUPPORT_EMAIL, supportMailto } from '@/lib/support-email'
-import { Suspense, useEffect, useMemo, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { useSearchParams } from 'next/navigation'
+import { useCanShowPricing } from '@/lib/use-native'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
 import { Search, ChevronRight, ArrowLeft, Lightbulb, AlertTriangle, BookOpen, Mail, Sparkles } from 'lucide-react'
 
 
 import {
-  HELP_CATEGORIES, HELP_ARTICLES, searchArticles, getArticle, articlesByCategory,
+  HELP_CATEGORIES, HELP_ARTICLES, searchArticles, getArticle, articlesByCategory, helpArticleAllowed,
   type HelpArticle, type HelpBlock,
 } from '@/lib/help/articles'
 
@@ -53,8 +54,17 @@ function Block({ block }: { block: HelpBlock }) {
   }
 }
 
-function ArticleView({ article, onOpen, onBack }: { article: HelpArticle; onOpen: (slug: string) => void; onBack: () => void }) {
-  const related = (article.related ?? []).map(getArticle).filter(Boolean) as HelpArticle[]
+function ArticleView({ article, onOpen, onBack, pricingAllowed }: {
+  article: HelpArticle
+  onOpen: (slug: string) => void
+  onBack: () => void
+  pricingAllowed: boolean
+}) {
+  // A related link into a hidden article is one of the five doors - see
+  // `helpArticleAllowed`.
+  const related = (article.related ?? [])
+    .map(getArticle)
+    .filter((a): a is HelpArticle => helpArticleAllowed(a, pricingAllowed))
   return (
     <div className="max-w-2xl">
       <button onClick={onBack} className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-fg hover:text-ink">
@@ -109,16 +119,26 @@ function HelpPageInner() {
   const searchParams = useSearchParams()
   const [query, setQuery] = useState('')
   const [openSlug, setOpenSlug] = useState<string | null>(null)
+  // No price anywhere in the iOS build - lib/use-native.ts owns that decision,
+  // and one article here carries one.
+  const pricingAllowed = useCanShowPricing()
+  const allowed = useCallback(
+    (a: HelpArticle | undefined | null) => helpArticleAllowed(a, pricingAllowed),
+    [pricingAllowed],
+  )
 
   // Deep link straight to an article: /help?a=item-list. What's new links here,
   // so landing on the index and hunting would defeat the point.
   useEffect(() => {
     const a = searchParams.get('a')
-    if (a && getArticle(a)) setOpenSlug(a)
-  }, [searchParams])
+    if (a && allowed(getArticle(a))) setOpenSlug(a)
+  }, [searchParams, allowed])
 
-  const results = useMemo(() => searchArticles(query), [query])
-  const article = openSlug ? getArticle(openSlug) : null
+  // Doors 2 and 3: a search result, and the article actually on screen - the
+  // second matters on its own, because `openSlug` can outlive a change of gate.
+  const results = useMemo(() => searchArticles(query).filter(allowed), [query, allowed])
+  const open_ = openSlug ? getArticle(openSlug) : null
+  const article = allowed(open_) ? open_ : null
 
   function open(slug: string) { setOpenSlug(slug); window.scrollTo({ top: 0 }) }
 
@@ -155,7 +175,7 @@ function HelpPageInner() {
       {/* An opened article always wins - even when a search is still active,
           so clicking a result shows the article (Back returns to results). */}
       {article ? (
-        <ArticleView article={article} onOpen={open} onBack={() => setOpenSlug(null)} />
+        <ArticleView article={article} onOpen={open} onBack={() => setOpenSlug(null)} pricingAllowed={pricingAllowed} />
       ) : query.trim() ? (
         results.length > 0 ? (
           <div className="space-y-2">
@@ -173,7 +193,7 @@ function HelpPageInner() {
         // Browse by category
         <div className="space-y-6">
           {HELP_CATEGORIES.map((cat) => {
-            const items = articlesByCategory(cat.key)
+            const items = articlesByCategory(cat.key).filter(allowed)
             if (items.length === 0) return null
             return (
               <div key={cat.key}>
@@ -191,7 +211,9 @@ function HelpPageInner() {
               </div>
             )
           })}
-          <p className="pt-2 text-center text-xs text-faint">{HELP_ARTICLES.length} articles · always kept up to date with the app</p>
+          {/* COUNTED, not a literal - a number that disagrees with the list
+              above it is the kind of small lie nobody reports. */}
+          <p className="pt-2 text-center text-xs text-faint">{HELP_ARTICLES.filter(allowed).length} articles · always kept up to date with the app</p>
         </div>
       )}
 

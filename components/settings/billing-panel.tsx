@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { useNotice } from '@/components/ui/notice'
 import type { Meter } from '@/lib/plan-limits'
 import { fetchProblem } from '@/lib/fetch-error'
+import { useCanShowPricing } from '@/lib/use-native'
 import {
   PLANS, PLAN_FEATURES, PLAN_CTA_HREF, PLAN_CTA_APP, PRICING_STATUS,
   annualTotal, annualSaving, planPrice, projectLimitLabel, type Plan,
@@ -96,6 +97,10 @@ export function BillingPanel({ canBuy }: { canBuy: boolean }) {
   const [picture, setPicture] = useState<Picture | null>(null)
   const [problem, setProblem] = useState('')
   const [busy, setBusy] = useState('')
+  // Read here rather than taken as a prop beside `canBuy`: the two answer
+  // different questions through the unready window (see lib/use-native.ts), and
+  // a single prop would make one of them wrong.
+  const showPlans = useCanShowPricing()
   const notice = useNotice()
 
   const load = useCallback(async () => {
@@ -226,7 +231,18 @@ export function BillingPanel({ canBuy }: { canBuy: boolean }) {
 
       {/* Plans. FROM lib/plans.ts, the same list the pricing page renders.
           This used to be its own hardcoded set - Starter / Pro / Enterprise,
-          different limits, and $49 / mo on the middle one. */}
+          different limits, and $49 / mo on the middle one.
+
+          NOT IN THE iOS APP AT ALL. Apple takes a cut of anything sold inside
+          one, so that build names no price and offers no route to buying -
+          `lib/use-native.ts` owns the decision and `useCanShowPricing` stays
+          shut until it KNOWS, because a price shown there cannot be taken back.
+          Hidden rather than moved out: the sentences and the import above are
+          what three suites read to keep the WEB screen honest about prices, and
+          a screen that renders nothing cannot print a wrong number. The plan
+          and the meters stay - what you are using is a fact about your
+          account, not an offer. */}
+      {showPlans && (
       <div>
         <h3 className="mb-1 text-base font-semibold text-ink">Plans</h3>
         {/* THE NUMBERS AND WHAT THEY MEAN TRAVEL TOGETHER - one sentence, from
@@ -291,6 +307,7 @@ export function BillingPanel({ canBuy }: { canBuy: boolean }) {
           </ul>
         </div>
       </div>
+      )}
     </div>
   )
 }

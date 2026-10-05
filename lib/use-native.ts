@@ -48,3 +48,31 @@ export function useCanSignUp(): { allowed: boolean; ready: boolean } {
   const { platform, ready } = useNativePlatform()
   return { allowed: canSignUpHere(platform), ready }
 }
+
+/**
+ * May this build show a PRICE, or anything that leads towards buying?
+ *
+ * Same policy as `canSignUpHere` and deliberately the same switch - but the
+ * UNREADY case is answered the OTHER WAY ROUND, and that asymmetry is the whole
+ * reason this is its own function.
+ *
+ * `useNativePlatform` cannot answer until after mount (the server has no idea
+ * which shell will load the page), so the first paint always believes it is on
+ * the web. Sign-up guesses PERMISSIVELY through that window, because wrongly
+ * refusing somebody an account is worse than briefly offering one. A price is
+ * the opposite: showing it inside the iOS app is a store problem you cannot
+ * take back, while hiding it from a web user for one frame costs nothing -
+ * it appears a moment later. So this one stays shut until it KNOWS.
+ *
+ * In practice there is no delay at all. Every caller is behind a fetch of its
+ * own (`/api/billing/usage`, the help index), and `ready` flips in a mount
+ * effect long before any of those resolve.
+ */
+export function canShowPricing(platform: NativePlatform, ready: boolean): boolean {
+  return ready && canSignUpHere(platform)
+}
+
+export function useCanShowPricing(): boolean {
+  const { platform, ready } = useNativePlatform()
+  return canShowPricing(platform, ready)
+}
