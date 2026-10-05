@@ -41,9 +41,12 @@ export function BillingBanner() {
   // these three can. "Choose a plan" and "See plans" open a screen with no
   // plans on it; "Update the card" is worse - it opens one where the Stripe
   // portal button is already hidden, so the link promises the one thing that
-  // build cannot do. The banner still states the fact; it just stops offering
-  // a door, and names where the door is instead. Same sentence the billing
-  // panel already uses, not a second spelling of it.
+  // build cannot do. So the banner states the fact and carries NO control.
+  //
+  // It does not name the website either. The first version put "At
+  // sytenav.com" in the link's place, which is the steering Apple's rules are
+  // about - and it only ever reaches an admin, since `/api/billing/usage`
+  // needs `settings_billing: view` and this renders nothing without it.
   const canBuy = useCanShowPricing()
 
   useEffect(() => {
@@ -75,9 +78,7 @@ export function BillingBanner() {
           <Link href="/settings?tab=billing" className="shrink-0 underline underline-offset-2">
             Choose a plan
           </Link>
-        ) : (
-          <span className="shrink-0">At sytenav.com</span>
-        )}
+        ) : null}
       </div>
     )
   }
@@ -94,9 +95,7 @@ export function BillingBanner() {
         <Link href="/settings?tab=billing" className="shrink-0 underline underline-offset-2">
           {failed ? 'Update the card' : 'See plans'}
         </Link>
-      ) : (
-        <span className="shrink-0">At sytenav.com</span>
-      )}
+      ) : null}
     </div>
   )
 }

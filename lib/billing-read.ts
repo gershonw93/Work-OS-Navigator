@@ -26,6 +26,16 @@ const BILLING_COLUMNS =
 
 export type StoredBilling = BillingRow & {
   company_id: string
+  /**
+   * WHO granted the comp - the FK to `profiles`, not the printed name.
+   *
+   * It was in `BILLING_COLUMNS` and missing from this type, so it was fetched
+   * on every read and unreadable by anything: a column selected but undeclared
+   * is the same dead end as one declared but absent. It is the difference
+   * between a comp a person granted and one a migration wrote, which is what
+   * decides whether a customer is shown a name.
+   */
+  comped_by?: string | null
   comped_by_name?: string | null
   comped_reason?: string | null
   comped_at?: string | null

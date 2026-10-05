@@ -46,11 +46,23 @@ export async function GET(request: Request) {
     trialEndsAt: row?.trial_ends_at ?? null,
     currentPeriodEnd: row?.current_period_end ?? null,
     cancelAtPeriodEnd: !!row?.cancel_at_period_end,
-    // A company we have comped is told so, and told who by. A screen that
-    // simply showed no charge would leave somebody wondering whether billing
-    // was broken.
+    // A company we have comped is told so. A screen that simply showed no
+    // charge would leave somebody wondering whether billing was broken.
+    //
+    // AND THE NAME IS ONLY SENT WHEN A PERSON IS BEHIND IT. `comped_by` is the
+    // FK to profiles: the platform console sets it along with the name, and
+    // migration 118 left it NULL while writing 'Migration 118' into the name
+    // column - so every one of our customers read "set up by Migration 118",
+    // on the web as well as the phone. The attribution is still OURS to see:
+    // /admin/billing prints `comped_by_name` whatever this does, which is
+    // where the audit answer to "why has this company never been charged"
+    // belongs. A machine's name is not an answer a customer can use.
     comped: access.state === 'comped'
-      ? { reason: row?.comped_reason ?? null, by: row?.comped_by_name ?? null, until: row?.comped_until ?? null }
+      ? {
+        reason: row?.comped_reason ?? null,
+        by: row?.comped_by ? (row?.comped_by_name ?? null) : null,
+        until: row?.comped_until ?? null,
+      }
       : null,
     // Whether there is anywhere to send them. A "Choose a plan" button with no
     // Stripe behind it is a verb the product cannot honour.

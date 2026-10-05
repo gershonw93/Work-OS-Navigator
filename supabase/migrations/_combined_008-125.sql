@@ -3485,7 +3485,11 @@ ALTER TABLE billing_plan_prices ENABLE ROW LEVEL SECURITY;
 INSERT INTO company_billing (company_id, status, comped_reason, comped_at, comped_by_name)
 SELECT c.id,
        'comped',
-       'Beta - in the product before billing existed, free while they are in it',
+       -- The sentence a CUSTOMER reads under the gift icon in Settings ->
+       -- Billing, so it is addressed to them. The original was written for the
+       -- staff console ("free while THEY are in it") and shipped to every
+       -- customer; migration 125 repaired the rows this had already made.
+       'Beta - free while you''re in it',
        NOW(),
        'Migration 118'
 FROM companies c
@@ -3768,3 +3772,11 @@ ALTER TABLE account_deletion_requests ENABLE ROW LEVEL SECURITY;
 -- that really sends.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_account_deletion_open
   ON account_deletion_requests (profile_id, scope) WHERE status = 'open';
+
+-- ===== 125_comped_reason_reads_to_a_customer.sql =====
+-- DELIBERATELY NOT REPLAYED HERE, unlike every other migration in this file.
+-- 125 is a data repair: it rewrites the comp sentence on rows migration 118
+-- had already written badly. The 118 block above now writes the right sentence
+-- first time, so on a fresh environment there is nothing for 125 to match and
+-- its WHERE clause would be the only place the old wording still existed.
+-- Both paths end in the same state, which is what this file is for.
