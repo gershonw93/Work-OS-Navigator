@@ -5,9 +5,11 @@
 // is kept and for how long. A 404 there, or a page that stopped being public,
 // is a listing Google can pull.
 //
-// THE TRAP. Settings has a "Delete Company Account" button that calls DELETE
+// THE TRAP. Settings had a "Delete Company Account" button that called DELETE
 // /api/settings, and that route has never exported DELETE - so it always
-// failed. This page must not send anybody to it while that is still true.
+// failed. This page must not send anybody to a Settings control that calls a
+// route that is not there. The button is now a request through
+// /api/account/deletion-request (account-deletion.ts), so the page names it.
 
 import { MARKETING_PATHS } from '../hosts'
 import { ok, done, code, read, exists } from './_helpers'
@@ -22,8 +24,9 @@ ok(/supportMailto\('Delete my SyteNav account'/.test(page), 'the request is one 
 ok(/What is deleted/.test(page) && /What is kept, and for how long/.test(page), 'it says what is deleted and what is kept')
 ok(/30 days/.test(page), '...with a period, which Google requires')
 
-const settingsHasDelete = /export async function DELETE/.test(read('app/api/settings/route.ts'))
-ok(settingsHasDelete || !/Danger Zone|Delete Company Account/.test(page),
-  'it does not send anyone to the Settings delete button while that button calls a route with no DELETE')
+const settingsCallsDeadRoute = /fetch\('\/api\/settings',\s*\{\s*method: 'DELETE'/.test(code('app/(dashboard)/settings/page.tsx'))
+  && !/export async function DELETE/.test(read('app/api/settings/route.ts'))
+ok(!settingsCallsDeadRoute || !/Danger Zone|Delete Company Account/.test(page),
+  'it does not send anyone to a Settings delete control that calls a route with no DELETE')
 
 done()

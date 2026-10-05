@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { NotificationSettings } from '@/components/settings/notification-settings'
 import { NotificationRouting } from '@/components/settings/notification-routing'
 import { BillingPanel } from '@/components/settings/billing-panel'
+import { DeleteAccountCard } from '@/components/settings/delete-account-card'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -332,11 +333,6 @@ export default function SettingsPage() {
   const [prefRequireCustomer, setPrefRequireCustomer] = useState(false)
   const [prefShowCustomerCol, setPrefShowCustomerCol] = useState(true)
   const [prefSaved, setPrefSaved] = useState(false)
-
-  // Danger Zone
-  const [dangerInput, setDangerInput] = useState('')
-  const [dangerStep, setDangerStep] = useState<'idle' | 'confirm' | 'deleting' | 'done'>('idle')
-  const [dangerMsg, setDangerMsg] = useState<{ ok: boolean; text: string } | null>(null)
 
   const loadTeammates = useCallback(async () => {
     // Use API (service role) so RLS doesn't block seeing other company members
@@ -1093,6 +1089,11 @@ export default function SettingsPage() {
                   <ConnectCalendarButton />
                 </CardContent>
               </Card>
+
+              {/* EVERYBODY'S OWN ACCOUNT, ON THE TAB EVERYBODY CAN OPEN. Apple
+                  requires any user to be able to start deleting their account in
+                  the app; the only control was in the admin-only Danger Zone. */}
+              <DeleteAccountCard scope="self" />
             </div>
           )}
 
@@ -1970,87 +1971,10 @@ export default function SettingsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="border border-danger/30 rounded-lg p-5 bg-danger-tint">
-                  <p className="font-medium text-ink mb-1">Delete Company Account</p>
-                  <p className="text-sm text-muted-fg mb-4">
-                    This will permanently delete your company account, all projects, and all associated
-                    data. This action cannot be undone.
-                  </p>
-
-                  {dangerStep === 'idle' && (
-                    <Button
-                      variant="outline"
-                      className="border-red-400 text-danger hover:bg-danger-tint"
-                      onClick={() => setDangerStep('confirm')}
-                    >
-                      Delete Company Account
-                    </Button>
-                  )}
-
-                  {(dangerStep === 'confirm' || dangerStep === 'deleting') && (
-                    <div className="space-y-3 max-w-sm">
-                      <p className="text-sm font-medium text-ink-soft">
-                        Type <strong>{companyName || 'your company name'}</strong> to confirm:
-                      </p>
-                      <Input
-                        value={dangerInput}
-                        onChange={(e) => setDangerInput(e.target.value)}
-                        placeholder={companyName || 'Company name'}
-                      />
-                      <div className="flex gap-3">
-                        <button
-                          disabled={dangerInput !== companyName || dangerStep === 'deleting'}
-                          onClick={async () => {
-                            setDangerStep('deleting')
-                            setDangerMsg(null)
-                            try {
-                              const headers = await authHeaders()
-                              const res = await fetch('/api/settings', {
-                                method: 'DELETE',
-                                headers,
-                              })
-                              if (res.ok) {
-                                setDangerStep('done')
-                                setDangerMsg({ ok: true, text: 'Account deleted. Signing you out…' })
-                                setTimeout(async () => {
-                                  const supabase = createClient()
-                                  await supabase.auth.signOut()
-                                  window.location.href = '/login'
-                                }, 3000)
-                              } else {
-                                setDangerStep('confirm')
-                                setDangerMsg({ ok: false, text: 'Failed to delete account. Contact support.' })
-                              }
-                            } catch {
-                              setDangerStep('confirm')
-                              setDangerMsg({ ok: false, text: 'Network error.' })
-                            }
-                          }}
-                          className="px-4 py-2 rounded-lg bg-danger-solid text-white text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-red-700 transition-colors"
-                        >
-                          {dangerStep === 'deleting' ? 'Deleting…' : 'Confirm Delete'}
-                        </button>
-                        <Button
-                          variant="outline"
-                          onClick={() => { setDangerStep('idle'); setDangerInput(''); setDangerMsg(null) }}
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                      {dangerMsg && (
-                        <p className={`text-sm ${dangerMsg.ok ? 'text-success' : 'text-danger'}`}>
-                          {dangerMsg.text}
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {dangerStep === 'done' && (
-                    <p className="text-sm text-success font-medium">
-                      Account deleted. Signing you out…
-                    </p>
-                  )}
-                </div>
+                {/* A REQUEST, not a delete: the button this replaced sent DELETE to
+                    /api/settings, which has never had that method, so it failed
+                    every time. See components/settings/delete-account-card.tsx. */}
+                <DeleteAccountCard scope="company" companyName={companyName} />
               </CardContent>
             </Card>
           )}

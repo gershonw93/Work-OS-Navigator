@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { User, MapPin, LogOut, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { unregisterThisDevice } from '@/lib/use-push'
+import { DeleteAccountCard } from '@/components/settings/delete-account-card'
 
 interface Data {
   projects: { id: string; name: string }[]
@@ -88,6 +89,12 @@ export default function FieldMe() {
       >
         <LogOut className="h-5 w-5" /> Sign out
       </button>
+
+      {/* A worker never sees Settings, so their way to delete their own
+          account lives here. Apple requires one for everybody with a login. */}
+      <div className="mt-8 pb-8">
+        <DeleteAccountCard scope="self" />
+      </div>
     </div>
   )
 }
