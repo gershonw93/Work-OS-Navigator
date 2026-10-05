@@ -204,8 +204,17 @@ export function BillingPanel({ canBuy }: { canBuy: boolean }) {
           </div>
 
           {/* No route to buying anything inside the iOS app - see
-              lib/use-native.ts. Plan changes happen on the web. */}
-          {canBuy ? (
+              lib/use-native.ts.
+              AND IT SAYS NOTHING RATHER THAN NAMING THE WEBSITE. This used to
+              read "Manage your plan at sytenav.com", which hides the buttons
+              and then prints directions to the shop - the steering Apple's
+              rules are about, and the whole point of hiding them undone in one
+              sentence. There is also nobody it could be addressed to:
+              `settings_billing` is denied to every role but admin, so the only
+              person who can open this tab IS the company admin, and an admin
+              knows where they set their billing up. The card still shows the
+              plan, the state and the meters. */}
+          {canBuy && (
             <div className="row-even lg:flex lg:flex-wrap gap-2">
               {picture.hasSubscription ? (
                 <Button variant="outline" onClick={() => go('/api/billing/portal')} disabled={busy !== ''} className="gap-2">
@@ -214,8 +223,6 @@ export function BillingPanel({ canBuy }: { canBuy: boolean }) {
                 </Button>
               ) : null}
             </div>
-          ) : (
-            <p className="text-sm text-faint">Manage your plan at sytenav.com</p>
           )}
         </CardContent>
       </Card>

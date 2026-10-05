@@ -38,7 +38,7 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-124.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-125.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - **Verify every column you `.select()` actually exists.** Supabase returns
   `data: null` for an unknown column, so a typo reads as "not found" rather than
@@ -425,6 +425,30 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   against it cannot answer "why has this company never been charged" six weeks
   later, which is when it is asked. Same rule as `demo_notification_log`. Ending
   one drops them onto a trial, never straight into a read-only app.
+- **AND A MACHINE'S NAME IS NOT AN ATTRIBUTION.** Migration 118 comped every
+  company that predated billing and wrote `'Migration 118'` into
+  `comped_by_name`, leaving `comped_by` NULL. The billing card prints
+  `{comped.reason} - set up by {comped.by}`, ABOVE the native gate, so all
+  twenty rows - every SyteNav customer, on the web as well as the phone - read
+  **"set up by Migration 118"** for months. `comped_by` is the FK to `profiles`
+  and the console sets it; a NULL one is the signal that nothing human granted
+  the comp, so that is what the route gates on. The name is still OURS to see:
+  `/admin/billing` prints it whatever the customer is shown, which is where the
+  audit answer belongs. The column was in `BILLING_COLUMNS` and missing from
+  `StoredBilling`, so it was fetched on every read and unreadable by anything -
+  a column selected but undeclared is the same dead end as one declared but
+  absent.
+- **AND `comped_reason` WAS ONE COLUMN DOING TWO JOBS.** It is the audit answer
+  to "why has this company never been charged" AND a sentence a customer reads
+  about their own account, and it was written for the first: "Beta - in the
+  product before billing existed, free while **they** are in it". The third
+  person is the tell - that sentence is written ABOUT the customer, for the
+  staff console, and it was addressed TO them. Migration 125 rewrote the live
+  rows and the combined file's own copy of the 118 insert writes the customer
+  sentence first time; 118 is left as the record of what actually ran. **125 is
+  deliberately NOT replayed into the combined file**, unlike every other
+  migration there: it is a repair whose `WHERE` clause would be the only place
+  the old wording still existed.
 - **STRIPE IS OURS, NOT A CUSTOMER'S** - the opposite direction from QuickBooks,
   which is per company and takes their data out to their own file. The secret is
   an env var; the PRICE IDS are in `billing_plan_prices` and pasted in the
@@ -483,6 +507,19 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   sentence the panel already uses rather than a second spelling of it. The
   server's `access.reason` sentences stay as they are: they are advice, not
   controls, and "choose a plan" is still true - just not here.
+- **AND IT MUST NOT NAME THE WEBSITE EITHER - THAT IS THE STEERING.** The first
+  version hid the buttons and then printed directions to the shop: the billing
+  card said `Manage your plan at sytenav.com` and the banner `At sytenav.com` in
+  both its states. Hiding a purchase control and pointing at the purchase is the
+  behaviour the anti-steering rules are actually about, and it undoes the whole
+  change in one sentence. They say NOTHING now, which is also the only honest
+  option: `settings_billing` is denied to every role but admin, so the only
+  person who can open that tab IS the company admin - "contact your company
+  admin" would be telling them to contact themselves, and an admin knows where
+  they set their billing up. Pinned over those two files only, because the
+  signup and login screens name the domain DELIBERATELY: getting an account is
+  not buying anything (the door is an invite-only waitlist, no card), and
+  stripping it would strand an iOS user with no way in for no compliance gain.
 - **A PRICE CAN HIDE IN DOCUMENTATION.** The Help article `plans-and-pricing`
   builds its steps straight out of `PLANS`, so it is the second price surface in
   the app and carries `webOnly`. One predicate (`helpArticleAllowed`) answers at

@@ -1,4 +1,4 @@
-import { ok, done, read, code, walk } from './_helpers'
+import { ok, done, read, code, walk, readCombined, migrationFiles } from './_helpers'
 import { canSignUpHere, canShowPricing } from '../use-native'
 import { HELP_ARTICLES, getArticle, helpArticleAllowed } from '../help/articles'
 
@@ -121,6 +121,51 @@ ok(/const related = [\s\S]{0,200}helpArticleAllowed/.test(help),
 const whatsNew = code('app/(dashboard)/whats-new/page.tsx')
 ok(/item\.help && helpArticleAllowed\(getArticle\(item\.help\), pricingAllowed\)/.test(whatsNew),
   "What's new cannot link into a hidden article")
+
+// ── AND IT DOES NOT NAME THE WEBSITE EITHER ─────────────────────────────────
+// Hiding the prices and then printing directions to the shop is the steering
+// the rules are actually about, and it undoes the whole change in one sentence.
+// The panel used to say "Manage your plan at sytenav.com" and the banner "At
+// sytenav.com" in each of its two states.
+//
+// Scoped to these two files rather than banned repo-wide on purpose: the
+// signup and login screens name the domain deliberately, because getting an
+// ACCOUNT is not buying anything - SyteNav's door is an invite-only waitlist
+// with no card - and stripping it would strand an iOS user with no way in.
+for (const [src, name] of [[panel, 'the billing card'], [banner, 'the banner']] as const) {
+  ok(!/sytenav\.com/.test(src), `${name} does not send anybody to the website`)
+  ok(!/\bon the web\b|in your browser|on a computer/i.test(src),
+    `${name} does not describe the way round either`)
+}
+// It says NOTHING rather than something wrong: `settings_billing` is denied to
+// every role but admin, so the only reader is the person who set the billing
+// up. Asserted via what is still there, so an empty card cannot pass.
+ok(/access\.reason/.test(panel) && /meters\.map/.test(panel),
+  'the card still states the plan and the usage - silence about buying is not silence')
+
+// ── A MACHINE'S NAME IS NOT AN ATTRIBUTION ──────────────────────────────────
+// Migration 118 comped every pre-billing company and wrote 'Migration 118'
+// into `comped_by_name`, leaving `comped_by` NULL. All 20 rows carried it, so
+// every customer read "set up by Migration 118" - on the web too, because this
+// note renders above the native gate.
+const usage = code('app/api/billing/usage/route.ts')
+ok(/by: row\?\.comped_by \? \(row\?\.comped_by_name \?\? null\) : null/.test(usage),
+  'the comp attribution is sent ONLY when a person granted it')
+ok(/comped_by\?: string \| null/.test(code('lib/billing-read.ts')),
+  '...and the actor column is declared, not merely selected')
+// The audit is untouched - it just lives where staff read it.
+ok(/comped_by_name/.test(code('app/admin/billing/page.tsx')),
+  'the platform console still prints who comped a company')
+ok(/comped\.reason/.test(panel), 'and the customer still gets told why they are free')
+
+// The sentence itself was written for the staff console and shown to customers.
+const OLD_REASON = 'in the product before billing existed'
+ok(!readCombined().includes(OLD_REASON),
+  'a fresh install no longer writes the staff sentence into a customer-facing column')
+ok(readCombined().includes("Beta - free while you''re in it"),
+  '...it writes the one addressed to the reader')
+ok(migrationFiles().some(f => /^125_/.test(f)),
+  'and migration 125 repaired the rows the old one already made')
 
 // ── CLAIM VS CAPABILITY, over the whole app ─────────────────────────────────
 // The generalising pin: a screen printing a purchase verb must read the gate.
