@@ -71,13 +71,20 @@ function RequestAccessForm() {
   }
 
   // Reached directly inside the iOS shell - a bookmark, or an old link.
+  //
+  // IT NAMES NO WEBSITE. The first version said "head to sytenav.com ... to get
+  // started", which is a call to action to go off-app - the thing guideline
+  // 3.1.3(f) hangs on there NOT being, and Apple rejected build 14 over the
+  // family of them. It was also simply untrue: sytenav.com/signup is a Request
+  // Access waitlist behind an invite token, so nobody "gets started" there.
+  // The invitation IS the way in, and now the screen says so.
   if (ready && !canSignUp) {
     return (
       <div className="text-center py-8">
-        <h1 className="text-2xl font-bold text-ink">Accounts are set up on the web</h1>
+        <h1 className="text-2xl font-bold text-ink">SyteNav is invite only</h1>
         <p className="mt-3 text-sm text-faint max-w-sm mx-auto">
-          Head to sytenav.com on a computer or in your browser to get started. Once you have an
-          account, sign in here.
+          Accounts are created by invitation. If your company already uses SyteNav, ask your
+          administrator to invite you - then sign in here.
         </p>
         <p className="mt-6 text-sm text-faint">
           <Link href="/login" className="font-medium text-accent-fg hover:text-accent transition-colors">Sign in</Link>
