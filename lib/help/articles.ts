@@ -42,6 +42,18 @@ export interface HelpArticle {
    * and `plans-and-pricing` builds its steps straight out of `PLANS`.
    */
   webOnly?: boolean
+  /**
+   * Stays inside the signed-in app; the public Help Center (help.sytenav.com)
+   * leaves it out.
+   *
+   * Everything else is public, by decision: a how-to is what a contractor
+   * reads to decide whether to buy, and hiding it costs that sale. This is for
+   * the rare article that is right to tell a customer and wrong to hand to a
+   * stranger's search engine - an incident write-up is a disclosure owed to the
+   * people whose data it was, not a landing page. Asked by `isPublicArticle`,
+   * which is the one predicate every public door uses.
+   */
+  appOnly?: boolean
 }
 
 export interface HelpCategory {
@@ -1403,11 +1415,13 @@ export const HELP_ARTICLES: HelpArticle[] = [
     category: 'settings',
     keywords: ['security', 'data', 'private', 'safe', 'who can see', 'portal link', 'share link', 'token', 'breach', 'encrypted', 'database', 'privacy', 'protect', 'access'],
     summary: 'How your company\'s data is kept separate, and how client portal links work.',
+    // A customer is owed the September write-up below; a search engine is not.
+    appOnly: true,
     blocks: [
       { type: 'text', text: 'Your data lives in a database that only SyteNav itself can reach. Every table is closed by default: a request that does not come through the app is refused before it reads anything, so knowing your company name or your project address gets somebody nowhere.' },
       { type: 'text', text: 'Inside the app, what you see is decided by your role - see "Control who can see and do what". Those checks run on the server, so hiding a button is not the only thing stopping someone.' },
       { type: 'text', text: 'CLIENT PORTAL LINKS. When you send an invoice, the client gets a long unguessable link. Anyone holding that link can open it without signing in - that is the point, so your customer does not need an account. Treat it like a document you emailed: forwarding it forwards the access.' },
-      { type: 'warn', text: 'Portal links do not currently expire and cannot be revoked. If a link reaches the wrong person, tell us - expiry and a revoke button are on the list.' },
+      { type: 'warn', text: 'Portal links do not expire on their own. If a link reaches the wrong person, open the client portal from the job header and press Regenerate link - the old link stops working at once, and you send the client the new one.' },
       { type: 'text', text: 'FIXED IN SEPTEMBER 2026. Eight tables - including the one holding client invoices and their portal links - were readable without signing in. Nothing indicates it was used, but it was possible. Every table is now closed, and a check in the build refuses any future table that forgets it.' },
     ],
     related: ['permissions', 'auto-signout', 'create-invoice'],
@@ -2152,3 +2166,17 @@ export function helpArticleAllowed(
 export function articlesByCategory(key: string): HelpArticle[] {
   return HELP_ARTICLES.filter((a) => a.category === key)
 }
+
+/**
+ * May this article appear on the public Help Center?
+ *
+ * The one predicate for every public door - the index, a topic page, the
+ * article page itself, search, a related link, the sitemap and the AI answer's
+ * sources. A door that forgot to ask is how an app-only article ends up
+ * indexed, so `lib/__tests__/help-center.ts` checks each of them.
+ */
+export function isPublicArticle(article: HelpArticle | undefined | null): article is HelpArticle {
+  return !!article && !article.appOnly
+}
+
+export const PUBLIC_HELP_ARTICLES: HelpArticle[] = HELP_ARTICLES.filter(isPublicArticle)

@@ -1,6 +1,8 @@
 import type { MetadataRoute } from 'next'
 import { CANONICAL_ORIGIN } from '@/lib/canonical'
 import { GUIDES, guidePath } from '@/lib/guides'
+import { helpHostLive } from '@/lib/help-host'
+import { helpSitemap } from '@/lib/help/site'
 
 
 // Only the public marketing pages belong in the sitemap; the app itself is
@@ -62,12 +64,17 @@ const GUIDE_PAGES: typeof PAGES = GUIDES.map(g => ({
 }))
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  return [...PAGES, ...GUIDE_PAGES].map(p => ({
+  // The Help Center lives at www.sytenav.com/help-center until its subdomain
+  // exists, and is listed here until then. Once help.sytenav.com is live it
+  // has its own sitemap (app/help-center/sitemap.ts) - a sitemap may only list
+  // URLs on its own host, so the two never both carry them.
+  const help = helpHostLive ? [] : helpSitemap()
+  return [...[...PAGES, ...GUIDE_PAGES].map(p => ({
     url: `${CANONICAL_ORIGIN}${p.path}`,
     // Omitted entirely when there is no real date, rather than filled with the
     // build clock. Next drops the key when it is undefined.
     ...(p.lastModified ? { lastModified: new Date(p.lastModified) } : {}),
     changeFrequency: p.changeFrequency,
     priority: p.priority,
-  }))
+  })), ...help]
 }

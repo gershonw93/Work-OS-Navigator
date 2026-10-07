@@ -34,8 +34,15 @@ const INDEXABLE_HOSTS = new Set([
 export function isIndexableHost(host: string | null | undefined): boolean {
   if (!host) return false
   const bare = host.split(':')[0].toLowerCase()
-  return INDEXABLE_HOSTS.has(bare)
+  return INDEXABLE_HOSTS.has(bare) || bare === HELP_INDEXABLE_HOST
 }
+
+// The public Help Center's own subdomain, once it has one. Read straight from
+// the env rather than from lib/help-host.ts, which imports this file. Like the
+// canonical origin, it never falls back to whatever host served the request.
+const HELP_INDEXABLE_HOST = process.env.NEXT_PUBLIC_HELP_URL
+  ? new URL(process.env.NEXT_PUBLIC_HELP_URL).host.toLowerCase()
+  : ''
 
 /**
  * The permanent production alias Vercel gives every project.

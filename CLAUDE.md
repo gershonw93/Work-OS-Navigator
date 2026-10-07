@@ -38,7 +38,7 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-125.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-126.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - **Verify every column you `.select()` actually exists.** Supabase returns
   `data: null` for an unknown column, so a typo reads as "not found" rather than
@@ -154,6 +154,51 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
 - IMPORTANT: whenever you add or change a feature/flow, update the matching
   article (or add a new one) in the SAME change so Help never drifts from the app.
 - Search is client-side; keep each article's `keywords` list rich so it's findable.
+
+## The public Help Center, help.sytenav.com (IMPORTANT)
+- **THE SAME ARTICLES, NOT A COPY.** `app/help-center/` renders
+  `lib/help/articles.ts` through `lib/help/site.ts`; updating the in-app article
+  updates the public one. A second copy for the web is "one fact, one home"
+  broken at the scale of a whole library.
+- **EVERYTHING IS PUBLIC UNLESS IT SAYS `appOnly`.** How-tos sell the product,
+  so hiding them costs the sale. `appOnly` is for what is right to tell a
+  customer and wrong to hand a search engine - `data-security` carries the
+  September incident write-up. `isPublicArticle` is the one predicate and SEVEN
+  doors ask it: the index, a topic, the article page (`dynamicParams = false`,
+  so an app-only slug is a 404 rather than a page somebody forgot to check),
+  search, a related link, the sitemap, and the AI's catalog and sources. Pinned
+  per door in `help-center.ts`.
+- **ONE ROUTE TREE, TWO HOSTS, AND INERT UNTIL THE DNS EXISTS.** Until
+  `NEXT_PUBLIC_HELP_URL` is set it is `www.sytenav.com/help-center`. Once it is,
+  middleware REWRITES `help.sytenav.com/<path>` onto `/help-center/<path>`
+  (before the auth round trip - a doc page needs no session) and 301s the www
+  copy, so one page never has two URLs. `lib/help-host.ts` is imported by
+  middleware and must never import an article body. The help host has its own
+  robots answer and its own sitemap; the main sitemap carries the help pages
+  only until then, never both.
+- **EVERY LINK OUT OF THE HELP CENTER IS ABSOLUTE, AND EVERY LINK IN GOES
+  THROUGH `helpHref`.** On the help host a relative `/pricing` is rewritten into
+  `/help-center/pricing`, a 404 inside our own header. That is why it has its own
+  layout instead of the marketing nav.
+- **THE APP DOES NOT LINK TO IT.** The public site prints `plans-and-pricing`,
+  and a link to a page with prices from inside the iOS app is the steering the
+  selling rules forbid - which also keeps it out of What's New, which the iOS
+  app renders.
+- **THE AI ANSWER IS THE ONE MODEL ROUTE NOT METERED PER COMPANY**, because a
+  visitor has no company and refusing everybody signed out makes the box
+  useless to the prospect it is for. `billing-trial.ts` names
+  `/api/help-answer` as the single exemption and asserts the budget that
+  replaces the meter: `PER_VISITOR_PER_HOUR`, `SITE_PER_DAY`, a cache by folded
+  question, and Haiku (`HELP_ANSWER_MODEL`). The row is written BEFORE the call
+  (a timeout still counts against the cap), the visitor is an HMAC of the IP
+  and no IP is stored, and every read that guards the spend FAILS CLOSED - the
+  opposite of the customer meter, because an unread limit on a public endpoint
+  is no limit.
+- **IT ANSWERS FROM THE ARTICLES OR SAYS IT CANNOT.** It reads the public
+  catalog plus the six best matches (`contextArticles`, which strips "how do I"
+  first - the ranker scores the letter i), its sources are checked against the
+  public list, and a question the articles do not cover offers the support
+  address. `help_answers.answered = false` is the list of articles to write next.
 
 ## Guides, the public article library (KEEP CURRENT)
 - Marketing articles live in `lib/guides/` - one file per article under

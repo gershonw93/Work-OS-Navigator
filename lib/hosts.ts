@@ -57,7 +57,7 @@ export const MARKETING_PATHS = [
   '/', '/features', '/money', '/flows', '/workflow', '/ai', '/mobile',
   '/contractors', '/subcontractors', '/why', '/pricing', '/security',
   '/about', '/contact', '/privacy', '/terms', '/cookies', '/acceptable-use',
-  '/delete-account', '/guides',
+  '/delete-account', '/guides', '/help-center',
 ]
 
 /**
@@ -75,7 +75,7 @@ export const MARKETING_PATHS = [
  * `lib/__tests__/guides.ts` pins the two facts this depends on: that every
  * published guide path is matched here, and that no app prefix collides with it.
  */
-const MARKETING_PREFIXES = ['/guides']
+const MARKETING_PREFIXES = ['/guides', '/help-center']
 
 export function isMarketingPath(pathname: string): boolean {
   const clean = pathname.replace(/\/+$/, '') || '/'
