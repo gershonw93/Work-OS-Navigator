@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useMemo, useRef, useState } from 'react'
-import { Search, Sparkles, ChevronRight, Loader2, Mail } from 'lucide-react'
+import { Search, Sparkles, ChevronRight, Loader2, Mail, Lightbulb } from 'lucide-react'
 import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { isNetworkError } from '@/lib/fetch-error'
 import { helpHref } from '@/lib/help-host'
@@ -152,7 +152,19 @@ function AnswerCard({ state }: { state: Exclude<AskState, { kind: 'idle' }> }) {
               </ul>
             </div>
           )}
-          {!state.answer.answered && (
+          {/* Something SyteNav does not do: say so, then let them ask for it.
+              Never "coming soon" - that is a promise nobody has made. The
+              question rides in the subject and the body so the request
+              arrives already explained. */}
+          {state.answer.feature_request ? (
+            <a href={supportMailto(
+                `Feature request: ${state.question.slice(0, 80)}`,
+                `I asked the Help Center: "${state.question}"\n\nWhat I would use it for:\n`,
+              )}
+              className="mt-3 inline-flex h-10 items-center gap-1.5 whitespace-nowrap rounded-xl border border-accent/40 bg-panel px-3.5 text-sm font-semibold text-accent-fg hover:border-accent">
+              <Lightbulb className="h-4 w-4" aria-hidden /> Suggest this feature
+            </a>
+          ) : !state.answer.answered && (
             <a href={supportMailto(`Help Center question: ${state.question.slice(0, 80)}`)}
               className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-accent-fg hover:underline">
               <Mail className="h-4 w-4" aria-hidden /> Ask us at {SUPPORT_EMAIL}

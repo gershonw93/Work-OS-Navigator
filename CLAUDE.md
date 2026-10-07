@@ -38,7 +38,7 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-126.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-127.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - **Verify every column you `.select()` actually exists.** Supabase returns
   `data: null` for an unknown column, so a typo reads as "not found" rather than
@@ -199,6 +199,18 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
   first - the ranker scores the letter i), its sources are checked against the
   public list, and a question the articles do not cover offers the support
   address. `help_answers.answered = false` is the list of articles to write next.
+- **AND IT CAN SAY NO, BECAUSE ONE ARTICLE DOES.** "can it book appointments for
+  me?" came back as an inspections how-to: every article describes something
+  SyteNav DOES, so the ranker could only find a neighbour and the answer
+  described it. `what-sytenav-does-not-do` mirrors the product brief's limits
+  list (change one, change both) and `contextArticles` appends it to EVERY
+  question. Such an answer starts with "No" or "Not today", sets
+  `feature_request`, and the box offers "Suggest this feature" - a mailto with
+  the question already in it. **NEVER "COMING SOON"**: copy is a spec, and a
+  feature nobody has committed to is a promise to a stranger. `ANSWER_VERSION`
+  (model + prompt) is stored on each row and the cache reuses only the current
+  one; bump it when the prompt or the limits article changes meaning, or the old
+  answer is served from the cache for `CACHE_DAYS`.
 
 ## Guides, the public article library (KEEP CURRENT)
 - Marketing articles live in `lib/guides/` - one file per article under

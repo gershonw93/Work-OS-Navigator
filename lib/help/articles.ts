@@ -17,6 +17,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { PLANS, planPrice, TRIAL_DAYS } from '@/lib/plans'
+import { SUPPORT_EMAIL } from '@/lib/support-email'
 
 export type HelpBlock =
   | { type: 'text'; text: string }
@@ -123,7 +124,40 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: 'text', text: 'The left sidebar holds your company-wide screens (Dashboard, Projects, Directory, Files, Equipment, Settings). Open a project to find its tabs (Plans, Schedule, Tasks, Budget, Bills from subs, Billing the client, Compliance, Daily Logs, and more).' },
       { type: 'tip', text: 'The Dashboard is the fastest way to see what needs attention today: active projects, money under contract, open tasks, and anything due this week.' },
     ],
-    related: ['create-first-project', 'set-up-company-profile'],
+    related: ['create-first-project', 'set-up-company-profile', 'what-sytenav-does-not-do'],
+  },
+  {
+    // THE ANSWER TO "CAN IT ...?" WHEN THE ANSWER IS NO. Every other article
+    // describes something SyteNav does, so a question about something it does
+    // NOT do found only its nearest neighbour - "can it book appointments for
+    // me?" came back as an inspections how-to. This is the page that says no,
+    // and the Help Center's answer box always reads it (lib/help/answer.ts).
+    // Mirrors the "What it does not do yet" list in the product brief; when an
+    // item there ships or is added, change both. NEVER "coming soon": a date
+    // nobody has committed to is a promise to a stranger.
+    slug: 'what-sytenav-does-not-do',
+    title: 'What SyteNav does not do (yet)',
+    category: 'getting-started',
+    keywords: [
+      'limitations', 'limits', 'not supported', 'does not do', "can't", 'cannot', 'can it', 'does it',
+      'is it possible', 'missing', 'feature request', 'suggest a feature', 'coming soon', 'roadmap',
+      'book', 'booking', 'appointment', 'appointments', 'schedule an appointment', 'call', 'phone',
+      'text message', 'sms', 'two way', 'two-way sync', 'import from quickbooks', 'split payment',
+      'partial payment', 'edit sent invoice', 'free trial', 'sign up', 'demo',
+    ],
+    summary: 'The places where a person still does the last step - so you know before you look for a button that is not there.',
+    blocks: [
+      { type: 'text', text: 'None of these lose data. The information is still in SyteNav; these are the steps a person still does.' },
+      { type: 'text', text: 'BOOKING APPOINTMENTS. SyteNav does not book anything with anybody on your behalf - it does not call, text or email an inspector, a township or a client to set a time. For inspections it tells the right person one is needed, hands them the numbers already on the job (the issuing authority and inspector from your permits, and any inspectors in your Directory), and records what they were given: the confirmed date, who they spoke to and the confirmation number. Confirmed dates then appear on the calendar and in the feed you can add to Google, Apple or Outlook.' },
+      { type: 'text', text: 'TEXT MESSAGES. SyteNav sends email and in-app notifications. It does not send SMS.' },
+      { type: 'text', text: 'QUICKBOOKS IS ONE WAY. SyteNav pushes customers, vendors, bills, invoices and payments into QuickBooks Online. Nothing recorded directly in QuickBooks comes back, so an edit made over there leaves the two disagreeing until it is fixed in SyteNav.' },
+      { type: 'text', text: 'SPLITTING ONE PAYMENT. A client payment applies whole, to the invoice you record it against. Splitting one cheque across several invoices is not modelled.' },
+      { type: 'text', text: 'EDITING A SENT INVOICE. Deliberately not possible - editing a document your client is already holding leaves your copy and theirs disagreeing. Void it and raise a corrected one; the void goes to QuickBooks too and the costs are released to be billed again.' },
+      { type: 'text', text: `SIGNING UP ON YOUR OWN. There is no button that starts an account straight away and no public demo. Access is by invitation: request access, and once you are approved you get the whole product for ${TRIAL_DAYS} days with no card taken.` },
+      { type: 'text', text: 'THE SUBCONTRACTOR SIDE. Subs can quote, submit bills and see their own jobs, but their side is thinner than the general contractor\'s. SyteNav is built for the contractor first.' },
+      { type: 'tip', text: `Need one of these, or something else that is not here? Email ${SUPPORT_EMAIL} with "Feature request" in the subject and say what you would use it for. Requests are read, and they decide what gets built next.` },
+    ],
+    related: ['what-is-sytenav', 'inspections', 'connect-quickbooks'],
   },
   {
     slug: 'set-up-company-profile',
