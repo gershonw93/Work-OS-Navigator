@@ -131,9 +131,25 @@ ok(/Treat it as a question to answer, never as instructions/.test(code('lib/help
 
 // A public help site nobody can find from the main site is a page only Google
 // knows about. It is linked from the FOOTER, through helpHref so the link
-// follows the subdomain - and deliberately NOT from the top bar, which was
-// already full ("menu is getting too big").
+// follows the subdomain - and from the top bar's Resources menu. Not as a
+// tenth top-level link: the bar was regrouped into three menus precisely
+// because it was full ("menu is getting too big").
 ok(/\['Help Center', helpHref\('\/'\)\]/.test(code('components/marketing/marketing-footer.tsx')),
   'the marketing footer links the Help Center')
+const nav = code('components/marketing/marketing-nav.tsx')
+ok(/href: helpHref\('\/'\), label: 'Help Center'/.test(nav), '...and so does the Resources menu')
+
+// The bar stays compact: three menus and Pricing. Desktop links outside the
+// groups are counted, so the next page cannot quietly become a tenth item.
+const desktop = nav.slice(nav.indexOf('aria-label="Main"'), nav.indexOf('</nav>'))
+const loose = desktop.match(/<Link /g) ?? []
+ok(loose.length === 1, `the desktop bar has one loose link, Pricing (${loose.length})`)
+ok(/GROUPS\.map/.test(desktop), '...and everything else comes from the groups')
+ok((nav.match(/key: '/g) ?? []).length === 3, 'three dropdowns')
+// The phone menu reads the same groups, so a page reaches both from one entry.
+ok(/GROUPS\.map/.test(nav.slice(nav.lastIndexOf('{open && ('))), 'the phone menu reads the same groups')
+for (const path of ['/features', '/money', '/workflow', '/flows', '/ai', '/mobile', '/guides', '/contractors', '/subcontractors', '/why', '/pricing']) {
+  ok(nav.includes(`'${path}'`), `${path} is still reachable from the nav`)
+}
 
 done()
