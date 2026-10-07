@@ -131,7 +131,16 @@
   @media (max-width: 1023px), (pointer: coarse) {
     input,
     select,
-    textarea {
+    textarea,
+    /* AND THE ONE THAT IS NOT AN ELEMENT. `SearchableSelect` renders a
+       <button>, so for the whole life of these two rules it was the one form
+       control they could not see - a caller passing `h-8 text-xs` got a real
+       32px box with 12px text on a phone, which is what made the work-log
+       photo tags unreadable. `!important` for the same reason as above:
+       [data-select-trigger] is (0,1,0), a tie with .text-xs, and Tailwind
+       emits utilities after base. min-height below needs none - a utility
+       sets `height`, and min-height wins over a smaller one. */
+    [data-select-trigger] {
       font-size: 16px !important;
     }
 
@@ -144,6 +153,7 @@
        touch target, it is a mistake. */
     textarea,
     select,
+    [data-select-trigger],
     input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']):not([type='submit']):not([type='button']):not([type='image']):not([type='hidden']) {
       min-height: 2.75rem;
     }

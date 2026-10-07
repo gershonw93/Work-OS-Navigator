@@ -25,6 +25,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { ok, done, root, code, read } from './_helpers'
 import { statValueSize } from '../stat-value-size'
+import { cn } from '../utils'
 
 const VIEWPORT = { w: 390, h: 844 }   // iPhone 14/15, the smallest we care about
 
@@ -1695,6 +1696,130 @@ const calAfter = measure(CAL(CAL_ROW, 'w-full justify-center lg:ml-1 lg:w-auto',
 ok(calAfter.right <= calAfter.vw - 16, `THE FIX: Connect is inside the gutter (${calAfter.right} of ${calAfter.vw})`)
 ok(calAfter.doc <= calAfter.vw, 'and nothing drags the page sideways')
 ok(/w-full justify-center lg:ml-1 lg:w-auto/.test(calSrc), '...with the page giving Connect its own line below lg')
+
+// ─────────────────────────────────────────────────────────────────────────────
+// N. THE WORK-LOG PHOTO TAGS, WHICH READ "Bl…" AND "Q…".
+//
+// THE BUG, measured. Two SearchableSelects shared one photo tile in a
+// `grid-cols-2`, so each got about half of a ~150px track. The trigger spends
+// px-3 (24px) plus a 16px chevron plus its 8px gap = 48px of chrome before any
+// text, so the label box was ~25px: one character and an ellipsis. A picker
+// whose label cannot be read is a picker you cannot check, which is the only
+// reason it is on the screen.
+//
+// AND THE SECOND HALF IS NOT A WIDTH. `SearchableSelect` renders a <button>,
+// and globals.css forces 16px text and a 44px box on `input, select,
+// textarea` - real elements. So the control was invisible to both rules and
+// the caller's `h-8 text-xs` stood: a 32px box with 12px text on a phone, the
+// exact shape the 27-fields post-mortem was written about. The fix is a
+// `data-select-trigger` handle in those two selector lists, and THIS is where
+// it is checked, because a class string cannot show you a computed height.
+//
+// THE FIXTURE IS BUILT FROM THE REAL CLASS STRINGS, not retyped. The
+// auth-screen suite hardcoded its fixture and went on passing against a
+// reverted layout; anything typed in here measures a page that does not exist.
+// ─────────────────────────────────────────────────────────────────────────────
+const selSrc = code('components/ui/searchable-select.tsx')
+const trigParts = /const triggerClasses =\s*'([^']*)'\s*\+\s*'([^']*)'/.exec(selSrc.replace(/\s*\n\s*/g, ' '))
+ok(!!trigParts, 'the trigger class string was read out of the component')
+const triggerCls = `${trigParts![1]}${trigParts![2]}`
+const rowCls = /const rowClasses = '([^']*)'/.exec(selSrc)?.[1] ?? ''
+ok(rowCls.length > 0, '...and so was the row inside it')
+ok(/data-select-trigger/.test(selSrc),
+  'the trigger carries the handle globals.css needs to see a button as a field')
+
+const logsSrc = read('app/(dashboard)/projects/[id]/daily-logs/page.tsx')
+const tileGrid = /grid (grid-cols-\[repeat\(auto-fill,minmax\(\d+px,1fr\)\)\] gap-3) mb-3/.exec(logsSrc)?.[1]
+ok(!!tileGrid, 'the photo grid class was read out of the page')
+
+// AND SO IS THE WRAPPER, AND SO ARE THE CALLER'S OWN CLASSES. The first
+// version of this fixture wrote `space-y-1` and the bare trigger by hand, and
+// every page-side mutation sailed past it - restoring `grid-cols-2`, adding
+// `h-8`, both green. That is precisely the auth-screen failure quoted above,
+// reproduced in the suite written to avoid it. The red-check is the only
+// reason it is not still in here. Everything the page decides is now read
+// from the page.
+const tagAnchor = logsSrc.indexOf('tagPhoto(log.id, p.id, { subcontract_id')
+ok(tagAnchor > 0, 'the saved-photo tag block was located in the page')
+const beforeTags = logsSrc.slice(0, tagAnchor)
+const wrapAt = beforeTags.lastIndexOf('<div className="')
+const tagWrap = /<div className="([^"]*)"/.exec(beforeTags.slice(wrapAt))![1]
+const tagBlock = logsSrc.slice(wrapAt, logsSrc.indexOf('</div>', tagAnchor))
+// A while/exec loop rather than [...matchAll()] - the repo's tsconfig target
+// does not allow spreading a RegExp iterator, and `npm test` running it under
+// tsx is not the same check as `npx tsc --noEmit`.
+const tagCls: string[] = []
+const tagRe = /<SearchableSelect([^>]*?)>/g
+for (let m = tagRe.exec(tagBlock); m; m = tagRe.exec(tagBlock)) {
+  tagCls.push(/className="([^"]*)"/.exec(m[1])?.[1] ?? '')
+}
+ok(tagCls.length === 2, `both tag pickers were read off the page (${tagCls.length})`)
+
+// The longest real sub name on the screen that produced the report.
+const LABEL = 'QA Concrete Sub.'
+const tagSelect = (id: string, label: string, caller: string) => `
+  <button ${id ? `id="${id}" ` : ''}type="button" data-select-trigger="" class="${cn(triggerCls, caller)}">
+    <span class="${rowCls}">
+      <span class="truncate text-left"${id ? ` id="${id}-label"` : ''}>${label}</span>
+      <span class="h-4 w-4 shrink-0 block"></span>
+    </span>
+  </button>`
+
+const tile = (first: boolean) => `
+  <div class="space-y-1">
+    <div class="relative group"><div class="h-28 overflow-hidden rounded-lg border border-line"></div></div>
+    <div class="${tagWrap}">
+      ${tagSelect(first ? 'tagA' : '', LABEL, tagCls[0])}
+      ${tagSelect(first ? 'tagB' : '', 'Tag part…', tagCls[1])}
+    </div>
+  </div>`
+
+const photoBody = `<div class="p-6"><div class="grid ${tileGrid} mb-3">${
+  [true, false, false, false, false].map((f, i) => tile(i === 0)).join('')
+}</div></div>`
+
+const tagProbe = `(rect) => {
+  const a = rect('#tagA'), b = rect('#tagB'), label = rect('#tagA-label')
+  const px = s => parseFloat(getComputedStyle(document.querySelector(s)).fontSize)
+  return { aTop: Math.round(a.top), aBottom: Math.round(a.bottom), bTop: Math.round(b.top),
+           aHeight: Math.round(a.height), aWidth: Math.round(a.width),
+           labelWidth: Math.round(label.width), font: px('#tagA'),
+           need: document.querySelector('#tagA-label').scrollWidth,
+           truncated: document.querySelector('#tagA-label').scrollWidth > Math.ceil(label.width) + 1,
+           doc: document.documentElement.scrollWidth, vw: window.innerWidth }
+}`
+
+// ── on a phone ──────────────────────────────────────────────────────────────
+const tagPhone = measure(photoBody, tagProbe)
+ok(tagPhone.vw === VIEWPORT.w, `the page really is ${VIEWPORT.w} wide (${tagPhone.vw})`)
+// STACKED. A grid-cols-2 cannot satisfy this - the two would share a top.
+ok(tagPhone.bTop >= tagPhone.aBottom,
+  `the two tags are stacked, not sharing one tile's width (${tagPhone.aBottom} -> ${tagPhone.bTop})`)
+ok(tagPhone.font >= 16,
+  `THE BUTTON IS NOW A FIELD: 16px text, so iOS does not zoom the page (${tagPhone.font}px)`)
+ok(tagPhone.aHeight >= 44,
+  `...and a 44px touch target (${tagPhone.aHeight}px)`)
+// A FLOOR, NOT "never truncates", and the measurement is why. At 390px the
+// grid is 2-up and a tile is ~165px, so the label box is ~115px against the
+// ~117px this name wants - it loses the full stop. That is fine and it is not
+// what was reported; 25px, which is "Q…", is. The floor is what separates the
+// two, and it is deliberately well above the ~73px half-tile the bug lived in,
+// so restoring `grid-cols-2` cannot sneak back under it.
+//
+// IT IS ALSO WHY THE TILE TRACK DID NOT CHANGE. minmax(170px,1fr) was the
+// obvious next move and it is wrong: at 390px it drops the grid to ONE column,
+// trading a readable tag for one photo per screen. Stacking was the whole fix.
+ok(tagPhone.labelWidth >= 90,
+  `a sub name is readable, not one character - "${LABEL}" (box ${tagPhone.labelWidth}px, wants ${tagPhone.need}px)`)
+ok(tagPhone.doc <= tagPhone.vw, 'and the grid drags nothing sideways')
+
+// ── and on a desktop, where the tiles are small and side by side ────────────
+const tagWide = measure(photoBody, tagProbe, 900, '', 1280)
+ok(tagWide.bTop >= tagWide.aBottom, 'stacked at 1280 too')
+ok(!tagWide.truncated,
+  `the name fits outright in a desktop tile (box ${tagWide.labelWidth}px, wants ${tagWide.need}px, trigger ${tagWide.aWidth}px)`)
+ok(tagWide.labelWidth >= 90,
+  `...with room to read it, not the ~25px the bug left (${tagWide.labelWidth}px)`)
 
 rmSync(work, { recursive: true, force: true })
 done()
