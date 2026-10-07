@@ -78,12 +78,36 @@ last month still reads as current work.
 and a project. If any of those are empty the seed did not finish.
 
 ## App Review notes (paste into App Store Connect)
+
+**The second paragraph is the one that matters, and it is not optional.** Build
+1.0 (14) was rejected under 3.1.1 on 30 September 2026, and the notes in use at
+the time said accounts were "created and managed on our website" - which is
+itself a pointer at the shop, in the submission. Say 3.1.3(f) and say why it
+applies; Apple's own rejection message invited the explanation.
+
 > SyteNav is construction management software for general contractors. The
 > account below is a demo company with sample projects - no real customer data.
 >
-> Sign in at the first screen with the credentials provided. There is no sign-up
-> inside the app: accounts are created and managed on our website, and the app
-> is for existing customers signing in. Nothing is sold inside the app.
+> SyteNav is a free companion app to a web-based service, and we believe it
+> falls under guideline 3.1.3(f) (Free Stand-alone Apps). There is no
+> purchasing of any kind inside the app and no call to action to purchase
+> outside it: the app contains no prices, no plan or tier list, and no
+> purchase, upgrade or subscribe control anywhere, and it does not link to,
+> mention or direct users to our website or to any other purchasing mechanism.
+> The Billing screen in Settings shows only the plan the company is already on
+> and how much of its allowance it has used - a read-only statement of the
+> account's own state, with no control that leads to a purchase.
+>
+> Sign in at the first screen with the credentials provided. There is no
+> sign-up inside the app: accounts are created by invitation, and the app is
+> for existing customers signing in.
+>
+> One note on how the app is built, in case it explains anything seen on
+> screen: it is a WKWebView client of our hosted service. Its screens are
+> served from app.sytenav.com and are not bundled in the binary - the only HTML
+> in the app package is an offline error page. So the app's screens can change
+> without a new build, and a re-review of the same binary reflects the current
+> product.
 >
 > Suggested tour: the dashboard shows money across all jobs; open any project
 > for its budget, bills from subcontractors, invoices to the client, schedule

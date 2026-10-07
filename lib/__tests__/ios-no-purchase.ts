@@ -1,6 +1,7 @@
 import { ok, done, read, code, walk, readCombined, migrationFiles } from './_helpers'
 import { canSignUpHere, canShowPricing } from '../use-native'
 import { HELP_ARTICLES, getArticle, helpArticleAllowed } from '../help/articles'
+import { MARKETING_PATHS } from '../hosts'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NO WAY TO BUY A PLAN INSIDE THE iOS APP.
@@ -211,5 +212,51 @@ const ungated = surfaces.filter(f => !/use-native/.test(read(f)))
 ok(surfaces.length >= 2, `screens printing a purchase verb were found (${surfaces.length})`)
 ok(ungated.length === 0,
   `every one of them reads the native gate${ungated.length ? ` - ${ungated.join(', ')}` : ''}`)
+
+// ── AND THE SHELL MUST NOT BE ABLE TO RENDER THE SHOP ───────────────────────
+// How the reviewer actually got there. `allowNavigation` carried the marketing
+// hosts, so an app-side link to a MARKETING_PATHS entry - middleware redirects
+// those to sytenav.com - came back INSIDE the webview, and the Pricing page
+// with its three prices and a CTA per card read as a screen of the app. Build
+// 1.0 (14) was rejected under 3.1.1 off that walk.
+//
+// TWO HALVES, because the config alone protects nothing: it is a native file
+// that only reaches a phone through a Codemagic build, while the link scan
+// below ships with a Vercel deploy and is what guards the regression today.
+const cap = read('capacitor.config.ts')
+const navLine = /allowNavigation:\s*\[([^\]]*)\]/.exec(cap)
+ok(!!navLine, 'the shell declares an allowNavigation list at all')
+const hosts = (navLine?.[1] ?? '').split(',').map(h => h.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean)
+ok(!hosts.includes('sytenav.com') && !hosts.includes('www.sytenav.com'),
+  `the marketing host cannot render inside the shell${hosts.length ? ` - [${hosts.join(', ')}]` : ''}`)
+// Asserted POSITIVELY as well, or emptying the list passes the line above while
+// breaking sign-in: an allowlist with nothing on it is not the fix.
+ok(hosts.includes('app.sytenav.com'), '...while the product itself still loads in it')
+ok(hosts.includes('*.supabase.co'), '...and so does the auth hop')
+
+// The half that ships now: no app-side file points at a marketing path. Read
+// off MARKETING_PATHS rather than retyped, so a new marketing page is covered
+// the day somebody adds one. '/' is excluded - it is every logo link, and the
+// scan would be useless rather than strict.
+const marketing = MARKETING_PATHS.filter(p => p !== '/')
+ok(marketing.length >= 10, `marketing paths were read from lib/hosts.ts (${marketing.length})`)
+const appSide = [...walk('app'), ...walk('components')].filter(f =>
+  (f.endsWith('.tsx') || f.endsWith('.ts'))
+  && !f.includes('(marketing)')
+  && !f.startsWith('components/marketing')
+  && !f.startsWith('app/admin'))
+ok(appSide.length >= 100, `app-side files were walked (${appSide.length})`)
+const leaks: string[] = []
+for (const f of appSide) {
+  const src = code(f)
+  for (const path of marketing) {
+    // An href, a push/replace, or a location assignment - the three ways a tap
+    // leaves the app. Bounded so '/about' does not match '/aboutface'.
+    const re = new RegExp(`(href=|router\\.(push|replace)\\(|location\\.href\\s*=\\s*)['"\`]${path}(['"\`?#]|/)`)
+    if (re.test(src)) leaks.push(`${f} -> ${path}`)
+  }
+}
+ok(leaks.length === 0,
+  `nothing in the app links to the marketing site${leaks.length ? ` - ${leaks.join(', ')}` : ''}`)
 
 done()
