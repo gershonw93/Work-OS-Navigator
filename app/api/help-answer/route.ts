@@ -3,7 +3,7 @@ import crypto from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import {
-  CACHE_DAYS, HELP_ANSWER_MODEL, PER_VISITOR_PER_HOUR, SITE_PER_DAY, SYSTEM_PROMPT,
+  ANSWER_VERSION, CACHE_DAYS, HELP_ANSWER_MODEL, PER_VISITOR_PER_HOUR, SITE_PER_DAY, SYSTEM_PROMPT,
   catalog, cleanAnswer, contextArticles, questionKey, questionProblem, userMessage,
 } from '@/lib/help/answer'
 
@@ -52,8 +52,8 @@ export async function POST(request: Request) {
   // ── 1. Asked before? Then it costs nothing. ─────────────────────────────────
   const since = new Date(Date.now() - CACHE_DAYS * 86_400_000).toISOString()
   const { data: cached } = await db.from('help_answers')
-    .select('answer, answered, sources')
-    .eq('question_key', key).eq('from_cache', false)
+    .select('answer, answered, sources, feature_request')
+    .eq('question_key', key).eq('from_cache', false).eq('model', ANSWER_VERSION)
     .not('answer', 'is', null).gte('created_at', since)
     .order('created_at', { ascending: false }).limit(1).maybeSingle()
   if (cached) {
@@ -62,6 +62,7 @@ export async function POST(request: Request) {
       // Still recorded - "what do people ask" counts repeats.
       await db.from('help_answers').insert({
         question, question_key: key, visitor, answer: hit.answer, answered: hit.answered,
+        feature_request: hit.feature_request,
         sources: hit.sources.map(s => s.slug), from_cache: true,
       })
       return NextResponse.json(hit)
@@ -93,7 +94,7 @@ export async function POST(request: Request) {
 
   // ── 3. The row goes in BEFORE the call, so a timeout still counts. ─────────
   const { data: row, error: insertError } = await db.from('help_answers')
-    .insert({ question, question_key: key, visitor, model: HELP_ANSWER_MODEL })
+    .insert({ question, question_key: key, visitor, model: ANSWER_VERSION })
     .select('id').single()
   if (insertError || !row) {
     console.error('[help-answer] could not record the question', insertError?.message)
@@ -111,7 +112,7 @@ export async function POST(request: Request) {
       // are the cached prefix; only the matched articles and the question vary.
       system: [{
         type: 'text',
-        text: `${SYSTEM_PROMPT}${catalog()}\n\nReply with ONLY a JSON object: {"answered": boolean, "answer": string, "sources": string[]}`,
+        text: `${SYSTEM_PROMPT}${catalog()}\n\nReply with ONLY a JSON object: {"answered": boolean, "answer": string, "sources": string[], "feature_request": boolean}`,
         cache_control: { type: 'ephemeral' },
       }],
       messages: [{ role: 'user', content: userMessage(question, articles) }],
@@ -123,6 +124,7 @@ export async function POST(request: Request) {
 
     await db.from('help_answers').update({
       answer: answer.answer, answered: answer.answered, sources: answer.sources.map(s => s.slug),
+      feature_request: answer.feature_request,
     }).eq('id', row.id)
     return NextResponse.json(answer)
   } catch (e) {

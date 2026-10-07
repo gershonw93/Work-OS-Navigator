@@ -24,6 +24,16 @@ import { articlePlainText, searchPublic } from '@/lib/help/site'
 /** Haiku: the cheapest model, chosen for this box on purpose. */
 export const HELP_ANSWER_MODEL = 'claude-haiku-4-5'
 
+/**
+ * What produced an answer: the model AND the prompt. Stored on each row and
+ * the cache only reuses rows carrying the current one, so changing the rules
+ * retires every answer written under the old ones. Without it the first fix to
+ * "can it book appointments?" would have gone on serving the old, wrong answer
+ * from the cache for CACHE_DAYS. BUMP IT WHENEVER THE PROMPT OR THE ARTICLES
+ * IT ALWAYS READS CHANGE MEANING.
+ */
+export const ANSWER_VERSION = `${HELP_ANSWER_MODEL}#2`
+
 /** Questions one visitor may ask per hour before being asked to slow down. */
 export const PER_VISITOR_PER_HOUR = 20
 /** Model calls the whole site may make per UTC day. A cache hit is free. */
@@ -69,10 +79,21 @@ export function retrievalQuery(q: string): string {
   return questionKey(q).split(' ').filter(w => w.length > 1 && !STOP.has(w)).join(' ')
 }
 
-/** The full articles the model reads for this question, best first. */
+/**
+ * The article that says what SyteNav does NOT do. Read with EVERY question,
+ * because the ranker can only find articles about things that exist: "can it
+ * book appointments for me?" matched the inspections how-to and nothing that
+ * could say no, so the answer described a neighbouring feature instead.
+ */
+export const LIMITS_SLUG = 'what-sytenav-does-not-do'
+
+/** The full articles the model reads for this question, best first, plus the limits. */
 export function contextArticles(q: string): HelpArticle[] {
   const terms = retrievalQuery(q)
-  return terms ? searchPublic(terms).slice(0, CONTEXT_ARTICLES) : []
+  if (!terms) return []
+  const matched = searchPublic(terms).slice(0, CONTEXT_ARTICLES)
+  const limits = getArticle(LIMITS_SLUG)
+  return isPublicArticle(limits) && !matched.some(a => a.slug === LIMITS_SLUG) ? [...matched, limits] : matched
 }
 
 /**
@@ -86,7 +107,10 @@ export function catalog(): string {
 export const SYSTEM_PROMPT = `You answer questions on the public SyteNav Help Center. SyteNav is construction management software for general contractors and subcontractors.
 
 Rules:
-- Answer ONLY from the help articles supplied in the user message. If they do not answer the question, set answered to false and say briefly that you could not find it in the help articles. Never guess at features, prices, limits or dates, and never describe something the articles do not say SyteNav does.
+- Answer ONLY from the help articles supplied in the user message. Never guess at features, prices, limits or dates, and never describe something the articles do not say SyteNav does.
+- "Can SyteNav do X?" questions: if an article shows it does, say yes and how. If the "${LIMITS_SLUG}" article says it does not, or no article shows SyteNav doing it, start with a plain "No" or "Not today", then name the closest thing SyteNav does do if an article describes one. Do not describe a neighbouring feature as if it answered the question.
+- Set feature_request to true whenever the visitor is asking for something SyteNav does not do. Never say a feature is coming soon, planned or on a roadmap, and never give a date - nothing in the articles promises one.
+- If the articles neither show it nor rule it out, set answered to false and say you could not find it in the help articles.
 - Keep the answer short: two to four plain sentences, or up to five short numbered steps when the question is how to do something. No headings, no markdown, no bold.
 - Write a sentence dash as " - ", never an em dash or en dash.
 - Name screens and buttons the way the articles do.
@@ -110,8 +134,9 @@ export const ANSWER_SCHEMA = {
     answered: { type: 'boolean' },
     answer: { type: 'string' },
     sources: { type: 'array', items: { type: 'string' } },
+    feature_request: { type: 'boolean' },
   },
-  required: ['answered', 'answer', 'sources'],
+  required: ['answered', 'answer', 'sources', 'feature_request'],
   additionalProperties: false,
 } as const
 
@@ -123,6 +148,8 @@ export interface HelpAnswer {
   answered: boolean
   answer: string
   sources: { slug: string; title: string }[]
+  /** The visitor asked for something SyteNav does not do - offer "suggest it". */
+  feature_request: boolean
 }
 
 /**
@@ -133,7 +160,7 @@ export interface HelpAnswer {
  */
 export function cleanAnswer(raw: unknown): HelpAnswer | null {
   if (!raw || typeof raw !== 'object') return null
-  const r = raw as { answered?: unknown; answer?: unknown; sources?: unknown }
+  const r = raw as { answered?: unknown; answer?: unknown; sources?: unknown; feature_request?: unknown }
   if (typeof r.answer !== 'string' || !r.answer.trim()) return null
   const slugs = Array.isArray(r.sources) ? r.sources.filter((s): s is string => typeof s === 'string') : []
   const sources = slugs.filter((s, i) => slugs.indexOf(s) === i)
@@ -145,5 +172,6 @@ export function cleanAnswer(raw: unknown): HelpAnswer | null {
     answered: r.answered === true,
     answer: r.answer.trim().replace(LONG_DASHES, ' - '),
     sources,
+    feature_request: r.feature_request === true,
   }
 }

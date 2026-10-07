@@ -15,7 +15,7 @@
 import { ok, done, code } from './_helpers'
 import { HELP_ARTICLES, PUBLIC_HELP_ARTICLES, getArticle, isPublicArticle, searchArticles } from '../help/articles'
 import { helpSitemap, popularArticles, publicArticle, publicRelated, publicTopics, searchPublic } from '../help/site'
-import { cleanAnswer, contextArticles, questionKey, questionProblem, retrievalQuery, catalog } from '../help/answer'
+import { ANSWER_VERSION, LIMITS_SLUG, cleanAnswer, contextArticles, questionKey, questionProblem, retrievalQuery, catalog } from '../help/answer'
 import { helpRewrite, HELP_PREFIX } from '../help-host'
 import { isMarketingPath, isAppPath } from '../hosts'
 
@@ -151,5 +151,42 @@ ok(/GROUPS\.map/.test(nav.slice(nav.lastIndexOf('{open && ('))), 'the phone menu
 for (const path of ['/features', '/money', '/workflow', '/flows', '/ai', '/mobile', '/guides', '/contractors', '/subcontractors', '/why', '/pricing']) {
   ok(nav.includes(`'${path}'`), `${path} is still reachable from the nav`)
 }
+
+// The logo means home - the main site - and the Help Center label beside it
+// is the help home. A separate "sytenav.com" link said the same thing twice.
+const helpLayout = code('app/help-center/layout.tsx')
+ok(/<a href=\{`\$\{SITE\}\/`\} aria-label="SyteNav home">\s*<SyteNavLogo/.test(helpLayout), 'the help header logo goes to the main site')
+ok(/href=\{helpHref\('\/'\)\}[^>]*>\s*Help Center/.test(helpLayout), '...and the Help Center label to the help home')
+ok(!/>\s*sytenav\.com\s*</.test(helpLayout), '...with no separate sytenav.com link beside them')
+
+// ── 6. "can it ...?" when the answer is no ───────────────────────────────────
+// Reported: "can it book appointments for me?" came back as an inspections
+// how-to. Every article describes something SyteNav DOES, so the ranker could
+// only find a neighbour. There is now an article that says no, it is public,
+// and the answer box reads it with every question.
+const limitsArticle = getArticle(LIMITS_SLUG)
+ok(isPublicArticle(limitsArticle) && limitsArticle!.category === 'getting-started', 'the limits article exists, public, under Getting Started')
+const booking = contextArticles('can it book appointments for me?')
+ok(booking.some(a => a.slug === LIMITS_SLUG), `the booking question reads the limits article (${booking.map(a => a.slug).join(', ')})`)
+ok(contextArticles('how do I award a quote').some(a => a.slug === LIMITS_SLUG), '...and so does every other question')
+ok(/book anything with anybody on your behalf/.test(JSON.stringify(limitsArticle)), 'and it answers the booking question directly')
+// COPY IS A SPEC: "coming soon" is a promise with nobody behind it.
+const limitsBody = limitsArticle!.blocks.map(b => ('text' in b ? b.text : '')).join(' ')
+ok(!/coming soon|on (our|the) roadmap|is planned|later this year/i.test(limitsBody), 'the limits article promises nothing')
+ok(/Feature request/.test(limitsBody), '...and says how to ask for something')
+const prompt = code('lib/help/answer.ts')
+ok(/Never say a feature is coming soon/.test(prompt) && /plain "No"/.test(prompt), 'the model is told to say no plainly and never promise')
+
+const fr = cleanAnswer({ answered: true, answer: 'No.', sources: [], feature_request: true })!
+ok(fr.feature_request === true, 'a feature request survives cleaning')
+ok(cleanAnswer({ answered: true, answer: 'Yes.', sources: [] })!.feature_request === false, '...and is false unless the model says so')
+const box = code('components/help-center/help-search.tsx')
+ok(/feature_request \?/.test(box) && /Suggest this feature/.test(box) && /Feature request: /.test(box),
+  'the box offers "Suggest this feature" with the question in the subject')
+
+// The cache only reuses answers written under the CURRENT prompt, or the old
+// wrong answer to the booking question would have been served for two weeks.
+ok(/eq\('model', ANSWER_VERSION\)/.test(route) && /model: ANSWER_VERSION/.test(route), 'the cache is keyed on the prompt version')
+ok(ANSWER_VERSION !== 'claude-haiku-4-5', '...which is not the bare model name the old rows carry')
 
 done()
