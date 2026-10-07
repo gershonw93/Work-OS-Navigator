@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import { SyteNavLogo } from '@/components/ui/logo'
 import { appHref } from '@/lib/hosts'
+import { helpHref } from '@/lib/help-host'
 
 const COLUMNS: { title: string; links: [string, string][] }[] = [
   {
@@ -29,6 +30,7 @@ const COLUMNS: { title: string; links: [string, string][] }[] = [
     title: 'Company',
     links: [
       ['About', '/about'],
+      ['Help Center', helpHref('/')],
       ['Contact', '/contact'],
       ['Log in', '/login'],
       ['Request access', appHref('/signup')],
