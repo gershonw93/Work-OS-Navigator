@@ -20,8 +20,31 @@ const config = {
     // The file lives in `public/` (which is webDir), so it ships inside the
     // app bundle and needs no network to appear.
     errorPath: 'offline.html',
-    // Only the app's own origin (+ Supabase for auth) loads in the shell; other links open in the system browser.
-    allowNavigation: ['app.sytenav.com', 'sytenav.com', 'www.sytenav.com', '*.supabase.co'],
+    // ───────────────────────────────────────────────────────────────────
+    // THE APP'S OWN ORIGIN AND THE AUTH HOP. NOTHING ELSE.
+    //
+    // This list used to carry `sytenav.com` and `www.sytenav.com` too, and
+    // that is the exact path the App Review reviewer walked: an app-side link
+    // to a MARKETING_PATHS entry (`PLAN_CTA_HREF` was `/contact`) is
+    // redirected by middleware to the marketing host, and a host on this list
+    // renders IN THE WEBVIEW - so the Pricing page, with $99 / $299 / $499 and
+    // a CTA on every card, looked like a screen of the app. Build 1.0 (14)
+    // came back under 3.1.1.
+    //
+    // The prices and every link to them are gone, so nothing reaches those
+    // hosts today; this is the structural stop so a regression cannot. A link
+    // to a host NOT on this list opens in the system browser instead, which is
+    // the right failure: the guideline is about a purchase surface inside the
+    // app, and Safari is visibly not the app.
+    //
+    // Supabase stays - it is the auth redirect, not a destination.
+    //
+    // NEEDS AN IOS REBUILD TO TAKE EFFECT, like every other native setting in
+    // this file. `ios-no-purchase.ts` pins the list, and pins that no app-side
+    // file links to a marketing path - that half ships with a Vercel deploy
+    // and is what actually guards the regression in the meantime.
+    // ───────────────────────────────────────────────────────────────────
+    allowNavigation: ['app.sytenav.com', '*.supabase.co'],
   },
   plugins: {
     SplashScreen: {

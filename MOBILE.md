@@ -680,10 +680,23 @@ Capacitor 8 later would replace that with its own SystemBars handling.
 - App privacy "nutrition label" (data collected via Supabase auth: name, email, usage)
 - Support URL: `/contact`
 - Age rating, category (Business / Productivity)
-- **Review notes** saying accounts are created on the website - otherwise the
-  reviewer wonders why there is no sign-up button. (Nothing in the app leads to
-  a purchase: billing is "Free during beta" with a disabled button, and the
-  marketing pages are redirected off the app host, so rule 3.1.1 is clear.)
+- **Review notes** - paste the block in `store/listing.md`, which says accounts
+  are created **by invitation** and makes the 3.1.3(f) argument explicitly.
+  Do NOT write them from scratch, and do not say accounts are "created on the
+  website": that is a pointer at the shop, in the submission, and it is what
+  the notes used to say.
+  **THIS CHECKLIST USED TO END "so rule 3.1.1 is clear". IT WAS NOT.** Build
+  1.0 (14) was rejected under 3.1.1 on 30 September 2026: the iOS build was
+  still rendering the plan grid ($99 / $299 / $499, a CTA per card), the
+  billing card said "Manage your plan at sytenav.com", `/signup` said "Head to
+  sytenav.com ... to get started", and `allowNavigation` let the marketing
+  Pricing page open inside the webview. All four are fixed (#550, #551, #552
+  and the `allowNavigation` change, the last of which needs a rebuild to reach
+  a phone). SyteNav has no In-App Purchase, so the exemption is **3.1.3(f)
+  (Free Stand-alone Apps)** and it holds only while nothing in the app sells
+  and nothing points at a sale - including a sentence naming the domain. A
+  checklist that declares a rule clear is how it stops being checked; this one
+  names the clause and what it depends on instead.
 - iOS: TestFlight review → App Store review. Android: internal → closed → production.
 
 ---
