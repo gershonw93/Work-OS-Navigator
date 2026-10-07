@@ -128,14 +128,42 @@ ok(/item\.help && helpArticleAllowed\(getArticle\(item\.help\), pricingAllowed\)
 // The panel used to say "Manage your plan at sytenav.com" and the banner "At
 // sytenav.com" in each of its two states.
 //
-// Scoped to these two files rather than banned repo-wide on purpose: the
-// signup and login screens name the domain deliberately, because getting an
-// ACCOUNT is not buying anything - SyteNav's door is an invite-only waitlist
-// with no card - and stripping it would strand an iOS user with no way in.
-for (const [src, name] of [[panel, 'the billing card'], [banner, 'the banner']] as const) {
+// AND SO DID THE TWO AUTH SCREENS, which this check used to exempt. The
+// carve-out was written here in as many words - that signup and login name the
+// domain DELIBERATELY, because getting an ACCOUNT is not buying anything - and
+// Apple ruled against it: build 1.0 (14) came back under 3.1.1 while /signup
+// still read "Head to sytenav.com on a computer or in your browser to get
+// started". The exemption the whole arrangement rests on is 3.1.3(f) (Free
+// Stand-alone Apps), which holds only while there is no purchasing in the app
+// AND NO CALL TO ACTION TO PURCHASE OUTSIDE IT - and a reviewer does not have
+// to accept our distinction between "create an account" and "buy". It was
+// false as well as risky: that door is a Request Access waitlist behind an
+// invite token, so nobody ever "got started" there. All four surfaces now.
+//
+// `code()` STRIPS COMMENTS, which is what makes this readable at all: each of
+// the four files explains the sentence it no longer prints.
+const authFiles = [
+  ['app/(auth)/signup/page.tsx', 'the signup screen'],
+  ['app/(auth)/login/page.tsx', 'the login screen'],
+] as const
+const noWebsite = [
+  [panel, 'the billing card'],
+  [banner, 'the banner'],
+  ...authFiles.map(([f, n]) => [code(f), n] as const),
+] as const
+
+for (const [src, name] of noWebsite) {
   ok(!/sytenav\.com/.test(src), `${name} does not send anybody to the website`)
   ok(!/\bon the web\b|in your browser|on a computer/i.test(src),
     `${name} does not describe the way round either`)
+}
+
+// Asserted via what the auth screens DO still say, so a screen that has lost
+// its explanation cannot pass this by printing nothing. The way in is an
+// invitation, and that is the sentence standing where the domain used to be.
+for (const [file, name] of authFiles) {
+  ok(/invitation|invite you/i.test(code(file)),
+    `${name} still says how somebody actually gets in`)
 }
 // It says NOTHING rather than something wrong: `settings_billing` is denied to
 // every role but admin, so the only reader is the person who set the billing

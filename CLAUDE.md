@@ -516,10 +516,26 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   option: `settings_billing` is denied to every role but admin, so the only
   person who can open that tab IS the company admin - "contact your company
   admin" would be telling them to contact themselves, and an admin knows where
-  they set their billing up. Pinned over those two files only, because the
-  signup and login screens name the domain DELIBERATELY: getting an account is
-  not buying anything (the door is an invite-only waitlist, no card), and
-  stripping it would strand an iOS user with no way in for no compliance gain.
+  they set their billing up.
+- **AND THE EXEMPTION IS 3.1.3(f), WHICH IS WHY THE AUTH SCREENS WERE NOT AN
+  EXCEPTION.** This rule first covered the billing card and banner only, and
+  said in as many words that the signup and login screens name the domain
+  DELIBERATELY - getting an account is not buying anything, the door is an
+  invite-only waitlist with no card, and stripping it would strand an iOS user
+  for no compliance gain. **That reasoning was wrong in the way that matters.**
+  SyteNav has no In-App Purchase, so the whole arrangement rests on 3.1.3(f)
+  (Free Stand-alone Apps), which holds only while there is no purchasing in the
+  app **and no call to action to purchase outside it** - and a reviewer does not
+  have to accept our distinction between "create an account" and "buy". Apple
+  rejected 1.0 (14) under 3.1.1 while `/signup` still read "Head to sytenav.com
+  on a computer or in your browser to get started". It was also FALSE: that door
+  is a Request Access waitlist behind an invite token, so nobody ever got
+  started there - the same "copy is a spec" failure as the trial that does not
+  exist. The screens say what is true instead ("Accounts are created by
+  invitation ... ask your administrator to invite you"), nobody is stranded
+  because an invitation IS the way in, and the ban covers all FOUR surfaces.
+  No file is exempt: if a future screen needs to name the domain, that is a
+  decision about 3.1.3(f), not a carve-out in a test.
 - **A PRICE CAN HIDE IN DOCUMENTATION.** The Help article `plans-and-pricing`
   builds its steps straight out of `PLANS`, so it is the second price surface in
   the app and carries `webOnly`. One predicate (`helpArticleAllowed`) answers at

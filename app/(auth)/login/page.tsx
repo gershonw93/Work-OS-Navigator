@@ -111,8 +111,11 @@ export default function LoginPage() {
               </Link>
             </>
           ) : (
-            // Plain text, no call to action: an account is set up on the web.
-            <>Need an account? Set one up at sytenav.com, then sign in here.</>
+            // NO WEBSITE AND NO ACTION OFF-APP. "Set one up at sytenav.com" was
+            // both a pointer off the app - what 3.1.3(f) forbids - and a promise
+            // the product cannot honour, since that door is an invite-only
+            // waitlist. The invitation is the real answer.
+            <>Need an account? Ask your company administrator for an invitation.</>
           )}
         </p>
       )}
