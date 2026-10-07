@@ -28,16 +28,18 @@ export default function HelpCenterLayout({ children }: { children: ReactNode }) 
     <div className="min-h-screen bg-surface text-ink">
       <header className="pt-safe border-b border-line bg-panel/90 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
-          <Link href={helpHref('/')} className="flex min-w-0 items-center gap-2.5" aria-label="SyteNav Help Center home">
-            <SyteNavLogo size={26} />
-            <span className="hidden whitespace-nowrap border-l border-line pl-2.5 text-sm font-semibold text-muted-fg sm:inline">
-              Help Center
-            </span>
-          </Link>
-          <nav className="flex items-center gap-1 sm:gap-2">
-            <a href={`${SITE}/`} className="hidden whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium text-muted-fg hover:text-ink sm:inline-flex">
-              sytenav.com
+          {/* The logo goes HOME - to the main site, which is what a logo means
+              everywhere else on the web. The label beside it is the Help
+              Center's own home, so neither click is a surprise. */}
+          <div className="flex min-w-0 items-center gap-2.5">
+            <a href={`${SITE}/`} aria-label="SyteNav home">
+              <SyteNavLogo size={26} />
             </a>
+            <Link href={helpHref('/')} className="whitespace-nowrap border-l border-line pl-2.5 text-sm font-semibold text-muted-fg hover:text-ink">
+              Help Center
+            </Link>
+          </div>
+          <nav className="flex items-center gap-1 sm:gap-2">
             <ThemeToggle />
             <a href={SIGN_IN} className="inline-flex h-10 items-center whitespace-nowrap rounded-lg bg-accent px-4 text-sm font-semibold text-accent-ink">
               Sign in

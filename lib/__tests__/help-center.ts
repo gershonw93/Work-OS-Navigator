@@ -152,4 +152,11 @@ for (const path of ['/features', '/money', '/workflow', '/flows', '/ai', '/mobil
   ok(nav.includes(`'${path}'`), `${path} is still reachable from the nav`)
 }
 
+// The logo means home - the main site - and the Help Center label beside it
+// is the help home. A separate "sytenav.com" link said the same thing twice.
+const helpLayout = code('app/help-center/layout.tsx')
+ok(/<a href=\{`\$\{SITE\}\/`\} aria-label="SyteNav home">\s*<SyteNavLogo/.test(helpLayout), 'the help header logo goes to the main site')
+ok(/href=\{helpHref\('\/'\)\}[^>]*>\s*Help Center/.test(helpLayout), '...and the Help Center label to the help home')
+ok(!/>\s*sytenav\.com\s*</.test(helpLayout), '...with no separate sytenav.com link beside them')
+
 done()
