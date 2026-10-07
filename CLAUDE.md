@@ -38,7 +38,7 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-127.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-128.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - **Verify every column you `.select()` actually exists.** Supabase returns
   `data: null` for an unknown column, so a typo reads as "not found" rather than
@@ -375,9 +375,24 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   Money OUT: a sub bill is a Bill and the money settling it is a BillPayment
   applied to it (`invoices.qbo_payment_id`, separate id and separate claim from
   `qbo_id` - one row, two QBO records).
-- A payment settles the invoice NAMED ON IT (`client_payments.client_invoice_id`),
-  never "the oldest one still sent". Only unlinked money (a deposit) falls back
-  to oldest-open.
+- A payment settles the invoices NAMED ON IT, by the amounts given -
+  `client_payment_allocations` (migration 128), never "the oldest one still
+  sent". Only unlinked money (a deposit) falls back to oldest-open. ONE cheque
+  across several invoices is ONE QBO Payment with a Line per invoice (the bank
+  shows one deposit), and if ANY invoice in the split is not in QBO yet the
+  payment books NOTHING - not half the cheque. `client_payments.client_invoice_id`
+  is the old single link: deprecated, read by nothing, pinned in
+  `split-payments.ts`.
+- **AN INVOICE IS PAID WHEN THE MONEY COVERS IT, NEVER BECAUSE A BUTTON SAID
+  SO.** "Mark paid" set `paid` whatever was typed, so $5,000 against $10,000 read
+  Paid here while QBO - applying the real amount - showed $5,000 owed, and the
+  button for the second cheque was gone. `syncInvoiceStatus`
+  (`lib/invoice-settlement-db.ts`) is the ONLY writer of `paid`, run after every
+  payment create/edit/delete, in both directions; the invoice PATCH refuses
+  `paid` from a body. Sums are in CENTS (`lib/invoice-settlement.ts`), and
+  `allocationProblem` is asked by the form AND the route. A split payment's
+  amount cannot be edited - there is no right answer to which invoice gets the
+  difference, so it is refused and says why.
 - A payment whose invoice has NOT reached QBO yet must book NOTHING - not a
   Sales Receipt. `pushClientPayment` (Sales Receipt) is only for money that
   settles nothing; every other caller goes through `pushPaymentForProject`.

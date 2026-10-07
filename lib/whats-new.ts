@@ -54,6 +54,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 // Author entries anywhere in this list; the app reads the sorted view.
 const AUTHORED: Release[] = [
   {
+    date: '2026-10-07',
+    title: 'Part payments, and one check across several invoices',
+    items: [
+      {
+        kind: 'new',
+        title: 'Record a part payment, and one check that pays several invoices',
+        text: 'When a client pays part of an invoice, record what actually arrived: the invoice shows Partly paid with the balance left, and Record another payment opens on what is still owed. An invoice turns Paid only once the payments against it add up to its total - it used to read Paid as soon as any payment was recorded, and the button for that is Record payment now, not Mark paid. One check covering several invoices is one payment now - tick each invoice it pays and SyteNav spreads it across them, oldest first, with every share editable. In QuickBooks it goes across as a single payment applied to those invoices, so it matches the one deposit on your bank statement. Your client sees what they have paid and what is still due on their portal and their copy of the invoice.',
+        help: 'record-client-payment',
+      },
+    ],
+  },
+  {
     date: '2026-09-24',
     title: 'Plans, a free trial, and a usage counter that is real',
     items: [

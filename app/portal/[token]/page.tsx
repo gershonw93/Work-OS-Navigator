@@ -8,6 +8,8 @@ import { weightedProgress } from '@/lib/invoice-budget'
 import { HardHat } from 'lucide-react'
 import { weatherIcon } from '@/lib/weather'
 import { formatDate } from '@/lib/dates'
+import { settlementLabel } from '@/lib/invoice-settlement'
+import { settlementsFor } from '@/lib/invoice-settlement-db'
 const admin = () =>
   createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -125,17 +127,28 @@ export default async function PortalPage({ params }: { params: { token: string }
   const dueFromClient = paymentRequests ?? []
   const dueTotal = dueFromClient.reduce((sum: number, r: any) => sum + Number(r.amount ?? 0), 0)
 
-  const invoices = (clientInvoices ?? []).map((b: any) => ({
-    ...b,
-    total: (b.client_invoice_lines ?? []).reduce((s: number, l: any) => s + Number(l.amount ?? 0), 0),
-    overdue: b.status === 'sent' && b.due_date ? (daysUntil(b.due_date) ?? 0) < 0 : false,
-  }))
+  // What has been paid against each invoice - one cheque can pay several, and
+  // a part payment leaves an invoice owing the REST, not the whole of it.
+  const settled = await settlementsFor(db, (clientInvoices ?? []) as any[])
+  const invoices = (clientInvoices ?? []).map((b: any) => {
+    const total = (b.client_invoice_lines ?? []).reduce((s: number, l: any) => s + Number(l.amount ?? 0), 0)
+    const st = settled.get(b.id)
+    return {
+      ...b,
+      total,
+      // Unread settlement: say what the invoice says, the whole amount.
+      balance: b.status === 'paid' ? 0 : st ? st.balance : total,
+      partly: b.status === 'sent' && st?.state === 'partly_paid',
+      paidLine: b.status === 'sent' && st ? settlementLabel(st) : null,
+      overdue: b.status === 'sent' && b.due_date ? (daysUntil(b.due_date) ?? 0) < 0 : false,
+    }
+  })
   const paymentsMade = clientPayments ?? []
   const paidTotal = paymentsMade.reduce((s: number, p: any) => s + Number(p.amount ?? 0), 0)
 
   const invoicesOutstanding = invoices
     .filter((b: any) => b.status === 'sent')
-    .reduce((s: number, b: any) => s + b.total, 0)
+    .reduce((s: number, b: any) => s + b.balance, 0)
   const anyOverdue = invoices.some((b: any) => b.overdue)
 
   const owed = (selections ?? []).filter(s => isOutstanding(s.status))
@@ -322,6 +335,7 @@ export default async function PortalPage({ params }: { params: { token: string }
                       {b.issue_date && formatDate(b.issue_date)}
                       {b.status === 'sent' && b.due_date && ` · due ${formatDate(b.due_date)}`}
                     </span>
+                    {b.paidLine && <span className="block text-xs font-medium text-ink-soft">{b.paidLine}</span>}
                   </span>
                   <span className="flex items-center gap-2 shrink-0">
                     <span className="text-sm font-bold text-ink">
@@ -331,7 +345,7 @@ export default async function PortalPage({ params }: { params: { token: string }
                       b.status === 'paid' ? 'bg-success-tint text-success'
                         : b.overdue ? 'bg-danger-tint text-danger'
                         : 'bg-warn-tint text-warn')}>
-                      {b.status === 'paid' ? 'Paid' : b.overdue ? 'Overdue' : 'Due'}
+                      {b.status === 'paid' ? 'Paid' : b.overdue ? 'Overdue' : b.partly ? 'Part paid' : 'Due'}
                     </span>
                   </span>
                 </a>

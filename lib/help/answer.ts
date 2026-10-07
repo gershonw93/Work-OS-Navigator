@@ -32,7 +32,7 @@ export const HELP_ANSWER_MODEL = 'claude-haiku-4-5'
  * from the cache for CACHE_DAYS. BUMP IT WHENEVER THE PROMPT OR THE ARTICLES
  * IT ALWAYS READS CHANGE MEANING.
  */
-export const ANSWER_VERSION = `${HELP_ANSWER_MODEL}#2`
+export const ANSWER_VERSION = `${HELP_ANSWER_MODEL}#3`
 
 /** Questions one visitor may ask per hour before being asked to slow down. */
 export const PER_VISITOR_PER_HOUR = 20

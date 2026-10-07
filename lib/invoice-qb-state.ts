@@ -62,6 +62,15 @@ export function invoiceQbChip(inv: QbInvoice, connected: boolean): QbChip {
   }
 
   if (status !== 'paid') {
+    // PARTLY PAID: the invoice is over there, and so should the money already
+    // received against it be - or QuickBooks shows the whole amount owed.
+    const part = inv.settlement
+    if (part?.recorded && !part.in_qbo) {
+      return {
+        show: true, tone: 'warn', label: 'QB - payment not synced',
+        title: `A payment against this invoice is recorded here but has not reached QuickBooks, so invoice ${inv.qbo_id} shows more owed there than here.`,
+      }
+    }
     return { show: true, tone: 'ok', label: 'QB ✓', title: `In QuickBooks as invoice ${inv.qbo_id}` }
   }
 

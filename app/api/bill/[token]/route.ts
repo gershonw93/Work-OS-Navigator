@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { settlementsFor } from '@/lib/invoice-settlement-db'
 
 export const runtime = 'nodejs'
 
@@ -67,6 +68,10 @@ export async function GET(_request: Request, { params }: { params: { token: stri
     }))
 
   const total = lines.reduce((s, l) => s + l.amount, 0)
+  // What has already been received against it, so a client who sent half is
+  // shown half still due - not the whole figure again, and not "Paid".
+  const st = (await settlementsFor(db, [bill as any])).get(bill.id)
+  const paid = bill.status === 'paid' ? total : (st?.paid ?? 0)
 
   return NextResponse.json({
     invoice_number: bill.invoice_number,
@@ -78,6 +83,8 @@ export async function GET(_request: Request, { params }: { params: { token: stri
     terms: bill.terms,
     lines,
     total,
+    paid,
+    balance: Math.max(total - paid, 0),
     ...(show
       ? {
         cost_total: lines.reduce((s, l: any) => s + (l.cost ?? 0), 0),

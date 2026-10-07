@@ -84,6 +84,11 @@ export default function ClientBillPage({ params }: { params: { token: string } }
                   Paid - thank you
                 </span>
               )}
+              {data.status === 'sent' && Number(data.paid ?? 0) > 0 && (
+                <span className="whitespace-nowrap mt-2 inline-block rounded-full border border-line bg-surface px-2.5 py-0.5 text-xs font-semibold text-ink-soft">
+                  {money(data.paid)} received · {money(data.balance)} still due
+                </span>
+              )}
             </div>
             <div className="text-right text-sm">
               {data.from?.name && <p className="font-semibold text-ink">{data.from.name}</p>}

@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { ClientInvoices } from '@/components/projects/client-invoices'
 import { PaymentRequests } from '@/components/projects/payment-requests'
+import { PaymentAllocations, type PayableInvoice } from '@/components/projects/payment-allocations'
+import { allocationProblem, cents, dollars, spreadPayment } from '@/lib/invoice-settlement'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -23,6 +25,8 @@ interface Payment {
   reference: string | null
   /** Set by the real QuickBooks sync. When present, the chip is a fact, not a claim. */
   qbo_id: string | null
+  /** Which invoices it paid and how much went to each - one cheque can pay several. */
+  client_payment_allocations?: { client_invoice_id: string; amount: number | string; client_invoices: { invoice_number: string } | null }[]
 }
 interface Summary {
   received: number; feeEarned: number; availableAfterFee: number
@@ -65,6 +69,15 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
   // all - the deposit half was fixed in #305, the invoice half was not.
   const [settling, setSettling] = useState<{ kind: 'request' | 'invoice'; id: string; label: string; amount: number } | null>(null)
   const [requestsKey, setRequestsKey] = useState(0)
+  // The issued invoices still owing something - what a payment can be split
+  // across. Read from the same route the invoice list uses, so the balance in
+  // the picker is the balance on the list.
+  const [payable, setPayable] = useState<PayableInvoice[]>([])
+  const [picked, setPicked] = useState<string[]>([])
+  const [shares, setShares] = useState<Record<string, string>>({})
+  // Once somebody types a share by hand, changing the cheque amount must not
+  // overwrite it - they told us which invoice they meant.
+  const [sharesTouched, setSharesTouched] = useState(false)
 
   async function token() { const { data: { session } } = await supabase.auth.getSession(); return session?.access_token ?? '' }
 
@@ -78,6 +91,44 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
     setLoading(false)
   }
   useEffect(() => { load() }, [params.id])
+
+  async function loadPayable() {
+    const t = await token()
+    const res = await fetch(`/api/projects/${params.id}/client-invoices`, { headers: { Authorization: `Bearer ${t}` } })
+    if (!res.ok) return
+    const d = await res.json()
+    setPayable(((d.invoices ?? []) as any[])
+      .filter(b => b.status === 'sent' && Number(b.settlement?.balance ?? 0) > 0)
+      // Oldest first: the order a cheque is spread in, and how anybody applies one.
+      .sort((a, b) => String(a.issue_date ?? '').localeCompare(String(b.issue_date ?? '')))
+      .map(b => ({ id: b.id, invoice_number: b.invoice_number, balance: Number(b.settlement.balance), total: Number(b.settlement.total) })))
+  }
+  useEffect(() => { loadPayable() }, [params.id, requestsKey])
+
+  /** Spread the payment across what is ticked, unless somebody already set the shares by hand. */
+  function respread(amount: string, ids: string[], force = false) {
+    if (sharesTouched && !force) return
+    const chosen = payable.filter(p => ids.includes(p.id)).map(p => ({ id: p.id, invoice_number: p.invoice_number, status: 'sent', balanceCents: cents(p.balance) }))
+    const spread = spreadPayment(cents(amount), chosen)
+    setShares(Object.fromEntries(ids.map(id => [id, spread[id] ? String(dollars(spread[id])) : ''])))
+  }
+
+  function toggleInvoice(id: string) {
+    const next = picked.includes(id) ? picked.filter(x => x !== id) : [...picked, id]
+    // Ticking with no amount typed yet: the payment is what the ticked
+    // invoices owe, which is the commonest case and saves typing it twice.
+    let amount = form.amount
+    if (!cents(amount) || !sharesTouched) {
+      const owed = payable.filter(p => next.includes(p.id)).reduce((s, p) => s + cents(p.balance), 0)
+      if (!cents(amount) || cents(amount) === picked.reduce((s, x) => s + cents(payable.find(p => p.id === x)?.balance), 0)) {
+        amount = owed ? String(dollars(owed)) : form.amount
+        setForm(f => ({ ...f, amount }))
+      }
+    }
+    setPicked(next)
+    setSharesTouched(false)
+    respread(amount, next, true)
+  }
 
   // Which way this job bills its client. Same endpoint the tabs use, so the
   // page and the tab bar can never disagree about what this job is.
@@ -130,6 +181,8 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
    */
   function settleInvoice(b: { id: string; label: string; amount: number }) {
     setSettling({ kind: 'invoice', ...b })
+    // `amount` is what the invoice still OWES, not its total - a second payment
+    // on a partly paid invoice starts from the balance.
     setForm({
       ...blank,
       paid_date: new Date().toISOString().split('T')[0],
@@ -137,6 +190,9 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
       memo: b.label,
       retainer: false,
     })
+    setPicked([b.id])
+    setShares({ [b.id]: toAmountInput(b.amount) })
+    setSharesTouched(false)
     setAdding(true)
   }
 
@@ -144,10 +200,22 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
     setAdding(false)
     setForm({ ...blank })
     setSettling(null)
+    setPicked([])
+    setShares({})
+    setSharesTouched(false)
   }
 
   async function addPayment() {
-    if (!form.amount) return
+    // A deposit request is settled by its own link, not by invoices.
+    const allocations = settling?.kind === 'request'
+      ? []
+      : picked.map(id => ({ client_invoice_id: id, amount: Number(shares[id] || 0) }))
+    // The same check the route makes, asked here first so the problem is on
+    // the screen before anything is sent.
+    const problem = allocationProblem(form.amount, allocations, payable.map(p => ({
+      id: p.id, invoice_number: p.invoice_number, status: 'sent', balanceCents: cents(p.balance),
+    })))
+    if (problem) { notify(problem); return }
     setSaving(true)
     const t = await token()
     const res = await fetch(`/api/projects/${params.id}/payments`, {
@@ -155,10 +223,11 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
       body: JSON.stringify({
         ...form,
         amount: Number(form.amount),
-        // Which invoice this money settles. Nobody was guessing at the
-        // keyboard - they pressed Mark paid ON an invoice - but QuickBooks
-        // was left to guess anyway, and picked the oldest one still open.
-        client_invoice_id: settling?.kind === 'invoice' ? settling.id : null,
+        // Which invoices this money pays, and how much of it went to each.
+        // The server marks an invoice paid once its payments cover it - this
+        // page no longer says "paid" itself, which is how $5,000 against a
+        // $10,000 invoice used to read Paid.
+        allocations,
       }),
     })
     if (!res.ok) {
@@ -167,31 +236,19 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
       return
     }
 
-    // Settle the request this payment answers, and point it at the payment.
-    // Only after the payment is safely written: marking a request paid against
-    // money that failed to save is the lie this whole flow exists to avoid.
-    // The payment is recorded FIRST, above, and only then is the invoice
-    // marked paid - marking an invoice paid against money that failed to save
-    // is the lie this flow exists to avoid. It no longer matters to
-    // QuickBooks: the payment now names the invoice it settles, so the
-    // applied-payment lookup finds it by id whatever its status is. It used to
-    // hunt for the oldest invoice still 'sent', which made this ordering
-    // load-bearing and the answer a coin flip between same-day invoices.
-    if (settling) {
+    // Settle the deposit request this payment answers, and point it at the
+    // payment. Only after the payment is safely written: marking a request
+    // paid against money that failed to save is the lie this flow exists to
+    // avoid.
+    if (settling?.kind === 'request') {
       const created = await res.json().catch(() => ({} as any))
-      const url = settling.kind === 'request'
-        ? `/api/projects/${params.id}/payment-requests/${settling.id}`
-        : `/api/projects/${params.id}/client-invoices/${settling.id}`
-      const payload = settling.kind === 'request'
-        ? { status: 'paid', client_payment_id: created?.payment?.id ?? null }
-        : { status: 'paid' }
-      await fetch(url, {
+      await fetch(`/api/projects/${params.id}/payment-requests/${settling.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ status: 'paid', client_payment_id: created?.payment?.id ?? null }),
       }).catch(() => {})
-      setRequestsKey(k => k + 1)
     }
+    setRequestsKey(k => k + 1)
 
     setSaving(false)
     closePaymentForm()
@@ -200,11 +257,17 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
 
   async function saveEdit(id: string) {
     const t = await token()
-    await fetch(`/api/projects/${params.id}/payments/${id}`, {
+    const res = await fetch(`/api/projects/${params.id}/payments/${id}`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
       body: JSON.stringify({ ...editForm, amount: Number(editForm.amount) }),
     })
-    setEditingId(null); load()
+    // A refusal is an answer - "this payment is split across two invoices" -
+    // and closing the row over it looked exactly like the edit had saved.
+    if (!res.ok) {
+      notify((await res.json().catch(() => ({}))).error ?? 'Could not save the change')
+      return
+    }
+    setEditingId(null); load(); setRequestsKey(k => k + 1)
   }
 
   // One-click "entered in QuickBooks" toggle straight from the ledger row -
@@ -222,7 +285,8 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
     guardDelete(async () => {
       const t = await token()
       await fetch(`/api/projects/${params.id}/payments/${p.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${t}` } })
-      load()
+      // The invoices it paid go back to owing it, so their list has to reload too.
+      load(); setRequestsKey(k => k + 1)
     }, { label: `the ${money(p.amount)} client payment`, protected: true })
   }
 
@@ -398,7 +462,7 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
               {settling && (
                 <p className="text-xs text-muted-fg">
                   Settling <span className="font-medium text-ink-soft">{settling.label}</span>.
-                  Change anything below if they sent something different.
+                  Change anything below if they sent something different - a part payment is recorded as part paid.
                 </p>
               )}
             </div>
@@ -406,7 +470,7 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="space-y-1"><Label>Date</Label><Input type="date" value={form.paid_date} onChange={e => setForm({ ...form, paid_date: e.target.value })} /></div>
-            <div className="space-y-1"><Label>Amount</Label><Input type="number" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} placeholder="0" /></div>
+            <div className="space-y-1"><Label>Amount</Label><Input type="number" value={form.amount} onChange={e => { setForm({ ...form, amount: e.target.value }); respread(e.target.value, picked) }} placeholder="0" /></div>
             <div className="space-y-1"><Label>Method</Label>
               <select value={form.method} onChange={e => setForm({ ...form, method: e.target.value })} className="w-full rounded-md border border-muted2 bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none">
                 {METHODS.map(m => <option key={m} value={m}>{m}</option>)}
@@ -419,6 +483,16 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
             <div className="space-y-1"><Label>Reference / check #</Label><Input value={form.reference} onChange={e => setForm({ ...form, reference: e.target.value })} placeholder="e.g. 1043" /></div>
             <div className="space-y-1 col-span-2 sm:col-span-3"><Label>Memo</Label><Input value={form.memo} onChange={e => setForm({ ...form, memo: e.target.value })} placeholder="Anything worth remembering about this payment" /></div>
           </div>
+          {settling?.kind !== 'request' && (
+            <PaymentAllocations
+              invoices={payable}
+              picked={picked}
+              shares={shares}
+              paymentAmount={form.amount}
+              onToggle={toggleInvoice}
+              onShare={(id, v) => { setSharesTouched(true); setShares(sh => ({ ...sh, [id]: v })) }}
+            />
+          )}
           <div className="flex flex-wrap items-center gap-4">
             <label className="flex items-center gap-2 text-sm text-ink-soft"><input type="checkbox" className="accent-[#C9F24A]" checked={form.retainer} onChange={e => setForm({ ...form, retainer: e.target.checked })} /> Retainer / deposit</label>
             <label className="flex items-center gap-2 text-sm text-ink-soft"><input type="checkbox" className="accent-[#C9F24A]" checked={form.qb_entered} onChange={e => setForm({ ...form, qb_entered: e.target.checked })} /> Already in QuickBooks - don&apos;t sync</label>
@@ -462,6 +536,12 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
                   {p.reference && p.memo ? ' · ' : ''}
                   {p.memo || (p.reference ? '' : '-')}
                   {p.retainer && <span className="ml-2 text-[10px] rounded-full bg-info-tint text-info px-1.5 py-0.5">retainer</span>}
+                  {(p.client_payment_allocations ?? []).length > 0 && (
+                    <span className="block text-xs text-faint truncate">
+                      Pays {(p.client_payment_allocations ?? []).map(a =>
+                        `${a.client_invoices?.invoice_number ?? 'invoice'}${(p.client_payment_allocations ?? []).length > 1 ? ` (${money(Number(a.amount))})` : ''}`).join(', ')}
+                    </span>
+                  )}
                 </span>
                 <span className="text-sm text-muted-fg">{p.method || '-'}</span>
                 <span className="text-sm font-semibold text-success md:text-right block">{money(p.amount)}</span>

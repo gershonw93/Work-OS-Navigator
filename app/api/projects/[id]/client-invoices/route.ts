@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { cents, invoiceTotalCents, settlementOf } from '@/lib/invoice-settlement'
 import { logActivity } from '@/lib/log-activity'
 import { markUp } from '@/lib/markup'
 import { ACTUAL_STATUSES } from '@/lib/invoice-budget'
@@ -57,9 +58,12 @@ export async function GET(request: Request, { params }: { params: { id: string }
     // invoice had reached QuickBooks but not whether the payment settling it
     // had - so an invoice sat "paid" here, green-ticked, and still open as a
     // receivable over there with nobody the wiser.
-    db.from('client_payments')
-      .select('id, client_invoice_id, qbo_id, qb_entered, amount')
-      .eq('project_id', params.id),
+    // Read through client_payment_allocations - the one home for which
+    // invoice a payment pays, and how much of it. A payment split across two
+    // invoices counts its share against each, not its whole amount against both.
+    db.from('client_payment_allocations')
+      .select('client_invoice_id, amount, client_payments!inner(id, qbo_id, qb_entered, project_id)')
+      .eq('client_payments.project_id', params.id),
   ])
 
   const projectPct = Number((project as any)?.contractor_fee_pct ?? 0) * 100
@@ -108,16 +112,21 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
   // What settles each invoice, so the list can tell the two QuickBooks truths
   // apart: the invoice is over there, and the money that settles it is too.
-  const paidBy = new Map<string, { id: string; qbo_id: string | null; qb_entered: boolean; amount: number }[]>()
-  for (const pay of (payments ?? []) as any[]) {
-    if (!pay.client_invoice_id) continue
-    const list = paidBy.get(pay.client_invoice_id) ?? []
-    list.push(pay)
-    paidBy.set(pay.client_invoice_id, list)
+  // And how much of it is settled - "paid" is a sum, not a flag.
+  const paidBy = new Map<string, { qbo_id: string | null; qb_entered: boolean; amount: number }[]>()
+  for (const share of (payments ?? []) as any[]) {
+    const pay = share.client_payments
+    const list = paidBy.get(share.client_invoice_id) ?? []
+    list.push({ qbo_id: pay?.qbo_id ?? null, qb_entered: !!pay?.qb_entered, amount: Number(share.amount || 0) })
+    paidBy.set(share.client_invoice_id, list)
   }
 
   const withSettlement = (bills ?? []).map((b: any) => {
     const applied = paidBy.get(b.id) ?? []
+    const s = settlementOf(
+      invoiceTotalCents(b.client_invoice_lines),
+      applied.reduce((sum, p) => sum + cents(p.amount), 0),
+    )
     return {
       ...b,
       settlement: {
@@ -125,7 +134,10 @@ export async function GET(request: Request, { params }: { params: { id: string }
         // "In QuickBooks by hand" counts: the money is over there, we just
         // did not put it there.
         in_qbo: applied.length > 0 && applied.every(p => !!p.qbo_id || p.qb_entered === true),
-        amount: applied.reduce((s, p) => s + Number(p.amount || 0), 0),
+        amount: s.paid,
+        total: s.total,
+        balance: s.balance,
+        state: s.state,
       },
     }
   })
