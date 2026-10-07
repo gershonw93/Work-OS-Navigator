@@ -1185,14 +1185,12 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                         </button>
                       </div>
                       <SearchableSelect value={photoSubs[i] ?? ''}
-                        onChange={e => setPhotoSubs(prev => prev.map((s, j) => j === i ? e.target.value : s))}
-                        className="text-xs">
+                        onChange={e => setPhotoSubs(prev => prev.map((s, j) => j === i ? e.target.value : s))}>
                         <option value="">No sub</option>
                         {subcontracts.map(s => <option key={s.id} value={s.id}>{(s.companies as any)?.name ?? s.trade}</option>)}
                       </SearchableSelect>
                       <SearchableSelect value={photoCats[i] ?? ''}
-                        onChange={e => setPhotoCats(prev => prev.map((c, j) => j === i ? e.target.value : c))}
-                        className="text-xs">
+                        onChange={e => setPhotoCats(prev => prev.map((c, j) => j === i ? e.target.value : c))}>
                         <option value="">Tag part…</option>
                         {PHOTO_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                       </SearchableSelect>
@@ -1599,13 +1597,30 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                                     </button>
                                     <button onClick={() => deletePhoto(log.id, p.id)} className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-danger-solid text-white flex items-center justify-center opacity-100 lg:opacity-0 lg:group-hover:opacity-100"><X className="h-3 w-3" /></button>
                                   </div>
-                                  {/* Tag later: sub + category */}
-                                  <div className="grid grid-cols-2 gap-1">
-                                    <SearchableSelect value={p.subcontract_id ?? ''} onChange={e => tagPhoto(log.id, p.id, { subcontract_id: e.target.value || null })} className="text-xs h-8">
+                                  {/* Tag later: sub + category.
+                                      STACKED, NOT SIDE BY SIDE. Measured in
+                                      overlay-geometry.ts: two selects sharing
+                                      one ~165px tile get ~81px each, and the
+                                      trigger spends 48px of that on px-3 plus
+                                      the chevron and its gap - leaving a 31px
+                                      label box, so every tag read "Bl…", "Q…".
+                                      Reported as exactly that. Stacked it is
+                                      115px. THE TILE TRACK IS NOT THE FIX and
+                                      was left alone: minmax(170px,1fr) drops
+                                      the phone grid to ONE column, trading a
+                                      readable tag for one photo per screen.
+                                      One per row is the whole fix, and it is
+                                      what the staged-upload previews below have
+                                      always done: two blocks on one screen
+                                      disagreeing, and the one that renders every
+                                      day was the wrong one. No `h-8 text-xs`
+                                      either - see searchable-select.tsx. */}
+                                  <div className="space-y-1">
+                                    <SearchableSelect value={p.subcontract_id ?? ''} onChange={e => tagPhoto(log.id, p.id, { subcontract_id: e.target.value || null })}>
                                       <option value="">No sub</option>
                                       {subcontracts.map(s => <option key={s.id} value={s.id}>{(s.companies as any)?.name ?? s.trade}</option>)}
                                     </SearchableSelect>
-                                    <SearchableSelect value={p.category ?? ''} onChange={e => tagPhoto(log.id, p.id, { category: e.target.value || null })} className="text-xs h-8">
+                                    <SearchableSelect value={p.category ?? ''} onChange={e => tagPhoto(log.id, p.id, { category: e.target.value || null })}>
                                       <option value="">Tag part…</option>
                                       {PHOTO_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                                     </SearchableSelect>
@@ -1647,11 +1662,11 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
                                           setMoreSubs(p => p.filter((_, j) => j !== i)); setMoreCats(p => p.filter((_, j) => j !== i))
                                         }} className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-danger-solid text-white flex items-center justify-center opacity-100 lg:opacity-0 lg:group-hover:opacity-100"><X className="h-3 w-3" /></button>
                                       </div>
-                                      <SearchableSelect value={moreSubs[i] ?? ''} onChange={e => setMoreSubs(p => p.map((s, j) => j === i ? e.target.value : s))} className="text-xs">
+                                      <SearchableSelect value={moreSubs[i] ?? ''} onChange={e => setMoreSubs(p => p.map((s, j) => j === i ? e.target.value : s))}>
                                         <option value="">No sub</option>
                                         {subcontracts.map(s => <option key={s.id} value={s.id}>{(s.companies as any)?.name ?? s.trade}</option>)}
                                       </SearchableSelect>
-                                      <SearchableSelect value={moreCats[i] ?? ''} onChange={e => setMoreCats(p => p.map((c, j) => j === i ? e.target.value : c))} className="text-xs">
+                                      <SearchableSelect value={moreCats[i] ?? ''} onChange={e => setMoreCats(p => p.map((c, j) => j === i ? e.target.value : c))}>
                                         <option value="">Tag part…</option>
                                         {PHOTO_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                                       </SearchableSelect>

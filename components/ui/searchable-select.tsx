@@ -243,6 +243,14 @@ export function SearchableSelect({
         }}
         onKeyDown={onKeyDown}
         className={cn(triggerClasses, className)}
+        // THIS IS A BUTTON, NOT A <select>, AND THAT IS WHY IT NEEDS A HANDLE.
+        // globals.css forces 16px text and a 44px box on touch screens, and
+        // its selector list is `input, select, textarea` - real elements. So
+        // every rule written to stop iOS zooming the page and to make a field
+        // a reachable target has always missed this control, and a caller
+        // passing `h-8 text-xs` got a real 32px/12px box on a phone. The
+        // attribute is what puts it back in that list; see globals.css.
+        data-select-trigger=""
         aria-haspopup="listbox"
         aria-expanded={open}
       >

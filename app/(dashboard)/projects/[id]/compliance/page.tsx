@@ -378,7 +378,11 @@ function UploadForm({
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
                 <Label className="lg:text-xs">Entity Type</Label>
-                <SearchableSelect className="h-8 w-full rounded-md border border-muted2 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-accent"
+                {/* No h-8/text-xs: the trigger already carries the border,
+                    radius, padding and focus ring, and overriding them here
+                    built a 32px/12px control that globals.css could not fix -
+                    SearchableSelect renders a button, not a <select>. */}
+                <SearchableSelect className="w-full"
                   value={entityType} onChange={e => setEntityType(e.target.value)}>
                   <option value="">Select…</option>
                   <option value="individual">Individual / Sole Prop</option>
