@@ -31,6 +31,15 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   const { db, user } = ctx
 
   const body = await request.json().catch(() => ({}))
+  // AN INVOICE IS PAID WHEN THE MONEY COVERS IT, never because a request says
+  // so. This route used to take `status: 'paid'` from the body, which is how
+  // $5,000 against a $10,000 invoice read "Paid". Recording the payment is the
+  // only way in; lib/invoice-settlement-db.ts writes the status from the sums.
+  if (body.status === 'paid') {
+    return NextResponse.json({
+      error: 'Record the payment against this invoice instead - it is marked paid once the payments cover it.',
+    }, { status: 400 })
+  }
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
   for (const f of FIELDS) if (f in body) patch[f] = body[f] === '' ? null : body[f]
 
@@ -39,10 +48,14 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   if (body.status === 'sent') {
     patch.sent_at = new Date().toISOString()
     const { data: current } = await db.from('client_invoices')
-      .select('token').eq('id', params.billId).maybeSingle()
+      .select('token, status').eq('id', params.billId).maybeSingle()
+    // Issuing is a move out of DRAFT. Sent again it is harmless; but "sent" on
+    // a paid or void invoice would quietly undo what the money or the void said.
+    if (current && current.status !== 'draft' && current.status !== 'sent') {
+      return NextResponse.json({ error: `This invoice is already ${current.status}.` }, { status: 400 })
+    }
     if (!current?.token) patch.token = randomBytes(24).toString('hex')
   }
-  if (body.status === 'paid') patch.paid_at = new Date().toISOString()
 
   const { data, error } = await db.from('client_invoices')
     .update(patch).eq('id', params.billId).eq('project_id', params.id)
@@ -62,7 +75,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   // Sending it makes it a receivable, so QuickBooks should carry it as one -
   // money owed to you, visible before it arrives. Same contract as every other
   // push: never throws, 8s cap, not-connected is normal.
-  if (body.status === 'sent' || body.status === 'paid') {
+  if (body.status === 'sent') {
     await pushClientInvoice(db, params.billId)
   }
 

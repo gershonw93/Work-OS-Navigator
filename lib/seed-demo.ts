@@ -328,11 +328,19 @@ export async function runSeed(
     // does not obey it teaches the wrong thing to anybody reading the screen.
     // One payment is left deliberately unlinked: the deposit, taken before
     // there was any invoice to settle. That is a real shape, not a gap.
+    //
+    // The split is a client_payment_allocations row, the one home for "which
+    // invoice did this pay, and how much of it" - so the paid invoice is paid
+    // because money covers it, the way the app now decides it.
     const paid = clientInvoices.find(c => c.status === 'paid')
     const pays = []
+    const shares: { payment_id: string; client_invoice_id: string; amount: number }[] = []
     for (let mo = 0; mo < 8; mo++) {
       const settles = mo === 2 && paid ? paid : null
+      const payId = rid()
+      if (settles) shares.push({ payment_id: payId, client_invoice_id: settles.id, amount: settles.total })
       pays.push({
+        id: payId,
         project_id: projectId, paid_date: ymd(monthsAgo(mo)),
         amount: settles ? settles.total : round2(proj.budget * (0.04 + ((mo + p) % 4) * 0.02)),
         method: pick(['Wire', 'Check', 'ACH'], mo + p),
@@ -340,11 +348,11 @@ export async function runSeed(
         // The check number the bank statement is reconciled against - a
         // different field from the memo, which is the whole point of #325.
         reference: pick(['', '4471', '', 'WT-88213', '', '4489', '', ''], mo + p) || null,
-        client_invoice_id: settles ? settles.id : null,
         retainer: mo === 7, qb_entered: mo > 1, created_by: userId,
       })
     }
     await insert('client_payments', pays)
+    if (shares.length) await insert('client_payment_allocations', shares)
 
     let sIdx = 0
     for (const sc of subcontractIds) {

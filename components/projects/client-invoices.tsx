@@ -16,6 +16,7 @@ import { RowMenu, MenuItem } from '@/components/ui/row-menu'
 import { invoiceQbChip, openedLabel } from '@/lib/invoice-qb-state'
 
 import { formatDate } from '@/lib/dates'
+import { settlementLabel, type Settlement } from '@/lib/invoice-settlement'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 const money = (n: unknown) => `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
 
@@ -62,13 +63,14 @@ interface Bill {
    * facts, and one green tick for both is how an invoice showed as paid here
    * while it was still an open receivable there.
    */
-  settlement: { recorded: boolean; in_qbo: boolean; amount: number } | null
+  settlement: ({ recorded: boolean; in_qbo: boolean; amount: number } & Partial<Settlement> & { balance?: number }) | null
   client_invoice_lines: BillLine[]
 }
 
 const STATUS: Record<string, string> = {
   draft: 'bg-surface text-muted-fg border-line',
   sent: 'bg-info-tint text-info border-info/30',
+  'partly paid': 'bg-warn-tint text-warn border-warn/30',
   paid: 'bg-success-tint text-success border-success/30',
   void: 'bg-danger-tint text-danger border-danger/30',
 }
@@ -88,8 +90,9 @@ export function ClientInvoices({
 }: {
   projectId: string
   /**
-   * "Mark paid" hands the invoice up to the page, which opens the same Record
-   * a client payment box everything else uses.
+   * "Record payment" hands the invoice up to the page, which opens the same
+   * Record a client payment box everything else uses - with what the invoice
+   * still OWES as `amount`, so a second payment starts from the balance.
    *
    * It used to just set status='paid': no money in the ledger, no date, no
    * method, nothing in Funds Received - and the QuickBooks invoice stayed
@@ -459,6 +462,12 @@ export function ClientInvoices({
             const qb = invoiceQbChip(b, qboConnected)
             const opened = openedLabel(b, shortDate)
             const shareable = !!b.token && b.status !== 'draft'
+            const partly = b.status === 'sent' && b.settlement?.state === 'partly_paid'
+            const shownStatus = partly ? 'partly paid' : b.status
+            const owed = b.settlement?.balance ?? total
+            const paidLine = b.settlement?.state
+              ? settlementLabel({ total: b.settlement.total ?? total, paid: b.settlement.paid ?? b.settlement.amount, balance: owed, state: b.settlement.state })
+              : null
             return (
               <div key={b.id}>
               <div className="flex flex-wrap items-center gap-3 px-3 py-2.5">
@@ -471,9 +480,13 @@ export function ClientInvoices({
                     {opened ? ` · ${opened}` : ''}
                     {b.due_date ? ` · due ${formatDate(b.due_date)}` : ''}
                   </span>
+                  {paidLine && <span className="block text-[11px] font-medium text-warn">{paidLine}</span>}
                 </span>
-                <span className={cn('rounded-full border px-2 py-0.5 text-[11px] font-medium shrink-0', STATUS[b.status] ?? STATUS.draft)}>
-                  {b.status}
+                {/* PARTLY PAID IS A STATE, not a flavour of sent. The stored status
+                    stays 'sent' until the money covers the invoice; this is
+                    the label the sums give it. */}
+                <span className={cn('whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-medium shrink-0', STATUS[shownStatus] ?? STATUS.draft)}>
+                  {shownStatus}
                 </span>
                 {qb.show && (
                   <span title={qb.title}
@@ -503,17 +516,17 @@ export function ClientInvoices({
                       : <>Issue &amp; get link</>}
                   </button>
                 )}
-                {b.status === 'sent' && (
+                {/* RECORD PAYMENT, NOT MARK PAID. "Mark paid" promised a state; the
+                    button records money, and the invoice is paid once the money
+                    covers it. It stays on a partly paid invoice - the second
+                    cheque is exactly when it is needed - and opens on the
+                    balance, not the total. */}
+                {b.status === 'sent' && onSettle && (
                   <button
-                    onClick={() => {
-                      if (onSettle) onSettle({ id: b.id, label: `Invoice ${b.invoice_number}`, amount: total })
-                      else setStatus(b, 'paid')
-                    }}
+                    onClick={() => onSettle({ id: b.id, label: `Invoice ${b.invoice_number}`, amount: owed })}
                     disabled={!!statusBusy}
-                    className="shrink-0 inline-flex items-center gap-1 rounded-md border border-success/30 bg-success-tint px-2 py-1 text-xs font-medium text-success disabled:opacity-50 disabled:cursor-not-allowed">
-                    {statusBusy === b.id
-                      ? <><Loader2 className="h-3 w-3 animate-spin" /> Recording…</>
-                      : <><Check className="h-3 w-3" /> Mark paid</>}
+                    className="whitespace-nowrap shrink-0 inline-flex items-center gap-1 rounded-md border border-success/30 bg-success-tint px-2 py-1 text-xs font-medium text-success disabled:opacity-50 disabled:cursor-not-allowed">
+                    <Check className="h-3 w-3" /> {partly ? 'Record another payment' : 'Record payment'}
                   </button>
                 )}
 

@@ -187,6 +187,6 @@ ok(/feature_request \?/.test(box) && /Suggest this feature/.test(box) && /Featur
 // The cache only reuses answers written under the CURRENT prompt, or the old
 // wrong answer to the booking question would have been served for two weeks.
 ok(/eq\('model', ANSWER_VERSION\)/.test(route) && /model: ANSWER_VERSION/.test(route), 'the cache is keyed on the prompt version')
-ok(ANSWER_VERSION !== 'claude-haiku-4-5', '...which is not the bare model name the old rows carry')
+ok((ANSWER_VERSION as string) !== 'claude-haiku-4-5', '...which is not the bare model name the old rows carry')
 
 done()

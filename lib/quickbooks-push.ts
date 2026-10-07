@@ -283,16 +283,24 @@ export function clientInvoicePayload(
 }
 
 /**
- * A payment APPLIED against an invoice, rather than a standalone sale.
+ * A payment APPLIED against one or more invoices, rather than a standalone sale.
  *
  * This is the half that stops double-counting: once the sale exists in
  * QuickBooks as an Invoice, the money arriving must reduce that receivable,
  * not book a second sale.
+ *
+ * ONE CHEQUE, ONE PAYMENT, A LINE PER INVOICE. A client who pays two invoices
+ * with one cheque made one deposit, and the bank statement shows one figure.
+ * Two QuickBooks payments would be two records to match against it. So the
+ * split rides as Lines on ONE Payment - which is exactly how QuickBooks itself
+ * records it when you tick two invoices on Receive Payment - each Line applying
+ * its share. TotalAmt is the cheque; the Lines add up to it, because
+ * `allocationProblem` refuses a split that does not.
  */
 export function appliedPaymentPayload(
   p: { id?: string; amount: unknown; paid_date?: string | null; memo?: string | null; reference?: string | null },
   customerQboId: string,
-  invoiceQboId: string,
+  invoices: { qboId: string; amount: number }[],
   projectName?: string | null,
   methodQboId?: string | null,
   /** Set on the retry: the method goes in the memo because the ref would not go. */
@@ -309,10 +317,10 @@ export function appliedPaymentPayload(
     // SN- reference was being written into a field QuickBooks does not read.
     ...(ident.ref ? { PaymentRefNum: ident.ref } : {}),
     PrivateNote: ident.memo,
-    Line: [{
-      Amount: Number(p.amount),
-      LinkedTxn: [{ TxnId: invoiceQboId, TxnType: 'Invoice' }],
-    }],
+    Line: invoices.map(inv => ({
+      Amount: Number(inv.amount),
+      LinkedTxn: [{ TxnId: inv.qboId, TxnType: 'Invoice' }],
+    })),
   }
 }
 
@@ -480,15 +488,22 @@ async function existingInvoiceIdByDocNumber(conn: Connection, docNumber?: string
 export async function pushClientPayment(db: SupabaseClient, paymentId: string, ctx?: PushContext): Promise<PushResult> {
   try {
     const { data: p } = await db.from('client_payments')
-      .select('id, project_id, amount, paid_date, memo, reference, method, qb_entered, qbo_id, client_invoice_id')
+      .select('id, project_id, amount, paid_date, memo, reference, method, qb_entered, qbo_id')
       .eq('id', paymentId).maybeSingle()
     if (!p) return { pushed: false, reason: 'skipped', detail: 'Payment not found' }
     if (p.qbo_id) return { pushed: false, reason: 'already' }
     if (handEntered(p)) return HAND_ENTERED
     // Belt and braces. The backlog sync used to call this function directly
     // for every unsynced payment, which would have booked a second sale for
-    // money settling an invoice already over there.
-    if (p.client_invoice_id) return pushPaymentForProject(db, paymentId, ctx)
+    // money settling an invoice already over there. The split lives in
+    // client_payment_allocations; `client_invoice_id` is the old single link
+    // and nothing reads it any more.
+    const { count: allocated, error: allocError } = await db.from('client_payment_allocations')
+      .select('id', { count: 'exact', head: true }).eq('payment_id', paymentId)
+    // Unread is not "settles nothing": a Sales Receipt for money that pays an
+    // invoice is the double-count, so a failed read books nothing this time.
+    if (allocError) return { pushed: false, reason: 'skipped', detail: 'Could not read which invoices this payment settles' }
+    if ((allocated ?? 0) > 0) return pushPaymentForProject(db, paymentId, ctx)
 
     const { companyId, customerId, projectName } = await projectCompany(db, p.project_id)
     if (!companyId) return { pushed: false, reason: 'skipped', detail: 'Project has no company' }
@@ -860,42 +875,50 @@ export async function pushClientInvoice(db: SupabaseClient, billId: string, ctx?
 }
 
 /**
- * Which receivable a payment settles, if any.
+ * Which receivables a payment settles, if any.
  *
  * THE BUG THIS EXISTS FOR. This used to be a guess: "the oldest invoice still
  * sent". Issue three invoices on one day and every one of them has the same
  * issue_date, so "oldest" is whichever row Postgres felt like returning first
  * - the $37,224 recorded against INV-0004 was on its way to settling INV-0002.
- * But nobody was guessing at the keyboard: they pressed Mark paid ON an
- * invoice. That link is now stored on the payment, so the books settle the
- * invoice the human pointed at.
+ * But nobody was guessing at the keyboard: they recorded the payment AGAINST
+ * an invoice, or several. That split is stored in client_payment_allocations,
+ * so the books settle the invoices the human pointed at, by the amounts they
+ * gave.
  *
- * The third outcome is the one that stops a double-count. A payment linked to
- * an invoice that has NOT reached QuickBooks yet must book nothing at all:
- * falling back to a Sales Receipt would record the sale, and then the invoice
- * would arrive and record it again.
+ * The third outcome is the one that stops a double-count. A payment applied to
+ * an invoice that has NOT reached QuickBooks yet must book nothing at all -
+ * not even its share of the invoices that HAVE: falling back to a Sales
+ * Receipt would record the sale, and then the invoice would arrive and record
+ * it again; booking half the cheque leaves the other half with nowhere to go.
  */
+interface SettlementLink { id: string; label: string; qboId: string; amount: number }
 type Settlement =
-  | { kind: 'invoice'; id: string; label: string; qboId: string }
+  | { kind: 'invoices'; links: SettlementLink[] }
   | { kind: 'standalone' }
   | { kind: 'wait'; detail: string }
 
 async function settlementTarget(
   db: SupabaseClient,
-  p: { project_id: string; client_invoice_id?: string | null },
+  p: { id: string; project_id: string; amount: unknown },
 ): Promise<Settlement> {
-  if (p.client_invoice_id) {
-    const { data } = await db.from('client_invoices')
-      .select('id, invoice_number, qbo_id')
-      .eq('id', p.client_invoice_id).maybeSingle()
-    // Not 'standalone': pushClientPayment bounces a linked payment back here,
-    // so answering "standalone" for a link we cannot resolve is an infinite
-    // ping-pong. The FK is ON DELETE SET NULL, so this is a race, not a state.
-    if (!data) return { kind: 'wait', detail: 'The invoice this payment settles could not be read' }
-    if (!data.qbo_id) {
-      return { kind: 'wait', detail: `Invoice ${data.invoice_number ?? data.id.slice(0, 8)} is not in QuickBooks yet` }
+  const { data: shares, error } = await db.from('client_payment_allocations')
+    .select('client_invoice_id, amount, client_invoices(id, invoice_number, qbo_id)')
+    .eq('payment_id', p.id)
+  // Not 'standalone': a read that failed is not a payment that settles nothing,
+  // and booking it as a Sales Receipt is the double-count.
+  if (error) return { kind: 'wait', detail: 'The invoices this payment settles could not be read' }
+
+  if ((shares ?? []).length) {
+    const links: SettlementLink[] = []
+    for (const s of (shares ?? []) as any[]) {
+      const inv = s.client_invoices
+      if (!inv) return { kind: 'wait', detail: 'An invoice this payment settles could not be read' }
+      const label = inv.invoice_number ?? String(inv.id).slice(0, 8)
+      if (!inv.qbo_id) return { kind: 'wait', detail: `Invoice ${label} is not in QuickBooks yet` }
+      links.push({ id: inv.id, label, qboId: inv.qbo_id, amount: Number(s.amount) })
     }
-    return { kind: 'invoice', id: data.id, label: data.invoice_number ?? data.id.slice(0, 8), qboId: data.qbo_id }
+    return { kind: 'invoices', links }
   }
 
   // Money that arrived on its own account - a deposit, a cheque against
@@ -912,7 +935,10 @@ async function settlementTarget(
     .limit(1)
   const hit = (open ?? [])[0]
   if (!hit?.qbo_id) return { kind: 'standalone' }
-  return { kind: 'invoice', id: hit.id, label: hit.invoice_number ?? hit.id.slice(0, 8), qboId: hit.qbo_id }
+  return {
+    kind: 'invoices',
+    links: [{ id: hit.id, label: hit.invoice_number ?? hit.id.slice(0, 8), qboId: hit.qbo_id, amount: Number(p.amount) }],
+  }
 }
 
 /**
@@ -931,7 +957,7 @@ async function diagnosePaymentRefs(
   db: SupabaseClient,
   conn: Connection,
   customerId: string,
-  target: { label: string; qboId: string },
+  targets: { label: string; qboId: string }[],
   method: string | null | undefined,
   ctx?: PushContext,
 ): Promise<string> {
@@ -947,7 +973,7 @@ async function diagnosePaymentRefs(
         inspect: (o: any) => o?.Active === false ? 'the customer is inactive in QuickBooks' : null,
       })
     }
-    refs.push({
+    for (const target of targets) refs.push({
       label: `invoice ${target.qboId} (${target.label})`,
       path: `invoice/${target.qboId}`,
       inspect: (o: any) => {
@@ -996,7 +1022,7 @@ async function diagnosePaymentRefs(
 export async function pushPaymentForProject(db: SupabaseClient, paymentId: string, ctx?: PushContext): Promise<PushResult> {
   try {
     const { data: p } = await db.from('client_payments')
-      .select('id, project_id, amount, paid_date, memo, reference, method, qb_entered, qbo_id, client_invoice_id')
+      .select('id, project_id, amount, paid_date, memo, reference, method, qb_entered, qbo_id')
       .eq('id', paymentId).maybeSingle()
     if (!p) return { pushed: false, reason: 'skipped', detail: 'Payment not found' }
     if (p.qbo_id) return { pushed: false, reason: 'already' }
@@ -1005,7 +1031,8 @@ export async function pushPaymentForProject(db: SupabaseClient, paymentId: strin
     const settles = await settlementTarget(db, p)
     if (settles.kind === 'wait') return { pushed: false, reason: 'skipped', detail: settles.detail }
     if (settles.kind === 'standalone') return pushClientPayment(db, paymentId, ctx)
-    const target = settles
+    const targets = settles.links
+    const applied = targets.map(t => (targets.length > 1 ? `${t.label} ($${t.amount.toLocaleString('en-US')})` : t.label)).join(', ')
 
     const { companyId, customerId, projectName } = await projectCompany(db, p.project_id)
     if (!companyId || !customerId) return pushClientPayment(db, paymentId, ctx)
@@ -1021,7 +1048,7 @@ export async function pushPaymentForProject(db: SupabaseClient, paymentId: strin
 
       const post = (mid: string | null, note: string | null) => qboFetch(conn, 'payment', {
         method: 'POST',
-        body: JSON.stringify(appliedPaymentPayload(p, customerQboId, target.qboId, projectName, mid, note)),
+        body: JSON.stringify(appliedPaymentPayload(p, customerQboId, targets, projectName, mid, note)),
       })
 
       let res: any
@@ -1047,8 +1074,8 @@ export async function pushPaymentForProject(db: SupabaseClient, paymentId: strin
         qbo_id: qboId, qbo_synced_at: new Date().toISOString(), qb_entered: true, qbo_txn_type: 'payment',
       }).eq('id', p.id)
       const how = droppedMethod
-        ? `Applied to invoice ${target.label}. QuickBooks refused payment method "${(p as any).method}" (id ${methodQboId}), so it is written in the memo instead - the method needs fixing in QuickBooks.`
-        : `Applied to invoice ${target.label}`
+        ? `Applied to invoice${targets.length > 1 ? 's' : ''} ${applied}. QuickBooks refused payment method "${(p as any).method}" (id ${methodQboId}), so it is written in the memo instead - the method needs fixing in QuickBooks.`
+        : `Applied to invoice${targets.length > 1 ? 's' : ''} ${applied}`
       await logRow(db, companyId, 'payment', p.id, 'success', qboId, how)
       return { pushed: true, qboId }
     })()).catch(async (err: any) => {
@@ -1059,7 +1086,7 @@ export async function pushPaymentForProject(db: SupabaseClient, paymentId: strin
       // of them, which is how three identical failures taught us nothing.
       const detail = err?.code === QBO_OBJECT_NOT_FOUND
         ? `${err.message} - ${await briefly(
-          diagnosePaymentRefs(db, conn, customerId, target, (p as any).method, ctx),
+          diagnosePaymentRefs(db, conn, customerId, targets, (p as any).method, ctx),
           'could not reach QuickBooks to work out which reference it rejected',
         )}`
         : err?.message

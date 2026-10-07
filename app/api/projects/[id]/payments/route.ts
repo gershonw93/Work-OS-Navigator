@@ -4,6 +4,8 @@ import { projectEscrow } from '@/lib/escrow'
 import { logActivity } from '@/lib/log-activity'
 import { pushPaymentForProject } from '@/lib/quickbooks-push'
 import { requirePermission, denied } from '@/lib/api-guard'
+import { allocationProblem, type AllocationInput } from '@/lib/invoice-settlement'
+import { issuedInvoices, syncInvoiceStatus } from '@/lib/invoice-settlement-db'
 
 export const runtime = 'nodejs'
 
@@ -34,7 +36,11 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
   const [{ data: project }, { data: payments }, { data: invoices }, { data: budgetLines }, { data: allocations }] = await Promise.all([
     db.from('projects').select('contractor_fee_pct').eq('id', params.id).single(),
-    db.from('client_payments').select('*').eq('project_id', params.id).order('paid_date', { ascending: true }),
+    // With the invoices each one paid, so the ledger can say "INV-0003, INV-0004"
+    // rather than leaving the split to be reconstructed from memos.
+    db.from('client_payments')
+      .select('*, client_payment_allocations(client_invoice_id, amount, client_invoices(invoice_number))')
+      .eq('project_id', params.id).order('paid_date', { ascending: true }),
     db.from('invoices').select('id, amount, status, client_paid, escrow_paid, markup_pct, markup_excluded').eq('project_id', params.id),
     db.from('budget_line_items').select('id, budgeted_amount, markup_pct, markup_excluded').eq('project_id', params.id),
     db.from('invoice_allocations')
@@ -93,6 +99,26 @@ export async function POST(request: Request, { params }: { params: { id: string 
     return NextResponse.json({ ok: true, fee_pct: pct })
   }
 
+  // WHICH INVOICES THIS PAYS, AND HOW MUCH OF IT WENT TO EACH. A list, because
+  // one cheque can pay several. `client_invoice_id` alone is the shape an old
+  // cached page still sends; it means "all of it, to this one".
+  const allocations: AllocationInput[] = Array.isArray(body.allocations)
+    ? body.allocations
+      .filter((a: any) => a && typeof a.client_invoice_id === 'string')
+      .map((a: any) => ({ client_invoice_id: a.client_invoice_id, amount: a.amount }))
+    : body.client_invoice_id ? [{ client_invoice_id: String(body.client_invoice_id), amount: body.amount }] : []
+
+  // The same question the form asks, asked again here: a second tab, a double
+  // press or an old page does not run the form.
+  if (allocations.length) {
+    const invoices = await issuedInvoices(db, params.id)
+    // A balance we could not read is not a balance of zero - refuse rather
+    // than let a payment past a check that never ran.
+    if (!invoices) return NextResponse.json({ error: 'Could not read this job\'s invoices. Try again in a moment.' }, { status: 503 })
+    const problem = allocationProblem(body.amount, allocations, invoices)
+    if (problem) return NextResponse.json({ error: problem }, { status: 400 })
+  }
+
   const { data, error } = await db.from('client_payments').insert({
     project_id: params.id,
     paid_date: body.paid_date || null,
@@ -105,12 +131,26 @@ export async function POST(request: Request, { params }: { params: { id: string 
     reference: body.reference || null,
     retainer: !!body.retainer,
     qb_entered: !!body.qb_entered,
-    // The invoice this money settles, when it settles one. QuickBooks applies
-    // the payment against exactly this receivable instead of guessing.
-    client_invoice_id: body.client_invoice_id || null,
     created_by: user.id,
   }).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  if (allocations.length) {
+    const { error: allocError } = await db.from('client_payment_allocations').insert(
+      allocations.map(a => ({ payment_id: data.id, client_invoice_id: a.client_invoice_id, amount: Number(a.amount) })),
+    )
+    // A payment saved without its split would book as a deposit - a Sales
+    // Receipt for money that pays an invoice, which is the double-count. Take
+    // the payment back out rather than leave half a record.
+    if (allocError) {
+      console.error('[payments] could not record which invoices the payment settles', allocError.message)
+      await db.from('client_payments').delete().eq('id', data.id)
+      return NextResponse.json({ error: 'Could not record which invoices this payment pays. Nothing was saved - try again.' }, { status: 500 })
+    }
+    // Paid when the money covers it, partly paid until then - never because
+    // somebody pressed a button.
+    await syncInvoiceStatus(db, allocations.map(a => a.client_invoice_id))
+  }
 
   const { data: profile } = await db.from('profiles').select('full_name').eq('id', user.id).single()
   await logActivity(db, params.id, profile?.full_name || 'Someone', 'client_payment_received',
