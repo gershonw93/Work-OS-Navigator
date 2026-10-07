@@ -4,6 +4,7 @@ import { APP_URL, SITE_URL, splitHosts, isAppPath, isMarketingPath } from '@/lib
 import { CANONICAL_ORIGIN, isIndexableHost, isSiteVerificationPath, shouldRedirectToCanonical } from '@/lib/canonical'
 import { checkAuth } from '@/lib/supabase/auth-check'
 import { treatAsSignedIn } from '@/lib/auth-outcome'
+import { HELP_PREFIX, HELP_URL, helpHostLive, helpRewrite, isHelpHost } from '@/lib/help-host'
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
@@ -46,6 +47,31 @@ export async function middleware(request: NextRequest) {
       && !isSiteVerificationPath(pathname)) {
     const target = new URL(pathname + request.nextUrl.search, CANONICAL_ORIGIN)
     return NextResponse.redirect(target, 301)
+  }
+
+  // ── The public Help Center ───────────────────────────────────────────────
+  // help.sytenav.com is a REWRITE onto app/help-center, never a redirect: the
+  // address bar keeps the clean URL. It leaves BEFORE the auth check below -
+  // a public doc page has no use for a session, and that check is a network
+  // round trip on every request.
+  if (isHelpHost(request.headers.get('host'))) {
+    // The prefixed spelling on the help host is a second URL for one page.
+    if (pathname === HELP_PREFIX || pathname.startsWith(`${HELP_PREFIX}/`)) {
+      const bare = pathname.slice(HELP_PREFIX.length) || '/'
+      return NextResponse.redirect(new URL(bare + request.nextUrl.search, HELP_URL), 301)
+    }
+    const target = helpRewrite(pathname)
+    if (target) {
+      const url = request.nextUrl.clone()
+      url.pathname = target
+      return NextResponse.rewrite(url)
+    }
+    return NextResponse.next()
+  }
+  // Once the subdomain is live, the www copy is a duplicate - collapse it.
+  if (helpHostLive && (pathname === HELP_PREFIX || pathname.startsWith(`${HELP_PREFIX}/`))) {
+    const bare = pathname.slice(HELP_PREFIX.length) || '/'
+    return NextResponse.redirect(new URL(bare + request.nextUrl.search, HELP_URL), 301)
   }
 
   let supabaseResponse = NextResponse.next({

@@ -224,12 +224,35 @@ ok(!(COUNTED_PROJECT_STATUSES as readonly string[]).includes('completed'),
 // than typed here, so a thirteenth AI route cannot quietly arrive unmetered.
 const modelRoutes = walk('app/api').filter(f => /anthropic\.messages\.create|await scan\(/.test(read(f)))
 ok(modelRoutes.length >= 12, `every route that calls the model is found (${modelRoutes.length})`)
-const unmetered = modelRoutes.filter(f => !/guardScan\(/.test(read(f)))
+// THE ONE EXEMPTION, NAMED HERE RATHER THAN SNIFFED. The public Help Center's
+// answer box is asked by visitors with no account and no company, so there is
+// no allowance to count against - and refusing everybody signed out would make
+// it useless to the prospect it is for. It is not unguarded: it carries a
+// budget of its own (per-visitor hourly limit, a site-wide daily cap, a cache,
+// the cheapest model), and that budget is asserted below so the exemption
+// cannot outlive the reason for it. Any OTHER route still needs guardScan.
+const PUBLIC_MODEL_ROUTES = ['app/api/help-answer/route.ts']
+const unmetered = modelRoutes.filter(f => !PUBLIC_MODEL_ROUTES.includes(f) && !/guardScan\(/.test(read(f)))
 ok(unmetered.length === 0,
   `every model route opens a usage record${unmetered.length ? ` - missing in ${unmetered.join(', ')}` : ''}`)
-const unclosed = modelRoutes.filter(f => !/\.succeeded\(\)/.test(read(f)))
+const unclosed = modelRoutes.filter(f => !PUBLIC_MODEL_ROUTES.includes(f) && !/\.succeeded\(\)/.test(read(f)))
 ok(unclosed.length === 0,
   `...and closes it when an answer comes back${unclosed.length ? ` - missing in ${unclosed.join(', ')}` : ''}`)
+
+for (const f of PUBLIC_MODEL_ROUTES) {
+  const src = code(f)
+  ok(modelRoutes.includes(f), `${f} is still found by the walk, so the exemption names a real route`)
+  ok(/PER_VISITOR_PER_HOUR/.test(src) && /SITE_PER_DAY/.test(src),
+    '...and carries its own budget instead: a per-visitor limit and a site-wide daily cap')
+  ok(/HELP_ANSWER_MODEL/.test(src) && /HELP_ANSWER_MODEL = 'claude-haiku-4-5'/.test(code('lib/help/answer.ts')),
+    '...on the cheapest model')
+  // Same order as the scan meter: a call that timed out still counts.
+  ok(src.indexOf("from('help_answers')\n    .insert") !== -1
+      && src.indexOf("from('help_answers')\n    .insert") < src.indexOf('messages.create'),
+    '...and the question is recorded BEFORE the model is called')
+  ok(/status: 503/.test(src) && /mine\.error \|\| site\.error/.test(src),
+    '...and a limit it cannot read refuses the call, because an unread limit is no limit')
+}
 
 // THE ROW GOES IN FIRST, MARKED FAILED. Written the other way round, a route
 // that times out records nothing and `succeeded` becomes true on every row.

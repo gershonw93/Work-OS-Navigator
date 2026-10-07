@@ -538,7 +538,15 @@ and why:
   it. Worth one if a list ever gets big enough for a mistake to be expensive
   halfway through.
 
+## 📚 Public Help Center
+- **Point help.sytenav.com at Vercel.** The code is live at www.sytenav.com/help-center. Add a CNAME `help` -> `cname.vercel-dns.com` at Squarespace (where sytenav.com's DNS lives), add `help.sytenav.com` to the Vercel project's domains, and set `NEXT_PUBLIC_HELP_URL=https://help.sytenav.com`, then redeploy. Middleware then rewrites the subdomain and 301s the www copy.
+- **AI quick answers inside the app's /help.** Same route. On iOS it must leave `webOnly` articles (prices) out of its catalog and sources, or the answer box is a price list one question away.
+- **Was this helpful? on each article**, written beside `help_answers`, so the articles that fail people are found from data rather than from a support email.
+- **Read the unanswered questions.** `select question from help_answers where answered = false` is the to-write list; nothing surfaces it on a screen yet.
+
 ## ✅ Recently shipped (for reference)
+
+- Public Help Center at /help-center (help.sytenav.com once DNS is set) with AI quick answers on Haiku, every in-app article public except `data-security`.
 
 - `confirm()` is gone from the app (#424). All 22 handlers moved to
   `useDeleteGuard`, which grew `title`/`body`/`confirmLabel` so the ones that are
