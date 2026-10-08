@@ -209,7 +209,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'Choose how you\'ll bill it: Simple invoicing (invoices + client payments, for residential/smaller jobs) or Progress billing (AIA pay applications with retainage, for commercial/bank-funded jobs). This decides which money tabs show, so the job isn\'t cluttered with both. You can change it later.',
         'Save. The project opens to its tabs.',
       ] },
-      { type: 'tip', text: 'The address suggests matches as you type, and the Owner/Client dropdown pulls from your existing customers (or pick "New client" and type a name). On the Projects page, use the map toggle to see every job on a map, color-coded by status - on a phone it is under Filter, with the status, type and sort choices.' },
+      { type: 'tip', text: 'The address suggests matches as you type, and the Owner/Client dropdown pulls from your existing customers (or pick "New client" and type a name). On the Projects page, use the map toggle to see every job on a map, color-coded by status (the strip across the top of each project card uses the same colors as its status badge) - on a phone it is under Filter, with the status, type and sort choices.' },
       { type: 'text', text: 'Nothing here is locked in. Everything you set at creation can be changed later from Project Settings - the gear icon in the project header. See "Change a project\'s settings".' },
     ],
     related: ['bulk-add-projects', 'project-settings', 'project-tabs-explained', 'add-project-budget'],

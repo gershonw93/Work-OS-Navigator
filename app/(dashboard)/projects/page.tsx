@@ -11,7 +11,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { useSheetDismiss } from '@/lib/use-sheet-dismiss'
-import { Badge, getStatusVariant } from '@/components/ui/badge'
+import { Badge, getStatusVariant, type BadgeVariant } from '@/components/ui/badge'
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
@@ -79,12 +79,18 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: 'start_asc', label: 'Start date (earliest)' },
 ]
 
-const TYPE_ACCENT: Record<string, string> = {
-  residential: 'from-emerald-500 to-green-600',
-  commercial: 'from-blue-500 to-indigo-600',
-  industrial: 'from-slate-500 to-slate-700',
-  civil: 'from-amber-500 to-accent',
-  other: 'from-violet-500 to-purple-600',
+// The strip across the top of a card is the job's STATUS, in the badge's own
+// colour. It used to be the job's TYPE (green residential, blue commercial,
+// ...) - a colour nothing on the screen explained, repeating a word already
+// printed under the title. Derived from getStatusVariant so the strip and the
+// badge beside it cannot disagree.
+const STATUS_STRIP: Record<BadgeVariant, string> = {
+  success: 'bg-success-solid',
+  info: 'bg-info-solid',
+  warning: 'bg-warn-solid',
+  danger: 'bg-danger-solid',
+  muted: 'bg-muted2',
+  default: 'bg-accent',
 }
 
 // Was `new Date(d)` on a bare YYYY-MM-DD, which is UTC midnight, which is the
@@ -667,11 +673,11 @@ export default function ProjectsPage() {
         /* ───── GRID VIEW ───── */
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map(project => {
-            const accent = TYPE_ACCENT[project.type ?? 'other'] ?? TYPE_ACCENT.other
+            const strip = STATUS_STRIP[getStatusVariant(project.status ?? '')]
             return (
               <div key={project.id} className="group relative rounded-xl border border-line bg-panel overflow-hidden hover:border-accent hover:shadow-md transition-all">
-                {/* Accent strip */}
-                <div className={cn('h-1.5 bg-gradient-to-r', accent)} />
+                {/* Status strip - same colour as the badge */}
+                <div className={cn('h-1.5', strip)} />
                 <Link href={projectHref(project)} className="block p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
