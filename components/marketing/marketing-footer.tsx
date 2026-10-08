@@ -3,6 +3,7 @@ import { ArrowRight } from 'lucide-react'
 import { SyteNavLogo } from '@/components/ui/logo'
 import { appHref } from '@/lib/hosts'
 import { helpHref } from '@/lib/help-host'
+import { AppBadges } from './app-badges'
 
 const COLUMNS: { title: string; links: [string, string][] }[] = [
   {
@@ -57,6 +58,7 @@ export function MarketingFooter() {
           <p className="text-sm text-muted-fg leading-relaxed">
             Construction management built for the field. From the first quote to the final payment, one place to run the build.
           </p>
+          <AppBadges />
         </div>
         <Link
           href={appHref('/signup')}
