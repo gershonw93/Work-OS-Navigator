@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { cents, invoiceTotalCents, settlementOf, type OpenInvoice, type Settlement } from '@/lib/invoice-settlement'
+import { cents, creditLeftCents, invoiceTotalCents, settlementOf, type CreditPayment, type OpenInvoice, type Settlement } from '@/lib/invoice-settlement'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The database half of lib/invoice-settlement.ts: read what has been applied to
@@ -121,4 +121,33 @@ export async function syncInvoiceStatus(db: SupabaseClient, invoiceIds: string[]
   } catch (err: any) {
     console.error('[invoice-settlement] could not update invoice status', err?.message ?? err)
   }
+}
+
+/**
+ * The job's payments held on account, each with what it has already applied.
+ * Null when the read failed - "no credit" and "could not tell" are different
+ * answers, and only one of them may be shown as $0.
+ */
+export async function creditPayments(db: SupabaseClient, projectId: string): Promise<CreditPayment[] | null> {
+  const { data, error } = await db.from('client_payments')
+    .select('id, amount, paid_date, created_at, client_payment_allocations(amount)')
+    .eq('project_id', projectId)
+    .eq('on_account', true)
+  if (error) {
+    console.error('[invoice-settlement] could not read credit on account', error.message)
+    return null
+  }
+  return ((data ?? []) as any[]).map(p => ({
+    id: p.id,
+    amount: p.amount,
+    paid_date: p.paid_date,
+    created_at: p.created_at,
+    appliedCents: ((p.client_payment_allocations ?? []) as { amount: unknown }[]).reduce((s, a) => s + cents(a.amount), 0),
+  }))
+}
+
+/** Credit available on the job, in cents, or null when it could not be read. */
+export async function creditAvailableCents(db: SupabaseClient, projectId: string): Promise<number | null> {
+  const list = await creditPayments(db, projectId)
+  return list ? list.reduce((s, p) => s + creditLeftCents(p), 0) : null
 }

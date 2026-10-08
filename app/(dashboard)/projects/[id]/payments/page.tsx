@@ -27,6 +27,8 @@ interface Payment {
   qbo_id: string | null
   /** Which invoices it paid and how much went to each - one cheque can pay several. */
   client_payment_allocations?: { client_invoice_id: string; amount: number | string; client_invoices: { invoice_number: string } | null }[]
+  /** Holds what is not on an invoice as the client's credit. */
+  on_account?: boolean
 }
 interface Summary {
   received: number; feeEarned: number; availableAfterFee: number
@@ -35,7 +37,7 @@ interface Summary {
   projectedCost: number; invoicedAlready: number; projectedGoingForward: number
 }
 const money = (n: number) => `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
-const blank = { paid_date: '', amount: '', method: 'Check', memo: '', reference: '', retainer: false, qb_entered: false }
+const blank = { paid_date: '', amount: '', method: 'Check', memo: '', reference: '', retainer: false, qb_entered: false, on_account: false }
 const METHODS = ['Check', 'QuickPay', 'Wire', 'ACH', 'Cash', 'CC', 'Other']
 
 export default function PaymentsPage({ params }: { params: { id: string } }) {
@@ -214,7 +216,7 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
     // the screen before anything is sent.
     const problem = allocationProblem(form.amount, allocations, payable.map(p => ({
       id: p.id, invoice_number: p.invoice_number, status: 'sent', balanceCents: cents(p.balance),
-    })))
+    })), { onAccount: form.on_account })
     if (problem) { notify(problem); return }
     setSaving(true)
     const t = await token()
@@ -433,7 +435,7 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
           </Link>
         </div>
       ) : (
-        <ClientInvoices projectId={params.id} onSettle={settleInvoice} reloadKey={requestsKey} />
+        <ClientInvoices projectId={params.id} onSettle={settleInvoice} reloadKey={requestsKey} onChanged={() => { load(); setRequestsKey(k => k + 1) }} />
       ))}
 
       {/* Projections */}
@@ -491,6 +493,8 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
               paymentAmount={form.amount}
               onToggle={toggleInvoice}
               onShare={(id, v) => { setSharesTouched(true); setShares(sh => ({ ...sh, [id]: v })) }}
+              onAccount={form.on_account}
+              onOnAccount={v => setForm(f => ({ ...f, on_account: v }))}
             />
           )}
           <div className="flex flex-wrap items-center gap-4">
@@ -536,6 +540,12 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
                   {p.reference && p.memo ? ' · ' : ''}
                   {p.memo || (p.reference ? '' : '-')}
                   {p.retainer && <span className="ml-2 text-[10px] rounded-full bg-info-tint text-info px-1.5 py-0.5">retainer</span>}
+                  {p.on_account && (() => {
+                    const credit = cents(p.amount) - (p.client_payment_allocations ?? []).reduce((t, a) => t + cents(a.amount), 0)
+                    return credit > 0
+                      ? <span className="ml-2 whitespace-nowrap text-[10px] rounded-full bg-success-tint text-success px-1.5 py-0.5">{money(dollars(credit))} credit</span>
+                      : null
+                  })()}
                   {(p.client_payment_allocations ?? []).length > 0 && (
                     <span className="block text-xs text-faint truncate">
                       Pays {(p.client_payment_allocations ?? []).map(a =>
@@ -562,7 +572,7 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
                   </button>
                 )}
                 <div className="flex justify-end gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => { setEditingId(p.id); setEditForm({ paid_date: p.paid_date ?? '', amount: toAmountInput(p.amount), method: p.method ?? 'Check', memo: p.memo ?? '', reference: p.reference ?? '', retainer: p.retainer, qb_entered: p.qb_entered }) }} className="p-1.5 rounded-lg text-faint hover:bg-muted"><Pencil className="h-3.5 w-3.5" /></button>
+                  <button onClick={() => { setEditingId(p.id); setEditForm({ paid_date: p.paid_date ?? '', amount: toAmountInput(p.amount), method: p.method ?? 'Check', memo: p.memo ?? '', reference: p.reference ?? '', retainer: p.retainer, qb_entered: p.qb_entered, on_account: !!p.on_account }) }} className="p-1.5 rounded-lg text-faint hover:bg-muted"><Pencil className="h-3.5 w-3.5" /></button>
                   <button onClick={() => remove(p)} className="p-1.5 rounded-lg text-faint hover:bg-danger-tint hover:text-danger"><Trash2 className="h-3.5 w-3.5" /></button>
                 </div>
               </div>

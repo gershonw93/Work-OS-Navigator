@@ -20,7 +20,7 @@
 
 import { ok, done, code, read, walk } from './_helpers'
 import {
-  allocationProblem, cents, invoiceTotalCents, settlementLabel, settlementOf, spreadPayment, type OpenInvoice,
+  allocationProblem, cents, creditLeftCents, drawCredit, invoiceTotalCents, settlementLabel, settlementOf, spreadPayment, type OpenInvoice,
 } from '../invoice-settlement'
 import { appliedPaymentPayload } from '../quickbooks-push'
 
@@ -128,5 +128,65 @@ const page = code('app/(dashboard)/projects/[id]/payments/page.tsx')
 ok(/<PaymentAllocations/.test(page) && /allocations,/.test(page), 'the payment form can split a payment across invoices')
 ok(!/client-invoices\/\$\{settling\.id\}/.test(page), 'the form no longer PATCHes the invoice to paid after saving')
 ok(/if \(!res\.ok\) \{\s*notify/.test(page.slice(page.indexOf('async function saveEdit'))), 'a refused edit says why instead of closing as if it saved')
+
+// ── 6. credit on account ─────────────────────────────────────────────────────
+// An overpayment is the client's money. Held ON ACCOUNT - a decision made when
+// it is recorded - whatever is not applied stays as credit, applied to a later
+// invoice with no new payment. The credit is DERIVED (amount minus applied),
+// never stored, so it cannot disagree with the allocations it comes from.
+ok(allocationProblem(13000, [{ client_invoice_id: 'a', amount: 10000 }], [A, B], { onAccount: true }) === null,
+  'held on account, a $13,000 cheque can pay a $10,000 invoice and keep $3,000 as credit')
+ok(allocationProblem(5000, [], [A, B], { onAccount: true }) === null, '...and a client can pay ahead with no invoice at all')
+ok(/less than the payment[\s\S]*credit/.test(allocationProblem(13000, [{ client_invoice_id: 'a', amount: 10000 }], [A, B]) ?? ''),
+  'WITHOUT the box, money left over is still refused - and the refusal names credit as a way out')
+ok(/more than the payment/.test(allocationProblem(9000, [{ client_invoice_id: 'a', amount: 10000 }], [A], { onAccount: true }) ?? ''),
+  'credit never lets the invoices take MORE than the payment')
+ok(/still owes/.test(allocationProblem(20000, [{ client_invoice_id: 'b', amount: 4000 }], [A, B], { onAccount: true }) ?? ''),
+  '...nor more than an invoice owes')
+
+ok(creditLeftCents({ amount: '13000.00', appliedCents: 1_000_000 }) === 300_000, 'credit left is amount minus what is applied')
+ok(creditLeftCents({ amount: 100, appliedCents: 20_000 }) === 0, '...and never negative')
+const drawn = drawCredit([
+  { id: 'new', amount: 500, paid_date: '2026-10-01', appliedCents: 0 },
+  { id: 'old', amount: 300, paid_date: '2026-09-01', appliedCents: 10_000 },
+], 40_000)
+ok(drawn.shares[0].payment_id === 'old' && drawn.shares[0].cents === 20_000 && drawn.shares[1].cents === 20_000 && drawn.shortCents === 0,
+  'credit is drawn oldest first, only what each payment has left')
+ok(drawCredit([{ id: 'x', amount: 100, appliedCents: 0 }], 50_000).shortCents === 40_000, '...and says how much it could not cover')
+
+const unapplied = appliedPaymentPayload({ amount: 5000 }, 'C1', []) as any
+ok(unapplied.TotalAmt === 5000 && Array.isArray(unapplied.Line) && unapplied.Line.length === 0,
+  'held on account with nothing applied, QuickBooks gets a Payment with no lines - unapplied credit, not a Sales Receipt')
+ok(/if \(p\.on_account\) return \{ kind: 'invoices', links: \[\] \}/.test(qbo),
+  '...and never the oldest-open guess: "keep it as credit" is the opposite of "apply it to whatever is oldest"')
+ok(/\|\| \(p as any\)\.on_account\) return pushPaymentForProject/.test(qbo), 'the Sales Receipt pusher hands an on-account payment back')
+
+const reapply = qbo.slice(qbo.indexOf('export async function reapplyPaymentInQbo'), qbo.indexOf('// ── Customers'))
+ok(/qboFetch\(conn, `payment\/\$\{p\.qbo_id\}`\)/.test(reapply) && /obj\.Line = lines/.test(reapply),
+  'applying credit later rewrites the SAME QuickBooks payment\'s lines')
+ok(!/appliedPaymentPayload\(/.test(reapply) && !/salesreceipt/.test(reapply), '...and never books a second record for money received once')
+ok(/qbo_reapply_needed: true/.test(reapply) && /is not in QuickBooks yet/.test(reapply),
+  'an invoice not over there yet leaves it flagged for the backlog, applying nothing - half an application is half a cheque')
+ok(/qbo_reapply_needed/.test(code('app/api/quickbooks/sync/route.ts')) && /reapplyPaymentInQbo\(/.test(code('app/api/quickbooks/sync/route.ts')),
+  'the backlog sync finishes a reapply that could not run at the time')
+
+const apply = code('app/api/projects/[id]/client-invoices/[billId]/apply-credit/route.ts')
+ok(/requirePermission\(admin\(\), request, 'payments', 'edit'\)/.test(apply), 'applying credit needs payments: edit')
+ok(!/from\('client_payments'\)\.insert/.test(apply), 'applying credit records NO new money - Funds Received does not move')
+ok(/drawCredit\(/.test(apply) && /syncInvoiceStatus\(/.test(apply) && /reapplyPaymentInQbo\(/.test(apply),
+  '...it draws credit, re-derives the invoice status, and updates QuickBooks')
+ok(/status: 503/.test(apply), 'an unread balance or credit refuses rather than applying against numbers nobody saw')
+ok(/asked > inv\.balanceCents/.test(apply), '...and cannot put more on an invoice than it owes')
+
+ok(/on_account: !!body\.on_account/.test(paymentsRoute) && /onAccount: !!body\.on_account/.test(paymentsRoute),
+  'the route records the decision and checks the split with it')
+ok(/cannot be less than that/.test(paymentRoute), 'an on-account payment cannot be edited below what it has already applied')
+ok(/Keep anything not on an invoice as credit for this client/.test(code('components/projects/payment-allocations.tsx')),
+  'the payment form asks the question in words')
+ok(/Apply \$\{money\(Math\.min\(credit, owed\)\)\} credit/.test(list) && /credit on account\./.test(list),
+  'the invoice list says how much credit there is and offers to apply it')
+ok(/creditAvailableCents\(/.test(code('app/portal/[token]/page.tsx')), 'the client sees their credit on the portal')
+ok(/credit === null \? null/.test(code('app/api/projects/[id]/client-invoices/route.ts')),
+  'an unread credit is sent as unknown, never as $0')
 
 done()

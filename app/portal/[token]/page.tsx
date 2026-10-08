@@ -9,7 +9,7 @@ import { HardHat } from 'lucide-react'
 import { weatherIcon } from '@/lib/weather'
 import { formatDate } from '@/lib/dates'
 import { settlementLabel } from '@/lib/invoice-settlement'
-import { settlementsFor } from '@/lib/invoice-settlement-db'
+import { creditAvailableCents, settlementsFor } from '@/lib/invoice-settlement-db'
 const admin = () =>
   createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -129,7 +129,11 @@ export default async function PortalPage({ params }: { params: { token: string }
 
   // What has been paid against each invoice - one cheque can pay several, and
   // a part payment leaves an invoice owing the REST, not the whole of it.
-  const settled = await settlementsFor(db, (clientInvoices ?? []) as any[])
+  const [settled, creditCents] = await Promise.all([
+    settlementsFor(db, (clientInvoices ?? []) as any[]),
+    // Their money held on account - theirs, so they are told it is there.
+    creditAvailableCents(db, project.id),
+  ])
   const invoices = (clientInvoices ?? []).map((b: any) => {
     const total = (b.client_invoice_lines ?? []).reduce((s: number, l: any) => s + Number(l.amount ?? 0), 0)
     const st = settled.get(b.id)
@@ -353,6 +357,11 @@ export default async function PortalPage({ params }: { params: { token: string }
             </div>
             <p className="mt-3 text-xs text-muted-fg">
               Open an invoice to see the full breakdown. Pay the way you normally pay your contractor.
+              {creditCents !== null && creditCents > 0 && (
+                <span className="block mt-1 font-medium text-ink-soft">
+                  You have ${(creditCents / 100).toLocaleString(undefined, { maximumFractionDigits: 2 })} credit on account.
+                </span>
+              )}
             </p>
           </div>
         )}

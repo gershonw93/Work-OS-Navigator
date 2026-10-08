@@ -115,7 +115,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     // A balance we could not read is not a balance of zero - refuse rather
     // than let a payment past a check that never ran.
     if (!invoices) return NextResponse.json({ error: 'Could not read this job\'s invoices. Try again in a moment.' }, { status: 503 })
-    const problem = allocationProblem(body.amount, allocations, invoices)
+    const problem = allocationProblem(body.amount, allocations, invoices, { onAccount: !!body.on_account })
     if (problem) return NextResponse.json({ error: problem }, { status: 400 })
   }
 
@@ -131,6 +131,9 @@ export async function POST(request: Request, { params }: { params: { id: string 
     reference: body.reference || null,
     retainer: !!body.retainer,
     qb_entered: !!body.qb_entered,
+    // "Keep what is not on an invoice as credit for this client." The credit is
+    // derived from this flag and the allocations, never stored as a figure.
+    on_account: !!body.on_account,
     created_by: user.id,
   }).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

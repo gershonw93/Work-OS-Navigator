@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { admin, getValidConnection, qboFetch } from '@/lib/quickbooks'
-import { pushBill, pushBillPayment, pushClientInvoice, pushPaymentForProject, refreshBillInQbo, refreshPaymentInQbo, type PushContext, voidClientInvoiceInQbo } from '@/lib/quickbooks-push'
+import { pushBill, pushBillPayment, pushClientInvoice, pushPaymentForProject, reapplyPaymentInQbo, refreshBillInQbo, refreshPaymentInQbo, type PushContext, voidClientInvoiceInQbo } from '@/lib/quickbooks-push'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -168,7 +168,7 @@ export async function POST(request: Request) {
 
     // Hand-entered payments are excluded, not just skipped by the pusher:
     // otherwise every backlog run walks them again and reports them as work.
-    let q = db.from('client_payments').select('id, qbo_id')
+    let q = db.from('client_payments').select('id, qbo_id, qbo_reapply_needed')
       .in('project_id', projectIds)
       .or('qb_entered.is.null,qb_entered.eq.false')
     if (ids) q = q.in('id', ids)
@@ -177,6 +177,14 @@ export async function POST(request: Request) {
     const ctx: PushContext = { conn }
     for (const p of payments ?? []) {
       const label = `Payment ${p.id.slice(0, 8)}`
+      // Credit applied after it went across: rewrite the payment over there
+      // to match, rather than calling it synced while QuickBooks disagrees.
+      if (p.qbo_id && (p as any).qbo_reapply_needed) {
+        const r = await reapplyPaymentInQbo(db, p.id, ctx)
+        if (r.pushed) results.push({ id: p.id, name: label, status: 'success', qbo_id: r.qboId, message: 'Credit application updated' })
+        else results.push({ id: p.id, name: label, status: 'error', message: r.detail ?? r.reason })
+        continue
+      }
       if (p.qbo_id) { results.push({ id: p.id, name: label, status: 'skipped', qbo_id: p.qbo_id, message: 'Already synced' }); continue }
       const r = await pushPaymentForProject(db, p.id, ctx)
       if (r.pushed) results.push({ id: p.id, name: label, status: 'success', qbo_id: r.qboId })

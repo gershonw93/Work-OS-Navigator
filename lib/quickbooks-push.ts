@@ -295,7 +295,10 @@ export function clientInvoicePayload(
  * split rides as Lines on ONE Payment - which is exactly how QuickBooks itself
  * records it when you tick two invoices on Receive Payment - each Line applying
  * its share. TotalAmt is the cheque; the Lines add up to it, because
- * `allocationProblem` refuses a split that does not.
+ * `allocationProblem` refuses a split that does not - UNLESS the payment is
+ * held on account, when the Lines may add up to less (even to nothing) and
+ * QuickBooks keeps the difference as the customer's unapplied credit, exactly
+ * as Receive Payment does when you leave an amount unapplied.
  */
 export function appliedPaymentPayload(
   p: { id?: string; amount: unknown; paid_date?: string | null; memo?: string | null; reference?: string | null },
@@ -488,7 +491,7 @@ async function existingInvoiceIdByDocNumber(conn: Connection, docNumber?: string
 export async function pushClientPayment(db: SupabaseClient, paymentId: string, ctx?: PushContext): Promise<PushResult> {
   try {
     const { data: p } = await db.from('client_payments')
-      .select('id, project_id, amount, paid_date, memo, reference, method, qb_entered, qbo_id')
+      .select('id, project_id, amount, paid_date, memo, reference, method, qb_entered, qbo_id, on_account')
       .eq('id', paymentId).maybeSingle()
     if (!p) return { pushed: false, reason: 'skipped', detail: 'Payment not found' }
     if (p.qbo_id) return { pushed: false, reason: 'already' }
@@ -503,7 +506,9 @@ export async function pushClientPayment(db: SupabaseClient, paymentId: string, c
     // Unread is not "settles nothing": a Sales Receipt for money that pays an
     // invoice is the double-count, so a failed read books nothing this time.
     if (allocError) return { pushed: false, reason: 'skipped', detail: 'Could not read which invoices this payment settles' }
-    if ((allocated ?? 0) > 0) return pushPaymentForProject(db, paymentId, ctx)
+    // Money held ON ACCOUNT is the client's credit, not a sale: it is a
+    // Payment with an unapplied remainder, never a Sales Receipt.
+    if ((allocated ?? 0) > 0 || (p as any).on_account) return pushPaymentForProject(db, paymentId, ctx)
 
     const { companyId, customerId, projectName } = await projectCompany(db, p.project_id)
     if (!companyId) return { pushed: false, reason: 'skipped', detail: 'Project has no company' }
@@ -900,7 +905,7 @@ type Settlement =
 
 async function settlementTarget(
   db: SupabaseClient,
-  p: { id: string; project_id: string; amount: unknown },
+  p: { id: string; project_id: string; amount: unknown; on_account?: boolean | null },
 ): Promise<Settlement> {
   const { data: shares, error } = await db.from('client_payment_allocations')
     .select('client_invoice_id, amount, client_invoices(id, invoice_number, qbo_id)')
@@ -920,6 +925,12 @@ async function settlementTarget(
     }
     return { kind: 'invoices', links }
   }
+
+  // HELD ON ACCOUNT and applied to nothing yet: a Payment with no lines, the
+  // whole amount sitting as the customer's credit in QuickBooks. NOT the
+  // oldest-open guess below - the person recording it said "keep this as
+  // credit", which is the opposite of "apply it to whatever is oldest".
+  if (p.on_account) return { kind: 'invoices', links: [] }
 
   // Money that arrived on its own account - a deposit, a cheque against
   // nothing in particular. Oldest first, because that is how anybody applies
@@ -1022,7 +1033,7 @@ async function diagnosePaymentRefs(
 export async function pushPaymentForProject(db: SupabaseClient, paymentId: string, ctx?: PushContext): Promise<PushResult> {
   try {
     const { data: p } = await db.from('client_payments')
-      .select('id, project_id, amount, paid_date, memo, reference, method, qb_entered, qbo_id')
+      .select('id, project_id, amount, paid_date, memo, reference, method, qb_entered, qbo_id, on_account')
       .eq('id', paymentId).maybeSingle()
     if (!p) return { pushed: false, reason: 'skipped', detail: 'Payment not found' }
     if (p.qbo_id) return { pushed: false, reason: 'already' }
@@ -1074,8 +1085,8 @@ export async function pushPaymentForProject(db: SupabaseClient, paymentId: strin
         qbo_id: qboId, qbo_synced_at: new Date().toISOString(), qb_entered: true, qbo_txn_type: 'payment',
       }).eq('id', p.id)
       const how = droppedMethod
-        ? `Applied to invoice${targets.length > 1 ? 's' : ''} ${applied}. QuickBooks refused payment method "${(p as any).method}" (id ${methodQboId}), so it is written in the memo instead - the method needs fixing in QuickBooks.`
-        : `Applied to invoice${targets.length > 1 ? 's' : ''} ${applied}`
+        ? `${targets.length ? `Applied to invoice${targets.length > 1 ? 's' : ''} ${applied}` : 'Held as credit on account'}. QuickBooks refused payment method "${(p as any).method}" (id ${methodQboId}), so it is written in the memo instead - the method needs fixing in QuickBooks.`
+        : targets.length ? `Applied to invoice${targets.length > 1 ? 's' : ''} ${applied}` : 'Held as credit on account'
       await logRow(db, companyId, 'payment', p.id, 'success', qboId, how)
       return { pushed: true, qboId }
     })()).catch(async (err: any) => {
@@ -1092,6 +1103,75 @@ export async function pushPaymentForProject(db: SupabaseClient, paymentId: strin
         : err?.message
       await logRow(db, companyId, 'payment', p.id, 'error', undefined, detail)
       return { pushed: false, reason: 'failed' as const, detail }
+    })
+  } catch (err: any) {
+    return { pushed: false, reason: 'failed', detail: err?.message ?? 'unknown' }
+  }
+}
+
+/**
+ * Rewrite the invoice lines of a Payment already in QuickBooks so they match
+ * the allocations here. Never throws.
+ *
+ * CREDIT APPLIED LATER CHANGES A PAYMENT THAT IS ALREADY OVER THERE. A payment
+ * held on account went across with some or all of it unapplied; applying that
+ * credit to an invoice afterwards must apply the SAME QuickBooks payment to
+ * it - a second Payment would be money the client paid once, received twice.
+ * So the record is fetched (for its SyncToken), its Line list replaced with the
+ * allocations as they now stand, and posted back.
+ *
+ * If an invoice in the new split has not reached QuickBooks yet, nothing is
+ * written and `qbo_reapply_needed` stays set for the backlog sync - half an
+ * application is the same mistake as half a cheque.
+ */
+export async function reapplyPaymentInQbo(db: SupabaseClient, paymentId: string, ctx?: PushContext): Promise<PushResult> {
+  try {
+    const { data: p } = await db.from('client_payments')
+      .select('id, project_id, qbo_id, qbo_txn_type').eq('id', paymentId).maybeSingle()
+    if (!p) return { pushed: false, reason: 'skipped', detail: 'Payment not found' }
+    // Not over there yet: the first push will carry every allocation.
+    if (!p.qbo_id) {
+      await db.from('client_payments').update({ qbo_reapply_needed: false }).eq('id', p.id)
+      return { pushed: false, reason: 'skipped', detail: 'Not in QuickBooks yet - the first push carries the whole split' }
+    }
+    if ((p as any).qbo_txn_type !== 'payment') {
+      return { pushed: false, reason: 'failed', detail: 'This payment is a Sales Receipt in QuickBooks, which cannot hold credit - apply it there by hand' }
+    }
+
+    const { data: shares, error } = await db.from('client_payment_allocations')
+      .select('amount, client_invoices(id, invoice_number, qbo_id)').eq('payment_id', p.id)
+    if (error) return { pushed: false, reason: 'skipped', detail: 'Could not read which invoices this payment settles' }
+    const lines: { qboId: string; amount: number }[] = []
+    for (const s of (shares ?? []) as any[]) {
+      const inv = s.client_invoices
+      if (!inv?.qbo_id) {
+        await db.from('client_payments').update({ qbo_reapply_needed: true }).eq('id', p.id)
+        return { pushed: false, reason: 'skipped', detail: `Invoice ${inv?.invoice_number ?? ''} is not in QuickBooks yet`.trim() }
+      }
+      lines.push({ qboId: inv.qbo_id, amount: Number(s.amount) })
+    }
+
+    const { companyId } = await projectCompany(db, p.project_id)
+    if (!companyId) return { pushed: false, reason: 'skipped', detail: 'Project has no company' }
+    const conn = await connectionFor(db, companyId, ctx)
+    if (!conn) {
+      await db.from('client_payments').update({ qbo_reapply_needed: true }).eq('id', p.id)
+      return { pushed: false, reason: 'not_connected' }
+    }
+
+    return await budgeted((async (): Promise<PushResult> => {
+      const cur = await qboFetch(conn, `payment/${p.qbo_id}`)
+      const obj = cur?.Payment
+      if (!obj?.Id) throw new Error('Payment no longer exists in QuickBooks')
+      obj.Line = lines.map(l => ({ Amount: l.amount, LinkedTxn: [{ TxnId: l.qboId, TxnType: 'Invoice' }] }))
+      await qboFetch(conn, 'payment', { method: 'POST', body: JSON.stringify(obj) })
+      await db.from('client_payments').update({ qbo_reapply_needed: false, qbo_synced_at: new Date().toISOString() }).eq('id', p.id)
+      await logRow(db, companyId, 'payment', p.id, 'success', p.qbo_id, `Credit applied - now on ${lines.length} invoice${lines.length === 1 ? '' : 's'}`)
+      return { pushed: true, qboId: p.qbo_id }
+    })()).catch(async (err: any) => {
+      await db.from('client_payments').update({ qbo_reapply_needed: true }).eq('id', p.id)
+      await logRow(db, companyId, 'payment', p.id, 'error', undefined, `Applying credit: ${err?.message}`)
+      return { pushed: false, reason: 'failed' as const, detail: err?.message }
     })
   } catch (err: any) {
     return { pushed: false, reason: 'failed', detail: err?.message ?? 'unknown' }

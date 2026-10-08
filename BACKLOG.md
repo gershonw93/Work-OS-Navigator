@@ -288,7 +288,8 @@ the biggest build yet while the books are half-wired ends with both half-done.
 - **Deleting a client PAYMENT leaves its QuickBooks record standing** *(found Sep 2026 while fixing the invoice void)*. `voidBillInQbo` closes this gap on the money-OUT side and `voidClientInvoiceInQbo` now closes it for invoices, but nothing voids the SalesReceipt or applied Payment when a client payment is deleted here. The books keep counting money that was un-recorded. Same shape, same fix - a void call on delete plus a `qbo_voided_at`-style fact to read.
 - **`invoices.subtotal` is written and never read.** `reconcile()` accepts it in its input type and ignores it, computing from the lines instead. Either use it as the check it was meant to be, or drop the column - a field that is stored and never consulted is one somebody will eventually trust.
 - **Two-way sync** - pulling payments/bills recorded directly in QBO back into SyteNav is not built; today is push-only, which means QBO-side edits drift silently.
-- **Over-payments / credit on account** - a payment can part-pay or split across invoices (`client_payment_allocations`), but cannot put more on an invoice than it owes; there is no unapplied credit. QuickBooks supports unapplied payments, so it is possible - not built because nobody has asked.
+- **Credit is per JOB, not per customer** - credit on account is held on the project it was paid on. A client with two jobs cannot spend credit from one on the other's invoice (QuickBooks would allow it, since credit there sits on the customer). Moving it means a refund-and-repay by hand today.
+- **Refunding credit** - there is no "refund the client's credit" action; it would be a QBO RefundReceipt against the unapplied payment.
 - **Editing a pushed payment does not update QuickBooks** - PATCHing a payment's amount here leaves the QuickBooks Payment on the old amount (pre-existing, made more visible by part payments).
 - **Editing the lines of a sent invoice** is not possible by design - void and reissue instead. If a use case appears for correcting a typo without a new number, it needs thought about what the client's copy says.
 - **Detect orphaned QBO records** - a QuickBooks invoice/receipt no SyteNav row points at (from a pre-fix duplicate, or a bill deleted here before deletes voided). Surface them on the Settings card with a void action, rather than leaving them to inflate A/R silently.
@@ -546,6 +547,8 @@ and why:
 - **Read the unanswered questions.** `select question from help_answers where answered = false` is the to-write list; nothing surfaces it on a screen yet.
 
 ## ✅ Recently shipped (for reference)
+
+- Credit on account: a payment can hold what is not on an invoice as the client's credit (`client_payments.on_account`, migration 129), applied later from an invoice's menu; in QuickBooks it is unapplied credit on the same Payment, rewritten in place when applied.
 
 - Part payments and one payment split across several client invoices (`client_payment_allocations`, migration 128); an invoice is paid only when its payments cover it, and QuickBooks gets one Payment with a line per invoice.
 

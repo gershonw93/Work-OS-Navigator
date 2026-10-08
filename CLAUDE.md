@@ -38,7 +38,7 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-128.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-129.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - **Verify every column you `.select()` actually exists.** Supabase returns
   `data: null` for an unknown column, so a typo reads as "not found" rather than
@@ -393,6 +393,17 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   `allocationProblem` is asked by the form AND the route. A split payment's
   amount cannot be edited - there is no right answer to which invoice gets the
   difference, so it is refused and says why.
+- **CREDIT ON ACCOUNT IS A DECISION, AND THE CREDIT IS DERIVED, NEVER STORED.**
+  `client_payments.on_account` (migration 129) is ticked when the payment is
+  recorded; without it money left over is refused as a typo. Credit left is
+  amount minus allocations (`creditLeftCents`), so applying it later is just
+  another allocation row (`apply-credit` route, `drawCredit` oldest first) -
+  NO new payment, because Funds Received counted the money the day it came.
+  In QBO an on-account payment is ALWAYS a Payment, never a Sales Receipt
+  (not even with nothing applied - a Payment with no Lines is unapplied credit),
+  and never the oldest-open guess. Applying credit later REWRITES that Payment's
+  Lines in place (`reapplyPaymentInQbo`); an invoice not in QBO yet leaves
+  `qbo_reapply_needed` for the backlog sync and applies nothing there.
 - A payment whose invoice has NOT reached QBO yet must book NOTHING - not a
   Sales Receipt. `pushClientPayment` (Sales Receipt) is only for money that
   settles nothing; every other caller goes through `pushPaymentForProject`.
