@@ -1,4 +1,5 @@
 import { ImageResponse } from 'next/og'
+import { SHOW_TRACTION_STATS } from '@/lib/traction'
 
 export const runtime = 'edge'
 export const alt = 'SyteNav, construction management built for the field'
@@ -47,13 +48,17 @@ export default function OpengraphImage() {
 
         {/* Stats + accent bar */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
-          <div style={{ display: 'flex', gap: 14, fontSize: 25, color: '#C9F24A', fontWeight: 700 }}>
-            <span>140+ contractors</span>
-            <span style={{ color: '#6E747C' }}>·</span>
-            <span>$42M tracked</span>
-            <span style={{ color: '#6E747C' }}>·</span>
-            <span>1,800+ jobs</span>
-          </div>
+          {SHOW_TRACTION_STATS ? (
+            <div style={{ display: 'flex', gap: 14, fontSize: 25, color: '#C9F24A', fontWeight: 700 }}>
+              <span>140+ contractors</span>
+              <span style={{ color: '#6E747C' }}>·</span>
+              <span>$42M tracked</span>
+              <span style={{ color: '#6E747C' }}>·</span>
+              <span>1,800+ jobs</span>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', fontSize: 25, color: '#C9F24A', fontWeight: 700 }}>sytenav.com</div>
+          )}
           <div style={{ display: 'flex', height: 10, width: '100%', background: '#C9F24A', borderRadius: 6 }} />
         </div>
       </div>

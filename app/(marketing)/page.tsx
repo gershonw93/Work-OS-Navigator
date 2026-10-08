@@ -12,6 +12,7 @@ import { QuoteScanMock } from '@/components/marketing/quote-scan-mock'
 import { FeatureTabs } from '@/components/marketing/feature-tabs'
 import { Reveal } from '@/components/marketing/reveal'
 import { CountUp } from '@/components/marketing/count-up'
+import { SHOW_TRACTION_STATS } from '@/lib/traction'
 import { SectionHead, Eyebrow } from '@/components/marketing/section'
 import { CtaBand } from '@/components/marketing/cta-band'
 import { FlowCard } from '@/components/marketing/flow-card'
@@ -73,8 +74,8 @@ export default function HomePage() {
           is a normal content-sized section. */}
       <div className="relative z-10 motion-safe:md:mt-[min(0px,calc(340px_-_50vh))] bg-surface">
 
-      {/* Proof-point marquee */}
-      <StatMarquee />
+      {/* Proof-point marquee - hidden until the numbers are real (lib/traction.ts) */}
+      {SHOW_TRACTION_STATS && <StatMarquee />}
 
       {/* The problem - the "$25k / 8 apps / broken spreadsheets" positioning */}
       <section className="bg-panel border-y border-line">
@@ -284,8 +285,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Count-up stats */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 py-20 sm:py-24">
+      {/* Count-up stats - hidden until the numbers are real (lib/traction.ts) */}
+      {SHOW_TRACTION_STATS && <section className="max-w-6xl mx-auto px-4 sm:px-6 py-20 sm:py-24">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-12 text-center">
           {STATS.map((s, i) => (
             <Reveal key={s.label} delay={i * 100}>
@@ -296,10 +297,11 @@ export default function HomePage() {
             </Reveal>
           ))}
         </div>
-      </section>
+      </section>}
 
-      {/* Testimonials */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-20 sm:pb-28">
+      {/* Testimonials. Its top spacing came from the stats band above it, so
+          with that band hidden it carries its own. */}
+      <section className={`max-w-6xl mx-auto px-4 sm:px-6 pb-20 sm:pb-28 ${SHOW_TRACTION_STATS ? '' : 'pt-20 sm:pt-28'}`}>
         <Reveal>
           <div className="text-center max-w-2xl mx-auto mb-14">
             <div className="flex items-center justify-center gap-1 mb-3" aria-label="Five star rating">

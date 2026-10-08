@@ -4,13 +4,14 @@ import { ArrowRight, Hammer, MapPin, Ruler, HeartHandshake } from 'lucide-react'
 import { marketingMeta } from '@/components/marketing/meta'
 import { Reveal } from '@/components/marketing/reveal'
 import { CountUp } from '@/components/marketing/count-up'
+import { SHOW_TRACTION_STATS } from '@/lib/traction'
 import { Eyebrow } from '@/components/marketing/section'
 import { CtaBand } from '@/components/marketing/cta-band'
 
 export const metadata: Metadata = marketingMeta({
   title: 'About SyteNav · Construction software built by builders',
   description:
-    'SyteNav is built by builders and engineers who got tired of running jobs out of spreadsheets and group texts. Headquartered in New Jersey, used by contractors in 11 states.',
+    'SyteNav is built by builders and engineers who got tired of running jobs out of spreadsheets and group texts. Headquartered in New Jersey.',
   path: '/about',
 })
 
@@ -61,7 +62,7 @@ export default function AboutPage() {
               The insight wasn’t that construction needs more software. It’s that the job already exists on paper, in quotes, permits, invoices, and plans, and someone is always retyping it. So we built the system around a different first step: read the paperwork, and let the job build itself.
             </p>
             <p>
-              Today a team of builders and engineers in New Jersey ships SyteNav to contractors in 11 states. We stay close to the field, our roadmap comes from jobsite phone calls, not conference keynotes, and we measure ourselves on one thing: whether the people who run real jobs get home earlier.
+              Today a team of builders and engineers in New Jersey ships SyteNav to contractors. We stay close to the field, our roadmap comes from jobsite phone calls, not conference keynotes, and we measure ourselves on one thing: whether the people who run real jobs get home earlier.
             </p>
           </div>
         </Reveal>
@@ -72,8 +73,8 @@ export default function AboutPage() {
         </Reveal>
       </section>
 
-      {/* Numbers, dark band */}
-      <section className="dark">
+      {/* Numbers, dark band - hidden until the numbers are real (lib/traction.ts) */}
+      {SHOW_TRACTION_STATS && <section className="dark">
         <div className="bg-surface text-ink border-y border-line">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-20 grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-10 text-center">
             {NUMBERS.map((n, i) => (
@@ -86,7 +87,7 @@ export default function AboutPage() {
             ))}
           </div>
         </div>
-      </section>
+      </section>}
 
       {/* Values */}
       <section className="max-w-6xl mx-auto px-4 sm:px-6 py-20 sm:py-28">
