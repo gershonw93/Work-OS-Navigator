@@ -12,7 +12,7 @@ import { QuoteScanMock } from '@/components/marketing/quote-scan-mock'
 import { FeatureTabs } from '@/components/marketing/feature-tabs'
 import { Reveal } from '@/components/marketing/reveal'
 import { CountUp } from '@/components/marketing/count-up'
-import { SHOW_TRACTION_STATS } from '@/lib/traction'
+import { SHOW_TRACTION_STATS, SHOW_TESTIMONIALS } from '@/lib/traction'
 import { SectionHead, Eyebrow } from '@/components/marketing/section'
 import { CtaBand } from '@/components/marketing/cta-band'
 import { FlowCard } from '@/components/marketing/flow-card'
@@ -301,7 +301,7 @@ export default function HomePage() {
 
       {/* Testimonials. Its top spacing came from the stats band above it, so
           with that band hidden it carries its own. */}
-      <section className={`max-w-6xl mx-auto px-4 sm:px-6 pb-20 sm:pb-28 ${SHOW_TRACTION_STATS ? '' : 'pt-20 sm:pt-28'}`}>
+      {SHOW_TESTIMONIALS && <section className={`max-w-6xl mx-auto px-4 sm:px-6 pb-20 sm:pb-28 ${SHOW_TRACTION_STATS ? '' : 'pt-20 sm:pt-28'}`}>
         <Reveal>
           <div className="text-center max-w-2xl mx-auto mb-14">
             <div className="flex items-center justify-center gap-1 mb-3" aria-label="Five star rating">
@@ -328,7 +328,7 @@ export default function HomePage() {
             </Reveal>
           ))}
         </div>
-      </section>
+      </section>}
 
       <CtaBand />
       </div>

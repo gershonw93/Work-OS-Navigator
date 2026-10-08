@@ -13,6 +13,7 @@ import { Reveal } from '@/components/marketing/reveal'
 import { SectionHead, Eyebrow } from '@/components/marketing/section'
 import { CtaBand } from '@/components/marketing/cta-band'
 import { appHref } from '@/lib/hosts'
+import { SHOW_TESTIMONIALS } from '@/lib/traction'
 
 export const metadata: Metadata = marketingMeta({
   title: 'SyteNav for general contractors',
@@ -212,8 +213,8 @@ export default function ContractorsPage() {
         </div>
       </section>
 
-      {/* Testimonial */}
-      <section className="max-w-3xl mx-auto px-4 sm:px-6 pb-20 sm:pb-28 text-center">
+      {/* Testimonial - hidden until it is a real customer (lib/traction.ts) */}
+      {SHOW_TESTIMONIALS && <section className="max-w-3xl mx-auto px-4 sm:px-6 pb-20 sm:pb-28 text-center">
         <Reveal>
           <figure>
             <QuoteIcon className="h-7 w-7 text-accent-fg mx-auto mb-5" aria-hidden />
@@ -226,7 +227,7 @@ export default function ContractorsPage() {
             </figcaption>
           </figure>
         </Reveal>
-      </section>
+      </section>}
 
       <CtaBand title="Run every job from one screen" body="Bring one project or bring the whole company. Setup takes minutes, not a migration." />
     </>
