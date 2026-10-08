@@ -52,7 +52,6 @@ export default function ContactPage() {
               </span>
               <span>
                 <span className="block font-semibold text-ink">New Jersey, USA</span>
-                <span className="block text-sm text-muted-fg">Used on jobsites in 11 states</span>
               </span>
             </p>
           </div>

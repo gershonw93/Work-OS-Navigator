@@ -7,6 +7,7 @@ import { ProjectsMock } from './projects-mock'
 import { BrowserMock } from './browser-mock'
 import { BlueprintGrid } from './blueprint'
 import { appHref } from '@/lib/hosts'
+import { SHOW_TRACTION_STATS } from '@/lib/traction'
 
 const HEADLINE = 'Run the whole build from one place.'
 const SUB =
@@ -151,9 +152,11 @@ export function ScrollHero() {
             </h1>
             <p className="mt-6 text-lg text-muted-fg max-w-2xl leading-relaxed">{SUB}</p>
             <div className="mt-8"><Ctas center /></div>
-            <p className="mt-6 font-mono text-[11px] uppercase tracking-[0.18em] text-faint">
-              140+ contractors · $42M tracked · 1,800+ jobs
-            </p>
+            {SHOW_TRACTION_STATS && (
+              <p className="mt-6 font-mono text-[11px] uppercase tracking-[0.18em] text-faint">
+                140+ contractors · $42M tracked · 1,800+ jobs
+              </p>
+            )}
           </div>
 
           {/* Scroll hint */}

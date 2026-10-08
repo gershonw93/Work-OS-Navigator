@@ -13,6 +13,7 @@ import { CountUp } from '@/components/marketing/count-up'
 import { SectionHead, Eyebrow } from '@/components/marketing/section'
 import { CtaBand } from '@/components/marketing/cta-band'
 import { appHref } from '@/lib/hosts'
+import { SHOW_TRACTION_STATS } from '@/lib/traction'
 
 export const metadata: Metadata = marketingMeta({
   title: 'AI document scanning & bid comparison · SyteNav',
@@ -115,8 +116,8 @@ export default function AiPage() {
         </div>
       </section>
 
-      {/* Scan numbers strip */}
-      <section className="border-y border-line bg-panel">
+      {/* Scan numbers strip - hidden until the numbers are real (lib/traction.ts) */}
+      {SHOW_TRACTION_STATS && <section className="border-y border-line bg-panel">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12 grid grid-cols-3 gap-6 text-center">
           {[
             { end: 14, suffix: 's', label: 'average quote scan' },
@@ -131,7 +132,7 @@ export default function AiPage() {
             </Reveal>
           ))}
         </div>
-      </section>
+      </section>}
 
       {/* Deep dive: quote scanning */}
       <section className="max-w-6xl mx-auto px-4 sm:px-6 py-20 sm:py-28 grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">

@@ -12,6 +12,7 @@ import { CountUp } from '@/components/marketing/count-up'
 import { MoneyFlow } from '@/components/marketing/money-flow'
 import { BudgetLineAnatomy } from '@/components/marketing/budget-line-anatomy'
 import { MoneyMock } from '@/components/marketing/money-mock'
+import { SHOW_TRACTION_STATS } from '@/lib/traction'
 
 export const metadata: Metadata = marketingMeta({
   title: 'Construction budgets, invoices & payments · SyteNav',
@@ -275,7 +276,7 @@ export default function MoneyPage() {
                 Stages you define, payments recorded against them, escrow tracked, and your fee
                 calculated on top. The same numbers roll up across every job you are running.
               </p>
-              <div className="mt-8 grid grid-cols-3 gap-4">
+              {SHOW_TRACTION_STATS && <div className="mt-8 grid grid-cols-3 gap-4">
                 {[
                   { end: 42, prefix: '$', suffix: 'M', label: 'in contracts tracked' },
                   { end: 1800, suffix: '+', label: 'jobs managed' },
@@ -288,7 +289,7 @@ export default function MoneyPage() {
                     <p className="mt-1 text-xs text-muted-fg leading-snug">{s.label}</p>
                   </div>
                 ))}
-              </div>
+              </div>}
             </Reveal>
           </div>
         </div>
