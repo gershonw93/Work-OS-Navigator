@@ -11,6 +11,7 @@ import { Reveal } from '@/components/marketing/reveal'
 import { SectionHead, Eyebrow } from '@/components/marketing/section'
 import { CtaBand } from '@/components/marketing/cta-band'
 import { appHref } from '@/lib/hosts'
+import { SHOW_TESTIMONIALS } from '@/lib/traction'
 
 export const metadata: Metadata = marketingMeta({
   title: 'SyteNav for subcontractors',
@@ -168,8 +169,8 @@ export default function SubcontractorsPage() {
         </div>
       </section>
 
-      {/* Testimonial */}
-      <section className="max-w-3xl mx-auto px-4 sm:px-6 py-20 sm:py-28 text-center">
+      {/* Testimonial - hidden until it is a real customer (lib/traction.ts) */}
+      {SHOW_TESTIMONIALS && <section className="max-w-3xl mx-auto px-4 sm:px-6 py-20 sm:py-28 text-center">
         <Reveal>
           <figure>
             <QuoteIcon className="h-7 w-7 text-accent-fg mx-auto mb-5" aria-hidden />
@@ -182,7 +183,7 @@ export default function SubcontractorsPage() {
             </figcaption>
           </figure>
         </Reveal>
-      </section>
+      </section>}
 
       <CtaBand title="Your next quote is the whole job" body="Upload it free. If the scan doesn't blow your mind, you lost four minutes." />
     </>

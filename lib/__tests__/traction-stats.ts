@@ -1,6 +1,6 @@
 // Usage figures on the public site ("140+ contractors", "$42M tracked",
 // "1,800+ jobs", "12,500+ documents scanned", "11 states") are not counts of
-// anything yet. lib/traction.ts is the one switch; every file that prints one
+// anything yet, and the customer quotes are not real customers. lib/traction.ts is the one switch; every file that prints one
 // has to read it, so a new page cannot quietly bring them back.
 import { ok, done, code, walk } from './_helpers'
 
@@ -22,6 +22,15 @@ for (const f of files) {
   for (const _ of uses) {
     ok(/SHOW_TRACTION_STATS\s*&&\s*<StatMarquee/.test(src), `${f} renders StatMarquee behind SHOW_TRACTION_STATS`)
   }
+}
+
+// Customer quotes: a marketing page with a quoted, attributed person in it
+// reads the testimonials switch. A page rendering a <blockquote> beside a
+// <figcaption> is the shape every one of them had.
+const quoting = walk('app/(marketing)').filter(f => /<blockquote[\s\S]*?<figcaption/.test(code(f)))
+ok(quoting.length >= 4, `the scan finds the testimonials (${quoting.length} files)`)
+for (const f of quoting) {
+  ok(/SHOW_TESTIMONIALS\s*&&/.test(code(f)), `${f} shows its testimonial behind SHOW_TESTIMONIALS`)
 }
 
 done()
