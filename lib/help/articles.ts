@@ -142,8 +142,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       'limitations', 'limits', 'not supported', 'does not do', "can't", 'cannot', 'can it', 'does it',
       'is it possible', 'missing', 'feature request', 'suggest a feature', 'coming soon', 'roadmap',
       'book', 'booking', 'appointment', 'appointments', 'schedule an appointment', 'call', 'phone',
-      'text message', 'sms', 'two way', 'two-way sync', 'import from quickbooks', 'overpayment',
-      'credit on account', 'edit sent invoice', 'free trial', 'sign up', 'demo',
+      'text message', 'sms', 'two way', 'two-way sync', 'import from quickbooks', 'edit sent invoice', 'free trial', 'sign up', 'demo',
     ],
     summary: 'The places where a person still does the last step - so you know before you look for a button that is not there.',
     blocks: [
@@ -151,7 +150,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: 'text', text: 'BOOKING APPOINTMENTS. SyteNav does not book anything with anybody on your behalf - it does not call, text or email an inspector, a township or a client to set a time. For inspections it tells the right person one is needed, hands them the numbers already on the job (the issuing authority and inspector from your permits, and any inspectors in your Directory), and records what they were given: the confirmed date, who they spoke to and the confirmation number. Confirmed dates then appear on the calendar and in the feed you can add to Google, Apple or Outlook.' },
       { type: 'text', text: 'TEXT MESSAGES. SyteNav sends email and in-app notifications. It does not send SMS.' },
       { type: 'text', text: 'QUICKBOOKS IS ONE WAY. SyteNav pushes customers, vendors, bills, invoices and payments into QuickBooks Online. Nothing recorded directly in QuickBooks comes back, so an edit made over there leaves the two disagreeing until it is fixed in SyteNav.' },
-      { type: 'text', text: 'PAYING MORE THAN AN INVOICE OWES. A payment can be split across several invoices and can part-pay any of them, but it cannot put more on an invoice than that invoice still owes - there is no running credit on account. If a client overpays, record the extra as a separate payment with no invoice ticked, the way you would a deposit.' },
+      { type: 'text', text: 'CREDIT IS PER JOB. An overpayment held as credit on account belongs to the job it was paid on, so it cannot be applied to the same client\'s other job, and there is no button to refund it - both are done by hand today.' },
       { type: 'text', text: 'EDITING A SENT INVOICE. Deliberately not possible - editing a document your client is already holding leaves your copy and theirs disagreeing. Void it and raise a corrected one; the void goes to QuickBooks too and the costs are released to be billed again.' },
       { type: 'text', text: `SIGNING UP ON YOUR OWN. There is no button that starts an account straight away and no public demo. Access is by invitation: request access, and once you are approved you get the whole product for ${TRIAL_DAYS} days with no card taken.` },
       { type: 'text', text: 'THE SUBCONTRACTOR SIDE. Subs can quote, submit bills and see their own jobs, but their side is thinner than the general contractor\'s. SyteNav is built for the contractor first.' },
@@ -898,7 +897,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
     category: 'money',
     keywords: ['payment', 'client', 'received', 'escrow', 'fee', 'quickbooks', 'deposit', 'retainer',
       'partial payment', 'part payment', 'partly paid', 'short paid', 'split payment', 'one check two invoices',
-      'one cheque several invoices', 'record payment', 'mark paid', 'balance', 'still owed'],
+      'one cheque several invoices', 'record payment', 'mark paid', 'balance', 'still owed',
+      'overpayment', 'overpaid', 'credit', 'credit on account', 'apply credit', 'paid ahead', 'prepayment', 'unapplied'],
     summary: 'Log money coming in from the client - against one invoice, part of one, or several at once - and track escrow.',
     blocks: [
       { type: 'steps', items: [
@@ -911,7 +911,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
       ] },
       { type: 'text', text: 'PART PAYMENTS. Record what actually arrived. A $5,000 payment on a $10,000 invoice leaves that invoice Partly paid, reading "$5,000 of $10,000 paid · $5,000 left", and the button on it becomes Record another payment, already filled in with the $5,000 still owed. An invoice turns Paid only once the payments against it add up to its total - you never mark it paid yourself. Your client sees the same thing on their portal and their copy of the invoice: what they have paid, and what is still due.' },
       { type: 'text', text: 'ONE CHECK, SEVERAL INVOICES. Tick every invoice the payment covers. SyteNav spreads the amount across them oldest first, never past what each one still owes, and you can change any share if the client told you which invoice they meant. The line under the list shows how much is applied; it has to match the payment amount before it saves. In QuickBooks it becomes ONE payment applied across those invoices, so it matches the single deposit on your bank statement.' },
-      { type: 'text', text: 'CHANGING OR DELETING ONE. Edit the amount of a payment that pays one invoice and the invoice follows. A payment split across several invoices cannot have its amount changed - delete it and record it again with the split you mean. Deleting a payment puts the invoices it paid back to owing that money.' },
+      { type: 'text', text: 'OVERPAYMENTS AND PAYING AHEAD - CREDIT ON ACCOUNT. Tick "Keep anything not on an invoice as credit for this client" and whatever the payment does not put on an invoice is held as the client\'s credit - a $13,000 check against a $10,000 invoice leaves $3,000 of credit, and a client paying ahead with no invoice yet can be all credit. The Billing the client tab shows the credit at the top. When the next invoice goes out, open its ... menu and choose Apply credit: it pays the invoice from the credit with no new payment, because that money was already counted the day it arrived. In QuickBooks the payment carries the credit as unapplied money on the customer, and applying it updates that same payment rather than adding a second one. Your client sees their credit on their portal. Without the box ticked, a payment still has to match the invoices you tick exactly, so a typo cannot quietly become credit.' },
+      { type: 'text', text: 'CHANGING OR DELETING ONE. Edit the amount of a payment that pays one invoice and the invoice follows. A payment held as credit can be edited too, but not below what it has already applied. A payment split across several invoices cannot have its amount changed - delete it and record it again with the split you mean. Deleting a payment puts the invoices it paid back to owing that money.' },
       { type: 'tip', text: 'On the ledger, the QB badge on each row is a one-click toggle - check off "entered in QuickBooks" any day without opening edit. Each row also says which invoices the payment paid.' },
     ],
     related: ['pay-vendors-recommendation', 'money-overview'],

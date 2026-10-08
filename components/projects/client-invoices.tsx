@@ -86,7 +86,7 @@ const shortDate = (iso: string) =>
  * from the costs they came from.
  */
 export function ClientInvoices({
-  projectId, onSettle, reloadKey = 0,
+  projectId, onSettle, reloadKey = 0, onChanged,
 }: {
   projectId: string
   /**
@@ -102,6 +102,8 @@ export function ClientInvoices({
    */
   onSettle?: (invoice: { id: string; label: string; amount: number }) => void
   reloadKey?: number
+  /** Something here moved money between records (credit applied) - the ledger above must reload. */
+  onChanged?: () => void
 }) {
   const guardDelete = useDeleteGuard()
   const supabase = createClient()
@@ -127,6 +129,10 @@ export function ClientInvoices({
   const [projectName, setProjectName] = useState<string | null>(null)
   // Only a company that has a QuickBooks is told anything about QuickBooks.
   const [qboConnected, setQboConnected] = useState(false)
+  // The client's money held on account and not applied yet. Null when it could
+  // not be read - shown as nothing, never as $0.
+  const [credit, setCredit] = useState<number | null>(null)
+  const [applying, setApplying] = useState('')
 
   const token = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession()
@@ -144,6 +150,7 @@ export function ClientInvoices({
       setClientName(d.client ?? null)
       setProjectName(d.project_name ?? null)
       setQboConnected(!!d.quickbooks_connected)
+      setCredit(d.credit_available === null || d.credit_available === undefined ? null : Number(d.credit_available))
     }
     setLoading(false)
   }, [projectId, token])
@@ -233,6 +240,35 @@ export function ClientInvoices({
       setError('Could not reach the server - nothing was changed.')
     } finally {
       setStatusBusy('')
+    }
+  }
+
+  /**
+   * Pay this invoice from the client's credit on account. No new money: the
+   * credit is what earlier payments held on account have not applied yet, and
+   * it was counted in Funds Received the day it arrived.
+   */
+  async function applyCredit(bill: Bill) {
+    if (applying) return
+    setApplying(bill.id); setError('')
+    try {
+      const t = await token()
+      const res = await fetch(`/api/projects/${projectId}/client-invoices/${bill.id}/apply-credit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+        body: JSON.stringify({}),
+      })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok) { setError(d?.error ?? 'Could not apply the credit.'); return }
+      if (d?.quickbooks && d.quickbooks.updated === false) {
+        setError(`Credit applied here, but QuickBooks did not take the change${d.quickbooks.detail ? ` (${d.quickbooks.detail})` : ''}. Retry from Settings → QuickBooks.`)
+      }
+      await load()
+      onChanged?.()
+    } catch {
+      setError('Could not reach the server - reload to see whether the credit was applied before trying again.')
+    } finally {
+      setApplying('')
     }
   }
 
@@ -328,6 +364,13 @@ export function ClientInvoices({
           </div>
         )}
       </div>
+
+      {credit !== null && credit > 0 && (
+        <p className="rounded-lg border border-success/30 bg-success-tint px-3 py-2 text-sm text-ink-soft">
+          <span className="font-semibold text-success">{money(credit)} credit on account.</span>{' '}
+          Apply it to an invoice from that invoice&apos;s ... menu.
+        </p>
+      )}
 
       {/* Nothing to bill is a REASON, not a greyed-out button. It used to need
           `bills.length === 0` as well, so a project with invoices already sent
@@ -548,6 +591,12 @@ export function ClientInvoices({
                             <Mail className="h-3.5 w-3.5" /> Compose it yourself
                           </MenuItem>
                         </>
+                      )}
+                      {b.status === 'sent' && owed > 0 && credit !== null && credit > 0 && (
+                        <MenuItem onClick={() => { close(); applyCredit(b) }}>
+                          <Check className="h-3.5 w-3.5" />
+                          {applying === b.id ? 'Applying credit…' : `Apply ${money(Math.min(credit, owed))} credit`}
+                        </MenuItem>
                       )}
                       {(b.status === 'sent' || b.status === 'paid') && (
                         <MenuItem danger onClick={() => { close(); voidInvoice(b) }}>

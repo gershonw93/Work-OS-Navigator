@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { cents, invoiceTotalCents, settlementOf } from '@/lib/invoice-settlement'
+import { creditAvailableCents } from '@/lib/invoice-settlement-db'
 import { logActivity } from '@/lib/log-activity'
 import { markUp } from '@/lib/markup'
 import { ACTUAL_STATUSES } from '@/lib/invoice-budget'
@@ -151,8 +152,14 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .select('company_id').eq('company_id', companyId).eq('status', 'connected').maybeSingle()
     : { data: null }
 
+  // The client's money held on account and not yet applied - what "Apply
+  // credit" on an invoice can draw on. Null when it could not be read, which
+  // the list shows as nothing rather than as $0.
+  const credit = await creditAvailableCents(db, params.id)
+
   return NextResponse.json({
     invoices: withSettlement,
+    credit_available: credit === null ? null : credit / 100,
     billable,
     markup_pct: projectPct,
     client: (project as any)?.client ?? null,

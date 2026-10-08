@@ -25,7 +25,7 @@ export interface PayableInvoice {
  * runs on Save, so the line on screen and the refusal agree.
  */
 export function PaymentAllocations({
-  invoices, picked, shares, paymentAmount, onToggle, onShare,
+  invoices, picked, shares, paymentAmount, onToggle, onShare, onAccount, onOnAccount,
 }: {
   invoices: PayableInvoice[]
   picked: string[]
@@ -33,11 +33,28 @@ export function PaymentAllocations({
   paymentAmount: string
   onToggle: (id: string) => void
   onShare: (id: string, value: string) => void
+  /** Keep whatever is not on an invoice as the client's credit on account. */
+  onAccount: boolean
+  onOnAccount: (v: boolean) => void
 }) {
-  if (!invoices.length) return null
   const applied = picked.reduce((s, id) => s + cents(shares[id]), 0)
   const total = cents(paymentAmount)
   const left = total - applied
+
+  // CREDIT ON ACCOUNT IS A DECISION, NOT A REMAINDER. Without the box ticked,
+  // money left over with nowhere declared to go is refused as a typo; with it,
+  // the rest is the client's credit, applied to an invoice later with no new
+  // money. It works with nothing ticked too: a client paying ahead.
+  const creditBox = (
+    <label className="flex min-h-11 cursor-pointer items-start gap-2 text-sm text-ink-soft">
+      <input type="checkbox" className="accent-[#C9F24A] mt-1 shrink-0" checked={onAccount} onChange={e => onOnAccount(e.target.checked)} />
+      <span>
+        Keep anything not on an invoice as credit for this client
+        <span className="block text-xs text-faint">Apply it to an invoice later from that invoice&apos;s menu - no new payment needed.</span>
+      </span>
+    </label>
+  )
+  if (!invoices.length) return creditBox
 
   return (
     <div className="space-y-2">
@@ -77,12 +94,13 @@ export function PaymentAllocations({
         })}
       </div>
       {picked.length > 0 && (
-        <p className={`text-xs ${left === 0 ? 'text-success' : 'text-warn'}`}>
+        <p className={`text-xs ${left === 0 || (left > 0 && onAccount) ? 'text-success' : 'text-warn'}`}>
           Applied {money(dollars(applied))} of {money(dollars(total))}
-          {left > 0 && ` - ${money(dollars(left))} not on an invoice yet`}
+          {left > 0 && (onAccount ? ` - ${money(dollars(left))} kept as credit` : ` - ${money(dollars(left))} not on an invoice yet`)}
           {left < 0 && ` - ${money(dollars(-left))} more than the payment`}
         </p>
       )}
+      {creditBox}
     </div>
   )
 }

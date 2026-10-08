@@ -94,6 +94,14 @@ export function allocationProblem(
   paymentAmount: unknown,
   allocations: AllocationInput[],
   invoices: OpenInvoice[],
+  /**
+   * The payment holds whatever is not on an invoice as CREDIT ON ACCOUNT -
+   * the client's money, kept against invoices still to come. Then the split
+   * may add up to LESS than the payment (never more). Without it the split
+   * must match to the cent, because money left over with nowhere declared to
+   * go is a typo, not a decision.
+   */
+  opts: { onAccount?: boolean } = {},
 ): string | null {
   const total = cents(paymentAmount)
   if (total <= 0) return 'Enter the amount you received.'
@@ -118,10 +126,11 @@ export function allocationProblem(
     }
     applied += c
   }
+  if (opts.onAccount && applied < total) return null
   if (applied !== total) {
     const diff = dollars(Math.abs(total - applied)).toLocaleString('en-US', { maximumFractionDigits: 2 })
     return applied < total
-      ? `The invoices add up to $${diff} less than the payment. Put the rest on an invoice, or lower the payment amount.`
+      ? `The invoices add up to $${diff} less than the payment. Put the rest on an invoice, keep it as credit for this client, or lower the payment amount.`
       : `The invoices add up to $${diff} more than the payment.`
   }
   return null
@@ -142,4 +151,47 @@ export function spreadPayment(totalCents: number, invoices: OpenInvoice[]): Reco
     left -= take
   }
   return out
+}
+
+// ── Credit on account ────────────────────────────────────────────────────────
+//
+// A payment marked `on_account` holds whatever is not applied to an invoice as
+// the client's credit. Credit is not a second balance stored somewhere: it is
+// DERIVED, payment by payment, as amount minus what has been applied - so it
+// cannot disagree with the allocations it comes from, and applying it later is
+// just another allocation row against the same payment.
+
+export interface CreditPayment {
+  id: string
+  amount: unknown
+  paid_date?: string | null
+  created_at?: string | null
+  /** What this payment has already put on invoices, in cents. */
+  appliedCents: number
+}
+
+/** Credit left on one payment, in cents. Never negative. */
+export function creditLeftCents(p: { amount: unknown; appliedCents: number }): number {
+  return Math.max(cents(p.amount) - p.appliedCents, 0)
+}
+
+/**
+ * Take `wantCents` of credit from these payments, OLDEST FIRST - the money
+ * that has been sitting longest is applied first, which is how a bookkeeper
+ * would do it and how QuickBooks lists open credits. Returns the shares and
+ * what could not be covered.
+ */
+export function drawCredit(
+  payments: CreditPayment[], wantCents: number,
+): { shares: { payment_id: string; cents: number }[]; shortCents: number } {
+  const ordered = [...payments].sort((a, b) =>
+    String(a.paid_date ?? a.created_at ?? '').localeCompare(String(b.paid_date ?? b.created_at ?? '')))
+  let left = Math.max(wantCents, 0)
+  const shares: { payment_id: string; cents: number }[] = []
+  for (const p of ordered) {
+    if (left <= 0) break
+    const take = Math.min(left, creditLeftCents(p))
+    if (take > 0) { shares.push({ payment_id: p.id, cents: take }); left -= take }
+  }
+  return { shares, shortCents: left }
 }

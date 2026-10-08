@@ -54,6 +54,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 // Author entries anywhere in this list; the app reads the sorted view.
 const AUTHORED: Release[] = [
   {
+    date: '2026-10-08',
+    title: 'Credit on account',
+    items: [
+      {
+        kind: 'new',
+        title: 'Credit on account for overpayments and payments made ahead',
+        text: 'When a client pays more than they owe, or pays ahead of the next invoice, tick "Keep anything not on an invoice as credit for this client". The rest is held as their credit, shown at the top of Billing the client and on their portal. Apply it to an invoice from that invoice\'s menu - no new payment, because the money was counted when it arrived. In QuickBooks it sits as unapplied credit on the customer, and applying it updates the same payment.',
+        help: 'record-client-payment',
+      },
+    ],
+  },
+  {
     date: '2026-10-07',
     title: 'Part payments, and one check across several invoices',
     items: [
