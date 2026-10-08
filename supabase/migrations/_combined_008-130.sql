@@ -3910,3 +3910,18 @@ CREATE INDEX IF NOT EXISTS idx_client_payments_on_account
   ON client_payments (project_id) WHERE on_account;
 CREATE INDEX IF NOT EXISTS idx_client_payments_reapply
   ON client_payments (project_id) WHERE qbo_reapply_needed;
+
+-- 130: budget_line_items.updated_at is touched by a trigger on every update.
+
+CREATE OR REPLACE FUNCTION budget_line_items_touch_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at := NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SET search_path = public;
+
+DROP TRIGGER IF EXISTS budget_line_items_touch_updated_at ON budget_line_items;
+CREATE TRIGGER budget_line_items_touch_updated_at
+  BEFORE UPDATE ON budget_line_items
+  FOR EACH ROW EXECUTE FUNCTION budget_line_items_touch_updated_at();

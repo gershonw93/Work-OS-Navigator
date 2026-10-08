@@ -26,6 +26,7 @@ import { contractAmountLabel } from '@/lib/contract-amount'
 import { usePermissions } from '@/lib/use-permissions'
 
 import { formatDate } from '@/lib/dates'
+import { timeAgo, absoluteTime } from '@/lib/time-ago'
 import { useNotice } from '@/components/ui/notice'
 const money = (n: number) => `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 
@@ -122,6 +123,9 @@ interface BudgetItem {
   revised_budget: number
   notes: string | null
   sort_order: number
+  created_at?: string | null
+  /** Touched by a trigger on every update (migration 130). */
+  updated_at?: string | null
   subcontract_id: string | null
   linked: boolean
   linked_label: string | null
@@ -799,6 +803,15 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   /** Contract signed but not yet invoiced - the money that has no bill yet. */
   const toBill = (i: BudgetItem) =>
     Math.max(0, Number(i.committed_amount || 0) - (Number(i.actual_amount || 0) - Number(i.materials_amount || 0)))
+  /** Newest first; a line with no timestamp sinks rather than floating to the top. */
+  const editedAt = (i: BudgetItem) => {
+    const t = Date.parse(i.updated_at ?? i.created_at ?? '')
+    return Number.isNaN(t) ? 0 : t
+  }
+  const editedLabel = (i: BudgetItem) => {
+    const at = i.updated_at ?? i.created_at
+    return at ? <span className="block truncate text-xs text-faint" title={absoluteTime(at)}>Edited {timeAgo(at)}</span> : null
+  }
   const sortRows = (rows: BudgetItem[]) => {
     const r = [...rows]
     switch (sortBy) {
@@ -807,6 +820,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       case 'committed': r.sort((a, b) => Number(b.committed_amount || 0) - Number(a.committed_amount || 0)); break
       case 'actual': r.sort((a, b) => Number(b.actual_amount || 0) - Number(a.actual_amount || 0)); break
       case 'variance': r.sort((a, b) => variance(a) - variance(b)); break
+      case 'edited': r.sort((a, b) => editedAt(b) - editedAt(a)); break
     }
     return r
   }
@@ -1732,6 +1746,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
               <option value="committed">Committed (high → low)</option>
               <option value="actual">Actual (high → low)</option>
               <option value="variance">Variance (over first)</option>
+              <option value="edited">Last edited (newest first)</option>
             </SearchableSelect>
           </div>
         </div>
@@ -1863,6 +1878,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                           ) : item.notes ? (
                             <p className="text-xs text-faint truncate">{item.notes}</p>
                           ) : null}
+                          {sortBy === 'edited' && editedLabel(item)}
                         </div>
                         <div className="flex justify-between md:block md:text-right mt-2 md:mt-0 text-sm">
                           <span className="md:hidden text-xs text-faint">Budgeted</span>
@@ -2001,6 +2017,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                                 <span className="min-w-0 flex-1">
                                   <span className="block truncate text-sm font-medium text-ink">{item.description}</span>
                                   {item.cost_code && <span className="block truncate text-xs text-faint">{item.cost_code}</span>}
+                                  {sortBy === 'edited' && editedLabel(item)}
                                 </span>
                                 <span className="shrink-0 text-right">
                                   <span className="block text-sm font-semibold text-ink">{money(item.actual_amount)}</span>
