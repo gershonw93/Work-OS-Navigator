@@ -48,8 +48,8 @@ export function PermissionsPanel({ teammates, onRolesChanged }: { teammates: Tea
           chrome nobody used; here it is beside the grid it demonstrates.
           The switcher renders nothing for anyone who is not a real admin, which
           is the same gate this tab already has. */}
-      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-panel px-4 py-3 lg:rounded-lg">
-        <div className="min-w-0 flex-1">
+      <div className="flex flex-col gap-3 rounded-2xl border border-line bg-panel px-4 py-3 lg:flex-row lg:items-center lg:rounded-lg">
+        <div className="min-w-0 lg:flex-1">
           <p className="text-sm font-semibold text-ink">See the app as somebody else</p>
           <p className="text-xs text-muted-fg">
             Pick a role or a teammate and the whole app switches to what they can see. A banner

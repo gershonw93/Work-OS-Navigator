@@ -72,7 +72,7 @@ export function ViewAsSwitcher() {
   const previewing = currentRole !== '' || currentUser !== ''
 
   return (
-    <div className={`flex items-center gap-1.5 rounded-lg border px-2 py-1 ${previewing ? 'border-warn/40 bg-warn-tint' : 'border-line bg-panel'}`}>
+    <div className={`flex w-full items-center gap-1.5 rounded-lg border px-2 py-1 lg:w-auto ${previewing ? 'border-warn/40 bg-warn-tint' : 'border-line bg-panel'}`}>
       <Eye className={`h-3.5 w-3.5 shrink-0 ${previewing ? 'text-warn' : 'text-faint'}`} />
       <span className={`text-xs font-medium hidden sm:inline ${previewing ? 'text-warn' : 'text-muted-fg'}`}>View as</span>
 
@@ -80,11 +80,13 @@ export function ViewAsSwitcher() {
       <div className="flex rounded overflow-hidden border border-line text-[10px] font-semibold">
         <button
           onClick={() => setTab('role')}
-          className={`px-1.5 py-0.5 ${tab === 'role' ? 'bg-slate-700 text-white' : 'bg-panel text-muted-fg hover:bg-surface'}`}
+          className={`px-3 py-2 lg:px-1.5 lg:py-0.5 ${tab === 'role' ? 'bg-slate-700 text-white' : 'bg-panel text-muted-fg hover:bg-surface'}`}
         >Role</button>
         <button
           onClick={() => setTab('user')}
-          className={`px-1.5 py-0.5 ${tab === 'user' ? 'bg-slate-700 text-white' : 'bg-panel text-muted-fg hover:bg-surface'}`}
+          aria-label="Preview as a teammate"
+          title="Preview as a teammate"
+          className={`px-3 py-2 lg:px-1.5 lg:py-0.5 ${tab === 'user' ? 'bg-slate-700 text-white' : 'bg-panel text-muted-fg hover:bg-surface'}`}
         ><User className="h-3 w-3 inline" /></button>
       </div>
 
@@ -92,7 +94,7 @@ export function ViewAsSwitcher() {
         <SearchableSelect
           value={currentRole}
           onChange={e => { setCurrentRole(e.target.value); setViewAs(e.target.value) }}
-          className={`text-xs font-medium bg-transparent focus:outline-none cursor-pointer ${previewing ? 'text-warn' : 'text-muted-fg'}`}
+          className={`min-w-0 flex-1 lg:flex-none text-xs font-medium bg-transparent focus:outline-none cursor-pointer ${previewing ? 'text-warn' : 'text-muted-fg'}`}
         >
           {PREVIEW_ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
         </SearchableSelect>
@@ -100,7 +102,7 @@ export function ViewAsSwitcher() {
         <SearchableSelect
           value={currentUser}
           onChange={e => { setCurrentUser(e.target.value); setViewAsUser(e.target.value) }}
-          className={`text-xs font-medium bg-transparent focus:outline-none cursor-pointer max-w-[130px] ${previewing ? 'text-warn' : 'text-muted-fg'}`}
+          className={`min-w-0 flex-1 lg:flex-none text-xs font-medium bg-transparent focus:outline-none cursor-pointer lg:max-w-[130px] ${previewing ? 'text-warn' : 'text-muted-fg'}`}
         >
           <option value="">- pick user -</option>
           {teammates.map(t => (
