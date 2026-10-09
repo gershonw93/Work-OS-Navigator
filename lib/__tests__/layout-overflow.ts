@@ -897,4 +897,17 @@ ok(!/inset-0/.test(notice) && !/'overlay'|"overlay"|overlay /.test(notice),
 ok(/\.notice-dock[\s\S]{0,400}var\(--vv-h/.test(css) && /\.notice-dock[\s\S]{0,400}pointer-events:\s*none/.test(css),
   'the dock sits on the VISIBLE viewport, above the keyboard, and lets taps through')
 
+// A PROJECT TAB DOES NOT PAD ITSELF ON A PHONE. The project layout already
+// gives the content its gutter, so a page wrapper that says `p-6` at every
+// width puts a second 24px inside the first - Compliance was reported as
+// "squished" beside Inspections for exactly that. Every tab's outer wrapper is
+// `p-0 lg:p-6`.
+{
+  const dir = 'app/(dashboard)/projects/[id]'
+  const doubled = walk(dir).filter(f => /\/page\.tsx$/.test(f) && !/\/print\//.test(f))
+    .filter(f => /\n  return \(\n    <div className="p-6[ "]/.test(read(f)))
+  ok(doubled.length === 0,
+    `no project tab pads itself a second time on a phone (${doubled.join(', ') || 'none'})`)
+}
+
 done()
