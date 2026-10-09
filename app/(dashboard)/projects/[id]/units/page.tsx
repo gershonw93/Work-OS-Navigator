@@ -7,6 +7,7 @@ import { Badge, getStatusVariant } from '@/components/ui/badge'
 import { Building2, MapPin, Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { lotTag } from '@/lib/lot-details'
 
 interface Child {
   id: string
@@ -18,6 +19,10 @@ interface Child {
   budgeted: number
   actual: number
   sellout: number | null
+  lot?: string | null
+  block?: string | null
+  /** No pin means the job never reached the map - said on the row. */
+  lat?: number | null
 }
 
 const money = (n: number) => `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
@@ -51,7 +56,7 @@ export default function UnitsPage({ params }: { params: { id: string } }) {
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase()
     if (!s) return children
-    return children.filter(c => [c.name, c.unit, c.floor, c.address].some(v => (v ?? '').toLowerCase().includes(s)))
+    return children.filter(c => [c.name, c.unit, c.floor, c.address, c.lot ? `lot ${c.lot}` : null].some(v => (v ?? '').toLowerCase().includes(s)))
   }, [children, q])
 
   const totals = useMemo(() => {
@@ -165,8 +170,9 @@ export default function UnitsPage({ params }: { params: { id: string } }) {
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-ink-soft truncate">{c.name}</p>
                     <p className="text-xs text-faint truncate flex items-center gap-1">
-                      {c.unit ? `Unit ${c.unit}` : c.floor ? `Floor ${c.floor}` : null}
+                      {c.unit ? `Unit ${c.unit}` : c.floor ? `Floor ${c.floor}` : lotTag(c)}
                       {c.address && <><MapPin className="h-3 w-3 shrink-0" />{c.address}</>}
+                      {c.address && c.lat == null && <span className="text-warn"> · not on the map</span>}
                     </p>
                   </div>
                   <div className="mt-1.5 sm:mt-0">

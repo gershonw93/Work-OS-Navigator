@@ -64,8 +64,12 @@ export function stateIn(address: string | null | undefined): string | null {
     // one - a city and state share a comma part often enough ("Brooklyn NY").
     for (const n of [words.length, 2, 1]) {
       if (n <= 0 || n > words.length) continue
-      const code = usState(words.slice(words.length - n).join(' ')).value
-      if (code) return code
+      // `.ok`, not just `.value`: a REFUSED state still carries the text it
+      // refused, so "89 White Hall Dr, Palm Coast" read as being in a state
+      // called "Palm Coast" - which then "contradicted" every match in FL and
+      // got the address thrown out as placed in the wrong state.
+      const checked = usState(words.slice(words.length - n).join(' '))
+      if (checked.ok && checked.value) return checked.value
     }
   }
   return null
@@ -109,3 +113,22 @@ export function matchProblem(query: string, matched: string | null | undefined):
 
   return null
 }
+
+// ── was it the house, or only the street? ───────────────────────────────────
+
+/**
+ * Did the map find the HOUSE, or did it settle for the street?
+ *
+ * The free geocoder answers an address it cannot place exactly with the middle
+ * of the street - or of the town - and calls it a match. On a list of scattered
+ * lots that is thirty jobs sharing four pins. A match whose label does not
+ * carry our house number is said to be approximate, so the review table can
+ * show it rather than present a street centroid as a lot.
+ */
+export function matchPrecision(query: string, matched: string | null | undefined): 'exact' | 'approximate' | 'unknown' {
+  if (!matched) return 'unknown'
+  const num = query.trim().match(/^(\d+[a-z]?)\b/i)?.[1]
+  if (!num) return 'unknown'
+  return new RegExp(`(^|\\s|,)${num}(\\s|,|$)`, 'i').test(matched) ? 'exact' : 'approximate'
+}
+

@@ -1,9 +1,12 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { getActor, actorCan } from '@/lib/server-permissions'
-import { geocodeAddress, geocodeMany } from '@/lib/geocode'
+import { geocodeAddress, geocodeManyExact } from '@/lib/geocode'
+import { tooVagueToPin } from '@/lib/geocode-match'
 import { billingLock } from '@/lib/api-guard'
 import { projectSlotProblem } from '@/lib/billing-read'
+import { cleanRow, fullAddress, lotRowProblem, lotJobName, sharedPlace, MAX_LOTS } from '@/lib/lot-list'
+import { cleanLotDetails, type LotDetails } from '@/lib/lot-details'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -20,6 +23,10 @@ interface Child {
   address: string
   unit: string | null
   floor: string | null
+  /** Lot details, on a batch made from a lot list. */
+  lot?: Partial<LotDetails>
+  /** A pin already checked on the review screen, so it is not looked up twice. */
+  coords?: { lat: number; lng: number } | null
 }
 
 /**
@@ -64,13 +71,44 @@ export async function POST(request: Request) {
   } = body
 
   const namePrefix = String(name_prefix ?? '').trim()
-  if (!namePrefix) return NextResponse.json({ error: 'A name prefix is required' }, { status: 400 })
+  // A lot list names each job from its own address; a prefix is optional there.
+  if (!namePrefix && mode !== 'list') return NextResponse.json({ error: 'A name prefix is required' }, { status: 400 })
 
   const children: Child[] = []
   let siteAddress = String(address ?? '').trim()
   let siteName = String(site_name ?? '').trim()
 
-  if (mode === 'street') {
+  if (mode === 'list') {
+    // A LIST OF REAL ADDRESSES, read from a file and checked row by row on the
+    // review screen. Asked again here: the screen is not the only caller, and
+    // a row that cannot be pinned must not become a job that silently never
+    // reaches the map.
+    const raw: unknown[] = Array.isArray(body.rows) ? body.rows : []
+    if (!raw.length) return NextResponse.json({ error: 'There are no rows to create.' }, { status: 400 })
+    if (raw.length > MAX_LOTS) return NextResponse.json({ error: `That is ${raw.length} lots - the most you can create at once is ${MAX_LOTS}.` }, { status: 400 })
+    const rows = raw.map(r => ({ src: r as Record<string, any>, row: cleanRow(r as Record<string, unknown>) }))
+    for (let i = 0; i < rows.length; i++) {
+      const problem = lotRowProblem(rows[i].row)
+      if (problem) return NextResponse.json({ error: `Row ${i + 1} (${rows[i].row.street || 'no address'}): ${problem}` }, { status: 400 })
+    }
+    for (const { src, row } of rows) {
+      const lat = Number(src.lat), lng = Number(src.lng)
+      children.push({
+        name: lotJobName(row, namePrefix),
+        address: fullAddress(row),
+        unit: null,
+        floor: null,
+        lot: cleanLotDetails(row as unknown as Record<string, unknown>),
+        coords: src.lat != null && src.lng != null && Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null,
+      })
+    }
+    const place = sharedPlace(rows.map(r => r.row))
+    if (!siteName) siteName = namePrefix || (place ? `${place} lots` : 'Lot list')
+    // The group's address is the place they share, when they share one. Not
+    // geocoded: a site is a folder, and a city-centre pin on it would read as
+    // a job site on the map.
+    siteAddress = place ?? ''
+  } else if (mode === 'street') {
     // A run of house numbers on one street. Each child is its own address.
     const { street_name, first_number, increment, count } = body
     const street = String(street_name ?? '').trim()
@@ -96,6 +134,14 @@ export async function POST(request: Request) {
     }
     if (!siteName) siteName = `${namePrefix} - ${street}`
     siteAddress = `${street}${areaSuffix}`
+    // THE REASON STREET BATCHES NEVER REACHED THE MAP. "Maple Ave, Lakewood"
+    // has no state and no ZIP, so every house was refused by the geocoder as
+    // too vague to pin - correctly - and the batch was created anyway, forty
+    // jobs with no pin and nothing said. Refused here, with the fix named.
+    const vague = tooVagueToPin(children[0]?.address)
+    if (vague) {
+      return NextResponse.json({ error: 'Add the state or ZIP to "City, state & ZIP" (e.g. Lakewood, NJ 08701) - without it no house can be placed on the map.' }, { status: 400 })
+    }
   } else if (mode === 'floor') {
     // One building, one project per floor.
     const { floor_start, floor_end, floor_label } = body
@@ -154,11 +200,22 @@ export async function POST(request: Request) {
   // otherwise look the address up here so bulk projects still reach the map.
   let siteCoords: { lat: number; lng: number } | null =
     lat != null && lng != null ? { lat: Number(lat), lng: Number(lng) } : null
-  if (!siteCoords && siteAddress) siteCoords = await geocodeAddress(siteAddress)
+  if (!siteCoords && siteAddress && mode !== 'list') siteCoords = await geocodeAddress(siteAddress)
 
-  const childCoords: (typeof siteCoords)[] = mode === 'street'
-    ? await geocodeMany(children.map(c => c.address))
-    : children.map(() => siteCoords)
+  let childCoords: (typeof siteCoords)[]
+  if (mode === 'list') {
+    // Only the rows the review screen did not already place are looked up.
+    const unplaced = children.map((c, i) => (c.coords ? -1 : i)).filter(i => i >= 0)
+    const found = await geocodeManyExact(unplaced.map(i => children[i].address))
+    childCoords = children.map(c => c.coords ?? null)
+    unplaced.forEach((i, k) => { childCoords[i] = found[k] })
+  } else {
+    // Exact matches only: a house number nobody has built yet comes back as
+    // the middle of the street, and forty jobs on one pin is worse than none.
+    childCoords = mode === 'street'
+      ? await geocodeManyExact(children.map(c => c.address))
+      : children.map(() => siteCoords)
+  }
 
   const shared = {
     client: client || null,
@@ -198,6 +255,7 @@ export async function POST(request: Request) {
     name: c.name,
     address: c.address,
     ...(grouped ? { parent_project_id: site?.id, unit: c.unit, floor: c.floor } : {}),
+    ...(c.lot ?? {}),
     ...geo(childCoords[i], c.address),
   }))
 

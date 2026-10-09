@@ -24,7 +24,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
   let { data: rows, error } = await db
     .from('projects')
-    .select('id, name, status, unit, floor, address, sellout_amount')
+    .select('id, name, status, unit, floor, address, sellout_amount, lot, block, garage_side, city_water, city_sewer, lat, lng')
     .eq('parent_project_id', params.id)
     .order('created_at', { ascending: true })
 

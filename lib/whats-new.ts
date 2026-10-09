@@ -69,6 +69,12 @@ const AUTHORED: Release[] = [
         text: 'The Inspections tab starts with the list of inspections the job will need. Tick them from the standard list or add your own, and each one shows where it stands - not requested yet, waiting to be booked, booked, passed - until it passes. Request fills in the request form for you. A lot with no city sewer or water suggests the septic and well inspections. In the Directory, mark which inspections an inspector does and they come first when one of those is being booked.',
         help: 'inspections',
       },
+      {
+        kind: 'new',
+        title: 'Bulk Add from a list of real addresses',
+        text: 'Projects → Bulk Add → From a list takes a spreadsheet, a PDF or a photo of your lot list - or addresses pasted one per line - and shows every row with its lot details and whether the map found the house, before anything is created. Fix a misspelled street in the row, drop what you do not want, and create them all under one group. Street-number batches now refuse an address with no state or ZIP instead of creating houses that never reach the map.',
+        help: 'bulk-add-projects',
+      },
     ],
   },
   {
