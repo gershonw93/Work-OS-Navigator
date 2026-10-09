@@ -154,6 +154,20 @@ ok(full.includes('Up to 10'), '...and names the cheapest plan that would fit')
 ok(projectLimitProblem({ projects: null, scans: null, source: 'comped' }, 900) === null,
   'and an uncapped company is never refused')
 
+// ── a group of houses is many jobs, and its folder is none ──────────────────
+// Chosen deliberately: every house a builder runs is a job on the plan. The
+// site row Bulk Add makes as a container is a FOLDER, and counting it turned a
+// 42-lot list into 43 jobs. The batch door used to ask nothing at all.
+ok(projectLimitProblem(ent3, 1, 2) === null, 'a batch that fits exactly is allowed')
+const batch = projectLimitProblem(ent3, 1, 3)!
+ok(!!batch, 'a batch one job too big is refused - all or nothing, never half a subdivision')
+ok(/3 new jobs/.test(batch) && /room for 2 more/.test(batch), '...and the refusal says how many it asked for and how many fit')
+const usageSrc = read('lib/billing-read.ts')
+ok(/\.eq\('is_site', false\)/.test(usageSrc), 'the usage count leaves the site folder out')
+const bulkSrc = read('app/api/projects/bulk/route.ts')
+ok(/projectSlotProblem\([\s\S]{0,80}children\.length\)/.test(bulkSrc), 'and Bulk Add asks for room for every house it is about to create')
+ok(/!prev\?\.is_site/.test(read('app/api/projects/[id]/route.ts')), 'and reopening a site folder is never refused for a slot it does not hold')
+
 const scansGone = scanLimitProblem(ent3, 150, NOW)!
 ok(!!scansGone, 'at the scan allowance, a scan is refused')
 ok(/everything else in SyteNav keeps working/i.test(scansGone),

@@ -27,7 +27,7 @@ import { dayWords } from './dates'
 export const COUNTED_PROJECT_STATUSES = ['planning', 'active', 'on_hold'] as const
 
 /** Said out loud on the billing screen, so the count can be checked by eye. */
-export const COUNTED_PROJECT_LABEL = 'Planning, active and on-hold jobs count. Completed and cancelled ones do not.'
+export const COUNTED_PROJECT_LABEL = 'Planning, active and on-hold jobs count. Completed and cancelled ones do not. Every house or unit in a group is a job; the group itself is not.'
 
 export interface Usage {
   activeProjects: number
@@ -141,12 +141,25 @@ export function nextResetIso(now: Date = new Date()): string {
 // limit" tells somebody they are stuck and nothing else. A refusal that does
 // not say what to do about it is a disabled button with more words.
 
-/** Why a new active project cannot be added, or null if it can. */
-export function projectLimitProblem(ent: Entitlement, activeProjects: number): string | null {
+/**
+ * Why `adding` new active projects cannot be opened, or null if they can.
+ *
+ * `adding` is more than one for a batch: forty houses from a lot list are
+ * forty jobs, and asking "is there room for one more" before inserting forty
+ * is how a three-job plan ends up carrying forty-three. All or nothing - half
+ * a subdivision is not a thing anybody asked for.
+ */
+export function projectLimitProblem(ent: Entitlement, activeProjects: number, adding = 1): string | null {
   if (ent.projects === null) return null
-  if (activeProjects < ent.projects) return null
-  const fits = planForProjects(activeProjects + 1)
-  const next = fits ? ` ${fits.name} covers ${activeProjects + 1}.` : ''
+  const n = Math.max(1, Math.floor(adding))
+  if (activeProjects + n <= ent.projects) return null
+  const fits = planForProjects(activeProjects + n)
+  const next = fits ? ` ${fits.name} covers ${activeProjects + n}.` : ''
+  if (n > 1) {
+    const room = Math.max(0, ent.projects - activeProjects)
+    return `That is ${n} new jobs and your plan has room for ${room} more (${activeProjects} of ${ent.projects} in use).` +
+      ` Close out finished jobs or move up a plan - nothing is deleted either way.${next}`
+  }
   return `You are running ${activeProjects} active ${activeProjects === 1 ? 'job' : 'jobs'}, which is all your plan allows.` +
     ` Close out a finished job or move up a plan - nothing is deleted either way.${next}`
 }
