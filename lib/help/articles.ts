@@ -1858,10 +1858,13 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'inspections',
     title: 'Request, schedule, and record inspections',
     category: 'docs',
-    keywords: ['inspection', 'inspector', 'pass', 'fail', 'schedule', 'result', 'ready', 'request', 'notify', 'secretary', 'required', 'blank', 'cannot send request', 'preferred date', 'book', 'booking', 'who do i call', 'now what', 'does it email the inspector', 'confirmation number', 'needed by', 'confirmed for', 'requested date', 'where did the status buttons go', 'update status', 'pills', 'menu', 'cannot mark passed', 'completed date wrong', 'says completed but not booked', 'card image too big', 'today', 'whats on today', 'who is on site', 'mark ready', 'work is ready', 'can a sub request an inspection', 'who do i call', 'reminder', 'not ready', 'nobody told me', 'undo ready', 'unmark ready', 'who can mark ready'],
+    keywords: ['inspection', 'inspector', 'pass', 'fail', 'schedule', 'result', 'ready', 'request', 'notify', 'secretary', 'required', 'blank', 'cannot send request', 'preferred date', 'book', 'booking', 'who do i call', 'now what', 'does it email the inspector', 'confirmation number', 'needed by', 'confirmed for', 'requested date', 'where did the status buttons go', 'update status', 'pills', 'menu', 'cannot mark passed', 'completed date wrong', 'says completed but not booked', 'card image too big', 'today', 'whats on today', 'who is on site', 'mark ready', 'work is ready', 'can a sub request an inspection', 'who do i call', 'reminder', 'not ready', 'nobody told me', 'undo ready', 'unmark ready', 'who can mark ready', 'required inspections', 'inspections required', 'list of inspections', 'inspection list', 'plan inspections', 'not requested yet', 'septic', 'well', 'add inspection type', 'custom inspection type', 'other inspection', 'inspector type', 'which inspector'],
     summary: 'A site manager or sub requests an inspection, the scheduler gets notified, and everyone hears the result.',
     blocks: [
       { type: 'text', text: 'The Inspections tab (under Docs & Legal) runs the whole workflow - request → schedule → pass/fail - with notifications along the way.' },
+      { type: 'text', text: 'REQUIRED FOR THIS JOB. The top of the Inspections tab is the list of inspections this job will need, decided up front - Footing, Framing, Rough Electrical, Septic Final and so on. Press Add, tick them from the list, or type one that is not there (it is saved to your company\'s list for next time). Adding one does NOT request it or tell anybody: it sits on the list as "Not requested yet" until somebody presses Request beside it, which opens the ordinary request form with the type filled in. Each line then shows where it stands - waiting to be booked, booked and when, failed, re-inspection or passed - read straight off the inspections below it, and the header counts how many have passed.' },
+      { type: 'tip', text: 'If the job\'s lot details say No city sewer or No city water, the list offers the septic and well inspections that go with them. It only suggests them - nothing is added until you press Add.' },
+      { type: 'text', text: 'WHO TO CALL, FOR THIS TYPE. In the Directory you can mark which inspections an inspector does. When one of those is being booked, that inspector is listed first under who to call (it says "does Framing" beside them), and the "Inspection to book" notification names them. Anything written on the inspection itself still comes first.' },
       { type: 'steps', items: [
         'On the Inspections tab, click Request Inspection (a site manager or sub can do this).',
         'Pick the inspection type, the date you need it by, and assign who books it. Under that field the form names everyone who will actually be notified - read it before you send.',
@@ -1940,7 +1943,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'directory',
     title: 'Add contacts to your Directory',
     category: 'workspace',
-    keywords: ['directory', 'contact', 'sub', 'vendor', 'supplier', 'add', 'company', 'quick add', 'inspector', 'phone', 'duplicate', 'added twice', 'wrong phone number', 'tabs', 'projects tab', 'cut off', 'missing tab', 'company profile', 'name wrapping', 'trade', 'change trade', 'wrong trade', 'edit trade', 'spelling', 'typo', 'not showing up', 'sub missing', 'invite', 'invite all', 'invite subs', 'invite to sytenav', 'invite to platform', 'resend invite', 'invited', 'on platform', 'workers count'],
+    keywords: ['directory', 'contact', 'sub', 'vendor', 'supplier', 'add', 'company', 'quick add', 'inspector', 'phone', 'duplicate', 'added twice', 'wrong phone number', 'tabs', 'projects tab', 'cut off', 'missing tab', 'company profile', 'name wrapping', 'trade', 'change trade', 'wrong trade', 'edit trade', 'spelling', 'typo', 'not showing up', 'sub missing', 'invite', 'invite all', 'invite subs', 'invite to sytenav', 'invite to platform', 'resend invite', 'invited', 'on platform', 'workers count', 'inspection types', 'what inspections', 'inspector does'],
     summary: 'Keep your subs, suppliers, and contacts in one address book.',
     blocks: [
       { type: 'text', text: 'QUICK ADD, FROM A PICKER. Anywhere you pick an inspector or a sub you can add one without leaving the form. Two rules: it will not offer to add a name that is already in the list in front of you, and the phone box has to contain a phone number - a surname typed there used to save happily and then appear as a tap-to-call link that dialled nothing. Only the name is required.' },
@@ -1957,8 +1960,9 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'Save - they\'re now available to invite to bids and add to projects.',
       ] },
       { type: 'tip', text: 'Awarding a quote adds the winning vendor to your Directory automatically.' },
+      { type: 'text', text: 'INSPECTORS: WHICH INSPECTIONS THEY DO. When you add or edit an inspector you can tick the inspections they do. On a job, booking one of those puts that inspector first under who to call.' },
     ],
-    related: ['request-quotes', 'award-quote', 'add-subcontractor-no-price'],
+    related: ['request-quotes', 'award-quote', 'add-subcontractor-no-price', 'inspections'],
   },
   {
     slug: 'job-overview',

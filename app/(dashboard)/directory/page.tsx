@@ -1,5 +1,8 @@
 'use client'
 
+import { InspectionTypeChips } from '@/components/inspections/type-chips'
+import { typeOptions } from '@/lib/inspection-types'
+import { inspectorTypes } from '@/lib/inspection-contacts'
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { StatStrip } from '@/components/ui/stat-strip'
@@ -78,6 +81,7 @@ interface Extra {
   certification_number?: string
   notes?: string
   website?: string
+  inspection_types?: string[]
 }
 
 interface Company {
@@ -187,6 +191,12 @@ export default function DirectoryPage() {
   const [formCertNumber, setFormCertNumber] = useState('')
   const [formNotes, setFormNotes] = useState('')
   const [formWebsite, setFormWebsite] = useState('')
+  // Which inspections an inspector does - so "who to call" on a framing
+  // inspection puts the framing inspector first. The defaults are on screen
+  // before the company's own types arrive.
+  const [formInspTypes, setFormInspTypes] = useState<string[]>([])
+  const [editInspTypes, setEditInspTypes] = useState<string[]>([])
+  const [inspTypeChoices, setInspTypeChoices] = useState<string[]>(() => typeOptions())
 
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -207,12 +217,22 @@ export default function DirectoryPage() {
   }
 
   useEffect(() => { fetchData() }, [])
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const res = await fetch('/api/inspection-types', { headers: { Authorization: `Bearer ${await getToken()}` } })
+        if (res.ok) setInspTypeChoices((await res.json()).types ?? typeOptions())
+      } catch { /* the defaults are already on screen */ }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function resetForm() {
     setFormType('subcontractor')
     setFormName(''); setFormEmail(''); setFormPhone(''); setFormAddress('')
     setFormTrade(''); setFormLicense(''); setFormSpecialty(''); setFormJurisdiction('')
     setFormCertNumber(''); setFormNotes(''); setFormWebsite('')
+    setFormInspTypes([])
     setAddError(null)
   }
 
@@ -235,6 +255,7 @@ export default function DirectoryPage() {
         specialty: formSpecialty || undefined,
         jurisdiction: formJurisdiction || undefined,
         certification_number: formCertNumber || undefined,
+        inspection_types: formType === 'inspector' && formInspTypes.length ? formInspTypes : undefined,
         notes: formNotes || undefined,
         website: formWebsite || undefined,
       }),
@@ -326,6 +347,7 @@ export default function DirectoryPage() {
     setEditAddress(company.address ?? '')
     setEditTrade(company.trade ?? '')
     setEditType((company.type as ContactType) ?? 'other')
+    setEditInspTypes(inspectorTypes(company))
   }
 
   async function saveEditCompany(e: React.FormEvent) {
@@ -336,7 +358,10 @@ export default function DirectoryPage() {
     const res = await fetch(`/api/directory/${editingCompany.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ name: editName, contact_email: editEmail, phone: editPhone, address: editAddress, trade: editTrade, type: editType }),
+      body: JSON.stringify({
+        name: editName, contact_email: editEmail, phone: editPhone, address: editAddress, trade: editTrade, type: editType,
+        ...(editType === 'inspector' ? { inspection_types: editInspTypes } : {}),
+      }),
     })
     setEditSaving(false)
     if (!res.ok) { notify('Could not save changes.'); return }
@@ -618,6 +643,11 @@ export default function DirectoryPage() {
                           value={formJurisdiction}
                           onChange={e => setFormJurisdiction(e.target.value)}
                         />
+                      </div>
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <Label>Inspections they do <span className="text-faint font-normal">(optional)</span></Label>
+                        <InspectionTypeChips options={inspTypeChoices} value={formInspTypes} onChange={setFormInspTypes} />
+                        <p className="text-xs text-faint">Puts them first in &ldquo;who to call&rdquo; when one of these is being booked.</p>
                       </div>
                       <div className="space-y-1.5 sm:col-span-2">
                         <Label htmlFor="form-cert">Certification # <span className="text-faint font-normal">(optional)</span></Label>
@@ -1013,8 +1043,13 @@ export default function DirectoryPage() {
                 )}
 
                 {/* Inspector extra fields */}
-                {type === 'inspector' && (extra.jurisdiction || extra.certification_number) && (
+                {type === 'inspector' && (extra.jurisdiction || extra.certification_number || !!extra.inspection_types?.length) && (
                   <div className="space-y-0.5">
+                    {!!extra.inspection_types?.length && (
+                      <p className="text-xs text-muted-fg">
+                        <span className="font-medium text-ink-soft">Does:</span> {extra.inspection_types.join(', ')}
+                      </p>
+                    )}
                     {extra.jurisdiction && (
                       <p className="text-xs text-muted-fg">
                         <span className="font-medium text-ink-soft">Jurisdiction:</span> {extra.jurisdiction}
@@ -1147,6 +1182,12 @@ export default function DirectoryPage() {
                   <label className="text-xs font-medium text-muted-fg">Address</label>
                   <input className="w-full rounded-lg border border-muted2 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" value={editAddress} onChange={e => setEditAddress(e.target.value)} />
                 </div>
+                {editType === 'inspector' && (
+                  <div className="space-y-1.5">
+                    <Label>Inspections they do <span className="text-faint font-normal">(optional)</span></Label>
+                    <InspectionTypeChips options={inspTypeChoices} value={editInspTypes} onChange={setEditInspTypes} />
+                  </div>
+                )}
               </div>
               <div className="px-6 py-4 border-t border-line-soft flex justify-end gap-2">
                 <button type="button" onClick={() => setEditingCompany(null)} className="rounded-lg border border-line px-4 py-2 text-sm font-medium text-muted-fg hover:bg-surface">Cancel</button>

@@ -3947,3 +3947,33 @@ DO $$ BEGIN
   ALTER TABLE projects ADD CONSTRAINT projects_garage_side_check
     CHECK (garage_side IS NULL OR garage_side IN ('left', 'right'));
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- 132: required inspections per job, and a company's own inspection types.
+
+CREATE TABLE IF NOT EXISTS project_required_inspections (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  -- A fact about this job alone; it goes with the job.
+  project_id uuid NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+  type text NOT NULL,
+  sort_order integer NOT NULL DEFAULT 0,
+  -- 'manual' | 'model' - where the line came from, so a model update can find
+  -- the lines it put there and leave hand-added ones alone.
+  source text NOT NULL DEFAULT 'manual',
+  -- Who added it outlives them.
+  created_by uuid REFERENCES profiles (id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_project_required_inspection_type
+  ON project_required_inspections (project_id, lower(type));
+ALTER TABLE project_required_inspections ENABLE ROW LEVEL SECURITY;
+
+CREATE TABLE IF NOT EXISTS inspection_type_options (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  -- A company's own vocabulary; it goes with the company.
+  company_id uuid NOT NULL REFERENCES companies (id) ON DELETE CASCADE,
+  name text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_inspection_type_option
+  ON inspection_type_options (company_id, lower(name));
+ALTER TABLE inspection_type_options ENABLE ROW LEVEL SECURITY;

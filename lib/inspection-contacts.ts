@@ -25,9 +25,18 @@ export interface CallTarget {
   phone: string | null
   /** Where we got it, said on screen so nobody wonders why a name is offered. */
   source: string
+  /**
+   * The inspection types a Directory inspector is marked as doing, so a list
+   * built once per JOB can still put the right inspector first for each
+   * INSPECTION (`callTargetsFor`). Absent for everything that is not a
+   * Directory contact.
+   */
+  does?: string[]
 }
 
 export interface InspectionLike {
+  /** Which inspection - used to put an inspector who does this type first. */
+  type?: string | null
   inspector_name?: string | null
   inspector_phone?: string | null
   scheduling_phone?: string | null
@@ -54,8 +63,21 @@ export interface ContactLike {
   name?: string | null
   type?: string | null
   phone?: string | null
-  extra?: { jurisdiction?: string | null } | null
+  extra?: { jurisdiction?: string | null; inspection_types?: unknown } | null
 }
+
+/** The types a Directory inspector is marked as doing, cleaned. */
+export function inspectorTypes(c: ContactLike | null | undefined): string[] {
+  const raw = c?.extra?.inspection_types
+  if (!Array.isArray(raw)) return []
+  return raw.map(t => (typeof t === 'string' ? t.trim() : '')).filter(Boolean)
+}
+
+const fold = (s: unknown) => String(s ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+
+/** Does this target say it does this inspection type? */
+export const doesType = (t: CallTarget, type: string | null | undefined): boolean =>
+  !!type && !!t.does?.some(d => fold(d) === fold(type))
 
 const clean = (v: unknown): string | null => {
   const s = typeof v === 'string' ? v.trim() : ''
@@ -136,14 +158,16 @@ export function whoToCall({ inspection, permits = [], contacts = [] }: {
     const name = clean(c.name)
     if (!name) continue
     const jurisdiction = clean(c.extra?.jurisdiction)
+    const does = inspectorTypes(c)
     out.push({
       name,
       phone: cleanPhone(c.phone),
       source: jurisdiction ? `Directory - ${jurisdiction}` : 'Directory',
+      ...(does.length ? { does } : {}),
     })
   }
 
-  return dedupe(out)
+  return dedupe(rankForType(out, inspection?.type))
 }
 
 function dedupe(targets: CallTarget[]): CallTarget[] {
@@ -181,7 +205,26 @@ export function callTargetsFor(
   inspection: InspectionLike | null | undefined,
   projectTargets: CallTarget[] = [],
 ): CallTarget[] {
-  return dedupe([...whoToCall({ inspection }), ...projectTargets])
+  return dedupe([...whoToCall({ inspection }), ...rankForType(projectTargets, inspection?.type)])
+}
+
+/**
+ * An inspector marked as doing THIS type of inspection goes ahead of the rest
+ * of the list it is in - not ahead of what the inspection itself carries,
+ * which somebody wrote down on purpose. Stable otherwise: the permits still
+ * come before the Directory, and nobody is dropped for doing other types.
+ */
+export function rankForType(targets: CallTarget[], type: string | null | undefined): CallTarget[] {
+  if (!type) return targets
+  const fits = targets.filter(t => doesType(t, type))
+  if (!fits.length) return targets
+  const rest = targets.filter(t => !doesType(t, type))
+  // Inspection-carried entries keep the front; the matches go right after them.
+  const own = rest.filter(t => t.source === 'On this inspection')
+  const others = rest.filter(t => t.source !== 'On this inspection')
+  // Said on screen, so nobody wonders why this inspector jumped the queue.
+  const named = fits.map(t => (/ - does /.test(t.source) ? t : { ...t, source: `${t.source} - does ${type}` }))
+  return [...own, ...named, ...others]
 }
 
 /**

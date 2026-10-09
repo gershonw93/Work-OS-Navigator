@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { cleanTypeList } from '@/lib/inspection-types'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -21,6 +22,14 @@ export async function PATCH(request: Request, { params }: { params: { companyId:
   const updates: Record<string, unknown> = {}
   for (const key of allowed) {
     if (body[key] !== undefined) updates[key] = body[key] || null
+  }
+
+  // Which inspections an inspector does lives in `extra` beside the
+  // jurisdiction, so it is MERGED in - replacing `extra` wholesale would wipe
+  // the jurisdiction and cert number this form never shows.
+  if (body.inspection_types !== undefined) {
+    const { data: cur } = await db.from('companies').select('extra').eq('id', params.companyId).maybeSingle()
+    updates.extra = { ...(((cur as any)?.extra as Record<string, unknown>) ?? {}), inspection_types: cleanTypeList(body.inspection_types) }
   }
 
   const { data, error } = await db.from('companies').update(updates).eq('id', params.companyId).select().single()

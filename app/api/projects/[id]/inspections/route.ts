@@ -234,7 +234,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     directoryInspectors(db, params.id),
   ])
   const contact = callLine(whoToCall({
-    inspection: { inspector_name, inspector_phone, scheduling_phone },
+    inspection: { type: inspection_type, inspector_name, inspector_phone, scheduling_phone },
     permits: (permitsRes.data ?? []) as any[],
     contacts: contactsRes,
   }))
