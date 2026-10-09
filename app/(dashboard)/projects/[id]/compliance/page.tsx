@@ -1044,7 +1044,7 @@ export default function CompliancePage({ params }: { params: { id: string } }) {
   }).length
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-0 lg:p-6 space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-ink">Compliance</h1>
