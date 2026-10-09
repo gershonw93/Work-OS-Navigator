@@ -7,11 +7,14 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { AddressFields } from '@/components/ui/address-fields'
 import { cn } from '@/lib/utils'
-import { X, Building2, Layers, Milestone } from 'lucide-react'
+import { X, Building2, Layers, Milestone, FileSpreadsheet } from 'lucide-react'
+import { LotListBuilder } from '@/components/projects/lot-list-builder'
+import { tooVagueToPin } from '@/lib/geocode-match'
 
-type Mode = 'unit' | 'floor' | 'street'
+type Mode = 'list' | 'unit' | 'floor' | 'street'
 
 const MODES: { key: Mode; label: string; hint: string; icon: typeof Building2 }[] = [
+  { key: 'list', label: 'From a list', hint: 'A file or a pasted list of real addresses', icon: FileSpreadsheet },
   { key: 'unit', label: 'Units', hint: 'One building, a job per unit', icon: Building2 },
   { key: 'floor', label: 'Floors', hint: 'One building, a job per floor', icon: Layers },
   { key: 'street', label: 'Street numbers', hint: 'A run of houses on one street', icon: Milestone },
@@ -37,7 +40,7 @@ export function BulkAddModal({
 }) {
   const today = new Date().toISOString().split('T')[0]
 
-  const [mode, setMode] = useState<Mode>('unit')
+  const [mode, setMode] = useState<Mode>('list')
   const [namePrefix, setNamePrefix] = useState('')
   const [client, setClient] = useState(customer?.name ?? defaultClient ?? '')
   const [type, setType] = useState('residential')
@@ -94,12 +97,27 @@ export function BulkAddModal({
       : Math.max((Number(unitTo) || 0) - (Number(unitFrom) || 0) + 1, 0)
 
   const needsBuilding = mode !== 'street'
-  const canSubmit = !!namePrefix.trim() && total > 0 && total <= 100
-    && (needsBuilding ? !!address.trim() : !!streetName.trim())
+
+  /** What is missing, in words - a greyed-out Create button explains nothing. */
+  function missing(): string | null {
+    if (!namePrefix.trim()) return 'Give the batch a name prefix - every job is named from it.'
+    if (total <= 0) return 'There are no jobs in that range.'
+    if (total > 100) return `That is ${total} jobs - the most at once is 100.`
+    if (needsBuilding && !address.trim()) return 'Enter the building address.'
+    if (!needsBuilding) {
+      if (!streetName.trim()) return 'Enter the street name.'
+      // The reason street batches never reached the map: no state or ZIP.
+      if (tooVagueToPin(`1 ${streetName}, ${area}`)) return 'Add the state or ZIP to "City, state & ZIP" (e.g. Lakewood, NJ 08701) - without it no house can be placed on the map.'
+    }
+    return null
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
-    if (!canSubmit) return
+    // The lot list has its own buttons; Enter in one of its boxes lands here.
+    if (mode === 'list') return
+    const why = missing()
+    if (why) { setError(why); return }
     setSaving(true); setError('')
 
     const payload: Record<string, unknown> = {
@@ -141,17 +159,17 @@ export function BulkAddModal({
 
   return (
     <div className="overlay items-center justify-center bg-black/50" data-overlay onClick={() => !saving && onClose()}>
-      <div className="w-full max-w-xl rounded-xl bg-panel shadow-xl overflow-y-auto" onClick={e => e.stopPropagation()}>
+      <div className={cn('w-full rounded-xl bg-panel shadow-xl overflow-y-auto', mode === 'list' ? 'max-w-3xl' : 'max-w-xl')} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-line-soft px-5 py-4">
           <h2 className="text-base font-semibold text-ink">Bulk Add Projects</h2>
-          <button onClick={onClose} className="text-faint hover:text-ink"><X className="h-5 w-5" /></button>
+          <button onClick={onClose} aria-label="Close" title="Close" className="text-faint hover:text-ink"><X className="h-5 w-5" /></button>
         </div>
 
         <form onSubmit={submit} className="p-5 space-y-4">
           {/* What kind of batch */}
           <div className="space-y-1.5">
             <Label>What are you setting up?</Label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {MODES.map(m => {
                 const Icon = m.icon
                 return (
@@ -166,6 +184,36 @@ export function BulkAddModal({
             </div>
           </div>
 
+          {mode === 'list' ? (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="bulk-client-l">Client <span className="text-faint font-normal">(optional)</span></Label>
+                  <Input id="bulk-client-l" value={client} onChange={e => setClient(e.target.value)}
+                    readOnly={!!customer} disabled={!!customer}
+                    className={customer ? 'bg-surface cursor-not-allowed' : undefined} placeholder="Who this is for" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="bulk-type-l">Project type *</Label>
+                  <Select id="bulk-type-l" value={type} onChange={e => setType(e.target.value)}>
+                    <option value="residential">Residential</option>
+                    <option value="commercial">Commercial</option>
+                    <option value="mixed_use">Mixed Use</option>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="bulk-start-l">Start date <span className="text-faint font-normal">(optional)</span></Label>
+                  <Input id="bulk-start-l" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
+                </div>
+              </div>
+              <LotListBuilder
+                token={token}
+                shared={{ client: client || null, type, start_date: startDate || null, ...(customer?.id ? { customer_id: customer.id } : {}) }}
+                onCancel={onClose}
+                onSuccess={onSuccess}
+              />
+            </>
+          ) : (<>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label htmlFor="bulk-prefix">Name prefix</Label>
@@ -291,10 +339,11 @@ export function BulkAddModal({
 
           <div className="row-even lg:flex justify-end gap-2">
             <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>Cancel</Button>
-            <Button type="submit" disabled={saving || !canSubmit}>
+            <Button type="submit" disabled={saving}>
               {saving ? 'Creating…' : `Create ${total || ''} project${total !== 1 ? 's' : ''}`}
             </Button>
           </div>
+          </>)}
         </form>
       </div>
     </div>

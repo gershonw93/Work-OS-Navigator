@@ -17,6 +17,7 @@ export const SCAN_KINDS = [
   'compliance',
   'submittal',
   'material',
+  'lot-list',
 ] as const
 
 export type ScanKind = (typeof SCAN_KINDS)[number]

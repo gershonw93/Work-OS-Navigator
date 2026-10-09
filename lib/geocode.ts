@@ -19,7 +19,7 @@
 // to have one answer is never asked, and an answer that contradicts the address
 // is never stored.
 
-import { matchProblem, tooVagueToPin } from './geocode-match'
+import { matchProblem, tooVagueToPin, matchPrecision } from './geocode-match'
 
 export interface Coords { lat: number; lng: number }
 
@@ -121,5 +121,26 @@ export async function geocodeMany(
   await Promise.all(
     Array.from({ length: Math.min(concurrency, addresses.length) }, worker),
   )
+  return out
+}
+
+/**
+ * The same, but only a pin on the HOUSE counts. A match that settled for the
+ * street or the town comes back null: thirty scattered lots sharing four
+ * street-centre pins is a value present and wrong, and a missing pin at least
+ * says so on the job ("set the pin").
+ */
+export async function geocodeManyExact(addresses: string[], concurrency = 6): Promise<(Coords | null)[]> {
+  const out: (Coords | null)[] = new Array(addresses.length).fill(null)
+  let next = 0
+  async function worker() {
+    while (true) {
+      const i = next++
+      if (i >= addresses.length) return
+      const r = await lookUpAddress(addresses[i])
+      out[i] = r.ok && matchPrecision(addresses[i], r.matched) !== 'approximate' ? r.coords : null
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, addresses.length) }, worker))
   return out
 }
