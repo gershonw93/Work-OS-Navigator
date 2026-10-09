@@ -63,6 +63,12 @@ const AUTHORED: Release[] = [
         text: 'Project Settings has an optional Lot details section: lot and block, parcel ID, lot size in acres or square feet, city water and city sewer, garage side, and any environmental note. Whatever you fill in shows on the job\'s Overview, and the lot and block show in the header.',
         help: 'project-settings',
       },
+      {
+        kind: 'new',
+        title: 'Required inspections on every job',
+        text: 'The Inspections tab starts with the list of inspections the job will need. Tick them from the standard list or add your own, and each one shows where it stands - not requested yet, waiting to be booked, booked, passed - until it passes. Request fills in the request form for you. A lot with no city sewer or water suggests the septic and well inspections. In the Directory, mark which inspections an inspector does and they come first when one of those is being booked.',
+        help: 'inspections',
+      },
     ],
   },
   {

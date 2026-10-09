@@ -23,11 +23,8 @@ import { inspectorContactId, contactCardHref, type LinkableContact } from '@/lib
 import { RowMenu, MenuItem } from '@/components/ui/row-menu'
 import { ACCEPT_SCAN } from '@/lib/file-accept'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
-const INSPECTION_TYPES = [
-  'Foundation', 'Framing', 'Rough Electrical', 'Rough Plumbing', 'Rough Mechanical',
-  'Insulation', 'Drywall', 'Final Electrical', 'Final Plumbing', 'Final Mechanical',
-  'Fire Sprinkler', 'Building Final', 'Certificate of Occupancy', 'Other'
-]
+import { RequiredInspections } from '@/components/inspections/required-inspections'
+import { typeOptions } from '@/lib/inspection-types'
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
   requested: { label: 'Requested', color: 'bg-warn-tint border-warn/30 text-warn', icon: AlertCircle },
   not_scheduled: { label: 'Not Scheduled', color: 'bg-surface border-line text-muted-fg', icon: Clock },
@@ -128,6 +125,10 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
   // name into a link. `callTargets` cannot do it - it is a list of NUMBERS and
   // deliberately drops the id.
   const [directoryContacts, setDirectoryContacts] = useState<LinkableContact[]>([])
+  // The inspection types to pick from: the shared defaults plus this company's
+  // own (lib/inspection-types.ts). The defaults are there before the fetch
+  // lands, so the form is never empty while it asks.
+  const [typeChoices, setTypeChoices] = useState<string[]>(() => typeOptions())
 
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -184,11 +185,19 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
     fetchInspections()
     fetchTeammates()
     fetchRoutedAudience()
+    fetchTypeChoices()
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user?.email) setCurrentUser(session.user.email)
       if (session?.user?.id) setMyId(session.user.id)
     })
   }, [params.id])
+
+  async function fetchTypeChoices() {
+    try {
+      const res = await fetch('/api/inspection-types', { headers: { Authorization: `Bearer ${await getToken()}` } })
+      if (res.ok) setTypeChoices((await res.json()).types ?? typeOptions())
+    } catch { /* the defaults are already on screen */ }
+  }
 
   // AFTER the inspection happens: attach the inspector's card/paper. AI reads it
   // and fills any blank fields, and offers to set the pass/fail result.
@@ -1017,7 +1026,8 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
                     <SearchableSelect value={inspType} onChange={e => setInspType(e.target.value)} required
                       className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
                       <option value="">-- Select inspection --</option>
-                      {INSPECTION_TYPES.map(t => <option key={t}>{t}</option>)}
+                      {[...typeChoices, ...(inspType && !typeChoices.includes(inspType) && inspType !== 'Other' ? [inspType] : []), 'Other']
+                        .map(t => <option key={t}>{t}</option>)}
                     </SearchableSelect>
                   </div>
                   <div className="space-y-1.5">
@@ -1103,6 +1113,17 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
           <Button onClick={() => setShowForm(true)}><Plus className="h-4 w-4" /> Request Inspection</Button>
         </div>
       </div>
+
+      {/* What this job needs, decided up front. Request fills the form below
+          with the type; nothing on the list books or notifies by itself. */}
+      {!loading && (
+        <RequiredInspections
+          projectId={params.id}
+          inspections={inspections}
+          getToken={getToken}
+          onRequest={type => { resetForm(); setInspType(type); setShowForm(true) }}
+        />
+      )}
 
       {loading ? (
         <div className="text-sm text-faint py-12 text-center">Loading...</div>

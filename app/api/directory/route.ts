@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { cleanTypeList } from '@/lib/inspection-types'
 import { quickAddProblem } from '@/lib/contact-quick-add'
 
 const admin = () => createClient(
@@ -153,6 +154,7 @@ export async function POST(request: Request) {
     jurisdiction,
     certification_number,
     notes,
+    inspection_types,
   } = body
 
   if (!name || !contact_email) {
@@ -169,12 +171,16 @@ export async function POST(request: Request) {
   const safeType = validTypes.includes(type) ? type : 'other'
 
   // Build extra JSONB payload for inspector/supplier fields
-  const extra: Record<string, string> = {}
+  const extra: Record<string, string | string[]> = {}
   if (specialty) extra.specialty = specialty
   if (jurisdiction) extra.jurisdiction = jurisdiction
   if (certification_number) extra.certification_number = certification_number
   if (notes) extra.notes = notes
   if (website) extra.website = website
+  // Which inspections an inspector does, so "who to call" can put the right
+  // one first for a framing inspection rather than whoever sorts first.
+  const types = safeType === 'inspector' ? cleanTypeList(inspection_types) : []
+  if (types.length) extra.inspection_types = types
 
   const insertPayload: Record<string, unknown> = {
     name,

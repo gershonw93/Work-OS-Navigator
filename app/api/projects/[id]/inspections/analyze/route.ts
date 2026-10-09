@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { DEFAULT_INSPECTION_TYPES } from '@/lib/inspection-types'
 import { guardScan, scanDenied, scanActorFor } from '@/lib/scan-guard'
 
 export const runtime = 'nodejs'
@@ -42,7 +43,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   const prompt = `This is a construction inspection card or document. Extract all visible information and return it as JSON with these exact keys (use null for any field not found):
 {
-  "inspection_type": one of ["Foundation","Framing","Rough Electrical","Rough Plumbing","Rough Mechanical","Insulation","Drywall","Final Electrical","Final Plumbing","Final Mechanical","Fire Sprinkler","Building Final","Certificate of Occupancy","Other"] - pick the closest match based on what's visible,
+  "inspection_type": one of ${JSON.stringify([...DEFAULT_INSPECTION_TYPES, 'Other'])} - pick the closest match based on what's visible,
   "trade": "the trade or work type if visible (e.g. Plumbing, Electrical) or null",
   "status": one of ["passed","failed","scheduled","not_scheduled","pending_reinspection"] - if the card shows an approval/pass mark infer "passed", otherwise null,
   "scheduled_date": "YYYY-MM-DD or null - use the date shown on the card",
