@@ -3925,3 +3925,25 @@ DROP TRIGGER IF EXISTS budget_line_items_touch_updated_at ON budget_line_items;
 CREATE TRIGGER budget_line_items_touch_updated_at
   BEFORE UPDATE ON budget_line_items
   FOR EACH ROW EXECUTE FUNCTION budget_line_items_touch_updated_at();
+
+-- 131: optional lot details on every project (parcel, lot/block, size, utilities, garage side).
+
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS parcel_id text;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS block text;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS lot text;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS lot_size numeric;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS lot_size_unit text;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS city_water boolean;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS city_sewer boolean;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS garage_side text;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS environmental_notes text;
+
+DO $$ BEGIN
+  ALTER TABLE projects ADD CONSTRAINT projects_lot_size_unit_check
+    CHECK (lot_size_unit IS NULL OR lot_size_unit IN ('sqft', 'acres'));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE projects ADD CONSTRAINT projects_garage_side_check
+    CHECK (garage_side IS NULL OR garage_side IN ('left', 'right'));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;

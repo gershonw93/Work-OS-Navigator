@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { LOT_COLUMNS, lotFacts } from '@/lib/lot-details'
 import { committedTotal } from '@/lib/committed'
 import { ACTUAL_STATUSES } from '@/lib/invoice-budget'
 import { TO_BOOK } from '@/lib/inspection-status'
@@ -56,7 +57,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const { data: profile } = await db.from('profiles').select('company_id').eq('id', user.id).single()
   const { data: project } = await db
     .from('projects')
-    .select('id, name, status, gc_company_id, contractor_fee_pct, billing_mode, is_site')
+    .select(`id, name, status, gc_company_id, contractor_fee_pct, billing_mode, is_site, ${LOT_COLUMNS}`)
     .eq('id', params.id)
     .single()
   if (!project) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -239,6 +240,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
   return NextResponse.json({
     project: { id: (project as any).id, name: (project as any).name, status: (project as any).status },
+    lot: lotFacts(project as any),
     money: {
       received,
       committed,

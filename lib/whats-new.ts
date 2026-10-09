@@ -54,6 +54,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 // Author entries anywhere in this list; the app reads the sorted view.
 const AUTHORED: Release[] = [
   {
+    date: '2026-10-09',
+    title: 'Building a group of houses',
+    items: [
+      {
+        kind: 'new',
+        title: 'Lot details on every job',
+        text: 'Project Settings has an optional Lot details section: lot and block, parcel ID, lot size in acres or square feet, city water and city sewer, garage side, and any environmental note. Whatever you fill in shows on the job\'s Overview, and the lot and block show in the header.',
+        help: 'project-settings',
+      },
+    ],
+  },
+  {
     date: '2026-10-08',
     title: 'Credit on account',
     items: [

@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { getActor, actorCan } from '@/lib/server-permissions'
 import { geocodeAddress, geocodeMany } from '@/lib/geocode'
 import { billingLock } from '@/lib/api-guard'
+import { projectSlotProblem } from '@/lib/billing-read'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -141,6 +142,13 @@ export async function POST(request: Request) {
   }
 
   if (children.length === 0) return NextResponse.json({ error: 'No projects to create' }, { status: 400 })
+
+  // EVERY HOUSE IS A JOB ON THE PLAN, so a batch asks for room for all of
+  // them at once. This door used to ask nothing at all - one press could open
+  // a hundred jobs on a three-job plan. The site row is a folder and is not
+  // counted (`readUsage`).
+  const slot = await projectSlotProblem(db, profile.company_id, new Date(), children.length)
+  if (slot) return NextResponse.json({ error: slot, billing: 'project_limit' }, { status: 402 })
 
   // Coordinates. The client sends them when the address came from autocomplete;
   // otherwise look the address up here so bulk projects still reach the map.

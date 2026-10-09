@@ -10,6 +10,7 @@ import { ProjectStatusSwitch } from '@/components/layout/project-status-switch'
 import { SetupChecklist } from '@/components/projects/setup-checklist'
 import { ownsProject, clientLabel } from '@/lib/project-access'
 import { currentProfile } from '@/lib/supabase/current-user'
+import { lotTag } from '@/lib/lot-details'
 
 interface ProjectLayoutProps {
   children: ReactNode
@@ -67,11 +68,12 @@ export default async function ProjectLayout({ children, params }: ProjectLayoutP
               <h1 className="text-lg sm:text-xl font-bold text-ink truncate">
                 {project?.name ?? 'Project'}
               </h1>
-              {(project?.address || project?.unit || project?.floor) && (
+              {(project?.address || project?.unit || project?.floor || lotTag(project)) && (
                 <p className="text-sm text-muted-fg mt-0.5 truncate">
                   {[
                     project?.unit ? `Unit ${project.unit}` : null,
                     project?.floor ? `Floor ${project.floor}` : null,
+                    lotTag(project),
                     project?.address,
                   ].filter(Boolean).join(' · ')}
                 </p>
@@ -100,6 +102,10 @@ export default async function ProjectLayout({ children, params }: ProjectLayoutP
               unit: project?.unit, floor: project?.floor,
               is_site: project?.is_site, parent_project_id: project?.parent_project_id,
               lat: project?.lat, lng: project?.lng, geocoded_address: project?.geocoded_address,
+              parcel_id: project?.parcel_id, block: project?.block, lot: project?.lot,
+              lot_size: project?.lot_size, lot_size_unit: project?.lot_size_unit,
+              city_water: project?.city_water, city_sewer: project?.city_sewer,
+              garage_side: project?.garage_side, environmental_notes: project?.environmental_notes,
             }} />
           </div>
         </div>

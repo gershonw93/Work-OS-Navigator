@@ -5,6 +5,7 @@ import { getActor, actorCan } from '@/lib/server-permissions'
 import { asContractType } from '@/lib/contract-type'
 import { billingLock } from '@/lib/api-guard'
 import { projectSlotProblem } from '@/lib/billing-read'
+import { cleanLotDetails } from '@/lib/lot-details'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -197,10 +198,16 @@ export async function POST(request: Request) {
   // null and the Budget tab knows to ask, rather than being defaulted to a
   // guess that hides the control the job needs.
   const ct = asContractType(contract_type)
-  const full = ct ? { ...withBilling, contract_type: ct } : withBilling
+  const withContract = ct ? { ...withBilling, contract_type: ct } : withBilling
+  // Lot details (migration 131), only the ones sent.
+  const full = { ...withContract, ...cleanLotDetails(body) }
 
   let { data: project, error: insertError } = await admin.from('projects').insert(full).select().single()
   // Pre-migration fallback: billing_mode / sqft / geo columns may not exist yet.
+  if (insertError && (insertError as any).code === '42703') {
+    const retryLot = await admin.from('projects').insert(withContract).select().single()
+    project = retryLot.data; insertError = retryLot.error
+  }
   if (insertError && (insertError as any).code === '42703') {
     const retryContract = await admin.from('projects').insert(withBilling).select().single()
     project = retryContract.data; insertError = retryContract.error

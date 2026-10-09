@@ -12,7 +12,7 @@ import {
   ArrowRight, Banknote, CalendarDays, CheckCircle2, ClipboardCheck,
   FileSignature, HardHat, Inbox, MessageSquare, Palette, Receipt, Send,
   ShieldAlert, TrendingDown, Clock, CheckSquare,
-  ChevronRight,
+  ChevronRight, MapPinned,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -39,6 +39,8 @@ interface Overview {
   todayFeed?: Omit<TodayInput, 'projectId'>
   tasks: { open: number; overdue: number }
   subcontracts: number
+  /** Parcel, lot, utilities - only the facts somebody filled in. */
+  lot?: { label: string; value: string }[]
 }
 
 const money = (n: number) => `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
@@ -306,6 +308,27 @@ export default function OverviewPage({ params }: { params: { id: string } }) {
           </Link>
         </div>
       </div>
+
+      {/* The lot, when anything is known about it. Facts, not a form - the
+          Settings dialog is where they are edited. */}
+      {!!data.lot?.length && (
+        <div className="rounded-2xl border border-line bg-panel p-4 lg:rounded-xl">
+          <div className="mb-3 flex items-center gap-2.5">
+            <span className="hidden h-8 w-8 items-center justify-center rounded-lg bg-muted lg:flex">
+              <MapPinned className="h-4 w-4 text-muted-fg" />
+            </span>
+            <h2 className="text-sm font-bold text-ink">Lot</h2>
+          </div>
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
+            {data.lot.map(f => (
+              <div key={f.label} className="min-w-0">
+                <dt className="text-xs text-muted-fg">{f.label}</dt>
+                <dd className="break-words text-sm font-medium text-ink">{f.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      )}
 
       {tasks.open > 0 && (
         <Link href={`/projects/${data.project.id}/tasks`}

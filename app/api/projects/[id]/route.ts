@@ -10,6 +10,7 @@ import { isProjectStatus } from '@/lib/activation'
 import { billingLock } from '@/lib/api-guard'
 import { projectSlotProblem } from '@/lib/billing-read'
 import { COUNTED_PROJECT_STATUSES } from '@/lib/plan-limits'
+import { cleanLotDetails } from '@/lib/lot-details'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -122,11 +123,13 @@ export async function PATCH(
     // outside one; re-saving an active job as active must not be refused for
     // the slot it is already occupying.
     const { data: was } = await db.from('projects')
-      .select('status, gc_company_id').eq('id', params.id).maybeSingle()
-    const prev = (was as { status?: string; gc_company_id?: string } | null) ?? null
+      .select('status, gc_company_id, is_site').eq('id', params.id).maybeSingle()
+    const prev = (was as { status?: string; gc_company_id?: string; is_site?: boolean } | null) ?? null
     const wasCounted = (COUNTED_PROJECT_STATUSES as readonly string[]).includes(prev?.status ?? '')
     const willCount = (COUNTED_PROJECT_STATUSES as readonly string[]).includes(status)
-    if (willCount && !wasCounted) {
+    // A site is a folder and never holds a slot (`readUsage`), so reopening
+    // one must not be refused for want of one.
+    if (willCount && !wasCounted && !prev?.is_site) {
       const slot = await projectSlotProblem(db, prev?.gc_company_id)
       if (slot) return NextResponse.json({ error: slot, billing: 'project_limit' }, { status: 402 })
     }
@@ -162,6 +165,9 @@ export async function PATCH(
   if (fee_on_materials !== undefined) {
     updates.fee_on_materials = !!fee_on_materials
   }
+  // Lot details (migration 131). Only the keys the caller SENT - a form that
+  // never showed the lot section must not wipe what a lot list wrote.
+  Object.assign(updates, cleanLotDetails(body))
   // Projected revenue. Null means "no figure yet", which is different from 0.
   if (sellout_amount !== undefined) {
     updates.sellout_amount = sellout_amount === null || sellout_amount === ''

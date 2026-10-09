@@ -12,6 +12,8 @@ import {
   type ContractType, CONTRACT_TYPES, CONTRACT_LABEL, CONTRACT_BLURB, asContractType,
 } from '@/lib/contract-type'
 import { SitePinField } from '@/components/projects/site-pin-field'
+import { LotDetailsFields } from '@/components/projects/lot-details-fields'
+import { type LotDetails, lotFormFrom, lotFormBody } from '@/lib/lot-details'
 import { Settings, X } from 'lucide-react'
 import { headerIconButton } from './header-icon-button'
 
@@ -39,7 +41,7 @@ interface Props {
     lat?: number | null
     lng?: number | null
     geocoded_address?: string | null
-  }
+  } & Partial<LotDetails>
 }
 
 export function EditProjectButton({ projectId, project }: Props) {
@@ -77,6 +79,7 @@ export function EditProjectButton({ projectId, project }: Props) {
   // the dialog opens rather than on mount, so it reflects a dismissal made
   // since the page loaded - including one made on another device.
   const [showSetup, setShowSetup] = useState(true)
+  const [lot, setLot] = useState(() => lotFormFrom(project))
   const [unit, setUnit] = useState(project.unit ?? '')
   const [floor, setFloor] = useState(project.floor ?? '')
   // Only worth showing on a job inside a building. A standalone project has no
@@ -141,6 +144,8 @@ export function EditProjectButton({ projectId, project }: Props) {
         // the column is NOT NULL, and the old value does no harm sitting there.
         ...(billingMode === 'aia' ? { default_retainage_pct: Number(retainage) || 0 } : {}),
         ...(coords ? { lat: coords.lat, lng: coords.lng } : {}),
+        // A site is the group, not a lot - it has no parcel of its own.
+        ...(project.is_site ? {} : lotFormBody(lot)),
       }),
     })
     setSaving(false)
@@ -340,6 +345,8 @@ export function EditProjectButton({ projectId, project }: Props) {
                   <Input type="number" min="0" placeholder="e.g. 600" value={exteriorSqft} onChange={e => setExteriorSqft(e.target.value)} />
                 </div>
               </div>
+
+              {!project.is_site && <LotDetailsFields value={lot} onChange={setLot} idPrefix="edit-lot" />}
 
               {error && <p className="text-sm text-danger">{error}</p>}
               <div className="row-even lg:flex justify-end gap-2 pt-1">

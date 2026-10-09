@@ -13,6 +13,8 @@ import { projectFormErrors, needsClient } from '@/lib/project-rules'
 import {
   type ContractType, CONTRACT_TYPES, CONTRACT_LABEL, CONTRACT_BLURB, asContractType,
 } from '@/lib/contract-type'
+import { LotDetailsFields } from '@/components/projects/lot-details-fields'
+import { EMPTY_LOT, lotFormFrom, lotFormBody } from '@/lib/lot-details'
 
 /**
  * The one form that creates a project.
@@ -72,6 +74,7 @@ export function ProjectForm({
   const [type, setType] = useState<'residential' | 'commercial' | 'mixed_use'>('commercial')
   const [interiorSqft, setInteriorSqft] = useState('')
   const [exteriorSqft, setExteriorSqft] = useState('')
+  const [lot, setLot] = useState(() => lotFormFrom(EMPTY_LOT))
   const [billingMode, setBillingMode] = useState<'simple' | 'aia'>('simple')
   // How the job pays. Left null rather than defaulted to anything - a wrong
   // guess here hides the control the job actually needs on the Budget tab, and
@@ -178,6 +181,7 @@ export function ProjectForm({
         billing_mode: billingMode,
         ...(contractType ? { contract_type: contractType } : {}),
         ...(billingMode === 'aia' ? { default_retainage_pct: Number(retainage) || 0 } : {}),
+        ...lotFormBody(lot),
       }),
     })
 
@@ -370,6 +374,8 @@ export function ProjectForm({
           />
         </Field>
       </div>
+
+      <LotDetailsFields value={lot} onChange={setLot} idPrefix="new-lot" />
 
       {error && (
         <div className="rounded-md bg-danger-tint border border-danger/30 px-4 py-2.5">

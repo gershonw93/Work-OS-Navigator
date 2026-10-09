@@ -69,6 +69,10 @@ export async function readUsage(db: SupabaseClient, companyId: string, now: Date
     db.from('projects')
       .select('id', { count: 'exact', head: true })
       .eq('gc_company_id', companyId)
+      // A SITE IS A FOLDER, NOT A JOB. Bulk Add makes one container row per
+      // group and a row per house; counting both made a 42-lot list read as
+      // 43 jobs (or 44 for two groups). The houses are what the plan meters.
+      .eq('is_site', false)
       .in('status', COUNTED_PROJECT_STATUSES as unknown as string[]),
     db.from('ai_scans')
       .select('id', { count: 'exact', head: true })
@@ -122,9 +126,10 @@ export async function projectSlotProblem(
   db: SupabaseClient,
   companyId: string | null | undefined,
   now: Date = new Date(),
+  adding = 1,
 ): Promise<string | null> {
   if (!companyId) return null
   const { access, entitlement: ent, usage } = await billingPicture(db, companyId, now)
   if (access.state === 'unmetered') return null
-  return projectLimitProblem(ent, usage.activeProjects)
+  return projectLimitProblem(ent, usage.activeProjects, adding)
 }
