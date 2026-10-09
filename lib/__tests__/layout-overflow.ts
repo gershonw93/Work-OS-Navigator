@@ -910,4 +910,18 @@ ok(/\.notice-dock[\s\S]{0,400}var\(--vv-h/.test(css) && /\.notice-dock[\s\S]{0,4
     `no project tab pads itself a second time on a phone (${doubled.join(', ') || 'none'})`)
 }
 
+// A `flex-1` TEXT BLOCK BESIDE A CONTROL NEVER WRAPS. flex-basis 0 means the
+// row always "fits", so `flex-wrap` does nothing and the control squeezes the
+// text to one word per line - Settings -> Permissions read "See / the / app /
+// as / som / ebo / dy" down the side of the View-as picker. Below lg the two
+// stack; the row is a desktop layout.
+{
+  const panel = read('components/settings/permissions-panel.tsx')
+  const row = panel.match(/<div className="([^"]*)">\s*<div className="([^"]*)">\s*<p[^>]*>See the app as somebody else/)
+  ok(!!row && /\bflex-col\b/.test(row[1]) && /\blg:flex-row\b/.test(row[1]) && !/(^| )flex-1\b/.test(row[2]),
+    'the View-as row stacks on a phone instead of squeezing its sentence to one word a line')
+  ok(/flex w-full[^`]*lg:w-auto/.test(read('components/layout/view-as-switcher.tsx')),
+    '...and the switcher takes the full width under it')
+}
+
 done()
