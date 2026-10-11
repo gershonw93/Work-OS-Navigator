@@ -530,23 +530,34 @@ export function teamInviteEmail({
  * one. No "beta", no "approved": they applied for nothing.
  */
 export function vendorInviteEmail({
-  name, gcName, inviteUrl,
+  name, gcName, inviteUrl, askedAbout,
 }: {
   name: string | null | undefined
   gcName: string | null | undefined
   inviteUrl: string
+  /**
+   * The quote request, when the SUB asked for this account from their quote
+   * link so they could message the GC. Then "has set you up" is false - they
+   * pressed the button themselves - and the letter says what they asked for.
+   */
+  askedAbout?: string | null
 }) {
   const hi = firstName(name)
   const gc = (gcName ?? '').trim() || 'A contractor you work with'
+  const asked = (askedAbout ?? '').trim()
+  const opening = asked
+    ? `You asked for a free SyteNav account so you can message ${gc} about ${asked}.`
+    : `${gc} works with you on SyteNav and has set you up with an account.`
 
   const text = [
     `Hi ${hi},`,
     '',
-    `${gc} works with you on SyteNav and has set you up with an account.`,
+    opening,
     '',
     'With it you can:',
     '- see the jobs you are on',
     '- price the work they send you and quote it back',
+    '- message them about a quote before you price it',
     '- send in your bills and see what has been paid',
     '- keep your insurance and licence current so nothing holds up a payment',
     '',
@@ -561,18 +572,20 @@ export function vendorInviteEmail({
   ].join('\n')
 
   const html = emailLayout({
-    preheader: `${gc} has set you up with a SyteNav account.`,
-    eyebrow: 'An invitation',
-    heading: `${gc} works with you on SyteNav`,
+    preheader: asked ? `Finish your free SyteNav account to message ${gc}.` : `${gc} has set you up with a SyteNav account.`,
+    eyebrow: asked ? 'Your account' : 'An invitation',
+    heading: asked ? `Message ${gc} about ${asked}` : `${gc} works with you on SyteNav`,
     paragraphs: [
-      `Hi ${hi}, they have set you up with an account - it is free and it is yours.`,
-      'Use it to see the jobs you are on, quote the work they send you, send in your bills and see what has been paid, and keep your insurance and licence current so nothing holds up a payment.',
+      asked
+        ? `Hi ${hi}, you asked for an account so you can message ${gc} - it is free and it is yours.`
+        : `Hi ${hi}, they have set you up with an account - it is free and it is yours.`,
+      'Use it to see the jobs you are on, quote the work they send you and ask about it first, send in your bills and see what has been paid, and keep your insurance and licence current so nothing holds up a payment.',
     ],
     cta: { label: 'Create your account', url: inviteUrl },
     footNote: 'This link is personal to you and only works once. If you were not expecting this, just reply to this email.',
   })
 
-  return { subject: `${gc} invited you to SyteNav`, text, html }
+  return { subject: asked ? `Finish your SyteNav account to message ${gc}` : `${gc} invited you to SyteNav`, text, html }
 }
 
 /**

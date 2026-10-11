@@ -18,7 +18,9 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
   const { data, error } = await db
     .from('bid_requests')
-    .select('*, bid_request_attachments(*), bid_invites(*), bid_submissions(*)')
+    // The thread's shape only - who spoke last, and when - so each invite row
+    // can say "2 messages · they wrote last" without opening every thread.
+    .select('*, bid_request_attachments(*), bid_invites(*), bid_submissions(*), bid_messages(bid_invite_id, side, created_at)')
     .eq('project_id', params.id)
     .order('created_at', { ascending: false })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

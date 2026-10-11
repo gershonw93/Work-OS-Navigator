@@ -1,11 +1,11 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import Link from 'next/link'
 import { FileText, Upload, CheckCircle2, Calendar, Loader2, AlertTriangle, Check, X } from 'lucide-react'
 import { SyteNavLogo } from '@/components/ui/logo'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { lineTotal, pricedCount, pricedTotal, type ItemLine, type PricedLine } from '@/lib/item-list'
+import { QuoteMessages } from '@/components/quotes/quote-messages'
 
 import { formatDate } from '@/lib/dates'
 interface Data {
@@ -17,7 +17,8 @@ interface Data {
     included?: string[]; excluded?: string[]; ask_for?: string[]
     item_list?: ItemLine[]
   }
-  invite: { vendor_name: string | null; status: string }
+  gc_name?: string | null
+  invite: { vendor_name: string | null; status: string; has_email?: boolean }
   submission: {
     amount: number | null; notes: string | null; file_name: string | null; created_at: string
     priced_items?: PricedLine[] | null
@@ -25,6 +26,24 @@ interface Data {
 }
 
 const money = (n: number) => `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+
+// HOISTED. Declared inside BidPage it was a new component type on every
+// render, so React rebuilt everything inside it on each keystroke - including
+// the message box, which would have thrown away a half-typed question.
+function Shell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="min-h-screen bg-surface py-6 px-4 sm:py-8">
+      <div className="max-w-xl mx-auto">
+        <div className="flex items-center justify-between mb-5">
+          <SyteNavLogo size={26} />
+          <ThemeToggle />
+        </div>
+        {children}
+        <p className="text-center text-xs text-faint mt-3">No account needed to submit - this secure link is just for you.</p>
+      </div>
+    </div>
+  )
+}
 
 export default function BidPage({ params }: { params: { token: string } }) {
   const [data, setData] = useState<Data | null>(null)
@@ -87,26 +106,6 @@ export default function BidPage({ params }: { params: { token: string } }) {
   }
 
   const inputCls = 'w-full rounded-lg bg-surface border border-line px-3 py-2.5 text-base text-ink placeholder:text-faint focus:border-accent focus:outline-none'
-
-  const Shell = ({ children }: { children: React.ReactNode }) => (
-    <div className="min-h-screen bg-surface py-6 px-4 sm:py-8">
-      <div className="max-w-xl mx-auto">
-        <div className="flex items-center justify-between mb-5">
-          <SyteNavLogo size={26} />
-          <ThemeToggle />
-        </div>
-        {children}
-        <div className="mt-6 rounded-xl border border-line bg-panel px-4 py-4 text-center">
-          <p className="text-sm text-muted-fg">Want all your jobs, plans, and quotes in one place?</p>
-          <div className="flex items-center justify-center gap-2 mt-2">
-            <Link href="/signup" className="rounded-lg bg-accent text-accent-ink text-sm font-semibold px-4 py-2 hover:bg-accent/90">Create free account</Link>
-            <Link href="/login" className="rounded-lg border border-line text-sm font-medium text-ink-soft px-4 py-2 hover:bg-surface">Log in</Link>
-          </div>
-        </div>
-        <p className="text-center text-xs text-faint mt-3">No account needed to submit - this secure link is just for you.</p>
-      </div>
-    </div>
-  )
 
   if (loading) return <Shell><div className="text-center text-muted-fg py-16">Loading…</div></Shell>
   if (error && !data) return <Shell><div className="rounded-xl bg-panel border border-line p-8 text-center text-ink"><AlertTriangle className="h-8 w-8 text-warn mx-auto mb-3" />{error}</div></Shell>
@@ -307,6 +306,17 @@ export default function BidPage({ params }: { params: { token: string } }) {
             </form>
           )}
         </div>
+      </div>
+
+      {/* Questions before pricing. Opens for a free account only - see
+          components/quotes/quote-messages.tsx for why. */}
+      <div className="mt-4">
+        <QuoteMessages
+          token={params.token}
+          gcName={data.gc_name ?? null}
+          vendorName={data.invite.vendor_name}
+          hasEmail={!!data.invite.has_email}
+        />
       </div>
     </Shell>
   )

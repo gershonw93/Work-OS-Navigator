@@ -124,6 +124,18 @@ export function demoNotification(type: string, today: string): DemoNotification 
         message: `Framing on ${PROJECT}, 17 Fairview Terrace. Answers are wanted by ${inBusiness(5)}.`,
         link: '/my-bids',
       }
+    case 'bid_message_from_sub':
+      return {
+        title: `Message from ${SUB}`,
+        message: `About Framing on ${PROJECT}: "Are the LVL headers in the package or by others? Pricing by ${inBusiness(3)}."`,
+        link: '/projects',
+      }
+    case 'bid_message_to_sub':
+      return {
+        title: 'Reply about your quote',
+        message: `Framing on ${PROJECT}: "Headers are in your package - see sheet S2. Answers are wanted by ${inBusiness(5)}."`,
+        link: '/my-bids',
+      }
     case 'bid_reminder':
       return {
         title: 'Reminder: a quote is still open',

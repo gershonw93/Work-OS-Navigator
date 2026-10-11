@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
+import { checkInProblem, checkoutProblem, type ReturnCondition } from '@/lib/equipment-state'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -27,13 +28,26 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const { data: equipment } = await db.from('equipment').select('id').eq('id', params.id).eq('company_id', companyId).single()
   if (!equipment) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  const { data: history } = await db
-    .from('equipment_assignments')
-    .select('*, projects(name)')
-    .eq('equipment_id', params.id)
-    .order('checked_out_at', { ascending: false })
+  // Checkouts AND everything else that happened to it - reported broken,
+  // fixed, sent away, retired - so the history answers "when did this break,
+  // and who said so" as well as "who had it".
+  const [{ data: history, error: hErr }, { data: events, error: eErr }] = await Promise.all([
+    db.from('equipment_assignments')
+      .select('*, projects(name)')
+      .eq('equipment_id', params.id)
+      .order('checked_out_at', { ascending: false }),
+    db.from('equipment_events')
+      .select('id, kind, note, actor_name, created_at')
+      .eq('equipment_id', params.id)
+      .order('created_at', { ascending: false }),
+  ])
+  // A refused read is not an empty history.
+  if (hErr || eErr) {
+    console.error('[equipment/history] read failed', { id: params.id, error: (hErr ?? eErr)?.message })
+    return NextResponse.json({ error: 'Could not load the history.' }, { status: 500 })
+  }
 
-  return NextResponse.json({ history: history ?? [] })
+  return NextResponse.json({ history: history ?? [], events: events ?? [] })
 }
 
 // Check OUT: create an open assignment and flip the equipment to checked_out.
@@ -45,6 +59,11 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   const { data: equipment } = await db.from('equipment').select('id, status, name').eq('id', params.id).eq('company_id', companyId).single()
   if (!equipment) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+  // The screen hides Check out for these; this is the same rule at the door a
+  // second tab goes through. A tool away being fixed is not on the shelf.
+  const blocked = checkoutProblem(equipment)
+  if (blocked) return NextResponse.json({ error: blocked }, { status: 409 })
 
   const body = await request.json()
   const { holder_name, holder_profile_id, project_id, note } = body
@@ -88,6 +107,14 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   const { data: equipment } = await db.from('equipment').select('id, name').eq('id', params.id).eq('company_id', companyId).single()
   if (!equipment) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
+  // What it came back in. An empty body is an old caller, and "it came back"
+  // with nothing said is the answer it always gave: fine.
+  const body = await request.json().catch(() => ({} as any))
+  const condition: ReturnCondition = body.condition === 'needs_repair' ? 'needs_repair' : 'ok'
+  const note = typeof body.note === 'string' ? body.note.trim() || null : null
+  const problem = checkInProblem(condition, note)
+  if (problem) return NextResponse.json({ error: problem }, { status: 400 })
+
   const { data: openAssignment } = await db
     .from('equipment_assignments')
     .select('project_id, holder_name')
@@ -96,16 +123,33 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     .maybeSingle()
 
   await db.from('equipment_assignments')
-    .update({ checked_in_at: new Date().toISOString() })
+    .update({ checked_in_at: new Date().toISOString(), return_condition: condition })
     .eq('equipment_id', params.id)
     .is('checked_in_at', null)
 
-  await db.from('equipment').update({ status: 'available' }).eq('id', params.id)
+  const back: Record<string, unknown> = { status: 'available' }
+  if (condition === 'needs_repair') {
+    // Reported, not decided: it goes back on the shelf with the flag on it,
+    // and the office chooses whether to send it away. Same rule as reporting
+    // it from the list.
+    const { data: me } = await db.from('profiles').select('full_name').eq('id', user.id).maybeSingle()
+    const name = (me as any)?.full_name || null
+    Object.assign(back, {
+      repair_needed_at: new Date().toISOString(), repair_note: note,
+      repair_reported_by: user.id, repair_reported_by_name: name,
+    })
+    const { error: evErr } = await db.from('equipment_events').insert({
+      equipment_id: params.id, company_id: companyId, kind: 'repair_flagged',
+      note, actor_id: user.id, actor_name: name,
+    })
+    if (evErr) console.error('[equipment/check-in] event not recorded', { id: params.id, error: evErr.message })
+  }
+  await db.from('equipment').update(back).eq('id', params.id)
 
   if (openAssignment?.project_id) {
     const { data: profile } = await db.from('profiles').select('full_name').eq('id', user.id).single()
     await logActivity(db, openAssignment.project_id, profile?.full_name || 'Someone', 'equipment_checked_in',
-      `${equipment.name || 'Equipment'} checked back in from ${openAssignment.holder_name}`,
+      `${equipment.name || 'Equipment'} checked back in from ${openAssignment.holder_name}${condition === 'needs_repair' ? ' - needs repair' : ''}`,
       { equipment_id: params.id }, user.id)
   }
 

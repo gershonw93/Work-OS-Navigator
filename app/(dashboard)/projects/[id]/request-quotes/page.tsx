@@ -7,10 +7,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { SearchableSelect } from '@/components/ui/searchable-select'
-import { Plus, X, FileText, Send, Link2, Copy, Trash2, Scale, Loader2, CheckCircle2, Mail, Paperclip, Upload, Trophy, AlertTriangle, ChevronRight, ChevronDown, Pencil } from 'lucide-react'
+import { Plus, X, FileText, Send, Link2, Copy, Trash2, Scale, Loader2, CheckCircle2, Mail, Paperclip, Upload, Trophy, AlertTriangle, ChevronRight, ChevronDown, Pencil, MessageSquare } from 'lucide-react'
 import { RowMenu, MenuItem } from '@/components/ui/row-menu'
 import { cn } from '@/lib/utils'
 import { ComparisonBlock, type Comparison } from '@/components/quotes/comparison-block'
+import { BidThreadDialog } from '@/components/quotes/bid-thread-dialog'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 import { ScopeBuilder, EMPTY_SCOPE, type ScopeValue } from '@/components/projects/scope-builder'
 import { ItemListEditor } from '@/components/projects/item-list-editor'
@@ -83,6 +84,8 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
   const [pendingContact, setPendingContact] = useState<{ name: string; email: string } | null>(null)
   const [contactForm, setContactForm] = useState({ name: '', email: '', phone: '', trade: '', type: 'subcontractor' })
   const [contactSaving, setContactSaving] = useState(false)
+  // The quote conversation open in the dialog, if any.
+  const [thread, setThread] = useState<{ reqId: string; title: string; invite: any } | null>(null)
 
   async function token() { const { data: { session } } = await supabase.auth.getSession(); return session?.access_token ?? '' }
 
@@ -729,12 +732,28 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
                   const told = inv.status === 'invited' || inv.status === 'viewed'
                   // They answered. There is nothing left to chase.
                   const answered = inv.status === 'submitted' || inv.status === 'declined'
+                  // The conversation's shape: how long it is and whether the
+                  // sub spoke last - which is the one that wants an answer.
+                  const said = (req.bid_messages ?? [])
+                    .filter((m: any) => m.bid_invite_id === inv.id)
+                    .sort((a: any, b: any) => a.created_at.localeCompare(b.created_at))
+                  const theyWroteLast = said.length > 0 && said[said.length - 1].side === 'sub'
                   return (
                     <div key={inv.id} className="px-3 py-2 flex flex-col sm:flex-row sm:items-center gap-x-3 gap-y-2">
                       <div className="flex-1 min-w-0">
                         <span className="text-sm font-medium text-ink-soft">{inv.vendor_name ?? inv.vendor_email ?? 'Vendor'}</span>
                         {sub && <span className="text-xs text-success ml-2">{money(sub.amount)}{sub.file_name ? ' · file' : ''}</span>}
                         {sub?.created_at && <span className="block text-[11px] text-faint mt-0.5">Submitted {new Date(sub.created_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</span>}
+                        {said.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setThread({ reqId: req.id, title: req.title, invite: inv })}
+                            className={cn('mt-0.5 flex items-center gap-1 text-[11px] font-medium hover:underline', theyWroteLast ? 'text-accent-fg' : 'text-faint')}
+                          >
+                            <MessageSquare className="h-3 w-3" />
+                            {said.length} message{said.length === 1 ? '' : 's'}{theyWroteLast ? ' · waiting on your reply' : ''}
+                          </button>
+                        )}
                       </div>
                       {/* ONE PRIMARY ACTION, and the rest behind the dots.
                           This row used to carry Link, Email, Send, By hand and
@@ -763,6 +782,9 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
                         <RowMenu label={`More for ${inv.vendor_name ?? 'this invite'}`}>
                           {close => (
                             <>
+                              <MenuItem onClick={() => { setThread({ reqId: req.id, title: req.title, invite: inv }); close() }}>
+                                <MessageSquare className="h-3.5 w-3.5" /> Messages
+                              </MenuItem>
                               <MenuItem onClick={() => { copy(linkFor(inv.token), `l${inv.id}`); close() }}>
                                 <Link2 className="h-3.5 w-3.5" /> Copy link
                               </MenuItem>
@@ -826,6 +848,17 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
           </div>
         )
       })}
+
+      {thread && (
+        <BidThreadDialog
+          projectId={params.id}
+          requestId={thread.reqId}
+          requestTitle={thread.title}
+          invite={thread.invite}
+          onClose={() => setThread(null)}
+          onChanged={load}
+        />
+      )}
 
       {/* Standalone comparisons (quotes uploaded manually, no RFQ) */}
       {standaloneComparisons.map(comp => {
