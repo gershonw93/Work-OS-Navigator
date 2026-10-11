@@ -422,7 +422,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       ] },
       { type: 'text', text: 'To the right of the job name are four buttons, each one an icon: the people on this job, sharing it with your client, the job\'s history, and the job\'s settings. Hover any of them to see what it does.' },
       { type: 'tip', text: 'Which sections and pages you see depends on your role and permissions. Admins see everything. A section with nothing in it for you does not appear at all.' },
-      { type: 'text', text: 'A job still in Planning shows a shorter menu with a "Preconstruction" badge. Nobody is on site yet and there is nothing to bill, so Time Clock, Daily Logs, Progress, Materials, Inspections, Bills from subs, Pay Apps, Billing the client, Change Orders, Financial Summary and Reports stay out of the way. They all come back the moment you set the project to Active.' },
+      { type: 'text', text: 'A job still in Planning shows a shorter menu with a "Preconstruction" badge. Nobody is on site yet, so Time Clock, Daily Logs, Progress, Materials, Bills from subs, Pay Apps, Change Orders, Financial Summary and Reports stay out of the way. They all come back the moment you set the project to Active. Inspections stays, so you can set the list of inspections the job will need while you plan it - and Billing the client stays, because a deposit is taken before work starts.' },
     ],
     related: ['preconstruction-soft-costs'],
   },

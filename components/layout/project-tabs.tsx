@@ -150,10 +150,17 @@ const SITE_ALLOWED = new Set(['units', 'plans', 'budget', 'permits', 'submittals
 //
 // A deposit is not progress billing. It is the money you take BEFORE breaking
 // ground, so preconstruction is exactly when it belongs.
+//
+// 'inspections' IS NOT IN IT EITHER, for the same reason as payments above.
+// The required-inspections list is decided UP FRONT - footing to final, plus
+// the septic and well a lot with no city sewer or water needs - and applying a
+// house model writes that list onto houses that are still in planning. Hidden
+// here, the list could be written to a job and not read on it. Booking one
+// still waits for the work; seeing what the job will need does not.
 const PLANNING_HIDDEN = new Set([
   'time', 'daily-logs', 'progress',
   'invoices', 'pay-apps', 'change-orders',
-  'materials', 'inspections', 'reports', 'financials',
+  'materials', 'reports', 'financials',
 ])
 
 // A few tabs aren't their own permission resource. Sending documents out is a
@@ -452,7 +459,7 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
           )}
           {isPlanning && !isSite && (
             <span
-              title="Site, billing and inspection tabs unlock when this job is set to Active."
+              title="Field and billing tabs unlock when this job is set to Active."
               className="ml-auto self-center shrink-0 rounded-full bg-info-tint px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-info"
             >
               Preconstruction
@@ -492,7 +499,7 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
               {isPlanning && !isSite && (
                 <p className="rounded-lg bg-info-tint px-3 py-2 text-xs text-info">
                   <span className="font-semibold uppercase tracking-wide">Preconstruction</span>
-                  {' · '}Site, billing and inspection tabs unlock when this job is set to Active.
+                  {' · '}Field and billing tabs unlock when this job is set to Active.
                 </p>
               )}
               {/* Overview was only ever linked from the DESKTOP group row, so

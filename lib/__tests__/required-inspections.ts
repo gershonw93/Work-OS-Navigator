@@ -98,4 +98,11 @@ ok(/inspection_types/.test(read('app/api/directory/route.ts')), 'adding an inspe
 
 ok(DEFAULT_INSPECTION_TYPES.length >= 15, 'the default list is a real starting point')
 
+// "inspections should be visible when the job is in planning" - the list is
+// decided up front, and a house model writes it onto houses still in planning.
+const tabs = code('components/layout/project-tabs.tsx')
+const hidden = tabs.slice(tabs.indexOf('const PLANNING_HIDDEN'), tabs.indexOf('])', tabs.indexOf('const PLANNING_HIDDEN')))
+ok(hidden.length > 0 && !/'inspections'/.test(hidden), 'THE INSPECTIONS TAB SHOWS IN PLANNING - the required list can be set, and read, before work starts')
+ok(!/inspection tabs unlock/.test(tabs), '...and the Preconstruction note no longer says it unlocks later')
+
 done()
