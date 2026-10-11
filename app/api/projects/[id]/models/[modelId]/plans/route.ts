@@ -20,7 +20,7 @@ export async function POST(request: Request, { params }: Ctx) {
   const owned = await ownedProject(db, gate.actor, params.id, 'id')
   if ('denied' in owned) return owned.denied
   const model = await modelOnSite(db, params.id, params.modelId)
-  if (!model) return NextResponse.json({ error: 'That model is not in this group.' }, { status: 404 })
+  if (!model) return NextResponse.json({ error: 'That model is not in this development.' }, { status: 404 })
 
   const body = await request.json().catch(() => ({}))
   const path = String(body?.storage_path ?? '')
@@ -49,7 +49,7 @@ export async function DELETE(request: Request, { params }: Ctx) {
   const owned = await ownedProject(db, gate.actor, params.id, 'id')
   if ('denied' in owned) return owned.denied
   const model = await modelOnSite(db, params.id, params.modelId)
-  if (!model) return NextResponse.json({ error: 'That model is not in this group.' }, { status: 404 })
+  if (!model) return NextResponse.json({ error: 'That model is not in this development.' }, { status: 404 })
   const planId = new URL(request.url).searchParams.get('plan')
   const { data: plan } = await db.from('site_model_plans').select('id, storage_path').eq('id', planId ?? '').eq('model_id', model.id).maybeSingle()
   if (!plan) return NextResponse.json({ error: 'That plan is not on this model.' }, { status: 404 })

@@ -4,11 +4,18 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Badge, getStatusVariant } from '@/components/ui/badge'
-import { Building2, MapPin, Search } from 'lucide-react'
+import { Building2, MapPin, Search, Plus, FolderInput, ArrowRightLeft, LogOut } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { lotTag } from '@/lib/lot-details'
 import { SiteModelsPanel } from '@/components/projects/site-models-panel'
+import { Button } from '@/components/ui/button'
+import { RowMenu, MenuItem } from '@/components/ui/row-menu'
+import { useNotice } from '@/components/ui/notice'
+import { useDeleteGuard } from '@/components/ui/delete-guard'
+import { usePermissions } from '@/lib/use-permissions'
+import { AddJobDialog, AddExistingDialog, MoveJobDialog } from '@/components/projects/development-actions'
+import { DEVELOPMENT } from '@/lib/development'
 
 interface Child {
   id: string
@@ -41,7 +48,19 @@ export default function UnitsPage({ params }: { params: { id: string } }) {
   const [q, setQ] = useState('')
   const [siteBudget, setSiteBudget] = useState<{ budgeted: number; actual: number; lines: number } | null>(null)
   const [modelNames, setModelNames] = useState<Record<string, string>>({})
+  const [models, setModels] = useState<{ id: string; name: string }[]>([])
   const [reloadKey, setReloadKey] = useState(0)
+  const reload = () => setReloadKey(k => k + 1)
+  const notify = useNotice()
+  const guard = useDeleteGuard()
+  // Buttons go once the answer is KNOWN to be no, never on a failed read.
+  const perms = usePermissions()
+  const known = !perms.loading && !perms.error
+  const canAdd = !known || perms.can('projects', 'create')
+  const canMove = !known || perms.can('projects', 'edit')
+  const [adding, setAdding] = useState(false)
+  const [addingExisting, setAddingExisting] = useState(false)
+  const [moving, setMoving] = useState<Child | null>(null)
 
   useEffect(() => {
     (async () => {
@@ -56,6 +75,7 @@ export default function UnitsPage({ params }: { params: { id: string } }) {
           setSite(d.site ?? null)
           setSiteBudget(d.siteBudget ?? null)
           setModelNames(Object.fromEntries((d.models ?? []).map((m: { id: string; name: string }) => [m.id, m.name])))
+          setModels(d.models ?? [])
         }
       } finally {
         setLoading(false)
@@ -91,25 +111,61 @@ export default function UnitsPage({ params }: { params: { id: string } }) {
   }, [children, siteBudget])
   const anyPriced = totals.priced > 0
 
+  function takeOut(c: Child) {
+    guard(async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        const res = await fetch(`/api/projects/${params.id}/children?project=${c.id}`, {
+          method: 'DELETE', headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
+        })
+        if (!res.ok) notify((await res.json().catch(() => ({}))).error ?? 'Could not take it out.')
+      } finally {
+        reload()
+      }
+    }, {
+      title: 'Take this job out?',
+      body: `${c.name} becomes a job on its own. Nothing on it is deleted - it just leaves ${site?.name ?? 'this development'}.`,
+      confirmLabel: 'Take it out',
+    })
+  }
+
   if (loading) return <div className="text-sm text-faint py-12 text-center">Loading…</div>
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-ink flex items-center gap-2">
-          <Building2 className="h-5 w-5 text-info" /> Jobs
-        </h1>
-        <p className="text-sm text-muted-fg mt-0.5">
-          {children.length} job{children.length !== 1 ? 's' : ''}
-          {site?.address ? ` · ${site.address}` : ''}
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold text-ink flex items-center gap-2 min-w-0">
+            <Building2 className="h-5 w-5 shrink-0 text-info" /> <span className="truncate">{site?.name ?? 'Jobs'}</span>
+          </h1>
+          <p className="text-sm text-muted-fg mt-0.5">
+            {DEVELOPMENT} · {children.length} job{children.length !== 1 ? 's' : ''}
+            {site?.address ? ` · ${site.address}` : ''}
+          </p>
+        </div>
+        {/* ADDING HAPPENS HERE, not only from Bulk Add on another page - "I
+            don't see anywhere once I am in [one] where I can add another". */}
+        {(canAdd || canMove) && (
+          <div className="row-even lg:flex lg:flex-wrap gap-2">
+            {canMove && (
+              <Button variant="outline" onClick={() => setAddingExisting(true)}>
+                <FolderInput className="h-4 w-4" /> Add jobs you have
+              </Button>
+            )}
+            {canAdd && (
+              <Button onClick={() => setAdding(true)}>
+                <Plus className="h-4 w-4" /> Add a job
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
       {children.length === 0 ? (
         <div className="bg-panel rounded-xl border border-line p-10 text-center">
           <Building2 className="h-8 w-8 text-faint mx-auto mb-3" />
-          <p className="text-sm text-muted-fg">Nothing is grouped under this site yet.</p>
-          <p className="text-xs text-faint mt-1">Use Bulk Add on the Projects page to create a batch of units, floors, or houses.</p>
+          <p className="text-sm text-muted-fg">No jobs in this development yet.</p>
+          <p className="text-xs text-faint mt-1">Add a job, add jobs you already have, or use Bulk Add on the Projects page for a whole batch.</p>
         </div>
       ) : (
         <>
@@ -178,18 +234,22 @@ export default function UnitsPage({ params }: { params: { id: string } }) {
             </div>
           )}
 
-          <div className="bg-panel rounded-xl border border-line overflow-hidden">
-            <div className="hidden sm:grid grid-cols-[1fr_6rem_8rem_8rem_8rem] gap-2 px-4 py-2.5 border-b border-line-soft text-xs font-semibold text-faint uppercase tracking-wide">
+          {/* NO overflow-hidden: a row menu hangs off this card, and a clipped
+              menu in the last row is not shortened, it is gone. */}
+          <div className="bg-panel rounded-xl border border-line">
+            <div className="hidden sm:grid grid-cols-[1fr_6rem_8rem_8rem_8rem_2.5rem] gap-2 px-4 py-2.5 border-b border-line-soft text-xs font-semibold text-faint uppercase tracking-wide">
               <span>Job</span>
               <span>Status</span>
               <span className="text-right">Sellout</span>
               <span className="text-right">Budgeted</span>
               <span className="text-right">Actual</span>
+              <span />
             </div>
             <div className="divide-y divide-line-soft">
               {filtered.map(c => (
-                <Link key={c.id} href={`/projects/${c.id}/plans`}
-                  className="sm:grid sm:grid-cols-[1fr_6rem_8rem_8rem_8rem] gap-2 items-center block px-4 py-3 hover:bg-surface transition-colors">
+                <div key={c.id} className="flex items-center hover:bg-surface transition-colors">
+                <Link href={`/projects/${c.id}/plans`}
+                  className="min-w-0 flex-1 sm:grid sm:grid-cols-[1fr_6rem_8rem_8rem_8rem] gap-2 items-center block px-4 py-3">
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-ink-soft truncate">{c.name}</p>
                     <p className="text-xs text-faint truncate flex items-center gap-1">
@@ -221,17 +281,61 @@ export default function UnitsPage({ params }: { params: { id: string } }) {
                     </span>
                   </div>
                 </Link>
+                {canMove ? (
+                  <div className="w-10 shrink-0 pr-2">
+                    <RowMenu label={`More for ${c.name}`}>
+                      {close => (
+                        <>
+                          <MenuItem onClick={() => { setMoving(c); close() }}>
+                            <ArrowRightLeft className="h-3.5 w-3.5" /> Move to another development
+                          </MenuItem>
+                          <MenuItem onClick={() => { close(); takeOut(c) }}>
+                            <LogOut className="h-3.5 w-3.5" /> Take out of this development
+                          </MenuItem>
+                        </>
+                      )}
+                    </RowMenu>
+                  </div>
+                ) : <div className="hidden w-10 shrink-0 sm:block" />}
+                </div>
               ))}
             </div>
-            <div className="grid grid-cols-[1fr_6rem_8rem_8rem_8rem] gap-2 px-4 py-3 border-t-2 border-line bg-surface text-sm font-bold text-ink-soft">
+            <div className="grid grid-cols-[1fr_6rem_8rem_8rem_8rem_2.5rem] gap-2 rounded-b-xl px-4 py-3 border-t-2 border-line bg-surface text-sm font-bold text-ink-soft">
               <span>Total</span>
               <span />
               <span className="text-right">{anyPriced ? money(totals.sellout) : '-'}</span>
               <span className="text-right">{money(totals.budgeted)}</span>
               <span className="text-right">{money(totals.actual)}</span>
+              <span />
             </div>
           </div>
         </>
+      )}
+
+      {adding && (
+        <AddJobDialog
+          developmentId={params.id}
+          developmentName={site?.name ?? DEVELOPMENT}
+          models={models}
+          onClose={() => setAdding(false)}
+          onDone={(_id, note) => { setAdding(false); reload(); if (note) notify(note) }}
+        />
+      )}
+      {addingExisting && (
+        <AddExistingDialog
+          developmentId={params.id}
+          developmentName={site?.name ?? DEVELOPMENT}
+          onClose={() => setAddingExisting(false)}
+          onDone={moved => { setAddingExisting(false); reload(); notify(moved ? `${moved} job${moved === 1 ? '' : 's'} added.` : 'Those jobs were already here.') }}
+        />
+      )}
+      {moving && (
+        <MoveJobDialog
+          job={moving}
+          currentDevelopmentId={params.id}
+          onClose={() => setMoving(null)}
+          onDone={() => { setMoving(null); reload() }}
+        />
       )}
     </div>
   )

@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
+import { attachJobs, detachJob } from '@/lib/development-db'
 
 export const runtime = 'nodejs'
 
@@ -89,4 +90,45 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const { data: models } = await db.from('site_models').select('id, name').eq('site_id', params.id)
 
   return NextResponse.json({ site: site ?? null, children, siteBudget, models: models ?? [] })
+}
+
+/** The development itself: owned by the caller's company, and actually one. */
+async function developmentFor(db: any, request: Request, id: string) {
+  const gate = await requirePermission(db, request, 'projects', 'edit')
+  if (denied(gate)) return { denied: gate.denied }
+  const owned = await ownedProject<{ id: string; is_site: boolean | null }>(db, gate.actor, id, 'id, is_site')
+  if ('denied' in owned) return { denied: owned.denied }
+  if (!owned.project.is_site) {
+    return { denied: NextResponse.json({ error: 'That job is not a development.' }, { status: 400 }) }
+  }
+  return { actor: gate.actor }
+}
+
+/**
+ * Put jobs you already have into this development - "taking two jobs and
+ * applying it to a group". Moving a job between developments is the same
+ * call: it simply lands here. Nothing about the jobs themselves changes, and
+ * no slot is used - they were already counted, and a development is a folder.
+ */
+export async function POST(request: Request, { params }: { params: { id: string } }) {
+  const db = admin()
+  const dev = await developmentFor(db, request, params.id)
+  if ('denied' in dev) return dev.denied
+  const body = await request.json().catch(() => ({} as any))
+  const ids: string[] = Array.isArray(body?.project_ids) ? body.project_ids.map(String) : []
+  const out = await attachJobs(db, dev.actor.companyId ?? '', params.id, ids)
+  if ('error' in out) return NextResponse.json({ error: out.error }, { status: out.status })
+  return NextResponse.json(out)
+}
+
+/** Take one job out of this development: `?project=<id>`. The job is kept. */
+export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+  const db = admin()
+  const dev = await developmentFor(db, request, params.id)
+  if ('denied' in dev) return dev.denied
+  const projectId = new URL(request.url).searchParams.get('project')
+  if (!projectId) return NextResponse.json({ error: 'Which job?' }, { status: 400 })
+  const out = await detachJob(db, params.id, projectId)
+  if ('error' in out) return NextResponse.json({ error: out.error }, { status: out.status })
+  return NextResponse.json(out)
 }

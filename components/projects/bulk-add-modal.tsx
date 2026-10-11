@@ -7,17 +7,20 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { AddressFields } from '@/components/ui/address-fields'
 import { cn } from '@/lib/utils'
-import { X, Building2, Layers, Milestone, FileSpreadsheet } from 'lucide-react'
+import { X, Building2, Layers, Milestone, FileSpreadsheet, FolderInput } from 'lucide-react'
 import { LotListBuilder } from '@/components/projects/lot-list-builder'
+import { GroupExistingForm } from '@/components/projects/development-actions'
 import { tooVagueToPin } from '@/lib/geocode-match'
 
-type Mode = 'list' | 'unit' | 'floor' | 'street'
+type Mode = 'list' | 'unit' | 'floor' | 'street' | 'existing'
 
 const MODES: { key: Mode; label: string; hint: string; icon: typeof Building2 }[] = [
   { key: 'list', label: 'From a list', hint: 'A file or a pasted list of real addresses', icon: FileSpreadsheet },
   { key: 'unit', label: 'Units', hint: 'One building, a job per unit', icon: Building2 },
   { key: 'floor', label: 'Floors', hint: 'One building, a job per floor', icon: Layers },
   { key: 'street', label: 'Street numbers', hint: 'A run of houses on one street', icon: Milestone },
+  // The jobs exist already - "taking two jobs and applying it to a group".
+  { key: 'existing', label: 'Jobs you have', hint: 'Put existing jobs into a new development', icon: FolderInput },
 ]
 
 /**
@@ -115,7 +118,7 @@ export function BulkAddModal({
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     // The lot list has its own buttons; Enter in one of its boxes lands here.
-    if (mode === 'list') return
+    if (mode === 'list' || mode === 'existing') return
     const why = missing()
     if (why) { setError(why); return }
     setSaving(true); setError('')
@@ -184,7 +187,12 @@ export function BulkAddModal({
             </div>
           </div>
 
-          {mode === 'list' ? (
+          {mode === 'existing' ? (
+            <GroupExistingForm
+              onCancel={onClose}
+              onDone={id => onSuccess({ count: 0, located: 0, siteId: id })}
+            />
+          ) : mode === 'list' ? (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-1.5">
@@ -326,7 +334,7 @@ export function BulkAddModal({
             <p className="text-xs font-semibold text-muted-fg">
               {total > 100
                 ? <span className="text-danger">That is {total} projects - the most you can create at once is 100.</span>
-                : <>Creates {total} project{total !== 1 ? 's' : ''} under one site</>}
+                : <>Creates {total} project{total !== 1 ? 's' : ''} in one development</>}
             </p>
             {total > 0 && total <= 100 && (
               <p className="text-xs text-faint mt-1 truncate">

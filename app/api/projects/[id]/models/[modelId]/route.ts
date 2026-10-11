@@ -19,7 +19,7 @@ export async function PATCH(request: Request, { params }: Ctx) {
   const owned = await ownedProject(db, gate.actor, params.id, 'id')
   if ('denied' in owned) return owned.denied
   const model = await modelOnSite(db, params.id, params.modelId)
-  if (!model) return NextResponse.json({ error: 'That model is not in this group.' }, { status: 404 })
+  if (!model) return NextResponse.json({ error: 'That model is not in this development.' }, { status: 404 })
 
   const body = await request.json().catch(() => ({}))
   const updates: Record<string, unknown> = {}
@@ -57,7 +57,7 @@ export async function DELETE(request: Request, { params }: Ctx) {
   const owned = await ownedProject(db, gate.actor, params.id, 'id')
   if ('denied' in owned) return owned.denied
   const model = await modelOnSite(db, params.id, params.modelId)
-  if (!model) return NextResponse.json({ error: 'That model is not in this group.' }, { status: 404 })
+  if (!model) return NextResponse.json({ error: 'That model is not in this development.' }, { status: 404 })
 
   const { data: plans } = await db.from('site_model_plans').select('storage_path').eq('model_id', model.id)
   const { error } = await db.from('site_models').delete().eq('id', model.id)
