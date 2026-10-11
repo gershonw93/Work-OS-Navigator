@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
 import { notify } from '@/lib/notify'
+import { requirePermission, denied, type Gate } from '@/lib/api-guard'
 
 export const runtime = 'nodejs'
 
@@ -10,18 +11,24 @@ const admin = () => createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
-async function auth(request: Request) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return null
-  const { data: { user } } = await admin().auth.getUser(token)
-  return user
+/**
+ * A pin is a task with a place on a drawing, so it asks for a TASK permission
+ * on top of being able to see the plans. `edit`, not `create`, for dropping
+ * one: field supervisors and workers hold tasks VE and pin drawings on site -
+ * the same reason the daily-log "raise a task" door is open to them - while an
+ * invited vendor (tasks V) may look at the pins but not add to the GC's set.
+ */
+async function gateFor(db: ReturnType<typeof admin>, request: Request, task: 'view' | 'edit'): Promise<Gate> {
+  const plans = await requirePermission(db, request, 'plans', 'view')
+  if (denied(plans) || task === 'view') return plans
+  return requirePermission(db, request, 'tasks', task)
 }
 
 // Pins for one plan sheet, with their task's title/assignee/status.
 export async function GET(request: Request, { params }: { params: { id: string; planId: string } }) {
-  const user = await auth(request)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()
+  const gate = await gateFor(db, request, 'view')
+  if (denied(gate)) return gate.denied
   const { data, error } = await db
     .from('plan_pins')
     .select('*, project_tasks(id, title, status, priority, due_date, assigned_to_name)')
@@ -34,9 +41,10 @@ export async function GET(request: Request, { params }: { params: { id: string; 
 
 // Drop a pin: creates the task (via the same shape the Tasks tab uses) and the pin.
 export async function POST(request: Request, { params }: { params: { id: string; planId: string } }) {
-  const user = await auth(request)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()
+  const gate = await gateFor(db, request, 'edit')
+  if (denied(gate)) return gate.denied
+  const user = { id: gate.actor.userId }
   const body = await request.json()
   const { x_pct, y_pct, page, title, description, assigned_to_name, assigned_to_member_id, due_date, priority } = body
   if (x_pct == null || y_pct == null) return NextResponse.json({ error: 'Pin position required' }, { status: 400 })
@@ -90,13 +98,13 @@ export async function POST(request: Request, { params }: { params: { id: string;
 }
 
 export async function DELETE(request: Request, { params }: { params: { id: string; planId: string } }) {
-  const user = await auth(request)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await gateFor(admin(), request, 'edit')
+  if (denied(gate)) return gate.denied
   const pinId = new URL(request.url).searchParams.get('pinId')
   if (!pinId) return NextResponse.json({ error: 'pinId required' }, { status: 400 })
   const db = admin()
   // Remove pin only - keep the task (it may have progress/notes on it).
-  const { error } = await db.from('plan_pins').delete().eq('id', pinId).eq('plan_id', params.planId)
+  const { error } = await db.from('plan_pins').delete().eq('id', pinId).eq('plan_id', params.planId).eq('project_id', params.id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })
 }

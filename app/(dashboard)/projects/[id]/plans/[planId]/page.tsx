@@ -18,6 +18,7 @@ import {
 import { parseDate, formatDate } from '@/lib/dates'
 import { useNotice } from '@/components/ui/notice'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
+import { usePermissions } from '@/lib/use-permissions'
 
 interface Plan { id: string; name: string; plan_type: string; file_url: string }
 interface Pin {
@@ -77,6 +78,14 @@ export default function PlanViewerPage({ params }: { params: { id: string; planI
     if (next !== null) setPage(next)
     setPageInput(String(next ?? page))
   }
+
+  // A pin IS a task, so dropping or removing one asks for tasks:edit - the
+  // same permission the route checks. Hidden only once the answer is KNOWN to
+  // be no: a check still loading, or one that failed, must not look like a
+  // denial (PermissionsBanner says when it failed).
+  const { can, loading: permsLoading, error: permsError } = usePermissions()
+  const pinsDenied = !permsLoading && !permsError && !can('tasks', 'edit')
+  const removeDenied = pinsDenied
 
   // Pin state
   const [pinMode, setPinMode] = useState(false)
@@ -316,10 +325,12 @@ export default function PlanViewerPage({ params }: { params: { id: string; planI
           <button onClick={() => setFullscreen(v => !v)} className="rounded-lg border border-line p-2 text-muted-fg hover:bg-surface" title={fullscreen ? 'Exit full screen' : 'Full screen'}>
             {fullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
           </button>
-          <Button size="sm" variant={pinMode ? 'default' : 'outline'} onClick={() => { setPinMode(v => !v); setDraft(null) }}
-            className="shrink-0 whitespace-nowrap">
-            <MapPin className="h-4 w-4" /> {pinMode ? 'Tap the plan' : 'Add pin'}
-          </Button>
+          {!pinsDenied && (
+            <Button size="sm" variant={pinMode ? 'default' : 'outline'} onClick={() => { setPinMode(v => !v); setDraft(null) }}
+              className="shrink-0 whitespace-nowrap">
+              <MapPin className="h-4 w-4" /> {pinMode ? 'Tap the plan' : 'Add pin'}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -465,7 +476,7 @@ export default function PlanViewerPage({ params }: { params: { id: string; planI
                 {openPin.project_tasks?.due_date && <> · due {formatDate(openPin.project_tasks.due_date)}</>}</p>
             </div>
             <div className="flex items-center justify-between border-t border-line px-5 py-4">
-              <button onClick={() => removePin(openPin)} className="inline-flex items-center gap-1 text-xs font-medium text-muted-fg hover:text-danger"><Trash2 className="h-3.5 w-3.5" /> Remove pin</button>
+              {removeDenied ? <span /> : <button onClick={() => removePin(openPin)} className="inline-flex items-center gap-1 text-xs font-medium text-muted-fg hover:text-danger"><Trash2 className="h-3.5 w-3.5" /> Remove pin</button>}
               <Link href={`/projects/${params.id}/tasks`} className="rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-accent-ink hover:bg-accent/90">Open in Tasks</Link>
             </div>
           </div>

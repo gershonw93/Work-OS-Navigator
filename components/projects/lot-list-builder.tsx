@@ -147,8 +147,11 @@ export function LotListBuilder({
       <div className="space-y-4">
         <div className="space-y-1.5">
           <Label>Lot list *</Label>
-          <button type="button" onClick={() => fileRef.current?.click()}
-            className="flex w-full items-center gap-3 rounded-lg border-2 border-dashed border-line px-4 py-4 text-left hover:bg-surface">
+          {/* A LABEL WRAPPING AN sr-only INPUT, like every other upload in the
+              app - not a display:none input clicked from script, which was the
+              one upload here built the other way and the one reported as
+              "doesn't load up the file". The tap lands on the input itself. */}
+          <label className="flex w-full cursor-pointer items-center gap-3 rounded-lg border-2 border-dashed border-line px-4 py-4 text-left hover:bg-surface">
             <Upload className="h-5 w-5 shrink-0 text-muted-fg" />
             <span className="min-w-0">
               <span className="block truncate text-sm font-semibold text-ink">{file ? file.name : 'Choose a file'}</span>
@@ -156,10 +159,10 @@ export function LotListBuilder({
                 A spreadsheet (.xlsx, .csv) is read by its column headings. A PDF or a photo is read by AI and uses one scan.
               </span>
             </span>
-          </button>
-          <input ref={fileRef} type="file" className="hidden"
-            accept={`${ACCEPT_SCAN},.xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv`}
-            onChange={e => { setFile(e.target.files?.[0] ?? null); setError(null) }} />
+            <input ref={fileRef} type="file" className="sr-only"
+              accept={`${ACCEPT_SCAN},.xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv`}
+              onChange={e => { setFile(e.target.files?.[0] ?? null); setError(null) }} />
+          </label>
         </div>
         {!file && (
           <div className="space-y-1.5">
