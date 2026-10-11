@@ -54,6 +54,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 // Author entries anywhere in this list; the app reads the sorted view.
 const AUTHORED: Release[] = [
   {
+    date: '2026-10-11',
+    title: 'House models',
+    items: [
+      {
+        kind: 'new',
+        title: 'House models, applied to many houses at once',
+        text: 'On a group of houses, set up each model once - its plans (for either garage side, or left or right only), its budget template, its required inspections and its punch list - then apply it to the houses built to it. You see what every house would get before anything is added, and applying again later adds only what is new. The group has its own budget for shared costs, added to the houses on the Jobs tab. Tasks can be marked as punch items, with a Punch list filter.',
+        help: 'house-models',
+      },
+    ],
+  },
+  {
     date: '2026-10-09',
     title: 'Building a group of houses',
     items: [

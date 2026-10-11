@@ -46,13 +46,15 @@ const STATUSES = [
 // change, so under `lg:` it does not.
 
 type ViewMode = 'board' | 'list' | 'assignee'
-type FilterMode = 'all' | 'open' | 'in_progress' | 'completed' | 'overdue'
+type FilterMode = 'all' | 'open' | 'in_progress' | 'completed' | 'overdue' | 'punch'
 
 // ─── interfaces ──────────────────────────────────────────────────────────────
 
 interface Task {
   id: string; title: string; description: string | null; due_date: string | null
   priority: string; status: string
+  /** 'punch' for a punch-list item (migration 133), 'task' for everything else. */
+  kind?: string | null
   /**
    * EVERYONE on this task. `project_task_assignees` is the home for that now;
    * the three `assigned_to_*` fields above are the old single-assignee shape,
@@ -623,6 +625,8 @@ export default function TasksPage({ params }: { params: { id: string } }) {
   const [description, setDescription] = useState('')
   const [dueDate, setDueDate]   = useState('')
   const [priority, setPriority] = useState('medium')
+  // A punch item is a task with a kind - same assignees, dates and photos.
+  const [isPunch, setIsPunch] = useState(false)
   const [assigneeType, setAssigneeType] = useState<'member' | 'sub'>('member')
   const [assignedMemberId, setAssignedMemberId] = useState('')
   const [assignedSubId, setAssignedSubId]       = useState('')
@@ -715,7 +719,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
   // ── form helpers ───────────────────────────────────────────────────────────
 
   function resetForm() {
-    setTitle(''); setDescription(''); setDueDate(''); setPriority('medium')
+    setTitle(''); setDescription(''); setDueDate(''); setPriority('medium'); setIsPunch(false)
     setAssigneeType('member'); setAssignedMemberId(''); setAssignedSubId('')
     setFollowUpDate(''); setTaskImage(null); setTaskImagePreview(null)
     setSaveError(null)
@@ -738,6 +742,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
     setDescription(task.description ?? '')
     setDueDate(task.due_date ?? '')
     setPriority(task.priority)
+    setIsPunch(task.kind === 'punch')
     setFollowUpDate(task.follow_up_date ?? '')
     setTaskImage(null)
     setTaskImagePreview(task.image_url ?? null)
@@ -795,6 +800,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
 
       const body = JSON.stringify({
         title, description, due_date: dueDate || null, priority,
+        kind: isPunch ? 'punch' : 'task',
         assignees,
         image_url, follow_up_date: followUpDate || null,
         // Create only. On PATCH this stays out of the body on purpose: saving
@@ -876,10 +882,12 @@ export default function TasksPage({ params }: { params: { id: string } }) {
   const visibleTasks = tasks.filter(t => !t.description?.startsWith('Category:'))
 
   const overdueCount = visibleTasks.filter(t => isOverdue(t)).length
+  const punchCount = visibleTasks.filter(t => t.kind === 'punch').length
 
   const filteredTasks = visibleTasks.filter(t => {
     if (filterMode === 'all') return true
     if (filterMode === 'overdue') return isOverdue(t)
+    if (filterMode === 'punch') return t.kind === 'punch'
     return t.status === filterMode
   })
 
@@ -906,6 +914,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
     { key: 'in_progress', label: 'In Progress', short: 'Doing',    count: inProgCount },
     { key: 'completed',   label: 'Completed',   short: 'Done',     count: completedCount, note: `${pctDone}% of the job` },
     { key: 'overdue',     label: 'Overdue',     short: 'Overdue',  count: overdueCount, danger: true },
+    { key: 'punch',       label: 'Punch list',  short: 'Punch',    count: punchCount, note: `${visibleTasks.filter(t => t.kind === 'punch' && t.status !== 'completed').length} still open` },
   ]
 
   const openTask_ = openTaskId ? tasks.find(t => t.id === openTaskId) ?? null : null
@@ -980,7 +989,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
           <PriorityDot priority={task.priority} />
           <div className="min-w-0 flex-1 space-y-1.5">
             <p className={cn('text-sm font-medium leading-snug text-ink', task.status === 'completed' && 'text-faint line-through')}>
-              {task.title}
+              {task.kind === 'punch' && <PunchTag />}{task.title}
             </p>
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <DueChip task={task} />
@@ -1051,6 +1060,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
               {task.title}
             </span>
             <PriorityBadge priority={task.priority} />
+            {task.kind === 'punch' && <PunchTag />}
             {task.budget_line_item_id && (
               <span className="inline-flex items-center gap-1 text-[10px] font-medium rounded-full bg-accent-tint text-accent-fg px-1.5 py-0.5" title="Created from a Quote progress line">
                 <FileText className="h-2.5 w-2.5" /> Quote line
@@ -1327,6 +1337,11 @@ export default function TasksPage({ params }: { params: { id: string } }) {
                     </Select>
                   </div>
                 </div>
+                <label className="flex min-h-[44px] cursor-pointer items-center gap-2 rounded-lg border border-line px-3 py-2 text-sm text-ink">
+                  <input type="checkbox" className="h-4 w-4 accent-[#C9F24A]" checked={isPunch} onChange={e => setIsPunch(e.target.checked)} />
+                  Punch item
+                  <span className="text-xs text-muted-fg">- shows under Punch list</span>
+                </label>
                 <div className="space-y-2">
                   <Label>Assign To <span className="text-faint font-normal">(optional - you can pick more than one)</span></Label>
 
@@ -1539,7 +1554,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
       <div className="scroll-fade hidden lg:flex -mb-1 items-center gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
         {FILTERS.map(f => {
           const active = filterMode === f.key
-          if (f.key === 'overdue' && f.count === 0 && !active) return null
+          if ((f.key === 'overdue' || f.key === 'punch') && f.count === 0 && !active) return null
           return (
             <button
               key={f.key}
@@ -1572,7 +1587,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
       <StatStrip
         className="lg:hidden"
         items={FILTERS
-          .filter(f => f.key !== 'overdue' || f.count > 0 || filterMode === 'overdue')
+          .filter(f => (f.key !== 'overdue' && f.key !== 'punch') || f.count > 0 || filterMode === f.key)
           .map(f => ({
             label: f.short,
             value: f.count,
@@ -1611,5 +1626,14 @@ export default function TasksPage({ params }: { params: { id: string } }) {
         </>
       )}
     </div>
+  )
+}
+
+/** The small mark a punch item carries on the board and in the list. */
+function PunchTag() {
+  return (
+    <span className="mr-1.5 inline-flex items-center whitespace-nowrap rounded-full bg-warn-tint px-1.5 py-0.5 align-middle text-[10px] font-semibold text-warn">
+      Punch
+    </span>
   )
 }

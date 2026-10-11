@@ -24,7 +24,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
   let { data: rows, error } = await db
     .from('projects')
-    .select('id, name, status, unit, floor, address, sellout_amount, lot, block, garage_side, city_water, city_sewer, lat, lng')
+    .select('id, name, status, unit, floor, address, sellout_amount, lot, block, garage_side, city_water, city_sewer, lat, lng, model_id')
     .eq('parent_project_id', params.id)
     .order('created_at', { ascending: true })
 
@@ -70,5 +70,20 @@ export async function GET(request: Request, { params }: { params: { id: string }
       return String(key(a)).localeCompare(String(key(b)), undefined, { numeric: true, sensitivity: 'base' })
     })
 
-  return NextResponse.json({ site: site ?? null, children })
+  // THE MAIN BUDGET: the group's own lines (land, roads, sitework - anything
+  // every house shares). Added to the houses' total on the Jobs screen, never
+  // folded into one house.
+  const { data: siteLines, error: siteErr } = await db
+    .from('budget_line_items').select('budgeted_amount, actual_amount').eq('project_id', params.id)
+  if (siteErr) console.error('[children] site budget read failed', siteErr.message)
+  const siteBudget = siteErr ? null : {
+    budgeted: (siteLines ?? []).reduce((t, l: any) => t + Number(l.budgeted_amount ?? 0), 0),
+    actual: (siteLines ?? []).reduce((t, l: any) => t + Number(l.actual_amount ?? 0), 0),
+    lines: (siteLines ?? []).length,
+  }
+
+  // Model names, so a row can say which model a house is.
+  const { data: models } = await db.from('site_models').select('id, name').eq('site_id', params.id)
+
+  return NextResponse.json({ site: site ?? null, children, siteBudget, models: models ?? [] })
 }

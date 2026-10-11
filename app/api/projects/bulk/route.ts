@@ -7,6 +7,7 @@ import { billingLock } from '@/lib/api-guard'
 import { projectSlotProblem } from '@/lib/billing-read'
 import { cleanRow, fullAddress, lotRowProblem, lotJobName, sharedPlace, MAX_LOTS } from '@/lib/lot-list'
 import { cleanLotDetails, type LotDetails } from '@/lib/lot-details'
+import { distinctModelNames } from '@/lib/site-models'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -27,6 +28,8 @@ interface Child {
   lot?: Partial<LotDetails>
   /** A pin already checked on the review screen, so it is not looked up twice. */
   coords?: { lat: number; lng: number } | null
+  /** The house model the lot list named, if any - created on the group and assigned. */
+  model?: string | null
 }
 
 /**
@@ -100,6 +103,7 @@ export async function POST(request: Request) {
         floor: null,
         lot: cleanLotDetails(row as unknown as Record<string, unknown>),
         coords: src.lat != null && src.lng != null && Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null,
+        model: row.model,
       })
     }
     const place = sharedPlace(rows.map(r => r.row))
@@ -271,6 +275,29 @@ export async function POST(request: Request) {
     // Don't strand an empty site if the children failed.
     if (site?.id) await db.from('projects').delete().eq('id', site.id)
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  // A LOT LIST THAT NAMES MODELS makes them on the group and says which house
+  // is which - the "30 houses, three models" setup done by the file instead
+  // of by hand. Best-effort: the jobs exist either way, and a model can be
+  // assigned on the Jobs screen.
+  if (mode === 'list' && grouped && site?.id) {
+    const names = distinctModelNames(children.map(c => c.model))
+    if (names.length) {
+      const { data: models, error: mErr } = await db.from('site_models')
+        .insert(names.map(name => ({ site_id: site!.id, name, created_by: user.id })))
+        .select('id, name')
+      if (mErr) console.error('[bulk] could not create the models', mErr.message)
+      const idFor = new Map((models ?? []).map((m: any) => [String(m.name).toLowerCase(), m.id]))
+      for (const [name, modelId] of Array.from(idFor.entries())) {
+        // RETURNING comes back in VALUES order, so the i-th job is the i-th row.
+        const ids = (projects ?? []).filter((_p: any, i: number) => (children[i]?.model ?? '').toLowerCase() === name).map((p: any) => p.id)
+        if (ids.length) {
+          const { error: aErr } = await db.from('projects').update({ model_id: modelId }).in('id', ids)
+          if (aErr) console.error('[bulk] could not assign a model', aErr.message)
+        }
+      }
+    }
   }
 
   return NextResponse.json({

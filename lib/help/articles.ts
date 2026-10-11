@@ -285,7 +285,35 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: 'text', text: 'Every house, unit or floor in a batch is its own job, so each one counts toward your plan\'s active projects. The site holding them is a folder and does not count. A batch that would take you past your plan is refused as a whole, and the message says how many jobs it asked for and how many fit - you never end up with half a building.' },
       { type: 'text', text: 'DELETING A SITE DELETES EVERY JOB IN IT. The warning names how many - "the 10 jobs inside it, with all their data" - before you confirm. To remove just one unit or floor, open that job and delete it on its own; the rest of the building stays.' },
     ],
-    related: ['create-first-project', 'project-settings', 'project-tabs-explained'],
+    related: ['create-first-project', 'project-settings', 'project-tabs-explained', 'house-models'],
+  },
+  {
+    slug: 'house-models',
+    title: 'House models: set up a model once, apply it to many houses',
+    category: 'projects',
+    keywords: [
+      'model', 'models', 'house model', 'home model', 'floor plan', 'plan set', 'elevation', 'production',
+      'subdivision', 'spec homes', 'same plans', 'apply to all', 'apply to houses', 'copy plans', 'many houses',
+      'budget template', 'per house budget', 'main budget', 'site budget', 'shared costs', 'land', 'sitework',
+      'garage left', 'garage right', 'mirrored', 'handing', 'punch list', 'required inspections', 'group of houses',
+    ],
+    summary: 'Upload each model\'s plans, budget, inspections and punch list once, then apply them to the houses built to it.',
+    blocks: [
+      { type: 'text', text: 'When a group of houses (made with Bulk Add) is built from a few designs, set each design up once as a MODEL on the group\'s Jobs tab and apply it to its houses, instead of uploading the same plans and budget into thirty jobs.' },
+      { type: 'steps', items: [
+        'Open the group and go to its Jobs tab. Under House models, press Model and name it - "The Aspen".',
+        'In the model, pick a budget template (the per-house budget, amounts included - make one on the Budget Templates page from scratch, from a job, or from Excel), upload its plans, tick its required inspections, and type its punch items one per line. These save as you make them.',
+        'For plans that differ by garage side, choose Garage left or Garage right before uploading. Either garage side goes to every house.',
+        'Press Houses to tick which houses are built as this model.',
+        'Press Apply. You see every house and exactly what it would get - "2 plans, 46 budget lines, 9 inspections, 12 punch items" - and can untick houses or parts. Nothing is written until you press Apply.',
+      ] },
+      { type: 'text', text: 'APPLYING AGAIN ADDS ONLY WHAT IS MISSING. Each copy remembers which model it came from, so a house never gets a second copy of a plan, line, inspection or punch item. Change a model later - add a plan, a punch item, an inspection - press Apply again, and you choose which houses get the new things.' },
+      { type: 'text', text: 'EACH HOUSE GETS ITS OWN COPY. Plans are copied, not shared, so a house can be marked up, pinned and changed on its own, and deleting a plan from one house never touches the others. Removing something from the model, or deleting the model, leaves what was already applied on every house.' },
+      { type: 'tip', text: 'A plan for one garage side only goes on houses whose garage side is set - set it in each house\'s Lot details (Project Settings). A house with no garage side set is shown in the preview with the plans it cannot take and why.' },
+      { type: 'text', text: 'THE MAIN BUDGET. The group itself has a Budget tab for what every house shares - land, roads, sitework. The Jobs tab adds it to the houses\' budgets, and names both halves, so the total and the projected profit include it.' },
+      { type: 'tip', text: 'If your lot list has a Model column, Bulk Add creates those models on the group and assigns each house for you.' },
+    ],
+    related: ['bulk-add-projects', 'add-project-budget', 'inspections', 'tasks-assign'],
   },
   {
     slug: 'project-settings',
@@ -1704,7 +1732,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'tasks-assign',
     title: 'Create and assign tasks',
     category: 'field',
-    keywords: ['task', 'todo', 'assign', 'reassign', 'change assignee', 'multiple assignees', 'more than one person', 'two people', 'assign several', 'who completed it', 'who finished it', 'completed by', 'crew', 'due date', 'priority', 'punch list', 'board', 'kanban', 'drag', 'move task', 'in progress', 'completed', 'column', 'stage', 'status', 'overdue', 'done', 'filter', 'task detail', 'panel', 'trade', 'swipe', 'swipe back', 'slide back', 'gesture', 'close task', 'cant close', 'x doesnt work'],
+    keywords: ['task', 'todo', 'punch', 'punch list', 'punch item', 'punchlist', 'walkthrough', 'assign', 'reassign', 'change assignee', 'multiple assignees', 'more than one person', 'two people', 'assign several', 'who completed it', 'who finished it', 'completed by', 'crew', 'due date', 'priority', 'punch list', 'board', 'kanban', 'drag', 'move task', 'in progress', 'completed', 'column', 'stage', 'status', 'overdue', 'done', 'filter', 'task detail', 'panel', 'trade', 'swipe', 'swipe back', 'slide back', 'gesture', 'close task', 'cant close', 'x doesnt work'],
     summary: 'Assign work to your crew or subs and track it to done.',
     blocks: [
       { type: 'steps', items: [
@@ -1712,6 +1740,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'Click New Task.',
         'Add a title and description, set a priority and due date, and assign it to a person.',
         'Attach a photo if it helps, then save.',
+        'For a punch-list item, tick Punch item. It gets a Punch tag, and Punch list above the tasks shows just those - with how many are still open.',
         'Move tasks along as they progress and add notes as you go.',
       ] },
       { type: 'text', text: 'MOVING A TASK ALONG. The small round icon on a card is both the stage it is in and the way to change it: tap it and pick Open, In Progress or Completed. It goes both ways, so reopening something is the same two taps. It never moves on a single stray tap - it always asks first.' },
