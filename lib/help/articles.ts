@@ -305,7 +305,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     keywords: [
       'model', 'models', 'house model', 'home model', 'floor plan', 'plan set', 'elevation', 'production',
       'subdivision', 'spec homes', 'same plans', 'apply to all', 'apply to houses', 'copy plans', 'many houses',
-      'budget template', 'per house budget', 'main budget', 'site budget', 'shared costs', 'land', 'sitework',
+      'budget template', 'upload budget', 'excel budget', 'per house budget', 'main budget', 'site budget', 'shared costs', 'land', 'sitework',
       'garage left', 'garage right', 'mirrored', 'handing', 'punch list', 'required inspections', 'group of houses', 'development',
     ],
     summary: 'Upload each model\'s plans, budget, inspections and punch list once, then apply them to the houses built to it.',
@@ -313,7 +313,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: 'text', text: 'When a development (made with Bulk Add) is built from a few designs, set each design up once as a MODEL on the development\'s All jobs tab and apply it to its houses, instead of uploading the same plans and budget into thirty jobs.' },
       { type: 'steps', items: [
         'Open the development - it opens on All jobs. Under House models, press Model and name it - "The Aspen".',
-        'In the model, pick a budget template (the per-house budget, amounts included - make one on the Budget Templates page from scratch, from a job, or from Excel), upload its plans, tick its required inspections, and type its punch items one per line. These save as you make them.',
+        'In the model, give it a budget: press Upload a budget and pick an Excel or CSV sheet - it is read and saved as a template for you - or pick a template you already made on the Budget Templates page. Then upload its plans, tick its required inspections, and type its punch items one per line. These save as you make them.',
         'For plans that differ by garage side, choose Garage left or Garage right before uploading. Either garage side goes to every house.',
         'Press Houses to tick which houses are built as this model.',
         'Press Apply. You see every house and exactly what it would get - "2 plans, 46 budget lines, 9 inspections, 12 punch items" - and can untick houses or parts. Nothing is written until you press Apply.',
