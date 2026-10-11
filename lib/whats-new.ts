@@ -102,7 +102,7 @@ const AUTHORED: Release[] = [
       {
         kind: 'new',
         title: 'House models, applied to many houses at once',
-        text: 'On a group of houses, set up each model once - its plans (for either garage side, or left or right only), its budget (pick a template or upload an Excel sheet right there), its required inspections and its punch list - then apply it to the houses built to it. You see what every house would get before anything is added, and applying again later adds only what is new. The group has its own budget for shared costs, added to the houses on the Jobs tab. Tasks can be marked as punch items, with a Punch list filter.',
+        text: 'On a group of houses, set up each model once - its plans (for either garage side, or left or right only), its budget (pick a template or upload an Excel sheet right there), its required inspections and its punch list, with who does each punch item (a teammate, a sub, or any name) - then apply it to the houses built to it. You see what every house would get before anything is added, and applying again later adds only what is new. The group has its own budget for shared costs, added to the houses on the Jobs tab. Tasks can be marked as punch items, with a Punch list filter.',
         help: 'house-models',
       },
     ],

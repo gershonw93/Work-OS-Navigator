@@ -6,6 +6,9 @@ import { modelOnSite, siteHouses, modelBundle, housesHave } from '@/lib/site-mod
 import { planApply, APPLY_PARTS, PART_LABEL, type ApplyPart, type HouseApply } from '@/lib/site-models'
 import { typeSortOrder } from '@/lib/inspection-types'
 import { toAmount } from '@/lib/schedule-dependencies'
+import { taskAssigneeFor, punchNotice } from '@/lib/model-assignee'
+import { normalizeAssignees, type TaskAssignee } from '@/lib/task-assignees'
+import { notify } from '@/lib/notify'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -68,7 +71,7 @@ export async function POST(request: Request, { params }: Ctx) {
   const db = admin()
   const gate = await requirePermission(db, request, 'projects', 'edit')
   if (denied(gate)) return gate.denied
-  const owned = await ownedProject(db, gate.actor, params.id, 'id')
+  const owned = await ownedProject<{ id: string; name: string | null }>(db, gate.actor, params.id, 'id, name')
   if ('denied' in owned) return owned.denied
 
   const body = await request.json().catch(() => ({}))
@@ -94,15 +97,28 @@ export async function POST(request: Request, { params }: Ctx) {
   const who = (me as any)?.full_name ?? null
 
   const results: { houseId: string; houseName: string; added: Record<ApplyPart, number>; errors: string[] }[] = []
+  const told: Told = new Map()
+  // Putting a teammate on a house's team is the Team tab's act, so it is only
+  // done for somebody who may do that; anybody else assigns by name, which
+  // My Jobs still matches (lib/task-assignees.ts, taskIdsFor).
+  const ctx: ApplyCtx = { who, userId: gate.actor.userId, mayStaff: actorCan(gate.actor, 'team', 'edit'), told }
   for (const h of got.plan.filter(p => houseIds.has(p.houseId))) {
-    results.push(await applyToHouse(db, h, parts, who, gate.actor.userId))
+    results.push(await applyToHouse(db, h, parts, ctx))
+  }
+
+  for (const [userId, t] of Array.from(told.entries())) {
+    const { message, link } = punchNotice({ count: t.count, houses: Array.from(t.houses.values()), siteId: params.id, siteName: owned.project.name, sub: t.sub })
+    await notify({ db, userIds: [userId], type: 'task_assigned', title: 'Punch items assigned', message, link })
   }
   return NextResponse.json({ results })
 }
 
-async function applyToHouse(
-  db: ReturnType<typeof admin>, h: HouseApply, parts: ApplyPart[], who: string | null, userId: string,
-) {
+/** Who to tell once the apply is done: per person, how many items on which houses. */
+type Told = Map<string, { count: number; houses: Map<string, { id: string; name: string }>; sub: boolean }>
+interface ApplyCtx { who: string | null; userId: string; mayStaff: boolean; told: Told }
+
+async function applyToHouse(db: ReturnType<typeof admin>, h: HouseApply, parts: ApplyPart[], ctx: ApplyCtx) {
+  const { who, userId } = ctx
   const added: Record<ApplyPart, number> = { plans: 0, budget: 0, inspections: 0, punch: 0 }
   const errors: string[] = []
 
@@ -152,13 +168,98 @@ async function applyToHouse(
   }
 
   if (parts.includes('punch') && h.punch.length) {
-    const { error } = await db.from('project_tasks').insert(h.punch.map(i => ({
+    const { data: made, error } = await db.from('project_tasks').insert(h.punch.map(i => ({
       project_id: h.houseId, title: i.title, kind: 'punch', status: 'open', priority: 'medium',
       source_model_item_id: i.id, created_by: who,
-    })))
+    }))).select('id, source_model_item_id')
     if (error) { errors.push('the punch items could not be saved'); console.error('[models/apply] punch insert failed', error.message) }
-    else added.punch = h.punch.length
+    else {
+      added.punch = h.punch.length
+      const problem = await assignPunch(db, h, (made ?? []) as { id: string; source_model_item_id: string }[], ctx)
+      if (problem) errors.push(problem)
+    }
   }
 
   return { houseId: h.houseId, houseName: h.houseName, added, errors }
+}
+
+/**
+ * The model's assignee onto each new punch task on this house, and who to
+ * tell. The tasks are already saved, so a failure here is reported beside
+ * them rather than taking them away - an unassigned task is still the task.
+ */
+async function assignPunch(
+  db: ReturnType<typeof admin>, h: HouseApply, made: { id: string; source_model_item_id: string }[], ctx: ApplyCtx,
+): Promise<string | null> {
+  const byItem = new Map(h.punch.map(i => [i.id, i]))
+  if (!h.punch.some(i => i.assignee_profile_id || i.assignee_company_id || i.assignee_name)) return null
+
+  const [{ data: roster }, { data: subsOnJob }] = await Promise.all([
+    db.from('project_team_members').select('id, profile_id').eq('project_id', h.houseId),
+    db.from('subcontracts').select('company_id').eq('project_id', h.houseId),
+  ])
+  const team = [...((roster ?? []) as { id: string; profile_id: string | null }[])]
+  const subsHere = new Set(((subsOnJob ?? []) as any[]).map(s => s.company_id))
+
+  const rows: (TaskAssignee & { task_id: string })[] = []
+  // Queued, and only counted once the assignee rows are saved - telling
+  // somebody about a task that ended up unassigned is a promise not kept.
+  const pending: [string, boolean][] = []
+  const tell = (userId: string, sub: boolean) => { pending.push([userId, sub]) }
+  const count = (userId: string, sub: boolean) => {
+    const t = ctx.told.get(userId) ?? { count: 0, houses: new Map(), sub }
+    t.count++; t.houses.set(h.houseId, { id: h.houseId, name: h.houseName }); t.sub = t.sub && sub
+    ctx.told.set(userId, t)
+  }
+
+  for (const task of made) {
+    const item = byItem.get(task.source_model_item_id)
+    if (!item) continue
+    let got = taskAssigneeFor(item, team)
+    if (got && 'addMember' in got) {
+      const profileId = got.addMember
+      const name = String(item.assignee_name ?? '').trim() || null
+      let memberId: string | null = null
+      if (ctx.mayStaff) {
+        const { data: p } = await db.from('profiles').select('full_name, email').eq('id', profileId).maybeSingle()
+        const { data: m, error } = await db.from('project_team_members').insert({
+          project_id: h.houseId, name: (p as any)?.full_name || name || 'Team member', role: 'Team member',
+          email: (p as any)?.email ?? null, profile_id: profileId,
+        }).select('id').single()
+        if (error) console.error('[models/apply] roster insert failed', error.message)
+        else { memberId = (m as any).id; team.push({ id: memberId!, profile_id: profileId }) }
+      }
+      got = { assignee: memberId ? { member_id: memberId, name } : { name } }
+      tell(profileId, false)
+    } else if (got) {
+      const a = got.assignee
+      if (a.member_id) {
+        const pid = team.find(r => r.id === a.member_id)?.profile_id
+        if (pid) tell(pid, false)
+      }
+    }
+    if (!got) continue
+    const [a] = normalizeAssignees([got.assignee])
+    if (a) rows.push({ task_id: task.id, member_id: a.member_id ?? null, company_id: a.company_id ?? null, name: a.name ?? null })
+  }
+
+  // A sub is told only about a house they hold a contract on - a link to a
+  // job they cannot open is a notification that leads nowhere. The task is
+  // still theirs; the GC sees it assigned.
+  const companies = Array.from(new Set(rows.map(r => r.company_id).filter((c): c is string => !!c && subsHere.has(c))))
+  if (companies.length) {
+    const { data: ps } = await db.from('profiles').select('id, company_id').in('company_id', companies)
+    for (const p of (ps ?? []) as any[]) {
+      for (const r of rows) if (r.company_id === p.company_id) tell(p.id, true)
+    }
+  }
+
+  if (!rows.length) return null
+  const { error } = await db.from('project_task_assignees').insert(rows)
+  if (error) {
+    console.error('[models/apply] assignee insert failed', error.message)
+    return 'the punch items were added but could not be assigned'
+  }
+  for (const [u, sub] of pending) count(u, sub)
+  return null
 }

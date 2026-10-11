@@ -553,6 +553,7 @@ and why:
 
 ## ✅ Recently shipped (for reference)
 
+- House model punch items carry who does each one (teammate, Directory sub, or a typed name; `site_model_items.assignee_*`, migration 136). Applying puts them on every punch task, adds a teammate to the house's team when the applier may staff it, and notifies each person once per apply.
 - Developments: the Bulk Add container is called a Development on every screen (the data keeps `is_site` / `parent_project_id`). Add a job inside one (house model applied in the same step), add existing jobs, move or take a job out from its row, make a development from existing jobs in Bulk Add, and see/change a job's development from Project Settings.
 - Sub job view: a Schedule tab on My Jobs (whole job, theirs marked) and delay REPORTS on their own lines that the GC applies through the normal delay screen (`schedule_delay_reports`, migration 135); subs can bill against their own subcontract; free vendor accounts are made in place with a password; Files gained Job Files.
 - Quote messages: a sub can message the GC about a quote request from their link once they create a free vendor account (read_only, unmetered, cannot create jobs); one thread per invite, `bid_messages` (migration 134). Equipment repair: a needs-repair flag beside the status, a condition on check-in, send for repair / repaired / retire / bring back with `equipment_events` history, serial numbers, edit and delete.
