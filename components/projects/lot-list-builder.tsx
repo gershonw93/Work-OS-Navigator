@@ -110,7 +110,7 @@ export function LotListBuilder({
     if (rows.length > MAX_LOTS) { setError(`That is ${rows.length} lots - the most at once is ${MAX_LOTS}. Remove some, or split the list.`); return }
     const bad = rows.findIndex(r => lotRowProblem(r))
     if (bad >= 0) { setError(`Row ${bad + 1}: ${lotRowProblem(rows[bad])} Fix it or remove the row.`); return }
-    if (!groupName.trim()) { setError('Give the group a name - it is the one row these jobs sit under on the Projects list.'); return }
+    if (!groupName.trim()) { setError('Name the development - it is the one row these jobs sit under on the Projects list.'); return }
     setSaving(true)
     try {
       const res = await fetch('/api/projects/bulk', {
@@ -247,7 +247,7 @@ export function LotListBuilder({
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <Label htmlFor="lot-group">Group name *</Label>
+          <Label htmlFor="lot-group">Development name *</Label>
           <Input id="lot-group" value={groupName} onChange={e => setGroupName(e.target.value)} placeholder="e.g. Palm Coast lots" />
         </div>
         <div className="space-y-1.5">

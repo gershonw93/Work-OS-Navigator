@@ -444,10 +444,10 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
           })}
           {isSite && (
             <span
-              title="This is a site: the building or street itself. Budgets, schedules and crews live on the jobs underneath it."
+              title="This is a development: the street, the lots or the building. Budgets, schedules and crews live on the jobs inside it."
               className="ml-auto self-center shrink-0 rounded-full bg-info-tint px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-info"
             >
-              Site
+              Development
             </span>
           )}
           {isPlanning && !isSite && (

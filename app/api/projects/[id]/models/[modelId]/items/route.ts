@@ -19,7 +19,7 @@ export async function POST(request: Request, { params }: Ctx) {
   const owned = await ownedProject(db, gate.actor, params.id, 'id')
   if ('denied' in owned) return owned.denied
   const model = await modelOnSite(db, params.id, params.modelId)
-  if (!model) return NextResponse.json({ error: 'That model is not in this group.' }, { status: 404 })
+  if (!model) return NextResponse.json({ error: 'That model is not in this development.' }, { status: 404 })
 
   const body = await request.json().catch(() => ({}))
   const kind = body?.kind === 'inspection' ? 'inspection' : body?.kind === 'punch' ? 'punch' : null
@@ -51,7 +51,7 @@ export async function DELETE(request: Request, { params }: Ctx) {
   const owned = await ownedProject(db, gate.actor, params.id, 'id')
   if ('denied' in owned) return owned.denied
   const model = await modelOnSite(db, params.id, params.modelId)
-  if (!model) return NextResponse.json({ error: 'That model is not in this group.' }, { status: 404 })
+  if (!model) return NextResponse.json({ error: 'That model is not in this development.' }, { status: 404 })
   const item = new URL(request.url).searchParams.get('item')
   if (!item) return NextResponse.json({ error: 'Which item?' }, { status: 400 })
   const { error } = await db.from('site_model_items').delete().eq('id', item).eq('model_id', model.id)

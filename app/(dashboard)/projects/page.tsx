@@ -687,7 +687,7 @@ export default function ProjectsPage() {
                       {project.is_site ? (
                         <span className="inline-flex items-center gap-1 text-xs font-semibold text-info">
                           <Building2 className="h-3 w-3" />
-                          Site · {childCount[project.id] ?? 0} job{(childCount[project.id] ?? 0) !== 1 ? 's' : ''}
+                          Development · {childCount[project.id] ?? 0} job{(childCount[project.id] ?? 0) !== 1 ? 's' : ''}
                         </span>
                       ) : project.type && (
                         <span className="text-xs font-medium text-faint capitalize">

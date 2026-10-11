@@ -16,6 +16,8 @@ import { LotDetailsFields } from '@/components/projects/lot-details-fields'
 import { type LotDetails, lotFormFrom, lotFormBody } from '@/lib/lot-details'
 import { Settings, X } from 'lucide-react'
 import { headerIconButton } from './header-icon-button'
+import { MoveJobDialog } from '@/components/projects/development-actions'
+import Link from 'next/link'
 
 interface Props {
   projectId: string
@@ -48,6 +50,10 @@ export function EditProjectButton({ projectId, project }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const [open, setOpen] = useState(false)
+  // Which development the job is in is changed by ITS OWN dialog, opened after
+  // this one closes - the settings form has one Save, and a picker in it that
+  // moved the job by itself would be a second.
+  const [moving, setMoving] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -348,6 +354,20 @@ export function EditProjectButton({ projectId, project }: Props) {
 
               {!project.is_site && <LotDetailsFields value={lot} onChange={setLot} idPrefix="edit-lot" />}
 
+              {!project.is_site && (
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line px-3 py-2.5">
+                  <span className="text-sm text-ink-soft">
+                    {project.parent_project_id
+                      ? <>Part of a <Link href={`/projects/${project.parent_project_id}/units`} className="font-medium text-accent-fg hover:underline">development</Link></>
+                      : 'Not in a development'}
+                  </span>
+                  <button type="button" onClick={() => { setOpen(false); setMoving(true) }}
+                    className="text-sm font-medium text-accent-fg hover:underline">
+                    {project.parent_project_id ? 'Change' : 'Put in a development'}
+                  </button>
+                </div>
+              )}
+
               {error && <p className="text-sm text-danger">{error}</p>}
               <div className="row-even lg:flex justify-end gap-2 pt-1">
                 <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Cancel</Button>
@@ -356,6 +376,14 @@ export function EditProjectButton({ projectId, project }: Props) {
             </form>
           </div>
         </div>
+      )}
+      {moving && (
+        <MoveJobDialog
+          job={{ id: projectId, name: project.name ?? 'This job' }}
+          currentDevelopmentId={project.parent_project_id ?? null}
+          onClose={() => setMoving(false)}
+          onDone={() => { setMoving(false); router.refresh() }}
+        />
       )}
     </>
   )

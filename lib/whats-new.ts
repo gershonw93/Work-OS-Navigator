@@ -55,6 +55,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 const AUTHORED: Release[] = [
   {
     date: '2026-10-11',
+    title: 'Developments',
+    items: [
+      {
+        kind: 'new',
+        title: 'Add to a development, and move jobs in and out',
+        text: 'What Bulk Add makes is now called a development. Inside one, Add a job makes one more house - with a house model applied in the same step if you pick one - and Add jobs you have moves existing jobs in. Each job\'s row can move it to another development or take it out. Bulk Add can also make a new development from jobs you already have, and Project Settings on any job says which development it is in.',
+        help: 'bulk-add-projects',
+      },
+    ],
+  },
+  {
+    date: '2026-10-11',
     title: 'Messages with subs, and broken tools',
     items: [
       {

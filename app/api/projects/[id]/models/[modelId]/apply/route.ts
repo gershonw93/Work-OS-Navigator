@@ -46,7 +46,7 @@ export async function GET(request: Request, { params }: Ctx) {
   if ('denied' in owned) return owned.denied
   try {
     const got = await load(db, params.id, params.modelId)
-    if (!got) return NextResponse.json({ error: 'That model is not in this group.' }, { status: 404 })
+    if (!got) return NextResponse.json({ error: 'That model is not in this development.' }, { status: 404 })
     return NextResponse.json({
       model: got.model,
       houses: got.plan,
@@ -88,7 +88,7 @@ export async function POST(request: Request, { params }: Ctx) {
     console.error('[models/apply] load failed', e?.message)
     return NextResponse.json({ error: 'Could not read the model or the houses, so nothing was applied.' }, { status: 500 })
   }
-  if (!got) return NextResponse.json({ error: 'That model is not in this group.' }, { status: 404 })
+  if (!got) return NextResponse.json({ error: 'That model is not in this development.' }, { status: 404 })
 
   const { data: me } = await db.from('profiles').select('full_name').eq('id', gate.actor.userId).maybeSingle()
   const who = (me as any)?.full_name ?? null

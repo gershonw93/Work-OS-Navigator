@@ -55,7 +55,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   if (denied(gate)) return gate.denied
   const owned = await ownedProject<{ id: string; is_site: boolean }>(db, gate.actor, params.id, 'id, is_site')
   if ('denied' in owned) return owned.denied
-  if (!owned.project.is_site) return NextResponse.json({ error: 'Models belong to a group of houses, not a single job.' }, { status: 400 })
+  if (!owned.project.is_site) return NextResponse.json({ error: 'Models belong to a development, not a single job.' }, { status: 400 })
 
   const body = await request.json().catch(() => ({}))
   const { data: existing } = await db.from('site_models').select('name').eq('site_id', params.id)
