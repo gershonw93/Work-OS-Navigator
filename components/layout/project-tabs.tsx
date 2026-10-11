@@ -131,10 +131,12 @@ const SUB_OWN_HIDDEN = new Set(['submittals', 'request-quotes', 'quotes', 'bids'
 // work starts so preconstruction reads as its own stage. They come back the
 // moment the project is set to active.
 // A site is a container - the building or the street, not a job. It holds the
-// address, the client, the plans and the permits; the budget, schedule and
-// crew all live on the units underneath it. Anything else would be a second
-// place to track the same work.
-const SITE_ALLOWED = new Set(['units', 'plans', 'permits', 'submittals', 'compliance', 'team', 'rfis', 'sharing'])
+// address, the client, the plans and the permits; the schedule and crew live
+// on the units underneath it. ITS OWN BUDGET is the exception, asked for in as
+// many words: "there's a main budget and then a per-house budget" - land,
+// roads, sitework and anything shared by every house belong to the group, and
+// the Jobs tab adds it to the houses' total rather than hiding it inside one.
+const SITE_ALLOWED = new Set(['units', 'plans', 'budget', 'permits', 'submittals', 'compliance', 'team', 'rfis', 'sharing'])
 
 //
 // 'payments' IS NOT IN THIS LIST, and that is deliberate.

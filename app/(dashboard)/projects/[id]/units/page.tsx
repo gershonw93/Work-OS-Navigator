@@ -8,6 +8,7 @@ import { Building2, MapPin, Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { lotTag } from '@/lib/lot-details'
+import { SiteModelsPanel } from '@/components/projects/site-models-panel'
 
 interface Child {
   id: string
@@ -23,6 +24,8 @@ interface Child {
   block?: string | null
   /** No pin means the job never reached the map - said on the row. */
   lat?: number | null
+  model_id?: string | null
+  garage_side?: 'left' | 'right' | null
 }
 
 const money = (n: number) => `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
@@ -36,22 +39,30 @@ export default function UnitsPage({ params }: { params: { id: string } }) {
   const [site, setSite] = useState<{ name: string; address: string | null } | null>(null)
   const [loading, setLoading] = useState(true)
   const [q, setQ] = useState('')
+  const [siteBudget, setSiteBudget] = useState<{ budgeted: number; actual: number; lines: number } | null>(null)
+  const [modelNames, setModelNames] = useState<Record<string, string>>({})
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     (async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch(`/api/projects/${params.id}/children`, {
-        headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
-      })
-      if (res.ok) {
-        const d = await res.json()
-        setChildren(d.children ?? [])
-        setSite(d.site ?? null)
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        const res = await fetch(`/api/projects/${params.id}/children`, {
+          headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
+        })
+        if (res.ok) {
+          const d = await res.json()
+          setChildren(d.children ?? [])
+          setSite(d.site ?? null)
+          setSiteBudget(d.siteBudget ?? null)
+          setModelNames(Object.fromEntries((d.models ?? []).map((m: { id: string; name: string }) => [m.id, m.name])))
+        }
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.id])
+  }, [params.id, reloadKey])
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase()
@@ -60,11 +71,16 @@ export default function UnitsPage({ params }: { params: { id: string } }) {
   }, [children, q])
 
   const totals = useMemo(() => {
-    const budgeted = children.reduce((s, c) => s + Number(c.budgeted || 0), 0)
+    const houses = children.reduce((s, c) => s + Number(c.budgeted || 0), 0)
+    // THE MAIN BUDGET IS PART OF THE COST. Land, roads and sitework sit on the
+    // group itself; a profit worked out from the houses alone overstates it by
+    // exactly the money every house shares.
+    const budgeted = houses + Number(siteBudget?.budgeted || 0)
     const sellout = children.reduce((s, c) => s + Number(c.sellout || 0), 0)
     return {
       budgeted,
-      actual: children.reduce((s, c) => s + Number(c.actual || 0), 0),
+      houses,
+      actual: children.reduce((s, c) => s + Number(c.actual || 0), 0) + Number(siteBudget?.actual || 0),
       sellout,
       // Only meaningful once at least one unit has a price on it.
       priced: children.filter(c => c.sellout != null && c.sellout > 0).length,
@@ -72,7 +88,7 @@ export default function UnitsPage({ params }: { params: { id: string } }) {
       active: children.filter(c => c.status === 'active').length,
       done: children.filter(c => c.status === 'completed').length,
     }
-  }, [children])
+  }, [children, siteBudget])
   const anyPriced = totals.priced > 0
 
   if (loading) return <div className="text-sm text-faint py-12 text-center">Loading…</div>
@@ -129,10 +145,17 @@ export default function UnitsPage({ params }: { params: { id: string } }) {
             </div>
           )}
 
+          <SiteModelsPanel siteId={params.id} houses={children} onChanged={() => setReloadKey(k => k + 1)} />
+
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div className="rounded-xl border border-line bg-panel p-4">
-              <p className="text-xs font-medium text-muted-fg mb-1">Budgeted across all jobs</p>
+              <p className="text-xs font-medium text-muted-fg mb-1">Budgeted, main + houses</p>
               <p className="text-xl font-bold text-ink">{money(totals.budgeted)}</p>
+              {/* Both halves named, so the total can be checked by eye. */}
+              <p className="text-xs text-faint mt-0.5">
+                <Link href={`/projects/${params.id}/budget`} className="hover:underline">Main {money(siteBudget?.budgeted ?? 0)}</Link>
+                {' · '}houses {money(totals.houses)}
+              </p>
             </div>
             <div className="rounded-xl border border-line bg-panel p-4">
               <p className="text-xs font-medium text-muted-fg mb-1">Actual spent</p>
@@ -173,6 +196,7 @@ export default function UnitsPage({ params }: { params: { id: string } }) {
                       {c.unit ? `Unit ${c.unit}` : c.floor ? `Floor ${c.floor}` : lotTag(c)}
                       {c.address && <><MapPin className="h-3 w-3 shrink-0" />{c.address}</>}
                       {c.address && c.lat == null && <span className="text-warn"> · not on the map</span>}
+                      {c.model_id && modelNames[c.model_id] && <span> · {modelNames[c.model_id]}</span>}
                     </p>
                   </div>
                   <div className="mt-1.5 sm:mt-0">

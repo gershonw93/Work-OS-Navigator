@@ -154,6 +154,8 @@ export async function POST(request: Request, { params }: { params: { id: string 
       follow_up_note: follow_up_note || null,
       // Set when the task was raised from a field log observation.
       source_daily_log_id: source_daily_log_id || null,
+      // Whitelisted: the column has a check constraint (migration 133).
+      ...(body?.kind === 'punch' ? { kind: 'punch' } : {}),
       created_by: (profile as any)?.full_name ?? 'Unknown',
     })
     .select()

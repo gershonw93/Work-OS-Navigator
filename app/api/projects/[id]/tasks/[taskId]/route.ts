@@ -41,6 +41,9 @@ export async function PATCH(
   if (body.image_url !== undefined) updates.image_url = body.image_url
   if (body.follow_up_date !== undefined) updates.follow_up_date = body.follow_up_date
   if (body.follow_up_note !== undefined) updates.follow_up_note = body.follow_up_note
+  // Punch item or ordinary task (migration 133). Whitelisted to the two values
+  // the check constraint allows, so a stray string is ignored, not a 500.
+  if (body.kind === 'punch' || body.kind === 'task') updates.kind = body.kind
 
   // WHO HAS IT. These three were missing from this whitelist, and the edit form
   // has always sent all three - so the route dropped them, wrote everything
