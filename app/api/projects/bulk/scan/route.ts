@@ -113,8 +113,14 @@ export async function POST(request: Request) {
     try {
       const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
       const message = await anthropic.messages.create({
-        // The same model every other extraction route uses.
-        model: 'claude-opus-4-8',
+        // HAIKU, NOT THE OPUS EVERY OTHER SCAN USES, AND ON PURPOSE. This one
+        // is transcription - copy a table out, row by row - and it is the one
+        // whose answer is LONG: forty-two rows is several thousand tokens
+        // written out, which on the big model runs into `maxDuration` and the
+        // upload just dies. The review screen shows every row before anything
+        // is created, so a misread costs a correction, not a wrong job. Same
+        // id the Help answer box already runs on this key.
+        model: 'claude-haiku-4-5',
         max_tokens: 8000,
         messages: [{ role: 'user', content }],
       })

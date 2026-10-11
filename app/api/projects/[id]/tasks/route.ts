@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { requirePermission, denied, billingLock } from '@/lib/api-guard'
 import { logActivity } from '@/lib/log-activity'
 import { notify } from '@/lib/notify'
 import { normalizeAssignees, assigneeLabel, taskIdsFor } from '@/lib/task-assignees'
@@ -107,12 +108,20 @@ export async function GET(request: Request, { params }: { params: { id: string }
 const TASK_STATUSES = ['open', 'in_progress', 'completed']
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // `view`, NOT `create`, AND THAT IS DELIBERATE. Three doors create a task
+  // and only one of them belongs to people holding tasks:create: a field
+  // supervisor raises one from a daily-log issue (tasks VE), and an invited sub
+  // adds one from My Jobs (tasks V). Gating on create would close both
+  // silently. This still shuts the door on anybody with no task access at all,
+  // and the Tasks tab's own button asks for create.
+  const gate = await requirePermission(db, request, 'tasks', 'view')
+  if (denied(gate)) return gate.denied
+  // A `view` gate skips the read-only lock (it only runs for write actions),
+  // and this IS a write - so it is asked here, as the hand-gated routes do.
+  const locked = await billingLock(db, gate.actor.companyId)
+  if (locked) return locked
+  const user = { id: gate.actor.userId }
 
   const body = await request.json()
   const { title, description, due_date, priority, status, assigned_to_member_id, assigned_to_company_id, assigned_to_name, image_url, follow_up_date, follow_up_note, source_daily_log_id } = body
@@ -128,7 +137,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   ])
   if (!title) return NextResponse.json({ error: 'Title is required' }, { status: 400 })
 
-  const { data: profile } = await db.from('profiles').select('full_name').eq('id', user.id).single()
+  const { data: profile } = await db.from('profiles').select('full_name, email').eq('id', user.id).single()
 
   const { data, error } = await db
     .from('project_tasks')
@@ -164,7 +173,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   // Log task creation to job history
-  const actorName = (profile as any)?.full_name ?? user.email ?? 'Someone'
+  const actorName = (profile as any)?.full_name ?? (profile as any)?.email ?? 'Someone'
   // THE ASSIGNEES, written after the task exists because they point at it.
   // Logged rather than thrown: the task is the thing that was asked for, and
   // a task that saved with nobody on it is recoverable in one edit, while a

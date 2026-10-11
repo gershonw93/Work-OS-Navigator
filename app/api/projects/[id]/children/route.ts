@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
 
 export const runtime = 'nodejs'
 
@@ -12,12 +13,14 @@ const admin = () => createClient(
 // only view where a building's units are totalled, so the numbers are computed
 // here rather than making the page fetch a budget per unit.
 export async function GET(request: Request, { params }: { params: { id: string } }) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await requirePermission(db, request, 'projects', 'view')
+  if (denied(gate)) return gate.denied
+  // THE ROLL-UP IS MONEY - every house's budget and spend, and the group's own
+  // main budget. That is the GC's position on the job, and it answered any
+  // signed-in user who knew a site id.
+  const owned = await ownedProject(db, gate.actor, params.id, 'id')
+  if ('denied' in owned) return owned.denied
 
   const { data: site } = await db
     .from('projects').select('id, name, address').eq('id', params.id).single()
